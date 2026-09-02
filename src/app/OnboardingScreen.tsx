@@ -167,7 +167,7 @@ function StepExtra({ step, workspace, providerReady, schoolUrl, cadence, permiss
   const [copied, setCopied] = useState(false);
   if (step === 1) {
     const code = login?.phase === "waiting" ? login.userCode : null;
-    const link = login?.verificationUri || CHATGPT_DEVICE;
+    const link = login?.phase === "waiting" ? login.verificationUri : CHATGPT_DEVICE;
     const copyCode = async () => {
       if (!code) return;
       try {
