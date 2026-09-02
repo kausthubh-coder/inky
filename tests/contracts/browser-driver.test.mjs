@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { browserDriver } from "../../dist/shared/index.js";
+import { browserDriver, driveOverlayActive } from "../../dist/shared/index.js";
 
 test("a hidden browser has no driver", () => {
   assert.equal(browserDriver({ layout: "hidden", scanState: "running", executionPhase: "working" }), "none");
@@ -21,4 +21,12 @@ test("needs_user and idle visible browsers belong to the student", () => {
   assert.equal(browserDriver({ layout: "desk", executionPhase: "needs_user" }), "student");
   assert.equal(browserDriver({ layout: "onboarding" }), "student");
   assert.equal(browserDriver({ layout: "desk", executionPhase: "ready_review" }), "student");
+});
+
+test("the drive overlay only covers the page while Inky is driving and the student is not using it", () => {
+  assert.equal(driveOverlayActive({ driver: "inky" }), true);
+  assert.equal(driveOverlayActive({ driver: "inky", studentHover: false }), true);
+  assert.equal(driveOverlayActive({ driver: "inky", studentHover: true }), false);
+  assert.equal(driveOverlayActive({ driver: "student" }), false);
+  assert.equal(driveOverlayActive({ driver: "none" }), false);
 });
