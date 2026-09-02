@@ -65,7 +65,7 @@ export class BrowserController {
     });
   }
 
-  get state(): BrowserState {
+  get state(): Omit<BrowserState, "driver"> {
     return {
       url: this.#target.getURL(),
       title: this.#target.getTitle(),

@@ -1,4 +1,6 @@
-export type InkyState = "idle" | "hello" | "working" | "thinking" | "scanning" | "needs" | "waiting" | "sleep" | "done";
+import { inkySvg, type InkyState } from "../../shared/inky.js";
+
+export type { InkyState };
 
 export function Inky({ state = "idle", size = 96, label }: { state?: InkyState; size?: number; label?: string }) {
   return (
@@ -12,32 +14,4 @@ export function Inky({ state = "idle", size = 96, label }: { state?: InkyState; 
       dangerouslySetInnerHTML={{ __html: inkySvg(state) }}
     />
   );
-}
-
-function inkySvg(state: InkyState): string {
-  const extras: Record<InkyState, string> = {
-    idle: "",
-    hello: `<g class="extra wave"><path d="M28 70 C20 66 16 56 16 48 C16 42 22 40 26 44 C29 48 32 58 32 66 C32 69 30 71 28 70 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.2" stroke-linejoin="round"/><g class="paw"><ellipse cx="14" cy="36" rx="12" ry="11" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.2"/><ellipse cx="14" cy="39" rx="5.2" ry="4" fill="#f2a8c4" opacity="0.8"/><ellipse cx="7.5" cy="32" rx="2.1" ry="2.5" fill="#f2a8c4" opacity="0.88"/><ellipse cx="14" cy="29.5" rx="2.1" ry="2.5" fill="#f2a8c4" opacity="0.88"/><ellipse cx="20.5" cy="32" rx="2.1" ry="2.5" fill="#f2a8c4" opacity="0.88"/></g></g>`,
-    working: `<g class="extra pen"><rect x="90" y="70" width="9" height="30" rx="2" fill="#f7c948" stroke="#3b342c" stroke-width="2.5"/><path d="M90 100 L99 100 L94.5 110 Z" fill="#3b342c"/></g>`,
-    thinking: `<g class="extra dot"><circle cx="98" cy="28" r="3.5" fill="#3b342c"/><circle cx="108" cy="18" r="2.6" fill="#3b342c"/><circle cx="114" cy="8" r="2" fill="#3b342c"/></g>`,
-    scanning: `<g class="extra glass"><circle cx="45" cy="56" r="13" fill="none" stroke="#3b342c" stroke-width="3"/><circle cx="75" cy="56" r="13" fill="none" stroke="#3b342c" stroke-width="3"/><line x1="58" y1="56" x2="62" y2="56" stroke="#3b342c" stroke-width="3"/></g>`,
-    needs: `<g class="extra badge"><circle cx="102" cy="24" r="14" fill="#f7c948" stroke="#3b342c" stroke-width="3"/><text x="102" y="31" text-anchor="middle" font-family="Nunito Sans,sans-serif" font-weight="800" font-size="19" fill="#3b342c">!</text></g>`,
-    waiting: `<g class="extra"><rect x="86" y="18" width="26" height="18" rx="6" fill="#fff" stroke="#3b342c" stroke-width="2.5"/><text x="99" y="31" text-anchor="middle" font-family="Nunito Sans,sans-serif" font-weight="800" font-size="11" fill="#3b342c">…</text></g>`,
-    sleep: `<g class="extra zzz"><text x="100" y="28" font-family="Shantell Sans,cursive" font-weight="800" font-size="16" fill="#3b342c">z</text><text x="112" y="16" font-family="Shantell Sans,cursive" font-weight="800" font-size="12" fill="#3b342c">z</text></g>`,
-    done: `<g class="extra confetti"><rect x="14" y="18" width="7" height="7" rx="1" fill="#f28b6f" transform="rotate(20 17 21)"/><rect x="99" y="12" width="6" height="6" rx="3" fill="#8fcbaa"/><rect x="20" y="94" width="6" height="6" rx="3" fill="#f7c948"/><rect x="98" y="92" width="7" height="7" rx="1" fill="#b7a3dd" transform="rotate(-15 101 95)"/></g>`,
-  };
-  const faces: Record<InkyState, string> = {
-    idle: `<g class="eyes blink"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/><circle cx="47" cy="53" r="1.8" fill="#fff"/><circle cx="77" cy="53" r="1.8" fill="#fff"/></g><path class="mouth" d="M52 73 Q60 80 68 73" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="33" cy="68" rx="6" ry="4" fill="#f2a8c4" opacity="0.7"/><ellipse cx="87" cy="68" rx="6" ry="4" fill="#f2a8c4" opacity="0.7"/>`,
-    hello: `<g class="eyes blink"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/><circle cx="47" cy="53" r="1.8" fill="#fff"/><circle cx="77" cy="53" r="1.8" fill="#fff"/></g><path class="mouth" d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/><ellipse cx="33" cy="66" rx="6" ry="4" fill="#f2a8c4" opacity="0.8"/><ellipse cx="87" cy="66" rx="6" ry="4" fill="#f2a8c4" opacity="0.8"/>`,
-    working: `<circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/><circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/><line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/><circle cx="45" cy="56" r="3.5" fill="#3b342c"/><circle cx="75" cy="56" r="3.5" fill="#3b342c"/><path class="mouth" d="M53 76 Q60 80 67 76" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    thinking: `<g class="eyes blink"><ellipse cx="45" cy="58" rx="5" ry="6" fill="#3b342c"/><ellipse cx="75" cy="54" rx="5" ry="6" fill="#3b342c"/><circle cx="47" cy="55" r="1.6" fill="#fff"/><circle cx="77" cy="51" r="1.6" fill="#fff"/></g><path class="mouth" d="M54 76 Q60 74 66 78" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    scanning: `<g class="eyes blink"><ellipse cx="45" cy="56" rx="4.5" ry="6" fill="#3b342c"/><ellipse cx="75" cy="56" rx="4.5" ry="6" fill="#3b342c"/><circle cx="47" cy="53" r="1.5" fill="#fff"/><circle cx="77" cy="53" r="1.5" fill="#fff"/></g><path class="mouth" d="M54 74 Q60 78 66 74" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    needs: `<ellipse cx="45" cy="56" rx="6" ry="8" fill="#3b342c"/><ellipse cx="75" cy="56" rx="6" ry="8" fill="#3b342c"/><circle cx="47" cy="53" r="2" fill="#fff"/><circle cx="77" cy="53" r="2" fill="#fff"/><ellipse class="mouth" cx="60" cy="77" rx="6" ry="8" fill="#3b342c"/>`,
-    waiting: `<path d="M38 56 Q45 50 52 56 M68 56 Q75 50 82 56" stroke="#3b342c" stroke-width="3.5" fill="none" stroke-linecap="round"/><path class="mouth" d="M52 76 Q60 80 68 76" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    sleep: `<path d="M38 56 Q45 50 52 56 M68 56 Q75 50 82 56" stroke="#3b342c" stroke-width="3.5" fill="none" stroke-linecap="round"/><path class="mouth" d="M54 76 Q60 78 66 76" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>`,
-    done: `<g class="eyes blink"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/><circle cx="47" cy="53" r="1.8" fill="#fff"/><circle cx="77" cy="53" r="1.8" fill="#fff"/></g><path class="mouth" d="M48 72 Q60 84 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/><ellipse cx="33" cy="66" rx="6" ry="4" fill="#f2a8c4" opacity="0.8"/><ellipse cx="87" cy="66" rx="6" ry="4" fill="#f2a8c4" opacity="0.8"/>`,
-  };
-  const attached = state === "hello" || state === "working" || state === "scanning";
-  const extra = extras[state];
-  return `<svg viewBox="0 0 120 120" focusable="false"><ellipse cx="60" cy="111" rx="26" ry="5" fill="#3b342c" opacity="0.1"/><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><path class="hair" d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>${faces[state]}${attached ? extra : ""}</g>${attached ? "" : extra}</svg>`;
 }

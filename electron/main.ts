@@ -24,6 +24,7 @@ import {
   ContractManifestSchema,
   RuntimeInfoSchema,
   STUDI_SCHEMA_VERSION,
+  browserDriver,
   createIpcHandlerRegistrations,
   projectProtectedAuthState,
   studiIpcMethods,
@@ -49,6 +50,7 @@ import { PiAgentRuntime } from "./agent/runtime.js";
 import { OpenAiCodexLoginAttemptOwner } from "./agent/provider-login.js";
 import { AssignmentExecutionCoordinator, type ExecutionNotification } from "./assignment/coordinator.js";
 import { BrowserController } from "./browser/controller.js";
+import { DriveOverlay } from "./browser/drive-overlay.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
 import { AppKernel } from "./lifecycle/kernel.js";
 import { ManagerCoordinator } from "./manager/coordinator.js";
@@ -77,6 +79,7 @@ let agentSelfTestObservation: AgentSelfTestObservation | null = null;
 let browserSelfTestObservation: BrowserSelfTestObservation | null = null;
 let browserController: BrowserController | null = null;
 let browserView: WebContentsView | null = null;
+let driveOverlay: DriveOverlay | null = null;
 let browserLayoutMode: BrowserLayoutMode = "hidden";
 let agentRuntime: PiAgentRuntime | null = null;
 let runtimeLoginAttempt: OpenAiCodexLoginAttemptOwner | null = null;
@@ -566,9 +569,14 @@ function createSchoolBrowser(window: BrowserWindow): void {
   browserView = view;
   browserController = new BrowserController(view.webContents);
   window.contentView.addChildView(view);
+  driveOverlay = new DriveOverlay(window);
 
   layoutSchoolBrowser();
   window.on("resize", layoutSchoolBrowser);
+  setInterval(() => {
+    if (browserLayoutMode === "hidden") return;
+    driveOverlay?.setDriver(currentBrowserDriver());
+  }, 350);
 
   view.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
     if (isMainFrame) {
@@ -590,30 +598,40 @@ function layoutSchoolBrowser(): void {
   if (!window || window.isDestroyed() || !view) return;
   if (browserLayoutMode === "hidden") {
     view.setVisible(false);
+    driveOverlay?.layout(null);
     return;
   }
   const [width = 1120, height = 760] = window.getContentSize();
-  if (browserLayoutMode === "onboarding") {
+  const bounds = schoolBrowserBounds(browserLayoutMode, width, height);
+  view.setBounds(bounds);
+  view.setVisible(true);
+  driveOverlay?.layout(bounds);
+  driveOverlay?.setDriver(currentBrowserDriver());
+}
+
+function schoolBrowserBounds(
+  mode: Exclude<BrowserLayoutMode, "hidden">,
+  width: number,
+  height: number,
+): Electron.Rectangle {
+  if (mode === "onboarding") {
     const conversationWidth = Math.round(width * (0.92 / 2.1));
     const x = conversationWidth + 12;
     const y = 48 + 34 + 12 + 31;
-    view.setBounds({
-      x,
-      y,
-      width: Math.max(300, width - x - 12),
-      height: Math.max(300, height - y - 12),
-    });
-    view.setVisible(true);
-    return;
+    return { x, y, width: Math.max(300, width - x - 12), height: Math.max(300, height - y - 12) };
   }
   const start = Math.round(width * 0.52);
-  view.setBounds({
-    x: start,
-    y: 76,
-    width: Math.max(300, width - start - 18),
-    height: Math.max(300, height - 94),
+  return { x: start, y: 76, width: Math.max(300, width - start - 18), height: Math.max(300, height - 94) };
+}
+
+function currentBrowserDriver() {
+  const scan = localStore?.school.latestScan();
+  const execution = localStore?.lifecycle.getActiveExecution();
+  return browserDriver({
+    layout: browserLayoutMode,
+    ...(scan ? { scanState: scan.state } : {}),
+    ...(execution ? { executionPhase: execution.phase } : {}),
   });
-  view.setVisible(true);
 }
 
 async function readProductSettings(): Promise<ProductSettingsState> {
@@ -1278,7 +1296,7 @@ async function readWorkspaceState() {
   const runtime = requireAgentRuntime();
   if (uiScenario === "onboarding-ready" || uiScenario === "onboarding-welcome") {
     return {
-      browser: requireBrowserController().state,
+      browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
       provider: {
         schemaVersion: STUDI_SCHEMA_VERSION,
         providerId: "openai-codex",
@@ -1293,7 +1311,7 @@ async function readWorkspaceState() {
     };
   }
   return {
-    browser: requireBrowserController().state,
+    browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
     provider: await runtime.getProviderStatus("openai-codex"),
     providerLogin: runtimeLoginAttempt?.handoff ?? null,
     models: [...runtime.getProviderModels("openai-codex")],

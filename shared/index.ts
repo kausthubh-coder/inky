@@ -2,6 +2,7 @@ export * from "./assignment.js";
 export * from "./agent-runtime.js";
 export * from "./auth.js";
 export * from "./browser-agent.js";
+export * from "./inky.js";
 export * from "./diagnostics.js";
 export * from "./artifact.js";
 export * from "./event.js";

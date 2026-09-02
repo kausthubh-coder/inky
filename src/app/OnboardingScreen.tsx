@@ -81,6 +81,8 @@ export function OnboardingScreen({
   }, [onConnectRuntime, providerLogin, providerReady, step]);
 
   const current = STEP_COPY[step];
+  const inkyDriving = workspace?.browser.driver === "inky";
+  const inkyState = inkyDriving ? "steering" : current.inky;
   const browserStage = step >= 5;
   const displayName = studentName.trim() || "Student";
   const firstName = displayName.split(/\s+/)[0] || "Student";
@@ -113,7 +115,7 @@ export function OnboardingScreen({
 
         <div className={`fable-stage ${browserStage ? "with-browser" : ""}`}>
           <section className="fable-talk">
-            <div className="fable-inky-wrap"><Inky state={current.inky} size={browserStage ? 84 : 200} label={`Inky is ${current.inky}`} /></div>
+            <div className="fable-inky-wrap"><Inky state={inkyState} size={browserStage ? 84 : 200} label={`Inky is ${inkyState}`} /></div>
             <div className="fable-copy">
               <div className="fable-who">talking to Inky</div>
               <div className="fable-bubbles" aria-live="polite">
@@ -146,7 +148,7 @@ export function OnboardingScreen({
           </section>
 
           <aside className="fable-school" aria-label="School browser">
-            <div className="fable-school-label"><span>school browser · you sign in here</span><span className="fable-badge fable-badge--waiting">{current.pill}</span></div>
+            <div className="fable-school-label"><span>{inkyDriving ? "school browser · Inky's driving" : "school browser · you sign in here"}</span><span className="fable-badge fable-badge--waiting">{current.pill}</span></div>
             <div className="fable-browser-frame" aria-hidden="true"><div className="fable-browser-bar"><i /><i /><i /><span>{workspace?.browser.url || schoolUrl || "waiting for a school link"}</span></div></div>
           </aside>
         </div>

@@ -19,11 +19,26 @@ export const BrowserSnapshotSchema = z.strictObject({
   truncated: z.boolean(),
 });
 
+export const BrowserDriverSchema = z.enum(["inky", "student", "none"]);
+export type BrowserDriver = z.infer<typeof BrowserDriverSchema>;
+
 export const BrowserStateSchema = z.strictObject({
   url: z.string(),
   title: z.string(),
   revision: z.number().int().positive(),
+  driver: BrowserDriverSchema,
 });
+
+export function browserDriver(input: {
+  readonly layout: "hidden" | "onboarding" | "desk";
+  readonly scanState?: "running" | "needs_user" | "succeeded" | "partial" | "failed";
+  readonly executionPhase?: "working" | "needs_user" | "ready_review" | "submitting" | "submitted" | "preserved" | "failed";
+}): BrowserDriver {
+  if (input.layout === "hidden") return "none";
+  if (input.executionPhase === "working" || input.executionPhase === "submitting") return "inky";
+  if (input.scanState === "running") return "inky";
+  return "student";
+}
 
 export const AgentModelSchema = z.strictObject({
   id: z.string().min(1),
