@@ -21,8 +21,8 @@ The generic `playwright` instance owns an isolated Chromium profile and complete
 ## Launch and capture
 
 1. Build when needed with `npm run build`.
-2. Run `scripts/Start-StudiQa.ps1` from this skill. Its JSON receipt identifies the unique app profile, Electron PID, and CDP endpoint. Do not add `--studi-development-url`; the test target is `dist/client/index.html`.
-3. Attach `playwright-electron`, confirm the file URL and signed-out gate, and inspect the renderer semantically.
+2. Run `scripts/Start-StudiQa.ps1` from this skill. For a throwaway Clerk proof, omit `-Persistent`. For the onboarded feature profile, pass `-Persistent` so the receipt path is `<repo>\.studi-qa\profile`. Do not add `--studi-development-url`; the test target is `dist/client/index.html`.
+3. Attach `playwright-electron`. On a fresh profile, confirm the file URL and signed-out gate. On a reused persistent profile, read `window.studi.getAuthState()` first — if it is already approved, skip this Clerk capture unless the user asked to re-prove sign-in.
 4. Immediately before activating **Sign in to Studi**, record a UTC baseline and start the capture helper in a long-running terminal session:
 
    ```powershell
@@ -50,7 +50,7 @@ In the isolated browser:
 
 Read `window.studi.getAuthState()` through the Electron renderer. For the currently approved fixture, the proven result is `status=approved`, `plan=beta`, `credits=100`, and `secureStorage=true`. Record the live subject returned by Clerk and compare it across auth and telemetry when relevant, but do not encode a fixed subject into source or scripts.
 
-Then exercise only the journey in scope. Restart must use the same isolated QA profile when persistence is the behavior under test. A new clean journey gets a new profile.
+Then exercise only the journey in scope. Feature tests after onboarding use `-Persistent` and [feature-pass.md](feature-pass.md). Restart of an onboarded profile must use `-Persistent`. A new clean Clerk journey omits `-Persistent`.
 
 Convex approval or credit changes go only through the repository's authenticated development admin mutation. Before any authorized change, look up current state and state the intended delta. Retain a separate unauthenticated call to `account:setBetaAccess` that fails with `Unauthenticated`; never treat renderer state or a direct database edit as approval evidence.
 

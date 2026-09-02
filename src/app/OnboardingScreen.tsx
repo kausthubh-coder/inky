@@ -1,14 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { PermissionMode, SchoolOnboardingState, StudiWorkspaceState } from "../../shared/index.js";
+import {
+  agentRuntimeAttentionCopy,
+  presentSchoolOnboardingScan,
+  type PermissionMode,
+  type SchoolOnboardingScanPresentation,
+  type SchoolOnboardingState,
+  type StudiWorkspaceState,
+} from "../../shared/index.js";
 import { Inky, type InkyState } from "./Inky.js";
 
 type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
-type ScanState = NonNullable<SchoolOnboardingState["scan"]>["state"];
 
 const STEP_COPY: Record<OnboardingStep, { inky: InkyState; pill: string; title: string; body: string; me?: string }> = {
   0: { inky: "hello", pill: "saying hi", title: "Hey", body: "I'm Inky. I'll do the homework in a school browser you can watch. You stay in charge of logins and submit." },
-  1: { inky: "working", pill: "connecting a brain", title: "One thing first.", body: "I need Codex from ChatGPT to actually type in that browser. Open the page, enter this code. I never see your ChatGPT password." },
+  1: { inky: "waiting", pill: "connecting a brain", title: "One thing first.", body: "I need Codex from ChatGPT to actually type in that browser. Open the page, enter this code. I never see your ChatGPT password." },
   2: { inky: "idle", pill: "where's school", title: "Where does school live?", body: "Clerk already knows you. Paste the site you actually use. Anything in a browser works." },
   3: { inky: "thinking", pill: "the default", title: "When I find homework…", body: "This is the default. You can override it for one class or one assignment later." },
   4: { inky: "idle", pill: "how often", title: "How often should I check?", body: "I'll look even if the window is closed." },
@@ -61,14 +67,14 @@ export function OnboardingScreen({
   const providerLogin = workspace?.providerLogin;
   const providerLoginActive = providerLogin?.phase === "starting" || providerLogin?.phase === "waiting";
   const profile = onboarding?.profile;
-  const scan = onboarding?.scan;
-  const [step, setStep] = useState<OnboardingStep>(() => profile ? scanStep(scan?.state) : 0);
+  const presentation = presentSchoolOnboardingScan(onboarding, workspace?.provider);
+  const [step, setStep] = useState<OnboardingStep>(() => profile ? presentation.step : 0);
   const [platform, setPlatform] = useState("Moodle");
   const runtimeLoginRequested = useRef(false);
 
   useEffect(() => {
-    if (profile) setStep(scanStep(scan?.state));
-  }, [profile, scan?.state]);
+    if (profile) setStep(presentation.step);
+  }, [presentation.step, profile]);
 
   useEffect(() => {
     if (step !== 1) {
@@ -80,14 +86,22 @@ export function OnboardingScreen({
     onConnectRuntime();
   }, [onConnectRuntime, providerLogin, providerReady, step]);
 
-  const current = STEP_COPY[step];
+  const displayName = studentName.trim() || "Student";
+  const firstName = displayName.split(/\s+/)[0] || "Student";
+  const current = stepCopy(step, presentation, onboarding, firstName);
   const inkyDriving = workspace?.browser.driver === "inky";
   const inkyState = inkyDriving ? "steering" : current.inky;
   const browserStage = step >= 5;
-  const displayName = studentName.trim() || "Student";
-  const firstName = displayName.split(/\s+/)[0] || "Student";
-  const title = step === 0 ? `Hey ${firstName}.` : current.title;
-  const chat = useMemo(() => Array.from({ length: step + 1 }, (_, index) => STEP_COPY[index as OnboardingStep]), [step]);
+  const title = current.title;
+  const chat = useMemo(() => {
+    const ids: OnboardingStep[] = [];
+    for (let index = 0; index <= step; index += 1) {
+      const id = index as OnboardingStep;
+      if (id === 7 && presentation.kind === "ready") continue;
+      ids.push(id);
+    }
+    return ids.map((id) => ({ id, ...stepCopy(id, presentation, onboarding, firstName) }));
+  }, [firstName, onboarding, presentation, step]);
 
   const choosePlatform = (name: string, suggestedUrl: string) => {
     setPlatform(name);
@@ -105,28 +119,20 @@ export function OnboardingScreen({
   return (
     <main className="fable-onboarding" data-studi-app-ready="true">
       <section className="fable-window" role="application" aria-label="Talking to Inky">
-        <header className="fable-titlebar">
-          <strong>studi <span className="brand-pencil" aria-hidden="true">✎</span></strong>
-          <span className="fable-badge fable-badge--soft">{current.pill}</span>
-          <span className="fable-title-spacer" />
-          <span className="fable-badge fable-badge--done">beta · {firstName}</span>
-          <span className="fable-user"><i aria-hidden="true">{firstName.slice(0, 1).toUpperCase()}</i>{firstName}</span>
-        </header>
-
         <div className={`fable-stage ${browserStage ? "with-browser" : ""}`}>
           <section className="fable-talk">
             <div className="fable-inky-wrap"><Inky state={inkyState} size={browserStage ? 84 : 200} label={`Inky is ${inkyState}`} /></div>
             <div className="fable-copy">
               <div className="fable-who">talking to Inky</div>
               <div className="fable-bubbles" aria-live="polite">
-                {(browserStage ? chat : [current]).map((message, index) => (
-                  <div className="fable-message" key={`${index}-${message.pill}`}>
+                {(browserStage ? chat : [{ id: step, ...current }]).map((message) => (
+                  <div className="fable-message" key={`${message.id}-${message.pill}`}>
                     {message.me && <div className="fable-speech fable-speech--me">{message.me}</div>}
                     <article className="fable-speech">
                       <span className="fable-tail" aria-hidden="true" />
-                      <h1>{index === step || !browserStage ? title : message.title}</h1>
-                      <p>{index === step && step === 7 && scan?.handoff?.reason ? scan.handoff.reason : message.body}</p>
-                      {(!browserStage || index === step) && <StepExtra step={step} workspace={workspace} providerReady={providerReady} platform={platform} schoolUrl={schoolUrl} cadence={scanCadence} permission={defaultPermission} busy={busy} onPlatform={choosePlatform} onSchoolUrl={onSchoolUrl} onCadence={onCadence} onPermission={onDefaultPermission} onConnect={onConnectRuntime} onCancelConnect={onCancelRuntimeLogin} />}
+                      <h1>{message.id === step || !browserStage ? title : message.title}</h1>
+                      <p>{message.body}</p>
+                      {(!browserStage || message.id === step) && <StepExtra step={step} workspace={workspace} providerReady={providerReady} platform={platform} schoolUrl={schoolUrl} cadence={scanCadence} permission={defaultPermission} busy={busy} onPlatform={choosePlatform} onSchoolUrl={onSchoolUrl} onCadence={onCadence} onPermission={onDefaultPermission} onConnect={onConnectRuntime} onCancelConnect={onCancelRuntimeLogin} />}
                     </article>
                   </div>
                 ))}
@@ -134,13 +140,15 @@ export function OnboardingScreen({
 
               <div className="fable-replies">
                 {step === 0 && <button className="fable-button primary" onClick={() => setStep(1)}>Hi Inky</button>}
-                {step === 1 && <><button className="fable-button primary" onClick={advanceFromRuntime} disabled={busy !== null || (providerLoginActive && !providerReady)}>{providerReady ? "Codex is ready" : providerLoginActive ? "Waiting for Codex…" : "Connect Codex"}</button><button className="fable-button" onClick={() => setStep(0)}>Back</button></>}
+                {step === 1 && <><button className="fable-button primary" onClick={advanceFromRuntime} disabled={busy !== null || (providerLoginActive && !providerReady)}>{providerReady ? "Codex is ready" : providerLoginActive ? "Waiting for Codex…" : presentation.kind === "runtime_login" ? "Reconnect Codex" : "Connect Codex"}</button>{presentation.kind !== "runtime_login" && <button className="fable-button" onClick={() => setStep(0)}>Back</button>}</>}
                 {step === 2 && <><button className="fable-button primary" onClick={() => setStep(3)} disabled={!schoolUrl.trim()}>That's the one</button><button className="fable-button" onClick={() => setStep(1)}>Back</button></>}
                 {step === 3 && <><button className="fable-button primary" onClick={() => setStep(4)}>Use this default</button><button className="fable-button" onClick={() => setStep(2)}>Back</button></>}
                 {step === 4 && <><button className="fable-button primary" onClick={onSaveProfile} disabled={busy !== null || !schoolUrl.trim() || !studentName.trim()}>{busy === "profile" ? "Opening school…" : "Sounds good. Open school."}</button><button className="fable-button" onClick={() => setStep(3)}>Back</button></>}
                 {step === 5 && <><button className="fable-button primary" data-app-control="start-scan" onClick={onStartScan} disabled={!providerReady || busy !== null}>{busy === "scan" ? "Starting scan…" : "I'm signed in. Scan it."}</button><button className="fable-button" onClick={() => setStep(4)}>Back</button></>}
                 {step === 6 && <button className="fable-button primary" disabled>Scanning…</button>}
-                {step === 7 && <button className="fable-button primary" onClick={onResumeScan} disabled={busy !== null}>{busy === "resume" ? "Checking…" : "I'm signed in. Continue"}</button>}
+                {step === 7 && presentation.kind === "handoff" && <button className="fable-button primary" onClick={onResumeScan} disabled={busy !== null}>{busy === "resume" ? "Checking…" : "I'm signed in. Continue"}</button>}
+                {step === 7 && (presentation.kind === "runtime_usage" || presentation.kind === "runtime_unavailable") && <button className="fable-button primary" onClick={onConnectRuntime} disabled={busy !== null}>{presentation.kind === "runtime_usage" ? "Connect another ChatGPT" : "Reconnect Codex"}</button>}
+                {step === 7 && presentation.kind === "retry" && <button className="fable-button primary" onClick={onStartScan} disabled={!providerReady || busy !== null}>{busy === "scan" ? "Starting scan…" : "Scan again"}</button>}
                 {step === 8 && <button className="fable-button primary" onClick={onFinish}>Open my week</button>}
               </div>
               {error && <p className="fable-error" role="alert">{error}</p>}
@@ -148,8 +156,7 @@ export function OnboardingScreen({
           </section>
 
           <aside className="fable-school" aria-label="School browser">
-            <div className="fable-school-label"><span>{inkyDriving ? "school browser · Inky's driving" : "school browser · you sign in here"}</span><span className="fable-badge fable-badge--waiting">{current.pill}</span></div>
-            <div className="fable-browser-frame" aria-hidden="true"><div className="fable-browser-bar"><i /><i /><i /><span>{workspace?.browser.url || schoolUrl || "waiting for a school link"}</span></div></div>
+            <div className="fable-browser-frame" aria-hidden="true" />
           </aside>
         </div>
       </section>
@@ -169,9 +176,46 @@ function StepExtra({ step, workspace, providerReady, platform, schoolUrl, cadenc
   return null;
 }
 
-function scanStep(state?: ScanState): OnboardingStep {
-  if (state === "running") return 6;
-  if (state === "needs_user" || state === "failed" || state === "partial") return 7;
-  if (state === "succeeded") return 8;
-  return 5;
+function stepCopy(
+  id: OnboardingStep,
+  presentation: SchoolOnboardingScanPresentation,
+  onboarding: SchoolOnboardingState | null,
+  firstName: string,
+): (typeof STEP_COPY)[OnboardingStep] {
+  const base = STEP_COPY[id];
+  const scan = onboarding?.scan;
+  if (id === 0) return { ...base, title: `Hey ${firstName}.` };
+  if (id === 1 && presentation.kind === "runtime_login") {
+    const copy = agentRuntimeAttentionCopy("needs_login");
+    return { ...base, inky: "waiting", pill: "reconnect Codex", title: copy?.title ?? base.title, body: copy?.body ?? base.body };
+  }
+  if (id === 7 && (presentation.kind === "runtime_usage" || presentation.kind === "runtime_unavailable")) {
+    const copy = agentRuntimeAttentionCopy(presentation.kind === "runtime_usage" ? "usage" : "unavailable");
+    return { ...base, title: copy?.title ?? base.title, body: copy?.body ?? base.body };
+  }
+  if (id === 8 && scan?.state === "partial") {
+    return { ...base, body: "I found some of it. The board stays honest about what's still missing." };
+  }
+  if (id === 7 && presentation.kind === "retry") {
+    return {
+      ...base,
+      title: "That scan didn't finish.",
+      body: scan?.failures[0] ?? scan?.currentStep ?? "I only count what the page actually shows. Try again when school looks ready.",
+    };
+  }
+  if (id === 7 && presentation.kind === "handoff") {
+    const linked = scan?.handoff?.linkedSystemId
+      ? onboarding?.linkedSystems.find((item) => item.linkedSystemId === scan.handoff?.linkedSystemId)
+      : undefined;
+    return {
+      ...base,
+      title: scan?.handoff?.kind === "school_sign_in"
+        ? "Sign in over there."
+        : linked
+          ? `${linked.label} wants a login.`
+          : base.title,
+      body: scan?.handoff?.reason ?? base.body,
+    };
+  }
+  return base;
 }

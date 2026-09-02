@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { classifyAgentRuntimeAttention, type ProviderStatus } from "./agent-runtime.js";
 import { AssignmentSchema } from "./assignment.js";
 import { EvidenceReferenceSchema } from "./evidence.js";
 import { SafeSourceTargetSchema } from "./ids.js";
@@ -107,7 +108,24 @@ export type LinkedSystem = z.infer<typeof LinkedSystemSchema>;
 export type SchoolOnboardingState = z.infer<typeof SchoolOnboardingStateSchema>;
 export type SaveSchoolProfileInput = z.infer<typeof SaveSchoolProfileInputSchema>;
 
-export function hasCompletedSchoolOnboarding(state: SchoolOnboardingState): boolean {
+export type SchoolOnboardingScanKind =
+  | "sign_in"
+  | "scanning"
+  | "handoff"
+  | "retry"
+  | "ready"
+  | "runtime_login"
+  | "runtime_usage"
+  | "runtime_unavailable";
+
+export type SchoolOnboardingScanPresentation = {
+  readonly step: 1 | 5 | 6 | 7 | 8;
+  readonly kind: SchoolOnboardingScanKind;
+};
+
+export function hasCompletedSchoolOnboarding(
+  state: Pick<SchoolOnboardingState, "profile" | "scan" | "workflowRevision">,
+): boolean {
   if (!state.profile) return false;
   if (state.workflowRevision !== null) return true;
   return Boolean(
@@ -115,6 +133,23 @@ export function hasCompletedSchoolOnboarding(state: SchoolOnboardingState): bool
     (state.scan.state === "succeeded" || state.scan.state === "partial") &&
     state.scan.coverage.length > 0,
   );
+}
+
+export function presentSchoolOnboardingScan(
+  state: Pick<SchoolOnboardingState, "profile" | "scan" | "workflowRevision"> | null,
+  provider?: Pick<ProviderStatus, "state" | "reason"> | null,
+): SchoolOnboardingScanPresentation {
+  const scan = state?.scan;
+  if (scan?.state === "running") return { step: 6, kind: "scanning" };
+  const failureText = scan?.state === "failed" ? scan.failures?.[0] ?? scan.currentStep : null;
+  const attention = classifyAgentRuntimeAttention(provider, failureText);
+  if (attention === "needs_login") return { step: 1, kind: "runtime_login" };
+  if (attention === "usage") return { step: 7, kind: "runtime_usage" };
+  if (attention === "unavailable") return { step: 7, kind: "runtime_unavailable" };
+  if (scan?.state === "needs_user") return { step: 7, kind: "handoff" };
+  if (state && hasCompletedSchoolOnboarding(state)) return { step: 8, kind: "ready" };
+  if (scan?.state === "failed" || scan?.state === "partial") return { step: 7, kind: "retry" };
+  return { step: 5, kind: "sign_in" };
 }
 
 export function nextSchoolScanAction(state: Pick<SchoolOnboardingState, "workflowRevision">): "scan" | "replay" {

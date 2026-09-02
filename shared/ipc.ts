@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { AgentReasoningEffortSchema } from "./agent-runtime.js";
 import { SchemaVersionSchema, STUDI_SCHEMA_VERSION } from "./schema-version.js";
 import { AuthStateSchema, FeedbackReceiptSchema } from "./auth.js";
 import { DiagnosticsExportReceiptSchema } from "./diagnostics.js";
@@ -357,7 +358,10 @@ export const studiIpcRegistry = Object.freeze({
   }),
   [selectAgentModelMethod]: Object.freeze({
     channel: selectAgentModelChannel,
-    requestSchema: z.strictObject({ modelId: z.string().min(1) }),
+    requestSchema: z.strictObject({
+      modelId: z.string().min(1),
+      reasoningEffort: AgentReasoningEffortSchema,
+    }),
     resultSchema: StudiWorkspaceStateSchema,
   }),
   [getManagerStateMethod]: Object.freeze({

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { AgentRunEventSchema } from "./agent-runtime.js";
+import { AgentReasoningEffortSchema, AgentRunEventSchema, DEFAULT_AGENT_MODEL_ID, DEFAULT_AGENT_REASONING_EFFORT } from "./agent-runtime.js";
 import { ArtifactFrontmatterSchema, ArtifactKindSchema } from "./artifact.js";
 import { AssignmentSchema } from "./assignment.js";
 import { AutomationScheduleSchema, AssignmentExecutionSchema, ExecutionAttemptSchema, SubmissionReceiptSchema } from "./lifecycle.js";
@@ -17,6 +17,8 @@ export const ProductPreferencesSchema = z.strictObject({
   reviewMinutes: z.number().int().min(1).max(120),
   handoffMinutes: z.number().int().min(1).max(240),
   memoryVisibility: z.enum(["none", "selected", "all"]),
+  agentModelId: z.string().min(1).max(128).default(DEFAULT_AGENT_MODEL_ID),
+  agentReasoningEffort: AgentReasoningEffortSchema.default(DEFAULT_AGENT_REASONING_EFFORT),
   updatedAt: IsoTimestampSchema,
 });
 export type ProductPreferences = z.infer<typeof ProductPreferencesSchema>;

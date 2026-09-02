@@ -1,4 +1,4 @@
 interface:
   display_name: "Test Studi"
   short_description: "Run Studi's isolated end-to-end desktop journey"
-  default_prompt: "Use $test-studi to exercise the built Studi app through its real isolated Electron, Clerk, and Convex journey and retain concise evidence."
+  default_prompt: "Use $test-studi. If .studi-qa/profile is already onboarded, launch Start-StudiQa.ps1 -Persistent and drive the feature pass yourself. Only run a fresh Clerk journey when sign-in is the thing under test."

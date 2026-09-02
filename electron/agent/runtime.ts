@@ -18,8 +18,11 @@ import { Type } from "typebox";
 
 import {
   AgentRunEventSchema,
+  DEFAULT_AGENT_MODEL_ID,
+  DEFAULT_AGENT_REASONING_EFFORT,
   ProviderStatusSchema,
   STUDI_SCHEMA_VERSION,
+  type AgentReasoningEffort,
   type AgentRunEvent,
   type AgentModel,
   type ProviderLoginMethod,
@@ -106,6 +109,7 @@ export class PiAgentRuntime implements AgentRuntime {
   readonly #browserTools: ToolDefinition[] | null;
   readonly #assignmentBrowserTools: ToolDefinition[] | null;
   #model?: PiModel;
+  #thinkingLevel: AgentReasoningEffort = DEFAULT_AGENT_REASONING_EFFORT;
 
   private constructor(options: PiAgentRuntimeOptions, modelRuntime: ModelRuntime) {
     this.#cwd = options.cwd;
@@ -267,12 +271,20 @@ export class PiAgentRuntime implements AgentRuntime {
     return this.#model.id;
   }
 
+  get selectedReasoningEffort(): AgentReasoningEffort {
+    return this.#thinkingLevel;
+  }
+
   selectModel(providerId: string, modelId: string): void {
     const model = this.#modelRuntime.getModel(providerId, modelId);
     if (!model) {
       throw new Error(`Unknown ${providerId} model: ${modelId}`);
     }
     this.#model = model;
+  }
+
+  setReasoningEffort(effort: AgentReasoningEffort): void {
+    this.#thinkingLevel = effort;
   }
 
   async loginOpenAiCodex(
@@ -334,7 +346,7 @@ export class PiAgentRuntime implements AgentRuntime {
       noTools: "all",
       tools: tools.map((tool) => tool.name),
       customTools: [...tools],
-      thinkingLevel: "medium",
+      thinkingLevel: this.#thinkingLevel,
     };
     if (!this.#model) {
       throw new Error("Pi has no model available for a Studi session");
@@ -363,7 +375,7 @@ const managerSystemPrompt =
   "You are Studi's local work manager. Use only the queue tools supplied by Studi. Durable queue state is the source of truth. Inspect it before steering or starting work. Never claim a task moved, started, or stopped unless a Studi tool confirms it. You cannot supply pattern permission provenance or control the school browser directly; the start tool delegates only a verified queued task to Studi's existing assignment execution owner.";
 
 const scanSystemPrompt =
-  "You are Studi's school onboarding scanner. Use only the supplied general browser and scan-recording tools. The visible browser is the source of truth. Record a course, assignment, linked system, coverage result, or sign-in handoff only after observing the current page. Never ask for a password in chat. If sign-in is required, record the handoff and stop. Re-observe all items on replay. Finish only after recording explicit coverage; old stored rows are hints, never current evidence.";
+  "You are Studi's school onboarding scanner. Use only the supplied general browser and scan-recording tools. The visible browser is the source of truth. Record a course, assignment, linked system, coverage result, or sign-in handoff only after observing the current page. Never ask for a password in chat. Request a sign-in handoff only when the current page requires a student login Studi cannot complete, then stop. Do not request a handoff while the same school site already shows the student signed in. Do not mark linked systems incomplete merely because none appeared. Re-observe all items on replay. Finish only after recording explicit coverage; old stored rows are hints, never current evidence.";
 
 async function answerCodexPrompt(
   prompt: AuthPrompt,
@@ -402,6 +414,7 @@ function selectDefaultModel(modelRuntime: ModelRuntime): PiModel | undefined {
     return undefined;
   }
   return (
+    modelRuntime.getModel("openai-codex", DEFAULT_AGENT_MODEL_ID) ??
     modelRuntime.getModel("openai-codex", "gpt-5.6-terra") ??
     modelRuntime.getModels("openai-codex")[0] ??
     modelRuntime.getModels()[0]

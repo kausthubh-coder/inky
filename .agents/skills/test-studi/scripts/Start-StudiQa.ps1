@@ -8,11 +8,19 @@ param(
   [ValidateRange(1, 60)]
   [int]$ReadinessTimeoutSeconds = 15,
 
+  [switch]$Persistent,
+
+  [switch]$ResetPersistent,
+
   [switch]$DryRun
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+if ($ResetPersistent -and -not $Persistent) {
+  throw "-ResetPersistent requires -Persistent."
+}
 
 function Test-PortAvailable {
   param([int]$CandidatePort)
@@ -43,13 +51,32 @@ if (-not (Test-PortAvailable -CandidatePort $Port)) {
   throw "CDP port $Port is already in use. Choose another loopback port and configure the Electron Playwright MCP to match."
 }
 
-$profileParentPath = [System.IO.Path]::GetFullPath($ProfileParent)
-if ($profileParentPath.Contains('"')) {
-  throw "ProfileParent cannot contain a quote character."
+if ($Persistent) {
+  $profilePath = Join-Path $workspaceRoot ".studi-qa\profile"
+} else {
+  $profileParentPath = [System.IO.Path]::GetFullPath($ProfileParent)
+  if ($profileParentPath.Contains('"')) {
+    throw "ProfileParent cannot contain a quote character."
+  }
+  $runId = "studi-e2e-qa-{0}-{1}" -f ([DateTimeOffset]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")), ([Guid]::NewGuid().ToString("N").Substring(0, 8))
+  $profilePath = Join-Path $profileParentPath $runId
 }
 
-$runId = "studi-e2e-qa-{0}-{1}" -f ([DateTimeOffset]::UtcNow.ToString("yyyyMMddTHHmmssfffZ")), ([Guid]::NewGuid().ToString("N").Substring(0, 8))
-$profilePath = Join-Path $profileParentPath $runId
+if ($profilePath.Contains('"')) {
+  throw "Profile path cannot contain a quote character."
+}
+
+$profileExisted = Test-Path -LiteralPath $profilePath -PathType Container
+$profileHadData = $profileExisted -and @(Get-ChildItem -LiteralPath $profilePath -Force -ErrorAction SilentlyContinue).Count -gt 0
+$profileReset = $false
+
+if ($Persistent -and $ResetPersistent -and $profileExisted) {
+  Remove-Item -LiteralPath $profilePath -Recurse -Force
+  $profileExisted = $false
+  $profileHadData = $false
+  $profileReset = $true
+}
+
 $cdpEndpoint = "http://127.0.0.1:$Port"
 $launchArguments = @(
   ".",
@@ -62,6 +89,9 @@ if ($DryRun) {
   [ordered]@{
     schemaVersion = 1
     dryRun = $true
+    persistent = [bool]$Persistent
+    profileReused = [bool]($Persistent -and $profileHadData)
+    profileReset = $profileReset
     workspaceRoot = $workspaceRoot
     executable = $electronPath
     profilePath = $profilePath
@@ -73,7 +103,10 @@ if ($DryRun) {
   return
 }
 
-New-Item -ItemType Directory -Path $profilePath -ErrorAction Stop | Out-Null
+if (-not (Test-Path -LiteralPath $profilePath -PathType Container)) {
+  New-Item -ItemType Directory -Path $profilePath -ErrorAction Stop | Out-Null
+}
+
 $nativeArguments = '. --user-data-dir="{0}" --remote-debugging-address=127.0.0.1 --remote-debugging-port={1}' -f $profilePath, $Port
 $startedAt = [DateTimeOffset]::UtcNow
 $process = Start-Process -FilePath $electronPath -WorkingDirectory $workspaceRoot -ArgumentList $nativeArguments -PassThru
@@ -97,6 +130,9 @@ do {
 $receipt = [ordered]@{
   schemaVersion = 1
   dryRun = $false
+  persistent = [bool]$Persistent
+  profileReused = [bool]($Persistent -and $profileHadData)
+  profileReset = $profileReset
   workspaceRoot = $workspaceRoot
   executable = $electronPath
   profilePath = $profilePath

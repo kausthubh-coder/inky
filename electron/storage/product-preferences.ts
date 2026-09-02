@@ -3,6 +3,8 @@ import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
 import {
+  DEFAULT_AGENT_MODEL_ID,
+  DEFAULT_AGENT_REASONING_EFFORT,
   ProductPreferencesSchema,
   STUDI_SCHEMA_VERSION,
   type ProductPreferences,
@@ -13,6 +15,8 @@ const defaults: ProductPreferences = ProductPreferencesSchema.parse({
   reviewMinutes: 15,
   handoffMinutes: 30,
   memoryVisibility: "selected",
+  agentModelId: DEFAULT_AGENT_MODEL_ID,
+  agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT,
   updatedAt: "1970-01-01T00:00:00.000Z",
 });
 
@@ -25,7 +29,8 @@ export class ProductPreferencesStore {
 
   async get(): Promise<ProductPreferences> {
     try {
-      return ProductPreferencesSchema.parse(JSON.parse(await readFile(this.path, "utf8")));
+      const stored = JSON.parse(await readFile(this.path, "utf8")) as Record<string, unknown>;
+      return ProductPreferencesSchema.parse({ ...defaults, ...stored });
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return defaults;
       throw error;

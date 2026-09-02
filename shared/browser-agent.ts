@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { ProviderStatusSchema } from "./agent-runtime.js";
+import { AgentReasoningEffortSchema, ProviderStatusSchema } from "./agent-runtime.js";
 import { IsoTimestampSchema } from "./schema-version.js";
 
 export const BrowserElementSchema = z.strictObject({
@@ -63,6 +63,7 @@ export const StudiWorkspaceStateSchema = z.strictObject({
   providerLogin: ProviderLoginHandoffSchema.nullable(),
   models: z.array(AgentModelSchema),
   selectedModelId: z.string().min(1),
+  selectedReasoningEffort: AgentReasoningEffortSchema,
 });
 
 export const AgentTurnResultSchema = z.strictObject({

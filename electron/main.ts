@@ -25,6 +25,7 @@ import {
   RuntimeInfoSchema,
   STUDI_SCHEMA_VERSION,
   browserDriver,
+  classifyAgentRuntimeAttention,
   createIpcHandlerRegistrations,
   projectProtectedAuthState,
   studiIpcMethods,
@@ -40,6 +41,7 @@ import {
   type ProductSettingsState,
   type TaskDetail,
   type Task,
+  type AgentReasoningEffort,
   transitionTask,
 } from "../shared/index.js";
 import { getDevelopmentUrl } from "./development-url.js";
@@ -227,15 +229,24 @@ const ipcHandlers: StudiIpcHandlers = {
     requireRuntimeLoginAttempt().cancel();
     return readWorkspaceState();
   },
-  selectAgentModel: async ({ modelId }) => {
+  selectAgentModel: async ({ modelId, reasoningEffort }) => {
     const runtime = requireAgentRuntime();
     runtime.selectModel("openai-codex", modelId);
+    runtime.setReasoningEffort(reasoningEffort);
+    await persistAgentRuntimeChoice(modelId, reasoningEffort);
     await requireManagerCoordinator().replaceManagerSession();
     return readWorkspaceState();
   },
   getManagerState: () => requireManagerCoordinator().state(),
   runManager: async ({ prompt, memoryArtifactIds }) => {
     const provider = await requireAgentRuntime().getProviderStatus("openai-codex");
+    const attention = classifyAgentRuntimeAttention(provider);
+    if (attention === "usage") {
+      throw new Error("ChatGPT usage ran out. Wait for more usage or connect another ChatGPT, then try again.");
+    }
+    if (attention === "needs_login") {
+      throw new Error("Codex needs another ChatGPT login before the work manager can run.");
+    }
     if (provider.state !== "ready") {
       throw new Error("Connect the Codex subscription before starting the work manager");
     }
@@ -303,9 +314,13 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   getProductSettings: () => readProductSettings(),
   saveProductPreferences: async (input) => {
+    const current = await requireLocalStore().productPreferences.get();
     const preferences = await requireLocalStore().productPreferences.put({
+      ...current,
       schemaVersion: STUDI_SCHEMA_VERSION,
-      ...input,
+      reviewMinutes: input.reviewMinutes,
+      handoffMinutes: input.handoffMinutes,
+      memoryVisibility: input.memoryVisibility,
       updatedAt: new Date().toISOString(),
     });
     requireAssignmentExecutionCoordinator().configureReviewHandoff(preferences.reviewMinutes, preferences.handoffMinutes);
@@ -616,9 +631,12 @@ function schoolBrowserBounds(
 ): Electron.Rectangle {
   if (mode === "onboarding") {
     const conversationWidth = Math.round(width * (0.92 / 2.1));
-    const x = conversationWidth + 12;
-    const y = 48 + 34 + 12 + 31;
-    return { x, y, width: Math.max(300, width - x - 12), height: Math.max(300, height - y - 12) };
+    const gapLeft = 20;
+    const gapTop = 24;
+    const edge = 10;
+    const x = conversationWidth + gapLeft;
+    const y = gapTop;
+    return { x, y, width: Math.max(300, width - x - edge), height: Math.max(300, height - y - edge) };
   }
   const start = Math.round(width * 0.52);
   return { x: start, y: 76, width: Math.max(300, width - start - 18), height: Math.max(300, height - 94) };
@@ -1131,6 +1149,7 @@ async function initializeDesktopAgent(): Promise<void> {
     agentDir: join(dataRoot, "pi"),
     browserController: requireBrowserController(),
   });
+  await applyPersistedAgentRuntime();
   runtimeLoginAttempt = new OpenAiCodexLoginAttemptOwner((signal, notify) =>
     requireAgentRuntime().loginOpenAiCodex("device_code", signal, {
       openExternal: (url) => shell.openExternal(url),
@@ -1308,6 +1327,7 @@ async function readWorkspaceState() {
       providerLogin: null,
       models: [{ id: runtime.selectedModelId, name: runtime.selectedModelId }],
       selectedModelId: runtime.selectedModelId,
+      selectedReasoningEffort: runtime.selectedReasoningEffort,
     };
   }
   return {
@@ -1316,7 +1336,30 @@ async function readWorkspaceState() {
     providerLogin: runtimeLoginAttempt?.handoff ?? null,
     models: [...runtime.getProviderModels("openai-codex")],
     selectedModelId: runtime.selectedModelId,
+    selectedReasoningEffort: runtime.selectedReasoningEffort,
   };
+}
+
+async function persistAgentRuntimeChoice(modelId: string, reasoningEffort: AgentReasoningEffort): Promise<void> {
+  const store = requireLocalStore().productPreferences;
+  const current = await store.get();
+  await store.put({
+    ...current,
+    agentModelId: modelId,
+    agentReasoningEffort: reasoningEffort,
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+async function applyPersistedAgentRuntime(): Promise<void> {
+  const runtime = requireAgentRuntime();
+  const preferences = await requireLocalStore().productPreferences.get();
+  try {
+    runtime.selectModel("openai-codex", preferences.agentModelId);
+  } catch {
+    // Keep the catalog default when the saved id is not installed yet.
+  }
+  runtime.setReasoningEffort(preferences.agentReasoningEffort);
 }
 
 function requireRuntimeLoginAttempt(): OpenAiCodexLoginAttemptOwner {
@@ -1406,6 +1449,13 @@ async function requireSchoolBrowserTelemetryIsolation(): Promise<boolean> {
 
 async function requireReadyProviderForScan(): Promise<void> {
   const provider = await requireAgentRuntime().getProviderStatus("openai-codex");
+  const attention = classifyAgentRuntimeAttention(provider);
+  if (attention === "usage") {
+    throw new Error("ChatGPT usage ran out. Wait for more usage or connect another ChatGPT, then try again.");
+  }
+  if (attention === "needs_login") {
+    throw new Error("Codex needs another ChatGPT login before scanning.");
+  }
   if (provider.state !== "ready") {
     throw new Error("Connect the Codex subscription before scanning the school");
   }

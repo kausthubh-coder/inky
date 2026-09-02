@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { hasCompletedSchoolOnboarding, nextSchoolScanAction, projectProtectedAuthState } from "../../dist/shared/index.js";
+import { classifyAgentRuntimeAttention, hasCompletedSchoolOnboarding, nextSchoolScanAction, presentSchoolOnboardingScan, projectProtectedAuthState } from "../../dist/shared/index.js";
 
 const approved = {
   status: "approved",
@@ -35,4 +35,48 @@ test("retained workflow keeps the dashboard route after a later scan failure", (
 test("manual scan retries are fresh until a successful workflow exists", () => {
   assert.equal(nextSchoolScanAction({ workflowRevision: null }), "scan");
   assert.equal(nextSchoolScanAction({ workflowRevision: 1 }), "replay");
+});
+
+test("runtime attention distinguishes usage, Codex reauth, and ordinary scan failure", () => {
+  assert.equal(classifyAgentRuntimeAttention({ state: "ready", reason: "OpenAI Codex is ready to use." }), "none");
+  assert.equal(classifyAgentRuntimeAttention({ state: "needs_login", reason: "OpenAI Codex needs authentication." }), "needs_login");
+  assert.equal(classifyAgentRuntimeAttention({ state: "ready", reason: "OpenAI Codex is ready to use." }, "The scan agent stopped: rate limit"), "usage");
+  assert.equal(classifyAgentRuntimeAttention({ state: "unavailable", reason: "Studi could not check OpenAI Codex authentication." }), "unavailable");
+  assert.deepEqual(presentSchoolOnboardingScan({
+    profile: {},
+    scan: { state: "failed", coverage: [], completedAt: "2026-09-02T19:23:04.569Z", failures: ["The scan agent stopped: quota exceeded"] },
+    workflowRevision: null,
+  }, { state: "ready", reason: "OpenAI Codex is ready to use." }), { step: 7, kind: "runtime_usage" });
+  assert.deepEqual(presentSchoolOnboardingScan({
+    profile: {},
+    scan: { state: "partial", coverage: [{}], completedAt: "2026-09-02T19:23:04.569Z", handoff: null },
+    workflowRevision: null,
+  }, { state: "needs_login", reason: "OpenAI Codex needs authentication." }), { step: 1, kind: "runtime_login" });
+});
+
+test("onboarding chat only asks for another login when a scan is actually waiting", () => {
+  const profile = {};
+  assert.deepEqual(presentSchoolOnboardingScan({ profile, scan: { state: "running" }, workflowRevision: null }), {
+    step: 6,
+    kind: "scanning",
+  });
+  assert.deepEqual(presentSchoolOnboardingScan({ profile, scan: { state: "needs_user" }, workflowRevision: null }), {
+    step: 7,
+    kind: "handoff",
+  });
+  assert.deepEqual(presentSchoolOnboardingScan({
+    profile,
+    scan: {
+      state: "partial",
+      coverage: [{}],
+      completedAt: "2026-09-02T19:23:04.569Z",
+      handoff: null,
+    },
+    workflowRevision: null,
+  }), { step: 8, kind: "ready" });
+  assert.deepEqual(presentSchoolOnboardingScan({
+    profile,
+    scan: { state: "failed", coverage: [], completedAt: "2026-09-02T19:23:04.569Z", handoff: null },
+    workflowRevision: null,
+  }), { step: 7, kind: "retry" });
 });

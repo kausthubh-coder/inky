@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import type { TelemetryState } from "../../shared/index.js";
+import { agentRuntimeAttentionCopy, type AgentRuntimeAttention, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
 
 export type AppScreen = "week" | "library" | "settings";
 
@@ -34,6 +34,36 @@ export function PaperCard({ tone = "paper", className = "", children }: { tone?:
 
 export function StatusPill({ children, tone = "plain" }: { children: ReactNode; tone?: "plain" | "mint" | "yellow" | "coral" | "pink" | "sky" }) {
   return <span className={`status-pill status-pill--${tone}`}>{children}</span>;
+}
+
+export function RuntimeAttentionBanner({
+  attention,
+  workspace,
+  busy,
+  onConnect,
+}: {
+  attention: AgentRuntimeAttention;
+  workspace?: StudiWorkspaceState | null;
+  busy: boolean;
+  onConnect: () => void;
+}) {
+  const login = workspace?.providerLogin;
+  const loginActive = login?.phase === "starting" || login?.phase === "waiting" || login?.phase === "failed" || login?.phase === "expired";
+  const kind = attention !== "none" ? attention : loginActive ? "needs_login" : "none";
+  const copy = agentRuntimeAttentionCopy(kind);
+  if (!copy) return null;
+  return (
+    <div className={`truth-banner ${kind === "usage" ? "truth-banner--partial" : "truth-banner--error"}`}>
+      <strong>{copy.title}</strong>
+      <span>{copy.body}</span>
+      {login?.phase === "waiting" && <p className="provider-code">{login.userCode}<small>Enter this at {login.verificationUri}</small></p>}
+      {login?.phase === "starting" && <span>Getting your code…</span>}
+      {(login?.phase === "failed" || login?.phase === "expired") && <span>{login.phase === "expired" ? "That code expired." : "Couldn't get a code."}</span>}
+      <button type="button" onClick={onConnect} disabled={busy || login?.phase === "starting" || login?.phase === "waiting"}>
+        {kind === "usage" ? "Connect another ChatGPT" : loginActive ? "Waiting for Codex…" : "Reconnect Codex"}
+      </button>
+    </div>
+  );
 }
 
 export function TelemetryControls({

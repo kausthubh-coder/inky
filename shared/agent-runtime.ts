@@ -81,6 +81,10 @@ export const AgentRunEventSchema = z.union([
   AgentTerminalEventSchema,
 ]);
 
+export const AgentReasoningEffortSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]);
+export const DEFAULT_AGENT_MODEL_ID = "gpt-5.6-sol";
+export const DEFAULT_AGENT_REASONING_EFFORT = "high" as const;
+
 export const ProviderLoginMethodSchema = z.enum(["api_key", "oauth"]);
 
 export const ProviderStatusSchema = z.strictObject({
@@ -93,5 +97,75 @@ export const ProviderStatusSchema = z.strictObject({
 });
 
 export type AgentRunEvent = z.infer<typeof AgentRunEventSchema>;
+export type AgentReasoningEffort = z.infer<typeof AgentReasoningEffortSchema>;
 export type ProviderLoginMethod = z.infer<typeof ProviderLoginMethodSchema>;
 export type ProviderStatus = z.infer<typeof ProviderStatusSchema>;
+export type AgentRuntimeAttention = "none" | "needs_login" | "usage" | "unavailable";
+
+const USAGE_MARKERS = [
+  "quota",
+  "rate limit",
+  "ratelimit",
+  "usage limit",
+  "usage cap",
+  "out of usage",
+  "usage exhausted",
+  "insufficient quota",
+  "insufficient credit",
+  "billing",
+  "token limit",
+  "monthly limit",
+  "weekly limit",
+  "limit reached",
+  "ran out of",
+  "429",
+] as const;
+
+const LOGIN_MARKERS = [
+  "needs authentication",
+  "unauthorized",
+  "401",
+  "invalid token",
+  "expired token",
+  "refresh token",
+  "sign in to chatgpt",
+  "sign in to openai",
+  "codex needs",
+  "re-auth",
+  "reauth",
+] as const;
+
+export function classifyAgentRuntimeAttention(
+  provider?: Pick<ProviderStatus, "state" | "reason"> | null,
+  failureText?: string | null,
+): AgentRuntimeAttention {
+  const combined = [provider?.reason, failureText].filter((item): item is string => Boolean(item)).join("\n");
+  const fact = combined.toLocaleLowerCase();
+  if (USAGE_MARKERS.some((marker) => fact.includes(marker))) return "usage";
+  if (provider?.state === "needs_login") return "needs_login";
+  if (LOGIN_MARKERS.some((marker) => fact.includes(marker))) return "needs_login";
+  if (provider?.state === "unavailable") return "unavailable";
+  return "none";
+}
+
+export function agentRuntimeAttentionCopy(kind: AgentRuntimeAttention): { title: string; body: string } | null {
+  if (kind === "usage") {
+    return {
+      title: "ChatGPT usage ran out.",
+      body: "I can't type in the school browser until that plan has usage again. Wait a bit, or connect another ChatGPT.",
+    };
+  }
+  if (kind === "needs_login") {
+    return {
+      title: "Codex needs you again.",
+      body: "That ChatGPT login expired or switched. Open the page, enter this code. I never see your password.",
+    };
+  }
+  if (kind === "unavailable") {
+    return {
+      title: "Codex isn't reachable.",
+      body: "I couldn't check the ChatGPT connection. Try again in a moment, or reconnect Codex.",
+    };
+  }
+  return null;
+}

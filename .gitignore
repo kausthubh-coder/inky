@@ -7,6 +7,8 @@ out/
 .vite/
 coverage/
 .playwright-mcp/
+.studi-qa/
+.studi-fresh/
 *.log
 *.tsbuildinfo
 .clerk/

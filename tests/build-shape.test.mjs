@@ -32,8 +32,6 @@ test("fresh TypeScript entrypoints and build outputs exist", async () => {
     "dist/electron/main.js",
     "dist/electron/preload.cjs",
     "dist/client/index.html",
-    "dist/server/index.js",
-    "dist/.openai/hosting.json",
   ];
 
   await Promise.all(requiredFiles.map((relativePath) => access(new URL(relativePath, root))));
@@ -72,7 +70,7 @@ test("production client output excludes discarded prototype fixtures", async () 
 test("package scripts target the fresh foundation", async () => {
   const packageJson = JSON.parse(await readFile(new URL("package.json", root), "utf8"));
   assert.equal(packageJson.main, "dist/electron/main.js");
-  for (const script of ["build", "build:electron", "typecheck", "test", "test:contracts", "test:agent", "test:storage", "test:foundation", "test:sites", "test:electron"]) {
+  for (const script of ["build", "build:electron", "typecheck", "test", "test:contracts", "test:agent", "test:storage", "test:foundation", "test:electron"]) {
     assert.equal(typeof packageJson.scripts[script], "string", `missing npm script: ${script}`);
   }
 

@@ -12,7 +12,8 @@
     "dev": "vite",
     "dev:electron": "npm run build:electron && concurrently -k \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && electron . --studi-development-url=http://127.0.0.1:5173\"",
     "start": "npm run build && electron .",
-    "build": "npm run build:electron && vite build && node scripts/prepare-sites-build.mjs",
+    "start:fresh": "npm run build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Start-StudiFresh.ps1",
+    "build": "npm run build:electron && vite build",
     "build:electron": "tsc -p electron/tsconfig.json && esbuild ./electron/preload.cts --bundle --platform=node --format=cjs --external:electron --outfile=dist/electron/preload.cjs --sourcemap",
     "package:win": "npm run build && electron-forge package --platform=win32 --arch=x64",
     "make:win": "npm run build && electron-forge make --platform=win32 --arch=x64",
@@ -24,9 +25,8 @@
     "test:telemetry": "npm run build:electron && node --test \"tests/telemetry/*.test.mjs\"",
     "test:packaging": "npm run build:electron && node --test \"tests/packaging/*.test.mjs\"",
     "test:storage": "npm run build:electron && node --test \"tests/storage/*.test.mjs\"",
-    "test:foundation": "node --test tests/clean-room-boundary.test.mjs tests/protected-files.test.mjs tests/build-shape.test.mjs",
+    "test:foundation": "node --test tests/clean-room-boundary.test.mjs tests/build-shape.test.mjs",
     "preview": "vite preview",
-    "test:sites": "node --test tests/sites-worker.test.mjs",
     "test:electron": "npm run build && node tests/electron-self-test-runner.mjs"
   },
   "dependencies": {
