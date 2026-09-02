@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>WP-01 code walkthrough · Studi</title>
+  <style>
+    :root{--paper:#fbf7ec;--panel:#fffdf7;--ink:#29251f;--muted:#71695f;--line:#39342e;--yellow:#f6c945;--mint:#dff4e9;--sky:#dcecff;--coral:#ffe1d8;--lav:#ebe3ff;--pink:#f7dbe7}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(circle at 1px 1px,#d8cfbd 1px,transparent 1.2px) 0 0/24px 24px,var(--paper);font:15px/1.58 "Nunito Sans",Inter,system-ui,sans-serif}a{color:inherit;text-underline-offset:3px}header{padding:42px max(20px,calc((100vw - 1080px)/2));border-bottom:3px solid var(--line);background:rgba(255,253,247,.96)}h1,h2,h3{line-height:1.12}h1{max-width:880px;margin:12px 0;font:700 clamp(2.5rem,7vw,5rem)/1.02 "Shantell Sans",cursive;letter-spacing:-.04em}header p{max-width:790px;color:var(--muted);font-size:1.06rem}.badge{display:inline-flex;padding:6px 10px;border:2px solid var(--line);border-radius:999px;background:var(--yellow);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}.links a,.button{padding:8px 11px;border:2px solid var(--line);border-radius:9px;background:#fff;text-decoration:none;font-weight:800;box-shadow:2px 2px 0 var(--line)}main{max-width:1080px;margin:auto;padding:32px 20px 100px}.toc{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:48px}.toc a{padding:14px;border:2px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none;font-weight:850;box-shadow:3px 3px 0 var(--line)}.toc a:nth-child(1){background:var(--sky)}.toc a:nth-child(2){background:var(--lav)}.toc a:nth-child(3){background:var(--mint)}.toc a:nth-child(4){background:var(--coral)}section{margin:0 0 58px}.lead{max-width:820px;color:var(--muted);font-size:1.03rem}.journey{display:grid;gap:14px;counter-reset:step}.step{position:relative;display:grid;grid-template-columns:54px minmax(0,1fr);gap:14px;padding:18px;border:2px solid var(--line);border-radius:14px;background:#fff;box-shadow:3px 3px 0 var(--line)}.step:before{counter-increment:step;content:counter(step);display:grid;place-items:center;width:42px;height:42px;border:2px solid var(--line);border-radius:50%;background:var(--yellow);font-weight:950;font-size:18px}.step:not(:last-child):after{content:"↓";position:absolute;left:31px;bottom:-25px;z-index:2;font-size:25px;font-weight:950}.step h3{margin:2px 0 7px}.step p{margin:7px 0;color:var(--muted)}.file{display:inline-block;margin-top:6px;font:700 12px/1.4 Consolas,monospace}.code{overflow:auto;margin:12px 0 2px;padding:14px;border:2px solid #181613;border-radius:11px;background:#28241f;color:#fff7e8;font:12px/1.55 Consolas,monospace;white-space:pre}.value{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.value div{padding:11px;border:2px solid var(--line);border-radius:10px;background:var(--panel)}.value strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.05em}.value code{display:block;margin-top:4px}.note{padding:15px;border:2px solid var(--line);border-radius:12px;background:var(--mint);box-shadow:3px 3px 0 var(--line)}.warning{background:var(--coral)}table{width:100%;border-collapse:collapse;border:2px solid var(--line);background:#fff}th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid #d5cbb8}th{background:#eee4ce;font-size:11px;text-transform:uppercase}tr:last-child td{border:0}code{padding:1px 4px;border-radius:4px;background:#eee6d7;font-family:Consolas,monospace;font-size:.9em}.code code{padding:0;background:transparent}.map{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{padding:17px;border:2px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:3px 3px 0 var(--line)}.sky{background:var(--sky)}.lav{background:var(--lav)}.mint{background:var(--mint)}.pink{background:var(--pink)}.finish{padding:20px;border:2px solid var(--line);border-radius:14px;background:#fff2b5;box-shadow:3px 3px 0 var(--line)}@media(max-width:760px){.toc,.map,.value{grid-template-columns:1fr}.step{grid-template-columns:44px minmax(0,1fr)}.step:not(:last-child):after{left:27px}}
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">WP-01 · code walkthrough</span>
+    <h1>Follow one value through Studi.</h1>
+    <p>This page explains the code in the order it runs. Start with a renderer call, cross the Electron boundary, make a school-work decision, then see how the tests catch false assumptions.</p>
+    <div class="links"><a href="wp-01.html">Back to conclusion</a><a href="../../plans/packages/wp-01-contracts.html">Package dossier</a><a href="../evidence/wp-01/ledger.md">Evidence ledger</a></div>
+  </header>
+
+  <main>
+    <nav class="toc" aria-label="Walkthrough sections">
+      <a href="#mental-model">1. Mental model</a>
+      <a href="#ipc">2. Electron call</a>
+      <a href="#domain">3. School-work decision</a>
+      <a href="#tests">4. Proof and debugging</a>
+    </nav>
+
+    <section id="mental-model">
+      <h2>The mental model</h2>
+      <p class="lead">WP-01 has two jobs. It defines valid data, and it defines where untrusted data gets checked. Everything else in the app will build on those decisions.</p>
+      <div class="map">
+        <article class="card sky"><h3>Pure domain code</h3><p>Assignments, permissions, tasks, runs, events, and tool envelopes live in <code>shared/</code>. These modules do not open windows, call the network, or write files. Give them values and they return a result.</p></article>
+        <article class="card lav"><h3>Electron boundary code</h3><p>The renderer can call named methods. The preload forwards the request. Main validates it, runs the handler, validates the response, and sends the result back.</p></article>
+      </div>
+      <p class="note"><strong>The rule worth remembering.</strong> TypeScript helps while writing code. Zod checks values while the app is running. Studi uses both because browser data and stored data can be wrong even when the source code compiled.</p>
+    </section>
+
+    <section id="ipc">
+      <h2>Journey one: the renderer asks for runtime information</h2>
+      <p class="lead">The production method takes no argument and returns the Electron, Chrome, Node, and Studi versions. A transforming test method proves the same design also works when input and output types change during validation.</p>
+      <div class="journey">
+        <article class="step"><div><h3>The registry defines the whole method</h3><p><code>studiIpcRegistry</code> binds a public method name to one fixed channel, one request schema, and one result schema. That single record generates both ends of IPC.</p><div class="code"><code>getRuntimeInfo: {
+  channel: "studi:runtime-info",
+  requestSchema: z.undefined(),
+  resultSchema: RuntimeInfoSchema
+}</code></div><a class="file" href="../../../shared/ipc.ts">shared/ipc.ts</a></div></article>
+
+        <article class="step"><div><h3>TypeScript derives the caller signature</h3><p><code>IpcApi</code> maps over every registry entry. Request-bearing methods accept the schema's input type. Their promises resolve to the result schema's output type.</p><div class="code"><code>type IpcMethod&lt;Definition&gt; = (
+  ...args: RequestArguments&lt;Definition&gt;
+) =&gt; Promise&lt;z.output&lt;Definition["resultSchema"]&gt;&gt;;</code></div><div class="value"><div><strong>Caller supplies</strong><code>z.input&lt;request&gt;</code></div><div><strong>Handler receives</strong><code>z.output&lt;request&gt;</code></div><div><strong>Caller receives</strong><code>z.output&lt;result&gt;</code></div></div><a class="file" href="../../../shared/ipc.ts">shared/ipc.ts</a></div></article>
+
+        <article class="step"><div><h3>The renderer sees one typed object</h3><p><code>window.d.ts</code> says that <code>window.studi</code> is the API generated from the registry. The React app does not copy the runtime-info shape. It imports the shared type and calls <code>getRuntimeInfo()</code>.</p><div class="code"><code>interface Window {
+  readonly studi?: StudiApi;
+}
+
+window.studi.getRuntimeInfo()</code></div><a class="file" href="../../../src/types/window.d.ts">src/types/window.d.ts</a> · <a class="file" href="../../../src/app/StudiApp.tsx">src/app/StudiApp.tsx</a></div></article>
+
+        <article class="step"><div><h3>The preload exposes named methods only</h3><p><code>createIpcApi</code> builds and freezes the object. It checks how many arguments the caller supplied. Then it invokes the channel stored in the registry. The renderer cannot provide its own channel name.</p><div class="code"><code>const studiApi = createIpcApi(
+  studiIpcRegistry,
+  (channel, request) =&gt; ipcRenderer.invoke(channel, request)
+);
+
+contextBridge.exposeInMainWorld("studi", studiApi);</code></div><a class="file" href="../../../electron/preload.cts">electron/preload.cts</a></div></article>
+
+        <article class="step"><div><h3>Main checks the request once</h3><p><code>createIpcHandlerRegistrations</code> builds the main-side registrations from the same registry. Its wrapper parses raw renderer input before calling the handler.</p><div class="code"><code>const request = contract.requestSchema.parse(rawRequest);
+const result = await handler(request);</code></div><p>A bad request still crosses Electron, because main is the trust boundary. It stops before the typed handler does any work.</p><a class="file" href="../../../shared/ipc.ts">shared/ipc.ts</a> · <a class="file" href="../../../electron/main.ts">electron/main.ts</a></div></article>
+
+        <article class="step"><div><h3>The handler returns schema input</h3><p>The handler receives normalized request output. It returns the result schema's input. This distinction matters for transforms. A handler may return <code>"accepted"</code>, while the schema turns that string into the number <code>8</code>.</p><div class="value"><div><strong>Raw request</strong><code>"studi"</code></div><div><strong>Handler sees</strong><code>5</code></div><div><strong>Handler returns</strong><code>"accepted"</code></div></div><a class="file" href="../../../shared/ipc.ts">shared/ipc.ts</a></div></article>
+
+        <article class="step"><div><h3>Main checks the result once</h3><p>The wrapper parses the handler result and returns the final output. The preload does not parse it again. That avoids the double-transform bug found during review.</p><div class="code"><code>return contract.resultSchema.parse(result);</code></div><div class="value"><div><strong>Schema input</strong><code>"accepted"</code></div><div><strong>Schema output</strong><code>8</code></div><div><strong>Renderer gets</strong><code>Promise&lt;number&gt;</code></div></div><a class="file" href="../../../shared/ipc.ts">shared/ipc.ts</a></div></article>
+      </div>
+    </section>
+
+    <section id="domain">
+      <h2>Journey two: an assignment becomes allowed work</h2>
+      <p class="lead">WP-01 does not scan a school or execute an assignment. It defines the decisions those later systems must make before work or submission can happen.</p>
+      <div class="journey">
+        <article class="step"><div><h3>A scanner produces an assignment candidate</h3><p><code>AssignmentSchema</code> requires a course, title, safe source URL, discovery time, and evidence. Strict objects reject unknown fields. Version 1 is explicit.</p><div class="code"><code>{
+  schemaVersion: 1,
+  assignmentId: "assignment-42",
+  courseId: "csc-316",
+  title: "Worksheet 7",
+  sourceTarget: "https://school.example/worksheet/7",
+  discoveredAt: "2026-08-31T14:00:00.000Z",
+  evidence: []
+}</code></div><a class="file" href="../../../shared/assignment.ts">shared/assignment.ts</a></div></article>
+
+        <article class="step"><div><h3>The source URL is screened for credentials</h3><p><code>SafeSourceTargetSchema</code> allows HTTP and HTTPS, rejects embedded usernames and passwords, and blocks secret-shaped query or fragment keys such as <code>token</code>, <code>cookie</code>, and <code>client_secret</code>.</p><p class="warning note"><strong>This is schema-level protection, not the whole privacy system.</strong> Later capture and export code must still redact summaries and opaque references before they leave the computer.</p><a class="file" href="../../../shared/ids.ts">shared/ids.ts</a> · <a class="file" href="../../../shared/evidence.ts">shared/evidence.ts</a></div></article>
+
+        <article class="step"><div><h3>The permission resolver finds the most specific rule</h3><p><code>resolvePermission</code> filters matching rules, then sorts by assignment, pattern, course, and global scope. Newer rules win equal scopes. A stable rule ID breaks the final tie.</p><div class="code"><code>assignment &gt; pattern &gt; course &gt; global
+
+no match        =&gt; do_not_attempt
+attempt         =&gt; mayAttempt: true,  maySubmit: false
+auto_submit     =&gt; mayAttempt: true,  maySubmit: true</code></div><p>Pattern rules must match both a pattern ID and the course. A similar title in another class cannot grant submission permission.</p><a class="file" href="../../../shared/permission.ts">shared/permission.ts</a></div></article>
+
+        <article class="step"><div><h3>A task changes state through one function</h3><p><code>transitionTask</code> looks up the allowed destinations for the current state. An invalid move returns a typed rejection and leaves the task untouched.</p><div class="code"><code>discovered -&gt; queued
+queued     -&gt; working
+working    -&gt; needs_user | ready_review | submitting
+submitting -&gt; submitted | needs_user | working | failed</code></div><p>A valid move creates a new task revision and a matching <code>task_state_changed</code> event. The function does not write storage or read the clock.</p><a class="file" href="../../../shared/task.ts">shared/task.ts</a></div></article>
+
+        <article class="step"><div><h3>The event proves what changed</h3><p>The event records the task and run IDs, sequence, time, prior state, next state, and new revision. <code>verifyEventOrder</code> rejects duplicate or decreasing sequence numbers.</p><div class="code"><code>{
+  aggregateType: "task",
+  runId: "run-9",
+  sequence: 12,
+  type: "task_state_changed",
+  payload: { from: "working", to: "ready_review", revision: 4 }
+}</code></div><a class="file" href="../../../shared/event.ts">shared/event.ts</a> · <a class="file" href="../../../shared/task.ts">shared/task.ts</a></div></article>
+
+        <article class="step"><div><h3>A future browser mutation carries enough identity</h3><p><code>ToolMutationEnvelopeSchema</code> requires task, run, tab, tool-call, and idempotency IDs plus the page revision the agent expects. The result repeats those IDs, records the new page revision, and attaches evidence.</p><p>This does not control a browser yet. It gives WP-04 and WP-05 a contract that can reject stale or duplicated mutations.</p><a class="file" href="../../../shared/tool.ts">shared/tool.ts</a></div></article>
+      </div>
+    </section>
+
+    <section id="tests">
+      <h2>Journey three: how the tests prove the design</h2>
+      <p class="lead">The useful tests follow the same boundaries as production. They do not call a fake helper that skips main validation.</p>
+      <table>
+        <thead><tr><th>Question</th><th>Proof</th><th>Where</th></tr></thead>
+        <tbody>
+          <tr><td>Does a transforming IPC request parse twice?</td><td>Counters assert one request transform, one handler call, one result transform, and one fixed-channel transport call.</td><td><a href="../../../tests/contracts/ipc.test.mjs">ipc.test.mjs</a></td></tr>
+          <tr><td>Are caller and handler types pointed in the right direction?</td><td>A no-emit TypeScript fixture compiles valid calls and consumes <code>@ts-expect-error</code> for the wrong input, output, and arity.</td><td><a href="../../../tests/contracts/ipc-types.fixture.ts">ipc-types.fixture.ts</a></td></tr>
+          <tr><td>Can a malformed renderer request reach a handler?</td><td>The composed test sends invalid runtime data and asserts that the typed handler count does not change.</td><td><a href="../../../tests/contracts/ipc.test.mjs">ipc.test.mjs</a></td></tr>
+          <tr><td>Can a malformed handler result reach the renderer?</td><td>Main-side result parsing throws a Zod error before the composed API resolves.</td><td><a href="../../../tests/contracts/ipc.test.mjs">ipc.test.mjs</a></td></tr>
+          <tr><td>Can a broad rule override a specific one?</td><td>Table and property tests shuffle rules and still produce assignment, pattern, course, global order.</td><td><a href="../../../tests/contracts/permission.test.mjs">permission.test.mjs</a></td></tr>
+          <tr><td>Can an invalid task transition mutate state?</td><td>The full state-pair table and generated tasks assert rejection and input immutability.</td><td><a href="../../../tests/contracts/task-transition.test.mjs">task-transition.test.mjs</a></td></tr>
+          <tr><td>Does this work through real Electron?</td><td>The self-test loads the compiled renderer, calls both preload methods, injects malformed results and load failures, then verifies profile cleanup.</td><td><a href="../../../tests/electron-self-test-runner.mjs">electron-self-test-runner.mjs</a></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Debug it without wandering through the repository</h2>
+      <div class="journey">
+        <article class="step"><div><h3>Start at the value that failed</h3><p>If parsing failed, identify the schema and inspect its Zod error path. Do not begin in React or Electron.</p></div></article>
+        <article class="step"><div><h3>Check the pure decision</h3><p>For task or permission failures, reproduce the input with the focused contract test. These functions have no runtime dependencies.</p></div></article>
+        <article class="step"><div><h3>Check the shared IPC composition</h3><p>For bridge failures, run <code>node --test tests/contracts/ipc.test.mjs</code>. Confirm the registry, arity, request parse, handler, and result parse in that order.</p></div></article>
+        <article class="step"><div><h3>Cross the actual desktop boundary last</h3><p>Run <code>npm run test:electron</code>. Inspect preload exposure, main registration, renderer readiness, malformed-result rejection, and temporary-profile cleanup.</p></div></article>
+      </div>
+    </section>
+
+    <section class="finish">
+      <h2>What to carry into WP-02</h2>
+      <p>The database should store only values accepted by these schemas. Rebuilding a task projection should replay ordered events through the same transition rules. Permission records should preserve course-bound pattern identity. Storage must not invent a second version of any WP-01 type.</p>
+      <p><a class="button" href="wp-01.html">Return to the WP-01 conclusion</a></p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,42 @@
+{
+  "capturedAt": "2026-09-01T13:30:37.958Z",
+  "buildCommand": "npm run build",
+  "buildExitCode": 0,
+  "electron": {
+    "command": "electron . --remote-debugging-port=9222 --remote-debugging-address=127.0.0.1",
+    "cdpEndpoint": "127.0.0.1:9222",
+    "processId": 46148
+  },
+  "provider": {
+    "state": "ready",
+    "provider": "openai-codex",
+    "model": "gpt-5.6-terra",
+    "thinkingLevel": "medium",
+    "sessionId": "01a05d2a-07bb-7598-aa8c-c1511ba840ed"
+  },
+  "profile": {
+    "studentName": "Kaust",
+    "schoolRoot": "https://moodle-courses2527.wolfware.ncsu.edu/course/view.php?id=13261&bp=s",
+    "defaultPermission": "do_not_attempt",
+    "scanCadence": "manual",
+    "onboardingState": "needs_sign_in"
+  },
+  "scan": {
+    "scanId": "scan-cecac7fc-ba36-43c2-924f-330b7f9d3c41",
+    "kind": "first_scan",
+    "state": "needs_user",
+    "currentStep": "NC State Shibboleth login requires the student's password and Duo verification.",
+    "handoffKind": "school_sign_in",
+    "evidenceKind": "agent_observation",
+    "evidenceSourceTarget": "https://shib.ncsu.edu/idp/profile/SAML2/POST/SSO?execution=e2s1",
+    "courseCount": 0,
+    "assignmentCount": 0,
+    "linkedSystemCount": 0,
+    "coverageCount": 0,
+    "failures": []
+  },
+  "workflowRevision": null,
+  "resumed": false,
+  "replayed": false,
+  "reasonStopped": "The real school required the student's password and Duo verification. No credentials were entered or changed."
+}

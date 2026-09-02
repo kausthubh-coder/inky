@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>WP-04 + WP-05 dossier · Studi browser agent</title>
+  <style>
+    :root{--paper:#fbf7ec;--panel:#fffdf7;--ink:#29251f;--line:#39342e;--yellow:#f6c945;--mint:#dff4e9;--sky:#dcecff;--coral:#ffe1d8}*{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--paper);font:15px/1.55 "Nunito Sans",Inter,system-ui,sans-serif}header,main{max-width:980px;margin:auto;padding:32px 20px}h1,h2{line-height:1.12}h1{font:700 clamp(2.2rem,6vw,4.3rem)/1.03 "Shantell Sans",cursive;letter-spacing:-.035em}a{color:inherit}.badge{display:inline-block;padding:5px 9px;border:2px solid var(--line);border-radius:999px;background:var(--yellow);font-weight:900}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{padding:17px;border:2px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:3px 3px 0 var(--line)}.wide{grid-column:1/-1}.mint{background:var(--mint)}.sky{background:var(--sky)}.coral{background:var(--coral)}code{padding:1px 4px;background:#eee6d7;border-radius:4px}li{margin:.35rem 0}@media(max-width:680px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}}
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">WP-04 + WP-05 · verified 2026-09-01</span>
+    <h1>A real Codex-backed Pi agent controls Studi's visible school browser.</h1>
+    <p>This combines the embedded-browser controller and Pi browser tools because the useful proof crosses both. The final live check uses an actual Moodle account after the user supplies the URL and signs in.</p>
+  </header>
+  <main class="grid">
+    <article class="card mint"><h2>Outcome</h2><p>Studi opens one visible persistent <code>WebContentsView</code>. A real Pi session authenticated through the built-in <code>openai-codex</code> provider observes and safely operates that same browser through Studi-owned tools.</p></article>
+    <article class="card sky"><h2>User path</h2><p>Open Studi, connect the Codex subscription, enter the school URL, sign in inside the embedded browser, then ask the agent to inspect or navigate a real Moodle page while every action stays visible.</p></article>
+
+    <article class="card wide"><h2>Smallest useful shape</h2><ul>
+      <li>Electron main owns one browser profile, one visible view, and one CDP attachment.</li>
+      <li>The controller exposes a small set of page operations. Pi never receives raw CDP access.</li>
+      <li>A snapshot has a page revision and bounded element refs. An action rejects refs from an older revision.</li>
+      <li>Pi tools map directly to controller operations. Ordinary click cannot approve a known submission control; submission remains a separate explicit tool.</li>
+      <li>The existing Pi runtime gains real <code>openai-codex</code> login and model selection. Credentials stay in Pi's app-owned credential store.</li>
+    </ul></article>
+
+    <article class="card"><h2>Implement now</h2><ol><li>Create and lay out the persistent visible browser.</li><li>Attach Electron's debugger transport and recover from detach when safe.</li><li>Navigate, snapshot, click, type, select, press keys, and wait using CDP.</li><li>Return concise post-action evidence.</li><li>Register these operations as the only Pi tools.</li><li>Add the real Codex subscription login path.</li><li>Add only focused programmatic checks the implementer needs.</li></ol></article>
+    <article class="card coral"><h2>Do not build</h2><ul><li>No hidden Playwright or second browser.</li><li>No fake LMS application.</li><li>No LMS-specific completion code.</li><li>No manager queue, scheduling, memory, downloads framework, or polished onboarding.</li><li>No broad browser automation framework or raw CDP passthrough.</li><li>No automatic submission during the live Moodle proof.</li></ul></article>
+
+    <article class="card wide"><h2>Live tester path</h2><ol>
+      <li>Launch the real desktop app.</li>
+      <li>Use Studi's Pi login path to authenticate the user's ChatGPT Plus/Pro Codex subscription.</li>
+      <li>Ask the user for the Moodle URL and let the user sign in inside the visible embedded browser.</li>
+      <li>Run a real Pi agent request that snapshots the page and uses Studi browser tools to reach a user-selected safe course or assignment page.</li>
+      <li>Confirm the browser stayed visible, the same profile retained login, the agent received bounded observations, and no submission occurred.</li>
+      <li>Restart Studi and confirm the browser login and Pi provider remain usable.</li>
+    </ol><p>The tester changes no code and adds no automated tests. If the run fails, it records the shortest reproduction and stops.</p></article>
+
+    <article class="card"><h2>Verified result</h2><p>A real Codex-authenticated Pi session operated the visible embedded browser on the user's Moodle through Studi tools and could not submit through an ordinary click. Direct relaunch now restores the correct Studi renderer and Codex readiness. A full process quit may require LMS reauthentication because Studi does not extend identity-provider session cookies; WP-08 will preserve the normal window-close session through the tray lifecycle.</p></article>
+    <article class="card"><h2>Reviewer standard</h2><p>Rate the implementation out of 10 for elegance, traceability, and current maintainability. Approve a good implementation. Block only failed approved behavior or a clearly simpler design with meaningful current benefit. On live-test failure, diagnose and write the repair brief.</p></article>
+
+    <article class="card wide"><h2>Debug order and sources</h2><p>Start at view creation and persistent session, then bounds and navigation, debugger attachment, snapshot/ref generation, controller actions, Pi tool mapping, Codex login, and finally the live agent turn.</p><p>Primary references: <a href="https://www.electronjs.org/docs/latest/api/web-contents-view">Electron WebContentsView</a>, <a href="https://www.electronjs.org/docs/latest/api/debugger">Electron Debugger</a>, <a href="https://chromedevtools.github.io/devtools-protocol/tot/Accessibility/">CDP Accessibility</a>, <a href="https://github.com/ChromeDevTools/chrome-devtools-mcp">Chrome DevTools MCP</a>, and <a href="https://github.com/vercel-labs/agent-browser">agent-browser</a>.</p></article>
+  </main>
+</body>
+</html>

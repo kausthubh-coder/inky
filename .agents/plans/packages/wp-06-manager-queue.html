@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WP-06 · Manager, queue, workers, and rules</title>
+  <style>
+    :root { color-scheme: light; --paper:#fffaf0; --ink:#29251f; --line:#3b352d; --yellow:#ffd54f; --mint:#d8f3e8; --sky:#dbeafe; --coral:#ffd9cf; --muted:#6f675d; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.55 "Nunito Sans",system-ui,sans-serif; }
+    main { width:min(1050px,calc(100% - 32px)); margin:32px auto 72px; }
+    h1,h2,h3 { font-family:"Shantell Sans",system-ui,sans-serif; line-height:1.15; }
+    h1 { font-size:clamp(2rem,5vw,4rem); margin:.2rem 0 .7rem; }
+    h2 { margin:0 0 12px; }
+    h3 { margin:18px 0 8px; }
+    .kicker { font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+    .lead { max-width:780px; font-size:1.16rem; color:var(--muted); }
+    .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-top:24px; }
+    .card { border:2px solid var(--line); border-radius:18px; padding:20px; box-shadow:4px 4px 0 var(--line); background:white; }
+    .full { grid-column:1/-1; }
+    .yellow { background:#fff3bf; } .mint { background:var(--mint); } .sky { background:var(--sky); } .coral { background:var(--coral); }
+    code { background:#f2ede3; border-radius:5px; padding:.1em .35em; }
+    li + li { margin-top:7px; }
+    .gate { border-left:8px solid #36a269; }
+    .stop { border-left:8px solid #d25c4d; }
+    @media (max-width:720px) { .grid { grid-template-columns:1fr; } .full { grid-column:auto; } }
+  </style>
+</head>
+<body>
+<main>
+  <span class="kicker">WP-06 · verified implementation dossier</span>
+  <h1>One durable manager owns what runs next.</h1>
+  <p class="lead">This package turns stored assignments, rules, preferences, memories, and Pi sessions into a restart-safe queue. It does not scan an LMS or complete an assignment yet. <a href="../../qa/conclusions/wp-06.html">Read the verified conclusion</a> or <a href="../../qa/conclusions/wp-06-code-walkthrough.html">walk through the code</a>.</p>
+
+  <div class="grid">
+    <section class="card yellow full">
+      <h2>Observable outcome</h2>
+      <p>Studi can queue eligible assignments by deadline and priority, steer one task to the front, lease exactly one browser-driving worker, cancel work, and resume the same ordering after the local store is reopened. A real Pi manager turn can inspect and steer that queue through narrow Studi tools.</p>
+    </section>
+
+    <section class="card sky">
+      <h2>State and ownership</h2>
+      <ul>
+        <li>The Electron main process owns one <strong>ManagerCoordinator</strong>.</li>
+        <li>SQLite owns durable queue entries, priority, lease state, worker session linkage, and confirmed pattern matches.</li>
+        <li>The existing task event stream remains the source of task state.</li>
+        <li>Pi owns session transcripts. One manager session is long-lived; assignment workers are explicit child sessions.</li>
+        <li>Markdown preferences are injected every manager turn. Scoped Markdown memories are retrieved separately and labeled as memory.</li>
+      </ul>
+    </section>
+
+    <section class="card mint">
+      <h2>Core data shape</h2>
+      <p>A queue entry binds one task to its course, due time, priority, enqueue time, resolved permission, optional confirmed pattern match, and optional lease. A lease has one worker/session identity and one lifecycle state. The coordinator derives the next item from durable rows rather than keeping a second in-memory queue.</p>
+      <p>Permission resolution must build its pattern context from repository-owned confirmed matches. The agent cannot assert a pattern ID in a tool call.</p>
+    </section>
+
+    <section class="card full">
+      <h2>Implementation sequence</h2>
+      <ol>
+        <li>Add the smallest versioned SQLite records needed for queue entries, confirmed assignment-pattern matches, and the single active worker lease.</li>
+        <li>Add a coordinator that resolves stored permissions, rejects <code>do_not_attempt</code>, orders queued work by manual priority then deadline, and atomically acquires/releases the one lease.</li>
+        <li>Support enqueue, steer-next, cancel, start-next, finish, and reopen recovery. A crashed active lease returns to queued work unless the stored task state says otherwise.</li>
+        <li>Create one persistent manager Pi session and explicit worker sessions. Do not create a generic multi-agent framework.</li>
+        <li>Give the manager narrow queue inspection and steering tools. Do not give it raw SQL, filesystem access, or authority to invent permission provenance.</li>
+        <li>Load global preferences on every turn. Retrieve only explicitly scoped memories requested by the coordinator and keep their prompt sections distinct.</li>
+        <li>Expose a minimal Electron/renderer control to run a real manager turn and show the queue before and after steering.</li>
+        <li>Run a subtraction pass and remove any wrapper, table, or test that does not protect this outcome.</li>
+      </ol>
+    </section>
+
+    <section class="card coral">
+      <h2>Current risks worth proving</h2>
+      <ul>
+        <li>Equal deadlines still follow explicit manual priority.</li>
+        <li>A permission change while queued is re-resolved before lease acquisition.</li>
+        <li>Two start attempts cannot own the browser lease together.</li>
+        <li>Reopening SQLite produces the same next item and recovers a crashed lease.</li>
+        <li>Manager compaction or session replacement does not change durable queue state.</li>
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Deliberately excluded</h2>
+      <ul>
+        <li>LMS discovery, course scanning, and pattern clustering. WP-07 owns those.</li>
+        <li>Browser completion, takeover, submission, timers, and fallback answers. WP-09 owns those.</li>
+        <li>Tray scheduling and native notifications. WP-08 owns those.</li>
+        <li>A general job runner, distributed queue, multiple browser workers, or plugin system.</li>
+        <li>Model-written permission rules without explicit user confirmation.</li>
+      </ul>
+    </section>
+
+    <section class="card gate full">
+      <h2>Pass conditions</h2>
+      <ul>
+        <li>Focused deterministic checks prove ordering, permission refresh, single leasing, steering, cancellation, crash recovery, and reopen equivalence.</li>
+        <li>The desktop app runs one real Codex-backed Pi manager turn that reads the durable queue and performs a safe steering action through Studi tools.</li>
+        <li>A tester closes and reopens the app, observes the same durable next task, and confirms a second worker cannot start while the first lease is active.</li>
+        <li>Contract, storage, agent, Electron, and protected Sites gates remain green where the changed boundary reaches them.</li>
+        <li>The reviewer finds no concrete blocker in elegance, traceability, or maintainability.</li>
+      </ul>
+    </section>
+
+    <section class="card stop full">
+      <h2>Fail conditions</h2>
+      <p>WP-06 fails if queue order lives only in memory, preferences and memories share an undifferentiated prompt blob, the agent can assert pattern provenance, permission changes are ignored at start time, two workers can lease the browser, or the real run is replaced with a fake.</p>
+    </section>
+  </div>
+</main>
+</body>
+</html>

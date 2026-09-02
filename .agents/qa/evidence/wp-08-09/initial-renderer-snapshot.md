@@ -1,0 +1,79 @@
+- main [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: S
+      - generic [ref=e7]:
+        - paragraph [ref=e8]: Studi beta
+        - heading "Kaust's school" [level=1] [ref=e9]
+    - generic [ref=e12]:
+      - strong [ref=e13]: Codex is ready
+      - paragraph [ref=e14]: OpenAI Codex is ready to use.
+    - generic [ref=e15]:
+      - generic [ref=e16]: Agent model
+      - combobox "Agent model" [ref=e17]:
+        - option "GPT-5.3 Codex Spark"
+        - option "GPT-5.4"
+        - option "GPT-5.4 mini"
+        - option "GPT-5.5"
+        - option "GPT-5.6 Luna"
+        - option "GPT-5.6 Sol"
+        - option "GPT-5.6 Terra" [selected]
+    - generic [ref=e18]:
+      - generic [ref=e19]:
+        - generic [ref=e20]: "1"
+        - generic [ref=e21]:
+          - strong [ref=e22]: Local setup
+          - generic [ref=e23]: Only preferences enter Studi.
+      - generic [ref=e24]:
+        - generic [ref=e25]: Your name
+        - textbox "Your name" [ref=e26]: Kaust
+      - generic [ref=e27]:
+        - generic [ref=e28]: School URL
+        - textbox "School URL" [ref=e29]:
+          - /placeholder: https://school.example.edu
+          - text: https://moodle-courses2527.wolfware.ncsu.edu/course/view.php?id=13261&bp=s
+      - generic [ref=e30]:
+        - generic [ref=e31]:
+          - generic [ref=e32]: Default work rule
+          - combobox "Default work rule" [ref=e33]:
+            - option "Ask first" [selected]
+            - option "Attempt, never submit"
+            - option "Auto-submit allowed"
+        - generic [ref=e34]:
+          - generic [ref=e35]: Scan cadence
+          - combobox "Scan cadence" [ref=e36]:
+            - option "Manual" [selected]
+            - option "Daily"
+            - option "Weekly"
+      - button "Save setup" [ref=e37] [cursor=pointer]
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - generic [ref=e40]: "2"
+        - generic [ref=e41]:
+          - strong [ref=e42]: Sign in where you can see it
+          - generic [ref=e43]: No password field exists in Studi.
+      - button "Open school browser" [ref=e44] [cursor=pointer]
+      - generic [ref=e45]:
+        - generic [ref=e46]: Visible browser
+        - strong [ref=e47]: NC State Shibboleth Login
+        - generic [ref=e48]: https://shib.ncsu.edu/idp/profile/SAML2/POST/SSO?execution=e2s1
+    - generic [ref=e49]:
+      - generic [ref=e50]:
+        - generic [ref=e51]: "3"
+        - generic [ref=e52]:
+          - strong [ref=e53]: Evidence-backed scan
+          - generic [ref=e54]: Waiting for you to sign in.
+      - generic [ref=e55]:
+        - strong [ref=e56]: NC State Shibboleth login requires the student's password and Duo verification.
+        - generic [ref=e57]: 0 courses · 0 assignments · 0 linked systems
+      - generic [ref=e58]:
+        - strong [ref=e59]: Your turn in the browser
+        - paragraph [ref=e60]: NC State Shibboleth login requires the student's password and Duo verification.
+        - button "I signed in, resume" [ref=e61] [cursor=pointer]
+    - generic [ref=e62]:
+      - generic [ref=e63]: Durable work queue
+      - strong [ref=e64]: 0 queued
+      - generic [ref=e65]: No assignment worker owns the browser
+    - generic [ref=e66]: Passwords, cookies, page HTML, and screenshots stay out of Studi storage.
+  - region "Visible persistent school browser" [ref=e67]:
+    - generic [ref=e68]: Persistent school browser

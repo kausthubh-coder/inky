@@ -1,0 +1,4 @@
+interface:
+  display_name: "Test Studi"
+  short_description: "Run Studi's isolated end-to-end desktop journey"
+  default_prompt: "Use $test-studi to exercise the built Studi app through its real isolated Electron, Clerk, and Convex journey and retain concise evidence."

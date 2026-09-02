@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>WP-03 code walkthrough · Studi</title>
+  <style>
+    :root{--paper:#fbf7ec;--panel:#fffdf7;--ink:#29251f;--muted:#71695f;--line:#39342e;--yellow:#f6c945;--mint:#dff4e9;--sky:#dcecff;--coral:#ffe1d8}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(circle at 1px 1px,#d8cfbd 1px,transparent 1.2px) 0 0/24px 24px,var(--paper);font:15px/1.58 "Nunito Sans",Inter,system-ui,sans-serif}a{color:inherit;text-underline-offset:3px}header{padding:42px max(20px,calc((100vw - 1060px)/2));border-bottom:3px solid var(--line);background:rgba(255,253,247,.95)}h1,h2,h3{line-height:1.12}h1{max-width:900px;margin:12px 0;font:700 clamp(2.4rem,7vw,4.8rem)/1.02 "Shantell Sans",cursive;letter-spacing:-.04em}header p{max-width:820px;color:var(--muted);font-size:1.05rem}.badge{display:inline-flex;padding:6px 10px;border:2px solid var(--line);border-radius:999px;background:var(--yellow);font-size:12px;font-weight:900;text-transform:uppercase}.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}.links a,.file{padding:7px 10px;border:2px solid var(--line);border-radius:8px;background:#fff;text-decoration:none;font-weight:800;box-shadow:2px 2px 0 var(--line)}main{max-width:1060px;margin:auto;padding:34px 20px 100px}.mental{padding:20px;border:3px solid var(--line);border-radius:16px;background:var(--mint);box-shadow:4px 4px 0 var(--line)}.mental pre{background:transparent;color:var(--ink);padding:0;margin:14px 0 0}.size{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:20px 0 46px}.metric{padding:16px;border:2px solid var(--line);border-radius:12px;background:#fff;box-shadow:3px 3px 0 var(--line)}.metric strong{display:block;font-size:1.8rem}.metric span{color:var(--muted)}section{margin:0 0 46px}.step{padding:22px;border:2px solid var(--line);border-radius:16px;background:var(--panel);box-shadow:3px 3px 0 var(--line)}.step+.step{margin-top:18px}.step-no{display:inline-grid;place-items:center;width:36px;height:36px;border:2px solid var(--line);border-radius:50%;background:var(--yellow);font-weight:900}.step h2{display:inline;margin-left:8px;font-size:1.55rem}.step p{max-width:860px}.files{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}.flow{padding:12px 14px;border-left:7px solid var(--yellow);background:#fff5c9;font-weight:800}.why{padding:12px 14px;border:2px solid var(--line);border-radius:10px;background:var(--sky)}pre{overflow:auto;padding:16px;border-radius:11px;background:#28241f;color:#fff7e8;font:12px/1.55 Consolas,monospace}code{padding:1px 4px;border-radius:4px;background:#eee6d7;font-family:Consolas,monospace;font-size:.9em}pre code{padding:0;background:transparent}.truth{padding:18px;border:2px solid var(--line);border-radius:14px;background:var(--coral);box-shadow:3px 3px 0 var(--line)}table{width:100%;border-collapse:collapse;border:2px solid var(--line);background:#fff}th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid #d5cbb8}th{background:#eee4ce;font-size:12px;text-transform:uppercase}tr:last-child td{border:0}@media(max-width:760px){.size{grid-template-columns:1fr}.step h2{display:block;margin:10px 0 0}}
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">WP-03 · full code trace</span>
+    <h1>Follow one Studi prompt through Pi, a tool call, persistence, and replacement.</h1>
+    <p>This is an execution trace, not a file tour. The excerpts isolate decision points; they are not the total implementation. Every step links the complete source.</p>
+    <div class="links"><a href="wp-03.html">Package conclusion</a><a href="../../plans/packages/wp-03-pi-runtime.html">Dossier</a><a href="../evidence/wp-03/ledger.md">Evidence ledger</a></div>
+  </header>
+  <main>
+    <section id="mental-model" class="mental">
+      <h2>Mental model</h2>
+      <p>Pi owns model execution. Studi owns which tools exist, what events consumers see, where sessions persist, and what provider information may leave the boundary.</p>
+      <pre>manager / onboarding / future worker
+            │
+            ▼
+      AgentRuntime contract
+       ├─ PiAgentRuntime ── ModelRuntime + persistent SessionManager
+       │       └─ PiBackedAgentSession
+       │            ├─ only studi_probe (WP-03)
+       │            └─ Pi events → PiEventNormalizer → AgentRunEvent
+       └─ FakeAgentRuntime ── same consumer contract, no network
+
+replacement: create next Pi session → rebind → dispose old
+provider check: ModelRuntime.checkAuth → fixed, redacted ProviderStatus</pre>
+    </section>
+
+    <section class="size">
+      <article class="metric"><strong>656</strong><span>lines in the complete production runtime, including real adapter, normalizer, and deterministic fake</span></article>
+      <article class="metric"><strong>97</strong><span>lines in the shared normalized event and provider-status contract</span></article>
+      <article class="metric"><strong>4</strong><span>focused agent tests covering distinct runtime and failure boundaries</span></article>
+    </section>
+    <section class="truth"><strong>About the excerpts:</strong> they are deliberately short so the control flow stays readable. The runtime itself is 656 lines, the shared contract is 97 lines, and the focused test file is 328 lines. Use the full-source links to inspect all of it.</section>
+
+    <section class="step">
+      <span class="step-no">1</span><h2>Consumers receive a Pi-free contract</h2>
+      <div class="files"><a class="file" href="../../../shared/agent-runtime.ts#L1">Full <code>shared/agent-runtime.ts</code> · 97 lines</a><a class="file" href="../../../electron/agent/runtime.ts#L28">Runtime interfaces</a></div>
+      <p class="flow">unknown Pi activity → validated <code>AgentRunEvent</code> → manager, desk, logs, or tests</p>
+      <p>The shared union names only product-relevant activity: text, tool start/finish, retry, compaction, abort, and terminal. Provider status has three states and a small login-method enum. No Pi event type, credential path, or provider error is part of the consumer API.</p>
+      <pre><code>export const AgentRunEventSchema = z.union([
+  AgentTextEventSchema,
+  AgentToolStartedEventSchema,
+  AgentToolFinishedEventSchema,
+  AgentRetryEventSchema,
+  AgentCompactionEventSchema,
+  AgentAbortedEventSchema,
+  AgentTerminalEventSchema,
+]);</code></pre>
+      <p class="why"><strong>Boundary rule:</strong> later packages can depend on Studi concepts without learning Pi's internal event vocabulary.</p>
+    </section>
+
+    <section class="step">
+      <span class="step-no">2</span><h2>The runtime creates the one shared Pi environment</h2>
+      <div class="files"><a class="file" href="../../../electron/agent/runtime.ts#L71">Full runtime from <code>PiAgentRuntime</code></a></div>
+      <p class="flow"><code>PiAgentRuntime.create</code> → credential store + model registry → local Pi paths → runtime ready</p>
+      <p>The runtime owns Pi setup once. Production may use Pi's normal registry and authentication stores; tests inject a deterministic model runtime. Resource discovery is explicitly empty so a user's unrelated Pi extensions, skills, templates, themes, or context files cannot silently alter Studi behavior.</p>
+      <pre><code>const resourceLoader = new DefaultResourceLoader({
+  cwd,
+  agentDir,
+  noExtensions: true,
+  noSkills: true,
+  noPromptTemplates: true,
+  noThemes: true,
+  noContextFiles: true,
+});</code></pre>
+    </section>
+
+    <section class="step">
+      <span class="step-no">3</span><h2>Session construction proves the tool boundary</h2>
+      <div class="files"><a class="file" href="../../../electron/agent/runtime.ts#L142">Pi session factory</a></div>
+      <p class="flow">persistent/open session manager → Pi <code>createAgentSession</code> → exact tool assertion → wrapper</p>
+      <p>WP-03 registers one harmless tool. Pi's built-ins are disabled, only <code>studi_probe</code> is configured, and the runtime checks the active session after construction. If a future SDK update changes the meaning of those options, startup fails instead of exposing shell or filesystem access.</p>
+      <pre><code>const result = await createAgentSession({
+  ...options,
+  noTools: "all",
+  customTools: [studiProbeTool],
+  tools: ["studi_probe"],
+});
+assertExactTools(result.session, ["studi_probe"]);</code></pre>
+      <p class="why"><strong>What comes later:</strong> WP-05 will replace this probe with policy-aware browser tools. WP-03 does not prebuild that framework.</p>
+    </section>
+
+    <section class="step">
+      <span class="step-no">4</span><h2>The wrapper is the sole live-session owner</h2>
+      <div class="files"><a class="file" href="../../../electron/agent/runtime.ts#L218">Full <code>PiBackedAgentSession</code></a></div>
+      <p class="flow"><code>prompt</code> / <code>abort</code> / <code>compact</code> → underlying Pi session → one subscription → Studi listeners</p>
+      <p>The wrapper keeps one Pi session, one Pi unsubscribe function, one normalizer, and a set of Studi listeners. It emits a fallback terminal event only if Pi did not already provide one. Disposal is idempotent and delegates resource cleanup to Pi.</p>
+      <pre><code>subscribe(listener) {
+  this.listeners.add(listener);
+  return () =&gt; this.listeners.delete(listener);
+}
+
+#emit(event) {
+  const parsed = AgentRunEventSchema.parse(event);
+  for (const listener of this.listeners) listener(parsed);
+}</code></pre>
+    </section>
+
+    <section class="step">
+      <span class="step-no">5</span><h2>The normalizer translates behavior, not implementation detail</h2>
+      <div class="files"><a class="file" href="../../../electron/agent/runtime.ts#L332">Full <code>PiEventNormalizer</code></a></div>
+      <p class="flow">Pi event → update minimal turn state → zero or one normalized event → Zod validation</p>
+      <p>The normalizer remembers only what terminal reporting needs and whether abort was already emitted. Tool names and text cross the boundary; retry and compaction errors do not. Fixed Studi messages prevent tokens, paths, headers, or upstream details from leaking through status UI or analytics.</p>
+      <pre><code>case "auto_retry_end":
+  return [{
+    type: "retry",
+    phase: "finished",
+    succeeded: event.success,
+    reason: event.success ? undefined : SAFE_RETRY_FAILURE,
+  }];</code></pre>
+    </section>
+
+    <section class="step">
+      <span class="step-no">6</span><h2>Replacement is transactional at the object boundary</h2>
+      <div class="files"><a class="file" href="../../../electron/agent/runtime.ts#L286">Real session replacement</a></div>
+      <p class="flow">create next → if successful, unsubscribe old → swap → reset → subscribe next → dispose old</p>
+      <p>The old session remains usable if creation fails. After a successful swap, listeners registered by Studi remain in the wrapper and receive resumed events. Only the Pi subscription changes.</p>
+      <pre><code>const next = await this.createPiSession(target);
+const previous = this.session;
+this.unsubscribePi();
+this.session = next;
+this.normalizer.reset();
+this.bindPiSession();
+previous.dispose();</code></pre>
+      <p class="why"><strong>Ownership result:</strong> there is never a moment when two Pi sessions can publish through the same wrapper.</p>
+    </section>
+
+    <section class="step">
+      <span class="step-no">7</span><h2>Provider readiness leaves credentials behind</h2>
+      <div class="files"><a class="file" href="../../../electron/agent/runtime.ts#L109">Provider status boundary</a></div>
+      <p class="flow">provider ID → registered Pi provider → <code>ModelRuntime.checkAuth</code> → parsed, fixed <code>ProviderStatus</code></p>
+      <p>Known providers may return safe display identity and supported login methods. Unknown or failed checks return fixed Studi reasons. Raw inputs, credential sources, Windows paths, tokens, and upstream errors are not forwarded.</p>
+    </section>
+
+    <section class="step">
+      <span class="step-no">8</span><h2>The fake matches the boundary, not Pi internals</h2>
+      <div class="files"><a class="file" href="../../../electron/agent/runtime.ts#L522">Full <code>FakeAgentRuntime</code></a><a class="file" href="../../../tests/agent/agent-runtime.test.mjs">Full focused tests · 328 lines</a></div>
+      <p>The fake implements the same runtime and session interfaces, validates injected events, retains listeners across replacement, and supports prompt, abort, and compaction. Its default turn matches the real deterministic Pi turn byte for byte.</p>
+      <p class="why"><strong>Why it is beside the adapter:</strong> parity is easy to review today. The independent reviewer recommended splitting only when a later package adds a second control flow.</p>
+    </section>
+
+    <section class="step">
+      <span class="step-no">9</span><h2>Electron proves the installed runtime, persistence, and resume</h2>
+      <div class="files"><a class="file" href="../../../electron/main.ts#L324">Electron Pi self-test</a><a class="file" href="../../../tests/electron-self-test-runner.mjs">Full self-test runner</a></div>
+      <p>The self-test injects Pi's faux provider but creates an actual <code>AgentSession</code> inside Electron 37. It completes <code>studi_probe</code>, proves the session JSONL exists, resumes that same ID, checks the active tool list, and checks an unavailable provider without revealing the unknown input.</p>
+      <pre><code>"agent": {
+  "runtime": "pi-agent-session",
+  "sdkVersion": "0.84.4",
+  "sessionPersisted": true,
+  "sessionResumed": true,
+  "probeCompleted": true,
+  "activeTools": ["studi_probe"]
+}</code></pre>
+    </section>
+
+    <section>
+      <h2>What the four focused tests prove</h2>
+      <table><thead><tr><th>Boundary</th><th>Distinct proof</th></tr></thead><tbody>
+        <tr><td>Real turn</td><td>Actual Pi session, exact one-tool boundary, tool call, normalized text and terminal stream, persistence, resume, listener retention, fake parity.</td></tr>
+        <tr><td>Interruption</td><td>One abort event followed by one aborted terminal event.</td></tr>
+        <tr><td>Retry and compaction</td><td>Real too-small compaction failure plus successful mapping; upstream error text removed.</td></tr>
+        <tr><td>Provider and fake failures</td><td>Credential-shaped canaries, paths, and upstream detail are absent; every fake operation remains schema-valid.</td></tr>
+      </tbody></table>
+    </section>
+
+    <section class="truth"><strong>Debug order:</strong> <a href="../../../electron/agent/runtime.ts#L104">createSession</a> → <a href="../../../electron/agent/runtime.ts#L142">Pi factory and tool assertion</a> → <a href="../../../electron/agent/runtime.ts#L218">session wrapper</a> → <a href="../../../electron/agent/runtime.ts#L332">normalizer</a> → <a href="../../../electron/agent/runtime.ts#L286">replacement</a> → <a href="../../../electron/main.ts#L324">Electron proof</a>. That order follows ownership from request to observable receipt.</section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>WP-02 dossier · Local data</title>
+  <style>
+    :root{--paper:#fbf7ec;--panel:#fffdf7;--ink:#29251f;--muted:#71695f;--line:#39342e;--yellow:#f6c945;--mint:#dff4e9;--sky:#dcecff;--coral:#ffe1d8;--lav:#ebe3ff}*{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(circle at 1px 1px,#d8cfbd 1px,transparent 1.2px) 0 0/24px 24px,var(--paper);font:15px/1.55 Inter,system-ui,sans-serif}a{color:inherit;text-underline-offset:3px}header{padding:42px max(20px,calc((100vw - 1050px)/2));border-bottom:3px solid var(--line);background:rgba(255,253,247,.95)}h1{max-width:880px;margin:12px 0;font-size:clamp(2.3rem,7vw,4.8rem);line-height:1;letter-spacing:-.04em}header p{max-width:780px;color:var(--muted)}.badge{display:inline-flex;padding:6px 10px;border:2px solid var(--line);border-radius:999px;background:var(--yellow);font-size:12px;font-weight:900;text-transform:uppercase}.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}.links a{padding:8px 11px;border:2px solid var(--line);border-radius:9px;background:#fff;text-decoration:none;font-weight:800;box-shadow:2px 2px 0 var(--line)}main{max-width:1050px;margin:auto;padding:34px 20px 90px}section{margin-bottom:44px}h2{font-size:2rem;line-height:1.1;margin:0 0 14px}h3{margin:0 0 8px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{padding:17px;border:2px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:3px 3px 0 var(--line)}.full{grid-column:1/-1}.mint{background:var(--mint)}.sky{background:var(--sky)}.coral{background:var(--coral)}.lav{background:var(--lav)}table{width:100%;border-collapse:collapse;border:2px solid var(--line);background:#fff;font-size:13px}th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid #d5cbb8}th{background:#eee4ce;text-transform:uppercase;font-size:11px}tr:last-child td{border:0}code{padding:1px 4px;border-radius:4px;background:#eee6d7;font-family:Consolas,monospace}pre{overflow:auto;padding:15px;border-radius:11px;background:#28241f;color:#fff7e8;font:12px/1.5 Consolas,monospace}.gate{border-left-width:8px}.pass{border-left-color:#4ba477}.fail{border-left-color:#c95945}.status{padding:15px;border:2px solid var(--line);border-radius:12px;background:var(--mint);box-shadow:3px 3px 0 var(--line);font-weight:800}@media(max-width:700px){.grid{grid-template-columns:1fr}.full{grid-column:auto}}
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">Verified · WP-02 · cycle 5</span>
+    <h1>Make local state durable without making storage clever.</h1>
+    <p>WP-02 adds one versioned SQLite database, append-only task events with rebuildable projections, atomic Markdown artifacts, backup and restore, and clear corruption errors. It does not add an agent, browser controller, scheduler, auth, telemetry, or product UI.</p>
+    <div class="links"><a href="../../qa/conclusions/wp-02.html">WP-02 conclusion</a><a href="../../qa/conclusions/wp-02-code-walkthrough.html">Code walkthrough</a><a href="../studi-master-plan.html#packages">Master plan</a><a href="../../qa/evidence/wp-02/ledger.md">Evidence ledger</a></div>
+  </header>
+  <main>
+    <section class="grid">
+      <article class="card mint"><h3>Observable outcome</h3><p>Restarting Studi reopens the same validated local records. Task projections can be deleted and rebuilt from immutable events. A failed transaction or artifact write leaves the prior durable state intact.</p></article>
+      <article class="card coral"><h3>Package boundary</h3><p>No legacy JSON import, seeded assignments, cloud sync, encryption layer, full-text search, generic ORM, repository generator, or speculative query API.</p></article>
+    </section>
+
+    <section>
+      <h2>Driver decision</h2>
+      <div class="grid">
+        <article class="card sky"><h3>Use bundled <code>node:sqlite</code></h3><p>Electron 37 reports Node 22.21.1. That runtime includes <code>DatabaseSync</code>, transactions, integrity checks, and the backup API. The driver stays behind one small module and fails explicitly if Electron loses the API.</p></article>
+        <article class="card lav"><h3>Why not <code>better-sqlite3</code> here</h3><p>It is capable, but Electron's official guidance requires ABI-specific rebuilds for native modules. Its own Electron guide also requires rebuild and ASAR unpacking. WP-02 gains no product behavior from that packaging work.</p></article>
+      </div>
+      <p>This is a deliberate update to the master plan's earlier preference. A real Electron test must open, write, back up, and reopen the bundled database before the package can pass. Sources: <a href="https://nodejs.org/api/sqlite.html">Node SQLite API</a>, <a href="https://www.electronjs.org/docs/latest/tutorial/using-native-node-modules/">Electron native-module guide</a>, and <a href="https://github.com/WiseLibs/better-sqlite3/blob/master/docs/troubleshooting.md">better-sqlite3 Electron notes</a>.</p>
+    </section>
+
+    <section>
+      <h2>Owned implementation</h2>
+      <table><thead><tr><th>Area</th><th>Work</th></tr></thead><tbody>
+        <tr><td><code>shared/</code></td><td>Add the smallest missing event or artifact contracts needed for complete replay. Existing WP-01 contracts may be tightened when the change removes duplication.</td></tr>
+        <tr><td><code>electron/storage/</code></td><td>SQLite driver, migration runner, repositories, atomic task append, projection rebuild, artifact store, backup and restore, health diagnostics, and one composition root.</td></tr>
+        <tr><td><code>electron/main.ts</code></td><td>Open the local store after Electron is ready, use an owned path below <code>userData</code>, expose no renderer storage primitive, and close cleanly.</td></tr>
+        <tr><td><code>tests/storage/</code></td><td>One integration-oriented suite with high-value migration, transaction, replay, artifact, corruption, and backup cases.</td></tr>
+        <tr><td>Build configuration</td><td>Compile the storage directory, add only a maintained YAML parser if structured frontmatter needs it, and add a focused storage test command.</td></tr>
+      </tbody></table>
+      <p>Protected Sites files, <code>src/</code> product UI, agent/browser packages, manager artifacts, and external services remain out of implementation scope.</p>
+    </section>
+
+    <section>
+      <h2>Data model</h2>
+      <pre>studi.sqlite3
+  schema_migrations   version, applied_at
+  assignments         identity/query columns + canonical validated JSON
+  permission_rules    scope/query columns + canonical validated JSON
+  task_events         event_id, task_id, sequence, canonical validated JSON
+  task_projections    task_id, state, revision, canonical validated JSON
+  runs                run_id, task_id, state, revision, canonical validated JSON
+
+artifacts/
+  preferences/*.md
+  memories/*.md
+  workflows/*.md
+  answers/*.md</pre>
+      <div class="grid">
+        <article class="card"><h3>Database is authoritative for operations</h3><p>Repositories parse on write and again on read. JSON keeps the WP-01 record exact; indexed columns support the known queue, course, state, and due-date queries.</p></article>
+        <article class="card"><h3>Markdown is authoritative for editable agent context</h3><p>Frontmatter is versioned and typed. Content stays human-editable. Writes use a sibling temporary file, flush it, then rename it into place.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Core invariants</h2>
+      <ol>
+        <li>Migration steps run in one transaction and record their version only after success.</li>
+        <li>A database newer than this app fails closed. Corruption never triggers silent recreation.</li>
+        <li>Appending a task event and updating its projection is one transaction. Both commit or neither does.</li>
+        <li>Event IDs and task sequence numbers are unique. Projection revision must advance exactly as the event states.</li>
+        <li>Deleting projections and replaying events produces the same validated task state.</li>
+        <li>Every repository accepts and returns WP-01 types. Raw SQL rows and unparsed JSON do not escape the storage package.</li>
+        <li>Artifact paths derive from validated kind and opaque ID. Caller-controlled traversal never reaches the filesystem.</li>
+        <li>A failed artifact write leaves the old target readable and cleans its owned temporary file when possible.</li>
+        <li>Backup uses SQLite's backup operation and copies artifacts into a self-contained directory. Restore validates before replacing active data.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Implementation order</h2>
+      <ol>
+        <li>Add a complete task-origin event only if replay cannot be correct without it. Reuse every other WP-01 contract.</li>
+        <li>Create the SQLite driver and a transactional, ordered migration registry.</li>
+        <li>Add assignment, permission-rule, run, task-event, and projection repositories around prepared statements.</li>
+        <li>Implement atomic event plus projection append, optimistic revision checks, and projection replay.</li>
+        <li>Add typed Markdown frontmatter and atomic read/write behavior for the four artifact kinds.</li>
+        <li>Add integrity diagnostics, database plus artifact backup, validation-first restore, and interrupted-operation recovery.</li>
+        <li>Wire store open and close into Electron without adding public IPC.</li>
+        <li>Run focused storage tests, full WP-01 regression, protected Sites checks, and a real Electron storage round trip.</li>
+      </ol>
+    </section>
+
+    <section class="grid">
+      <article class="card full gate pass"><h3>Pass when</h3><ul><li>A fresh directory migrates to schema 1 and reopens without extra rows or migration work.</li><li>Known assignment, permission, run, task-event, and projection queries round-trip validated records.</li><li>An injected projection failure leaves neither the event nor projection update committed.</li><li>Projection deletion and replay reconstruct the same task and reject an invalid event stream.</li><li>An artifact rewrite is atomic, traversal is rejected, and malformed frontmatter returns a typed diagnostic.</li><li>A backup validates and restores into a fresh location with the same records and artifacts.</li><li>Corrupt and too-new databases fail without being overwritten.</li><li>The real Electron runtime opens <code>node:sqlite</code>, writes and reopens data, creates a backup, and removes only its owned self-test directory.</li><li>WP-01, foundation, Sites, and Electron gates stay green.</li></ul></article>
+      <article class="card full gate fail"><h3>Fail when</h3><ul><li>A crash can commit an event without its projection or a projection without its event.</li><li>Opening corruption silently creates an empty database.</li><li>Restore mutates active data before validating the backup.</li><li>Any repository returns unvalidated JSON or accepts a caller-selected table or SQL fragment.</li><li>Artifact IDs can escape the owned directory.</li><li>Prototype JSON, demo assignments, passwords, cookies, page HTML, or browser state enter the new store.</li><li>The package introduces cloud sync, renderer database access, an ORM, or a general-purpose abstraction with no current caller.</li></ul></article>
+    </section>
+
+    <section>
+      <h2>Proportionate verification</h2>
+      <table><thead><tr><th>Layer</th><th>Evidence</th></tr></thead><tbody>
+        <tr><td>Focused</td><td>One storage suite covers fresh migration, round trip, transaction rollback, replay, artifact atomicity, corruption, and backup restore. Avoid one test per getter or schema field already covered by WP-01.</td></tr>
+        <tr><td>Boundary</td><td>The Electron self-test performs a file-backed database and artifact round trip under isolated <code>userData</code>.</td></tr>
+        <tr><td>Failure injection</td><td>Abort the projection write inside the transaction, damage a copied database, use a too-new schema, break an artifact write, and corrupt frontmatter.</td></tr>
+        <tr><td>Regression</td><td><code>npm run typecheck</code>, focused storage tests, <code>npm test</code>, <code>npm run test:sites</code>, and <code>npm run test:electron</code>.</td></tr>
+      </tbody></table>
+      <p>Debug order: owned paths, database open and integrity result, migration version, transaction boundary, event stream, projection replay, artifact temporary file, backup validation, then Electron lifecycle.</p>
+    </section>
+
+    <section><div class="status">Status: verified in cycle 5. The final manager gate passed 27 storage tests, 49 contract tests, 12 foundation tests, 4 Sites tests, and the real Electron storage boundary. The final read-only review approved the package with no blocker.</div></section>
+  </main>
+</body>
+</html>

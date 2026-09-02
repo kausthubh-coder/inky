@@ -1,0 +1,54 @@
+{
+  "capturedAt": "2026-09-01T15:09:14.525Z",
+  "runtime": {
+    "surface": "production Electron build",
+    "cdpEndpoint": "http://127.0.0.1:9222",
+    "schoolPage": "http://127.0.0.1:4311/",
+    "schoolPageWasLoopbackOnly": true
+  },
+  "schedule": {
+    "cadence": "daily",
+    "state": "enabled",
+    "localTime": "10:59",
+    "lastClaimedOccurrence": "2026-09-01T15:09:00.000Z",
+    "nextRunAt": "2026-09-01T15:10:00.000Z",
+    "observation": "A daily schedule advanced to the next minute on the same day instead of the next day."
+  },
+  "reviewExecution": {
+    "taskId": "task-qa-review",
+    "phase": "preserved",
+    "answerArtifactId": "answer-d5c65a04f722cbb9c41fd4b9",
+    "browserAfterRestart": "about:blank",
+    "visibleAnswerBeforeRestart": "empty",
+    "persistedAnswerSnapshot": "Review answer: 42"
+  },
+  "submissionExecutions": [
+    {
+      "taskId": "task-qa-receipt",
+      "observedPhase": "needs_user",
+      "failure": "Submission effect was ambiguous: Stale or unknown browser ref. Take a new snapshot before acting."
+    },
+    {
+      "taskId": "task-qa-simple-receipt",
+      "observedPhase": "needs_user",
+      "failure": "Submission effect was ambiguous: Stale or unknown browser ref. Take a new snapshot before acting."
+    },
+    {
+      "taskId": "task-qa-simple-retry",
+      "observedPhase": "needs_user",
+      "failure": "Submission effect was ambiguous: Stale or unknown browser ref. Take a new snapshot before acting."
+    }
+  ],
+  "controlledSubmitEffects": {
+    "receipt": 0,
+    "restart": 0,
+    "simple": 0
+  },
+  "submissionReceipts": [],
+  "latestNotification": {
+    "kind": "failure",
+    "targetType": "scan",
+    "title": "Scheduled school scan failed",
+    "body": "The current school scan must finish or resume before another scan starts"
+  }
+}

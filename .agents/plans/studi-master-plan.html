@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Studi — Technical Master Plan</title>
+  <style>
+    :root {
+      --paper: #fbf7ec;
+      --paper-2: #fffdf7;
+      --ink: #29251f;
+      --muted: #726b61;
+      --line: #39342e;
+      --yellow: #f6c945;
+      --coral: #ef8b70;
+      --mint: #8fcfb2;
+      --sky: #8ebde9;
+      --pink: #e7a2bd;
+      --lavender: #aaa0d5;
+      --danger: #c95945;
+      --shadow: 4px 4px 0 var(--line);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 1px 1px, #d8cfbd 1px, transparent 1.2px) 0 0 / 24px 24px,
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { background: #efe8d9; padding: .1rem .35rem; border-radius: 5px; }
+    pre { overflow: auto; background: #24211d; color: #fff9e9; border-radius: 12px; padding: 16px; font-size: 12px; }
+    h1, h2, h3, h4 { line-height: 1.12; letter-spacing: -.02em; }
+    h1 { font-size: clamp(2.5rem, 7vw, 5.8rem); margin: 12px 0 18px; max-width: 900px; }
+    h2 { font-size: clamp(1.7rem, 3vw, 2.6rem); margin: 0 0 14px; }
+    h3 { font-size: 1.15rem; margin: 0 0 10px; }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 8px 0 14px; padding-left: 22px; }
+    .hero {
+      padding: 56px max(24px, calc((100vw - 1440px) / 2));
+      border-bottom: 3px solid var(--line);
+      background: rgba(255, 253, 247, .78);
+      backdrop-filter: blur(8px);
+    }
+    .eyebrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-weight: 850; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .badge { display: inline-flex; padding: 6px 9px; border: 1.5px solid var(--line); border-radius: 999px; background: var(--yellow); }
+    .hero p { max-width: 850px; font-size: 1.08rem; color: #4f4941; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+    .button { display: inline-flex; align-items: center; gap: 8px; padding: 11px 14px; border: 2px solid var(--line); border-radius: 10px; background: var(--paper-2); font-weight: 850; text-decoration: none; box-shadow: 2px 2px 0 var(--line); }
+    .button.primary { background: var(--yellow); }
+    .layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); max-width: 1440px; margin: auto; }
+    aside { position: sticky; top: 0; align-self: start; height: 100vh; overflow: auto; padding: 26px 18px; border-right: 2px solid var(--line); background: rgba(251,247,236,.93); }
+    aside strong { display: block; margin: 0 8px 10px; }
+    aside a { display: block; padding: 7px 9px; border-radius: 8px; color: #5c554d; text-decoration: none; font-size: 13px; font-weight: 700; }
+    aside a:hover { background: #efe6cf; color: var(--ink); }
+    main { min-width: 0; padding: 28px 34px 100px; }
+    section { scroll-margin-top: 24px; margin: 0 0 64px; }
+    .section-lead { max-width: 850px; color: var(--muted); font-size: 1rem; margin-bottom: 22px; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+    .card { grid-column: span 4; border: 2px solid var(--line); border-radius: var(--radius); padding: 18px; background: var(--paper-2); box-shadow: var(--shadow); }
+    .card.wide { grid-column: span 6; }
+    .card.full { grid-column: 1 / -1; }
+    .card.yellow { background: #fff2b5; }
+    .card.coral { background: #ffe1d8; }
+    .card.mint { background: #dff4e9; }
+    .card.sky { background: #e0f0ff; }
+    .card.lavender { background: #ede9fb; }
+    .kicker { display: block; color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .09em; margin-bottom: 7px; }
+    .status { display: inline-flex; align-items: center; padding: 4px 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; background: #fff; }
+    .status.settled { background: var(--mint); }
+    .status.validate { background: var(--yellow); }
+    .status.deferred { background: #e5e0d8; }
+    .audit { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .audit article { padding: 18px; border: 2px solid var(--line); border-radius: var(--radius); background: var(--paper-2); }
+    .audit .keep { border-left: 10px solid var(--mint); }
+    .audit .replace { border-left: 10px solid var(--coral); }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--paper-2); border: 2px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 13px; }
+    th, td { padding: 11px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #cfc5b3; }
+    th { background: #efe6cf; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    tr:last-child td { border-bottom: 0; }
+    .architecture { display: grid; grid-template-columns: 1fr 62px 1.15fr 62px 1fr; gap: 8px; align-items: stretch; }
+    .arch-col { display: grid; gap: 10px; align-content: start; }
+    .node { padding: 14px; border: 2px solid var(--line); border-radius: 12px; background: var(--paper-2); box-shadow: 2px 2px 0 var(--line); }
+    .node strong { display: block; margin-bottom: 4px; }
+    .node small { display: block; color: var(--muted); }
+    .node.ui { background: #fff2b5; }
+    .node.core { background: #dff4e9; }
+    .node.external { background: #e0f0ff; }
+    .arrow { display: grid; place-items: center; color: var(--muted); font-weight: 900; text-align: center; font-size: 11px; }
+    .boundary { margin: 20px 0; padding: 12px; border: 2px dashed var(--danger); border-radius: 12px; color: #744033; background: #fff1eb; font-weight: 750; }
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .flow span { padding: 9px 11px; border: 1.5px solid var(--line); border-radius: 9px; background: #fff; font-size: 12px; font-weight: 800; }
+    .flow b { color: var(--muted); }
+    .state-row { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 8px; overflow-x: auto; padding: 3px 3px 9px; }
+    .state { min-width: 120px; border: 2px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper-2); font-size: 12px; }
+    .state strong { display: block; margin-bottom: 5px; }
+    .state.active { background: #fff2b5; }
+    .state.handoff { background: #ffe1d8; }
+    .state.done { background: #dff4e9; }
+    .contract { border-left: 8px solid var(--lavender); }
+    .tool-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+    .tool { border: 1px solid #b6ad9e; border-radius: 9px; background: #fff; padding: 10px; font-size: 12px; }
+    .tool code { display: block; width: max-content; margin-bottom: 4px; font-weight: 800; }
+    .lanes { display: grid; grid-template-columns: 120px 1fr; border: 2px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--paper-2); }
+    .lane-name { padding: 14px; border-right: 1px solid var(--line); border-bottom: 1px solid #cfc5b3; font-weight: 900; font-size: 12px; }
+    .lane-items { padding: 10px; border-bottom: 1px solid #cfc5b3; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .lane-name:last-of-type, .lane-items:last-child { border-bottom: 0; }
+    .wp-chip { padding: 7px 9px; border: 1.5px solid var(--line); background: #fff; border-radius: 8px; font-size: 11px; font-weight: 850; }
+    .wp-chip.gate { background: var(--yellow); }
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
+    .filters button, .filters input { border: 1.5px solid var(--line); background: #fff; border-radius: 9px; padding: 9px 11px; font: inherit; font-size: 12px; }
+    .filters button { cursor: pointer; font-weight: 850; }
+    .filters button.active { background: var(--yellow); box-shadow: 2px 2px 0 var(--line); }
+    .filters input { min-width: 240px; }
+    details.package { margin: 0 0 12px; border: 2px solid var(--line); border-radius: 14px; background: var(--paper-2); overflow: hidden; }
+    details.package summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: 75px 1fr auto; gap: 12px; align-items: center; padding: 15px; font-weight: 900; }
+    details.package summary::-webkit-details-marker { display:none; }
+    details.package[open] summary { border-bottom: 1px solid #cfc5b3; background: #fff7d8; }
+    .wp-id { width: max-content; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; font-size: 10px; background: var(--yellow); }
+    .meta { color: var(--muted); font-size: 11px; font-weight: 750; text-align: right; }
+    .package-body { padding: 17px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .package-body .full { grid-column: 1 / -1; }
+    .gatebox { border: 1.5px solid var(--line); border-radius: 10px; padding: 12px; background: #f8f4e8; }
+    .pass { border-left: 7px solid #59aa7f; }
+    .fail { border-left: 7px solid var(--danger); }
+    .callout { border: 2px solid var(--line); border-radius: 14px; padding: 16px; background: #fff2b5; box-shadow: 3px 3px 0 var(--line); }
+    .sources { display: grid; gap: 10px; }
+    .sources a { display: block; padding: 12px; border: 1px solid #b8ae9c; border-radius: 9px; background: #fff; font-weight: 750; }
+    .footer { padding: 25px; border-top: 2px solid var(--line); text-align: center; color: var(--muted); background: var(--paper-2); }
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { display: none; }
+      main { padding: 24px 18px 80px; }
+      .architecture { grid-template-columns: 1fr; }
+      .arrow { min-height: 28px; }
+      .arrow::after { content: "↓"; font-size: 18px; }
+      .arrow span { display: none; }
+      .card, .card.wide { grid-column: 1 / -1; }
+      .package-body { grid-template-columns: 1fr; }
+      .package-body .full { grid-column: auto; }
+    }
+    @media (max-width: 680px) {
+      .hero { padding: 36px 18px; }
+      .audit { grid-template-columns: 1fr; }
+      .tool-list { grid-template-columns: 1fr; }
+      details.package summary { grid-template-columns: 65px 1fr; }
+      details.package .meta { grid-column: 2; text-align: left; }
+    }
+    @media print {
+      aside, .filters, .hero-actions { display:none !important; }
+      .layout { display:block; }
+      main { padding: 20px; }
+      details.package:not([open]) > *:not(summary) { display:block; }
+      .card, details.package { box-shadow:none; break-inside:avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="eyebrow"><span class="badge">Studi P1</span><span>Technical master plan · 30 Aug 2026</span></div>
+    <h1>From a blank foundation to a verifiable schoolwork agent.</h1>
+    <p>This is the implementation contract for the first real Studi beta: a Windows desktop app for you and invited friends, powered by a real local Pi agent, a persistent embedded school browser, local-first school state, explicit assignment permissions, and evidence-backed automation.</p>
+    <div class="hero-actions">
+      <a class="button primary" href="#packages">Open implementation graph →</a>
+      <a class="button" href="studi-interview.html">Read all 85 questions and answers</a>
+      <a class="button" href="../skills/verified-build-loop/SKILL.md">Open build-loop skill</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <strong>Plan map</strong>
+      <a href="#outcome">01 · Outcome</a>
+      <a href="#decisions">02 · Decisions</a>
+      <a href="#audit">03 · Current audit</a>
+      <a href="#architecture">04 · Architecture</a>
+      <a href="#ownership">05 · Data ownership</a>
+      <a href="#contracts">06 · Contracts</a>
+      <a href="#states">07 · State machines</a>
+      <a href="#journeys">08 · Journey traces</a>
+      <a href="#dependency-graph">09 · Dependency graph</a>
+      <a href="#packages">10 · Work packages</a>
+      <a href="#verification">11 · Verification</a>
+      <a href="#privacy">12 · Privacy & telemetry</a>
+      <a href="#release">13 · Release gate</a>
+      <a href="#workflow">14 · Build loop</a>
+      <a href="#sources">15 · Sources</a>
+    </aside>
+
+    <main>
+      <section id="outcome">
+        <span class="kicker">01 · Outcome and boundary</span>
+        <h2>The beta proves one complete loop.</h2>
+        <p class="section-lead">A permitted tester signs in, connects a school portal, watches Studi discover real work, teaches it repeating preferences, asks it to complete an eligible assignment in the visible embedded browser, handles any human-only step, and gets either a submitted result or a recoverable review artifact.</p>
+        <div class="grid">
+          <article class="card yellow"><span class="status settled">P1 outcome</span><h3>Real, not scripted</h3><p>The dashboard is populated only by verified browser evidence. A zero-result or partial scan stays incomplete; it never swaps in demo assignments.</p></article>
+          <article class="card mint"><span class="status settled">Primary user</span><h3>You + invited friends</h3><p>Windows first, one primary computer and one active school browser profile per account. Clerk approval gates sign-in even if the installer leaks.</p></article>
+          <article class="card sky"><span class="status settled">Runtime</span><h3>Local agent, local school state</h3><p>A real Pi <code>AgentSession</code> owns the continuous manager thread. The tester brings supported provider authentication during beta.</p></article>
+          <article class="card wide coral"><span class="status deferred">After P1</span><h3>Intentionally deferred</h3><p>Tutoring and learning sessions, the website and billing, macOS packaging, multi-device coordination, broad OS control, Gmail/docs/slides integrations, managed Studi inference, and production credit enforcement.</p></article>
+          <article class="card wide lavender"><span class="status settled">Permission model</span><h3>Do not attempt · attempt · auto-submit</h3><p>The student sets a global default, then course, repeating-pattern, and individual-assignment overrides. The most specific rule wins. Submission is a separate gated capability.</p></article>
+        </div>
+      </section>
+
+      <section id="decisions">
+        <span class="kicker">02 · Settled decisions and validation assumptions</span>
+        <h2>What is fixed, and what must be proven.</h2>
+        <div class="grid">
+          <article class="card wide mint"><span class="status settled">Settled</span><h3>Product behavior</h3><ul><li>One manager agent receives every user instruction.</li><li>Queue eligible work by deadline; the student may redirect it.</li><li>The desk/sidebar appears only while Studi is working.</li><li>Human handoff can wait 5–30 minutes, then continue with other work.</li><li>Ready-to-submit notification uses a configurable timer, initially five minutes.</li><li>If the timer expires, preserve answers as Markdown and continue.</li><li>Two distinct execution retries, then <em>needs you</em>.</li></ul></article>
+          <article class="card wide yellow"><span class="status validate">Must validate</span><h3>Technical spikes</h3><ul><li>Pi can create a real <code>AgentSession</code> with a tester-supported authenticated provider on a clean Windows install.</li><li>Electron CDP can robustly snapshot and interact with the same <code>WebContentsView</code> the user sees.</li><li>Clerk public OAuth + PKCE can return safely to the desktop app and mint the Convex-compatible token.</li><li>The chosen SQLite driver packages and rebuilds reliably with Electron 37.</li><li>PostHog replay can be bundled locally and restricted to Studi's renderer only.</li><li>A signed installer is deferred, so Windows SmartScreen friction is accepted for the private beta.</li></ul></article>
+        </div>
+        <div class="callout" style="margin-top:18px"><strong>Rule:</strong> a validation spike may change the mechanism, but it may not silently remove the user-visible behavior. If a spike fails, update this plan and bring the alternative back for approval.</div>
+      </section>
+
+      <section id="audit">
+        <span class="kicker">03 · Current repository audit</span>
+        <h2>Discard the current app. Keep only decisions and protected infrastructure.</h2>
+        <p class="section-lead">P1 is a clean-room implementation inside this repository. The current React dashboard, Electron shell, embedded-browser code, onboarding, Moodle scanner, scheduler, persistence, and scripted task loop are not production foundations. New code must not import, wrap, refactor, or copy those modules.</p>
+        <div class="audit">
+          <article class="keep"><h3>What survives</h3><ul><li>The approved product decisions and Q1–Q85 record.</li><li>The approved visual direction: cream paper, hand-drawn dark borders, Shantell Sans headings, Nunito Sans body, and the course-color palette.</li><li>The master plan, implementation dossiers, evidence ledger, and verified-build-loop skill.</li><li>The repository itself, package history, and source-control history.</li><li><code>.openai/hosting.json</code>, <code>worker/index.js</code>, <code>scripts/prepare-sites-build.mjs</code>, and <code>tests/sites-worker.test.mjs</code> stay untouched.</li></ul></article>
+          <article class="replace"><h3>What is rebuilt from zero</h3><ul><li>React UI and state projection in <code>src/</code>.</li><li>Electron main process, preload bridge, window/browser lifecycle, tray, scheduler, and notifications.</li><li>Real Pi session runtime, manager and worker agents, event-sourced task engine, and permission resolver.</li><li>General CDP browser controller and every agent-visible browser tool.</li><li>SQLite and Markdown persistence, Clerk, Convex, PostHog, packaging, recovery, and all test fakes.</li><li>No Moodle-specific production path and no migration of prototype JSON state.</li></ul></article>
+        </div>
+        <div class="callout" style="margin-top:18px"><strong>Clean-room guardrail:</strong> old app files may be inspected only to identify protected repository constraints or confirm that the new build no longer imports them. They are not behavioral specifications. The approved plan, interview record, and visual direction are the specifications.</div>
+      </section>
+
+      <section id="architecture">
+        <span class="kicker">04 · Target architecture</span>
+        <h2>One desktop host, three trust zones.</h2>
+        <p class="section-lead">The Electron main process is the authority. The React renderer projects state and sends validated commands. Remote school pages run without Node access. Cloud services never receive school content.</p>
+        <div class="architecture">
+          <div class="arch-col">
+            <div class="node ui"><strong>Studi renderer</strong><small>React dashboard, onboarding, desk, settings, feedback, masked replay.</small></div>
+            <div class="node ui"><strong>Typed preload bridge</strong><small>Minimal request/response commands and read-only event subscriptions.</small></div>
+          </div>
+          <div class="arrow"><span>validated IPC ↔</span></div>
+          <div class="arch-col">
+            <div class="node core"><strong>App kernel</strong><small>Composition root, lifecycle, single-instance lock, tray, recovery.</small></div>
+            <div class="node core"><strong>Run coordinator</strong><small>Manager queue, assignment workers, policy gate, handoffs, cancellation.</small></div>
+            <div class="node core"><strong>Pi runtime</strong><small>Real AgentSession, custom Studi tools, compaction, events, provider adapter.</small></div>
+            <div class="node core"><strong>Browser controller</strong><small>CDP transport over the visible school WebContentsView; snapshots, actions, evidence.</small></div>
+            <div class="node core"><strong>Local repository</strong><small>SQLite entities/events; Markdown preferences, memory, workflows, fallback answers.</small></div>
+            <div class="node core"><strong>Local services</strong><small>Scheduler, native notifications, telemetry redactor, encrypted auth token store.</small></div>
+          </div>
+          <div class="arrow"><span>narrow adapters ↔</span></div>
+          <div class="arch-col">
+            <div class="node external"><strong>School WebContentsView</strong><small>Persistent cookies, no Node, sandboxed, visible takeover, one active profile.</small></div>
+            <div class="node external"><strong>Clerk + Convex</strong><small>Identity, beta entitlement, plan/credits, usage summary, feedback only.</small></div>
+            <div class="node external"><strong>PostHog</strong><small>Studi UI replay, product analytics, redacted errors and agent/tool traces.</small></div>
+            <div class="node external"><strong>Model provider</strong><small>Beta provider auth through Pi. Future paid traffic goes through a thin Studi gateway.</small></div>
+          </div>
+        </div>
+        <div class="boundary">Prohibited boundary crossing: cookies, passwords, auth headers, page HTML, school-browser screenshots/replay, raw school content, local rules, queues, memory files, and agent session transcripts must not be written to Convex or PostHog.</div>
+        <table>
+          <thead><tr><th>Boundary</th><th>Allowed</th><th>Rejected</th><th>Enforcement</th></tr></thead>
+          <tbody>
+            <tr><td>Renderer → main</td><td>Typed commands with IDs and user intent</td><td>Arbitrary IPC channels, filesystem paths, executable code</td><td>Context isolation, allowlisted preload API, schema validation</td></tr>
+            <tr><td>Agent → browser</td><td>Named tools with task/session/tab IDs</td><td>Raw CDP socket, unrestricted OS or shell access</td><td>Custom Pi tools and policy middleware</td></tr>
+            <tr><td>School page → app</td><td>Normalized snapshot/evidence</td><td>Node APIs, preload bridge, direct IPC</td><td><code>nodeIntegration:false</code>, sandbox, no preload</td></tr>
+            <tr><td>Local → cloud</td><td>Account ID, entitlement, counters, redacted event metadata</td><td>School content and secrets</td><td>Explicit DTOs + redaction tests + outbound audit log</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="ownership">
+        <span class="kicker">05 · Data model and ownership</span>
+        <h2>Local data is operational truth.</h2>
+        <table>
+          <thead><tr><th>Entity</th><th>Owner</th><th>Storage</th><th>Retention / rule</th></tr></thead>
+          <tbody>
+            <tr><td>courses, assignments, patterns</td><td>Local repository</td><td>SQLite</td><td>Upsert from evidence; tombstone missing items after covered scans, never on partial scans.</td></tr>
+            <tr><td>permission rules</td><td>Policy service</td><td>SQLite + readable Markdown export</td><td>Global → course → pattern → assignment; specificity wins.</td></tr>
+            <tr><td>task queue and task events</td><td>Run coordinator</td><td>SQLite append-only events + projection</td><td>Recover unfinished work after restart; idempotency key per effect.</td></tr>
+            <tr><td>agent sessions and compaction</td><td>Pi runtime</td><td>Pi session files + local index</td><td>One manager thread; assignment worker linkage retained locally.</td></tr>
+            <tr><td>preferences and memories</td><td>Memory service</td><td>Versioned Markdown</td><td>Preferences are always injected; memories retrieved by scope/topic.</td></tr>
+            <tr><td>scan workflows</td><td>Browser workflow service</td><td>Versioned Markdown/JSON DTO</td><td>Navigation knowledge and coverage only; never cookies or page HTML.</td></tr>
+            <tr><td>browser profile</td><td>Electron session</td><td><code>persist:studi-school</code></td><td>One profile; passwords/cookies remain Chromium-owned.</td></tr>
+            <tr><td>answer fallbacks</td><td>Artifact service</td><td>Markdown per task</td><td>Atomic write; linked from the task after review timeout.</td></tr>
+            <tr><td>identity / beta access / credits</td><td>Convex</td><td>Convex tables</td><td>No school references beyond opaque aggregate usage categories.</td></tr>
+            <tr><td>product telemetry</td><td>PostHog</td><td>PostHog</td><td>Stable Clerk user ID; redacted and opt-out capable.</td></tr>
+          </tbody>
+        </table>
+        <h3 style="margin-top:22px">Initial local schema</h3>
+        <pre>schools(id, label, entry_url, active_profile, created_at)
+courses(id, school_id, external_key, title, color, last_verified_at)
+assignments(id, course_id, external_key, title, type, due_at, url, evidence_json, scan_id, status)
+assignment_patterns(id, course_id, matcher_json, label, confidence, first_seen_at)
+permission_rules(id, scope_type, scope_id, mode, submit_mode, source, updated_at)
+tasks(id, assignment_id, state, priority, active_run_id, review_deadline, artifact_path)
+task_events(id, task_id, run_id, sequence, type, payload_json, created_at)
+runs(id, kind, state, started_at, ended_at, failure_code, attempt)
+scan_coverage(id, run_id, target, status, evidence_ref, failure_code)
+schedules(id, kind, expression_json, timezone, next_run_at, enabled)
+agent_links(id, role, pi_session_id, task_id, compacted_at)
+outbox(id, destination, event_type, redacted_payload_json, state, attempts)</pre>
+      </section>
+
+      <section id="contracts">
+        <span class="kicker">06 · Agent, browser, IPC, and cloud contracts</span>
+        <h2>Small contracts keep the system replaceable.</h2>
+        <div class="grid">
+          <article class="card wide contract"><h3>AgentRuntime</h3><pre>createManager(context) → sessionId
+runAssignment(taskContext) → AsyncEventStream
+steer(sessionId, userMessage)
+abort(runId)
+compact(sessionId)
+checkProvider() → ProviderStatus</pre><p>Production implementation uses a real Pi <code>AgentSession</code>. Tests use a deterministic fake that emits the same event stream.</p></article>
+          <article class="card wide contract"><h3>BrowserController</h3><pre>open(sessionId, url)
+snapshot(tabId, options) → PageSnapshot
+act(tabId, action, expectedRevision)
+waitFor(tabId, condition, timeout)
+captureEvidence(tabId, purpose)
+requestTakeover(taskId, reason)</pre><p>Every mutation includes <code>taskId</code>, <code>runId</code>, <code>tabId</code>, <code>idempotencyKey</code>, and expected page revision.</p></article>
+          <article class="card wide contract"><h3>PermissionResolver</h3><pre>resolve(assignment, context) → {
+  mode: "do_not_attempt" | "attempt" | "auto_submit",
+  matchedRuleId,
+  rationale,
+  maySubmit
+}</pre><p>Only this service can authorize the <code>browser_submit</code> tool. The agent cannot raise its own permission.</p></article>
+          <article class="card wide contract"><h3>Event envelope</h3><pre>{
+  eventId, aggregateType, aggregateId,
+  runId, sequence, occurredAt,
+  schemaVersion, type, payload
+}</pre><p>Events are written before UI projection. Subscribers may replay safely; external effects carry idempotency keys.</p></article>
+        </div>
+        <h3 style="margin-top:24px">Agent-visible browser tools</h3>
+        <div class="tool-list">
+          <div class="tool"><code>browser_tabs</code>List active tabs and stable IDs.</div>
+          <div class="tool"><code>browser_open</code>Navigate or create a page in the one school profile.</div>
+          <div class="tool"><code>browser_snapshot</code>Return URL, title, accessibility/DOM refs, forms, focus, and revision.</div>
+          <div class="tool"><code>browser_click</code>Click a snapshot ref; reject stale revisions.</div>
+          <div class="tool"><code>browser_type</code>Type into a ref with replace/append semantics.</div>
+          <div class="tool"><code>browser_select</code>Select one or more options.</div>
+          <div class="tool"><code>browser_press</code>Send a restricted keyboard action.</div>
+          <div class="tool"><code>browser_upload</code>Attach a user-approved local file.</div>
+          <div class="tool"><code>browser_wait</code>Wait for URL, text, selector/ref, or network idle.</div>
+          <div class="tool"><code>browser_evaluate</code>Read-only, time-bounded extraction; disabled for arbitrary mutation.</div>
+          <div class="tool"><code>browser_takeover</code>Pause run, focus page, notify student, verify return condition.</div>
+          <div class="tool"><code>browser_submit</code>Separate policy-gated effect with pre-submit evidence.</div>
+        </div>
+        <div class="callout" style="margin-top:18px"><strong>Interaction strategy:</strong> use accessibility/DOM references first, re-snapshot after navigation or DOM replacement, and use screenshot coordinates only as an explicit fallback with before/after evidence. Chrome DevTools MCP supplies the behavioral reference; Vercel agent-browser supplies efficient snapshot/ref and session-lifecycle ideas. Studi owns its smaller contract.</div>
+      </section>
+
+      <section id="states">
+        <span class="kicker">07 · State machines and recovery</span>
+        <h2>Every pause and failure has an explicit next state.</h2>
+        <h3>Assignment task</h3>
+        <div class="state-row">
+          <div class="state"><strong>discovered</strong>Evidence normalized; permission unresolved.</div>
+          <div class="state"><strong>ignored / queued</strong>Rule excludes it, or deadline queue accepts it.</div>
+          <div class="state active"><strong>working</strong>Lease held; agent + browser events streaming.</div>
+          <div class="state handoff"><strong>needs_user</strong>Login, CAPTCHA, ambiguity, unsupported action, or retry exhaustion.</div>
+          <div class="state handoff"><strong>ready_review</strong>Work remains in page; review timer running.</div>
+          <div class="state done"><strong>submitted / preserved</strong>Verified submit, or Markdown fallback saved and queue continues.</div>
+        </div>
+        <h3 style="margin-top:20px">Run recovery rules</h3>
+        <table>
+          <thead><tr><th>Interruption</th><th>Persist before effect</th><th>Restart behavior</th></tr></thead>
+          <tbody>
+            <tr><td>App closes during a tool call</td><td>Intent event + idempotency key</td><td>Re-snapshot page; reconcile whether effect happened before retry.</td></tr>
+            <tr><td>Browser navigates unexpectedly</td><td>Last stable snapshot revision</td><td>Classify login, popup, blocked page, or ordinary redirect; recover or hand off.</td></tr>
+            <tr><td>Model/provider disconnects</td><td>Pi session ID + task state</td><td>One transport retry, then pause task without losing browser page.</td></tr>
+            <tr><td>User takes over</td><td>Handoff reason + return predicate + expiry</td><td>Verify predicate before resuming. If expired, leave task <em>needs user</em> and work next queue item.</td></tr>
+            <tr><td>Review timer expires</td><td>Review deadline + latest answer evidence</td><td>Write atomic Markdown fallback, attach it to task, leave webpage as-is, continue queue.</td></tr>
+            <tr><td>Scheduled scan overlaps active work</td><td>Run lease</td><td>Queue scan; never drive the same browser concurrently.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="journeys">
+        <span class="kicker">08 · End-to-end journey traces</span>
+        <h2>The implementation is designed around causal flows.</h2>
+        <div class="grid">
+          <article class="card full"><h3>A · Sign in and entitlement</h3><div class="flow"><span>Renderer requests sign-in</span><b>→</b><span>Main opens system browser</span><b>→</b><span>Loopback callback verifies state + PKCE</span><b>→</b><span>safeStorage encrypts refresh token</span><b>→</b><span>Convex client receives Clerk JWT</span><b>→</b><span>betaAccess permits app</span></div></article>
+          <article class="card full"><h3>B · First school scan</h3><div class="flow"><span>Agent asks for school URL</span><b>→</b><span>Persistent browser opens</span><b>→</b><span>User signs in</span><b>→</b><span>Agent verifies session</span><b>→</b><span>General browser tools inspect courses + assignments</span><b>→</b><span>Third-party systems trigger handoffs</span><b>→</b><span>Coverage ledger commits</span><b>→</b><span>Dashboard projects verified rows</span></div></article>
+          <article class="card full"><h3>C · Complete an assignment</h3><div class="flow"><span>Deadline queue selects task</span><b>→</b><span>Permission resolver allows attempt</span><b>→</b><span>Worker receives assignment + course preferences</span><b>→</b><span>Tool calls mutate visible page</span><b>→</b><span>Evidence verifies answer state</span><b>→</b><span>Review notification</span><b>→</b><span>User submits or fallback Markdown is saved</span></div></article>
+          <article class="card full"><h3>D · Discover a repeating pattern</h3><div class="flow"><span>Scans cluster similar assignments</span><b>→</b><span>Agent proposes a named pattern</span><b>→</b><span>User chooses permission</span><b>→</b><span>Rule is stored separately from memory</span><b>→</b><span>Future assignments match deterministically</span><b>→</b><span>User can edit in Settings</span></div></article>
+        </div>
+      </section>
+
+      <section id="dependency-graph">
+        <span class="kicker">09 · Implementation dependency graph</span>
+        <h2>Parallel after contracts, integrated through one lane.</h2>
+        <div class="lanes">
+          <div class="lane-name">Integration</div><div class="lane-items"><span class="wp-chip gate">WP-00 clean foundation</span>→<span class="wp-chip gate">WP-01 contracts</span>→<span class="wp-chip">WP-02 storage</span>→<span class="wp-chip gate">WP-12 vertical slice</span>→<span class="wp-chip gate">WP-15 release</span></div>
+          <div class="lane-name">Agent</div><div class="lane-items"><span class="wp-chip">WP-03 Pi spike</span>→<span class="wp-chip">WP-06 manager + workers</span>→<span class="wp-chip">WP-09 execution</span></div>
+          <div class="lane-name">Browser</div><div class="lane-items"><span class="wp-chip">WP-04 CDP controller</span>→<span class="wp-chip">WP-05 browser tools</span>→<span class="wp-chip">WP-07 scan</span>→<span class="wp-chip">WP-09 execution</span></div>
+          <div class="lane-name">Platform</div><div class="lane-items"><span class="wp-chip">WP-08 scheduler + tray</span><span class="wp-chip">WP-10 auth + Convex</span><span class="wp-chip">WP-11 telemetry</span>→<span class="wp-chip">WP-13 packaging</span></div>
+          <div class="lane-name">Validation</div><div class="lane-items"><span class="wp-chip">WP-14 /school comparison</span>→<span class="wp-chip gate">WP-15 release</span></div>
+        </div>
+        <p style="margin-top:12px;color:var(--muted)"><strong>Safe parallel frontier after WP-01:</strong> WP-02, WP-03, WP-04, WP-08, WP-10, and WP-11 can proceed with separate file ownership. Shared schemas and migrations remain in the integration lane.</p>
+      </section>
+
+      <section id="packages">
+        <span class="kicker">10 · Procedural work-package registry</span>
+        <h2>Each package ends in observable evidence.</h2>
+        <p class="section-lead">Open a package for its procedural steps and gates. Before implementation, the verified-build-loop skill expands the next package into a separate dossier and returns it for approval.</p>
+        <div class="filters"><button class="active" data-filter="all">All packages</button><button data-filter="critical">Critical path</button><button data-filter="parallel">Parallel frontier</button><input id="package-search" type="search" placeholder="Search packages, tests, or systems…" /></div>
+
+        <details class="package" open data-tags="critical integration baseline">
+          <summary><span class="wp-id">WP-00</span><span>Create the clean-room project foundation and test harness</span><span class="meta">verified · cycle 2 · integration</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-00.html">Read the verified WP-00 conclusion →</a> <a class="button" href="packages/wp-00-clean-foundation.html">Open dossier</a></p></div><div><h3>Procedure</h3><ol><li>Record the worktree and identify only the four protected Sites files, decision artifacts, approved design assets, and project instructions.</li><li>Remove app-specific dependencies on the current <code>src/</code> and <code>electron/</code> implementation from the new entrypoints.</li><li>Create blank renderer, preload, main-process, domain, adapter, and test entrypoints with explicit ownership boundaries.</li><li>Configure one verification command for unit, contract, Electron smoke, and protected Sites checks.</li><li>Create fixture directories, evidence ledger, deterministic clocks/IDs, and isolated temporary <code>userData</code>.</li><li>Add an import-boundary test that rejects dependencies on legacy app modules.</li></ol></div><div><h3>Debug order</h3><ol><li>Command and runtime versions.</li><li>Fresh Electron composition root.</li><li>Preload allowlist and renderer boot.</li><li>Fixture paths and temporary profile isolation.</li><li>Protected Sites output regression.</li></ol></div><div class="gatebox pass"><strong>Verified:</strong> the clean app launches, 12 foundation tests pass, the Electron boundary and cleanup pass independent failure injection, the protected Sites contract remains intact, and final review found no blocker.</div><div class="gatebox fail"><strong>Retained follow-ups:</strong> explicit renderer-load failure handling, packaged dev-URL restrictions, stronger detector mutation tests, and shared versioned IPC move into WP-01 and later desktop gates.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical integration contracts state machine">
+          <summary><span class="wp-id">WP-01</span><span>Define domain contracts, states, schemas, and IPC</span><span class="meta">verified · cycle 6 · integration</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-01.html">Read the verified WP-01 conclusion →</a> <a class="button" href="packages/wp-01-contracts.html">Open dossier</a></p></div><div><h3>Procedure</h3><ol><li>Create shared runtime schemas for assignments, evidence, rules, tasks, runs, events, tools, and IPC.</li><li>Implement pure state-transition functions and permission specificity.</li><li>Version every persisted/event schema.</li><li>Generate typed preload methods from an allowlist.</li><li>Add property tests for invalid transitions and permission precedence.</li></ol></div><div><h3>Invariants</h3><ul><li>No UI may write operational state directly.</li><li>No task can submit without a resolver result that explicitly permits it.</li><li>Events are ordered per aggregate.</li><li>Partial scans cannot delete previously verified entities.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> 48 contract tests, 12 foundation tests, 4 Sites tests, and the real Electron bridge passed; final review found no blocker.</div><div class="gatebox fail"><strong>Retained follow-ups:</strong> course-bound pattern provenance moves into WP-02/WP-06, evidence redaction into capture/export work, and preload bundle policy into WP-13.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical parallel storage sqlite markdown">
+          <summary><span class="wp-id">WP-02</span><span>Build the local repository, migrations, and Markdown artifacts</span><span class="meta">verified · cycle 5 · integration</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-02.html">Read the verified WP-02 conclusion →</a> <a class="button" href="packages/wp-02-local-data.html">Open dossier</a></p></div><div><h3>Delivered</h3><ol><li>Electron-owned <code>node:sqlite</code> store with versioned migrations and schema diagnostics.</li><li>Validated assignment, permission, run, event, and projection repositories.</li><li>Atomic task event and projection writes with complete replay.</li><li>Typed, atomic Markdown preferences, memories, workflows, and answer fallbacks.</li><li>Validation-first backup and crash-safe restore for existing and fresh targets.</li><li>No prototype data import, renderer database access, ORM, or generic SQL IPC.</li></ol></div><div><h3>Final evidence</h3><ul><li>27/27 storage tests.</li><li>49/49 contracts and 12/12 foundation tests.</li><li>4/4 Sites tests with protected hashes unchanged.</li><li>Electron 37.10.3 / Node 22.21.1 file-backed reopen, artifact, backup, and cleanup passed.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> migrations, record validation, event replay, atomic artifacts, backup validation, live rollback, interrupted recovery, fresh-target retry, and exact path ownership all passed independent tests and final review.</div><div class="gatebox fail"><strong>Accepted limits:</strong> restore has no product UI yet; node:sqlite carries its runtime warning; power loss between filesystem flush and rename is outside this prototype gate.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical parallel agent pi provider">
+          <summary><span class="wp-id">WP-03</span><span>Prove the real Pi AgentSession and provider boundary</span><span class="meta">verified · cycle 1</span></summary>
+          <div class="package-body"><div><h3>Procedure</h3><ol><li>Create <code>PiAgentRuntime</code> and <code>FakeAgentRuntime</code> behind one contract.</li><li>Instantiate a real <code>AgentSession</code>; remove the Codex CLI from the active execution path.</li><li>Disable Pi shell/filesystem tools by default; register one harmless Studi test tool.</li><li>Stream text, tool, retry, compaction, abort, and terminal events into normalized run events.</li><li>Detect provider/auth status and expose a human-readable onboarding result.</li><li>Test session resume and re-subscription after runtime replacement.</li></ol></div><div><h3>Evidence</h3><ul><li>Provider status JSON with secrets removed.</li><li>A captured real turn invoking the test tool.</li><li>A fake turn with byte-for-byte equivalent normalized events.</li><li>Abort and compaction traces.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> Electron 37 created a real Pi 0.84.4 session, invoked only <code>studi_probe</code>, streamed normalized events, persisted and resumed the same session, and passed independent testing and review. <a href="../qa/conclusions/wp-03.html">Conclusion</a> · <a href="../qa/conclusions/wp-03-code-walkthrough.html">Code walkthrough</a></div><div class="gatebox fail"><strong>Fail:</strong> the app shells out to Codex while calling it Pi, leaks credentials, or tests require paid calls.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical parallel browser electron cdp">
+          <summary><span class="wp-id">WP-04</span><span>Build the visible embedded-browser controller</span><span class="meta">verified · combined with WP-05</span></summary>
+          <div class="package-body"><div><h3>Procedure</h3><ol><li>Implement a new <code>SchoolBrowserManager</code> against the contracts from WP-01.</li><li>Own one persistent visible <code>WebContentsView</code>, bounds, focus, navigation policy, and lifecycle.</li><li>Attach <code>webContents.debugger</code> with bounded CDP requests and detach recovery.</li><li>Create a concise accessibility/DOM snapshot with refs and revision.</li><li>Add the smallest action set needed by a real LMS.</li><li>Prove it on the user's actual Moodle instead of building a fake LMS application.</li></ol></div><div><h3>Security</h3><ul><li>No Node integration or preload in remote content.</li><li>No hidden second browser or raw CDP tool.</li><li>Passwords remain in the persistent browser session.</li><li>Known submission controls require the explicit submit tool.</li></ul></div><div class="gatebox pass"><strong>Pass:</strong> the real desktop app keeps the browser visible while a Pi agent safely navigates the user's Moodle and retains login after restart. <a href="packages/wp-04-05-browser-agent.html">Combined dossier</a></div><div class="gatebox fail"><strong>Fail:</strong> automation uses a hidden browser, remote content reaches Node, ordinary click bypasses submission policy, or the proof uses seeded LMS data.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical browser tools contract">
+          <summary><span class="wp-id">WP-05</span><span>Expose browser actions as policy-aware Pi tools</span><span class="meta">verified · combined with WP-04</span></summary>
+          <div class="package-body"><div><h3>Procedure</h3><ol><li>Map a small validated Pi tool set directly onto the browser controller.</li><li>Return concise snapshots and post-action evidence instead of page dumps.</li><li>Reject stale refs so the agent re-observes changed pages.</li><li>Separate <code>browser_submit</code> from ordinary click.</li><li>Add built-in <code>openai-codex</code> subscription login and run a real Pi turn.</li></ol></div><div><h3>Verification</h3><ul><li>The implementer owns useful programmatic checks.</li><li>The tester opens Studi and behaves like a user.</li><li>The user supplies the Moodle URL and completes browser sign-in.</li><li>A real Codex-backed Pi session uses only Studi tools on the visible page.</li></ul></div><div class="gatebox pass"><strong>Pass:</strong> a real Codex-authenticated Pi turn operates the user's Moodle solely through custom Studi tools, remains visible, and does not submit. <a href="packages/wp-04-05-browser-agent.html">Combined dossier</a></div><div class="gatebox fail"><strong>Fail:</strong> the proof uses a faux provider, the agent receives raw unrestricted CDP, or ordinary click bypasses submission policy.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical agent manager queue rules">
+          <summary><span class="wp-id">WP-06</span><span>Create the manager thread, worker lifecycle, queue, and rules</span><span class="meta">verified · cycle 1</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-06.html">Read the verified WP-06 conclusion →</a> <a class="button" href="packages/wp-06-manager-queue.html">Open dossier</a></p></div><div><h3>Delivered</h3><ol><li>One durable Electron-owned manager coordinator.</li><li>SQLite deadline and priority queue with one browser-worker lease.</li><li>Persistent Pi manager session and explicit child worker sessions.</li><li>Fresh stored permission resolution with repository-owned pattern provenance.</li><li>Separate global preference and scoped-memory prompt sections.</li><li>Restart reconciliation for queue, lease, and session state.</li></ol></div><div><h3>Evidence</h3><ul><li>Real signed-in Codex-backed Pi manager turn.</li><li>App restart retained the same durable state.</li><li>2/2 coordinator checks and 10/10 agent checks.</li><li>Storage 29/29, contracts 48/48, foundation 12/12, Sites 4/4.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> queue order, steering, permission refresh, single leasing, session recovery, real Pi manager use, and restart passed. Final quality review approved at 9/10 with no blocker.</div><div class="gatebox fail"><strong>Retained follow-up:</strong> WP-07 should preserve manual priority when it re-enqueues an existing task without an explicit new priority.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical browser scan onboarding evidence">
+          <summary><span class="wp-id">WP-07</span><span>Implement onboarding, evidence-backed scans, and workflow replay</span><span class="meta">implemented · signed-in continuation pending</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-07.html">Read the WP-07 conclusion →</a> <a class="button" href="../qa/conclusions/wp-07-code-walkthrough.html">Open code walkthrough</a></p></div><div><h3>Procedure</h3><ol><li>Convert onboarding chat into manager-agent prompts and typed handoff events.</li><li>Verify school login through the browser, never through app password fields.</li><li>Scan courses, assignment lists, individual task metadata, and linked systems using general tools.</li><li>Pause for each third-party sign-in and resume only after verification.</li><li>Persist coverage, failures, normalized assignments, and a versioned replay workflow.</li><li>Ask for missed-course feedback and incorporate it into the next workflow revision.</li></ol></div><div><h3>Current result</h3><ul><li>General Pi scan tools, evidence-backed persistence, workflow replay, and truthful partial state are implemented.</li><li>Snapshot grounding, contradictory sign-in rejection, stable task origins, queue projection, and partial-first-scan retry are verified.</li><li>The latest packaged run reached the real NC State Moodle login handoff and awaits Unity ID + Duo before resume.</li></ul></div><div class="gatebox pass"><strong>Verified so far:</strong> current-snapshot claims, zero-result honesty, no seeded fallback, durable task/queue projection, and real school sign-in handoff.</div><div class="gatebox fail"><strong>Open live gate:</strong> signed-in course, assignment, and linked-system coverage is not claimed until the pending scan resumes.</div></div>
+        </details>
+
+        <details class="package" data-tags="parallel platform tray schedule notifications">
+          <summary><span class="wp-id">WP-08</span><span>Move lifecycle to tray, scheduler, notifications, and restart recovery</span><span class="meta">platform · depends WP-02</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-08-09.html">Read the verified WP-08 + WP-09 conclusion →</a> <a class="button" href="packages/wp-08-09-lifecycle-execution.html">Open combined dossier</a></p></div><div><h3>Delivered</h3><ol><li>Single-instance, close-to-hide, tray-owned lifecycle with explicit quit.</li><li>Durable local-time scheduling, wake coalescing, notifications, and restart reconciliation.</li><li>One shared visible-browser owner across every scan and assignment entrance.</li><li>Live close/restore, next-day schedule, lease deferral, and restart evidence.</li></ol></div><div><h3>Final evidence</h3><ul><li>Assignment review blocked start, resume, replay, and scheduled scans without changing the page.</li><li>A running scan blocked assignment start before lease acquisition.</li><li>Agent 11/11, storage 40/40, contracts 48/48, foundation 12/12, Sites 4/4, and Electron gates green.</li><li>Final maintainability review: 9/10, no blocker.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> the process stays alive when hidden, schedules advance and coalesce correctly, browser work is mutually exclusive, and restart reconciles without duplicating destructive effects.</div><div class="gatebox fail"><strong>Honest limit:</strong> OS notification-center presentation uses deterministic Electron receipts; the production window and close/restore path were exercised live.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical agent browser submission handoff fallback">
+          <summary><span class="wp-id">WP-09</span><span>Complete the assignment, handoff, review, and fallback loop</span><span class="meta">agent + browser · depends WP-05, WP-06, WP-08</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-08-09.html">Read the verified WP-08 + WP-09 conclusion →</a> <a class="button" href="../qa/conclusions/wp-08-09-code-walkthrough.html">Open code walkthrough</a></p></div><div><h3>Delivered</h3><ol><li>One assignment coordinator reusing the existing manager queue, lease, Pi worker, permission resolver, and browser tools.</li><li>Bounded two-plan recovery, truthful unsupported/login/CAPTCHA handoff, and retained page review.</li><li>Review deadlines that save Markdown before releasing the browser.</li><li>Fresh permission plus fresh control identity and newly observed confirmation for auto-submit.</li></ol></div><div><h3>Final evidence</h3><ul><li>Attempt-only retained answer <code>42</code> during the live process.</li><li>Restart saved readable Markdown and entered an honest handoff.</li><li>Pre-existing confirmation produced zero clicks and no receipt.</li><li>New confirmation produced exactly one safe click and one durable receipt.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> every exercised case ends in a truthful task state with page, event, file, or receipt evidence and no queue deadlock.</div><div class="gatebox fail"><strong>Honest limit:</strong> the destructive proof used a loopback school page; no real schoolwork was submitted.</div></div>
+        </details>
+
+        <details class="package" data-tags="parallel platform auth clerk convex">
+          <summary><span class="wp-id">WP-10</span><span>Add Clerk PKCE, beta access, and the narrow Convex backend</span><span class="meta">verified · dedicated beta user</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-10.html">Read the verified WP-10 conclusion →</a> <a class="button" href="../qa/conclusions/wp-10-code-walkthrough.html">Open code walkthrough</a></p></div><div><h3>Delivered</h3><ol><li>Clerk system-browser OAuth with loopback PKCE/state/nonce verification.</li><li>OS-protected refresh credential and token-free renderer projection.</li><li>Narrow authenticated Convex account, beta, credits, device, usage, and feedback surface.</li><li>Protected runtime constructed only after approval and disposed on sign-out.</li></ol></div><div><h3>Evidence</h3><ul><li>Dedicated Clerk test identity restored approved beta access, 100 credits, and secure storage.</li><li>Unauthenticated bootstrap and beta mutation failed closed.</li><li>Renderer storage and auth projection exposed no token.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> the approved account reaches onboarding; cloud school data was not introduced.</div><div class="gatebox fail"><strong>Explicit limit:</strong> billing checkout and public waitlist operations are outside this desktop package.</div></div>
+        </details>
+
+        <details class="package" data-tags="parallel platform posthog telemetry privacy">
+          <summary><span class="wp-id">WP-11</span><span>Add PostHog product, error, replay, and agent observability</span><span class="meta">verified · local privacy gates</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-11.html">Read the verified WP-11 conclusion →</a> <a class="button" href="../qa/conclusions/wp-11-code-walkthrough.html">Open code walkthrough</a></p></div><div><h3>Delivered</h3><ol><li>Typed main-process product and error capture with allowlisted properties.</li><li>Masked Studi-renderer replay, never injected into the school browser.</li><li>Clerk-linked identity, opt-out, debug visibility, and local inspector.</li><li>Double redaction before diagnostics export.</li></ol></div><div><h3>Evidence</h3><ul><li>Dedicated Clerk subject restored as the same telemetry identity.</li><li>Analytics/replay remained disabled after restart.</li><li>Canary secrets and arbitrary properties were rejected.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> telemetry observes Studi rather than the student's school session.</div><div class="gatebox fail"><strong>Honest limit:</strong> an enabled production PostHog replay for the dedicated user remains an operational follow-up.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical integration vertical ui">
+          <summary><span class="wp-id">WP-12</span><span>Integrate the first complete vertical slice into the Studi UI</span><span class="meta">verified · integrated desktop UI</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-12.html">Read the verified WP-12 conclusion →</a> <a class="button" href="../qa/conclusions/wp-12-code-walkthrough.html">Open code walkthrough</a></p></div><div><h3>Delivered</h3><ol><li>Signed-out gate, provider setup, school onboarding, and visible scan progress.</li><li>Weekly dashboard, manager command bar, active-only desk, library, settings, feedback, and diagnostics.</li><li>Permission, schedule, review/handoff, memory, and telemetry controls wired to Electron owners.</li><li>Clean-room Studi visual language with no old-app imports or seeded work.</li></ol></div><div><h3>Evidence</h3><ul><li>Dedicated approved account and real Codex device flow.</li><li>Onboarding, partial dashboard, desk, library, and settings inspected in production Electron.</li><li>Startup readiness, retained-work routing, handoff deadline, and memory controls repaired and gated.</li></ul></div><div class="gatebox pass"><strong>Verified:</strong> the UI is one projection of the proven desktop runtime.</div><div class="gatebox fail"><strong>Open external boundary:</strong> live signed-in Moodle population is tracked under WP-07/WP-13.</div></div>
+        </details>
+
+        <details class="package" data-tags="parallel platform packaging windows migration">
+          <summary><span class="wp-id">WP-13</span><span>Package a recoverable Windows beta build</span><span class="meta">release candidate · live Moodle gate pending</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-13.html">Read the WP-13 conclusion →</a> <a class="button" href="../qa/conclusions/wp-13-code-walkthrough.html">Open code walkthrough</a> <a class="button" href="../qa/conclusions/studi-wp-00-13.html">Whole-repo conclusion</a></p></div><div><h3>Delivered</h3><ol><li>Self-contained Forge Windows package with bundled Pi, fonts, native/runtime dependencies, icons, and notices.</li><li>Validated migration backup, app version, and allowlisted diagnostic export.</li><li>Portable release ZIP with environment/cache exclusion and retained SHA-256.</li><li>External-working-directory normal-user run with approved Clerk/Convex state, real Codex provider, tray/restart, and Moodle handoff.</li></ol></div><div><h3>Current release candidate</h3><ul><li><code>out/Studi-0.1.0-win32-x64-release.zip</code></li><li>209,729,805 bytes; SHA-256 <code>AD2B851713857DA5426C69B09E9CD69E4BF8AD138BCA914C709AF07B06BDFE02</code>.</li><li>29,894 entries, zero environment/Vite-cache entries, required runtime resources present.</li></ul></div><div class="gatebox pass"><strong>Verified so far:</strong> packaging, migration, diagnostics, identity/provider restore, close/reopen, and current release structure.</div><div class="gatebox fail"><strong>Open live gate:</strong> resume the real Moodle scan after Unity ID + Duo, then run the final packaged self-test and freeze the archive.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical validation live school comparison">
+          <summary><span class="wp-id">WP-14</span><span>Compare Studi against the existing /school Codex automation</span><span class="meta">validation · depends WP-09, WP-12, WP-13</span></summary>
+          <div class="package-body"><div><h3>Procedure</h3><ol><li>Define the same representative course/assignment objectives and evidence rubric.</li><li>Run the existing Codex automation in a separate task in <code>/school</code>.</li><li>Run the installed Studi build on the same objectives without sharing its hidden execution trace.</li><li>Compare discovery coverage, tool failures, handoffs, answer preservation, time, and user interventions.</li><li>Convert each material gap into a reproducible fixture/test before fixing it.</li><li>Rerun until all P1-critical gaps close or are explicitly accepted.</li></ol></div><div><h3>Comparison is evidence, not a demo</h3><ul><li>Record objective outcomes and interventions.</li><li>Do not compare raw prose quality alone.</li><li>Keep credentials and school content local.</li><li>Failures remain visible in the release report.</li></ul></div><div class="gatebox pass"><strong>Pass:</strong> Studi discovers and completes the selected supported workflows with no unexplained critical capability gap.</div><div class="gatebox fail"><strong>Fail:</strong> a gap is dismissed without a fixture, or comparison uses different objectives.</div></div>
+        </details>
+
+        <details class="package" data-tags="critical integration release review">
+          <summary><span class="wp-id">WP-15</span><span>Run the private-beta release gate and write the conclusion</span><span class="meta">integration · depends all</span></summary>
+          <div class="package-body"><div><h3>Procedure</h3><ol><li>Run unit, contract, integration, Electron, Sites, packaging, migration, redaction, and live comparison gates.</li><li>Review architecture boundaries and dependency licenses.</li><li>Verify installer hash and version.</li><li>Create tester runbook, feedback path, and emergency pause/quit instructions.</li><li>Write the flow-based conclusion artifact required by the skill.</li><li>Invite the first accounts only after every blocking gate is green.</li></ol></div><div><h3>Conclusion traces</h3><ul><li>Sign-in and entitlement.</li><li>First school scan and third-party handoff.</li><li>Scheduled scan while window is closed.</li><li>Assignment attempt and review timer.</li><li>Auto-submit permission gate.</li><li>Crash/restart recovery and diagnostics.</li></ul></div><div class="gatebox pass"><strong>Pass:</strong> a clean installer, approved account, real provider, real school scan, supported assignment loop, recovery, and safe telemetry all have retained evidence.</div><div class="gatebox fail"><strong>Fail:</strong> any blocking gate is waived without an explicit decision, or the conclusion claims behavior not exercised.</div></div>
+        </details>
+      </section>
+
+      <section id="verification">
+        <span class="kicker">11 · Verification matrix</span>
+        <h2>Tests follow risk boundaries.</h2>
+        <table>
+          <thead><tr><th>Layer</th><th>Runs against</th><th>Proves</th><th>Blocking examples</th></tr></thead>
+          <tbody>
+            <tr><td>Pure unit</td><td>Fake clock, IDs, repositories</td><td>State transitions, rule precedence, schedules, redaction, normalization</td><td>Invalid transition accepted; auto-submit inherited from a less-specific rule.</td></tr>
+            <tr><td>Contract</td><td>Fake Pi, fake browser, fake cloud</td><td>Adapters emit the same schemas and events</td><td>Real and fake runtime differ; stale browser ref mutates page.</td></tr>
+            <tr><td>Integration</td><td>Electron + fake LMS + temp userData</td><td>IPC, visible browser, persistence, tray, notification, restart</td><td>Hidden browser used; task lost after crash; seeded data appears.</td></tr>
+            <tr><td>Cloud integration</td><td>Clerk/Convex/PostHog dev projects</td><td>PKCE, entitlements, token refresh, telemetry allowlists</td><td>Unapproved sign-in; canary secret reaches network.</td></tr>
+            <tr><td>Packaging</td><td>Clean Windows account/VM</td><td>Installer contains every runtime and native dependency</td><td>Requires global Node/Codex; migration destroys state.</td></tr>
+            <tr><td>Live boundary</td><td>Real Pi provider + real school account</td><td>Actual discovery and supported work loop</td><td>False completion, missed critical class, unrecoverable handoff.</td></tr>
+          </tbody>
+        </table>
+        <h3 style="margin-top:22px">Evidence layout</h3>
+        <pre>.agents/qa/evidence/&lt;release&gt;/
+  manifest.json              # revision, environment, commands, exit codes
+  wp-03/pi-real-turn.jsonl
+  wp-04/fake-lms-trace.jsonl
+  wp-07/scan-coverage.json
+  wp-09/review-timeout.md
+  wp-10/auth-cases.json
+  wp-11/redaction-canaries.json
+  wp-13/installer-smoke.json
+  wp-14/capability-comparison.html
+  release/conclusion.html</pre>
+      </section>
+
+      <section id="privacy">
+        <span class="kicker">12 · Security, privacy, and telemetry</span>
+        <h2>Observe Studi, not the student's school session.</h2>
+        <div class="grid">
+          <article class="card wide coral"><h3>Never leave the device</h3><p>Passwords, cookies, refresh tokens, authorization headers, school page HTML, school-browser replay/screenshots, assignment answers, course rosters, local rules, memories, workflows, queues, and Pi session transcripts.</p></article>
+          <article class="card wide mint"><h3>Allowed after redaction</h3><p>Clerk user ID, app version, anonymized platform type, run/task IDs, state transitions, tool names, durations, retry/error codes, token/credit counters, feature usage, masked Studi renderer replay, feedback the user explicitly sends.</p></article>
+          <article class="card full"><h3>Outbound architecture</h3><p>All telemetry and Convex writes pass through typed DTO builders. Builders use field allowlists rather than object spreading. A development interceptor records outbound keys and runs canary tests. The school <code>WebContentsView</code> never loads PostHog code. Pi prompts and outputs remain local by default; temporary debug capture is a separate opt-in mode with an obvious indicator and automatic expiry.</p></article>
+        </div>
+      </section>
+
+      <section id="release">
+        <span class="kicker">13 · P1 release gate</span>
+        <h2>“Almost deployable” has a concrete meaning.</h2>
+        <div class="grid">
+          <article class="card wide yellow"><h3>Blocking capabilities</h3><ul><li>Approved Clerk account signs in and unapproved account cannot.</li><li>Real Pi AgentSession works without Codex CLI.</li><li>Persistent visible browser survives restart.</li><li>Real scan populates dashboard with provenance.</li><li>Rule hierarchy and repeating-pattern confirmation work.</li><li>Supported assignment reaches truthful terminal state.</li><li>Review expiry creates readable Markdown.</li><li>Tray/schedule/notification recovery works.</li><li>PostHog redaction canaries pass.</li><li>Clean Windows install passes.</li></ul></article>
+          <article class="card wide sky"><h3>Accepted limitations</h3><ul><li>Private beta, Windows only.</li><li>Unsigned installer may show SmartScreen warning.</li><li>One computer/profile/browser-driving task.</li><li>Physical, CAD, Blender, and unsupported workspace tasks hand off.</li><li>Tutoring and learning sessions absent.</li><li>Tester-provided model authentication.</li><li>School UI changes can break a workflow; evidence and diagnostics make the breakage visible.</li></ul></article>
+        </div>
+      </section>
+
+      <section id="workflow">
+        <span class="kicker">14 · How the AI coding loop uses this plan</span>
+        <h2>Approve the frontier, then execute it.</h2>
+        <ol>
+          <li><strong>Master-plan review:</strong> revise this artifact until you say the architecture and package graph are approved.</li>
+          <li><strong>Frontier selection:</strong> choose every package whose dependencies are verified. Initially WP-00 only; after WP-01, multiple lanes open.</li>
+          <li><strong>Just-in-time dossier:</strong> the skill expands each chosen package into exact files/modules, interfaces, fixtures, commands, pass/fail cases, and expected evidence.</li>
+          <li><strong>Your approval:</strong> change the dossier until it matches what you want. No implementation begins before approval.</li>
+          <li><strong>Implementation loop:</strong> baseline → contract test → smallest vertical slice → targeted test → review → integration gate → evidence.</li>
+          <li><strong>Failure rule:</strong> two distinct approaches to the same blocker, then preserve evidence and ask for the missing decision instead of retrying forever.</li>
+          <li><strong>Integration:</strong> shared contracts, migrations, and release gates are owned by one lane.</li>
+          <li><strong>Conclusion:</strong> after WP-15, create an HTML explanation that traces sign-in, scan, task, browser tool, handoff, submission, recovery, and telemetry through the code in execution order.</li>
+        </ol>
+        <div class="callout"><strong>Current frontier:</strong> WP-00 through WP-06 and WP-08 through WP-12 are verified. WP-07 is implemented and has reached the real NC State Moodle sign-in handoff. WP-13 has a tested Windows release candidate, but final completion still requires Unity ID + Duo, the resumed signed-in scan, one safe no-submit workflow if available, and a final packaged self-test/archive freeze. WP-14 and WP-15 remain unimplemented; the requested stop point is WP-13.</div>
+      </section>
+
+      <section id="sources">
+        <span class="kicker">15 · Primary technical sources</span>
+        <h2>Architecture facts checked against current docs.</h2>
+        <div class="sources">
+          <a href="https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/sdk.md">Pi SDK — AgentSession, runtime replacement, custom tools, events, compaction, provider credentials, project skills</a>
+          <a href="https://github.com/ChromeDevTools/chrome-devtools-mcp">Chrome DevTools MCP — production browser-control behavior and security model</a>
+          <a href="https://github.com/ChromeDevTools/chrome-devtools-mcp/blob/main/docs/tool-reference.md">Chrome DevTools MCP tool reference — snapshots, input, navigation, network, console, and evaluation</a>
+          <a href="https://github.com/vercel-labs/agent-browser">Vercel agent-browser — snapshot refs, session lifecycle, direct CDP, and agent-oriented browser UX</a>
+          <a href="https://www.electronjs.org/docs/latest/tutorial/web-embeds">Electron web embeds — WebContentsView is the controllable alternative to the discouraged webview tag</a>
+          <a href="https://www.electronjs.org/docs/latest/api/debugger">Electron Debugger — direct Chrome DevTools Protocol transport for a WebContents</a>
+          <a href="https://www.electronjs.org/docs/latest/tutorial/security">Electron security — isolate remote content, disable Node integration, enable context isolation</a>
+          <a href="https://www.electronjs.org/docs/latest/api/session">Electron session — persistent browser partitions and session ownership</a>
+          <a href="https://www.electronjs.org/docs/latest/api/safe-storage">Electron safeStorage — OS-backed token encryption semantics</a>
+          <a href="https://www.electronjs.org/docs/latest/api/tray">Electron Tray and notification-area lifecycle</a>
+          <a href="https://www.electronjs.org/docs/latest/api/notification">Electron native notifications</a>
+          <a href="https://clerk.com/docs/guides/configure/auth-strategies/oauth/how-clerk-implements-oauth">Clerk OAuth — public clients, Authorization Code + S256 PKCE, token behavior</a>
+          <a href="https://docs.convex.dev/auth/clerk">Convex + Clerk — OIDC configuration and authenticated identity</a>
+          <a href="https://docs.convex.dev/api/classes/browser.BaseConvexClient#setauth">Convex client <code>setAuth</code> — token refresh boundary</a>
+          <a href="https://posthog.com/docs/libraries/js">PostHog JS — Electron bundling guidance, identify/reset, replay linkage</a>
+          <a href="https://posthog.com/docs/libraries/node">PostHog Node — desktop mode, event batching, shared distinct ID, shutdown</a>
+          <a href="https://posthog.com/docs/session-replay/privacy">PostHog replay privacy controls</a>
+          <a href="https://posthog.com/docs/ai-observability/start-here">PostHog AI observability — traces and model/tool events</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">Studi technical master plan · derived from the Q1–Q85 product interview and repository audit.</footer>
+  <script>
+    const buttons = [...document.querySelectorAll('[data-filter]')];
+    const packages = [...document.querySelectorAll('details.package')];
+    const search = document.querySelector('#package-search');
+    let filter = 'all';
+    function applyFilters() {
+      const query = search.value.trim().toLowerCase();
+      for (const item of packages) {
+        const tags = item.dataset.tags || '';
+        const matchesFilter = filter === 'all' || tags.includes(filter);
+        const matchesSearch = !query || item.textContent.toLowerCase().includes(query);
+        item.hidden = !(matchesFilter && matchesSearch);
+      }
+    }
+    for (const button of buttons) button.addEventListener('click', () => {
+      filter = button.dataset.filter;
+      buttons.forEach(b => b.classList.toggle('active', b === button));
+      applyFilters();
+    });
+    search.addEventListener('input', applyFilters);
+  </script>
+</body>
+</html>

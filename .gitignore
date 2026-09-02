@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+node_modules/
+dist/
+out/
+.vite/
+coverage/
+.playwright-mcp/
+*.log
+*.tsbuildinfo
+.clerk/
+.convex/
+.DS_Store
+Thumbs.db

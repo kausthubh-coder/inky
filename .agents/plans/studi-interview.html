@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Studi — Q1–Q85 Product Interview</title>
+  <style>
+    :root { --paper:#fbf7ec; --panel:#fffdf7; --ink:#29251f; --muted:#726b61; --line:#39342e; --yellow:#f6c945; --mint:#8fcfb2; --coral:#ef8b70; }
+    * { box-sizing:border-box; }
+    html { scroll-behavior:smooth; }
+    body { margin:0; color:var(--ink); background:radial-gradient(circle at 1px 1px,#d8cfbd 1px,transparent 1.2px) 0 0/24px 24px,var(--paper); font-family:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif; line-height:1.55; }
+    a { color:inherit; text-underline-offset:3px; }
+    header { position:sticky; top:0; z-index:5; display:flex; gap:14px; align-items:center; padding:14px max(18px,calc((100vw - 1280px)/2)); border-bottom:2px solid var(--line); background:rgba(255,253,247,.94); backdrop-filter:blur(9px); }
+    header a { padding:8px 11px; border:1.5px solid var(--line); border-radius:8px; background:var(--yellow); box-shadow:2px 2px 0 var(--line); font-weight:850; text-decoration:none; white-space:nowrap; }
+    header input { min-width:0; flex:1; max-width:550px; padding:10px 12px; border:1.5px solid var(--line); border-radius:9px; background:#fff; font:inherit; }
+    header span { color:var(--muted); font-size:12px; font-weight:800; }
+    .shell { display:grid; grid-template-columns:250px minmax(0,860px); justify-content:center; gap:34px; padding:40px 22px 100px; }
+    nav { position:sticky; top:86px; align-self:start; max-height:calc(100vh - 110px); overflow:auto; padding:15px; border:2px solid var(--line); border-radius:14px; background:var(--panel); box-shadow:3px 3px 0 var(--line); }
+    nav strong { display:block; margin:0 8px 8px; }
+    nav a { display:block; padding:6px 8px; border-radius:7px; color:var(--muted); font-size:12px; font-weight:750; text-decoration:none; }
+    nav a:hover { color:var(--ink); background:#f1e8d4; }
+    main { min-width:0; }
+    .intro { padding:24px; border:2px solid var(--line); border-radius:18px; background:#fff2b5; box-shadow:4px 4px 0 var(--line); margin-bottom:30px; }
+    h1 { margin:0 0 8px; font-size:clamp(2rem,6vw,4.2rem); line-height:1; letter-spacing:-.04em; }
+    h2 { margin:46px 0 15px; padding-bottom:9px; border-bottom:2px solid var(--line); font-size:1.65rem; scroll-margin-top:90px; }
+    h3 { margin:28px 0 9px; font-size:1.1rem; }
+    p { margin:0 0 12px; }
+    ul { padding-left:22px; }
+    hr { border:0; border-top:1px dashed #a89c89; margin:25px 0; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; margin:12px 0 20px; padding:16px; border:2px solid var(--line); border-radius:13px; background:#fff; box-shadow:3px 3px 0 #b9ae9b; font:13px/1.58 "SFMono-Regular",Consolas,monospace; }
+    code { padding:1px 4px; border-radius:4px; background:#eee6d7; font-family:"SFMono-Regular",Consolas,monospace; }
+    blockquote { margin:12px 0; padding:12px 16px; border-left:7px solid var(--coral); background:#fff0ea; }
+    .loading { padding:22px; border:2px dashed var(--line); border-radius:14px; background:var(--panel); }
+    .no-results { display:none; padding:18px; border:2px solid var(--line); border-radius:12px; background:#fff; }
+    mark { background:var(--yellow); }
+    @media (max-width:850px) { .shell{grid-template-columns:1fr;padding:24px 15px 80px}.shell nav{display:none}header span{display:none} }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="studi-master-plan.html">← Master plan</a>
+    <input id="search" type="search" placeholder="Search all questions and exact answers…" aria-label="Search interview" />
+    <span id="search-status">Q1–Q85 · verbatim answers preserved</span>
+  </header>
+  <div class="shell">
+    <nav><strong>Interview rounds</strong><div id="toc"><span>Loading…</span></div></nav>
+    <main>
+      <section class="intro">
+        <h1>The complete Studi interview.</h1>
+        <p>This page renders the durable Q1–Q85 decision record. Assistant questions and the user's answers are preserved exactly, including spelling, punctuation, HTML entities, repeated question numbers, and contradictions. The “latest decisions” section at the top is the normalized override layer used by the technical plan.</p>
+        <p><a href="../STUDI_PRODUCT_DECISIONS.md">Open the source Markdown</a></p>
+      </section>
+      <div class="no-results" id="no-results">No question or answer contains that search text.</div>
+      <article id="content"><div class="loading">Loading the exact interview record from <code>STUDI_PRODUCT_DECISIONS.md</code>…</div></article>
+    </main>
+  </div>
+  <script>
+    const content = document.querySelector('#content');
+    const toc = document.querySelector('#toc');
+    const search = document.querySelector('#search');
+    const status = document.querySelector('#search-status');
+    const noResults = document.querySelector('#no-results');
+    let source = '';
+
+    const escapeHtml = value => value.replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[char]));
+    const slug = value => value.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+    function inline(value) {
+      return escapeHtml(value)
+        .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+        .replace(/`([^`]+)`/g,'<code>$1</code>')
+        .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,'<a href="$2">$1</a>');
+    }
+    function renderMarkdown(markdown) {
+      const lines = markdown.replace(/\r/g,'').split('\n');
+      const out = [];
+      let paragraph = [];
+      let list = [];
+      let code = [];
+      let inCode = false;
+      const flushParagraph = () => { if (paragraph.length) { out.push(`<p>${inline(paragraph.join(' '))}</p>`); paragraph=[]; } };
+      const flushList = () => { if (list.length) { out.push(`<ul>${list.map(x=>`<li>${inline(x)}</li>`).join('')}</ul>`); list=[]; } };
+      const flushCode = () => { out.push(`<pre>${escapeHtml(code.join('\n'))}</pre>`); code=[]; };
+      for (const line of lines) {
+        if (line.startsWith('```')) { flushParagraph(); flushList(); if (inCode) flushCode(); inCode=!inCode; continue; }
+        if (inCode) { code.push(line); continue; }
+        const heading = line.match(/^(#{1,3})\s+(.+)$/);
+        if (heading) { flushParagraph(); flushList(); const level=heading[1].length; const id=slug(heading[2]); out.push(`<h${level} id="${id}">${inline(heading[2])}</h${level}>`); continue; }
+        const bullet = line.match(/^[-*]\s+(.+)$/);
+        if (bullet) { flushParagraph(); list.push(bullet[1]); continue; }
+        if (/^---+$/.test(line.trim())) { flushParagraph(); flushList(); out.push('<hr>'); continue; }
+        if (line.startsWith('> ')) { flushParagraph(); flushList(); out.push(`<blockquote>${inline(line.slice(2))}</blockquote>`); continue; }
+        if (!line.trim()) { flushParagraph(); flushList(); continue; }
+        paragraph.push(line.trim());
+      }
+      flushParagraph(); flushList(); if (inCode || code.length) flushCode();
+      return out.join('\n');
+    }
+    function buildToc() {
+      const headings = [...content.querySelectorAll('h2')];
+      toc.innerHTML = headings.map(h => `<a href="#${h.id}">${h.textContent}</a>`).join('');
+    }
+    function applySearch() {
+      const query = search.value.trim().toLowerCase();
+      const sections = [...content.querySelectorAll('h2')].map((heading,index,all) => {
+        const nodes=[]; let node=heading;
+        while(node && (node===heading || node.tagName!=='H2')) { nodes.push(node); node=node.nextElementSibling; }
+        return nodes;
+      });
+      let visible=0;
+      for (const nodes of sections) {
+        const match=!query || nodes.some(node=>node.textContent.toLowerCase().includes(query));
+        nodes.forEach(node=>node.style.display=match?'':'none');
+        if(match) visible++;
+      }
+      noResults.style.display = visible ? 'none' : 'block';
+      status.textContent = query ? `${visible} matching interview sections` : 'Q1–Q85 · verbatim answers preserved';
+    }
+    search.addEventListener('input', applySearch);
+
+    fetch('../STUDI_PRODUCT_DECISIONS.md')
+      .then(response => { if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.text(); })
+      .then(markdown => { source=markdown; content.innerHTML=renderMarkdown(markdown); buildToc(); applySearch(); })
+      .catch(error => {
+        content.innerHTML = `<div class="loading"><strong>The browser blocked the local Markdown request.</strong><p>Open this page through the project preview server, or use the exact source link above. The record is intact at <code>STUDI_PRODUCT_DECISIONS.md</code>.</p><small>${escapeHtml(error.message)}</small></div>`;
+        toc.innerHTML='';
+      });
+  </script>
+</body>
+</html>

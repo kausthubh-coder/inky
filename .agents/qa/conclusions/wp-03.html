@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>WP-03 conclusion · Studi</title>
+  <style>
+    :root{--paper:#fbf7ec;--panel:#fffdf7;--ink:#29251f;--muted:#71695f;--line:#39342e;--yellow:#f6c945;--mint:#dff4e9;--sky:#dcecff;--coral:#ffe1d8;--lav:#ebe3ff}*{box-sizing:border-box}body{margin:0;color:var(--ink);background:radial-gradient(circle at 1px 1px,#d8cfbd 1px,transparent 1.2px) 0 0/24px 24px,var(--paper);font:15px/1.55 "Nunito Sans",Inter,system-ui,sans-serif}a{color:inherit;text-underline-offset:3px}header{padding:42px max(20px,calc((100vw - 980px)/2));border-bottom:3px solid var(--line);background:rgba(255,253,247,.94)}h1,h2,h3{line-height:1.1}h1{max-width:860px;margin:12px 0;font:700 clamp(2.4rem,7vw,4.8rem)/1.02 "Shantell Sans",cursive;letter-spacing:-.04em}header p{max-width:790px;color:var(--muted);font-size:1.05rem}.badge{display:inline-flex;padding:6px 10px;border:2px solid var(--line);border-radius:999px;background:var(--mint);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:20px}.links a{padding:8px 11px;border:2px solid var(--line);border-radius:9px;background:#fff;text-decoration:none;font-weight:800;box-shadow:2px 2px 0 var(--line)}main{max-width:980px;margin:auto;padding:34px 20px 90px}section{margin-bottom:46px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.card{padding:17px;border:2px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:3px 3px 0 var(--line)}.mint{background:var(--mint)}.sky{background:var(--sky)}.coral{background:var(--coral)}.flow{display:grid;gap:10px;counter-reset:step}.step{display:grid;grid-template-columns:42px 1fr;gap:12px;padding:14px;border:2px solid var(--line);border-radius:12px;background:#fff}.step:before{counter-increment:step;content:counter(step);display:grid;place-items:center;width:34px;height:34px;border:2px solid var(--line);border-radius:50%;background:var(--yellow);font-weight:900}.step h3,.step p{margin:0}.step p{color:var(--muted)}code{padding:1px 4px;border-radius:4px;background:#eee6d7;font-family:Consolas,monospace;font-size:.9em}table{width:100%;border-collapse:collapse;border:2px solid var(--line);background:#fff}th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid #d5cbb8}th{background:#eee4ce;font-size:12px;text-transform:uppercase}tr:last-child td{border:0}.next{padding:18px;border:2px solid var(--line);border-radius:14px;background:#fff2b5;box-shadow:3px 3px 0 var(--line)}@media(max-width:680px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">Verified · WP-03 · cycle 1</span>
+    <h1>Studi now runs a real Pi agent session behind one narrow boundary.</h1>
+    <p>WP-03 replaces the imagined agent layer with Pi 0.84.4 running inside Electron. It proves session creation, a Studi-owned tool, normalized events, interruption, provider readiness, local persistence, replacement, and a deterministic fake—without a paid model call.</p>
+    <div class="links"><a href="wp-03-code-walkthrough.html">Read the code walkthrough</a><a href="../../plans/studi-master-plan.html#packages">Master plan</a><a href="../../plans/packages/wp-03-pi-runtime.html">Package dossier</a><a href="../evidence/wp-03/ledger.md">Evidence ledger</a><a href="../evidence/wp-03/final-review.md">Final review</a></div>
+  </header>
+  <main>
+    <section class="grid">
+      <article class="card mint"><h2>Delivered</h2><p><code>PiAgentRuntime</code> owns real Pi construction and provider checks. Each session owns one Pi session and exposes only normalized Studi events. <code>FakeAgentRuntime</code> implements that same consumer contract.</p></article>
+      <article class="card sky"><h2>Deliberately omitted</h2><p>No browser tools, manager/worker framework, UI, queue, memory, generic provider abstraction, transcript database, shell or filesystem tool, or paid-provider test.</p></article>
+    </section>
+
+    <section>
+      <h2>The runtime journey</h2>
+      <div class="flow">
+        <article class="step"><div><h3>A caller asks for a session</h3><p><code>PiAgentRuntime</code> supplies Pi with its local agent directory, model runtime, persistence target, and one explicit custom tool.</p></div></article>
+        <article class="step"><div><h3>Pi starts locked down</h3><p>Resource discovery is empty, <code>noTools: "all"</code> removes built-ins, and a post-create assertion requires both configured and active tools to equal <code>studi_probe</code>.</p></div></article>
+        <article class="step"><div><h3>One wrapper owns one live session</h3><p><code>PiBackedAgentSession</code> starts prompts, aborts work, requests compaction, receives Pi events, and fans normalized events to Studi listeners.</p></div></article>
+        <article class="step"><div><h3>Pi detail stops at the normalizer</h3><p>Text, tool, retry, compaction, abort, and terminal activity becomes one validated <code>AgentRunEvent</code> union. Upstream error and credential-shaped text is replaced with fixed Studi messages.</p></div></article>
+        <article class="step"><div><h3>Replacement preserves the consumer</h3><p>The next Pi session is created first. Only after success does the wrapper rebind its Pi subscription, keep existing Studi listeners, and dispose the old session.</p></div></article>
+        <article class="step"><div><h3>The fake proves downstream code cheaply</h3><p>The deterministic fake emits the same public turn as the real Pi session, so later packages can test orchestration without network calls or a second interface.</p></div></article>
+      </div>
+      <p class="next"><strong>Want the implementation in execution order?</strong> <a href="wp-03-code-walkthrough.html">Open the step-by-step walkthrough</a>. It states the actual code size and links every full source file.</p>
+    </section>
+
+    <section>
+      <h2>Verification evidence</h2>
+      <table><thead><tr><th>Gate</th><th>Final result</th></tr></thead><tbody>
+        <tr><td>Focused Pi runtime</td><td>4/4 passed using a real Pi <code>AgentSession</code> and deterministic faux provider</td></tr>
+        <tr><td>Tool boundary</td><td>Configured and active tools were exactly <code>["studi_probe"]</code>; no file or shell tool appeared</td></tr>
+        <tr><td>Lifecycle</td><td>Abort ordering, failed compaction, persisted resume, replacement, listener retention, and disposal passed</td></tr>
+        <tr><td>Provider boundary</td><td>Ready, needs-login, and unavailable states passed; credential paths, values, and upstream errors stayed hidden</td></tr>
+        <tr><td>Electron boundary</td><td>Electron 37.10.3 / Node 22.21.1 / Pi 0.84.4 persisted and resumed the same session and completed the probe</td></tr>
+        <tr><td>Regression gates</td><td>49 contract, 12 foundation, 27 storage, and 4 Sites tests passed independently</td></tr>
+        <tr><td>Independent review</td><td><code>approve_with_followups</code>; no blocking correctness or maintainability finding</td></tr>
+      </tbody></table>
+    </section>
+
+    <section class="grid">
+      <article class="card coral"><h2>Debug in execution order</h2><p>Start at <code>PiAgentRuntime.createSession</code>, then its Pi factory and tool assertion, the session wrapper, the event normalizer, replacement, and finally the Electron self-test receipt.</p></article>
+      <article class="card"><h2>Packaging follow-up</h2><p>When building the installer, decide whether the faux-provider self-test ships. If it does not, move the project's direct <code>pi-ai</code> dependency to development scope and inspect the packaged dependency tree.</p></article>
+    </section>
+
+    <section class="next"><h2>Stop point</h2><p>WP-03 is complete. WP-04, WP-06, WP-08, WP-10, and WP-11 are dependency-ready, but no next package has started. Work stops here for your review.</p></section>
+  </main>
+</body>
+</html>

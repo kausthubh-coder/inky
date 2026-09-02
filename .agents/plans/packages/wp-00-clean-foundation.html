@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WP-00 dossier · Clean foundation</title>
+  <style>
+    :root{--paper:#fbf7ec;--panel:#fffdf7;--ink:#29251f;--muted:#71695f;--line:#39342e;--yellow:#f6c945;--mint:#8fcfb2;--coral:#ef8b70;--sky:#8ebde9}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);background:radial-gradient(circle at 1px 1px,#d8cfbd 1px,transparent 1.2px) 0 0/24px 24px,var(--paper);font:15px/1.55 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}a{color:inherit;text-underline-offset:3px}header{padding:44px max(20px,calc((100vw - 1080px)/2));border-bottom:3px solid var(--line);background:rgba(255,253,247,.9)}header h1{max-width:850px;margin:12px 0;font-size:clamp(2.3rem,7vw,5rem);line-height:1;letter-spacing:-.04em}header p{max-width:760px;color:var(--muted);font-size:1.04rem}.badge{display:inline-flex;padding:6px 9px;border:1.5px solid var(--line);border-radius:999px;background:var(--yellow);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.06em}.links{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}.links a{padding:9px 12px;border:1.5px solid var(--line);border-radius:9px;background:#fff;font-weight:800;text-decoration:none;box-shadow:2px 2px 0 var(--line)}main{max-width:1080px;margin:auto;padding:34px 20px 100px}section{margin-bottom:52px;scroll-margin-top:20px}h2{margin:0 0 14px;font-size:2rem;line-height:1.1}h3{margin:0 0 9px;font-size:1.08rem}p{margin:0 0 12px}ul,ol{margin:8px 0;padding-left:22px}.grid{display:grid;grid-template-columns:repeat(12,1fr);gap:14px}.card{grid-column:span 6;padding:17px;border:2px solid var(--line);border-radius:14px;background:var(--panel);box-shadow:3px 3px 0 var(--line)}.card.full{grid-column:1/-1}.card.yellow{background:#fff2b5}.card.mint{background:#dff4e9}.card.coral{background:#ffe1d8}.kicker{display:block;margin-bottom:6px;color:var(--muted);font-size:11px;font-weight:900;text-transform:uppercase;letter-spacing:.08em}table{width:100%;border-collapse:separate;border-spacing:0;overflow:hidden;border:2px solid var(--line);border-radius:12px;background:var(--panel);font-size:13px}th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid #cfc5b3}th{background:#eee4ce;font-size:11px;text-transform:uppercase;letter-spacing:.05em}tr:last-child td{border-bottom:0}code,pre{font-family:"SFMono-Regular",Consolas,monospace}code{padding:1px 4px;border-radius:4px;background:#eee6d7}pre{overflow:auto;padding:15px;border-radius:11px;background:#26221e;color:#fff8e8;font-size:12px}.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.flow span{padding:9px 11px;border:1.5px solid var(--line);border-radius:8px;background:#fff;font-size:12px;font-weight:800}.flow b{color:var(--muted)}.gate{padding:14px;border:1.5px solid var(--line);border-left-width:8px;border-radius:11px;background:#fff}.gate.pass{border-left-color:#4ba477}.gate.fail{border-left-color:#c95945}.approval{padding:14px;border:2px solid var(--line);border-radius:12px;background:#dff4e9;box-shadow:3px 3px 0 var(--line);font-weight:750}@media(max-width:720px){.card{grid-column:1/-1}header{padding:32px 18px}main{padding-inline:15px}}
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">Verified · WP-00 · cycle 2</span>
+    <h1>Create the clean-room project foundation.</h1>
+    <p>This package deletes the old app from every active runtime path and establishes a small, typed Electron and React base. It proves the repository can build, test, and launch before product behavior enters the codebase.</p>
+    <div class="links"><a href="../studi-master-plan.html#packages">← Master plan</a><a href="../../qa/conclusions/wp-00.html">Conclusion</a><a href="../../qa/evidence/wp-00/ledger.md">Evidence ledger</a><a href="../../skills/verified-build-loop/SKILL.md">Build-loop skill</a></div>
+  </header>
+  <main>
+    <section>
+      <span class="kicker">Package contract</span>
+      <div class="grid">
+        <article class="card mint"><h3>Objective</h3><p>A clean checkout installs and launches a new minimal Studi desktop window from new entrypoints. One command runs deterministic foundation checks. No active code imports or copies the discarded prototype.</p></article>
+        <article class="card yellow"><h3>Standing approval</h3><p>The user's instruction to start the manager-led loop approves this dossier because it expands WP-00 without changing product behavior, architecture boundaries, or scope.</p></article>
+        <article class="card"><h3>Depends on</h3><p>Approved master plan, clean-room decision, Node/npm already available for development, and the existing repository.</p></article>
+        <article class="card coral"><h3>Does not include</h3><p>Pi, browser automation, SQLite, Clerk, Convex, PostHog, school scans, queue behavior, scheduling, tray behavior, assignment work, or polished product screens.</p></article>
+      </div>
+    </section>
+
+    <section>
+      <span class="kicker">Ownership</span>
+      <h2>Files the implementer may change</h2>
+      <table><thead><tr><th>Area</th><th>Allowed work</th><th>Rule</th></tr></thead><tbody>
+        <tr><td><code>src/</code></td><td>Replace all prototype files with new TypeScript renderer entrypoints, a minimal app shell, and package-scoped tests.</td><td>Do not copy old components, state, seeded data, or CSS.</td></tr>
+        <tr><td><code>electron/</code></td><td>Replace all prototype files with new TypeScript main and preload entrypoints plus a self-test path.</td><td>No old IPC channels, LMS logic, Codex calls, workflows, or schedules.</td></tr>
+        <tr><td><code>package.json</code>, lockfile</td><td>Add TypeScript and test tooling. Replace scripts and the Electron main entry.</td><td>Keep the Sites build and test commands functional.</td></tr>
+        <tr><td><code>index.html</code>, <code>vite.config.mjs</code></td><td>Point at the new renderer and update warmup/configuration.</td><td>Build must still write <code>dist/client</code>.</td></tr>
+        <tr><td><code>tests/</code>, <code>.agents/qa/evidence/wp-00/</code></td><td>Add clean-room boundary, protected-file, build-shape, and smoke evidence.</td><td>Do not edit the protected Sites test.</td></tr>
+        <tr><td>TypeScript configs</td><td>Add strict renderer and Electron compiler configurations.</td><td>No unchecked implicit <code>any</code>.</td></tr>
+      </tbody></table>
+    </section>
+
+    <section>
+      <span class="kicker">Protected files</span>
+      <h2>These four files must remain byte-identical</h2>
+      <pre>.openai/hosting.json
+SHA256 D532ABB65CF9AE20634B464D954CB4A08A0DE9F3CD3CDF7F9C3EC8948826D947
+
+worker/index.js
+SHA256 2DD0615A445143933D88D4271F54F5D63EE951421FCD08C5A7617BB09C564389
+
+scripts/prepare-sites-build.mjs
+SHA256 B6A6ADAA4FAB3234676116DD1C9CB6611275AB9D92DD26F5BF402393E3744BF6
+
+tests/sites-worker.test.mjs
+SHA256 96AF7B48906C6460C793356D7B6952F7D5026DBF5A502BEC0D9297FF04201C26</pre>
+    </section>
+
+    <section>
+      <span class="kicker">Technical shape</span>
+      <h2>New foundation</h2>
+      <pre>src/
+  main.tsx                    renderer composition root
+  app/StudiApp.tsx            minimal honest placeholder screen
+  app/app.css                 new styles written from zero
+  platform/studi-api.ts       renderer-side type for the preload API
+  types/window.d.ts           global window declaration
+
+electron/
+  main.ts                     Electron composition root and self-test
+  preload.cts                 minimal contextBridge allowlist
+  tsconfig.json               strict main/preload compilation
+
+tests/
+  clean-room-boundary.test.mjs
+  protected-files.test.mjs
+  build-shape.test.mjs
+
+.agents/qa/evidence/wp-00/
+  ledger.md
+  cycle-01-implement.md
+  cycle-01-test.md
+  cycle-01-review.md</pre>
+      <p>The renderer and Electron code use strict TypeScript. The main process owns the window. The preload exposes only a frozen runtime-information method. WP-01 replaces that placeholder with versioned IPC contracts.</p>
+    </section>
+
+    <section>
+      <span class="kicker">Procedure</span>
+      <h2>Implementation order</h2>
+      <ol>
+        <li>Record tool versions, current file list, protected hashes, and baseline Sites results.</li>
+        <li>Remove the old app-specific files under <code>src/</code> and <code>electron/</code> with explicit file edits. Do not use a broad recursive delete.</li>
+        <li>Add strict TypeScript configuration and the fresh entrypoints shown above.</li>
+        <li>Create a minimal <code>BrowserWindow</code> with <code>nodeIntegration:false</code>, <code>contextIsolation:true</code>, and <code>sandbox:true</code>.</li>
+        <li>Expose a frozen, read-only preload method that returns app, Electron, Chrome, and Node versions.</li>
+        <li>Render one honest foundation screen with an app-ready test marker. Do not recreate the old dashboard.</li>
+        <li>Add the clean-room import check, protected-file hash check, build-shape check, and Electron self-test.</li>
+        <li>Wire <code>npm test</code>, <code>npm run build</code>, <code>npm run test:sites</code>, and <code>npm run test:electron</code>.</li>
+        <li>Run every gate and write the implementer report. Do not claim independent verification.</li>
+      </ol>
+    </section>
+
+    <section>
+      <span class="kicker">Runtime trace</span>
+      <h2>What the foundation must do</h2>
+      <div class="flow"><span>npm script compiles Electron</span><b>→</b><span>Electron loads new main entry</span><b>→</b><span>main creates isolated BrowserWindow</span><b>→</b><span>preload exposes runtime info</span><b>→</b><span>Vite renderer mounts new StudiApp</span><b>→</b><span>self-test observes app-ready marker</span><b>→</b><span>process exits 0</span></div>
+    </section>
+
+    <section>
+      <span class="kicker">Test plan</span>
+      <h2>Independent gates</h2>
+      <table><thead><tr><th>Gate</th><th>Command or check</th><th>Required observation</th></tr></thead><tbody>
+        <tr><td>Type safety</td><td><code>npm run typecheck</code></td><td>Renderer and Electron compile with strict checks and zero errors.</td></tr>
+        <tr><td>Foundation tests</td><td><code>npm test</code></td><td>Clean-room boundary, protected hashes, and build-shape tests pass.</td></tr>
+        <tr><td>Production build</td><td><code>npm run build</code></td><td><code>dist/client/index.html</code>, <code>dist/server/index.js</code>, and <code>dist/.openai/hosting.json</code> exist.</td></tr>
+        <tr><td>Sites regression</td><td><code>npm run test:sites</code></td><td>Protected worker behavior remains green.</td></tr>
+        <tr><td>Electron smoke</td><td><code>npm run test:electron</code></td><td>Fresh Electron main loads the fresh renderer, observes the marker, prints a compact result, and exits 0.</td></tr>
+        <tr><td>Boundary scan</td><td>Search imports and package scripts</td><td>No active path names or imports old App, Onboarding, Moodle adapter, school workflow, Codex runner, or seeded demo data.</td></tr>
+      </tbody></table>
+    </section>
+
+    <section>
+      <span class="kicker">Pass and fail</span>
+      <div class="grid">
+        <article class="card full gate pass"><h3>Pass when</h3><ul><li>Fresh source and Electron entrypoints launch and build.</li><li>Strict type checks and every automated gate exit 0.</li><li>The four protected files retain their recorded SHA256 values.</li><li>The new app imports no discarded prototype module.</li><li>The Electron smoke test uses isolated temporary state and leaves the normal browser profile untouched.</li><li>The evidence ledger contains implementer, tester, and reviewer reports for the same cycle.</li></ul></article>
+        <article class="card full gate fail"><h3>Fail when</h3><ul><li>Any current App, Onboarding, Moodle, school-workflow, direct Codex, seeded-data, or scripted-stage code remains in an active runtime path.</li><li>A protected file changes.</li><li>A test requires a real school account, stored browser profile, or model call.</li><li>The renderer gains Node access or the preload exposes arbitrary IPC.</li><li>The tester changes production code or the reviewer changes any file.</li><li>A role marks the package complete without manager closeout.</li></ul></article>
+      </div>
+    </section>
+
+    <section>
+      <span class="kicker">Failure handling</span>
+      <h2>Debug order and containment</h2>
+      <ol>
+        <li>Confirm Node, npm, Electron, Vite, and TypeScript versions.</li>
+        <li>Check compiler output and the Electron main entry path.</li>
+        <li>Check preload resolution, renderer URL, and app-ready marker.</li>
+        <li>Check temporary <code>userData</code> and process cleanup.</li>
+        <li>Check protected hashes and Sites output shape.</li>
+        <li>If a native or package limitation changes the foundation architecture, stop the cycle and return the decision to the manager.</li>
+      </ol>
+      <p>Containment is simple. WP-00 has no user data or migrations. A failed cycle leaves its reports in <code>.agents/qa/evidence/wp-00</code>. The next implementer receives the exact failure and starts a new cycle.</p>
+    </section>
+
+    <section><div class="approval">Status: verified. Cycle 2 passed the full package gate, and the final independent review approved the code with non-blocking follow-ups assigned to WP-01 and later desktop verification. <a href="../../qa/conclusions/wp-00.html">Read the code-trace conclusion.</a></div></section>
+  </main>
+</body>
+</html>
