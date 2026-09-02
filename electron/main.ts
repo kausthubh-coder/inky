@@ -14,6 +14,7 @@ import {
   ipcMain,
   nativeImage,
   safeStorage,
+  screen,
   session as electronSession,
   shell,
 } from "electron";
@@ -52,7 +53,7 @@ import { PiAgentRuntime } from "./agent/runtime.js";
 import { OpenAiCodexLoginAttemptOwner } from "./agent/provider-login.js";
 import { AssignmentExecutionCoordinator, type ExecutionNotification } from "./assignment/coordinator.js";
 import { BrowserController } from "./browser/controller.js";
-import { DriveOverlay } from "./browser/drive-overlay.js";
+import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
 import { AppKernel } from "./lifecycle/kernel.js";
 import { ManagerCoordinator } from "./manager/coordinator.js";
@@ -583,15 +584,20 @@ function createSchoolBrowser(window: BrowserWindow): void {
   });
   browserView = view;
   browserController = new BrowserController(view.webContents);
+  view.setBorderRadius(SCHOOL_PANE_RADIUS);
   window.contentView.addChildView(view);
   driveOverlay = new DriveOverlay(window);
 
   layoutSchoolBrowser();
   window.on("resize", layoutSchoolBrowser);
   setInterval(() => {
-    if (browserLayoutMode === "hidden") return;
+    if (browserLayoutMode === "hidden") {
+      driveOverlay?.setStudentHover(false);
+      return;
+    }
+    driveOverlay?.setStudentHover(studentCursorOverSchool());
     driveOverlay?.setDriver(currentBrowserDriver());
-  }, 350);
+  }, 80);
 
   view.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
     if (isMainFrame) {
@@ -619,9 +625,23 @@ function layoutSchoolBrowser(): void {
   const [width = 1120, height = 760] = window.getContentSize();
   const bounds = schoolBrowserBounds(browserLayoutMode, width, height);
   view.setBounds(bounds);
+  view.setBorderRadius(SCHOOL_PANE_RADIUS);
   view.setVisible(true);
   driveOverlay?.layout(bounds);
+  driveOverlay?.setStudentHover(studentCursorOverSchool());
   driveOverlay?.setDriver(currentBrowserDriver());
+}
+
+function studentCursorOverSchool(): boolean {
+  const window = mainWindow;
+  const view = browserView;
+  if (!window || window.isDestroyed() || !view || browserLayoutMode === "hidden") return false;
+  const bounds = view.getBounds();
+  const content = window.getContentBounds();
+  const point = screen.getCursorScreenPoint();
+  const x = point.x - content.x;
+  const y = point.y - content.y;
+  return x >= bounds.x && y >= bounds.y && x < bounds.x + bounds.width && y < bounds.y + bounds.height;
 }
 
 function schoolBrowserBounds(

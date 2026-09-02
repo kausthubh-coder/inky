@@ -1,10 +1,14 @@
 import { WebContentsView, type BrowserWindow } from "electron";
 
-import { inkySvg, type BrowserDriver } from "../../shared/index.js";
+import { driveOverlayActive, inkySvg, type BrowserDriver } from "../../shared/index.js";
+
+export const SCHOOL_PANE_RADIUS = 22;
 
 export class DriveOverlay {
   readonly #view: WebContentsView;
+  #bounds: Electron.Rectangle | null = null;
   #driver: BrowserDriver = "none";
+  #studentHover = false;
   #ready = false;
 
   constructor(window: BrowserWindow) {
@@ -17,6 +21,7 @@ export class DriveOverlay {
       },
     });
     this.#view.setBackgroundColor("#00000000");
+    this.#view.setBorderRadius(SCHOOL_PANE_RADIUS);
     this.#view.setVisible(false);
     window.contentView.addChildView(this.#view);
     this.#view.webContents.on("did-finish-load", () => {
@@ -27,26 +32,47 @@ export class DriveOverlay {
   }
 
   layout(bounds: Electron.Rectangle | null): void {
+    this.#bounds = bounds;
     if (!bounds) {
       this.#driver = "none";
+      this.#studentHover = false;
       this.#view.setVisible(false);
       this.#push();
       return;
     }
     this.#view.setBounds(bounds);
-    this.#view.setVisible(true);
+    this.#view.setBorderRadius(SCHOOL_PANE_RADIUS);
+    this.#sync();
   }
 
   setDriver(driver: BrowserDriver): void {
     if (this.#driver === driver) return;
     this.#driver = driver;
+    this.#sync();
+  }
+
+  setStudentHover(hovering: boolean): void {
+    if (this.#studentHover === hovering) return;
+    this.#studentHover = hovering;
+    this.#sync();
+  }
+
+  #sync(): void {
+    const show = this.#bounds !== null && driveOverlayActive({
+      driver: this.#driver,
+      studentHover: this.#studentHover,
+    });
+    this.#view.setVisible(show);
     this.#push();
   }
 
   #push(): void {
     if (!this.#ready || this.#view.webContents.isDestroyed()) return;
+    const driver = driveOverlayActive({ driver: this.#driver, studentHover: this.#studentHover })
+      ? this.#driver
+      : "none";
     void this.#view.webContents.executeJavaScript(
-      `document.documentElement.dataset.driver = ${JSON.stringify(this.#driver)}`,
+      `document.documentElement.dataset.driver = ${JSON.stringify(driver)}`,
     );
   }
 
@@ -75,9 +101,12 @@ function overlayDataUrl(): string {
   .fade {
     position: absolute;
     inset: 0;
+    border-radius: 22px 20px 24px 18px;
     background:
       linear-gradient(to right, rgba(138,184,232,0.42), transparent 22%, transparent 78%, rgba(138,184,232,0.42)),
       linear-gradient(to bottom, rgba(138,184,232,0.28), transparent 18%, transparent 82%, rgba(138,184,232,0.28));
+  }
+  html[data-driver="inky"] .fade {
     animation: veil 2.4s ease-in-out infinite alternate;
   }
   .inky {
