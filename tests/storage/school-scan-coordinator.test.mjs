@@ -233,6 +233,92 @@ test("scan recording rejects a secret-shaped current URL and cannot create a ver
   }
 });
 
+test("student takeover pauses a running scan without failing it", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-scan-takeover-")));
+  let store;
+  let coordinator;
+  try {
+    store = await openLocalStore(root);
+    const browser = new RecordingBrowser();
+    let resolvePrompt;
+    let startedPrompt;
+    const promptStarted = new Promise((resolve) => { startedPrompt = resolve; });
+    const promptGate = new Promise((resolve) => { resolvePrompt = resolve; });
+    let turn = 0;
+    const runtime = {
+      async createScanSession(tools) {
+        return {
+          sessionId: "hang-scan",
+          sessionPath: "hang-scan.jsonl",
+          toolNames: tools.map((tool) => tool.name),
+          subscribe() { return () => {}; },
+          prompt: async () => {
+            if (turn++ === 0) {
+              startedPrompt();
+              await promptGate;
+              return;
+            }
+            browser.showAssignments();
+            const course = await invoke(tools, "scan_record_course", { label: "Calculus", courseKey: "calc-101" });
+            await invoke(tools, "scan_record_assignment", {
+              courseId: course.courseId,
+              title: "Limits practice",
+              assignmentKey: "limits-1",
+              dueAt: "2026-09-03T15:00:00.000Z",
+              dueText: "2026-09-03T15:00:00.000Z",
+              observationRef: "assignment-limits",
+            });
+            await invoke(tools, "scan_finish", {
+              coverage: [{ target: "Course: Calculus", status: "verified" }],
+              navigationHints: [],
+            });
+          },
+          compact: async () => {},
+          abort: async () => { resolvePrompt(); },
+          replace: async () => {},
+          dispose() {},
+        };
+      },
+      async createManagerSession() {
+        return {
+          sessionId: "scripted-manager",
+          sessionPath: "scripted-manager.jsonl",
+          toolNames: [],
+          subscribe() { return () => {}; },
+          prompt: async () => {},
+          compact: async () => {},
+          abort: async () => {},
+          replace: async () => {},
+          dispose() {},
+        };
+      },
+    };
+    coordinator = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+    await coordinator.saveProfile({
+      studentName: "Avery",
+      schoolRoot: rootUrl,
+      defaultPermission: "attempt",
+      scanCadence: "manual",
+    });
+    const started = coordinator.startScan();
+    await promptStarted;
+    const paused = await coordinator.requestTakeover();
+    assert.equal(paused.scan.state, "needs_user");
+    assert.equal(paused.scan.handoff.kind, "student_takeover");
+    assert.equal(paused.scan.failures.length, 0);
+    const afterAbort = await started;
+    assert.equal(afterAbort.scan.state, "needs_user");
+    assert.equal(afterAbort.scan.handoff.kind, "student_takeover");
+    const resumed = await coordinator.resume();
+    assert.equal(resumed.scan.state, "succeeded");
+    assert.equal(resumed.courses.length, 1);
+  } finally {
+    coordinator?.dispose();
+    store?.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
 class RecordingBrowser {
   url = rootUrl;
   revision = 0;

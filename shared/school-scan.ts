@@ -38,7 +38,7 @@ export const SchoolScanCoverageSchema = z
   });
 
 export const SchoolScanHandoffSchema = z.strictObject({
-  kind: z.enum(["school_sign_in", "linked_system_sign_in"]),
+  kind: z.enum(["school_sign_in", "linked_system_sign_in", "student_takeover"]),
   linkedSystemId: z.string().min(1).max(256).optional(),
   reason: z.string().trim().min(1).max(500),
   requestedAt: IsoTimestampSchema,

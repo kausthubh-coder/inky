@@ -149,6 +149,28 @@ export class SchoolScanCoordinator {
     });
   }
 
+  async requestTakeover(): Promise<SchoolOnboardingState> {
+    this.#assertUsable();
+    const scan = this.#store.school.latestScan();
+    if (!scan || scan.state !== "running") throw new Error("No school scan is driving the browser");
+    const evidence = await this.#takeoverEvidence(scan);
+    this.#store.school.putScan({
+      ...scan,
+      state: "needs_user",
+      updatedAt: this.#now(),
+      currentStep: "You have the page.",
+      handoff: {
+        kind: "student_takeover",
+        reason: "You asked for the page.",
+        requestedAt: this.#now(),
+        evidence,
+      },
+    });
+    this.#updateProfileState("needs_sign_in");
+    await this.#session?.abort();
+    return this.state();
+  }
+
   async recordMissedCourseFeedback(rawFeedback: string): Promise<SchoolOnboardingState> {
     this.#assertUsable();
     const feedback = rawFeedback.replace(/\s+/g, " ").trim();
@@ -599,6 +621,24 @@ export class SchoolScanCoordinator {
       throw new Error("This scan is no longer accepting browser evidence");
     }
     return scan;
+  }
+
+  async #takeoverEvidence(scan: SchoolScan): Promise<EvidenceReference> {
+    try {
+      return this.#evidence(scan.scanId, await this.#browser.snapshot(), "Student asked to take over the visible page.");
+    } catch {
+      const profile = this.#requiredProfile();
+      const evidenceId = `evidence-${scan.scanId}-takeover-${randomUUID()}`;
+      return {
+        schemaVersion: STUDI_SCHEMA_VERSION,
+        evidenceId,
+        reference: evidenceId,
+        kind: "agent_observation",
+        sourceTarget: profile.schoolRoot,
+        capturedAt: this.#now(),
+        summary: "Student asked to take over the visible page.",
+      };
+    }
   }
 
   #evidence(scanId: string, snapshot: BrowserSnapshot, summary: string): EvidenceReference {

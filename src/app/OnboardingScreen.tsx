@@ -141,7 +141,7 @@ export function OnboardingScreen({
                 {step === 4 && <><button className="fable-button primary" onClick={onSaveProfile} disabled={busy !== null || !schoolUrl.trim() || !studentName.trim()}>{busy === "profile" ? "Opening school…" : "Sounds good. Open school."}</button><button className="fable-button" onClick={() => setStep(3)}>Back</button></>}
                 {step === 5 && <><button className="fable-button primary" data-app-control="start-scan" onClick={onStartScan} disabled={!providerReady || busy !== null}>{busy === "scan" ? "Looking…" : "I'm signed in. Look around."}</button><button className="fable-button" onClick={() => setStep(4)}>Back</button></>}
                 {step === 6 && <button className="fable-button primary" disabled>Looking…</button>}
-                {step === 7 && presentation.kind === "handoff" && <button className="fable-button primary" onClick={onResumeScan} disabled={busy !== null}>{busy === "resume" ? "Checking…" : "I'm signed in. Continue"}</button>}
+                {step === 7 && presentation.kind === "handoff" && <button className="fable-button primary" onClick={onResumeScan} disabled={busy !== null}>{busy === "resume" ? "Checking…" : onboarding?.scan?.handoff?.kind === "student_takeover" ? "Keep looking" : "I'm signed in. Continue"}</button>}
                 {step === 7 && (presentation.kind === "runtime_usage" || presentation.kind === "runtime_unavailable") && <button className="fable-button primary" onClick={onConnectRuntime} disabled={busy !== null}>{presentation.kind === "runtime_usage" ? "Connect another ChatGPT" : "Try again"}</button>}
                 {step === 7 && presentation.kind === "retry" && <button className="fable-button primary" onClick={onStartScan} disabled={!providerReady || busy !== null}>{busy === "scan" ? "Looking…" : "Try again"}</button>}
                 {step === 8 && <button className="fable-button primary" onClick={onFinish}>Open my week</button>}
@@ -242,6 +242,9 @@ function stepCopy(
     };
   }
   if (id === 7 && presentation.kind === "handoff") {
+    if (scan?.handoff?.kind === "student_takeover") {
+      return { ...base, title: "The page is yours.", body: "Do what you need, then tell me to keep looking." };
+    }
     const linked = scan?.handoff?.linkedSystemId
       ? onboarding?.linkedSystems.find((item) => item.linkedSystemId === scan.handoff?.linkedSystemId)
       : undefined;
