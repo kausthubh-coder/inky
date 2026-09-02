@@ -6,7 +6,7 @@ import { DeskScreen } from "./DeskScreen.js";
 import { Inky, type InkyState } from "./Inky.js";
 import { OnboardingScreen } from "./OnboardingScreen.js";
 import { DashboardScreen, LibraryScreen, SettingsScreen } from "./WorkspaceScreens.js";
-import { type AppScreen, TelemetryControls } from "./Ui.js";
+import { type AppScreen } from "./Ui.js";
 
 type BusyAction = "loading" | "auth" | "auth-retry" | "sign-out" | "model" | "profile" | "navigate" | "scan" | "resume" | "replay" | "manager" | "assignment" | "takeover" | "cancel" | "artifact" | "settings" | "feedback" | "telemetry" | "diagnostics" | null;
 
@@ -124,8 +124,8 @@ export function StudiApp() {
   const sendFeedback = async (context: string, message: string) => { const studi = window.studi; if (studi) await action("feedback", () => studi.submitFeedback({ message: `[${context}] ${message}` })); };
 
   if (!window.studi) return <main className="desktop-required" data-studi-app-ready="true"><p className="eyebrow">Studi desktop</p><h1>Open the desktop app to use the school browser.</h1></main>;
-  if (!authorized) return <AuthGate auth={auth} busy={busy} error={error} feedback={gateFeedback} sent={feedbackSent} telemetry={telemetry} onFeedback={setGateFeedback} onSignIn={() => void signIn()} onRetry={() => void retryAuth()} onSignOut={() => void signOut()} onSubmit={async (event) => { event.preventDefault(); if (!gateFeedback.trim()) return; await sendFeedback("beta_gate", gateFeedback.trim()); setGateFeedback(""); setFeedbackSent(true); }} onTelemetry={(enabled, replay) => void updateTelemetry(enabled, replay)} onDebug={(minutes) => void updateTelemetryDebug(minutes)} />;
-  if (!onboarding || !lifecycle) return <main className="loading-screen"><Inky state="sleep" size={132} label="Inky is waking up" /><h1>Opening your local school desk…</h1>{error && <p className="error-note">{error}</p>}</main>;
+  if (!authorized) return <AuthGate auth={auth} busy={busy} error={error} feedback={gateFeedback} sent={feedbackSent} onFeedback={setGateFeedback} onSignIn={() => void signIn()} onRetry={() => void retryAuth()} onSignOut={() => void signOut()} onSubmit={async (event) => { event.preventDefault(); if (!gateFeedback.trim()) return; await sendFeedback("beta_gate", gateFeedback.trim()); setGateFeedback(""); setFeedbackSent(true); }} />;
+  if (!onboarding || !lifecycle) return <main className="loading-screen"><Inky state="sleep" size={132} label="Inky is waking up" /><h1>Opening your desk…</h1>{error && <p className="error-note">{error}</p>}</main>;
   if (!onboarded) return <OnboardingScreen workspace={workspace} onboarding={onboarding} studentName={studentName} schoolUrl={schoolUrl} scanCadence={scanCadence} defaultPermission={defaultPermission} busy={busy} error={error} onStudentName={setStudentName} onSchoolUrl={setSchoolUrl} onCadence={setScanCadence} onDefaultPermission={setDefaultPermission} onConnectRuntime={() => void connectRuntime()} onCancelRuntimeLogin={() => void cancelRuntimeLogin()} onSelectModel={(id) => void selectAgentRuntime(id)} onSaveProfile={() => void saveProfile()} onOpenSchool={() => void openSchool()} onStartScan={() => void runScan("scan")} onResumeScan={() => void runScan("resume")} onReplayScan={() => void runScan("replay")} onFinish={() => setShowOnboardingCompletion(false)} />;
   if (activeExecution) return <DeskScreen onboarding={onboarding} workspace={workspace} lifecycle={lifecycle} library={library} detail={detail} busy={busy} error={error} onTakeover={(taskId) => void updateLifecycle("takeover", () => window.studi!.requestAssignmentTakeover({ taskId }))} onResume={(taskId) => void updateLifecycle("assignment", () => window.studi!.resumeAssignment({ taskId }))} onCancel={(taskId) => void updateLifecycle("cancel", () => window.studi!.cancelAssignment({ taskId }))} onVerifySubmission={(taskId, confirmationText) => void updateLifecycle("assignment", () => window.studi!.verifyStudentSubmission({ taskId, confirmationText }))} onOpenArtifact={(taskId) => void openAnswerArtifact(taskId)} onConnectRuntime={() => void connectRuntime()} onBack={() => setScreen("week")} />;
 
@@ -135,10 +135,54 @@ export function StudiApp() {
   return <DashboardScreen chrome={chrome} onboarding={onboarding} workspace={workspace} library={library} managerReply={managerReply} busy={busy} error={error} onCommand={(prompt) => void runManager(prompt)} onTask={(taskId) => void chooseTask(taskId)} onStartNext={() => void updateLifecycle("assignment", () => window.studi!.startNextAssignment())} onScanAgain={() => void runScan(nextSchoolScanAction(onboarding))} onConnectRuntime={() => void connectRuntime()} onFeedback={(context, message) => void sendFeedback(context, message)} />;
 }
 
-function AuthGate({ auth, busy, error, feedback, sent, telemetry, onFeedback, onSignIn, onRetry, onSignOut, onSubmit, onTelemetry, onDebug }: { auth: Exclude<AuthState, { status: "approved" | "offline" }>; busy: BusyAction; error: string | null; feedback: string; sent: boolean; telemetry: TelemetryState | null; onFeedback: (value: string) => void; onSignIn: () => void; onRetry: () => void; onSignOut: () => void; onSubmit: (event: FormEvent) => void; onTelemetry: (enabled: boolean, replay: boolean) => void; onDebug: (minutes: 0 | 30) => void }) {
+function AuthGate({ auth, busy, error, feedback, sent, onFeedback, onSignIn, onRetry, onSignOut, onSubmit }: { auth: Exclude<AuthState, { status: "approved" | "offline" }>; busy: BusyAction; error: string | null; feedback: string; sent: boolean; onFeedback: (value: string) => void; onSignIn: () => void; onRetry: () => void; onSignOut: () => void; onSubmit: (event: FormEvent) => void }) {
   const waiting = auth.status === "checking" || auth.status === "signing_in";
   const inkyState: InkyState = auth.status === "denied" || auth.status === "error" ? "needs" : waiting ? "waiting" : "hello";
-  return <main className="auth-gate" {...(waiting ? {} : { "data-studi-app-ready": "true" })}><section className={`auth-card auth-card--${auth.status}`}><header><Inky state={inkyState} size={94} label="Inky" /><div><p className="eyebrow">Studi private beta</p><h1>School stays on this computer.</h1></div></header>{auth.status === "checking" && <><span className="spinner" /><h2>Checking your beta access</h2><p>Studi verifies the last signed account before any school workflow starts.</p></>}{auth.status === "signing_in" && <><span className="spinner" /><h2>Finish in your browser</h2><p>Clerk sign-in is open in the system browser. Studi continues after the secure callback.</p></>}{auth.status === "signed_out" && <><h2>Hey — I’m Inky.</h2><p>Sign in to set up the school browser. Your school passwords stay inside that browser, never in this chat.</p><button className="button button--yellow" onClick={onSignIn} disabled={busy !== null}>{busy === "auth" ? "Opening browser…" : "Sign in to Studi"}</button></>}{auth.status === "denied" && <><h2>{auth.reason === "device_conflict" ? "Another computer is active" : "You’re on the beta waitlist"}</h2><p>{auth.message}</p><div className="button-row"><button className="button button--mint" onClick={onRetry}>Check access again</button><button className="button button--coral" onClick={onSignOut}>Use another account</button></div><form className="feedback-form" onSubmit={onSubmit}><label className="field"><span>Note for the beta team</span><textarea rows={3} value={feedback} onChange={(event) => onFeedback(event.target.value)} maxLength={1000} /></label><button className="button button--lavender" disabled={!feedback.trim()}>{sent ? "Sent" : "Send note"}</button></form></>}{auth.status === "error" && <><h2>Studi couldn’t verify access</h2><p>{auth.message}</p><button className="button button--yellow" onClick={onRetry}>Retry</button></>}{error && <p className="error-note">{error}</p>}<TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onDebug} /><footer>Clerk and Convex receive account access, entitlement, aggregate usage, and feedback only.</footer></section></main>;
+  const copy = authTalk(auth);
+  return (
+    <main className="fable-onboarding" {...(waiting ? {} : { "data-studi-app-ready": "true" })}>
+      <section className="fable-window" role="application" aria-label="Talking to Inky">
+        <div className="fable-stage">
+          <section className="fable-talk">
+            <div className="fable-inky-wrap"><Inky state={inkyState} size={200} label="Inky" /></div>
+            <div className="fable-copy">
+              <div className="fable-who">talking to Inky</div>
+              <div className="fable-bubbles" aria-live="polite">
+                <article className="fable-speech">
+                  <span className="fable-tail" aria-hidden="true" />
+                  <h1>{copy.title}</h1>
+                  <p>{copy.body}</p>
+                  {auth.status === "denied" && (
+                    <form className="fable-note" onSubmit={onSubmit}>
+                      <strong>Want to leave a note?</strong>
+                      <label>Note for the beta team<textarea rows={3} value={feedback} onChange={(event) => onFeedback(event.target.value)} maxLength={1000} /></label>
+                      <button className="fable-button" disabled={!feedback.trim()}>{sent ? "Sent" : "Send note"}</button>
+                    </form>
+                  )}
+                </article>
+              </div>
+              <div className="fable-replies">
+                {auth.status === "signed_out" && <button className="fable-button primary" onClick={onSignIn} disabled={busy !== null}>{busy === "auth" ? "Opening…" : "Hi Inky"}</button>}
+                {auth.status === "signing_in" && <button className="fable-button" onClick={onSignIn} disabled={busy !== null}>Open it again</button>}
+                {auth.status === "denied" && <><button className="fable-button primary" onClick={onRetry}>Check again</button><button className="fable-button" onClick={onSignOut}>Use another account</button></>}
+                {auth.status === "error" && <button className="fable-button primary" onClick={onRetry}>Try again</button>}
+              </div>
+              {error && <p className="fable-error" role="alert">{error}</p>}
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function authTalk(auth: Exclude<AuthState, { status: "approved" | "offline" }>): { title: string; body: string } {
+  if (auth.status === "checking") return { title: "One sec.", body: "Making sure you're in." };
+  if (auth.status === "signing_in") return { title: "A page just opened.", body: "Sign in there, then come back." };
+  if (auth.status === "denied" && auth.reason === "device_conflict") return { title: "You're already signed in somewhere else.", body: "Studi only works on one laptop at a time." };
+  if (auth.status === "denied") return { title: "Not yet.", body: "You're on the waitlist. I'll wait." };
+  if (auth.status === "error") return { title: "That didn't work.", body: "Try once more?" };
+  return { title: "Hey.", body: "I'm Inky. I'll help with your homework. First, sign into Studi." };
 }
 
 function formatError(error: unknown): string { return error instanceof Error ? error.message : "Studi could not finish that action."; }

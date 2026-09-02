@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studi — onboarding copy plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@600;700;800&family=Shantell+Sans:wght@700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #fbf7ee; --panel: #fffdf6; --ink: #3b342c; --muted: #7d746a;
+    --yellow: #f6c945; --sticky: #fff2b5; --lavender: #e8ddfa; --coral: #ffe1d8;
+    --mint: #dff4e9; --line: #3b342c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--ink);
+    font: 700 15px/1.45 "Nunito Sans", system-ui, sans-serif;
+    background: radial-gradient(#e9e0cd 1.1px, transparent 1.1px) 0 0 / 24px 24px, var(--paper);
+  }
+  h1, h2, h3 { font-family: "Shantell Sans", cursive; letter-spacing: -0.03em; }
+  a { color: inherit; }
+  button { color: inherit; font: inherit; cursor: pointer; }
+
+  .wrap { width: min(1280px, calc(100% - 40px)); margin: 0 auto; padding: 28px 0 80px; }
+  .hero { max-width: 760px; margin-bottom: 22px; }
+  .hero .eyebrow { margin: 0 0 6px; color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: 0.11em; text-transform: uppercase; }
+  .hero h1 { margin: 0 0 10px; font-size: 38px; line-height: 1.05; }
+  .hero p { margin: 0 0 10px; color: var(--muted); }
+  .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .pill { padding: 5px 10px; border: 1.5px solid var(--ink); border-radius: 999px; background: #fff; font-size: 12px; font-weight: 800; }
+  .pill.ok { background: var(--mint); }
+  .pill.wait { background: var(--sticky); }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 22px 0; }
+  .card { padding: 16px 18px; border: 2px solid var(--ink); border-radius: 16px 13px 18px 12px; background: var(--panel); box-shadow: 3px 4px 0 rgb(59 52 44 / 14%); }
+  .card h2 { margin: 0 0 8px; font-size: 20px; }
+  .card ul { margin: 0; padding-left: 18px; }
+  .card li { margin: 6px 0; }
+  .card.wide { grid-column: 1 / -1; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 10px 8px; border-top: 1.5px dashed #cfc4b4; vertical-align: top; text-align: left; }
+  th { color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; border-top: 0; }
+  td strong { display: block; font-family: "Shantell Sans", cursive; font-size: 14px; }
+  td em { display: block; margin-top: 4px; color: var(--muted); font-style: normal; font-weight: 700; }
+  td .reply { display: inline-block; margin-top: 6px; padding: 2px 8px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--yellow); font-size: 11px; }
+
+  .live { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; min-height: 720px; }
+  .frame {
+    display: flex; flex-direction: column; min-height: 720px; overflow: hidden;
+    border: 2.5px solid var(--ink); border-radius: 18px 14px 16px 12px;
+    background: var(--paper); box-shadow: 5px 6px 0 rgb(59 52 44 / 16%);
+  }
+  .frame header {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 10px 14px; border-bottom: 2px solid var(--ink); background: var(--panel);
+  }
+  .frame header strong { font: 800 16px/1 "Shantell Sans", cursive; }
+  .frame header span { color: var(--muted); font-size: 11px; font-weight: 800; }
+  .stage { flex: 1; min-height: 0; position: relative; background: radial-gradient(#e9e0cd 1.1px, transparent 1.1px) 0 0 / 22px 22px, var(--paper); }
+
+  .auth {
+    display: grid; place-items: center; height: 100%; padding: 18px;
+  }
+  .auth-card {
+    width: min(420px, 100%); display: grid; gap: 12px;
+    padding: 20px; border: 3px solid var(--ink);
+    border-radius: 18px 13px 20px 12px; background: #fff;
+    box-shadow: 6px 7px 0 var(--ink);
+  }
+  .auth-card .top { display: flex; align-items: center; gap: 10px; }
+  .auth-card .eyebrow { margin: 0; color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: 0.11em; text-transform: uppercase; }
+  .auth-card h1 { margin: 2px 0 0; font-size: 26px; line-height: 1.05; }
+  .auth-card h2 { margin: 0; font-size: 20px; }
+  .auth-card p { margin: 0; color: var(--muted); font-size: 13px; }
+  .yellow { padding: 9px 12px; border: 2px solid var(--ink); border-radius: 10px 8px 12px 7px; background: var(--yellow); box-shadow: 2px 2px 0 var(--ink); font-size: 13px; font-weight: 900; }
+  .ghost { padding: 8px 11px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; font-size: 12px; font-weight: 800; }
+  .tele {
+    padding: 12px; border: 2px solid var(--ink); border-radius: 12px; background: var(--lavender);
+  }
+  .tele .row { display: flex; justify-content: space-between; align-items: center; }
+  .tele .eyebrow { font-size: 10px; }
+  .badge { padding: 3px 7px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--mint); font-size: 9px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
+  .tele h3 { margin: 6px 0 8px; font-size: 16px; }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin: 7px 0; font-size: 12px; }
+  .check b { display: block; }
+  .check small { color: var(--muted); font-weight: 700; }
+  .link { display: block; margin: 8px 0 4px; text-align: center; color: #575046; font-size: 12px; font-weight: 900; text-decoration: underline; }
+  .auth-card footer { padding-top: 8px; border-top: 1.5px dashed #8a8278; color: var(--muted); font-size: 11px; text-align: center; }
+
+  .talk {
+    display: flex; height: 100%; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px 18px 18px;
+  }
+  .talk.desk { align-items: stretch; justify-content: flex-start; }
+  .inky { width: 140px; height: 140px; }
+  .talk.desk .inky { width: 64px; height: 64px; margin: 0 auto 4px; }
+  .inky svg { width: 100%; height: 100%; overflow: visible; }
+  .who { margin: 2px 0 10px; color: var(--muted); font: 800 13px/1 "Shantell Sans", cursive; }
+  .talk.desk .who { display: none; }
+  .bubble {
+    position: relative; width: min(380px, 100%);
+    padding: 13px 15px 12px; border: 2.5px solid var(--ink);
+    border-radius: 24px 28px 26px 24px; background: #fff;
+    box-shadow: 3px 4px 0 rgb(59 52 44 / 12%);
+  }
+  .bubble h1 { margin: 0 0 6px; font-size: 18px; }
+  .bubble p { margin: 0; font-size: 13.5px; }
+  .tail {
+    position: absolute; top: -10px; left: 50%; width: 16px; height: 16px;
+    border-top: 2.5px solid var(--ink); border-left: 2.5px solid var(--ink);
+    border-radius: 3px 0 0; background: #fff; transform: translateX(-50%) rotate(45deg);
+  }
+  .replies { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; margin-top: 12px; width: min(380px, 100%); }
+  .talk.desk .replies { justify-content: flex-start; }
+  .quiet { width: min(380px, 100%); margin: 10px 0 0; color: var(--muted); font-size: 11.5px; text-align: center; }
+  .extra { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; padding: 8px 10px; border: 2px dashed var(--ink); border-radius: 12px; background: var(--paper); font-size: 12px; }
+  .extra strong { font: 800 18px/1.1 "Shantell Sans", cursive; letter-spacing: 0.04em; }
+  .extra .fallback { display: block; margin-top: 6px; font-size: 12px; font-weight: 800; }
+  .extra .fallback a { color: inherit; }
+  .extra .copy { padding: 5px 10px; border: 2px solid var(--ink); border-radius: 999px; background: #fff; font-size: 12px; font-weight: 800; }
+  .url-field { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; color: var(--muted); font-size: 11px; font-weight: 800; }
+  .url-field input { padding: 8px 10px; border: 2px solid var(--ink); border-radius: 12px; background: #fff; color: var(--ink); font: 700 14px/1.3 "Nunito Sans", sans-serif; }
+  .url-field small { color: var(--muted); font-size: 11.5px; font-weight: 700; }
+  .picks { display: grid; gap: 6px; margin-top: 10px; }
+  .pick { padding: 8px 10px; border: 2px solid #cfc4b4; border-radius: 12px; background: #fff; text-align: left; font-size: 12px; }
+  .pick.on { border-color: var(--ink); background: var(--sticky); }
+
+  .notes { margin-top: 22px; }
+  .notes h2 { margin: 0 0 8px; }
+  @media (max-width: 980px) {
+    .grid, .live { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <p class="eyebrow">Draft · not implemented</p>
+      <h1>Onboarding talks like Inky. Telemetry leaves the first screen.</h1>
+      <p>Beta testers already accept product evidence. The sign-in gate should not ask again. Inky talks like a friend. No product words. No URLs on the ChatGPT step — just a copy button and a “if the page didn’t open” link.</p>
+      <div class="pills">
+        <span class="pill ok">Telemetry card removed from sign-in</span>
+        <span class="pill ok">Sign-in becomes a speech bubble</span>
+        <span class="pill wait">App code waits for your edits</span>
+        <a class="pill" href="onboarding-beta-copy-mockup.html">Open full-page mockup</a>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Keep</h2>
+        <ul>
+          <li>School passwords stay in the embedded browser, never in Studi chat.</li>
+          <li>Clerk still opens the system browser. Codex still uses a device code.</li>
+          <li>Default remains: Inky does the work, the student submits.</li>
+          <li>Telemetry stays in Settings for debug and the local inspector.</li>
+        </ul>
+      </article>
+      <article class="card">
+        <h2>Change</h2>
+        <ul>
+          <li>Drop the lavender “Privacy and telemetry” card from AuthGate.</li>
+          <li>Drop “School stays on this computer” as a product headline.</li>
+          <li>After Clerk returns, Inky does not introduce himself a second time.</li>
+          <li>Copy is simple student talk. No “school browser,” “this computer,” “tray,” or other product words.</li>
+          <li>ChatGPT step: copy the code. If the page didn’t open, a link. Never show the URL. Don’t mention passwords there.</li>
+          <li>Class link is one paste field. Moodle / Canvas / Classroom are examples in the sentence, not buttons.</li>
+        </ul>
+      </article>
+      <article class="card wide">
+        <h2>Old copy vs new copy</h2>
+        <table>
+          <thead>
+            <tr><th>Moment</th><th>Old</th><th>New</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Sign in</td>
+              <td><strong>School stays on this computer.</strong><em>Hey — I’m Inky. Sign in to set up the school browser…</em><span class="reply">Sign in to Studi</span></td>
+              <td><strong>Hey.</strong><em>I'm Inky. I'll help with your homework. First, sign into Studi.</em><span class="reply">Hi Inky</span></td>
+            </tr>
+            <tr>
+              <td>Clerk open</td>
+              <td><strong>Finish in your browser</strong><em>Clerk sign-in is open in the system browser…</em></td>
+              <td><strong>A page just opened.</strong><em>Sign in there, then come back.</em></td>
+            </tr>
+            <tr>
+              <td>Waitlist</td>
+              <td><strong>You’re on the beta waitlist</strong></td>
+              <td><strong>Not yet.</strong><em>You're on the waitlist. I'll wait.</em></td>
+            </tr>
+            <tr>
+              <td>Other computer</td>
+              <td><strong>Another computer is active</strong></td>
+              <td><strong>You're already signed in somewhere else.</strong><em>Studi only works on one laptop at a time.</em></td>
+            </tr>
+            <tr>
+              <td>After Clerk</td>
+              <td><strong>Hey Maya.</strong><em>I'm Inky. I'll do the homework in a school browser…</em><span class="reply">Hi Inky</span></td>
+              <td><strong>Hey Maya.</strong><em>Nice. Now I need ChatGPT so I can do the work.</em><span class="reply">Let's do it</span></td>
+            </tr>
+            <tr>
+              <td>Codex</td>
+              <td><strong>One thing first.</strong><em>I need Codex from ChatGPT to actually type in that browser…</em></td>
+              <td><strong>I need ChatGPT.</strong><em>Type this code on the page that opened. Copy button. If the page didn’t open, click this link.</em></td>
+            </tr>
+            <tr>
+              <td>Class link</td>
+              <td><strong>Where does school live?</strong><em>Moodle / Canvas / Classroom chips, then a URL field.</em></td>
+              <td><strong>Where's class?</strong><em>Paste the link you open for homework. Moodle, Canvas, Classroom — whatever yours is. Just a paste field, not a picker.</em></td>
+            </tr>
+            <tr>
+              <td>Default</td>
+              <td><strong>When I find homework…</strong><em>This is the default.</em></td>
+              <td><strong>When I find homework…</strong><em>What should I do? You can change this later.</em></td>
+            </tr>
+            <tr>
+              <td>Schedule</td>
+              <td><strong>How often should I check?</strong><em>I'll look even if the window is closed.</em></td>
+              <td><strong>How often should I check?</strong><em>I'll look even if you close Studi.</em></td>
+            </tr>
+            <tr>
+              <td>School login</td>
+              <td><strong>Sign in over there.</strong></td>
+              <td><strong>Your turn.</strong><em>Sign in on the right. I can't see your password.</em></td>
+            </tr>
+            <tr>
+              <td>Scan</td>
+              <td><strong>Scanning what I can see.</strong></td>
+              <td><strong>Looking around.</strong><em>Classes and homework. I only count what I can see.</em></td>
+            </tr>
+            <tr>
+              <td>Done</td>
+              <td><strong>Your week is on the board.</strong><em>I won't take quizzes.</em></td>
+              <td><strong>Your week is ready.</strong><em>I skip quizzes. I do the work. You hit submit.</em></td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+
+    <section class="live" aria-label="Working old and new">
+      <div class="frame">
+        <header><strong>Old · working</strong><span id="old-label">sign-in card</span></header>
+        <div class="stage" id="old-stage"></div>
+      </div>
+      <div class="frame">
+        <header><strong>New · working</strong><span id="new-label">Inky talking</span></header>
+        <div class="stage" id="new-stage"></div>
+      </div>
+    </section>
+
+    <section class="card notes">
+      <h2>If this feels right</h2>
+      <p>Edit any line above, or mark what to keep from the old voice. Implementation stays off until you say go. The production change is AuthGate becoming the same conversation layout as onboarding, <code>TelemetryControls</code> leaving that screen, and <code>STEP_COPY</code> updating. Settings still owns telemetry.</p>
+    </section>
+  </div>
+
+<script>
+const INKY = `<svg viewBox="-16 0 136 120"><ellipse cx="60" cy="111" rx="26" ry="5" fill="#3b342c" opacity="0.1"/><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/><circle cx="47" cy="53" r="1.8" fill="#fff"/><circle cx="77" cy="53" r="1.8" fill="#fff"/><path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/><text x="8" y="60" text-anchor="middle" font-size="28">🤚</text></svg>`;
+
+const OLD = [
+  { id: "auth", label: "sign-in card", kind: "auth" },
+  { id: "hi", label: "hey", title: "Hey Maya.", body: "I'm Inky. I'll do the homework in a school browser you can watch. You stay in charge of logins and submit.", reply: "Hi Inky" },
+  { id: "brain", label: "codex", title: "One thing first.", body: "I need Codex from ChatGPT to actually type in that browser. Open the page, enter this code. I never see your ChatGPT password.", extra: "WJ7K-9PQ2", reply: "Codex is ready" },
+  { id: "school", label: "school url", title: "Where does school live?", body: "Clerk already knows you. Paste the site you actually use. Anything in a browser works.", reply: "That's the one" },
+  { id: "perm", label: "default", title: "When I find homework…", body: "This is the default. You can override it for one class or one assignment later.", reply: "Use this default" },
+  { id: "sched", label: "schedule", title: "How often should I check?", body: "I'll look even if the window is closed.", reply: "Sounds good. Open school." },
+  { id: "turn", label: "school login", title: "Sign in over there.", body: "That's the real school site. Passwords stay in that window. Come back when you're in.", reply: "I'm signed in. Scan it." },
+  { id: "done", label: "done", title: "Your week is on the board.", body: "I won't take quizzes. Default is I do the work, you hit submit.", reply: "Open my week" }
+];
+
+const NEW = [
+  { id: "hi", label: "sign-in talk", title: "Hey.", body: "I'm Inky. I'll help with your homework. First, sign into Studi.", reply: "Hi Inky" },
+  { id: "browser", label: "page opened", title: "A page just opened.", body: "Sign in there, then come back.", reply: "I'm signed in" },
+  { id: "in", label: "you're in", title: "Hey Maya.", body: "Nice. Now I need ChatGPT so I can do the work.", reply: "Let's do it" },
+  { id: "brain", label: "chatgpt", title: "I need ChatGPT.", body: "Type this code on the page that opened.", extra: "WJ7K-9PQ2", reply: "I typed it" },
+  { id: "school", label: "class link", title: "Where's class?", body: "Paste the link you open for homework. Moodle, Canvas, Classroom — whatever yours is.", extra: "url", reply: "That's the one" },
+  { id: "perm", label: "default", title: "When I find homework…", body: "What should I do? You can change this later.", picks: [["Don't try it"], ["Do it, I'll submit", true], ["Do it and submit"]], reply: "Use this" },
+  { id: "peek", label: "schedule", title: "How often should I check?", body: "I'll look even if you close Studi.", picks: [["Every morning", true], ["Once a week"], ["Only when I ask"]], reply: "Sounds good. Open school." },
+  { id: "turn", label: "school login", title: "Your turn.", body: "Sign in on the right. I can't see your password.", reply: "I'm signed in. Look around." },
+  { id: "done", label: "done", title: "Your week is ready.", body: "I skip quizzes. I do the work. You hit submit.", reply: "Open my week" }
+];
+
+function authHtml() {
+  return `<div class="auth"><section class="auth-card">
+    <div class="top"><div class="inky">${INKY}</div><div><p class="eyebrow">Studi private beta</p><h1>School stays on this computer.</h1></div></div>
+    <h2>Hey — I’m Inky.</h2>
+    <p>Sign in to set up the school browser. Your school passwords stay inside that browser, never in this chat.</p>
+    <button class="yellow" data-old-next>Sign in to Studi</button>
+    <div class="tele">
+      <div class="row"><p class="eyebrow">Product evidence</p><span class="badge">Configured</span></div>
+      <h3>Privacy and telemetry</h3>
+      <div class="check"><span>☑</span><span><b>Share scrubbed product events</b><small>No school content, URLs, answers, or browser data.</small></span></div>
+      <div class="check"><span>☑</span><span><b>Share masked Studi replay</b><small>The school browser is excluded from capture.</small></span></div>
+      <span class="link">Enable beta debug for 30 minutes</span>
+      <small>▶ Local scrubbed inspector (3)</small>
+    </div>
+    <footer>Clerk and Convex receive account access, entitlement, aggregate usage, and feedback only.</footer>
+  </section></div>`;
+}
+
+function talkHtml(step, side) {
+  const picks = (step.picks || []).map(([label, on]) => `<button type="button" class="pick${on ? " on" : ""}">${label}</button>`).join("");
+  const extra = step.extra === "url"
+    ? `<label class="url-field">Class link<input type="url" placeholder="https://" spellcheck="false"><small>Any class site works. Those names are just examples.</small></label>`
+    : step.extra && step.id === "brain"
+    ? `<div class="extra"><div><strong>${step.extra}</strong><span class="fallback">If the page didn't open, <a href="https://chatgpt.com/auth/device" target="_blank" rel="noreferrer">click this link</a>.</span></div><button type="button" class="copy" data-copy="${step.extra}">Copy</button></div>`
+    : step.extra
+      ? `<div class="extra"><strong>${step.extra}</strong></div>`
+      : "";
+  return `<div class="talk"><div class="inky">${INKY}</div><div class="who">talking to Inky</div>
+    <article class="bubble"><span class="tail"></span><h1>${step.title}</h1><p>${step.body}</p>
+    ${extra}
+    ${picks ? `<div class="picks">${picks}</div>` : ""}</article>
+    <div class="replies"><button class="yellow" data-${side}-next>${step.reply}</button></div>
+    ${step.quiet ? `<p class="quiet">${step.quiet}</p>` : ""}
+  </div>`;
+}
+
+const state = { old: 0, neu: 0 };
+
+function paintOld() {
+  const step = OLD[state.old];
+  document.getElementById("old-label").textContent = step.label;
+  document.getElementById("old-stage").innerHTML = step.kind === "auth" ? authHtml() : talkHtml(step, "old");
+}
+function paintNew() {
+  const step = NEW[state.neu];
+  document.getElementById("new-label").textContent = step.label;
+  document.getElementById("new-stage").innerHTML = talkHtml(step, "new");
+}
+
+document.addEventListener("click", (event) => {
+  const copy = event.target.closest("[data-copy]");
+  if (copy) {
+    event.preventDefault();
+    if (navigator.clipboard) navigator.clipboard.writeText(copy.dataset.copy).catch(() => {});
+    copy.textContent = "Copied";
+    window.setTimeout(() => { copy.textContent = "Copy"; }, 1200);
+    return;
+  }
+  if (event.target.closest("[data-old-next]")) {
+    state.old = (state.old + 1) % OLD.length;
+    paintOld();
+  }
+  if (event.target.closest("[data-new-next]")) {
+    state.neu = (state.neu + 1) % NEW.length;
+    paintNew();
+  }
+});
+
+paintOld();
+paintNew();
+</script>
+</body>
+</html>
