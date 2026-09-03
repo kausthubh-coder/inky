@@ -1,8 +1,8 @@
-import type { StudiApi } from "../../shared/index.js";
+import type { StudiRendererApi } from "../../shared/index.js";
 
 declare global {
   interface Window {
-    readonly studi?: StudiApi;
+    readonly studi?: StudiRendererApi;
   }
 }
 

@@ -6,15 +6,18 @@ import { AuthStateSchema, FeedbackReceiptSchema } from "./auth.js";
 import { DiagnosticsExportReceiptSchema } from "./diagnostics.js";
 import { StudiWorkspaceStateSchema } from "./browser-agent.js";
 import { ManagerStateSchema, ManagerTurnResultSchema } from "./manager.js";
-import { LifecycleStateSchema } from "./lifecycle.js";
+import { LifecycleStateSchema, type NotificationIntent } from "./lifecycle.js";
 import { ArtifactDocumentSchema } from "./artifact.js";
 import {
   BrowserLayoutModeSchema,
   SchoolPageBoundsSchema,
   LibraryStateSchema,
+  NotificationKindSchema,
+  NotificationTestReceiptSchema,
   ProductPreferencesSchema,
   ProductSettingsStateSchema,
   ReadArtifactInputSchema,
+  SaveNotificationPreferencesInputSchema,
   SavePermissionRuleInputSchema,
   SaveProductPreferencesInputSchema,
   TaskDetailSchema,
@@ -88,6 +91,10 @@ const getProductSettingsMethod = "getProductSettings" as const;
 const getProductSettingsChannel = "studi:product-settings" as const;
 const saveProductPreferencesMethod = "saveProductPreferences" as const;
 const saveProductPreferencesChannel = "studi:save-product-preferences" as const;
+const saveNotificationPreferencesMethod = "saveNotificationPreferences" as const;
+const saveNotificationPreferencesChannel = "studi:save-notification-preferences" as const;
+const testNotificationMethod = "testNotification" as const;
+const testNotificationChannel = "studi:test-notification" as const;
 const savePermissionRuleMethod = "savePermissionRule" as const;
 const savePermissionRuleChannel = "studi:save-permission-rule" as const;
 const deletePermissionRuleMethod = "deletePermissionRule" as const;
@@ -200,6 +207,8 @@ const VerifyStudentSubmissionManifestEntrySchema = z.strictObject({ method: z.li
 const OpenAnswerArtifactManifestEntrySchema = z.strictObject({ method: z.literal(openAnswerArtifactMethod), channel: z.literal(openAnswerArtifactChannel) });
 const GetProductSettingsManifestEntrySchema = z.strictObject({ method: z.literal(getProductSettingsMethod), channel: z.literal(getProductSettingsChannel) });
 const SaveProductPreferencesManifestEntrySchema = z.strictObject({ method: z.literal(saveProductPreferencesMethod), channel: z.literal(saveProductPreferencesChannel) });
+const SaveNotificationPreferencesManifestEntrySchema = z.strictObject({ method: z.literal(saveNotificationPreferencesMethod), channel: z.literal(saveNotificationPreferencesChannel) });
+const TestNotificationManifestEntrySchema = z.strictObject({ method: z.literal(testNotificationMethod), channel: z.literal(testNotificationChannel) });
 const SavePermissionRuleManifestEntrySchema = z.strictObject({ method: z.literal(savePermissionRuleMethod), channel: z.literal(savePermissionRuleChannel) });
 const DeletePermissionRuleManifestEntrySchema = z.strictObject({ method: z.literal(deletePermissionRuleMethod), channel: z.literal(deletePermissionRuleChannel) });
 const ConfigureScanScheduleManifestEntrySchema = z.strictObject({ method: z.literal(configureScanScheduleMethod), channel: z.literal(configureScanScheduleChannel) });
@@ -217,7 +226,7 @@ const ExportDiagnosticsManifestEntrySchema = z.strictObject({ method: z.literal(
 
 export const ContractManifestSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
-  contractVersion: z.literal("10"),
+  contractVersion: z.literal("11"),
   ipcMethods: z.tuple([
     RuntimeInfoManifestEntrySchema,
     ContractManifestEntrySchema,
@@ -248,6 +257,8 @@ export const ContractManifestSchema = z.strictObject({
     OpenAnswerArtifactManifestEntrySchema,
     GetProductSettingsManifestEntrySchema,
     SaveProductPreferencesManifestEntrySchema,
+    SaveNotificationPreferencesManifestEntrySchema,
+    TestNotificationManifestEntrySchema,
     SavePermissionRuleManifestEntrySchema,
     DeletePermissionRuleManifestEntrySchema,
     ConfigureScanScheduleManifestEntrySchema,
@@ -457,6 +468,16 @@ export const studiIpcRegistry = Object.freeze({
     requestSchema: SaveProductPreferencesInputSchema,
     resultSchema: ProductPreferencesSchema,
   }),
+  [saveNotificationPreferencesMethod]: Object.freeze({
+    channel: saveNotificationPreferencesChannel,
+    requestSchema: SaveNotificationPreferencesInputSchema,
+    resultSchema: ProductPreferencesSchema,
+  }),
+  [testNotificationMethod]: Object.freeze({
+    channel: testNotificationChannel,
+    requestSchema: z.strictObject({ kind: NotificationKindSchema }),
+    resultSchema: NotificationTestReceiptSchema,
+  }),
   [savePermissionRuleMethod]: Object.freeze({
     channel: savePermissionRuleChannel,
     requestSchema: SavePermissionRuleInputSchema,
@@ -547,6 +568,11 @@ export type StudiApi = IpcApi<StudiIpcRegistry>;
 
 export type StudiIpcHandlers = IpcHandlers<StudiIpcRegistry>;
 
+export type StudiRendererApi = StudiApi & {
+  readonly onLifecycleActivated: (listener: (target: NotificationIntent["target"]) => void) => () => void;
+  readonly onNotificationSound: (listener: (fileUrl: string) => void) => () => void;
+};
+
 function createIpcMethod<Definition extends IpcMethodDefinition>(
   method: string,
   contract: Definition,
@@ -621,7 +647,7 @@ export function createIpcHandlerRegistrations<Registry extends IpcRegistryDefini
 
 const contractManifest = ContractManifestSchema.parse({
   schemaVersion: STUDI_SCHEMA_VERSION,
-  contractVersion: "10",
+  contractVersion: "11",
   ipcMethods: studiIpcMethods.map((method) => ({
     method,
     channel: studiIpcRegistry[method].channel,

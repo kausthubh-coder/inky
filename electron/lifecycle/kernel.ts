@@ -1,4 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   Menu,
@@ -10,12 +13,29 @@ import {
   type BrowserWindow,
 } from "electron";
 
-import { STUDI_SCHEMA_VERSION, type AutomationSchedule, type LifecycleState, type NotificationIntent, type SchoolOnboardingState } from "../../shared/index.js";
+import {
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  LIFECYCLE_ACTIVATED_CHANNEL,
+  PLAY_NOTIFICATION_SOUND_CHANNEL,
+  STUDI_SCHEMA_VERSION,
+  resolveNotificationSound,
+  shouldShowNotificationBanner,
+  type AutomationSchedule,
+  type LifecycleState,
+  type NotificationIntent,
+  type NotificationKind,
+  type NotificationSoundId,
+  type NotificationTestReceipt,
+  type SchoolOnboardingState,
+} from "../../shared/index.js";
 import type { AssignmentExecutionCoordinator, ExecutionNotification } from "../assignment/coordinator.js";
 import { VisibleBrowserBusyError, type VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
 import { createAutomationSchedule, nextScheduleRun } from "./schedule.js";
+
+const moduleDirectory = dirname(fileURLToPath(import.meta.url));
+const unpackedSoundDirectory = resolve(moduleDirectory, "..", "..", "..", "assets", "sounds");
 
 const MAX_TIMER_MS = 2_147_000_000;
 const BUSY_BROWSER_RECHECK_MS = 30_000;
@@ -29,6 +49,7 @@ export class AppKernel {
   readonly #window: BrowserWindow;
   readonly #runScheduledScan: (claimOccurrence: () => AutomationSchedule | null) => Promise<{ readonly claim: AutomationSchedule; readonly state: SchoolOnboardingState } | null>;
   readonly #focusBrowser: () => void;
+  readonly #iconPath: string | undefined;
   readonly #now: () => string;
   #tray: Tray | null = null;
   #timer: ReturnType<typeof setTimeout> | null = null;
@@ -46,6 +67,7 @@ export class AppKernel {
     options: {
       readonly runScheduledScan: (claimOccurrence: () => AutomationSchedule | null) => Promise<{ readonly claim: AutomationSchedule; readonly state: SchoolOnboardingState } | null>;
       readonly focusBrowser: () => void;
+      readonly iconPath?: string;
       readonly now?: () => string;
     },
   ) {
@@ -56,6 +78,7 @@ export class AppKernel {
     this.#window = window;
     this.#runScheduledScan = options.runScheduledScan;
     this.#focusBrowser = options.focusBrowser;
+    this.#iconPath = options.iconPath;
     this.#now = options.now ?? (() => new Date().toISOString());
   }
 
@@ -106,22 +129,50 @@ export class AppKernel {
     return this.state();
   }
 
-  async notify(intent: ExecutionNotification): Promise<void> {
+  async notify(intent: ExecutionNotification): Promise<NotificationTestReceipt> {
     const now = this.#now();
+    const preferences = (await this.#store.productPreferences.get()).notifications ?? DEFAULT_NOTIFICATION_PREFERENCES;
+    const sound = preferences.kinds[intent.kind].sound;
+    const resolved = resolveNotificationSound(preferences, intent.kind, (soundId) => bundledNotificationSoundPath(soundId) !== null);
     const record = this.#store.lifecycle.putNotification({
       ...intent,
       schemaVersion: STUDI_SCHEMA_VERSION,
       notificationId: `notification-${randomUUID()}`,
       createdAt: now,
     });
-    if (!Notification.isSupported()) return;
-    const notification = new Notification({ title: record.title, body: record.body, silent: false });
+    const supported = Notification.isSupported();
+    if (!shouldShowNotificationBanner(preferences, intent.kind) || !supported) {
+      return { notification: record, shown: false, sound, supported };
+    }
+    const icon = this.#iconPath ? nativeImage.createFromPath(this.#iconPath) : undefined;
+    const notification = new Notification({
+      title: record.title,
+      body: record.body,
+      silent: resolved.silent,
+      ...(icon && !icon.isEmpty() ? { icon } : {}),
+    });
     notification.on("click", () => {
       this.#store.lifecycle.putNotification({ ...record, deliveredAt: record.deliveredAt ?? now, clickedAt: this.#now() });
       this.#focusTarget(record);
     });
     notification.show();
-    this.#store.lifecycle.putNotification({ ...record, deliveredAt: this.#now() });
+    const delivered = this.#store.lifecycle.putNotification({ ...record, deliveredAt: this.#now() });
+    this.#playBundledSound(resolved.playSoundId);
+    return { notification: delivered, shown: true, sound, supported };
+  }
+
+  async preview(kind: NotificationKind): Promise<NotificationTestReceipt> {
+    const copy = PREVIEW_COPY[kind];
+    const execution = this.#store.lifecycle.getActiveExecution();
+    const scanId = this.#store.school.latestScan()?.scanId;
+    return this.notify({
+      kind,
+      title: copy.title,
+      body: copy.body,
+      target: kind === "scan_result"
+        ? { type: "scan", id: scanId ?? "settings-preview" }
+        : { type: "task", id: execution?.taskId ?? "settings-preview" },
+    });
   }
 
   open = (): void => {
@@ -205,7 +256,7 @@ export class AppKernel {
 
   #focusTarget(intent: NotificationIntent): void {
     this.open();
-    this.#window.webContents.send("studi:lifecycle-activated", intent.target);
+    this.#window.webContents.send(LIFECYCLE_ACTIVATED_CHANNEL, intent.target);
   }
 
   #refreshTray(): void {
@@ -253,7 +304,30 @@ export class AppKernel {
     this.#timer = setTimeout(() => { void this.reconcile(); }, delay);
   }
 
+  #playBundledSound(soundId: NotificationSoundId | null): void {
+    if (!soundId) return;
+    const path = bundledNotificationSoundPath(soundId);
+    if (!path || this.#window.isDestroyed()) return;
+    this.#window.webContents.send(PLAY_NOTIFICATION_SOUND_CHANNEL, pathToFileURL(path).href);
+  }
+
   #assertUsable(): void {
     if (this.#disposed) throw new Error("App kernel is disposed");
   }
+}
+
+const PREVIEW_COPY: Record<NotificationKind, { title: string; body: string }> = {
+  handoff: { title: "Needs you", body: "Inky is waiting for you to finish something in the page." },
+  review_ready: { title: "Ready to look over", body: "An assignment is sitting on the school page for you." },
+  scan_result: { title: "Scan finished", body: "Inky finished looking at your classes." },
+  failure: { title: "Something went wrong", body: "Inky had to stop and needs another look." },
+};
+
+function bundledNotificationSoundPath(soundId: NotificationSoundId): string | null {
+  if (soundId === "silent" || soundId === "os") return null;
+  const packaged = join(process.resourcesPath, "sounds", `${soundId}.wav`);
+  const unpacked = join(unpackedSoundDirectory, `${soundId}.wav`);
+  if (existsSync(packaged)) return packaged;
+  if (existsSync(unpacked)) return unpacked;
+  return null;
 }

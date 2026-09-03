@@ -18,7 +18,7 @@ try {
   const positive = await runElectron(selfTestDirectory, { STUDI_UI_SCENARIO: "onboarding-ready" }, 25_000, true);
   assert.deepEqual(positive.exit, { code: 0, signal: null }, `Electron failed: ${positive.stderr}`);
   assert.match(positive.stdout, /^STUDI_SELF_TEST \{"marker":true,/m);
-  assert.match(positive.stdout, /"contractVersion":"10"/);
+  assert.match(positive.stdout, /"contractVersion":"11"/);
   assert.match(positive.stdout, /"electron":"37\.10\.3"/);
   assert.match(positive.stdout, /"node":"22\.21\.1"/);
   assert.match(
@@ -44,6 +44,10 @@ try {
   assert.match(
     positive.stdout,
     /"lifecycle":\{"singleInstanceLock":true,"closeHides":true,"trayOpenHandled":true\}/,
+  );
+  assert.match(
+    positive.stdout,
+    /"notifications":\{"persistedWhenMuted":true,"mutedShown":false,"mutedDelivered":false,"enabledShown":(?:true|false),"enabledDelivered":(?:true|false),"sound":"inky_nudge"\}/,
   );
 
   if (!positiveOnly) {
