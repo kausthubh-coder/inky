@@ -1,7 +1,8 @@
 "use client";
 
-import { ClerkProvider } from "@clerk/nextjs";
+import { ClerkProvider, useAuth } from "@clerk/nextjs";
 import { ConvexProvider, ConvexReactClient } from "convex/react";
+import { ConvexProviderWithClerk } from "convex/react-clerk";
 import { useMemo, type ReactNode } from "react";
 
 const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL ?? "";
@@ -13,8 +14,21 @@ function ConvexTree({ children }: { children: ReactNode }) {
   return <ConvexProvider client={client}>{children}</ConvexProvider>;
 }
 
+function ClerkConvexTree({ children }: { children: ReactNode }) {
+  const client = useMemo(() => (convexUrl ? new ConvexReactClient(convexUrl) : null), []);
+  if (!client) return children;
+  return (
+    <ConvexProviderWithClerk client={client} useAuth={useAuth}>
+      {children}
+    </ConvexProviderWithClerk>
+  );
+}
+
 export function Providers({ children }: { children: ReactNode }) {
-  const tree = <ConvexTree>{children}</ConvexTree>;
-  if (!clerkKey) return tree;
-  return <ClerkProvider publishableKey={clerkKey}>{tree}</ClerkProvider>;
+  if (!clerkKey) return <ConvexTree>{children}</ConvexTree>;
+  return (
+    <ClerkProvider publishableKey={clerkKey}>
+      <ClerkConvexTree>{children}</ClerkConvexTree>
+    </ClerkProvider>
+  );
 }

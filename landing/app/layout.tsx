@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Nunito_Sans, Shantell_Sans } from "next/font/google";
 import { Providers } from "./providers";
 import "./globals.css";
-import "../designs/inky.css";
 
 const nunito = Nunito_Sans({
   subsets: ["latin"],
@@ -17,8 +16,15 @@ const shantell = Shantell_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "It does your homework for you · Studi",
-  description: "A Windows app. One school browser you can watch. You keep logins and submit.",
+  title: "Studi — Hi. I’m Inky. I do your homework.",
+  description:
+    "Your week on one board. The assignment you’re avoiding, done while you watch. The last click stays yours.",
+  openGraph: {
+    title: "Hi. I’m Inky. I do your homework.",
+    description:
+      "Your week on one board. The assignment you’re avoiding, done while you watch. The last click stays yours.",
+    type: "website",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
