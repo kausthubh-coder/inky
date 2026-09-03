@@ -9,7 +9,7 @@ import {
   writeDiagnosticsSnapshot,
 } from "../../dist/electron/diagnostics.js";
 
-test("diagnostic export keeps only the support allowlist and redacts sensitive canaries", async () => {
+test("diagnostic export keeps consented school facts and strips only secrets", async () => {
   const workspace = await mkdtemp(join(tmpdir(), "studi-diagnostics-"));
   const destination = join(workspace, "diagnostics.json");
   const canaries = {
@@ -47,6 +47,8 @@ test("diagnostic export keeps only the support allowlist and redacts sensitive c
         operation: "ipc_request",
         code: "operation_failed",
         task_id: canaries.task,
+        email: canaries.account,
+        school_root: canaries.school,
         debug_summary: `${canaries.account} ${canaries.path} ${canaries.school} ${canaries.token}`,
       },
     }],
@@ -58,9 +60,13 @@ test("diagnostic export keeps only the support allowlist and redacts sensitive c
   const serialized = JSON.stringify(document);
 
   assert.deepEqual(document.storage, { status: "ok", schemaVersion: 4, integrity: "ok" });
-  assert.equal(document.diagnostics[0].properties.task_id, undefined);
-  assert.match(document.diagnostics[0].properties.debug_summary, /\[redacted-email\].*\[redacted-path\].*\[redacted-url\].*\[redacted\]/);
-  for (const canary of Object.values(canaries)) assert.doesNotMatch(serialized, new RegExp(escapeRegExp(canary), "i"));
+  assert.equal(document.diagnostics[0].properties.task_id, canaries.task);
+  assert.equal(document.diagnostics[0].properties.email, canaries.account);
+  assert.equal(document.diagnostics[0].properties.school_root, canaries.school);
+  assert.match(document.diagnostics[0].properties.debug_summary, /student@example\.edu/);
+  assert.match(document.diagnostics[0].properties.debug_summary, /\[secret\]/);
+  assert.doesNotMatch(serialized, /Bearer top-secret-value/i);
+  assert.doesNotMatch(serialized, new RegExp(escapeRegExp(canaries.distinctId)));
 });
 
 function escapeRegExp(value) {

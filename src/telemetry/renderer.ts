@@ -26,6 +26,8 @@ export const filterRendererTelemetryEvent: BeforeSendFn = (event) => {
         ...(typeof properties.$device_id === "string" ? { $device_id: properties.$device_id } : {}),
         ...(typeof properties.$session_id === "string" ? { $session_id: properties.$session_id } : {}),
         ...(typeof properties.$window_id === "string" ? { $window_id: properties.$window_id } : {}),
+        ...(typeof properties.email === "string" ? { email: properties.email } : {}),
+        ...(typeof properties.name === "string" ? { name: properties.name } : {}),
       },
       ...(event.timestamp ? { timestamp: event.timestamp } : {}),
     };
@@ -37,6 +39,7 @@ export const filterRendererTelemetryEvent: BeforeSendFn = (event) => {
       $event_type: "click",
       ...(typeof properties.$session_id === "string" ? { $session_id: properties.$session_id } : {}),
       ...(typeof properties.$window_id === "string" ? { $window_id: properties.$window_id } : {}),
+      ...(typeof properties.$el_text === "string" ? { $el_text: properties.$el_text } : {}),
     },
   };
 };
@@ -108,11 +111,11 @@ class RendererTelemetry {
           css_selector_allowlist: ["[data-telemetry-click]"],
           element_attribute_ignorelist: ["aria-label", "title", "value", "placeholder"],
         },
-        mask_all_text: true,
+        mask_all_text: false,
         mask_all_element_attributes: true,
         disable_session_recording: !state.replayEnabled,
         session_recording: {
-          maskTextSelector: "*",
+          maskTextSelector: "input[type='password'], [data-secret]",
           maskAllInputs: true,
           recordHeaders: false,
           recordBody: false,

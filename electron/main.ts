@@ -62,6 +62,7 @@ import { SchoolScanCoordinator } from "./scan/coordinator.js";
 import { type LocalStore, openLocalStore } from "./storage/index.js";
 import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
+import { usageProperties } from "./telemetry/usage.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(moduleDirectory, "preload.cjs");
@@ -100,6 +101,7 @@ let gateTray: Tray | null = null;
 let gateQuitting = false;
 let telemetryShutdownFinished = false;
 const pendingNotifications: ExecutionNotification[] = [];
+let assignmentRunStartedAt: number | null = null;
 
 const selfTestAuthState: AuthState = {
   status: "approved",
@@ -237,6 +239,8 @@ const ipcHandlers: StudiIpcHandlers = {
     runtime.selectModel("openai-codex", modelId);
     runtime.setReasoningEffort(reasoningEffort);
     await persistAgentRuntimeChoice(modelId, reasoningEffort);
+    requireTelemetryService().capture("studi_model_selected", { model: modelId, reasoning_effort: reasoningEffort });
+    requireTelemetryService().setPerson({ selected_model: modelId, selected_reasoning: reasoningEffort });
     await requireManagerCoordinator().replaceManagerSession();
     return readWorkspaceState();
   },
@@ -261,7 +265,13 @@ const ipcHandlers: StudiIpcHandlers = {
   saveSchoolProfile: async (input) => {
     const state = await requireSchoolScanCoordinator().saveProfile(input);
     requireAppKernel().configureSchedule(input.scanCadence);
-    requireTelemetryService().capture("studi_onboarding_step", { step: "profile_saved", cadence: input.scanCadence });
+    requireTelemetryService().capture("studi_onboarding_step", {
+      step: "profile_saved",
+      cadence: input.scanCadence,
+      student_name: input.studentName,
+      school_root: input.schoolRoot,
+    });
+    requireTelemetryService().setPerson({ student_name: input.studentName, school_root: input.schoolRoot });
     return state;
   },
   startSchoolScan: async () => {
@@ -290,6 +300,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   startNextAssignment: async () => {
     await requireReadyProviderForScan();
+    assignmentRunStartedAt = Date.now();
     await requireAssignmentExecutionCoordinator().startNext();
     const state = requireAppKernel().state();
     captureQueueTransition("assignment_start", state);
@@ -297,6 +308,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   startAssignment: async ({ taskId }) => {
     await requireReadyProviderForScan();
+    assignmentRunStartedAt = Date.now();
     await startSelectedAssignment(
       requireLocalStore(),
       requireManagerCoordinator(),
@@ -309,6 +321,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   resumeAssignment: async ({ taskId }) => {
     await requireReadyProviderForScan();
+    assignmentRunStartedAt = Date.now();
     await requireAssignmentExecutionCoordinator().resume(taskId);
     const state = requireAppKernel().state();
     captureQueueTransition("assignment_resume", state);
@@ -318,6 +331,7 @@ const ipcHandlers: StudiIpcHandlers = {
     await requireAssignmentExecutionCoordinator().verifyStudentSubmission(taskId, confirmationText);
     const state = requireAppKernel().state();
     captureQueueTransition("submission_verify", state);
+    if (state.execution) captureAssignmentFinished(state.execution.taskId, "submitted");
     return state;
   },
   openAnswerArtifact: async ({ taskId }) => {
@@ -537,11 +551,23 @@ function initializeTelemetry(): void {
 }
 
 function observeAuthState(state: AuthState): void {
-  if ("user" in state) requireTelemetryService().identifyClerk(state.user.subject);
+  if ("user" in state) {
+    requireTelemetryService().identifyClerk({
+      subject: state.user.subject,
+      email: state.user.email,
+      name: state.user.name,
+    });
+  }
   requireTelemetryService().capture("studi_auth_gate", {
     status: state.status,
     ...(state.status === "denied" ? { reason: state.reason } : {}),
     ...(state.status === "error" ? { reason: "unavailable" as const } : {}),
+    ...("user" in state
+      ? {
+          ...(state.user.email ? { email: state.user.email } : {}),
+          ...(state.user.name ? { name: state.user.name } : {}),
+        }
+      : {}),
   });
 }
 
@@ -1267,13 +1293,14 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
       runScheduledScan: async (claimOccurrence) => {
         const service = requireTelemetryService();
         const startedAt = Date.now();
-        service.capture("studi_scan_started", { mode: "scheduled" });
+        discardStaleAgentUsage();
+        service.capture("studi_scan_started", { mode: "scheduled", ...currentAgentSelection(), ...currentSchoolContext() });
         try {
           const result = await requireSchoolScanCoordinator().runScheduledScan(claimOccurrence, requireReadyProviderForScan);
           if (result) captureScanFinished("scheduled", result.state, startedAt);
           return result;
         } catch (error) {
-          service.captureError(error, "scan", "school_scan");
+          service.captureError(error, "scan", "school_scan", currentAgentSelection());
           throw error;
         }
       },
@@ -1294,14 +1321,15 @@ async function runScanWithTelemetry(
 ): Promise<SchoolOnboardingState> {
   const service = requireTelemetryService();
   const startedAt = Date.now();
-  service.capture("studi_scan_started", { mode });
+  discardStaleAgentUsage();
+  service.capture("studi_scan_started", { mode, ...currentAgentSelection(), ...currentSchoolContext() });
   try {
     const state = await run();
     captureScanFinished(mode, state, startedAt);
     if (state.scan?.state === "needs_user") service.capture("studi_handoff", { kind: "scan", state: "needs_user" });
     return state;
   } catch (error) {
-    service.captureError(error, "scan", "school_scan");
+    service.captureError(error, "scan", "school_scan", currentAgentSelection());
     throw error;
   }
 }
@@ -1319,6 +1347,11 @@ function captureScanFinished(
     course_count: state.courses.length,
     assignment_count: state.assignments.length,
     linked_system_count: state.linkedSystems.length,
+    ...currentAgentFacts(),
+    ...schoolContextFrom(state),
+    scan_id: state.scan.scanId,
+    failure_count: state.scan.failures.length,
+    current_step: state.scan.currentStep,
   });
 }
 
@@ -1326,10 +1359,15 @@ function captureQueueTransition(
   action: "manager_turn" | "assignment_start" | "assignment_resume" | "submission_verify" | "schedule_pause" | "schedule_resume",
   state: LifecycleState,
 ): void {
+  if ((action === "assignment_start" || action === "assignment_resume") && assignmentRunStartedAt === null) {
+    assignmentRunStartedAt = Date.now();
+  }
   requireTelemetryService().capture("studi_queue_transition", {
     action,
     phase: state.execution?.phase ?? "idle",
     ...(state.execution ? { task_id: state.execution.taskId } : {}),
+    ...currentAgentSelection(),
+    ...assignmentLabels(state.execution?.assignmentId),
   });
 }
 
@@ -1337,7 +1375,90 @@ function observeExecutionNotification(intent: ExecutionNotification): void {
   const service = requireTelemetryService();
   if (intent.kind === "handoff") service.capture("studi_handoff", { kind: "assignment", state: "needs_user" });
   if (intent.kind === "review_ready") service.capture("studi_review", { state: "ready_review" });
-  if (intent.kind === "failure") service.captureError(new Error("assignment failed"), "queue", "assignment");
+  if (intent.kind === "failure") {
+    const execution = intent.target.type === "task" ? requireLocalStore().lifecycle.getExecution(intent.target.id) : null;
+    service.captureError(new Error(execution?.lastError ?? intent.body ?? "assignment failed"), "queue", "assignment", currentAgentSelection());
+  }
+  if (intent.target.type === "task") {
+    const phase = intent.kind === "review_ready"
+      ? "ready_review"
+      : intent.kind === "failure"
+        ? "failed"
+        : "needs_user";
+    captureAssignmentFinished(intent.target.id, phase);
+  }
+}
+
+function captureAssignmentFinished(
+  taskId: string,
+  phase: "needs_user" | "ready_review" | "submitted" | "preserved" | "failed",
+): void {
+  const startedAt = assignmentRunStartedAt;
+  assignmentRunStartedAt = null;
+  const execution = requireLocalStore().lifecycle.getExecution(taskId);
+  requireTelemetryService().capture("studi_assignment_finished", {
+    task_id: taskId,
+    phase,
+    ...assignmentLabels(execution?.assignmentId),
+    ...currentAgentFacts(startedAt === null ? undefined : Math.max(0, Date.now() - startedAt)),
+  });
+}
+
+function discardStaleAgentUsage(): void {
+  agentRuntime?.takeLastUsage();
+}
+
+function currentAgentSelection(): { model?: string; reasoning_effort?: AgentReasoningEffort } {
+  if (!agentRuntime) return {};
+  return {
+    model: agentRuntime.selectedModelId,
+    reasoning_effort: agentRuntime.selectedReasoningEffort,
+  };
+}
+
+function currentAgentFacts(durationMs?: number): Record<string, string | number> {
+  return {
+    ...currentAgentSelection(),
+    ...(durationMs === undefined ? {} : { duration_ms: durationMs }),
+    ...usageProperties(agentRuntime?.takeLastUsage() ?? {
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      costUsd: 0,
+      toolCalls: 0,
+    }),
+  };
+}
+
+function currentSchoolContext(): { student_name?: string; school_root?: string } {
+  const profile = localStore?.school.getProfile();
+  if (!profile) return {};
+  return { student_name: profile.studentName, school_root: profile.schoolRoot };
+}
+
+function schoolContextFrom(state: SchoolOnboardingState): {
+  student_name?: string;
+  school_root?: string;
+  course_titles?: string;
+} {
+  return {
+    ...(state.profile ? { student_name: state.profile.studentName, school_root: state.profile.schoolRoot } : {}),
+    ...(state.courses.length > 0
+      ? { course_titles: state.courses.map((course) => course.label).join(" | ").slice(0, 2_000) }
+      : {}),
+  };
+}
+
+function assignmentLabels(assignmentId?: string): { assignment_title?: string; course_label?: string } {
+  if (!assignmentId || !localStore) return {};
+  const assignment = localStore.assignments.get(assignmentId);
+  if (!assignment) return {};
+  const course = localStore.school.listCourses().find((item) => item.courseId === assignment.courseId);
+  return {
+    assignment_title: assignment.title,
+    ...(course ? { course_label: course.label } : {}),
+  };
 }
 
 async function readWorkspaceState() {
@@ -1389,6 +1510,10 @@ async function applyPersistedAgentRuntime(): Promise<void> {
     // Keep the catalog default when the saved id is not installed yet.
   }
   runtime.setReasoningEffort(preferences.agentReasoningEffort);
+  requireTelemetryService().setPerson({
+    selected_model: runtime.selectedModelId,
+    selected_reasoning: runtime.selectedReasoningEffort,
+  });
 }
 
 function requireRuntimeLoginAttempt(): OpenAiCodexLoginAttemptOwner {

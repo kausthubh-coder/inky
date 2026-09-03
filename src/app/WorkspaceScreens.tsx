@@ -392,7 +392,7 @@ export function SettingsScreen({
             <PaperCard tone="lavender" className="settings-card">
               <p className="eyebrow">If something broke</p>
               <h2>Safe diagnostics</h2>
-              <p>Saves a short JSON file with versions and redacted notes. It never copies your school folder.</p>
+              <p>Saves a short JSON file with versions and recent product events. Secrets stay out. It never copies your school folder.</p>
               <button className="button button--lavender" onClick={onExportDiagnostics} disabled={busy !== null}>{busy === "diagnostics" ? "Preparing…" : "Export diagnostics"}</button>
               {diagnosticsReceipt?.status === "saved" && <small>Saved {diagnosticsReceipt.fileName}</small>}
               {diagnosticsReceipt?.status === "cancelled" && <small>Nothing was written.</small>}

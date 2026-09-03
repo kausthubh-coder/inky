@@ -30,6 +30,12 @@ import {
 } from "../../shared/index.js";
 import type { BrowserController } from "../browser/controller.js";
 import { createBrowserTools } from "../browser/tools.js";
+import {
+  addUsage,
+  emptyUsage,
+  readMessageUsage,
+  type AgentUsageSnapshot,
+} from "../telemetry/usage.js";
 
 type PiSessionOptions = NonNullable<Parameters<typeof createAgentSession>[0]>;
 type PiModel = NonNullable<PiSessionOptions["model"]>;
@@ -110,6 +116,7 @@ export class PiAgentRuntime implements AgentRuntime {
   readonly #assignmentBrowserTools: ToolDefinition[] | null;
   #model?: PiModel;
   #thinkingLevel: AgentReasoningEffort = DEFAULT_AGENT_REASONING_EFFORT;
+  #usage = emptyUsage();
 
   private constructor(options: PiAgentRuntimeOptions, modelRuntime: ModelRuntime) {
     this.#cwd = options.cwd;
@@ -150,7 +157,7 @@ export class PiAgentRuntime implements AgentRuntime {
   async createWorkerSession(target: AgentSessionTarget = {}): Promise<AgentSession> {
     const createPiSession = (nextTarget: AgentSessionTarget) =>
       this.#createPiSession(nextTarget, this.#workerTools, workerSystemPrompt);
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession);
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
   }
 
   async createAssignmentSession(
@@ -166,7 +173,7 @@ export class PiAgentRuntime implements AgentRuntime {
     }
     const createPiSession = (nextTarget: AgentSessionTarget) =>
       this.#createPiSession(nextTarget, tools, assignmentSystemPrompt);
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession);
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
   }
 
   async createScanSession(
@@ -182,7 +189,7 @@ export class PiAgentRuntime implements AgentRuntime {
     }
     const createPiSession = (nextTarget: AgentSessionTarget) =>
       this.#createPiSession(nextTarget, tools, scanSystemPrompt);
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession);
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
   }
 
   async createManagerSession(
@@ -195,7 +202,7 @@ export class PiAgentRuntime implements AgentRuntime {
     const managerTools = [...tools];
     const createPiSession = (nextTarget: AgentSessionTarget) =>
       this.#createPiSession(nextTarget, managerTools, managerSystemPrompt);
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession);
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
   }
 
   async getProviderStatus(providerId: string): Promise<ProviderStatus> {
@@ -285,6 +292,16 @@ export class PiAgentRuntime implements AgentRuntime {
 
   setReasoningEffort(effort: AgentReasoningEffort): void {
     this.#thinkingLevel = effort;
+  }
+
+  takeLastUsage(): AgentUsageSnapshot {
+    const snapshot = this.#usage;
+    this.#usage = emptyUsage();
+    return snapshot;
+  }
+
+  addUsage(usage: AgentUsageSnapshot): void {
+    this.#usage = addUsage(this.#usage, usage);
   }
 
   async loginOpenAiCodex(
@@ -424,6 +441,7 @@ function selectDefaultModel(modelRuntime: ModelRuntime): PiModel | undefined {
 class PiBackedAgentSession implements AgentSession {
   readonly #listeners = new Set<AgentRunEventListener>();
   readonly #createPiSession: (target: AgentSessionTarget) => Promise<PiAgentSession>;
+  readonly #reportUsage: (usage: AgentUsageSnapshot) => void;
   readonly #normalizer = new PiEventNormalizer();
   #piSession: PiAgentSession;
   #unsubscribePi: (() => void) | null = null;
@@ -432,9 +450,11 @@ class PiBackedAgentSession implements AgentSession {
   constructor(
     piSession: PiAgentSession,
     createPiSession: (target: AgentSessionTarget) => Promise<PiAgentSession>,
+    reportUsage: (usage: AgentUsageSnapshot) => void,
   ) {
     this.#piSession = piSession;
     this.#createPiSession = createPiSession;
+    this.#reportUsage = reportUsage;
     this.#bindPiSubscription();
   }
 
@@ -476,6 +496,8 @@ class PiBackedAgentSession implements AgentSession {
         });
       }
       throw error;
+    } finally {
+      this.#reportUsage(this.#normalizer.takeUsage());
     }
   }
 
@@ -540,9 +562,16 @@ export class PiEventNormalizer {
     null;
   #hasTerminalEvent = false;
   #hasAbortEvent = false;
+  #usage = emptyUsage();
 
   get hasTerminalEvent(): boolean {
     return this.#hasTerminalEvent;
+  }
+
+  takeUsage(): AgentUsageSnapshot {
+    const snapshot = this.#usage;
+    this.#usage = emptyUsage();
+    return snapshot;
   }
 
   beginRun(): void {
@@ -572,6 +601,7 @@ export class PiEventNormalizer {
         }
         return [];
       case "message_end": {
+        this.#usage = addUsage(this.#usage, readMessageUsage(event.message));
         const stopReason = readAssistantStopReason(event.message);
         if (stopReason) {
           this.#lastStopReason = stopReason;
@@ -597,6 +627,7 @@ export class PiEventNormalizer {
           }),
         ];
       case "tool_execution_end":
+        this.#usage = addUsage(this.#usage, { ...emptyUsage(), toolCalls: 1 });
         return [
           this.#parse({
             schemaVersion: STUDI_SCHEMA_VERSION,
