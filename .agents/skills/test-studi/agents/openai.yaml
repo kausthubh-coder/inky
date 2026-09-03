@@ -1,4 +1,4 @@
 interface:
   display_name: "Test Studi"
   short_description: "Run Studi's isolated end-to-end desktop journey"
-  default_prompt: "Use $test-studi. If .studi-qa/profile is already onboarded, launch Start-StudiQa.ps1 -Persistent and drive the feature pass yourself. Only run a fresh Clerk journey when sign-in is the thing under test."
+  default_prompt: "Use $test-studi. For app chrome, launch Start-StudiQa.ps1 -Persistent -ImportCodexAuth and drive the skip-to-app feature pass. For first-run, follow the onboarding pass through Clerk and Codex only. Isolated Playwright cannot finish OpenAI device login. Hydrate from STUDI_QA_CODEX_AUTH or .studi-qa/codex-auth; if a code appears, ask the user to enter it. Never print the token or commit .studi-qa."

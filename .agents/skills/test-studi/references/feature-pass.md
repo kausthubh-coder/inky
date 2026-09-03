@@ -1,17 +1,19 @@
-# Post-onboarding feature pass
+# Skip-to-app feature pass
 
-Use this after the persistent QA profile already has Studi signed in, Codex connected, school signed in, and onboarding finished. The human does those handoffs once. The agent then drives only the Studi React chrome with `playwright-electron`.
+Use this after the persistent QA profile already has Studi signed in and onboarding finished. The agent then drives only the Studi React chrome with `playwright-electron`.
 
 Pi owns the school guest pane. Do not attach Playwright to that guest. Do not type school passwords. Do not sign out of the persistent profile.
+
+This pass skips onboarding. It cannot manufacture a completed scan. If the week board is not up, stop and say the profile still needs a first scan; a later local LMS fixture will own that step.
 
 ## Launch
 
 1. Quit the everyday Studi window first. One Electron instance can hold the single-instance lock.
 2. `npm run build` if source changed.
-3. Launch with persistence:
+3. Launch with persistence and the Codex cache when a real agent turn is in scope:
 
    ```powershell
-   .\.agents\skills\test-studi\scripts\Start-StudiQa.ps1 -Persistent
+   .\.agents\skills\test-studi\scripts\Start-StudiQa.ps1 -Persistent -ImportCodexAuth
    ```
 
 4. The receipt path is always `<repo>\.studi-qa\profile`. `profileReused=true` means this is not a first-run folder. Do not pass `-ResetPersistent` unless the user asked to wipe onboarded state.
@@ -27,7 +29,14 @@ Read these through the renderer before clicking around:
 - `window.studi.getLifecycleState()`
 - `window.studi.getLibraryState()`
 
-Continue only when auth is `approved` or `offline`, onboarding has a ready school profile, and the week board (or desk) is the live screen. If Codex is disconnected, school session looks signed out, or onboarding is still up, stop and ask the user to finish that handoff in this same persistent window. Do not invent a completed scan.
+Continue only when auth is `approved` or `offline`, onboarding has a completed school profile, and the week board (or desk) is the live screen.
+
+If onboarding is still up, this is the wrong pass. Switch to [onboarding-pass.md](onboarding-pass.md) or stop. Do not seed assignments to skip ahead.
+
+Codex:
+
+- Chrome-only (greeting, board, Settings, Library, desk layout): continue even if `provider.state` is `needs_login`.
+- Manager prompt, scan, or desk agent turn: provider must be `ready`. If not, follow [codex-login.md](codex-login.md). Do not open OpenAI in isolated Playwright.
 
 ## What the agent should click
 
