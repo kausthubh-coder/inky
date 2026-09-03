@@ -37,6 +37,7 @@ import {
   type SchoolOnboardingState,
   type StudiIpcHandlers,
   type BrowserLayoutMode,
+  type SchoolPageBounds,
   type LibraryState,
   type ProductSettingsState,
   type TaskDetail,
@@ -51,6 +52,7 @@ import { AuthVault } from "./auth/vault.js";
 import { PiAgentRuntime } from "./agent/runtime.js";
 import { OpenAiCodexLoginAttemptOwner } from "./agent/provider-login.js";
 import { AssignmentExecutionCoordinator, type ExecutionNotification } from "./assignment/coordinator.js";
+import { startSelectedAssignment } from "./assignment/start-selected.js";
 import { BrowserController } from "./browser/controller.js";
 import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
@@ -83,6 +85,7 @@ let browserController: BrowserController | null = null;
 let browserView: WebContentsView | null = null;
 let driveOverlay: DriveOverlay | null = null;
 let browserLayoutMode: BrowserLayoutMode = "hidden";
+let deskSlotBounds: SchoolPageBounds | null = null;
 let agentRuntime: PiAgentRuntime | null = null;
 let runtimeLoginAttempt: OpenAiCodexLoginAttemptOwner | null = null;
 let managerCoordinator: ManagerCoordinator | null = null;
@@ -292,6 +295,18 @@ const ipcHandlers: StudiIpcHandlers = {
     captureQueueTransition("assignment_start", state);
     return state;
   },
+  startAssignment: async ({ taskId }) => {
+    await requireReadyProviderForScan();
+    await startSelectedAssignment(
+      requireLocalStore(),
+      requireManagerCoordinator(),
+      requireAssignmentExecutionCoordinator(),
+      taskId,
+    );
+    const state = requireAppKernel().state();
+    captureQueueTransition("assignment_start", state);
+    return state;
+  },
   resumeAssignment: async ({ taskId }) => {
     await requireReadyProviderForScan();
     await requireAssignmentExecutionCoordinator().resume(taskId);
@@ -362,8 +377,9 @@ const ipcHandlers: StudiIpcHandlers = {
     requireAssignmentExecutionCoordinator().cancel(taskId);
     return requireAppKernel().state();
   },
-  setBrowserLayout: ({ mode }) => {
+  setBrowserLayout: ({ mode, bounds }) => {
     browserLayoutMode = mode;
+    deskSlotBounds = mode === "desk" && bounds ? bounds : null;
     layoutSchoolBrowser();
     return browserLayoutMode;
   },
@@ -614,13 +630,12 @@ function layoutSchoolBrowser(): void {
   const window = mainWindow;
   const view = browserView;
   if (!window || window.isDestroyed() || !view) return;
-  if (browserLayoutMode === "hidden") {
+  const bounds = visibleSchoolBounds(window);
+  if (!bounds) {
     view.setVisible(false);
     driveOverlay?.layout(null);
     return;
   }
-  const [width = 1120, height = 760] = window.getContentSize();
-  const bounds = schoolBrowserBounds(browserLayoutMode, width, height);
   view.setBounds(bounds);
   view.setBorderRadius(SCHOOL_PANE_RADIUS);
   view.setVisible(true);
@@ -646,22 +661,14 @@ async function takeOverVisibleBrowser(): Promise<void> {
   }
 }
 
-function schoolBrowserBounds(
-  mode: Exclude<BrowserLayoutMode, "hidden">,
-  width: number,
-  height: number,
-): Electron.Rectangle {
-  if (mode === "onboarding") {
-    const conversationWidth = Math.round(width * (0.92 / 2.1));
-    const gapLeft = 20;
-    const gapTop = 24;
-    const edge = 10;
-    const x = conversationWidth + gapLeft;
-    const y = gapTop;
-    return { x, y, width: Math.max(300, width - x - edge), height: Math.max(300, height - y - edge) };
-  }
-  const start = Math.round(width * 0.52);
-  return { x: start, y: 76, width: Math.max(300, width - start - 18), height: Math.max(300, height - 94) };
+function visibleSchoolBounds(window: BrowserWindow): Electron.Rectangle | null {
+  if (browserLayoutMode === "hidden") return null;
+  if (browserLayoutMode === "desk") return deskSlotBounds;
+  const [width = 1120, height = 760] = window.getContentSize();
+  const conversationWidth = Math.round(width * (0.92 / 2.1));
+  const x = conversationWidth + 20;
+  const y = 24;
+  return { x, y, width: Math.max(300, width - x - 10), height: Math.max(300, height - y - 10) };
 }
 
 function currentBrowserDriver() {

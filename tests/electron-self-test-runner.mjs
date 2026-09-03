@@ -18,7 +18,7 @@ try {
   const positive = await runElectron(selfTestDirectory, { STUDI_UI_SCENARIO: "onboarding-ready" }, 25_000, true);
   assert.deepEqual(positive.exit, { code: 0, signal: null }, `Electron failed: ${positive.stderr}`);
   assert.match(positive.stdout, /^STUDI_SELF_TEST \{"marker":true,/m);
-  assert.match(positive.stdout, /"contractVersion":"9"/);
+  assert.match(positive.stdout, /"contractVersion":"10"/);
   assert.match(positive.stdout, /"electron":"37\.10\.3"/);
   assert.match(positive.stdout, /"node":"22\.21\.1"/);
   assert.match(

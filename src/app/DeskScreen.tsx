@@ -1,70 +1,342 @@
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { classifyAgentRuntimeAttention, type LibraryState, type LifecycleState, type SchoolOnboardingState, type StudiWorkspaceState, type TaskDetail } from "../../shared/index.js";
+import {
+  classifyAgentRuntimeAttention,
+  isLivePhase,
+  type Assignment,
+  type LifecycleState,
+  type SchoolOnboardingState,
+  type SchoolPageBounds,
+  type StudiWorkspaceState,
+  type TaskDetail,
+  type TaskSummary,
+} from "../../shared/index.js";
 import { Inky, type InkyState } from "./Inky.js";
 import { Field, PaperCard, RuntimeAttentionBanner, StatusPill, executionLabel, formatDateTime, formatDue } from "./Ui.js";
 
-export function DeskScreen({
+export type DeskPanel =
+  | { kind: "closed" }
+  | { kind: "assignment"; assignmentId: string }
+  | { kind: "desk" };
+
+export function viewingLiveDesk(
+  panel: DeskPanel,
+  execution: LifecycleState["execution"] | null | undefined,
+): boolean {
+  return Boolean(
+    execution &&
+      isLivePhase(execution.phase) &&
+      (panel.kind === "desk" || (panel.kind === "assignment" && panel.assignmentId === execution.assignmentId)),
+  );
+}
+
+export function openAssignmentId(
+  panel: DeskPanel,
+  execution: LifecycleState["execution"] | null | undefined,
+): string | null {
+  if (panel.kind === "assignment") return panel.assignmentId;
+  if (panel.kind === "desk") return execution?.assignmentId ?? null;
+  return null;
+}
+
+export function talkKeyForPanel(
+  panel: DeskPanel,
+  execution: LifecycleState["execution"] | null | undefined,
+): string | null {
+  const openId = openAssignmentId(panel, execution);
+  if (openId) return openId;
+  return panel.kind === "desk" ? "desk" : null;
+}
+
+export function deskInkyState({
+  execution,
+  driver,
+  scanState,
+  runtimeAttention,
+}: {
+  execution?: LifecycleState["execution"];
+  driver?: StudiWorkspaceState["browser"]["driver"];
+  scanState?: NonNullable<SchoolOnboardingState["scan"]>["state"];
+  runtimeAttention: ReturnType<typeof classifyAgentRuntimeAttention>;
+}): InkyState {
+  if (execution && isLivePhase(execution.phase)) {
+    if (driver === "inky") return "steering";
+    if (runtimeAttention !== "none" || execution.phase === "needs_user") return "needs";
+    if (execution.phase === "working" || execution.phase === "submitting") return "working";
+    if (execution.phase === "ready_review") return "waiting";
+  }
+  if (runtimeAttention !== "none" || scanState === "partial" || scanState === "failed" || scanState === "needs_user") return "needs";
+  if (scanState === "running") return "scanning";
+  if (scanState === "succeeded") return "done";
+  return "idle";
+}
+
+export function DeskDrawer({
+  panel,
   onboarding,
   workspace,
   lifecycle,
-  library,
   detail,
+  assignment,
+  task,
+  showingLiveDesk,
   busy,
   error,
+  talk,
+  onClose,
+  onStart,
+  onTalk,
   onTakeover,
   onResume,
   onCancel,
   onVerifySubmission,
   onOpenArtifact,
   onConnectRuntime,
-  onBack,
+  onSchoolSlot,
 }: {
+  panel: Exclude<DeskPanel, { kind: "closed" }>;
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
   lifecycle: LifecycleState;
-  library: LibraryState | null;
   detail: TaskDetail | null;
+  assignment: Assignment | null;
+  task: TaskSummary | null;
+  showingLiveDesk: boolean;
   busy: string | null;
   error: string | null;
+  talk: readonly { who: "you" | "inky"; text: string }[];
+  onClose: () => void;
+  onStart: (taskId: string) => void;
+  onTalk: (prompt: string) => void;
   onTakeover: (taskId: string) => void;
   onResume: (taskId: string) => void;
   onCancel: (taskId: string) => void;
   onVerifySubmission: (taskId: string, confirmation: string) => void;
   onOpenArtifact: (taskId: string) => void;
   onConnectRuntime: () => void;
-  onBack: () => void;
+  onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
 }) {
+  const [prompt, setPrompt] = useState("");
   const [confirmation, setConfirmation] = useState("");
-  const execution = lifecycle.execution;
-  const assignment = detail?.assignment ?? onboarding.assignments.find((item) => item.assignmentId === execution?.assignmentId);
+  const slotRef = useRef<HTMLDivElement>(null);
+  const execution = lifecycle.execution && (
+    panel.kind === "desk" || lifecycle.execution.assignmentId === assignment?.assignmentId
+  ) ? lifecycle.execution : null;
+  const live = Boolean(execution && isLivePhase(execution.phase));
+  const anyLive = Boolean(lifecycle.execution && isLivePhase(lifecycle.execution.phase));
+  const desk = showingLiveDesk;
   const course = onboarding.courses.find((item) => item.courseId === assignment?.courseId);
-  const currentTool = useMemo(() => {
-    const open = new Set<string>();
-    for (const event of detail?.activity ?? []) {
-      if (event.type === "tool_started") open.add(event.toolCallId);
-      if (event.type === "tool_finished") open.delete(event.toolCallId);
-    }
-    const id = [...open].at(-1);
-    if (!id) return null;
-    for (let index = (detail?.activity.length ?? 0) - 1; index >= 0; index -= 1) {
-      const event = detail?.activity[index];
-      if (event?.type === "tool_started" && event.toolCallId === id) return event.toolName;
-    }
-    return null;
-  }, [detail?.activity]);
-  if (!execution) return null;
-  const runtimeAttention = classifyAgentRuntimeAttention(workspace?.provider, execution.lastError);
-  const inkyState: InkyState = workspace?.browser.driver === "inky"
-    ? "steering"
-    : runtimeAttention !== "none" || execution.phase === "needs_user" ? "needs" : execution.phase === "working" || execution.phase === "submitting" ? "working" : execution.phase === "ready_review" ? "waiting" : execution.phase === "submitted" || execution.phase === "preserved" ? "done" : "thinking";
-  const submit = (event: FormEvent) => { event.preventDefault(); if (confirmation.trim()) onVerifySubmission(execution.taskId, confirmation.trim()); };
+  const runtimeAttention = classifyAgentRuntimeAttention(workspace?.provider, execution?.lastError ?? (onboarding.scan?.state === "failed" ? onboarding.scan.failures[0] : null));
+  const inkyState = deskInkyState({
+    ...(execution ? { execution } : {}),
+    ...(workspace ? { driver: workspace.browser.driver } : {}),
+    ...(onboarding.scan ? { scanState: onboarding.scan.state } : {}),
+    runtimeAttention,
+  });
+  const currentTool = useMemo(() => currentToolName(detail), [detail]);
+  const done = task && ["submitted", "preserved"].includes(task.task.state);
+  const canStart = Boolean(task && ["discovered", "queued"].includes(task.task.state) && task.permission.mayAttempt && !anyLive);
+  const title = assignment?.title ?? (desk ? "Inky’s desk" : "Assignment");
+  const visibleDetail = detail && assignment && detail.assignment.assignmentId === assignment.assignmentId
+    ? detail
+    : detail && desk && !assignment && detail.assignment.assignmentId === execution?.assignmentId
+      ? detail
+      : null;
 
-  return <main className="desk-shell" data-studi-app-ready="true"><header className="desk-chrome"><div className="brand-lockup"><Inky state={inkyState} size={52} label={`Inky is ${inkyState}`} /><div><strong>Studi’s desk</strong><small>{executionLabel(execution.phase)}</small></div></div><div className="desk-status"><StatusPill tone={execution.phase === "ready_review" ? "coral" : execution.phase === "needs_user" ? "yellow" : "mint"}>{execution.phase.replace("_", " ")}</StatusPill><button className="quiet-button" onClick={onBack}>Back to week</button></div></header><section className="desk-panel"><header className="task-hero"><div><p className="eyebrow">{course?.label ?? "Verified assignment"}</p><h1>{assignment?.title ?? execution.assignmentId}</h1><p>{formatDue(assignment?.dueAt)}</p></div><div className="live-chip"><span className={execution.phase === "working" ? "live-dot" : "live-dot is-paused"} /><strong>{currentTool ? `Using ${currentTool}` : executionLabel(execution.phase)}</strong><small>Browser revision {workspace?.browser.revision ?? "—"}</small></div></header><div className="desk-actions">{execution.phase === "working" && <button className="button button--coral" onClick={() => onTakeover(execution.taskId)} disabled={busy !== null}>Take over browser</button>}{execution.phase === "needs_user" && <button className="button button--yellow" onClick={() => onResume(execution.taskId)} disabled={busy !== null}>Resume Studi</button>}<button className="button button--paper" onClick={() => onCancel(execution.taskId)} disabled={busy !== null || execution.phase === "submitting"}>Cancel task</button></div><RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />{execution.returnPredicate && runtimeAttention === "none" && <div className="truth-banner truth-banner--partial"><strong>Studi is waiting for you.</strong><span>{execution.lastError ?? execution.returnPredicate}</span></div>}<div className="desk-grid"><PaperCard tone="yellow" className="desk-plan"><p className="eyebrow">Task plan</p><h2>{detail?.attempts.at(-1)?.plan ?? "Work from the current visible page, preserve evidence, and stop before an unapproved effect."}</h2><ol><li>Use the persistent school browser.</li><li>Record page evidence after meaningful actions.</li><li>{detail?.permission.maySubmit ? "Re-check permission before any submission." : "Leave completed work for your review."}</li></ol></PaperCard><PaperCard tone="lavender" className="queue-panel"><p className="eyebrow">Up next</p>{lifecycle.manager.entries.filter((item) => item.taskId !== execution.taskId).slice(0, 4).map((entry) => { const item = library?.tasks.find((task) => task.task.taskId === entry.taskId); return <div className="queue-item" key={entry.taskId}><strong>{item?.assignment.title ?? entry.assignmentId}</strong><small>{formatDue(entry.dueAt)}</small></div>; })}{lifecycle.manager.entries.filter((item) => item.taskId !== execution.taskId).length === 0 && <small>Nothing else is queued.</small>}</PaperCard><PaperCard tone="paper" className="activity-panel"><div className="card-heading"><div><p className="eyebrow">Live transcript and tools</p><h2>What Studi has actually done</h2></div><StatusPill tone={currentTool ? "sky" : "plain"}>{currentTool ?? "no tool active"}</StatusPill></div><div className="activity-feed">{(detail?.activity.length ?? 0) === 0 && <p>No live agent event has been recorded for this run yet.</p>}{detail?.activity.map((event, index) => <ActivityRow key={`${event.type}-${index}`} event={event} />)}{detail?.events.slice(-5).map((event) => <div className="activity-row activity-row--state" key={event.eventId}><span>state</span><p>{event.type === "task_created" ? "Task discovered" : `${event.payload.from} → ${event.payload.to}`}</p></div>)}</div></PaperCard><PaperCard tone="sky" className="evidence-panel"><p className="eyebrow">Retained evidence</p><h2>{detail?.attempts.length ?? 0} recovery checkpoint{detail?.attempts.length === 1 ? "" : "s"}</h2>{detail?.attempts.map((attempt) => <div className="evidence-row" key={attempt.ordinal}><span>{attempt.ordinal}</span><div><strong>{attempt.plan}</strong><p>{attempt.result}</p><small>{attempt.evidence.summary} · {formatDateTime(attempt.recordedAt)}</small></div></div>)}{detail?.execution?.reviewCheckpoint && <div className="evidence-row"><span>R</span><div><strong>Review checkpoint</strong><p>{detail.execution.reviewCheckpoint.summary}</p><small>{detail.execution.reviewCheckpoint.title}</small></div></div>}{(detail?.attempts.length ?? 0) === 0 && !detail?.execution?.reviewCheckpoint && <small>Evidence will appear after the worker records a recovery or review checkpoint.</small>}</PaperCard></div>{execution.phase === "ready_review" && <PaperCard tone="coral" className="review-panel"><div><p className="eyebrow">Human review</p><h2>The answers remain in the page.</h2><p>{execution.reviewDeadline ? `Review before ${formatDateTime(execution.reviewDeadline)}.` : "Review the visible school page before submitting."}{execution.handoffDeadline ? ` Studi keeps this browser handoff until ${formatDateTime(execution.handoffDeadline)}, then saves a local Markdown fallback and continues the queue.` : " If time expires, Studi saves a local Markdown fallback."}</p></div><form onSubmit={submit}><Field label="Text visible after you submit" hint="Studi verifies this exact text in the browser before recording a receipt."><input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Submitted" /></Field><button className="button button--mint" disabled={!confirmation.trim() || busy !== null}>Verify my submission</button></form></PaperCard>}{detail?.submissionReceipt && <PaperCard tone="mint" className="receipt-panel"><p className="eyebrow">Verified receipt</p><h2>{detail.submissionReceipt.verifiedStatus}</h2><p>{formatDateTime(detail.submissionReceipt.submittedAt)}</p></PaperCard>}{execution.answerArtifactId && <button className="button button--mint" onClick={() => onOpenArtifact(execution.taskId)}>Open saved answer Markdown</button>}{error && <p className="error-note">{error}</p>}</section><aside className="native-browser-frame native-browser-frame--desk" aria-label="Live school browser"><div><span>Live school page</span><small>The same persistent browser remains visible during takeover</small></div></aside></main>;
+  useLayoutEffect(() => {
+    if (!showingLiveDesk) {
+      onSchoolSlot(null);
+      return;
+    }
+    const node = slotRef.current;
+    if (!node) {
+      onSchoolSlot(null);
+      return;
+    }
+    const report = () => {
+      const rect = node.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1) {
+        onSchoolSlot(null);
+        return;
+      }
+      onSchoolSlot({
+        x: Math.max(0, Math.round(rect.left)),
+        y: Math.max(0, Math.round(rect.top)),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      });
+    };
+    report();
+    const observer = new ResizeObserver(report);
+    observer.observe(node);
+    window.addEventListener("resize", report);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", report);
+      onSchoolSlot(null);
+    };
+  }, [showingLiveDesk, onSchoolSlot]);
+
+  const sendTalk = (event: FormEvent) => {
+    event.preventDefault();
+    if (!prompt.trim()) return;
+    onTalk(prompt.trim());
+    setPrompt("");
+  };
+
+  return (
+    <aside className={`workspace-drawer ${desk ? "is-desk" : "is-peek"}`} aria-label={desk ? "Inky’s desk" : title}>
+      <header className="drawer-head">
+        <div className="drawer-who">
+          <Inky state={inkyState} size={42} label={`Inky is ${inkyState}`} />
+          <div>
+            <p className="eyebrow">{desk ? "Inky’s desk" : course?.label ?? "Assignment"}</p>
+            <strong>{desk ? (live ? executionLabel(execution!.phase) : "Ready when you are") : "Assignment"}</strong>
+          </div>
+        </div>
+        <button className="quiet-button" type="button" onClick={onClose}>Close</button>
+      </header>
+
+      <section className="drawer-meta">
+        <div>
+          <p className="eyebrow">{course?.label ?? "Verified from school"}</p>
+          <h2>{title}</h2>
+          <p>{assignment ? formatDue(assignment.dueAt) : "Pick a week card, or start the next queued task."}</p>
+        </div>
+        {task && <StatusPill tone={done ? "mint" : live ? "yellow" : "plain"}>{task.task.state.replaceAll("_", " ")}</StatusPill>}
+      </section>
+
+      {live && execution && (
+        <div className="drawer-actions">
+          {execution.phase === "working" && <button className="button button--coral" type="button" onClick={() => onTakeover(execution.taskId)} disabled={busy !== null}>I’ll take over</button>}
+          {execution.phase === "needs_user" && <button className="button button--yellow" type="button" onClick={() => onResume(execution.taskId)} disabled={busy !== null}>Inky, keep going</button>}
+          <button className="button button--paper" type="button" onClick={() => onCancel(execution.taskId)} disabled={busy !== null || execution.phase === "submitting"}>Stop this</button>
+        </div>
+      )}
+
+      {!live && canStart && task && (
+        <button className="button button--yellow drawer-start" type="button" onClick={() => onStart(task.task.taskId)} disabled={busy !== null}>
+          {busy === "assignment" ? "Inky is starting…" : "Make Inky do this"}
+        </button>
+      )}
+      {!live && task && ["discovered", "queued"].includes(task.task.state) && task.permission.mayAttempt && anyLive && (
+        <p className="drawer-note">Inky is already on another page.</p>
+      )}
+      {!live && task && !task.permission.mayAttempt && (
+        <p className="drawer-note">Inky isn’t allowed to try this yet. Change that in Settings.</p>
+      )}
+      {!live && !task && assignment && (
+        <p className="drawer-note">This page was checked, but Inky doesn’t have a task for it yet. Tell Inky below if something’s missing.</p>
+      )}
+      {!assignment && !live && (
+        <p className="drawer-note">Nothing is on the desk. Open a week card, or tell Inky what to start.</p>
+      )}
+
+      <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />
+      {execution?.returnPredicate && runtimeAttention === "none" && (
+        <div className="truth-banner truth-banner--partial"><strong>Inky is waiting for you.</strong><span>{execution.lastError ?? execution.returnPredicate}</span></div>
+      )}
+
+      {showingLiveDesk && (
+        <div className="drawer-school-pane">
+          <div className="live-chip">
+            <span className={execution?.phase === "working" ? "live-dot" : "live-dot is-paused"} />
+            <strong>{currentTool ? `Using ${currentTool}` : executionLabel(execution?.phase ?? "working")}</strong>
+            <small>Same school page Inky is on</small>
+          </div>
+          <div ref={slotRef} className="drawer-school-slot" data-school-slot="true" aria-label="Live school page" />
+        </div>
+      )}
+
+      <div className="drawer-scroll">
+        {visibleDetail && (done || (visibleDetail.attempts.length > 0 && !live)) && (
+          <PaperCard tone="mint" className="drawer-card">
+            <p className="eyebrow">Inky already worked on this</p>
+            <h3>{visibleDetail.submissionReceipt?.verifiedStatus ?? `${visibleDetail.attempts.length} saved checkpoint${visibleDetail.attempts.length === 1 ? "" : "s"}`}</h3>
+            {visibleDetail.submissionReceipt && <p>Checked on the page at {formatDateTime(visibleDetail.submissionReceipt.submittedAt)}.</p>}
+            {visibleDetail.attempts.slice(-2).map((attempt) => (
+              <p key={attempt.ordinal}><strong>{attempt.plan}</strong> {attempt.result}</p>
+            ))}
+            {visibleDetail.execution?.answerArtifactId && <button className="button button--mint" type="button" onClick={() => onOpenArtifact(visibleDetail.task.taskId)}>Open saved answers</button>}
+          </PaperCard>
+        )}
+
+        {assignment && (
+          <PaperCard className="drawer-card">
+            <p className="eyebrow">From the school page</p>
+            <dl className="detail-grid">
+              <div><dt>Due</dt><dd>{formatDue(assignment.dueAt)}</dd></div>
+              <div><dt>Checked</dt><dd>{assignment.evidence.length} page note{assignment.evidence.length === 1 ? "" : "s"}</dd></div>
+              {task && <div><dt>Inky may</dt><dd>{task.permission.mode.replaceAll("_", " ")}</dd></div>}
+            </dl>
+            {task && <p>{task.permission.rationale}</p>}
+          </PaperCard>
+        )}
+
+        {live && visibleDetail && (
+          <PaperCard tone="paper" className="drawer-card">
+            <p className="eyebrow">What Inky has done</p>
+            <div className="activity-feed">
+              {(visibleDetail.activity.length === 0) && <p>No live step yet.</p>}
+              {visibleDetail.activity.map((event, index) => <ActivityRow key={`${event.type}-${index}`} event={event} />)}
+            </div>
+          </PaperCard>
+        )}
+
+        {execution?.phase === "ready_review" && (
+          <PaperCard tone="coral" className="drawer-card">
+            <p className="eyebrow">Your turn</p>
+            <h3>The answers are still on the page.</h3>
+            <p>{execution.reviewDeadline ? `Look before ${formatDateTime(execution.reviewDeadline)}.` : "Look over the page before you submit."}</p>
+            <form onSubmit={(event) => { event.preventDefault(); if (confirmation.trim()) onVerifySubmission(execution.taskId, confirmation.trim()); }}>
+              <Field label="Words you see after you submit"><input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Submitted" /></Field>
+              <button className="button button--mint" disabled={!confirmation.trim() || busy !== null}>I submitted it</button>
+            </form>
+          </PaperCard>
+        )}
+
+        {talk.length > 0 && (
+          <div className="drawer-talk-log" aria-live="polite">
+            {talk.map((line, index) => (
+              <p className={`drawer-bubble drawer-bubble--${line.who}`} key={`${line.who}-${index}`}>{line.text}</p>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <form className="drawer-talk" onSubmit={sendTalk}>
+        <input
+          aria-label={assignment ? `Talk to Inky about ${assignment.title}` : "Talk to Inky"}
+          value={prompt}
+          onChange={(event) => setPrompt(event.target.value)}
+          placeholder={assignment ? "Ask Inky about this…" : "Tell Inky what to do…"}
+          maxLength={20_000}
+        />
+        <button className="manager-send" disabled={busy !== null || !prompt.trim()}>{busy === "manager" ? "…" : "enter ↵"}</button>
+      </form>
+      {error && <p className="error-note" role="alert">{error}</p>}
+    </aside>
+  );
+}
+
+function currentToolName(detail: TaskDetail | null): string | null {
+  if (!detail) return null;
+  const open = new Set<string>();
+  for (const event of detail.activity) {
+    if (event.type === "tool_started") open.add(event.toolCallId);
+    if (event.type === "tool_finished") open.delete(event.toolCallId);
+  }
+  const id = [...open].at(-1);
+  if (!id) return null;
+  for (let index = detail.activity.length - 1; index >= 0; index -= 1) {
+    const event = detail.activity[index];
+    if (event?.type === "tool_started" && event.toolCallId === id) return event.toolName;
+  }
+  return null;
 }
 
 function ActivityRow({ event }: { event: TaskDetail["activity"][number] }) {
-  if (event.type === "text") return <div className="activity-row"><span>Studi</span><p>{event.delta}</p></div>;
+  if (event.type === "text") return <div className="activity-row"><span>Inky</span><p>{event.delta}</p></div>;
   if (event.type === "tool_started") return <div className="activity-row activity-row--tool"><span>tool</span><p>Started {event.toolName}</p></div>;
   if (event.type === "tool_finished") return <div className="activity-row activity-row--tool"><span>tool</span><p>{event.toolName} {event.outcome}</p></div>;
   if (event.type === "terminal") return <div className="activity-row activity-row--state"><span>run</span><p>{event.outcome}{event.reason ? ` · ${event.reason}` : ""}</p></div>;

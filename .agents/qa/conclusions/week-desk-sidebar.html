@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Studi · Week desk sidebar</title>
+  <style>
+    :root{color:#352f2a;background:#fffaf0;font:16px/1.55 system-ui,sans-serif}body{max-width:880px;margin:0 auto;padding:40px 24px}h1,h2{line-height:1.15}code{background:#f5ecd9;padding:2px 5px;border-radius:4px}.card{border:2px solid #352f2a;border-radius:16px;padding:18px 20px;margin:18px 0;background:#fffdf8}
+  </style>
+</head>
+<body>
+  <p>WP-14</p>
+  <h1>The week board keeps the student; Inky’s desk slides in beside it</h1>
+  <section class="card">
+    <h2>What the student gets</h2>
+    <p>This week stays the home screen. A week card opens a paper sidebar with the checked assignment, a start action, earlier Inky work, and a talk field. Inky’s desk is a chrome control for the same sidebar on the live school page. The greeting Inky matches the run and reopens the desk. Library is gone. Feedback is a small week note and a Settings note.</p>
+  </section>
+  <section class="card">
+    <h2>How control moves</h2>
+    <p>Renderer panel state is closed, assignment, or desk. One derived value, <code>showingLiveDesk</code>, means the open sidebar is the live run. That value shows the school page, widens the drawer, and shrinks the week board. <code>startAssignment</code> refuses before enqueue if a run is already live. Talk and task detail stay keyed to the open assignment. The guest view uses the measured sidebar slot, not guessed coordinates.</p>
+  </section>
+  <section class="card">
+    <h2>Why this stays small</h2>
+    <p>The full-page desk and Library screen are gone. Settings still writes the same preferences, rules, schedule, and telemetry. No second queue or second Inky machine was added.</p>
+  </section>
+  <section class="card">
+    <h2>Proof</h2>
+    <p>Typecheck, contract tests, and the Electron self-test are the gates. A start-while-busy check proves a second <code>startAssignment</code> throws before enqueue or steer. Vite <code>?preview</code> is not the desk proof: it never runs the real start or layout path.</p>
+  </section>
+  <section class="card">
+    <h2>Debug first</h2>
+    <p>If the school page misses the sidebar, inspect the renderer slot <code>data-school-slot</code> and the last <code>setBrowserLayout</code> bounds. If start mutates the queue without a live run, the busy guard in <code>startSelectedAssignment</code> did not run first.</p>
+  </section>
+</body>
+</html>
