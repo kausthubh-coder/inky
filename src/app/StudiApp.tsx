@@ -112,13 +112,13 @@ export function StudiApp() {
   const saveProfile = async () => { const studi = window.studi; if (!studi) return; await action("profile", () => studi.saveSchoolProfile({ studentName, schoolRoot: schoolUrl, defaultPermission, scanCadence }), async (state) => { setOnboarding(state); setLifecycle(await studi.getLifecycleState()); setWorkspace(await studi.navigateBrowser({ url: schoolUrl })); }); };
   const openSchool = async () => { const studi = window.studi; if (studi) await action("navigate", () => studi.navigateBrowser({ url: schoolUrl }), setWorkspace); };
   const runScan = async (kind: "scan" | "resume" | "replay") => { const studi = window.studi; if (!studi) return; const command = kind === "scan" ? studi.startSchoolScan : kind === "resume" ? studi.resumeSchoolScan : studi.replaySchoolScan; await action(kind, () => command(), async (state) => { setOnboarding(state); if (hasCompletedSchoolOnboarding(state)) setShowOnboardingCompletion(true); setWorkspace(await studi.getWorkspaceState()); setLibrary(await studi.getLibraryState()); }); };
-  const runManager = async (prompt: string) => {
+  const runManager = async (prompt: string, surface: "week" | "desk" = "week") => {
     const studi = window.studi;
     if (!studi) return;
     const result = await action("manager", () => studi.runManager({ prompt, memoryArtifactIds: [] }));
     if (!result) return;
     const text = result.text || `Inky ${result.outcome}.`;
-    setManagerReply(text);
+    if (surface === "week") setManagerReply(text);
     setLifecycle((current) => current ? { ...current, manager: result.state } : current);
     setLibrary(await studi.getLibraryState());
     return text;
@@ -152,7 +152,7 @@ export function StudiApp() {
     const title = onboarding?.assignments.find((item) => item.assignmentId === assignmentId)?.title ?? assignmentId ?? "the desk";
     const key = assignmentId ?? "desk";
     setTalk((current) => ({ key, lines: [...(current.key === key ? current.lines : []), { who: "you", text: message }] }));
-    const result = await runManager(assignmentId ? `The student is looking at assignment "${title}" (${assignmentId}). ${message}` : message);
+    const result = await runManager(assignmentId ? `The student is looking at assignment "${title}" (${assignmentId}). ${message}` : message, "desk");
     if (result) setTalk((current) => current.key === key ? { key, lines: [...current.lines, { who: "inky", text: result }] } : current);
   };
   const startThisAssignment = async (taskId: string) => {
