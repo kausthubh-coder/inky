@@ -1340,19 +1340,23 @@ function captureScanFinished(
   startedAt: number,
 ): void {
   if (!state.scan) return;
-  requireTelemetryService().capture("studi_scan_finished", {
-    mode,
-    state: state.scan.state,
-    duration_ms: Math.max(0, Date.now() - startedAt),
-    course_count: state.courses.length,
-    assignment_count: state.assignments.length,
-    linked_system_count: state.linkedSystems.length,
-    ...currentAgentFacts(),
-    ...schoolContextFrom(state),
-    scan_id: state.scan.scanId,
-    failure_count: state.scan.failures.length,
-    current_step: state.scan.currentStep,
-  });
+  try {
+    requireTelemetryService().capture("studi_scan_finished", {
+      mode,
+      state: state.scan.state,
+      duration_ms: Math.max(0, Date.now() - startedAt),
+      course_count: state.courses.length,
+      assignment_count: state.assignments.length,
+      linked_system_count: state.linkedSystems.length,
+      ...currentAgentFacts(),
+      ...schoolContextFrom(state),
+      scan_id: state.scan.scanId,
+      failure_count: state.scan.failures.length,
+      current_step: state.scan.currentStep,
+    });
+  } catch {
+    // A finished scan must still return to the window if PostHog reporting is picky.
+  }
 }
 
 function captureQueueTransition(

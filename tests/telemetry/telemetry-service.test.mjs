@@ -64,11 +64,12 @@ test("errors keep school context and strip only secrets", async () => {
       model: "gpt-5.6-sol",
       reasoning_effort: "high",
     });
-    assert.throws(
-      () => service.capture("studi_auth_gate", { status: "signed_out", cookie: "CANARY_COOKIE" }),
-      /unrecognized|expected|invalid/i,
+    assert.equal(
+      service.capture("studi_auth_gate", { status: "signed_out", cookie: "CANARY_COOKIE" }),
+      false,
     );
-    assert.throws(() => service.capture("studi_arbitrary_event", {}), /Invalid option|expected/i);
+    assert.equal(service.capture("studi_arbitrary_event", {}), false);
+    assert.equal(client.captures.length, 1);
   });
 });
 
@@ -128,6 +129,25 @@ test("scan and assignment envelopes keep model, cost, and consented school facts
     assert.equal(assignment.properties.assignment_title, "Week 3 homework");
     assert.equal(assignment.properties.reasoning_effort, "xhigh");
     assert.equal(assignment.properties.duration_ms, 210_000);
+
+    const longStep = `Verified assignment: ${"A".repeat(520)}`;
+    assert.equal(
+      service.capture("studi_scan_finished", {
+        mode: "start",
+        state: "succeeded",
+        duration_ms: 12_000,
+        course_count: 1,
+        assignment_count: 1,
+        linked_system_count: 0,
+        current_step: longStep,
+      }),
+      true,
+    );
+    const clipped = client.captures.at(-1);
+    assert.equal(clipped.event, "studi_scan_finished");
+    assert.equal(clipped.properties.current_step.length, 500);
+    assert.equal(clipped.properties.current_step, longStep.slice(0, 500));
+    assert.equal(clipped.properties.state, "succeeded");
   });
 });
 

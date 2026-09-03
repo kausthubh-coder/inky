@@ -223,36 +223,40 @@ export class TelemetryService {
   }
 
   capture<Name extends TelemetryEventName>(event: Name, input: EventProperties<Name>): boolean {
-    const eventName = TelemetryEventNameSchema.parse(event);
-    const properties = stripSecretProperties(
-      telemetryEventSchemas[eventName].parse(input) as Record<string, string | number | boolean>,
-    );
-    this.#expireDebug();
-    if (!this.#settings.enabled || !this.#client) return false;
-    const envelope = TelemetryInspectorEnvelopeSchema.parse({
-      capturedAt: this.#now().toISOString(),
-      event: eventName,
-      distinctId: this.#distinctId,
-      properties: {
-        app_version: this.#appVersion.slice(0, 64),
-        platform: this.#platform,
-        beta_debug: this.#settings.debugUntil !== null,
-        ...properties,
-      },
-    });
     try {
-      this.#client.capture({
-        distinctId: envelope.distinctId,
-        event: envelope.event,
-        properties: envelope.properties,
-        disableGeoip: true,
+      const eventName = TelemetryEventNameSchema.parse(event);
+      const properties = stripSecretProperties(
+        telemetryEventSchemas[eventName].parse(clipEventProperties(input)) as Record<string, string | number | boolean>,
+      );
+      this.#expireDebug();
+      if (!this.#settings.enabled || !this.#client) return false;
+      const envelope = TelemetryInspectorEnvelopeSchema.parse({
+        capturedAt: this.#now().toISOString(),
+        event: eventName,
+        distinctId: this.#distinctId,
+        properties: {
+          app_version: this.#appVersion.slice(0, 64),
+          platform: this.#platform,
+          beta_debug: this.#settings.debugUntil !== null,
+          ...properties,
+        },
       });
+      try {
+        this.#client.capture({
+          distinctId: envelope.distinctId,
+          event: envelope.event,
+          properties: envelope.properties,
+          disableGeoip: true,
+        });
+      } catch {
+        return false;
+      }
+      this.#inspector.push(envelope);
+      if (this.#inspector.length > 30) this.#inspector.splice(0, this.#inspector.length - 30);
+      return true;
     } catch {
       return false;
     }
-    this.#inspector.push(envelope);
-    if (this.#inspector.length > 30) this.#inspector.splice(0, this.#inspector.length - 30);
-    return true;
   }
 
   captureError(
@@ -384,6 +388,26 @@ function errorName(error: unknown): string {
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message;
   return "Unknown error";
+}
+
+const CLIPPED_TEXT_FIELDS = {
+  current_step: 500,
+  student_name: 100,
+  school_root: 2_000,
+  course_titles: 2_000,
+  assignment_title: 500,
+  course_label: 200,
+  message: 500,
+  debug_summary: 500,
+} as const;
+
+function clipEventProperties<T extends object>(input: T): T {
+  const next = { ...input } as Record<string, unknown>;
+  for (const [key, max] of Object.entries(CLIPPED_TEXT_FIELDS)) {
+    const value = next[key];
+    if (typeof value === "string" && value.length > max) next[key] = value.slice(0, max);
+  }
+  return next as T;
 }
 
 export function stripSecrets(value: string): string {
