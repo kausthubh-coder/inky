@@ -14,7 +14,6 @@ import {
   ipcMain,
   nativeImage,
   safeStorage,
-  screen,
   session as electronSession,
   shell,
 } from "electron";
@@ -586,16 +585,14 @@ function createSchoolBrowser(window: BrowserWindow): void {
   browserController = new BrowserController(view.webContents);
   view.setBorderRadius(SCHOOL_PANE_RADIUS);
   window.contentView.addChildView(view);
-  driveOverlay = new DriveOverlay(window);
+  driveOverlay = new DriveOverlay(window, () => {
+    void takeOverVisibleBrowser();
+  });
 
   layoutSchoolBrowser();
   window.on("resize", layoutSchoolBrowser);
   setInterval(() => {
-    if (browserLayoutMode === "hidden") {
-      driveOverlay?.setStudentHover(false);
-      return;
-    }
-    driveOverlay?.setStudentHover(studentCursorOverSchool());
+    if (browserLayoutMode === "hidden") return;
     driveOverlay?.setDriver(currentBrowserDriver());
   }, 80);
 
@@ -628,20 +625,25 @@ function layoutSchoolBrowser(): void {
   view.setBorderRadius(SCHOOL_PANE_RADIUS);
   view.setVisible(true);
   driveOverlay?.layout(bounds);
-  driveOverlay?.setStudentHover(studentCursorOverSchool());
   driveOverlay?.setDriver(currentBrowserDriver());
 }
 
-function studentCursorOverSchool(): boolean {
-  const window = mainWindow;
-  const view = browserView;
-  if (!window || window.isDestroyed() || !view || browserLayoutMode === "hidden") return false;
-  const bounds = view.getBounds();
-  const content = window.getContentBounds();
-  const point = screen.getCursorScreenPoint();
-  const x = point.x - content.x;
-  const y = point.y - content.y;
-  return x >= bounds.x && y >= bounds.y && x < bounds.x + bounds.width && y < bounds.y + bounds.height;
+async function takeOverVisibleBrowser(): Promise<void> {
+  try {
+    const execution = localStore?.lifecycle.getActiveExecution();
+    if (execution?.phase === "working" && assignmentExecutionCoordinator) {
+      await assignmentExecutionCoordinator.requestTakeover(execution.taskId);
+      driveOverlay?.setDriver(currentBrowserDriver());
+      return;
+    }
+    const scan = localStore?.school.latestScan();
+    if (scan?.state === "running" && schoolScanCoordinator) {
+      await schoolScanCoordinator.requestTakeover();
+      driveOverlay?.setDriver(currentBrowserDriver());
+    }
+  } catch {
+    driveOverlay?.setDriver(currentBrowserDriver());
+  }
 }
 
 function schoolBrowserBounds(

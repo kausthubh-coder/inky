@@ -42,9 +42,8 @@ export function browserDriver(input: {
 
 export function driveOverlayActive(input: {
   readonly driver: BrowserDriver;
-  readonly studentHover?: boolean;
 }): boolean {
-  return input.driver === "inky" && input.studentHover !== true;
+  return input.driver === "inky";
 }
 
 export const AgentModelSchema = z.strictObject({
