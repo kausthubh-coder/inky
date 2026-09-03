@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Waitlist · Studi</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="sketch.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+  :root { --nav-o: 1; }
+  html, body { height: auto; min-height: 100%; }
+  body { display: block; padding: 0; }
+  .wait-page { max-width: 520px; margin: 0 auto; }
+</style>
+</head>
+<body>
+<header class="site-nav is-on">
+  <a class="wordmark" href="landing.html">studi <span class="pencil">✎</span></a>
+  <div class="links">
+    <a href="landing.html#how">How it works</a>
+    <a href="mission.html">Mission</a>
+    <a class="is-on" href="waitlist.html">Waitlist</a>
+  </div>
+  <a class="btn primary cta" href="#wait">Join waitlist</a>
+</header>
+
+<main class="inner wait-page">
+  <section class="wait-block card" id="wait">
+    <p class="kicker">Seats</p>
+    <h1>Get a seat.</h1>
+    <p class="sub">Campus email. We’ll send an invite. Nothing from school gets uploaded to join.</p>
+    <form class="form-block" data-waitlist novalidate>
+      <label class="field">Campus email
+        <input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@school.edu">
+      </label>
+      <div class="form-row">
+        <button type="submit" class="btn primary">Join the waitlist</button>
+      </div>
+    </form>
+    <p class="ok-msg">You’re on the list. Go do something that isn’t a lab report.</p>
+  </section>
+</main>
+<script src="waitlist.js"></script>
+<script>window.StudiWaitlist.bind(document);</script>
+</body>
+</html>

@@ -2,6 +2,12 @@
 
 Studi is a local-first Electron agent that helps students manage and complete browser-based schoolwork while keeping school credentials inside a persistent embedded browser profile.
 
+This is a Bun workspace:
+
+- Desktop app: `electron/`, `src/`, `shared/`
+- Public site: `landing/` (Next.js, Vercel project `inky`)
+- Shared backend: `convex/` (same Clerk + Convex deployment)
+
 ## Current prototype
 
 - Electron desktop shell with a visible `WebContentsView` school browser
@@ -9,32 +15,48 @@ Studi is a local-first Electron agent that helps students manage and complete br
 - Pi `AgentSession` runtime with OpenAI Codex device authorization
 - General browser tools for inspecting and operating supported school sites
 - Local SQLite task state, Markdown artifacts, queues, permissions, and scheduling
-- Clerk authentication, Convex beta entitlement, and privacy-controlled PostHog telemetry
+- Clerk authentication, Convex beta entitlement, landing waitlist emails, and privacy-controlled PostHog telemetry
 - Close-to-tray lifecycle and Windows packaging through Electron Forge
 
 ## Develop
 
-Requirements: Node.js 22 and npm.
+Requirements: [Bun](https://bun.sh) 1.3+ and Node.js 22.
 
 ```bash
-npm install
-npm run dev:electron
+bun install
+bun run dev:electron
 ```
 
-Create a production build and run the focused desktop smoke test:
+Landing site:
 
 ```bash
-npm run build
+bun run dev:landing
+```
+
+Create a production desktop build and run the focused smoke test:
+
+```bash
+bun run build
 node tests/electron-self-test-runner.mjs --positive-only
 ```
 
 Build the Windows package:
 
 ```bash
-npm run make:win
+bun run make:win
 ```
 
-Runtime secrets belong in `.env.local`, which is intentionally excluded from Git. School passwords, cookies, browser state, agent sessions, queues, and memories remain in the app's local user-data directory and must not be committed.
+Cloud and remote agents should use the same commands. Do not expect `.agents/studi-qa/` on a fresh machine. Hydrate Codex with:
+
+```bash
+node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import
+```
+
+That reads the Cursor Runtime Secret `STUDI_QA_CODEX_AUTH`. Never echo it or commit the written file.
+
+Runtime secrets belong in `.env.local` and `landing/.env.local`, which are excluded from Git. School passwords, cookies, browser state, agent sessions, queues, and memories remain in the app's local user-data directory and must not be committed.
+
+The public site deploys from `landing/` to the Vercel project `inky`. Do not deploy this repo to the Vercel project `studi-2`.
 
 ## Project documentation
 

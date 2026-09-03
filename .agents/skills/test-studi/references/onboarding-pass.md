@@ -5,7 +5,7 @@ Use this when the job is to walk first-run onboarding as a student. LMS sign-in 
 ## Launch
 
 1. Quit the everyday Studi window.
-2. `npm run build` if source changed.
+2. `bun run build` if source changed.
 3. Prefer the persistent QA profile so Clerk and Codex can stick:
 
    ```powershell

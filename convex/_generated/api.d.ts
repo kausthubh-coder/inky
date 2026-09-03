@@ -12,6 +12,7 @@ import type * as account from "../account.js";
 import type * as feedback from "../feedback.js";
 import type * as identity from "../identity.js";
 import type * as usage from "../usage.js";
+import type * as waitlist from "../waitlist.js";
 
 import type {
   ApiFromModules,
@@ -24,6 +25,7 @@ declare const fullApi: ApiFromModules<{
   feedback: typeof feedback;
   identity: typeof identity;
   usage: typeof usage;
+  waitlist: typeof waitlist;
 }>;
 
 /**

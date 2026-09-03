@@ -1,0 +1,1639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hi. I'm Inky. I do your homework. · Studi</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="stylesheet" href="sketch.css">
+<link rel="stylesheet" href="inky.css">
+<link rel="stylesheet" href="theme.css">
+<style>
+  html, body {
+    height: auto;
+    min-height: 100%;
+  }
+  body {
+    display: block;
+    padding: 0;
+    background: var(--paper);
+  }
+  html.is-locking,
+  html.is-locking body {
+    overflow: hidden;
+    height: 100%;
+    height: 100dvh;
+  }
+
+  :root {
+    --nav-o: 0;
+    --inset-t: 0px;
+    --inset-x: 0px;
+    --inset-b: 0px;
+    --radius: 0px;
+    --win-m: 0px;
+    --win-w: 78%;
+    --win-h: 72%;
+    --hint-o: 1;
+  }
+
+  .site-nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    display: flex; align-items: center; gap: 18px;
+    padding: 12px 28px;
+    background: rgba(251, 247, 238, calc(var(--nav-o) * 0.94));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1.5px solid rgba(231, 223, 207, var(--nav-o));
+    opacity: var(--nav-o);
+    pointer-events: none;
+    transform: translateY(calc((1 - var(--nav-o)) * -8px));
+  }
+  html.is-min .site-nav { pointer-events: auto; }
+  .site-nav .wordmark {
+    font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 22px;
+    color: var(--ink); text-decoration: none;
+  }
+  .site-nav .wordmark .pencil { display: inline-block; transform: rotate(8deg); }
+  .site-nav .links { display: flex; gap: 16px; flex: 1; }
+  .site-nav .links a {
+    font-size: 13px; font-weight: 800; color: var(--ink-soft); text-decoration: none;
+  }
+  .site-nav .links a:hover { color: var(--ink); }
+  .site-nav .cta {
+    text-decoration: none; display: inline-flex; align-items: center;
+    font: inherit; font-size: 12.5px; font-weight: 800;
+    border: 2px solid var(--ink); background: var(--sunny); color: var(--ink);
+    border-radius: var(--wobble-pill); padding: 7px 15px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+
+  .pin { height: 100vh; height: 100dvh; }
+  .sticky {
+    height: 100%;
+    display: flex; flex-direction: column;
+    padding: var(--inset-t) var(--inset-x) var(--inset-b);
+    box-sizing: border-box;
+  }
+  .scene {
+    flex: 1; min-height: 0;
+    border-radius: var(--radius);
+    overflow: hidden;
+    position: relative;
+    background-color: #8ec8e8;
+    background-image: url("wallpaper.png");
+    background-size: cover;
+    background-position: center 40%;
+    box-shadow: 0 18px 50px rgba(12, 22, 32, calc(var(--nav-o) * 0.4));
+    border: calc(var(--nav-o) * 2.5px) solid var(--ink);
+  }
+  .wallpaper {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    background: url("wallpaper.png") center 40% / cover no-repeat;
+  }
+  .lede-hero {
+    flex-shrink: 0;
+    height: calc(var(--nav-o) * 8.2rem);
+    opacity: var(--nav-o);
+    overflow: hidden;
+    text-align: center;
+    padding-top: calc(var(--nav-o) * 14px);
+  }
+  .lede-hero h1 {
+    font-size: clamp(28px, 4vw, 42px); line-height: 1.12;
+    letter-spacing: -0.03em; margin-bottom: 6px;
+  }
+  .lede-hero p { font-size: 16px; font-weight: 700; color: var(--ink-soft); }
+
+  .desk {
+    height: 100%;
+    display: grid;
+    grid-template-rows: 32px 1fr 72px;
+    position: relative;
+    z-index: 1;
+  }
+  .os-bar {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 16px;
+    background: rgba(16, 24, 32, 0.38);
+    backdrop-filter: blur(18px) saturate(1.5);
+    -webkit-backdrop-filter: blur(18px) saturate(1.5);
+    color: rgba(255,255,255,0.94);
+    font-size: 13px; font-weight: 600;
+    letter-spacing: 0.01em;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  }
+  .os-bar .apple {
+    width: 12px; height: 12px; border-radius: 3.5px;
+    background: #fff; opacity: 0.92; flex-shrink: 0;
+  }
+  .os-bar .app-name { font-weight: 800; }
+  .os-bar .menus { display: flex; gap: 14px; opacity: 0.88; }
+  .os-bar .spacer { flex: 1; }
+  .os-bar .clock { font-variant-numeric: tabular-nums; opacity: 0.9; font-size: 12.5px; }
+
+  .stage-area {
+    display: grid;
+    place-items: center;
+    min-height: 0;
+    padding: 8px 24px 4px;
+  }
+
+  .window {
+    width: var(--win-w);
+    height: var(--win-h);
+    max-width: 1140px;
+    min-height: 0;
+    background: var(--paper);
+    background-image: radial-gradient(#e9e0cd 1.1px, transparent 1.1px);
+    background-size: 24px 24px;
+    border: 1.5px solid rgba(20, 16, 12, 0.55);
+    border-radius: 12px;
+    box-shadow:
+      0 0 0 1px rgba(255,255,255,0.22),
+      0 40px 90px rgba(6, 14, 22, 0.5),
+      0 10px 28px rgba(6, 14, 22, 0.32);
+    display: flex; flex-direction: column;
+    overflow: hidden;
+  }
+
+  .traffic {
+    display: flex; align-items: center; gap: 8px;
+    margin-right: 10px; flex-shrink: 0;
+  }
+  .tl {
+    width: 12px; height: 12px; border-radius: 50%;
+    position: relative;
+    box-shadow:
+      inset 0 1px 1px rgba(255,255,255,0.55),
+      inset 0 -1px 1px rgba(0,0,0,0.28),
+      0 0 0 0.5px rgba(0,0,0,0.25);
+  }
+  .tl.close { background: linear-gradient(#ff746c, #ff5f57); }
+  .tl.min { background: linear-gradient(#ffd76a, #febc2e); }
+  .tl.max { background: linear-gradient(#59d86a, #28c840); }
+  .window:hover .tl::after {
+    content: "";
+    position: absolute; inset: 0;
+    display: grid; place-items: center;
+    font-size: 8px; font-weight: 800; line-height: 12px;
+    text-align: center; color: rgba(40, 20, 10, 0.72);
+  }
+  .window:hover .tl.close::after { content: "×"; }
+  .window:hover .tl.min::after { content: "–"; }
+  .window:hover .tl.max::after { content: "+"; }
+
+  .dock {
+    display: flex; align-items: center; justify-content: center;
+    padding-bottom: 10px;
+  }
+  .dock-inner {
+    display: flex; align-items: flex-end; gap: 10px;
+    padding: 8px 14px 9px;
+    background: rgba(255,255,255,0.16);
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid rgba(255,255,255,0.28);
+    border-radius: 22px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.22);
+  }
+  .dock-ico {
+    width: 42px; height: 42px; border-radius: 11px;
+    border: 1.5px solid rgba(255,255,255,0.35);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    position: relative;
+  }
+  .dock-ico.notes { background: linear-gradient(#fff6c8, #f7c948); }
+  .dock-ico.folder { background: linear-gradient(#8ec8f0, #5a9fd4); }
+  .dock-ico.inky {
+    background: #8ab8e8 url("icon.svg") center / cover no-repeat;
+    outline: 2px solid #fff;
+    outline-offset: 0;
+  }
+  .dock-ico.on { transform: translateY(-4px); }
+  .dock-ico.on::before {
+    content: "";
+    position: absolute;
+    left: 50%; bottom: -7px;
+    width: 4px; height: 4px; border-radius: 50%;
+    background: rgba(255,255,255,.9);
+    transform: translateX(-50%);
+  }
+
+  .scroll-hint {
+    position: absolute; left: 50%; bottom: 86px;
+    transform: translateX(-50%);
+    font-size: 11.5px; font-weight: 800; color: rgba(255,255,255,0.78);
+    text-shadow: 0 1px 6px rgba(0,0,0,0.4);
+    opacity: var(--hint-o);
+    pointer-events: none;
+    letter-spacing: 0.06em;
+  }
+
+  .titlebar {
+    display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+    padding: 8px 14px 8px 12px;
+    background: var(--paper-2);
+    border-bottom: 2px solid var(--ink);
+  }
+  .titlebar .logo {
+    font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 18px;
+    text-decoration: none; color: var(--ink);
+  }
+  .titlebar .logo .pencil { display: inline-block; transform: rotate(8deg); }
+  .titlebar .nav-link {
+    text-decoration: none; color: var(--ink-soft); font-weight: 800; font-size: 13px;
+    padding: 5px 12px; border-radius: var(--wobble-pill); border: 2px solid transparent;
+    background: none; font: inherit; font-weight: 800; font-size: 13px; cursor: pointer;
+  }
+  .titlebar .nav-link.on {
+    background: var(--sticky); border-color: var(--ink); color: var(--ink);
+    box-shadow: 1.5px 1.5px 0 rgba(59,52,44,0.18);
+  }
+  .titlebar .spacer { flex: 1; }
+  .titlebar .user { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; }
+  .titlebar .avatar {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--pink); border: 2px solid var(--ink);
+    display: grid; place-items: center; font-size: 11px; font-weight: 800;
+  }
+  .desk-toggle {
+    position: relative; font: inherit; font-size: 12.5px; font-weight: 800;
+    display: inline-flex; align-items: center; gap: 7px;
+    border: 2px solid var(--ink); background: #fff; color: var(--ink);
+    border-radius: var(--wobble-pill); padding: 5px 12px; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+  .desk-toggle.on { background: var(--sticky); }
+  .desk-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-faint); }
+  .desk-dot.working { background: var(--sky); animation: pulse 1.4s infinite; }
+  .desk-dot.needs { background: var(--coral); animation: pulse 1.4s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  .stage {
+    flex: 1; min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    transition: grid-template-columns 560ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .stage.is-hello .app-main,
+  .stage.is-hello .school,
+  .stage.is-week .talk,
+  .stage.is-week .school,
+  .stage.is-desk .app-main { display: none; }
+  .stage.is-desk { grid-template-columns: minmax(250px, 0.86fr) minmax(340px, 1.22fr); }
+
+  .talk {
+    min-width: 0; min-height: 0;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; padding: 24px 28px 28px;
+    transition: padding 560ms var(--ease-out), background 560ms var(--ease-out);
+  }
+  .stage.is-desk .talk {
+    align-items: stretch; justify-content: flex-start;
+    padding: 12px 14px 12px;
+    background: transparent;
+    overflow: hidden;
+  }
+
+  .inky-wrap {
+    display: grid; place-items: center;
+    width: 200px; height: 200px; flex-shrink: 0;
+    overflow: visible;
+    background: radial-gradient(ellipse 62% 22% at 50% 88%, rgba(59,52,44,0.12), transparent 70%);
+    transition: width 560ms var(--ease-out), height 560ms var(--ease-out), margin 560ms var(--ease-out);
+  }
+  .inky-wrap inky-mascot,
+  .inky-wrap inky-mascot svg { width: 100%; height: 100%; display: block; }
+  .stage.is-desk .inky-wrap { width: 76px; height: 76px; margin: 0 auto 2px; }
+
+  .copy {
+    width: min(460px, 100%);
+    display: flex; flex-direction: column; align-items: center;
+    transition: opacity 240ms var(--ease-out), transform 280ms var(--ease-out);
+  }
+  .stage.is-desk .copy {
+    width: 100%; flex: 1; min-height: 0; align-items: stretch;
+    overflow: hidden; padding-left: 12px;
+  }
+  .copy.turning { opacity: 0; transform: translateY(10px); pointer-events: none; }
+
+  .who-row {
+    font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 14px;
+    margin: 4px 0 12px; color: var(--ink-soft);
+  }
+  .stage.is-desk .who-row { display: none; }
+
+  .bubbles { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .stage.is-desk .bubbles {
+    align-items: stretch; gap: 10px;
+    flex: 1; min-height: 0; overflow: auto;
+  }
+
+  .speech {
+    position: relative; background: #fff;
+    border: 2.5px solid var(--ink);
+    border-radius: 28px 32px 30px 28px;
+    padding: 16px 20px 15px;
+    box-shadow: 3px 4px 0 rgba(59,52,44,0.12);
+    font-weight: 700; font-size: 16px; line-height: 1.45; width: 100%;
+    overflow-wrap: anywhere;
+    animation: bubble-in 380ms var(--ease-out);
+  }
+  .speech .line {
+    font-family: "Shantell Sans", cursive;
+    font-weight: 800; font-size: 22px; line-height: 1.22; margin-bottom: 8px;
+  }
+  .speech .tail {
+    position: absolute; top: -11px; left: 50%;
+    width: 18px; height: 18px; background: #fff;
+    border-left: 2.5px solid var(--ink); border-top: 2.5px solid var(--ink);
+    transform: translateX(-50%) rotate(45deg); border-radius: 3px 0 0 0;
+  }
+  .stage.is-desk .speech {
+    font-size: 14px; padding: 11px 14px 12px;
+    border-radius: 8px 22px 22px 18px;
+    width: auto; max-width: 100%; align-self: flex-start;
+  }
+  .stage.is-desk .speech .line { font-size: 16px; margin-bottom: 4px; }
+  .stage.is-desk .speech .tail { top: 16px; left: -8px; transform: rotate(-48deg); }
+  .speech.faq-ans { background: var(--paper); font-size: 13.5px; padding: 10px 14px; }
+  .speech.faq-ans .line { font-size: 14px; margin-bottom: 4px; }
+
+  @keyframes bubble-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+
+  .replies {
+    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+    margin-top: 14px; width: 100%;
+  }
+  .stage.is-desk .replies {
+    justify-content: flex-start; margin-top: 10px;
+    padding-top: 10px; border-top: 2px dashed var(--line);
+    flex-shrink: 0;
+  }
+  .stage.is-desk .asks.on { flex-shrink: 0; }
+
+  .form-block { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  label.field {
+    display: flex; flex-direction: column; gap: 4px;
+    font-size: 11px; font-weight: 800; color: var(--ink-soft);
+  }
+  label.field input {
+    font: inherit; font-size: 14px; font-weight: 700; color: var(--ink);
+    background: var(--paper-2); border: 2px solid var(--ink);
+    border-radius: 12px; padding: 8px 11px;
+  }
+  .form-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .asks { display: none; flex-wrap: wrap; gap: 6px; margin-top: 10px; width: 100%; }
+  .asks.on { display: flex; }
+  .asks button {
+    font: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
+    border: 1.5px dashed var(--ink); background: #fff; color: var(--ink);
+    border-radius: var(--wobble-pill); padding: 5px 11px;
+  }
+  .asks button.on { background: var(--sticky); border-style: solid; }
+
+  .app-main {
+    position: relative;
+    min-width: 0; min-height: 0;
+    display: flex; flex-direction: column;
+    padding: 10px 14px 12px;
+    overflow: hidden;
+  }
+  .app-hero {
+    display: flex; align-items: flex-start; gap: 12px;
+    margin-bottom: 10px; flex-shrink: 0;
+  }
+  .app-hero .hi { flex: 1; min-width: 0; }
+  .app-hero h1 { font-size: 18px; line-height: 1.2; margin: 0 0 6px; }
+  .sync-bar {
+    display: inline-flex; align-items: stretch;
+    border: 2px solid var(--ink); border-radius: var(--wobble-pill);
+    background: #fff; box-shadow: 1.5px 1.5px 0 rgba(59,52,44,0.12); overflow: hidden;
+  }
+  .sync-seg {
+    font-size: 11.5px; font-weight: 700; color: var(--ink-soft);
+    padding: 4px 10px;
+  }
+  .sync-seg + .sync-seg { border-left: 2px dashed var(--line); }
+  .sync-seg b { color: var(--ink); font-weight: 800; }
+  .week-say { width: min(280px, 36%); flex-shrink: 0; }
+  .week-say .speech { font-size: 13.5px; padding: 10px 12px 11px; }
+  .week-say .speech .line { font-size: 15px; margin-bottom: 2px; }
+  .week-say .replies { margin-top: 8px; justify-content: flex-start; }
+  .app-command { margin-bottom: 10px; flex-shrink: 0; padding: 8px 12px; font-size: 13px; }
+  .app-command input {
+    flex: 1; min-width: 0; font: inherit; font-weight: 700; color: var(--ink);
+    border: none; outline: none; background: transparent;
+  }
+  .app-command input::placeholder { color: var(--ink-faint); }
+  .app-week {
+    flex: 1; min-height: 0;
+    display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr));
+    gap: 8px; overflow: auto;
+  }
+  .app-day { min-width: 0; }
+  .app-day .dh {
+    display: flex; align-items: baseline; gap: 6px;
+    margin-bottom: 7px; padding: 0 2px;
+    font-weight: 800; font-size: 12px;
+  }
+  .app-day .dh .n { color: var(--ink-faint); font-size: 11px; }
+  .app-day.today .dh .d {
+    background: var(--sunny); border: 2px solid var(--ink);
+    border-radius: var(--wobble-pill); padding: 0 8px;
+    box-shadow: 1.5px 1.5px 0 var(--ink);
+  }
+  .app-day .stack { display: flex; flex-direction: column; gap: 7px; }
+  .app-assn {
+    padding: 8px 9px 8px; cursor: pointer; text-align: left;
+    font: inherit; color: inherit; width: 100%;
+    appearance: none; -webkit-appearance: none;
+  }
+  .app-assn .chip {
+    display: inline-flex; align-items: center; min-height: 0;
+    font-size: 10px; font-weight: 800;
+    border: 2px solid var(--ink); background: var(--sunny); color: var(--ink);
+    border-radius: var(--wobble-pill); padding: 2px 7px; white-space: nowrap;
+  }
+  .app-command .send {
+    font: inherit; background: none; cursor: pointer;
+  }
+  .app-assn .top {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 10px; font-weight: 800; color: var(--ink-soft); margin-bottom: 3px;
+  }
+  .app-assn .title { font-weight: 800; font-size: 12.5px; line-height: 1.25; margin-bottom: 5px; }
+  .app-assn .bottom {
+    display: flex; align-items: center; justify-content: space-between; gap: 6px;
+    font-size: 10.5px; font-weight: 700; color: var(--ink-faint);
+  }
+  .app-assn.on { background: #fff8e0; }
+  .app-empty {
+    border: 2px dashed var(--ink-faint); border-radius: var(--wobble);
+    color: var(--ink-faint); font-size: 11px; font-weight: 700;
+    text-align: center; padding: 16px 6px;
+  }
+  .ink-toast {
+    position: absolute; left: 18px; bottom: 14px; z-index: 4;
+    background: #fff; border: 2px solid var(--ink);
+    border-radius: 14px 18px 18px 6px;
+    padding: 8px 12px; font-size: 13px; font-weight: 800;
+    box-shadow: 2px 2px 0 rgba(59,52,44,0.14);
+    display: none;
+  }
+  .ink-toast.on { display: block; animation: bubble-in 280ms var(--ease-out); }
+
+  .school {
+    min-width: 0; min-height: 0;
+    display: flex; flex-direction: column;
+    padding: 10px 12px 12px 2px;
+    background: transparent;
+  }
+  .school-page {
+    position: relative;
+    flex: 1; min-height: 0;
+    border-radius: 22px 20px 24px 18px;
+    overflow: hidden;
+    background: #fff;
+    box-shadow: 0 10px 28px rgba(59,52,44,0.14);
+  }
+  .page { height: 100%; overflow: auto; background: #fff; }
+  .drive-fade {
+    position: absolute; inset: 0;
+    border-radius: inherit;
+    pointer-events: auto;
+    background:
+      linear-gradient(to right, rgba(138,184,232,0.42), transparent 22%, transparent 78%, rgba(138,184,232,0.42)),
+      linear-gradient(to bottom, rgba(138,184,232,0.28), transparent 18%, transparent 82%, rgba(138,184,232,0.28));
+    animation: veil 2.4s ease-in-out infinite alternate;
+  }
+  .drive-fade[hidden], .drive-inky[hidden], .drive-ask[hidden] { display: none !important; }
+  @keyframes veil { from { opacity: 0.55; } to { opacity: 1; } }
+  .drive-inky {
+    position: absolute; right: 14px; bottom: 14px;
+    display: flex; align-items: flex-end; gap: 8px;
+    pointer-events: none; z-index: 3;
+  }
+  .drive-inky .cap {
+    pointer-events: auto;
+    background: #8ab8e8; border: 2px solid #3b342c; color: #3b342c;
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    padding: 5px 11px; margin-bottom: 12px;
+    font: inherit; font-size: 12px; font-weight: 800;
+    box-shadow: 2px 2px 0 #3b342c;
+    white-space: nowrap; cursor: pointer;
+  }
+  .drive-inky .cap:active { transform: translate(2px, 2px); box-shadow: none; }
+  .drive-ask {
+    position: absolute; inset: 0; z-index: 4;
+    display: grid; place-items: center;
+    background: rgba(251,247,238,0.18);
+  }
+  .ask-card {
+    width: min(280px, calc(100% - 36px));
+    padding: 16px 16px 14px;
+    border: 2px solid #3b342c;
+    border-radius: 18px 13px 16px 14px;
+    background: #fffdf6;
+    box-shadow: 3px 3px 0 rgb(59 52 44 / 18%);
+  }
+  .ask-card strong {
+    display: block;
+    font-family: "Shantell Sans", cursive;
+    font-size: 1.15rem; letter-spacing: -.03em;
+  }
+  .ask-card p { margin: 6px 0 12px; font-size: 13px; font-weight: 700; color: #7d746a; }
+  .ask-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .ask-row button {
+    min-height: 34px; padding: 6px 11px;
+    border: 2px solid #3b342c; color: #3b342c;
+    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
+    font: inherit; font-size: 12px; font-weight: 800;
+    box-shadow: 2px 2px 0 #3b342c; cursor: pointer;
+  }
+  .ask-go { background: #8ab8e8; }
+  .ask-keep { background: #fffdf6; }
+
+  .cv { min-height: 100%; font-family: Lato, "Helvetica Neue", Arial, sans-serif; color: #2d3b45; }
+  .cv-nav {
+    display: flex; align-items: center; gap: 14px;
+    height: 36px; padding: 0 14px;
+    background: #394B58; color: #fff;
+    font-size: 12px; font-weight: 700;
+  }
+  .cv-logo { font-weight: 800; letter-spacing: 0.03em; }
+  .cv-nav span.on { color: #fff; border-bottom: 2px solid #fff; padding: 8px 0; }
+  .cv-nav .dim { opacity: 0.72; }
+  .cv-spacer { flex: 1; }
+  .cv-avatar {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: #8ab8e8; color: #2d3b45;
+    display: grid; place-items: center; font-size: 9px; font-weight: 800;
+  }
+  .cv-course {
+    background: #f5f5f5; border-bottom: 1px solid #e4e7ea;
+    padding: 6px 16px; font-size: 12px; font-weight: 700; color: #556572;
+  }
+  .cv-crumb { font-size: 11px; color: #6b7780; padding: 8px 16px 0; }
+  .cv-title { font-size: 20px; font-weight: 700; margin: 4px 16px 0; color: #2d3b45; }
+  .cv-meta {
+    display: flex; flex-wrap: wrap; gap: 14px;
+    font-size: 12px; color: #6b7780; font-weight: 600;
+    padding: 6px 16px 10px; border-bottom: 1px solid #e8e8e8;
+  }
+  .cv-body { padding: 12px 16px 16px; }
+  .cv-prompt { font-size: 13px; line-height: 1.45; color: #4b5563; margin: 0 0 12px; }
+  .cv-editor { border: 1px solid #c7cdd1; border-radius: 3px; background: #fff; }
+  .cv-tools {
+    background: #f5f5f5; border-bottom: 1px solid #c7cdd1;
+    padding: 5px 8px; font-size: 11px; color: #6b7780; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .cv-box { min-height: 118px; padding: 10px 12px; }
+  .typed {
+    margin: 0; font-size: 13.5px; font-weight: 500; line-height: 1.55;
+    min-height: 3.2em; border-right: 1.5px solid #2d3b45; padding-right: 2px;
+    color: #2d3b45;
+  }
+  .typed.done { border-right-color: transparent; }
+  .cv-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .cv-ghost {
+    background: #fff; border: 1px solid #c7cdd1; color: #2d3b45;
+    border-radius: 3px; padding: 7px 12px; font-size: 12.5px; font-weight: 700;
+  }
+  .cv-submit {
+    background: #E62429; color: #fff; border: 0;
+    border-radius: 3px; padding: 7px 13px; font-size: 12.5px; font-weight: 800;
+  }
+  .cv-submit[disabled] { opacity: 0.45; }
+  .badge.scanning { background: var(--sky); }
+
+  .page-rest {
+    position: relative; z-index: 2;
+    background: var(--paper);
+    background-image: radial-gradient(#e9e0cd 1.1px, transparent 1.1px);
+    background-size: 24px 24px;
+    padding: 12px 28px 96px;
+  }
+  .wrap {
+    max-width: 1040px;
+    margin: 0 auto;
+  }
+  .block {
+    margin: 0 auto 88px;
+    scroll-margin-top: 88px;
+  }
+  .kicker {
+    font-family: "Shantell Sans", cursive;
+    font-size: 13px; font-weight: 700; color: var(--ink-soft);
+    margin-bottom: 8px;
+  }
+  .block h2 {
+    font-size: clamp(26px, 3.4vw, 36px);
+    line-height: 1.15; letter-spacing: -0.03em;
+    margin-bottom: 10px; max-width: 18ch;
+  }
+  .block > .lead, .block .lead {
+    font-size: 17px; font-weight: 700; color: var(--ink-soft);
+    max-width: 52ch; margin-bottom: 28px; line-height: 1.45;
+  }
+  .center { text-align: center; }
+  .center h2, .center .lead, .center .kicker { margin-left: auto; margin-right: auto; }
+
+  .feats {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .feat { padding: 22px 20px 20px; position: relative; }
+  .feat .n {
+    font-family: "Shantell Sans", cursive;
+    font-size: 13px; font-weight: 800; color: var(--ink-soft);
+    margin-bottom: 10px;
+  }
+  .feat h3 { font-size: 20px; margin-bottom: 8px; }
+  .feat p { font-size: 14.5px; font-weight: 700; color: var(--ink-soft); line-height: 1.45; }
+
+  .week-mock {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(150px, 1fr));
+    gap: 10px;
+    overflow-x: auto;
+    padding-bottom: 6px;
+  }
+  .day-col {
+    background: rgba(255,253,246,0.7);
+    border: 2px solid var(--ink);
+    border-radius: var(--wobble);
+    padding: 10px 10px 12px;
+    min-width: 150px;
+  }
+  .day-col.today { background: #fff8e0; }
+  .day-col .dh {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-weight: 800; font-size: 12px; margin-bottom: 10px;
+  }
+  .day-col .dh .n { color: var(--ink-soft); font-size: 11px; }
+  .assn {
+    padding: 10px 10px 9px; margin-bottom: 8px;
+  }
+  .assn:last-child { margin-bottom: 0; }
+  .assn .top {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 10.5px; font-weight: 800; margin-bottom: 4px;
+  }
+  .assn .title { font-weight: 800; font-size: 13px; line-height: 1.25; margin-bottom: 6px; }
+  .assn .bottom { font-size: 11px; font-weight: 700; color: var(--ink-soft); }
+  .day-empty {
+    color: var(--ink-faint); font-weight: 800; font-size: 12px;
+    text-align: center; padding: 18px 6px;
+  }
+  .dot.hist { background: var(--lavender); }
+  .dot.calc { background: var(--sky); }
+  .dot.bio { background: var(--mint); }
+  .dot.psy { background: var(--pink); }
+  .dot.eng { background: var(--coral); }
+
+  .do-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .do-col { padding: 22px 22px 18px; }
+  .do-col h3 { font-size: 20px; margin-bottom: 12px; }
+  .do-col ul { list-style: none; display: grid; gap: 8px; }
+  .do-col li {
+    font-weight: 700; font-size: 14.5px;
+    display: flex; gap: 10px; align-items: flex-start;
+  }
+  .do-col .mark { font-weight: 800; flex-shrink: 0; }
+  .do-col.yes .mark { color: #4d8b63; }
+  .do-col.no .mark { color: #c45c48; }
+  .do-col.no { background: #fbf1ea; }
+
+  .modes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .mode { padding: 22px 20px 20px; }
+  .mode.default { background: #fff8e0; }
+  .mode h3 { font-size: 18px; margin: 8px 0; }
+  .mode p { font-size: 14px; font-weight: 700; color: var(--ink-soft); }
+
+  .stops {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stop { padding: 18px 16px 16px; }
+  .stop h3 { font-size: 16px; margin-bottom: 6px; }
+  .stop p { font-size: 13.5px; font-weight: 700; color: var(--ink-soft); }
+
+  .sites {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .site-chip {
+    font-weight: 800; font-size: 13px;
+    border: 2px solid var(--ink); background: #fff;
+    border-radius: var(--wobble-pill);
+    padding: 7px 14px;
+  }
+  .site-chip.muted {
+    background: transparent; border-style: dashed; color: var(--ink-soft);
+  }
+
+  .local {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 14px; align-items: stretch;
+  }
+  .local .card { padding: 24px 24px 22px; }
+  .local h3 { font-size: 22px; margin-bottom: 8px; }
+  .local p { font-weight: 700; color: var(--ink-soft); font-size: 15px; }
+  .local .note {
+    background: var(--sticky); display: flex; flex-direction: column; justify-content: center;
+  }
+
+  .wait-block {
+    max-width: 560px; margin: 0 auto 88px; padding: 28px 28px 26px;
+    text-align: center;
+  }
+  .wait-block h2 { font-size: 30px; margin-bottom: 8px; max-width: none; }
+  .wait-block .sub { font-weight: 700; color: var(--ink-soft); margin-bottom: 18px; font-size: 16px; }
+  .wait-block .form-row { justify-content: center; }
+  .wait-block label.field { text-align: left; }
+  .ok-msg { display: none; font-weight: 800; font-size: 16px; }
+  .ok-msg.on { display: block; }
+
+  .end-band {
+    text-align: center;
+    padding: 8px 0 0;
+  }
+  .end-band h2 {
+    max-width: none; margin: 0 auto 14px;
+    font-size: clamp(28px, 4vw, 42px);
+  }
+  a.btn {
+    text-decoration: none; display: inline-flex; align-items: center;
+    font: inherit; font-size: 13px; font-weight: 800;
+    border: 2px solid var(--ink); background: var(--sunny); color: var(--ink);
+    border-radius: var(--wobble-pill); padding: 8px 16px;
+    box-shadow: 2px 2px 0 var(--ink);
+  }
+
+  .faq {
+    max-width: 760px; margin: 0 auto 72px;
+    display: grid; gap: 10px;
+  }
+  .faq h2 { text-align: center; font-size: 30px; margin: 0 auto 8px; max-width: none; }
+  .faq .lead { text-align: center; margin: 0 auto 22px; }
+  .faq details {
+    background: var(--paper-2); border: 2px solid var(--ink);
+    border-radius: var(--wobble); padding: 14px 18px;
+  }
+  .faq summary { font-weight: 800; cursor: pointer; font-size: 15.5px; }
+  .faq p { margin-top: 8px; font-weight: 700; color: var(--ink-soft); font-size: 14.5px; }
+
+  .foot {
+    text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft);
+  }
+  .foot a { color: var(--ink); }
+
+  @media (max-width: 860px) {
+    .pin { height: 100vh; height: 100dvh; }
+    .lede-hero h1 { font-size: 26px; }
+    .site-nav { padding: 10px 14px; gap: 10px; }
+    .site-nav .links { display: none; }
+    .stage, .stage.is-desk {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(220px, 1fr);
+    }
+    .school { min-height: 220px; padding: 0 10px 10px; }
+    .week-say { display: none; }
+    .app-hero h1 { font-size: 16px; }
+    .inky-wrap { width: 140px; height: 140px; }
+    .feats { grid-template-columns: 1fr; }
+    .do-grid, .modes, .local { grid-template-columns: 1fr; }
+    .stops { grid-template-columns: 1fr 1fr; }
+    .page-rest { padding: 8px 16px 72px; }
+    .block { margin-bottom: 64px; }
+    .block h2 { max-width: none; }
+    .os-bar .menus { display: none; }
+    .dock-ico { width: 34px; height: 34px; }
+    .window { max-width: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pin { height: auto; }
+    .sticky { position: relative; height: auto; min-height: 100vh; }
+    .sticky { padding: 72px 20px 20px; }
+    .scene { border-radius: 18px; border-width: 2.5px; height: min(70vh, 640px); flex: none; }
+    .lede-hero { height: auto; opacity: 1; padding-top: 14px; }
+    .site-nav { opacity: 1; pointer-events: auto; transform: none; }
+    .scroll-hint { display: none; }
+    .stage, .inky-wrap, .school, .speech, .copy { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<header class="site-nav" id="site-nav">
+  <a class="wordmark" href="#">studi <span class="pencil">✎</span></a>
+  <div class="links">
+    <a href="#week">The week</a>
+    <a href="mission.html">Mission</a>
+    <a href="waitlist.html">Waitlist</a>
+    <a href="#faq">FAQ</a>
+  </div>
+  <a class="btn primary cta" href="waitlist.html">Join waitlist</a>
+</header>
+
+<div class="pin" id="pin">
+  <div class="sticky">
+    <div class="scene" id="scene">
+      <div class="wallpaper" aria-hidden="true"></div>
+      <div class="desk">
+        <div class="os-bar">
+          <span class="apple" aria-hidden="true"></span>
+          <span class="app-name">Studi</span>
+          <div class="menus"><span>File</span><span>Edit</span><span>View</span><span>Window</span></div>
+          <div class="spacer"></div>
+          <span class="clock" id="os-clock"></span>
+        </div>
+        <div class="stage-area">
+        <div class="window" role="application" aria-label="Studi demo">
+          <header class="titlebar">
+            <div class="traffic" aria-hidden="true">
+              <span class="tl close"></span>
+              <span class="tl min"></span>
+              <span class="tl max"></span>
+            </div>
+            <a class="logo" href="#wait">studi <span class="pencil">✎</span></a>
+            <button type="button" class="nav-link on" id="week-nav" data-go="1">This week</button>
+            <div class="spacer"></div>
+            <button type="button" class="desk-toggle" id="desk-toggle" data-desk>
+              <span class="desk-dot" id="desk-dot"></span> Inky's desk
+            </button>
+            <div class="user"><div class="avatar">M</div> Maya R.</div>
+          </header>
+          <div class="stage is-hello" id="stage">
+            <section class="talk">
+              <div class="inky-wrap">
+                <inky-mascot id="inky" data-state="hello" data-size="200"></inky-mascot>
+              </div>
+              <div class="copy" id="copy">
+                <div class="who-row">Inky</div>
+                <div class="bubbles" id="bubbles"></div>
+                <div class="replies" id="replies"></div>
+                <div class="form-block" id="join-form" hidden>
+                  <form data-waitlist novalidate>
+                    <label class="field">Campus email
+                      <input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@school.edu">
+                    </label>
+                    <div class="form-row">
+                      <button type="submit" class="btn primary">Save me a seat</button>
+                    </div>
+                  </form>
+                  <p class="ok-msg">You’re on the list. I’ll wait.</p>
+                </div>
+              </div>
+            </section>
+            <section class="app-main" id="app-main">
+              <div class="app-hero">
+                <inky-mascot id="week-inky" data-state="idle" data-size="64"></inky-mascot>
+                <div class="hi">
+                  <h1 class="display">Hey Maya — 2 things due tonight.</h1>
+                  <div class="sync-bar">
+                    <span class="sync-seg"><b>✓ Canvas</b> · 2h ago</span>
+                    <span class="sync-seg">checks every morning</span>
+                  </div>
+                </div>
+                <div class="week-say">
+                  <div class="speech" id="week-speech"></div>
+                  <div class="replies" id="week-replies"></div>
+                </div>
+              </div>
+              <div class="command command-live app-command">
+                <div class="pen">✎</div>
+                <input id="command-input" type="text" placeholder='Tell Inky what to do — "start my essay"…' autocomplete="off">
+                <button type="button" class="send" data-go="2">enter ↵</button>
+              </div>
+              <div class="app-week">
+                <div class="app-day today">
+                  <div class="dh"><span class="d">Mon</span><span class="n">today</span></div>
+                  <div class="stack">
+                    <button type="button" class="app-assn card on" data-go="2">
+                      <div class="top"><span class="dot hist"></span> HIST 210 <span class="badge due" style="margin-left:auto;">tonight</span></div>
+                      <div class="title">Essay: Causes of the Cold War</div>
+                      <div class="bottom"><span>due 11:59</span><span class="chip">Make Inky do this</span></div>
+                    </button>
+                    <div class="app-assn card">
+                      <div class="top"><span class="dot calc"></span> CALC 1</div>
+                      <div class="title">Problem set 4</div>
+                      <div class="bottom"><span>queued</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="app-day">
+                  <div class="dh"><span class="d">Tue</span><span class="n">Oct 7</span></div>
+                  <div class="stack">
+                    <div class="app-assn card">
+                      <div class="top"><span class="dot bio"></span> BIO 150</div>
+                      <div class="title">Lab report: Osmosis</div>
+                      <div class="bottom"><span>file is yours</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="app-day">
+                  <div class="dh"><span class="d">Wed</span><span class="n">Oct 8</span></div>
+                  <div class="stack">
+                    <button type="button" class="app-assn card" data-nope>
+                      <div class="top"><span class="dot psy"></span> PSY 101 <span class="badge soft" style="margin-left:auto;">yours</span></div>
+                      <div class="title">Reading quiz: Ch. 6</div>
+                      <div class="bottom"><span>cute try</span></div>
+                    </button>
+                    <div class="app-assn card">
+                      <div class="top"><span class="dot eng"></span> ENG 102</div>
+                      <div class="title">Peer review draft</div>
+                      <div class="bottom"><span>due 11:59</span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="app-day">
+                  <div class="dh"><span class="d">Thu</span><span class="n">Oct 9</span></div>
+                  <div class="app-empty">nothing due —<br>good study day ✎</div>
+                </div>
+                <div class="app-day">
+                  <div class="dh"><span class="d">Fri</span><span class="n">Oct 10</span></div>
+                  <div class="stack">
+                    <button type="button" class="app-assn card" data-nope>
+                      <div class="top"><span class="dot psy"></span> PSY 101</div>
+                      <div class="title">Midterm exam</div>
+                      <div class="bottom"><span>that's you</span></div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="ink-toast" id="ink-toast">Cute. That's a you problem.</div>
+            </section>
+            <aside class="school" aria-label="School page">
+              <div class="school-page">
+                <div class="page" id="page"></div>
+                <div class="drive-fade" id="drive-fade" hidden data-ask></div>
+                <div class="drive-ask" id="drive-ask" hidden>
+                  <div class="ask-card" role="dialog" aria-labelledby="ask-title">
+                    <strong id="ask-title">Want the page?</strong>
+                    <p>I’ll pause so you can click.</p>
+                    <div class="ask-row">
+                      <button type="button" class="ask-go" data-takeover>Takeover</button>
+                      <button type="button" class="ask-keep" data-keep>Keep going</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="drive-inky" id="drive-inky" hidden>
+                  <button type="button" class="cap" data-ask>Takeover</button>
+                  <inky-mascot id="steer" data-state="steering" data-size="72"></inky-mascot>
+                </div>
+              </div>
+            </aside>
+          </div>
+        </div>
+        </div>
+        <div class="dock" aria-hidden="true">
+          <div class="dock-inner">
+            <span class="dock-ico notes"></span>
+            <span class="dock-ico folder"></span>
+            <span class="dock-ico inky on"></span>
+          </div>
+        </div>
+        <div class="scroll-hint">scroll</div>
+      </div>
+    </div>
+    <div class="lede-hero">
+      <h1 class="display">Hi. I’m Inky. I do your homework.</h1>
+      <p>The 11:59 kind. You still hit submit.</p>
+    </div>
+  </div>
+</div>
+
+<main class="page-rest">
+  <div class="wrap">
+  <section class="block" id="how">
+    <p class="kicker">Meet Inky</p>
+    <h2>Hi. I do your homework.</h2>
+    <p class="lead">The 11:59 kind. The one you’ve been staring at. I steal the boring parts. You keep the last click.</p>
+    <div class="feats">
+      <article class="feat card">
+        <div class="n">the week</div>
+        <h3>One board. Your whole mess.</h3>
+        <p>Homework I can nibble. Quizzes I leave sitting there looking guilty. Tests stay yours. Cute try though.</p>
+      </article>
+      <article class="feat card">
+        <div class="n">the box</div>
+        <h3>I type in the real page.</h3>
+        <p>Canvas, Moodle, whatever. Soft blue fade. Takeover whenever. I’m not sneaking. I’m just… in the box.</p>
+      </article>
+      <article class="feat card">
+        <div class="n">you</div>
+        <h3>You click the scary button.</h3>
+        <p>I write. I stop. Submit is your whole personality. Passwords too. I have never seen a password and I would like to keep it that way.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" id="week">
+    <p class="kicker">This week</p>
+    <h2>Your week, on one board.</h2>
+    <p class="lead">Homework I can nibble. Quizzes I leave sitting there looking guilty. Tests stay yours.</p>
+    <div class="week-mock" aria-hidden="true">
+      <div class="day-col today">
+        <div class="dh"><span>Mon</span><span class="n">today</span></div>
+        <div class="assn card">
+          <div class="top"><span class="dot hist"></span> HIST 210 <span class="badge working" style="margin-left:auto;">on it</span></div>
+          <div class="title">Essay: Causes of the Cold War</div>
+          <div class="bottom">typing in Canvas · due tonight</div>
+        </div>
+        <div class="assn card">
+          <div class="top"><span class="dot calc"></span> CALC 1</div>
+          <div class="title">Problem set 4</div>
+          <div class="bottom">queued behind the essay</div>
+        </div>
+      </div>
+      <div class="day-col">
+        <div class="dh"><span>Tue</span><span class="n">Oct 7</span></div>
+        <div class="assn card">
+          <div class="top"><span class="dot bio"></span> BIO 150 <span class="badge needs" style="margin-left:auto;">needs you</span></div>
+          <div class="title">Lab report: Osmosis</div>
+          <div class="bottom">file upload is yours</div>
+        </div>
+      </div>
+      <div class="day-col">
+        <div class="dh"><span>Wed</span><span class="n">Oct 8</span></div>
+        <div class="assn card">
+          <div class="top"><span class="dot psy"></span> PSY 101 <span class="badge soft" style="margin-left:auto;">yours</span></div>
+          <div class="title">Reading quiz: Ch. 6</div>
+          <div class="bottom">cute try</div>
+        </div>
+        <div class="assn card">
+          <div class="top"><span class="dot eng"></span> ENG 102</div>
+          <div class="title">Peer review draft</div>
+          <div class="bottom">due 11:59</div>
+        </div>
+      </div>
+      <div class="day-col">
+        <div class="dh"><span>Thu</span><span class="n">Oct 9</span></div>
+        <div class="day-empty">nothing due —<br>good study day ✎</div>
+      </div>
+      <div class="day-col">
+        <div class="dh"><span>Fri</span><span class="n">Oct 10</span></div>
+        <div class="assn card">
+          <div class="top"><span class="dot psy"></span> PSY 101</div>
+          <div class="title">Midterm exam</div>
+          <div class="bottom">in class · study guide, yes</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="does">
+    <p class="kicker">The deal</p>
+    <h2>Homework, yes. The test, no.</h2>
+    <p class="lead">If it lives in a tab, I can try it. You still sit the exam. I have standards. Weird ones.</p>
+    <div class="do-grid">
+      <article class="do-col yes card">
+        <h3>It will attempt</h3>
+        <ul>
+          <li><span class="mark">✓</span> Essays and discussion posts</li>
+          <li><span class="mark">✓</span> Problem sets and worksheets</li>
+          <li><span class="mark">✓</span> Lab write-ups, until a file picker</li>
+          <li><span class="mark">✓</span> Study guides for quizzes you take yourself</li>
+          <li><span class="mark">✓</span> Anything else it can do on a page you can see</li>
+        </ul>
+      </article>
+      <article class="do-col no card">
+        <h3>It will not</h3>
+        <ul>
+          <li><span class="mark">×</span> Start or click through quizzes, tests, exams</li>
+          <li><span class="mark">×</span> Type a school password</li>
+          <li><span class="mark">×</span> Solve a CAPTCHA</li>
+          <li><span class="mark">×</span> Upload your files for you</li>
+          <li><span class="mark">×</span> Hide. There is no stealth mode</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" id="rules">
+    <p class="kicker">The leash</p>
+    <h2>You set how far I go.</h2>
+    <p class="lead">Pick a default. Then override a class or one assignment. The most specific rule wins.</p>
+    <div class="modes">
+      <article class="mode card">
+        <span class="badge soft">leave it</span>
+        <h3>Don’t attempt</h3>
+        <p>It finds the work and leaves it alone. Useful for a class you actually want to do, or a professor who said no.</p>
+      </article>
+      <article class="mode card default">
+        <span class="badge">default</span>
+        <h3>Attempt, you submit</h3>
+        <p>It writes. It stops. You read it on the school page and hit submit. This is how Studi ships.</p>
+      </article>
+      <article class="mode card">
+        <span class="badge soft">a switch</span>
+        <h3>Auto-submit</h3>
+        <p>It can click submit if you turn that on for that work. It re-checks the rule before it does. Still never a quiz.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" id="stops">
+    <p class="kicker">Honest stops</p>
+    <h2>When I don’t know, I tap you.</h2>
+    <p class="lead">I don’t guess a login or a robot check. The school page stays open. You do the human part. I pick up after.</p>
+    <div class="stops">
+      <article class="stop card">
+        <h3>Logins</h3>
+        <p>School passwords live in that browser. Studi never asks for them and doesn’t store them.</p>
+      </article>
+      <article class="stop card">
+        <h3>CAPTCHA</h3>
+        <p>If the site wants a human, you are the human. Same for “are you a robot.”</p>
+      </article>
+      <article class="stop card">
+        <h3>Files</h3>
+        <p>Uploads stay yours. It can draft the report. You attach the PDF.</p>
+      </article>
+      <article class="stop card">
+        <h3>Quizzes</h3>
+        <p>It will not start them. Study guides, yes. The test itself, no.</p>
+      </article>
+    </div>
+  </section>
+
+  <section class="block" id="sites">
+    <p class="kicker">School sites</p>
+    <h2>If it loads in a browser, I can try it.</h2>
+    <p class="lead">One page you can watch. Canvas today, WebAssign tomorrow. Linked tools get found in the scan. You sign into those too.</p>
+    <div class="sites">
+      <span class="site-chip">Canvas</span>
+      <span class="site-chip">Moodle</span>
+      <span class="site-chip">Google Classroom</span>
+      <span class="site-chip">Blackboard</span>
+      <span class="site-chip">WebAssign</span>
+      <span class="site-chip">Pearson</span>
+      <span class="site-chip">Gradescope</span>
+      <span class="site-chip">McGraw Hill</span>
+      <span class="site-chip">zyBooks</span>
+      <span class="site-chip muted">anything in a browser</span>
+    </div>
+  </section>
+
+  <section class="block" id="local">
+    <p class="kicker">On the computer</p>
+    <h2>School stays here. The cloud gets an email.</h2>
+    <div class="local">
+      <article class="card">
+        <h3>Local-first, on purpose</h3>
+        <p>Assignments, drafts, and the school page live on the Windows machine. Close the window and Studi keeps running so scans still happen. Quit it when you want it actually off.</p>
+      </article>
+      <article class="card note">
+        <h3>What we store</h3>
+        <p>Account, waitlist, credits. Not your cookies. Not the essay.</p>
+      </article>
+    </div>
+  </section>
+  </div>
+
+  <section class="wait-block card" id="wait">
+    <p class="kicker">Seats</p>
+    <h2>Get a seat.</h2>
+    <p class="sub">Campus email. We’ll send an invite. Nothing from school gets uploaded to join.</p>
+    <form class="form-block" data-waitlist novalidate>
+      <label class="field">Campus email
+        <input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@school.edu">
+      </label>
+      <div class="form-row">
+        <button type="submit" class="btn primary">Join the waitlist</button>
+      </div>
+    </form>
+    <p class="ok-msg">You’re on the list. Go do something that isn’t a lab report.</p>
+  </section>
+
+  <section class="faq" id="faq">
+    <h2>The obvious questions</h2>
+    <p class="lead">Short answers. If a class bans this, don’t run it there.</p>
+    <details>
+      <summary>Is this cheating?</summary>
+      <p>That’s your syllabus. It does the homework in a browser you can watch. There is no hide button. If a class bans this, don’t run it there.</p>
+    </details>
+    <details>
+      <summary>Will it take my quiz?</summary>
+      <p>No. Quizzes, tests, exams — it will not start them or click through them. Study guides, yes. You still sit the test.</p>
+    </details>
+    <details>
+      <summary>Where do school passwords go?</summary>
+      <p>Only in the school browser. Studi never asks for them and doesn’t store them. Linked tools like WebAssign work the same way: you sign in there, it never gets a copy.</p>
+    </details>
+    <details>
+      <summary>Does it auto-submit?</summary>
+      <p>Not unless you turn that on. Default is it writes, you submit. File uploads stay yours too. Auto-submit still refuses quizzes.</p>
+    </details>
+    <details>
+      <summary>What computer do I need?</summary>
+      <p>Windows desktop. One computer, one school browser profile. It is not a website you leave open in Chrome, and it is not on your phone.</p>
+    </details>
+    <details>
+      <summary>Can my professor tell?</summary>
+      <p>It works in the same school site you’d use yourself. Typed text looks like typed text. There is no stealth mode and no “undetectable” claim. Don’t use it where it isn’t allowed.</p>
+    </details>
+    <details>
+      <summary>What if I close the window?</summary>
+      <p>Studi stays in the tray. Scheduled scans and queued work keep going until you quit. If a review timer runs out, answers get saved as a local Markdown file so they aren’t just gone.</p>
+    </details>
+    <details>
+      <summary>How do I get in?</summary>
+      <p>Waitlist with a campus email. When you have a seat, you sign in with Clerk. We don’t need your name again — the account already has it.</p>
+    </details>
+  </section>
+
+        <div class="wrap">
+    <section class="end-band block">
+      <h2>Get a seat before the week starts.</h2>
+      <a class="btn primary" href="#wait">Join the waitlist</a>
+    </section>
+  </div>
+
+  <p class="foot">Windows desktop · local-first · <a href="mission.html">Mission</a> · <a href="waitlist.html">Waitlist</a></p>
+</main>
+
+<script src="inky.js"></script>
+<script src="waitlist.js"></script>
+<script>
+(function () {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const root = document.documentElement;
+  const clock = document.getElementById("os-clock");
+
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+  function ease(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function tickClock() {
+    const d = new Date();
+    const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+    let h = d.getHours();
+    const m = String(d.getMinutes()).padStart(2, "0");
+    const am = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    clock.textContent = days[d.getDay()] + "  " + h + ":" + m + " " + am;
+  }
+  tickClock();
+  window.setInterval(tickClock, 30000);
+
+  let progress = 0;
+  const SHRINK = 780;
+
+  function applyProgress(next) {
+    progress = clamp(next, 0, 1);
+    const t = reduce ? 1 : ease(progress);
+    const mobile = window.innerWidth < 860;
+    root.style.setProperty("--nav-o", String(t));
+    root.style.setProperty("--inset-t", lerp(0, mobile ? 58 : 62, t) + "px");
+    root.style.setProperty("--inset-x", lerp(0, mobile ? 12 : 28, t) + "px");
+    root.style.setProperty("--inset-b", lerp(0, mobile ? 10 : 16, t) + "px");
+    root.style.setProperty("--radius", lerp(0, 22, t) + "px");
+    root.style.setProperty("--win-w", lerp(mobile ? 92 : 78, 94, t) + "%");
+    root.style.setProperty("--win-h", lerp(mobile ? 72 : 72, 84, t) + "%");
+    root.style.setProperty("--hint-o", String(Math.max(0, 1 - t * 1.4)));
+    const locked = !reduce && progress < 1;
+    root.classList.toggle("is-locking", locked);
+    root.classList.toggle("is-min", t > 0.92);
+    if (locked) window.scrollTo(0, 0);
+  }
+
+  function onWheel(event) {
+    if (reduce) return;
+    const down = event.deltaY > 0;
+    if (progress < 1) {
+      event.preventDefault();
+      applyProgress(progress + event.deltaY / SHRINK);
+      return;
+    }
+    if (progress >= 1 && window.scrollY <= 0 && !down) {
+      event.preventDefault();
+      applyProgress(progress + event.deltaY / SHRINK);
+    }
+  }
+
+  let touchY = 0;
+  function onTouchStart(event) {
+    touchY = event.touches[0] ? event.touches[0].clientY : 0;
+  }
+  function onTouchMove(event) {
+    if (reduce || !event.touches[0]) return;
+    const y = event.touches[0].clientY;
+    const delta = touchY - y;
+    touchY = y;
+    if (progress < 1) {
+      event.preventDefault();
+      applyProgress(progress + delta / SHRINK);
+      return;
+    }
+    if (progress >= 1 && window.scrollY <= 0 && delta < 0) {
+      event.preventDefault();
+      applyProgress(progress + delta / SHRINK);
+    }
+  }
+
+  window.addEventListener("wheel", onWheel, { passive: false });
+  window.addEventListener("touchstart", onTouchStart, { passive: true });
+  window.addEventListener("touchmove", onTouchMove, { passive: false });
+  window.addEventListener("keydown", (event) => {
+    if (reduce || progress >= 1) return;
+    const keys = ["ArrowDown", "PageDown", " ", "Spacebar"];
+    const up = ["ArrowUp", "PageUp"];
+    if (keys.includes(event.key)) {
+      event.preventDefault();
+      applyProgress(progress + 0.18);
+    } else if (up.includes(event.key)) {
+      event.preventDefault();
+      applyProgress(progress - 0.18);
+    }
+  });
+  window.addEventListener("resize", () => applyProgress(progress));
+  document.addEventListener("click", (event) => {
+    const link = event.target.closest('a[href^="#"]');
+    if (!link || reduce) return;
+    applyProgress(1);
+  });
+  applyProgress(reduce ? 1 : 0);
+
+  const ESSAY = "The wartime alliance did not survive the peace. By 1946, two occupation zones and two stories about who won were already hardening into policy. The question is not who started the Cold War. It is how two winners talked themselves into being enemies.";
+  const BEATS = [
+    {
+      id: "hi", view: "is-hello", inky: "hello", hold: 0, page: "",
+      say: "Hi. I’m Inky.",
+      text: "I do your homework. The 11:59 kind. The one you’ve been staring at since Tuesday.",
+      replies: [{ label: "okay show me", go: 1 }]
+    },
+    {
+      id: "week", view: "is-week", inky: "idle", hold: 0, page: "",
+      say: "That essay is staring.",
+      text: "Want me to take it? I don’t do quizzes. Cute try though.",
+      replies: [{ label: "Make Inky do this", go: 2 }]
+    },
+    {
+      id: "work", view: "is-desk", inky: "working", hold: 7800, page: "essay", drive: true,
+      say: "Don’t mind me.",
+      text: "I’m in the box. Steal the page whenever.",
+      replies: [{ label: "then what?", go: 3 }]
+    },
+    {
+      id: "review", view: "is-desk", inky: "waiting", hold: 0, page: "review",
+      say: "Wrote it.",
+      text: "I’m not clicking Submit. That’s your whole personality.",
+      replies: [
+        { label: "I want in", go: 4 },
+        { label: "again", go: 1, ghost: true }
+      ]
+    },
+    {
+      id: "join", view: "is-desk", inky: "hello", hold: 0, page: "review", form: true,
+      say: "Cool.",
+      text: "Campus email. I’ll save you a seat.",
+      replies: [{ label: "see the rest", href: "#week", ghost: true }]
+    }
+  ];
+
+  const S = { beat: 0, paused: false, asking: false };
+  let turning = false;
+  let autoTimer = 0;
+  let typeTimer = 0;
+  let toastTimer = 0;
+  const $ = (id) => document.getElementById(id);
+
+  function canvasPage(done) {
+    const submit = done
+      ? `<button type="button" class="cv-submit">Submit Assignment</button>`
+      : `<button type="button" class="cv-submit" disabled>Submit Assignment</button>`;
+    const box = done
+      ? `<p class="typed done">${ESSAY}</p>`
+      : `<p class="typed" id="typed"></p>`;
+    return `
+      <div class="cv">
+        <div class="cv-nav">
+          <span class="cv-logo">Canvas</span>
+          <span class="dim">Dashboard</span>
+          <span class="on">Courses</span>
+          <span class="dim">Calendar</span>
+          <span class="dim">Inbox</span>
+          <span class="cv-spacer"></span>
+          <span class="cv-avatar">MR</span>
+        </div>
+        <div class="cv-course">HIST 210 · Europe since 1945</div>
+        <div class="cv-crumb">Courses / HIST 210 / Assignments / Causes of the Cold War</div>
+        <h3 class="cv-title">Causes of the Cold War</h3>
+        <div class="cv-meta">
+          <span>Due May 3 at 11:59pm</span>
+          <span>100 pts</span>
+          <span>Text Entry</span>
+        </div>
+        <div class="cv-body">
+          <p class="cv-prompt">Write 1,200 words on the origins of the Cold War. Use at least two primary sources from lecture.</p>
+          <div class="cv-editor">
+            <div class="cv-tools">B &nbsp; I &nbsp; U &nbsp; · &nbsp; ¶ &nbsp; ≡ &nbsp; 🔗</div>
+            <div class="cv-box">${box}</div>
+          </div>
+          <div class="cv-actions">
+            <button type="button" class="cv-ghost">Save Draft</button>
+            ${submit}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function setInky(id, state, size) {
+    const el = $(id);
+    if (!el) return;
+    if (el.dataset.state === state && el.querySelector("svg")) return;
+    el.dataset.state = state;
+    el.dataset.size = String(size);
+    if (window.Inky) window.Inky.mount(el);
+  }
+
+  function speechHtml(beat) {
+    return `<span class="tail" aria-hidden="true"></span><div class="line">${beat.say}</div><div>${beat.text}</div>`;
+  }
+
+  function replyHtml(list) {
+    return list.map((r) => {
+      const cls = r.ghost ? "btn" : "btn primary";
+      if (r.href) return `<a class="${cls}" href="${r.href}">${r.label}</a>`;
+      return `<button type="button" class="${cls}" data-go="${r.go}">${r.label}</button>`;
+    }).join("");
+  }
+
+  function stopType() { window.clearInterval(typeTimer); typeTimer = 0; }
+  function startType() {
+    stopType();
+    const el = $("typed");
+    if (!el) return;
+    if (reduce) { el.textContent = ESSAY; el.classList.add("done"); return; }
+    let i = 0;
+    el.textContent = "";
+    el.classList.remove("done");
+    typeTimer = window.setInterval(() => {
+      if (S.paused) return;
+      i += 1;
+      el.textContent = ESSAY.slice(0, i);
+      if (i >= ESSAY.length) { stopType(); el.classList.add("done"); }
+    }, 18);
+  }
+
+  function clearAuto() { window.clearTimeout(autoTimer); autoTimer = 0; }
+  function scheduleAuto(beat) {
+    clearAuto();
+    if (reduce || !beat.hold || S.paused) return;
+    autoTimer = window.setTimeout(() => go(S.beat + 1), beat.hold);
+  }
+
+  function setDrive(on) {
+    $("drive-fade").hidden = !on;
+    $("drive-inky").hidden = !on;
+    $("drive-ask").hidden = !S.asking;
+    if (on) setInky("steer", "steering", 72);
+  }
+
+  function showPage(kind) {
+    if (!kind) {
+      $("page").innerHTML = "";
+      stopType();
+      return;
+    }
+    $("page").innerHTML = canvasPage(kind === "review");
+    if (kind === "essay") startType();
+    else stopType();
+  }
+
+  function paint() {
+    const beat = BEATS[S.beat];
+    S.asking = false;
+    if (beat.view !== "is-desk" || !beat.drive) S.paused = false;
+    $("stage").className = "stage " + beat.view;
+    $("week-nav").classList.toggle("on", beat.view === "is-week");
+    $("desk-toggle").classList.toggle("on", beat.view === "is-desk");
+    const dot = $("desk-dot");
+    dot.className = "desk-dot" + (beat.drive && !S.paused ? " working" : beat.view === "is-desk" ? " needs" : "");
+    setInky("inky", S.paused ? "waiting" : beat.inky, 200);
+    setInky("week-inky", beat.view === "is-week" ? "idle" : "idle", 64);
+    showPage(beat.page);
+    setDrive(!!beat.drive && !S.paused);
+    const bubble = speechHtml(beat);
+    $("bubbles").innerHTML = `<div class="speech">${bubble}</div>`;
+    $("replies").innerHTML = replyHtml(beat.replies);
+    $("week-speech").innerHTML = bubble;
+    $("week-replies").innerHTML = replyHtml(beat.replies);
+    $("join-form").hidden = !beat.form;
+    if (beat.form && window.StudiWaitlist && window.StudiWaitlist.joined()) {
+      window.StudiWaitlist.paintJoined(document);
+    }
+    requestAnimationFrame(() => $("copy").classList.remove("turning"));
+    scheduleAuto(beat);
+  }
+
+  function go(n) {
+    if (turning || n === S.beat || n < 0 || n >= BEATS.length) return;
+    turning = true;
+    clearAuto();
+    S.paused = false;
+    S.asking = false;
+    $("copy").classList.add("turning");
+    window.setTimeout(() => {
+      S.beat = n;
+      paint();
+      window.setTimeout(() => { turning = false; }, 280);
+    }, reduce ? 0 : 220);
+  }
+
+  function showToast(text) {
+    const el = $("ink-toast");
+    el.textContent = text;
+    el.classList.add("on");
+    window.clearTimeout(toastTimer);
+    toastTimer = window.setTimeout(() => el.classList.remove("on"), 2600);
+  }
+
+  function takeover() {
+    const beat = BEATS[S.beat];
+    if (!beat.drive) return;
+    S.paused = true;
+    S.asking = false;
+    clearAuto();
+    setDrive(false);
+    setInky("inky", "waiting", 200);
+    $("bubbles").innerHTML = `<div class="speech"><span class="tail" aria-hidden="true"></span><div class="line">All yours.</div><div>I’ll hover. Tap keep going if you want me back in the box.</div></div>`;
+    $("replies").innerHTML = `<button type="button" class="btn primary" data-keep>keep going</button>`;
+  }
+
+  function keepGoing() {
+    const beat = BEATS[S.beat];
+    S.asking = false;
+    $("drive-ask").hidden = true;
+    if (!S.paused || !beat.drive) return;
+    S.paused = false;
+    setDrive(true);
+    setInky("inky", "working", 200);
+    $("bubbles").innerHTML = `<div class="speech">${speechHtml(beat)}</div>`;
+    $("replies").innerHTML = replyHtml(beat.replies);
+    if (!$("typed")) showPage("essay");
+    scheduleAuto(beat);
+  }
+
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("[data-desk]")) {
+      go(S.beat >= 2 ? 1 : 2);
+      return;
+    }
+    if (e.target.closest("[data-nope]")) {
+      showToast("Cute. That’s a you problem.");
+      return;
+    }
+    if (e.target.closest("[data-ask]")) {
+      if (!BEATS[S.beat].drive || S.paused) return;
+      S.asking = true;
+      $("drive-ask").hidden = false;
+      return;
+    }
+    if (e.target.closest("[data-takeover]")) {
+      takeover();
+      return;
+    }
+    if (e.target.closest("[data-keep]")) {
+      keepGoing();
+      return;
+    }
+    const next = e.target.closest("[data-go]");
+    if (next) go(Number(next.dataset.go));
+  });
+
+  $("command-input").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      go(2);
+    }
+  });
+
+  if (window.StudiWaitlist) window.StudiWaitlist.bind(document);
+
+  paint();
+})();
+</script>
+</body>
+</html>

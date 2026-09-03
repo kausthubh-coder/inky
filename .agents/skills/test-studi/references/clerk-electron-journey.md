@@ -20,8 +20,8 @@ The generic `playwright` instance owns an isolated Chromium profile and complete
 
 ## Launch and capture
 
-1. Build when needed with `npm run build`.
-2. Run `scripts/Start-StudiQa.ps1` from this skill. For a throwaway Clerk proof, omit `-Persistent`. For the onboarded feature profile, pass `-Persistent` so the receipt path is `<repo>\.studi-qa\profile`. Do not add `--studi-development-url`; the test target is `dist/client/index.html`.
+1. Build when needed with `bun run build`.
+2. Run `scripts/Start-StudiQa.ps1` from this skill. For a throwaway Clerk proof, omit `-Persistent`. For the onboarded feature profile, pass `-Persistent` so the receipt path is `<repo>\.agents\studi-qa\profile`. Do not add `--studi-development-url`; the test target is `dist/client/index.html`.
 3. Attach `playwright-electron`. On a fresh profile, confirm the file URL and signed-out gate. On a reused persistent profile, read `window.studi.getAuthState()` first — if it is already approved, skip this Clerk capture unless the user asked to re-prove sign-in.
 4. Immediately before activating **Sign in to Studi**, record a UTC baseline and start the capture helper in a long-running terminal session:
 

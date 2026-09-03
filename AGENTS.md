@@ -6,13 +6,15 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 
 When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
 
-Build app UI in `src/`. `npm run build` compiles Electron and the Vite client only. It must leave `dist/electron/main.js`, `dist/electron/preload.cjs`, and `dist/client/index.html`. Do not restore OpenAI Sites packaging.
+This is a Bun workspace. Desktop UI lives in `src/`. The public site lives in `landing/`. Shared Convex stays at `convex/`. `bun run build` compiles Electron and the Vite client only. It must leave `dist/electron/main.js`, `dist/electron/preload.cjs`, and `dist/client/index.html`. Do not restore OpenAI Sites packaging.
 
 ## Durable Studi product decisions
 
-- The local desktop app owns the main product experience. The website is not part of this prototype.
+- The local desktop app owns the product experience. The public site is a Next.js landing app in `landing/`, deployed on the Vercel project `inky` (not `studi-2`), talking to the same Clerk instance and Convex deployment. Waitlist emails are stored in Convex. Do not turn on Clerk waitlist mode; that would block Electron sign-in.
+- Keep `.cursor/` at the repo root. Cursor only loads MCP and rules from there. Do not move it into `.agents`.
+- Persistent QA profiles live in gitignored `.agents/studi-qa` and `.agents/studi-fresh`. Do not recreate top-level `.studi-qa/` or `.studi-fresh/`.
 - OpenAI Sites packaging is gone. Do not restore `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, `tests/sites-worker.test.mjs`, or a `test:sites` script.
-- Feature testing reuses the gitignored `.studi-qa/profile` after one human onboarding (Clerk, Codex, school sign-in) in that window. Do not point QA at the everyday Electron `userData`. Persistent QA must not sign out. Playwright drives Studi chrome; Pi owns the school guest pane. Isolated Playwright cannot finish OpenAI device authorization. Reuse `.studi-qa/codex-auth` locally, or the Cursor Runtime Secret `STUDI_QA_CODEX_AUTH` for cloud and remote agents. If a code still appears, the user enters it in a real browser. Never commit the token or put it on GitHub.
+- Feature testing reuses the gitignored `.agents/studi-qa/profile` after one human onboarding (Clerk, Codex, school sign-in) in that window. Do not point QA at the everyday Electron `userData`. Persistent QA must not sign out. Playwright drives Studi chrome; Pi owns the school guest pane. Isolated Playwright cannot finish OpenAI device authorization. Reuse `.agents/studi-qa/codex-auth` locally, or the Cursor Runtime Secret `STUDI_QA_CODEX_AUTH` for cloud and remote agents. If a code still appears, the user enters it in a real browser. Never commit the token or put it on GitHub.
 - First-run onboarding asks for the student's name, checks the active agent runtime, uses an onboarding-agent chat to collect the student's school platform or URL, opens a persistent embedded browser for each required sign-in, asks for an automatic scan schedule, runs a visible first browser scan, then opens the populated weekly dashboard.
 - School passwords stay inside the embedded browser session. Do not add password fields to the React app or store school credentials in app state.
 - The school onboarding agent owns human handoffs. It tells the student when to sign in, verifies the browser session after the student returns, scans classes and assignments, detects linked third-party systems such as Cengage WebAssign, Pearson, Gradescope, McGraw Hill Connect, and zyBooks, and asks the student to sign in to those too.
@@ -30,7 +32,7 @@ Build app UI in `src/`. `npm run build` compiles Electron and the Vite client on
 - Leave completed work in the school webpage while it waits for submission. If the student's configured submission-review timer expires without submission, save the answers to a local Markdown fallback and expose that file when the student opens the task in Studi.
 - Closing the main window keeps Studi running in the system tray. Scheduled scans, queued work, and notifications continue until the user explicitly quits.
 - The beta supports one primary computer and one active embedded school browser profile per Studi account. Do not build coordinated multi-device automation.
-- Convex stores account, plan, credits, beta permission, usage, and feedback only. School data, automation rules, workflows, queues, browser state, agent sessions, and memories stay local.
+- Convex stores account, plan, credits, beta permission, usage, feedback, and landing waitlist emails only. School data, automation rules, workflows, queues, browser state, agent sessions, and memories stay local.
 - Clerk authentication uses the system browser with OAuth PKCE and returns to Studi. Waitlist approval controls who may sign in during the first beta.
 - Use the project-local `verified-build-loop` skill for substantial implementation. Keep the master architecture plan current, expand each ready work package into a testable dossier for user approval before coding it, retain pass/fail evidence, and finish a release with a flow-based conclusion artifact that traces the implementation rather than describing files one by one.
 - Keep the manager-led build loop proportionate. The implementer reads the existing package plan, deepens it only when code-level uncertainty requires it, writes the production code, and owns useful programmatic checks. The tester never adds automated tests or changes production code; it opens the current app and exercises the package like a user through the closest real boundary. For agent-provider work, that means signing in through the real provider and running a real session. For browser work, that means driving the visible embedded browser against a real site when safe access is available.
@@ -67,6 +69,8 @@ Build app UI in `src/`. `npm run build` compiles Electron and the Vite client on
 
 ## Cursor Cloud specific instructions
 
-- Do not expect `.studi-qa/` to exist on a fresh Cloud VM. Hydrate Codex with `node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import`, which reads the Runtime Secret `STUDI_QA_CODEX_AUTH`. Never echo that variable or commit the written file.
+- Install with `bun install`. Do not expect npm or `package-lock.json`. Root `bun run build` is still the desktop app only.
+- Do not expect `.agents/studi-qa/` to exist on a fresh Cloud VM. Hydrate Codex with `node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import`, which reads the Runtime Secret `STUDI_QA_CODEX_AUTH` and writes `.agents/studi-qa/codex-auth/auth.json`. Never echo that variable or commit the written file.
 - The live Electron QA launcher is Windows `electron.exe`. If this VM cannot start that app, hydrate, say so, and stop. Do not claim a desktop onboarding or feature pass.
 - If onboarding still shows a ChatGPT device code, send the code to the user and wait. Isolated Playwright cannot finish OpenAI login. After `ready`, export locally; only a human can refresh the Cursor secret.
+- The public site is `landing/` on Vercel project `inky`. Cloud desktop QA does not need a landing build. Do not deploy this repo to the Vercel project `studi-2`.

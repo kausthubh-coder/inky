@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 const ENV_NAME = "STUDI_QA_CODEX_AUTH";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const workspaceRoot = resolve(scriptDir, "..", "..", "..", "..");
-const qaRoot = join(workspaceRoot, ".studi-qa");
+const qaRoot = join(workspaceRoot, ".agents", "studi-qa");
 
 const args = parseArgs(process.argv.slice(2));
 if (!args.import && !args.export) {

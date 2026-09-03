@@ -1,0 +1,23 @@
+{
+  "mcpServers": {
+    "playwright-electron": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--cdp-endpoint",
+        "http://127.0.0.1:9222",
+        "--allow-unrestricted-file-access"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--isolated"
+      ]
+    }
+  }
+}

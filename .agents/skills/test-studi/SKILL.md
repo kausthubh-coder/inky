@@ -9,7 +9,7 @@ Exercise the built desktop app as a student would, without touching the everyday
 
 There are two jobs. Pick one:
 
-- **Skip to app (default):** reuse `.studi-qa/profile` and drive the week board. Use this when onboarding is already done, or when the job is chrome, Settings, Library, or desk layout. Codex is required only if the job starts a manager, scan, or desk agent turn.
+- **Skip to app (default):** reuse `.agents/studi-qa/profile` and drive the week board. Use this when onboarding is already done, or when the job is chrome, Settings, Library, or desk layout. Codex is required only if the job starts a manager, scan, or desk agent turn.
 - **Full onboarding:** walk first-run from the signed-out gate through Clerk and Codex. Stop before a live LMS sign-in until a local school fixture exists.
 
 ## Before the run
@@ -21,7 +21,7 @@ There are two jobs. Pick one:
 | New Clerk sign-in | [references/clerk-electron-journey.md](references/clerk-electron-journey.md) |
 | Codex connect, cache, or device code | [references/codex-login.md](references/codex-login.md) |
 
-Use the current built artifact. If source changed since the last build, run `npm run build` first. Quit the everyday Studi window before launching QA.
+Use the current built artifact. If source changed since the last build, run `bun run build` first. Quit the everyday Studi window before launching QA.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\.agents\skills\test-studi\scripts\Start-StudiQa.ps1 -Persistent -ImportCodexAuth
@@ -34,7 +34,7 @@ node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --export --c
 node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import
 ```
 
-That binds CDP to `127.0.0.1` only and reuses `<repo>\.studi-qa\profile`. `-ImportCodexAuth` hydrates Codex from `STUDI_QA_CODEX_AUTH` (Cursor Runtime Secret) or `.studi-qa\codex-auth\auth.json`, then copies it into the profile. First time both are empty: the user completes Clerk and Codex by hand, then the agent exports and asks them to store the Cursor secret. After that, do not ask them to log in again unless auth or Codex is actually gone.
+That binds CDP to `127.0.0.1` only and reuses `<repo>\.agents\studi-qa\profile`. `-ImportCodexAuth` hydrates Codex from `STUDI_QA_CODEX_AUTH` (Cursor Runtime Secret) or `.agents\studi-qa\codex-auth\auth.json`, then copies it into the profile. First time both are empty: the user completes Clerk and Codex by hand, then the agent exports and asks them to store the Cursor secret. After that, do not ask them to log in again unless auth or Codex is actually gone.
 
 Do not pass `-ResetPersistent` unless the user asked to wipe the onboarded QA profile.
 
@@ -45,7 +45,7 @@ Isolated Playwright cannot finish OpenAI device authorization. A real run got HT
 1. If `provider.state` is already `ready`, continue.
 2. If the launcher receipt says `codexAuthImported=true`, confirm `ready` in the renderer.
 3. If Codex is still needed, the ChatGPT onboarding step already started a device code. Tell the user the code, poll until `ready`, then `node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --export --copy-secret`. Ask them to put the clipboard into the Cursor Runtime Secret `STUDI_QA_CODEX_AUTH`. Never print the token.
-4. Never open `auth.openai.com` or ChatGPT login in isolated Playwright. Never copy everyday `%APPDATA%\Studi` unless the user explicitly asked to seed QA from it. Never commit `.studi-qa/`.
+4. Never open `auth.openai.com` or ChatGPT login in isolated Playwright. Never copy everyday `%APPDATA%\Studi` unless the user explicitly asked to seed QA from it. Never commit `.agents/studi-qa/`.
 
 Chrome-only skip-to-app tests may continue when Codex is disconnected. Manager, scan, and desk agent turns may not.
 
