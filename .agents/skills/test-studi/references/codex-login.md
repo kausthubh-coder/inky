@@ -15,7 +15,7 @@ Isolated official Playwright cannot finish that page. A real QA run reached the 
 ## Allowed completions (in order)
 
 1. **Already ready.** `window.studi.getWorkspaceState()` shows `provider.state === "ready"`. Do nothing.
-2. **Hydrate the QA cache.** Launch with `-ImportCodexAuth` (or `node .../sync-studi-qa-codex-auth.mjs --import`). The helper fills `.studi-qa/codex-auth/auth.json` from, in order: `STUDI_QA_CODEX_AUTH`, then the gitignored cache file. Then confirm `ready`.
+2. **Hydrate the QA cache.** Launch with `-ImportCodexAuth` (or `node .../sync-studi-qa-codex-auth.mjs --import`). The helper fills `.agents/studi-qa/codex-auth/auth.json` from, in order: `STUDI_QA_CODEX_AUTH`, then the gitignored cache file. Then confirm `ready`.
 3. **Human device code.** Start Connect Codex in Studi, read the code from the renderer, ask the user to finish it in a real browser, poll until `ready`. Then export the cache and, on Windows, copy the secret for Cursor.
 4. Stop. Report that Codex is not ready. Do not invent a connected provider.
 
@@ -27,7 +27,7 @@ Isolated official Playwright cannot finish that page. A real QA run reached the 
 - Print, screenshot, or save the one-time code, verification URL query, tokens, or `auth.json` bytes.
 - `echo`, `cat`, or log `STUDI_QA_CODEX_AUTH`.
 - Seed a fake `ready` provider or call login IPC as proof of success.
-- Commit `.studi-qa/` or put the token in GitHub.
+- Commit `.agents/studi-qa/` or put the token in GitHub.
 
 ## Persistence without GitHub
 
@@ -35,7 +35,7 @@ The cache file stays gitignored. Cloud and remote agents do not share that disk,
 
 | Place | What lives there | Who sees it |
 | --- | --- | --- |
-| `.studi-qa/codex-auth/auth.json` | Local Pi `auth.json` copy | This machine only |
+| `.agents/studi-qa/codex-auth/auth.json` | Local Pi `auth.json` copy | This machine only |
 | Cursor secret `STUDI_QA_CODEX_AUTH` | Same bytes, base64 or raw JSON | Cloud agent process as an env var. Use **Runtime Secret** so transcripts, tool results, and commits show `[REDACTED]` |
 | GitHub | Nothing | — |
 

@@ -58,4 +58,9 @@ export default defineSchema({
   })
     .index("by_clerk_subject", ["clerkSubject"])
     .index("by_device_id", ["deviceId"]),
+
+  waitlistEmails: defineTable({
+    email: v.string(),
+    createdAt: v.number(),
+  }).index("by_email", ["email"]),
 });

@@ -45,7 +45,7 @@ $rendererPath = Join-Path $workspaceRoot "dist\client\index.html"
 
 foreach ($requiredPath in @($electronPath, $mainPath, $rendererPath)) {
   if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
-    throw "Built Studi artifact is missing: $requiredPath. Run npm run build first."
+    throw "Built Studi artifact is missing: $requiredPath. Run bun run build first."
   }
 }
 
@@ -54,7 +54,7 @@ if (-not (Test-PortAvailable -CandidatePort $Port)) {
 }
 
 if ($Persistent) {
-  $profilePath = Join-Path $workspaceRoot ".studi-qa\profile"
+  $profilePath = Join-Path $workspaceRoot ".agents\studi-qa\profile"
 } else {
   $profileParentPath = [System.IO.Path]::GetFullPath($ProfileParent)
   if ($profileParentPath.Contains('"')) {

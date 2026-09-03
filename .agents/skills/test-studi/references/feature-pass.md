@@ -9,14 +9,14 @@ This pass skips onboarding. It cannot manufacture a completed scan. If the week 
 ## Launch
 
 1. Quit the everyday Studi window first. One Electron instance can hold the single-instance lock.
-2. `npm run build` if source changed.
+2. `bun run build` if source changed.
 3. Launch with persistence and the Codex cache when a real agent turn is in scope:
 
    ```powershell
    .\.agents\skills\test-studi\scripts\Start-StudiQa.ps1 -Persistent -ImportCodexAuth
    ```
 
-4. The receipt path is always `<repo>\.studi-qa\profile`. `profileReused=true` means this is not a first-run folder. Do not pass `-ResetPersistent` unless the user asked to wipe onboarded state.
+4. The receipt path is always `<repo>\.agents\studi-qa\profile`. `profileReused=true` means this is not a first-run folder. Do not pass `-ResetPersistent` unless the user asked to wipe onboarded state.
 5. Attach `playwright-electron` to `http://127.0.0.1:9222`.
 
 ## Admit the run or stop
@@ -53,7 +53,7 @@ If school login expired mid-pass, stop. Ask the user to sign in on the guest pan
 
 ## Restart
 
-To prove persistence, quit Electron and launch `-Persistent` again. The same `.studi-qa\profile` must still be approved and onboarded. A throwaway temp profile is the wrong tool for this.
+To prove persistence, quit Electron and launch `-Persistent` again. The same `.agents\studi-qa\profile` must still be approved and onboarded. A throwaway temp profile is the wrong tool for this.
 
 ## Never
 

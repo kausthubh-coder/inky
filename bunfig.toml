@@ -1,0 +1,6 @@
+[install]
+linker = "hoisted"
+
+[install.trustedDependencies]
+electron = true
+esbuild = true

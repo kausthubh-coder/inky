@@ -9,6 +9,10 @@ coverage/
 .playwright-mcp/
 .studi-qa/
 .studi-fresh/
+.agents/studi-qa/
+.agents/studi-fresh/
+landing/.next/
+landing/.vercel/
 *.log
 *.tsbuildinfo
 .clerk/

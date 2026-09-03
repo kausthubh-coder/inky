@@ -68,5 +68,5 @@ test("Electron development renderer selection is explicit per launch", async () 
     /electron \. --studi-development-url=http:\/\/127\.0\.0\.1:5173/,
   );
   assert.doesNotMatch(scripts["dev:electron"], /STUDI_DEVELOPMENT_MODE|VITE_DEV_SERVER_URL/);
-  assert.equal(scripts.start, "npm run build && electron .");
+  assert.equal(scripts.start, "bun run build && electron .");
 });
