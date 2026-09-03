@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PR 5 repair · week desk sidebar</title>
+  <style>
+    :root {
+      --paper: #fbf7ec;
+      --panel: #fffdf7;
+      --ink: #29251f;
+      --muted: #71695f;
+      --line: #39342e;
+      --yellow: #f6c945;
+      --mint: #dff4e9;
+      --sky: #dcecff;
+      --coral: #ffe1d8;
+      --pink: #f7d9e5;
+      --lav: #e8ddfa;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 1px 1px, #d8cfbd 1px, transparent 1.2px) 0 0 / 24px 24px,
+        var(--paper);
+      font: 16px/1.55 "Nunito Sans", Inter, system-ui, sans-serif;
+    }
+    main { width: min(980px, calc(100% - 32px)); margin: 36px auto 90px; }
+    h1, h2, h3 { font-family: "Shantell Sans", "Patrick Hand", cursive; line-height: 1.15; letter-spacing: -.03em; }
+    h1 { font-size: clamp(2.1rem, 6vw, 3.6rem); margin: 10px 0 14px; max-width: 18ch; }
+    h2 { font-size: 1.45rem; margin: 0 0 10px; }
+    .kicker { font-size: 12px; font-weight: 900; letter-spacing: .14em; text-transform: uppercase; }
+    .lead { max-width: 720px; color: var(--muted); font-size: 1.05rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 22px 0; }
+    .card {
+      padding: 18px 18px 16px;
+      border: 2px solid var(--line);
+      border-radius: 15px;
+      background: var(--panel);
+      box-shadow: 3px 3px 0 var(--line);
+    }
+    .full { grid-column: 1 / -1; }
+    .yellow { background: #fff2b5; }
+    .mint { background: var(--mint); }
+    .sky { background: var(--sky); }
+    .coral { background: var(--coral); }
+    .pink { background: var(--pink); }
+    .lav { background: var(--lav); }
+    ol, ul { margin: 8px 0 0; padding-left: 1.2em; }
+    li + li { margin-top: 7px; }
+    code {
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: #eee6d7;
+      font: 13px/1.4 Consolas, ui-monospace, monospace;
+    }
+    pre {
+      overflow: auto;
+      margin: 12px 0 0;
+      padding: 12px 14px;
+      border-radius: 10px;
+      background: #2b261f;
+      color: #fff7e8;
+      font: 12.5px/1.5 Consolas, ui-monospace, monospace;
+    }
+    .bug { border-left: 8px solid #c74f43; }
+    .fix { border-left: 8px solid #2d6cdf; }
+    .gate { border-left: 8px solid #2d9462; }
+    .why { border-left: 8px solid #c9a227; }
+    nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 8px; }
+    nav a {
+      padding: 6px 10px;
+      border: 2px solid var(--line);
+      border-radius: 999px;
+      background: #fff;
+      color: inherit;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 800;
+      box-shadow: 2px 2px 0 var(--line);
+    }
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<main>
+  <span class="kicker">PR #5 · repair brief · not a merge</span>
+  <h1>The week board preview lied. The Electron desk is the bug.</h1>
+  <p class="lead">
+    <a href="https://github.com/kausthubh-coder/inky/pull/5">PR #5</a> is the right product:
+    stay on This week, open a paper sidebar, put Inky’s desk in chrome, drop Library.
+    Vite <code>?preview</code> looks fine because it fakes the school page as a green box
+    and never runs the real start / layout path. These four bugs only show in the built Electron app.
+  </p>
+
+  <nav>
+    <a href="#why">Why preview missed it</a>
+    <a href="#bug-1">Bug 1 · page hides</a>
+    <a href="#bug-2">Bug 2 · start mutates</a>
+    <a href="#bug-3">Bug 3 · talk leak</a>
+    <a href="#bug-4">Bug 4 · magic bounds</a>
+    <a href="#verify">Verify then merge</a>
+  </nav>
+
+  <section class="card why full" id="why">
+    <h2>Why the local preview looked clean</h2>
+    <p>
+      <code>src/app/devPreview.ts</code> only installs when the URL has <code>?preview</code>
+      and there is no real <code>window.studi</code>. It seeds three assignments, draws a fake
+      “school page” slot, and <code>startAssignment</code> never throws if another run is live.
+      That is useful for layout taste. It is not proof the desk works.
+    </p>
+    <p>
+      Prove the fix in <strong>Electron</strong>: built <code>dist/</code>, real
+      <code>WebContentsView</code>, real <code>startAssignment</code>. Do not accept another
+      <code>?preview</code> walkthrough as the gate.
+    </p>
+  </section>
+
+  <div class="grid">
+    <article class="card coral bug full" id="bug-1">
+      <h2>Bug 1 — Opening the live card hides the real school page</h2>
+      <p><strong>What a student sees.</strong> Inky is working. The desk sidebar shows the live school page. They click that same week card to read the details. The page disappears. A dashed empty box stays in the drawer. The week column and the drawer no longer agree on width.</p>
+      <p><strong>Why.</strong> Three flags mean “is the desk open?” and they disagree.</p>
+      <ul>
+        <li><code>StudiApp.tsx</code> only shows the guest view when <code>panel.kind === "desk"</code>.</li>
+        <li>Clicking a card sets <code>panel</code> to <code>{ kind: "assignment" }</code>.</li>
+        <li><code>DeskDrawer</code> still treats that live assignment as a desk (<code>desk = panel.kind === "desk" || live</code>) and keeps <code>.drawer-school-slot</code>.</li>
+        <li>Week width only shrinks for <code>is-desk-open</code>, which is also <code>panel.kind === "desk"</code>.</li>
+      </ul>
+      <pre>const showSchoolPage = deskOpen &amp;&amp; panel.kind === "desk" &amp;&amp; activeExecution;
+// openAssignment() → setPanel({ kind: "assignment", assignmentId })
+// Electron then setBrowserLayout({ mode: "hidden" })</pre>
+    </article>
+
+    <article class="card sky fix full">
+      <h2>Fix 1 — One meaning of “desk is open”</h2>
+      <ol>
+        <li>Derive one value, e.g. <code>showingLiveDesk</code>: sidebar is open <em>and</em> a run is live <em>and</em> that run is the assignment on screen (or the panel is plain <code>desk</code>).</li>
+        <li>Drive all four from that value: <code>setBrowserLayout</code>, <code>.is-desk-open</code>, <code>.workspace-drawer.is-desk</code>, and the school slot.</li>
+        <li>If they click the live card, keep the page up. Do not flip to a peek that hides Electron.</li>
+        <li>Closing the sidebar may hide the page (that matches the written rule). Opening the live card must not.</li>
+      </ol>
+      <pre>const live = isLivePhase(lifecycle.execution);
+const viewingLive =
+  live &amp;&amp;
+  (panel.kind === "desk" ||
+    (panel.kind === "assignment" &amp;&amp; panel.assignmentId === lifecycle.execution.assignmentId));
+const showSchoolPage = screen === "week" &amp;&amp; viewingLive;</pre>
+    </article>
+
+    <article class="card mint gate full">
+      <h2>Verify 1</h2>
+      <ol>
+        <li>In Electron, start a real or fixture assignment so a run is <code>working</code>.</li>
+        <li>Open <strong>Inky’s desk</strong>. The guest page must sit in the sidebar slot, not over the week board.</li>
+        <li>Click that same week card. The page must stay. No empty dashed box. No overlap.</li>
+        <li>Click a <em>different</em> card. The live page may hide; the other card is a peek. Inky keeps working in the background.</li>
+        <li>Click <strong>Inky’s desk</strong> again. The page comes back on the live run.</li>
+      </ol>
+    </article>
+
+    <article class="card coral bug full" id="bug-2">
+      <h2>Bug 2 — “Make Inky do this” can shove the queue, then open the wrong desk</h2>
+      <p><strong>What a student sees.</strong> Homework B is already running. They peek at homework A and press <strong>Make Inky do this</strong>. An error appears. They are thrown onto B’s desk. A is now queued and priority-bumped even though start failed.</p>
+      <p><strong>Why.</strong> The handler mutates first, then starts. The button does not know a global run is live. The UI always opens the desk, even when <code>action()</code> swallowed the throw.</p>
+      <pre>// electron/main.ts
+manager.enqueue({ taskId });
+manager.steerNext(taskId);
+await assignmentExecutionCoordinator.start(taskId); // throws if something is already live
+
+// StudiApp.tsx
+await updateLifecycle("assignment", () =&gt; studi.startAssignment({ taskId }));
+setPanel({ kind: "desk" }); // runs even when start failed
+
+// DeskScreen.tsx
+const canStart = task.state is discovered|queued &amp;&amp; mayAttempt &amp;&amp; !live;
+// `live` is only true for THIS card’s assignment, not “any run”</pre>
+    </article>
+
+    <article class="card sky fix full">
+      <h2>Fix 2 — Do not enqueue unless start can happen</h2>
+      <ol>
+        <li>If any execution is <code>working | needs_user | ready_review | submitting</code>, <code>startAssignment</code> must return/throw <em>before</em> <code>enqueue</code> / <code>steerNext</code>.</li>
+        <li>Or: start first; only enqueue/steer after the coordinator accepts the task.</li>
+        <li>Disable <strong>Make Inky do this</strong> whenever <em>any</em> run is live, not only this card.</li>
+        <li>In <code>startThisAssignment</code>, open the desk only if the returned state has that <code>taskId</code> as the live execution.</li>
+      </ol>
+      <pre>startAssignment: async ({ taskId }) =&gt; {
+  await requireReadyProviderForScan();
+  const live = requireLocalStore().lifecycle.getActiveExecution();
+  if (live &amp;&amp; isBusyPhase(live.phase)) {
+    throw new Error("Inky is already on another page.");
+  }
+  const manager = requireManagerCoordinator();
+  manager.enqueue({ taskId });
+  manager.steerNext(taskId);
+  await requireAssignmentExecutionCoordinator().start(taskId);
+  return requireAppKernel().state();
+};</pre>
+    </article>
+
+    <article class="card mint gate full">
+      <h2>Verify 2</h2>
+      <ol>
+        <li>Programmatic: start task B, then <code>startAssignment(A)</code>. A must stay <code>discovered</code> (or whatever it was). Queue order/priority must not change. Receipt or store dump is enough.</li>
+        <li>In the UI, with B live, open A. The yellow start button must be off, or it must no-op without opening B’s desk as if A started.</li>
+        <li>With nothing live, start A from a <code>discovered</code> card. It must enqueue, become the live run, and open the desk on A.</li>
+      </ol>
+    </article>
+
+    <article class="card coral bug full" id="bug-3">
+      <h2>Bug 3 — Sidebar talk and “Inky already worked on this” are not scoped to the open card</h2>
+      <p><strong>What a student sees.</strong> They talk about A. They open B. A’s chat is still in the drawer. Or they peek at A while B is running and see B’s checkpoints under A’s title.</p>
+      <p><strong>Why.</strong> The 900ms poll always loads <code>lifecycle.execution.taskId</code> into <code>detail</code>. Talk lines render whenever <code>talk.key</code> is non-empty, and <code>openAssignment</code> does not reset the key.</p>
+      <pre>// poll
+if (lifecycleState.execution?.taskId) setDetail(await getTaskDetail(that live id));
+
+// drawer
+talk={talk.key ? talk.lines : []}
+detail.attempts.length &gt; 0 &amp;&amp; !live  // no assignmentId check</pre>
+    </article>
+
+    <article class="card sky fix full">
+      <h2>Fix 3 — Key detail and talk by assignment</h2>
+      <ol>
+        <li>Only keep <code>detail</code> if <code>detail.assignment.assignmentId</code> matches the open card (or the live desk).</li>
+        <li>On <code>openAssignment</code>, set talk to that assignment’s key (empty lines if new). Do not show another key’s lines.</li>
+        <li>Stop the poll from overwriting a peek with the live task.</li>
+        <li>Week-board Inky reply staying off the board when the drawer is open is already correct. Keep that.</li>
+      </ol>
+      <pre>const openId = panel.kind === "assignment" ? panel.assignmentId : live?.assignmentId;
+const visibleDetail = detail?.assignment.assignmentId === openId ? detail : null;
+const visibleTalk = talk.key === (openId ?? "desk") ? talk.lines : [];</pre>
+    </article>
+
+    <article class="card mint gate full">
+      <h2>Verify 3</h2>
+      <ol>
+        <li>Open A. Type “what is this?” Send. Open B. B’s talk field is empty. A’s lines are gone.</li>
+        <li>Start B. Open A as a peek. “Inky already worked on this” must not show B’s tools under A’s title.</li>
+        <li>Reopen A. The earlier A chat is back (same key) or honestly empty if you chose not to persist — pick one and stick to it.</li>
+      </ol>
+    </article>
+
+    <article class="card coral bug full" id="bug-4">
+      <h2>Bug 4 — The real school page is a guessed rectangle</h2>
+      <p><strong>What a student sees.</strong> The guest page covers the title, actions, or sits in the wrong place. On a short window the CSS stacks the drawer under the board (<code>max-width: 1000px</code>), but Electron still parks the page on the right.</p>
+      <p><strong>Why.</strong> <code>schoolBrowserBounds</code> hard-codes <code>y: 192</code> and “54% across.” The slot lives <em>inside</em> <code>.drawer-scroll</code>, after meta, buttons, and banners. Overlay click-targeting follows those wrong bounds.</p>
+      <pre>const start = Math.round(width * 0.54);
+return { x: start + 14, y: 192, width: ..., height: height - 276 };</pre>
+    </article>
+
+    <article class="card sky fix full">
+      <h2>Fix 4 — Place the guest view on a fixed slot, not inside the scroll</h2>
+      <ol>
+        <li>Make the school pane a <strong>non-scrolling</strong> region of the drawer (below the head, beside or under a short meta row). Scroll only the notes / talk / history.</li>
+        <li>Measure that slot from the renderer (<code>getBoundingClientRect</code>) and send it to main, <em>or</em> keep math in main but derive it from the same CSS that sizes the slot (same left, top, width, height, including the 1000px stacked layout).</li>
+        <li>Until the slot exists, <code>mode: "hidden"</code>. Do not paint a 192px guess.</li>
+      </ol>
+    </article>
+
+    <article class="card mint gate full">
+      <h2>Verify 4</h2>
+      <ol>
+        <li>Desktop width (~1280). Start a run. The live page must sit inside the dashed/paper slot. Title and <strong>I’ll take over</strong> stay above it and clickable.</li>
+        <li>Resize to ~900px. CSS stacks the drawer. The guest view must follow the stacked slot, not stay on the right over the week cards.</li>
+        <li>Scroll the talk / history. The school page must not scroll away or smear.</li>
+      </ol>
+    </article>
+  </div>
+
+  <section class="card yellow full" id="verify">
+    <h2>Merge gate for PR #5</h2>
+    <p>Do not merge until all four are true in <strong>Electron</strong>, not <code>?preview</code>:</p>
+    <ul>
+      <li>Live card + desk chrome agree: one school page, no empty slot.</li>
+      <li>Start-while-busy does not enqueue or open the wrong desk. Test or store dump.</li>
+      <li>Talk and prior work match the open assignment.</li>
+      <li>Guest bounds match the slot at wide and stacked widths.</li>
+    </ul>
+    <p>
+      Keep <code>npm run typecheck</code>, <code>npm run test:contracts</code>, and
+      <code>npm run test:electron</code>. Add a small start-while-busy check; do not add a giant harness.
+    </p>
+    <p>
+      After this lands, rebase PR #8 onto it (notifications become contract <strong>11</strong>,
+      Settings card goes on the Inky tab, toast click opens the week sidebar not Library).
+    </p>
+  </section>
+</main>
+</body>
+</html>
