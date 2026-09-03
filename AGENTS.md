@@ -11,6 +11,7 @@ This is a Bun workspace. Desktop UI lives in `src/`. The public site lives in `l
 ## Durable Studi product decisions
 
 - The local desktop app owns the product experience. The public site is a Next.js landing app in `landing/`, deployed on the Vercel project `inky` (not `studi-2`), talking to the same Clerk instance and Convex deployment. Waitlist emails are stored in Convex. Do not turn on Clerk waitlist mode; that would block Electron sign-in.
+- Landing planning lives in `landing/designs/landing.html`. Iterate that HTML mock, not the Next page, until the user says otherwise. Inky’s voice is first-person, quirky, and human. Show the product. Do not narrate how it works. Value, then trust, then waitlist. Do not say “Windows,” “real school page,” or walk through product mechanics. One waitlist action in the nav (`Get a seat`). No “what it will / won’t” list. The desktop demo should look like Studi: week board, Inky’s desk, a rounded school page, pulsing sky fade, steering Inky, and Takeover. The fake LMS should read like a real assignment page. Mobile must be a real layout, not a shrunk desktop.
 - Keep `.cursor/` at the repo root. Cursor only loads MCP and rules from there. Do not move it into `.agents`.
 - Persistent QA profiles live in gitignored `.agents/studi-qa` and `.agents/studi-fresh`. Do not recreate top-level `.studi-qa/` or `.studi-fresh/`.
 - OpenAI Sites packaging is gone. Do not restore `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, `tests/sites-worker.test.mjs`, or a `test:sites` script.

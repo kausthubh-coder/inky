@@ -40,34 +40,46 @@
 
   .site-nav {
     position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-    display: flex; align-items: center; gap: 18px;
-    padding: 12px 28px;
-    background: rgba(251, 247, 238, calc(var(--nav-o) * 0.94));
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 16px 9px 18px;
+    background: rgba(251, 247, 238, calc(var(--nav-o) * 0.96));
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1.5px solid rgba(231, 223, 207, var(--nav-o));
+    border-bottom: 2px solid rgba(28, 22, 18, calc(var(--nav-o) * 0.88));
     opacity: var(--nav-o);
     pointer-events: none;
-    transform: translateY(calc((1 - var(--nav-o)) * -8px));
+    transform: translateY(calc((1 - var(--nav-o)) * -10px));
   }
   html.is-min .site-nav { pointer-events: auto; }
   .site-nav .wordmark {
     font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 22px;
     color: var(--ink); text-decoration: none;
+    display: inline-flex; align-items: center; gap: 2px;
+    flex-shrink: 0;
   }
   .site-nav .wordmark .pencil { display: inline-block; transform: rotate(8deg); }
-  .site-nav .links { display: flex; gap: 16px; flex: 1; }
+  .site-nav .links {
+    display: flex; align-items: center; gap: 2px;
+    margin: 0 auto;
+  }
   .site-nav .links a {
     font-size: 13px; font-weight: 800; color: var(--ink-soft); text-decoration: none;
+    padding: 6px 12px; border-radius: var(--wobble-pill);
+    border: 2px solid transparent;
+    white-space: nowrap;
   }
-  .site-nav .links a:hover { color: var(--ink); }
+  .site-nav .links a:hover { color: var(--ink); background: var(--sticky); }
   .site-nav .cta {
+    margin-left: auto;
     text-decoration: none; display: inline-flex; align-items: center;
-    font: inherit; font-size: 12.5px; font-weight: 800;
+    font: inherit; font-size: 13px; font-weight: 800;
     border: 2px solid var(--ink); background: var(--sunny); color: var(--ink);
-    border-radius: var(--wobble-pill); padding: 7px 15px;
+    border-radius: var(--wobble-pill); padding: 7px 14px;
     box-shadow: 2px 2px 0 var(--ink);
+    rotate: -1.4deg;
+    flex-shrink: 0;
   }
+  .site-nav .cta:hover { rotate: 0deg; }
 
   .pin { height: 100vh; height: 100dvh; }
   .sticky {
@@ -246,7 +258,8 @@
   }
   .titlebar .logo .pencil { display: inline-block; transform: rotate(8deg); }
   .titlebar .nav-link {
-    text-decoration: none; color: var(--ink-soft); font-weight: 800; font-size: 13px;
+    appearance: none; -webkit-appearance: none;
+    text-decoration: none; color: var(--ink-soft);
     padding: 5px 12px; border-radius: var(--wobble-pill); border: 2px solid transparent;
     background: none; font: inherit; font-weight: 800; font-size: 13px; cursor: pointer;
   }
@@ -381,6 +394,7 @@
   .stage.is-desk .asks.on { flex-shrink: 0; }
 
   .form-block { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .form-block[hidden] { display: none !important; }
   label.field {
     display: flex; flex-direction: column; gap: 4px;
     font-size: 11px; font-weight: 800; color: var(--ink-soft);
@@ -667,6 +681,7 @@
     gap: 10px;
     overflow-x: auto;
     padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
   }
   .day-col {
     background: rgba(255,253,246,0.7);
@@ -807,28 +822,72 @@
   }
   .foot a { color: var(--ink); }
 
+  @media (max-width: 1100px) {
+    .week-mock { grid-template-columns: repeat(5, minmax(148px, 1fr)); }
+    .app-week { grid-template-columns: repeat(5, minmax(132px, 1fr)); }
+    .feats { grid-template-columns: 1fr; }
+    .titlebar .nav-link { display: none; }
+  }
+
   @media (max-width: 860px) {
+    html, body { overflow-x: hidden; }
     .pin { height: 100vh; height: 100dvh; }
-    .lede-hero h1 { font-size: 26px; }
-    .site-nav { padding: 10px 14px; gap: 10px; }
+    .lede-hero { height: calc(var(--nav-o) * 6.4rem); padding-left: 12px; padding-right: 12px; }
+    .lede-hero h1 { font-size: 22px; }
+    .lede-hero p { font-size: 14px; }
+    .site-nav { padding: 8px 12px; gap: 8px; }
     .site-nav .links { display: none; }
+    .site-nav .wordmark { font-size: 20px; }
+    .site-nav .cta { font-size: 12.5px; padding: 7px 12px; rotate: 0deg; }
+    .os-bar { padding: 0 10px; font-size: 12px; }
+    .os-bar .menus { display: none; }
+    .desk { grid-template-rows: 28px 1fr 56px; }
+    .stage-area { padding: 6px 10px 2px; }
+    .window { max-width: none; border-radius: 10px; }
+    .titlebar { padding: 7px 10px; gap: 8px; }
+    .titlebar .user { font-size: 0; gap: 0; }
+    .titlebar .user .avatar { margin: 0; }
     .stage, .stage.is-desk {
       grid-template-columns: 1fr;
-      grid-template-rows: auto minmax(220px, 1fr);
+      grid-template-rows: minmax(0, auto) minmax(200px, 1fr);
     }
-    .school { min-height: 220px; padding: 0 10px 10px; }
+    .stage.is-hello { grid-template-rows: 1fr; }
+    .talk { padding: 16px 16px 18px; }
+    .inky-wrap { width: 120px; height: 120px; }
+    .speech .line { font-size: 18px; }
+    .speech { font-size: 14px; padding: 12px 14px 13px; }
+    .school { min-height: 200px; padding: 0 10px 10px; }
     .week-say { display: none; }
-    .app-hero h1 { font-size: 16px; }
-    .inky-wrap { width: 140px; height: 140px; }
-    .feats { grid-template-columns: 1fr; }
-    .do-grid, .modes, .local { grid-template-columns: 1fr; }
-    .stops { grid-template-columns: 1fr 1fr; }
-    .page-rest { padding: 8px 16px 72px; }
-    .block { margin-bottom: 64px; }
-    .block h2 { max-width: none; }
-    .os-bar .menus { display: none; }
-    .dock-ico { width: 34px; height: 34px; }
-    .window { max-width: none; }
+    .app-main { padding: 8px 10px 10px; }
+    .app-hero { gap: 8px; }
+    .app-hero h1 { font-size: 15px; }
+    .sync-seg { font-size: 10.5px; padding: 3px 8px; }
+    .app-command { padding: 7px 10px; font-size: 12px; }
+    .page-rest { padding: 8px 14px 64px; }
+    .block { margin-bottom: 52px; }
+    .block h2 { max-width: none; font-size: 26px; }
+    .block > .lead, .block .lead { font-size: 15.5px; }
+    .dock { padding-bottom: 6px; }
+    .dock-ico { width: 30px; height: 30px; }
+    .scroll-hint { bottom: 62px; }
+    .wait-block { margin: 0 14px 56px; padding: 22px 16px 20px; box-sizing: border-box; }
+    .wait-block input { width: 100%; box-sizing: border-box; }
+    .wait-block h2 { font-size: 26px; }
+    .form-row { flex-direction: column; }
+    .form-row .btn { justify-content: center; width: 100%; }
+    .faq { padding: 0 14px; margin-bottom: 48px; }
+    .end-band { padding: 0 8px; }
+  }
+
+  @media (max-width: 560px) {
+    .desk { grid-template-rows: 26px 1fr 0px; }
+    .dock { display: none; }
+    .scroll-hint { bottom: 14px; }
+    .titlebar .desk-toggle { padding: 5px 8px; font-size: 11.5px; }
+    .week-mock { gap: 8px; }
+    .day-col { min-width: 148px; }
+    .sites { gap: 6px; }
+    .site-chip { font-size: 12px; padding: 6px 11px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -846,13 +905,12 @@
 <body>
 <header class="site-nav" id="site-nav">
   <a class="wordmark" href="#">studi <span class="pencil">✎</span></a>
-  <div class="links">
-    <a href="#week">The week</a>
+  <nav class="links" aria-label="Page">
+    <a href="#value">Inky</a>
     <a href="mission.html">Mission</a>
-    <a href="waitlist.html">Waitlist</a>
     <a href="#faq">FAQ</a>
-  </div>
-  <a class="btn primary cta" href="waitlist.html">Join waitlist</a>
+  </nav>
+  <a class="cta" href="#wait">Get a seat</a>
 </header>
 
 <div class="pin" id="pin">
@@ -1025,25 +1083,25 @@
 
 <main class="page-rest">
   <div class="wrap">
-  <section class="block" id="how">
+  <section class="block" id="value">
     <p class="kicker">Meet Inky</p>
     <h2>Hi. I do your homework.</h2>
-    <p class="lead">The 11:59 kind. The one you’ve been staring at. I steal the boring parts. You keep the last click.</p>
+    <p class="lead">The 11:59 kind. The one you’ve been staring at since Tuesday. I steal the boring parts. You still click submit.</p>
     <div class="feats">
       <article class="feat card">
-        <div class="n">the week</div>
+        <div class="n">your week</div>
         <h3>One board. Your whole mess.</h3>
         <p>Homework I can nibble. Quizzes I leave sitting there looking guilty. Tests stay yours. Cute try though.</p>
       </article>
       <article class="feat card">
-        <div class="n">the box</div>
-        <h3>I type in the real page.</h3>
-        <p>Canvas, Moodle, whatever. Soft blue fade. Takeover whenever. I’m not sneaking. I’m just… in the box.</p>
+        <div class="n">the essay</div>
+        <h3>I take the thing you’re avoiding.</h3>
+        <p>You watch. You can steal the page whenever. I’m not sneaking. I’m just… in the box.</p>
       </article>
       <article class="feat card">
         <div class="n">you</div>
         <h3>You click the scary button.</h3>
-        <p>I write. I stop. Submit is your whole personality. Passwords too. I have never seen a password and I would like to keep it that way.</p>
+        <p>I write. I stop. Submit is your whole personality. Passwords too. I have never seen one and I would like to keep it that way.</p>
       </article>
     </div>
   </section>
@@ -1051,19 +1109,19 @@
   <section class="block" id="week">
     <p class="kicker">This week</p>
     <h2>Your week, on one board.</h2>
-    <p class="lead">Homework I can nibble. Quizzes I leave sitting there looking guilty. Tests stay yours.</p>
+    <p class="lead">Due tonight. Due Thursday. The quiz I’m not touching. All in one place so it stops living in your head.</p>
     <div class="week-mock" aria-hidden="true">
       <div class="day-col today">
         <div class="dh"><span>Mon</span><span class="n">today</span></div>
         <div class="assn card">
           <div class="top"><span class="dot hist"></span> HIST 210 <span class="badge working" style="margin-left:auto;">on it</span></div>
           <div class="title">Essay: Causes of the Cold War</div>
-          <div class="bottom">typing in Canvas · due tonight</div>
+          <div class="bottom">due tonight</div>
         </div>
         <div class="assn card">
           <div class="top"><span class="dot calc"></span> CALC 1</div>
           <div class="title">Problem set 4</div>
-          <div class="bottom">queued behind the essay</div>
+          <div class="bottom">after the essay</div>
         </div>
       </div>
       <div class="day-col">
@@ -1071,7 +1129,7 @@
         <div class="assn card">
           <div class="top"><span class="dot bio"></span> BIO 150 <span class="badge needs" style="margin-left:auto;">needs you</span></div>
           <div class="title">Lab report: Osmosis</div>
-          <div class="bottom">file upload is yours</div>
+          <div class="bottom">you attach the file</div>
         </div>
       </div>
       <div class="day-col">
@@ -1096,91 +1154,39 @@
         <div class="assn card">
           <div class="top"><span class="dot psy"></span> PSY 101</div>
           <div class="title">Midterm exam</div>
-          <div class="bottom">in class · study guide, yes</div>
+          <div class="bottom">that's you</div>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="block" id="does">
-    <p class="kicker">The deal</p>
-    <h2>Homework, yes. The test, no.</h2>
-    <p class="lead">If it lives in a tab, I can try it. You still sit the exam. I have standards. Weird ones.</p>
-    <div class="do-grid">
-      <article class="do-col yes card">
-        <h3>It will attempt</h3>
-        <ul>
-          <li><span class="mark">✓</span> Essays and discussion posts</li>
-          <li><span class="mark">✓</span> Problem sets and worksheets</li>
-          <li><span class="mark">✓</span> Lab write-ups, until a file picker</li>
-          <li><span class="mark">✓</span> Study guides for quizzes you take yourself</li>
-          <li><span class="mark">✓</span> Anything else it can do on a page you can see</li>
-        </ul>
+  <section class="block" id="trust">
+    <p class="kicker">Why this isn’t weird</p>
+    <h2>You can see me. That’s the point.</h2>
+    <p class="lead">No hide button. No “trust me bro.” If a class bans this, don’t run it there. I’m funny. I’m not your alibi.</p>
+    <div class="feats trust-feats">
+      <article class="feat card">
+        <div class="n">quizzes</div>
+        <h3>I don’t do tests.</h3>
+        <p>Homework, yes. The quiz, the midterm, the thing with a timer — that’s you. I will sit there looking helpful and refuse.</p>
       </article>
-      <article class="do-col no card">
-        <h3>It will not</h3>
-        <ul>
-          <li><span class="mark">×</span> Start or click through quizzes, tests, exams</li>
-          <li><span class="mark">×</span> Type a school password</li>
-          <li><span class="mark">×</span> Solve a CAPTCHA</li>
-          <li><span class="mark">×</span> Upload your files for you</li>
-          <li><span class="mark">×</span> Hide. There is no stealth mode</li>
-        </ul>
+      <article class="feat card">
+        <div class="n">passwords</div>
+        <h3>I have never seen a password.</h3>
+        <p>You type those. I look away. I do not keep them. I would be a terrible vault and I know that about myself.</p>
       </article>
-    </div>
-  </section>
-
-  <section class="block" id="rules">
-    <p class="kicker">The leash</p>
-    <h2>You set how far I go.</h2>
-    <p class="lead">Pick a default. Then override a class or one assignment. The most specific rule wins.</p>
-    <div class="modes">
-      <article class="mode card">
-        <span class="badge soft">leave it</span>
-        <h3>Don’t attempt</h3>
-        <p>It finds the work and leaves it alone. Useful for a class you actually want to do, or a professor who said no.</p>
-      </article>
-      <article class="mode card default">
-        <span class="badge">default</span>
-        <h3>Attempt, you submit</h3>
-        <p>It writes. It stops. You read it on the school page and hit submit. This is how Studi ships.</p>
-      </article>
-      <article class="mode card">
-        <span class="badge soft">a switch</span>
-        <h3>Auto-submit</h3>
-        <p>It can click submit if you turn that on for that work. It re-checks the rule before it does. Still never a quiz.</p>
-      </article>
-    </div>
-  </section>
-
-  <section class="block" id="stops">
-    <p class="kicker">Honest stops</p>
-    <h2>When I don’t know, I tap you.</h2>
-    <p class="lead">I don’t guess a login or a robot check. The school page stays open. You do the human part. I pick up after.</p>
-    <div class="stops">
-      <article class="stop card">
-        <h3>Logins</h3>
-        <p>School passwords live in that browser. Studi never asks for them and doesn’t store them.</p>
-      </article>
-      <article class="stop card">
-        <h3>CAPTCHA</h3>
-        <p>If the site wants a human, you are the human. Same for “are you a robot.”</p>
-      </article>
-      <article class="stop card">
-        <h3>Files</h3>
-        <p>Uploads stay yours. It can draft the report. You attach the PDF.</p>
-      </article>
-      <article class="stop card">
-        <h3>Quizzes</h3>
-        <p>It will not start them. Study guides, yes. The test itself, no.</p>
+      <article class="feat card">
+        <div class="n">submit</div>
+        <h3>The last click is yours.</h3>
+        <p>I write. I stop. You read it. You hit submit. Your name goes on it because it is still your week.</p>
       </article>
     </div>
   </section>
 
   <section class="block" id="sites">
-    <p class="kicker">School sites</p>
-    <h2>If it loads in a browser, I can try it.</h2>
-    <p class="lead">One page you can watch. Canvas today, WebAssign tomorrow. Linked tools get found in the scan. You sign into those too.</p>
+    <p class="kicker">Your classes</p>
+    <h2>Canvas. Moodle. The weird one.</h2>
+    <p class="lead">If you can open it, I can try it. Including the extra login your TA forgot to mention.</p>
     <div class="sites">
       <span class="site-chip">Canvas</span>
       <span class="site-chip">Moodle</span>
@@ -1191,22 +1197,7 @@
       <span class="site-chip">Gradescope</span>
       <span class="site-chip">McGraw Hill</span>
       <span class="site-chip">zyBooks</span>
-      <span class="site-chip muted">anything in a browser</span>
-    </div>
-  </section>
-
-  <section class="block" id="local">
-    <p class="kicker">On the computer</p>
-    <h2>School stays here. The cloud gets an email.</h2>
-    <div class="local">
-      <article class="card">
-        <h3>Local-first, on purpose</h3>
-        <p>Assignments, drafts, and the school page live on the Windows machine. Close the window and Studi keeps running so scans still happen. Quit it when you want it actually off.</p>
-      </article>
-      <article class="card note">
-        <h3>What we store</h3>
-        <p>Account, waitlist, credits. Not your cookies. Not the essay.</p>
-      </article>
+      <span class="site-chip muted">the weird one</span>
     </div>
   </section>
   </div>
@@ -1214,16 +1205,16 @@
   <section class="wait-block card" id="wait">
     <p class="kicker">Seats</p>
     <h2>Get a seat.</h2>
-    <p class="sub">Campus email. We’ll send an invite. Nothing from school gets uploaded to join.</p>
+    <p class="sub">Campus email. I’ll save you one. Then go do something that isn’t a lab report.</p>
     <form class="form-block" data-waitlist novalidate>
       <label class="field">Campus email
         <input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@school.edu">
       </label>
       <div class="form-row">
-        <button type="submit" class="btn primary">Join the waitlist</button>
+        <button type="submit" class="btn primary">Save me a seat</button>
       </div>
     </form>
-    <p class="ok-msg">You’re on the list. Go do something that isn’t a lab report.</p>
+    <p class="ok-msg">You’re on the list. I’ll wait.</p>
   </section>
 
   <section class="faq" id="faq">
@@ -1231,46 +1222,38 @@
     <p class="lead">Short answers. If a class bans this, don’t run it there.</p>
     <details>
       <summary>Is this cheating?</summary>
-      <p>That’s your syllabus. It does the homework in a browser you can watch. There is no hide button. If a class bans this, don’t run it there.</p>
+      <p>That’s your syllabus. I don’t hide. If a class bans this, don’t run it there.</p>
     </details>
     <details>
-      <summary>Will it take my quiz?</summary>
-      <p>No. Quizzes, tests, exams — it will not start them or click through them. Study guides, yes. You still sit the test.</p>
+      <summary>Will you take my quiz?</summary>
+      <p>Nope. Homework, yes. Tests stay yours. Cute try though.</p>
     </details>
     <details>
-      <summary>Where do school passwords go?</summary>
-      <p>Only in the school browser. Studi never asks for them and doesn’t store them. Linked tools like WebAssign work the same way: you sign in there, it never gets a copy.</p>
+      <summary>Do you see my password?</summary>
+      <p>No. You type those. I look away. I do not keep them.</p>
     </details>
     <details>
-      <summary>Does it auto-submit?</summary>
-      <p>Not unless you turn that on. Default is it writes, you submit. File uploads stay yours too. Auto-submit still refuses quizzes.</p>
-    </details>
-    <details>
-      <summary>What computer do I need?</summary>
-      <p>Windows desktop. One computer, one school browser profile. It is not a website you leave open in Chrome, and it is not on your phone.</p>
+      <summary>Will you submit for me?</summary>
+      <p>Not unless you ask. I write. You click the scary button.</p>
     </details>
     <details>
       <summary>Can my professor tell?</summary>
-      <p>It works in the same school site you’d use yourself. Typed text looks like typed text. There is no stealth mode and no “undetectable” claim. Don’t use it where it isn’t allowed.</p>
-    </details>
-    <details>
-      <summary>What if I close the window?</summary>
-      <p>Studi stays in the tray. Scheduled scans and queued work keep going until you quit. If a review timer runs out, answers get saved as a local Markdown file so they aren’t just gone.</p>
+      <p>I work where you work. Typed text looks like typed text. There is no stealth mode. Don’t use me where I’m not allowed.</p>
     </details>
     <details>
       <summary>How do I get in?</summary>
-      <p>Waitlist with a campus email. When you have a seat, you sign in with Clerk. We don’t need your name again — the account already has it.</p>
+      <p>Campus email. I’ll save you a seat.</p>
     </details>
   </section>
 
-        <div class="wrap">
+  <div class="wrap">
     <section class="end-band block">
       <h2>Get a seat before the week starts.</h2>
-      <a class="btn primary" href="#wait">Join the waitlist</a>
+      <a class="btn primary" href="#wait">Get a seat</a>
     </section>
   </div>
 
-  <p class="foot">Windows desktop · local-first · <a href="mission.html">Mission</a> · <a href="waitlist.html">Waitlist</a></p>
+  <p class="foot">Hi. I’m Inky. · <a href="mission.html">Mission</a></p>
 </main>
 
 <script src="inky.js"></script>
