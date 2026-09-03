@@ -4,25 +4,61 @@ import { useEffect, useRef, useState } from "react";
 import wallpaper from "../designs/wallpaper.png";
 import type { InkyState } from "../lib/inky";
 import { InkyMascot } from "./inky-mascot";
+import { SiteNav } from "./site-nav";
 import { WaitlistForm } from "./waitlist-form";
 
-const ESSAY_OPENING =
-  "The wartime alliance did not survive the peace. By 1946, two occupation zones and two stories about who won were already hardening into policy.";
-const ESSAY_ENDING =
-  "The question is not who started the Cold War. It is how two winners talked themselves into being enemies, and how quickly each decided the other had planned it all along.";
+// Three related-rates problems with correct answers, so anyone checking the demo finds real math.
+const PROBLEMS = [
+  {
+    prompt:
+      "A 10 ft ladder leans against a wall. Its base slides away at 2 ft/s. How fast is the top sliding down when the base is 6 ft from the wall?",
+    work: "x² + y² = 100  →  2x·x′ + 2y·y′ = 0  →  6(2) + 8·y′ = 0",
+    answer: "y′ = −1.5 ft/s",
+  },
+  {
+    prompt:
+      "Air is pumped into a spherical balloon at 100 cm³/s. How fast is the radius growing when r = 25 cm?",
+    work: "V = (4/3)πr³  →  V′ = 4πr²·r′  →  100 = 4π(25)²·r′",
+    answer: "r′ = 1/(25π) ≈ 0.0127 cm/s",
+  },
+  {
+    prompt:
+      "A conical tank (radius 2 m, height 4 m) fills at 2 m³/min. How fast is the water level rising when the depth is 3 m?",
+    work: "r = h/2  →  V = πh³/12  →  V′ = (πh²/4)·h′  →  2 = (9π/4)·h′",
+    answer: "h′ = 8/(9π) ≈ 0.283 m/min",
+  },
+] as const;
+
+// Typing runs through work then answer for each problem, in order.
+const SOLVE_SCRIPT = PROBLEMS.flatMap((p) => [p.work, p.answer]);
+const SOLVE_TOTAL = SOLVE_SCRIPT.reduce((sum, s) => sum + s.length, 0);
+
+function currentProblem(typedCount: number): number {
+  let remaining = typedCount;
+  for (let index = 0; index < SOLVE_SCRIPT.length; index += 1) {
+    const segment = SOLVE_SCRIPT[index] ?? "";
+    if (remaining < segment.length) return Math.floor(index / 2) + 1;
+    remaining -= segment.length;
+  }
+  return PROBLEMS.length;
+}
+
+type PageState = "solving" | "ready" | "submitted";
+type Decision = "auto" | "manual";
 
 type DemoBeat = {
   view: "is-hello" | "is-week" | "is-desk";
   inky: InkyState;
   hold: number;
-  page?: "essay" | "review";
+  page?: PageState;
   driving?: boolean;
   say: string;
   text: string;
   replies: readonly {
     label: string;
     beat?: number;
-    href?: string;
+    decide?: Decision;
+    focus?: string;
     secondary?: boolean;
   }[];
 };
@@ -31,7 +67,7 @@ const DEMO_BEATS: readonly DemoBeat[] = [
   {
     view: "is-hello",
     inky: "hello",
-    hold: 3400,
+    hold: 7000,
     say: "Hi. I’m Inky.",
     text: "I do your homework. The 11:59 kind. The one you’ve been staring at since Tuesday.",
     replies: [{ label: "okay, show me", beat: 1 }],
@@ -40,48 +76,66 @@ const DEMO_BEATS: readonly DemoBeat[] = [
     view: "is-week",
     inky: "idle",
     hold: 4200,
-    say: "That essay is staring at you.",
-    text: "Want me to take it? Not the quiz. Cute try though.",
+    say: "That problem set is staring at you.",
+    text: "Related rates, three problems, due tonight. Want me to take it? Not the quiz. Cute try though.",
     replies: [{ label: "Make Inky do this", beat: 2 }],
   },
   {
     view: "is-desk",
     inky: "working",
-    hold: 8200,
-    page: "essay",
+    hold: 9600,
+    page: "solving",
     driving: true,
     say: "Don’t mind me.",
-    text: "I’m in the box. Take the page back whenever you like.",
+    text: "Working the problems right on the page. Take it back whenever you like.",
     replies: [{ label: "skip ahead", beat: 3, secondary: true }],
   },
   {
     view: "is-desk",
     inky: "waiting",
     hold: 0,
-    page: "review",
-    say: "Wrote it.",
-    text: "I’m not clicking Submit. That’s your whole personality.",
+    page: "ready",
+    say: "Solved all three.",
+    text: "Checked them twice. Your call: I can hit Submit, or leave it sitting there for you.",
     replies: [
-      { label: "Save me a seat", href: "#wait" },
+      { label: "I’ll submit", decide: "manual" },
+      { label: "Submit it for me", decide: "auto", secondary: true },
+    ],
+  },
+  {
+    view: "is-desk",
+    inky: "done",
+    hold: 0,
+    page: "ready",
+    say: "",
+    text: "",
+    replies: [
+      { label: "Save my seat", focus: "hero-email" },
       { label: "play again", beat: 0, secondary: true },
     ],
   },
 ] as const;
 
-const RAIL = ["Hi", "Your week", "Inky’s desk", "You review"] as const;
+const OUTCOME: Record<Decision, { say: string; text: string; page: PageState }> = {
+  auto: {
+    say: "Submitted.",
+    text: "You told me I could, so I did. Every answer is still right there for you to see.",
+    page: "submitted",
+  },
+  manual: {
+    say: "It’s waiting on the page.",
+    text: "Every answer is filled in. The Submit button is yours, whenever you’re ready.",
+    page: "ready",
+  },
+};
 
-const NAV_LINKS = [
-  ["#what", "Inky"],
-  ["#trust", "Trust"],
-  ["#faq", "FAQ"],
-  ["/mission", "Mission"],
-] as const;
+const RAIL = ["Hi", "Your week", "Inky’s desk", "Your call"] as const;
 
 const TRUST = [
   {
-    label: "passwords",
-    title: "I’ve never seen one.",
-    copy: "You sign in to your school yourself. I look away, and I don’t keep anything you type there. I’d be a terrible vault and I know that about myself.",
+    label: "submit",
+    title: "Submit is your call.",
+    copy: "By default I stop at the Submit button and wait for you. Turn auto-submit on for a class or one assignment and I’ll finish the job. I never do it for quizzes or tests.",
   },
   {
     label: "tests",
@@ -89,19 +143,19 @@ const TRUST = [
     copy: "Quizzes, midterms, anything with a timer. I sit there looking helpful and refuse. That part is yours, and it should be.",
   },
   {
-    label: "submit",
-    title: "The last click is yours.",
-    copy: "I never hit submit. You read what I wrote, change what you want, and put your name on it. It is still your week.",
+    label: "passwords",
+    title: "I’ve never seen one.",
+    copy: "You sign in to your school yourself. I look away, and I don’t keep anything you type there. I’d be a terrible vault and I know that about myself.",
+  },
+  {
+    label: "the page",
+    title: "You can take it back any time.",
+    copy: "I work on the real assignment page while you watch. Click Takeover and I stop mid-sentence. Click keep going and I pick up where I left off.",
   },
   {
     label: "your stuff",
     title: "It stays with you.",
     copy: "Your classes, drafts, and school pages live on your computer. The cloud gets your account and this email address. That’s it.",
-  },
-  {
-    label: "your syllabus",
-    title: "It still wins.",
-    copy: "If a class bans this kind of help, don’t run me there. I’m useful. I’m not your alibi.",
   },
   {
     label: "honesty",
@@ -116,28 +170,28 @@ const FAQ = [
     "That depends on your syllabus, and I mean that. I don’t hide. Everything I do happens where you can watch it. If a class bans this kind of help, don’t run me there.",
   ],
   [
+    "Will you submit for me?",
+    "Only if you tell me to. By default I finish the work and stop at the Submit button. You can turn auto-submit on for a class or a single assignment. Quizzes and tests are never included.",
+  ],
+  [
     "Will you take my quiz?",
-    "No. Quizzes, tests, and exams stay yours. Essays, problem sets, reports, the stuff with a due date and no timer, those I’ll take a swing at.",
+    "No. Quizzes, tests, and exams stay yours. Problem sets, essays, reports, the stuff with a due date and no timer, those I’ll take a swing at.",
   ],
   [
     "Do you see my password?",
     "No. You sign in to your school yourself. I look away, and I don’t keep anything you type there.",
   ],
   [
-    "Will you submit for me?",
-    "No. I write and then I stop. You read it, change what you want, and hit submit yourself. The work waits on the page until you do.",
+    "What if you get something wrong?",
+    "Then you’ll see it, because it’s right there on the page before anything is submitted. Fix it, or tell me what to fix. I check my work, but you get the final look.",
   ],
   [
     "Can my professor tell?",
-    "I don’t have a stealth mode and I won’t pretend I do. Typed text is typed text. Use me where you’re allowed, and read what I wrote before you send it.",
+    "I don’t have a stealth mode and I won’t pretend I do. Typed answers are typed answers. Use me where you’re allowed, and read what I did before you send it.",
   ],
   [
     "Do I need a school email?",
     "No. Any email works. I only use it to tell you your seat is ready.",
-  ],
-  [
-    "Where does my stuff live?",
-    "Your classes, drafts, and school pages stay on your computer. The cloud holds your account and your email. That’s it.",
   ],
   [
     "When do I get in?",
@@ -179,9 +233,10 @@ export function LandingPage() {
               <h1 id="hero-title">Hi. I’m Inky. I do your homework.</h1>
               <div className="lede-row">
                 <p className="lead">
-                  Studi puts your whole week on one board and lets me take the
-                  assignment you’ve been avoiding, right where it lives, while
-                  you watch. <strong>I write. You read it. You hit submit.</strong>
+                  Studi is the desktop app. I’m the one inside it. I put your
+                  whole week on one board, then take the assignment you’ve been
+                  avoiding, right where it lives, while you watch.{" "}
+                  <strong>I do the work. You keep the final say.</strong>
                 </p>
                 <WaitlistForm
                   emailId="hero-email"
@@ -201,7 +256,7 @@ export function LandingPage() {
             <h2>Three things. I’m good at them.</h2>
             <p className="lead">
               No dashboards to learn. No prompts to write. Your classes show up,
-              you point at a card, and I get to work where you can see me.
+              you click a card, and I get to work where you can see me.
             </p>
             <div className="features">
               <article className="feature card">
@@ -209,15 +264,15 @@ export function LandingPage() {
                 <h3>Never get blindsided by a due date again.</h3>
                 <p>
                   I check every class each morning and lay the week out on one
-                  board. Essays, problem sets, labs, the quiz you forgot existed.
+                  board. Problem sets, essays, labs, the quiz you forgot existed.
                 </p>
                 <div className="feature-visual mini-stack" aria-hidden="true">
                   <div className="mini-assignment card">
                     <div className="assignment-top">
-                      <span className="dot hist" /> HIST 210
+                      <span className="dot calc" /> CALC 1
                       <span className="badge due">tonight</span>
                     </div>
-                    <strong>Essay: Causes of the Cold War</strong>
+                    <strong>Problem set 4: Related rates</strong>
                     <small>due 11:59</small>
                   </div>
                   <div className="mini-assignment card">
@@ -233,11 +288,11 @@ export function LandingPage() {
 
               <article className="feature card">
                 <div className="n">the assignment</div>
-                <h3>The boring part gets done while you watch.</h3>
+                <h3>The hard part gets done while you watch.</h3>
                 <p>
-                  Point at a card, say “Make Inky do this,” and I work right on
-                  the assignment page. Take it back whenever you like. I’m not
-                  sneaky. I’m just in the box.
+                  Click a card, say “Make Inky do this,” and I work right on
+                  the assignment page: the math, the writing, the answer boxes.
+                  Take it back whenever you like.
                 </p>
                 <div className="feature-visual" aria-hidden="true">
                   <div className="mini-page">
@@ -257,16 +312,16 @@ export function LandingPage() {
 
               <article className="feature card">
                 <div className="n">you</div>
-                <h3>Your name stays on work you actually read.</h3>
+                <h3>You decide what gets submitted.</h3>
                 <p>
-                  I write, then I stop. You read it, fix what you’d fix, and hit
-                  the scary button yourself. Quizzes, tests, and exams stay
-                  yours. Cute try though.
+                  I finish and stop at Submit. Read it, fix what you’d fix, click
+                  it yourself, or tell me to submit for you. Quizzes and tests
+                  stay yours either way.
                 </p>
                 <div className="feature-visual" aria-hidden="true">
                   <div className="mini-submit">
-                    <span>Submit Assignment</span>
-                    <strong>← yours</strong>
+                    <span>Submit answers</span>
+                    <strong>← your call</strong>
                   </div>
                 </div>
               </article>
@@ -284,9 +339,9 @@ export function LandingPage() {
               <article className="compare-card card them">
                 <h3>Copy, paste, pray</h3>
                 <ul>
-                  <li>You copy the prompt over. Every time.</li>
+                  <li>You copy the problem over. Every time.</li>
                   <li>It has no idea what’s due or when.</li>
-                  <li>You paste the answer back and hope the formatting holds.</li>
+                  <li>You retype the answers into the school page and hope you didn’t mistype one.</li>
                   <li>Six assignments a week, six little rituals.</li>
                 </ul>
               </article>
@@ -295,20 +350,21 @@ export function LandingPage() {
                 <ul>
                   <li>I already see your week, every class, every due date.</li>
                   <li>I work on the assignment page itself, while you watch.</li>
-                  <li>The draft is already where it needs to be. You read it there.</li>
-                  <li>You hit submit. Then you go do literally anything else.</li>
+                  <li>The answers land in the right boxes. You check them there.</li>
+                  <li>You submit, or tell me to. Then go do literally anything else.</li>
                 </ul>
               </article>
             </div>
           </section>
 
           <section className="block trust" id="trust">
-            <p className="kicker">Why this isn’t weird</p>
+            <p className="kicker">Why you can trust me with it</p>
             <h2>You can see me. That’s the point.</h2>
             <p className="lead">
               No hidden tab. No stealth mode. No “trust me.” Everything I do
-              happens in front of you, on your own computer, and a few things I
-              simply won’t do.
+              happens in front of you, on your own computer, and nothing gets
+              submitted unless you want it to. Use me where your syllabus
+              allows it. That part is on you, and I’ll say so plainly.
             </p>
             <div className="trust-grid">
               {TRUST.map((item) => (
@@ -346,7 +402,7 @@ export function LandingPage() {
             <h2>Get a seat.</h2>
             <p className="sub">
               Leave your email. I’ll save you a seat and email you once when it
-              opens. Then go do something that isn’t a lab report.
+              opens. Then go do something that isn’t a problem set.
             </p>
             <WaitlistForm
               emailId="wait-email"
@@ -366,7 +422,7 @@ export function LandingPage() {
               </div>
               <div className="step">
                 <div className="k">3 · then</div>
-                <p>You open Studi. I meet your week.</p>
+                <p>You open Studi. I read your week and get to work.</p>
               </div>
             </div>
           </section>
@@ -392,11 +448,29 @@ export function LandingPage() {
         </div>
 
         <footer className="foot">
-          Hi. I’m Inky. <span>·</span> <a href="/mission">Mission</a>
-          <span>·</span> <a href="#wait">Waitlist</a>
+          © 2026 Studi <span>·</span> Private beta <span>·</span>{" "}
+          <a href="/mission">Mission</a> <span>·</span> <a href="#wait">Waitlist</a>
         </footer>
       </main>
     </>
+  );
+}
+
+// Scroll to the end of the desktop shrink, where the hero form is fully visible.
+function settleDesktop() {
+  const pin = document.getElementById("pin");
+  if (!pin) return 0;
+  const end = Math.max(0, pin.offsetHeight - window.innerHeight);
+  if (window.scrollY < end) window.scrollTo({ top: end, behavior: "smooth" });
+  return end;
+}
+
+function focusField(id: string) {
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const wasBelow = window.scrollY < settleDesktop();
+  window.setTimeout(
+    () => document.getElementById(id)?.focus({ preventScroll: true }),
+    wasBelow && !reduce ? 500 : 0,
   );
 }
 
@@ -436,78 +510,25 @@ function useDesktopShrink() {
   }, []);
 }
 
-function SiteNav() {
-  const [active, setActive] = useState("");
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    const ids = ["what", "trust", "faq"];
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const hit = entries.find((entry) => entry.isIntersecting);
-        if (hit) setActive(`#${hit.target.id}`);
-      },
-      { rootMargin: "-40% 0px -50% 0px" },
-    );
-    ids.forEach((id) => {
-      const node = document.getElementById(id);
-      if (node) observer.observe(node);
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <header className={`site-nav${open ? " open" : ""}`}>
-      <a className="wordmark" href="#top" onClick={() => setOpen(false)}>
-        studi <span className="pencil">✎</span>
-      </a>
-      <nav className="links" id="site-links" aria-label="Page">
-        {NAV_LINKS.map(([href, label]) => (
-          <a
-            href={href}
-            key={href}
-            className={active === href ? "on" : ""}
-            onClick={() => setOpen(false)}
-          >
-            {label}
-          </a>
-        ))}
-      </nav>
-      <a className="cta" href="#wait" onClick={() => setOpen(false)}>
-        Get a seat
-      </a>
-      <button
-        type="button"
-        className="menu"
-        aria-expanded={open}
-        aria-controls="site-links"
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span className="visually-hidden">Menu</span>
-        <i />
-        <i />
-      </button>
-    </header>
-  );
-}
-
 function Demo() {
   const [beatIndex, setBeatIndex] = useState(0);
+  const [decision, setDecision] = useState<Decision | null>(null);
   const [paused, setPaused] = useState(false);
   const [asking, setAsking] = useState(false);
   const [autoplay, setAutoplay] = useState(true);
   const [visible, setVisible] = useState(true);
-  const [typed, setTyped] = useState("");
+  const [typedCount, setTypedCount] = useState(0);
   const [toast, setToast] = useState("");
   const sceneRef = useRef<HTMLDivElement>(null);
   const typedRef = useRef(0);
   const beat = DEMO_BEATS[beatIndex] ?? DEMO_BEATS[0];
+  const outcome = beatIndex === 4 && decision ? OUTCOME[decision] : null;
 
   useEffect(() => {
     const requested = Number(
       new URLSearchParams(window.location.search).get("beat"),
     );
-    if (Number.isInteger(requested) && requested > 0 && requested < DEMO_BEATS.length) {
+    if (Number.isInteger(requested) && requested > 0 && requested < 4) {
       setBeatIndex(requested);
       setAutoplay(false);
     }
@@ -530,38 +551,38 @@ function Demo() {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
     const timer = window.setTimeout(() => {
-      setBeatIndex((current) => Math.min(current + 1, DEMO_BEATS.length - 1));
+      setBeatIndex((current) => Math.min(current + 1, 3));
       setPaused(false);
       setAsking(false);
     }, beat.hold);
     return () => window.clearTimeout(timer);
   }, [autoplay, beat.driving, beat.hold, paused, visible]);
 
-  // Typing progress lives in a ref so Takeover pauses mid-sentence and resumes there.
+  // Typing progress lives in a ref so Takeover pauses mid-line and resumes there.
   useEffect(() => {
     typedRef.current = 0;
-    setTyped("");
+    setTypedCount(0);
   }, [beatIndex]);
 
   useEffect(() => {
-    if (beat.page !== "essay") return;
+    if (beat.page !== "solving") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      setTyped(ESSAY_OPENING);
+      setTypedCount(SOLVE_TOTAL);
       return;
     }
     if (paused || !visible) return;
 
     const timer = window.setInterval(() => {
       typedRef.current += 1;
-      setTyped(ESSAY_OPENING.slice(0, typedRef.current));
-      if (typedRef.current >= ESSAY_OPENING.length) window.clearInterval(timer);
-    }, 22);
+      setTypedCount(typedRef.current);
+      if (typedRef.current >= SOLVE_TOTAL) window.clearInterval(timer);
+    }, 30);
     return () => window.clearInterval(timer);
   }, [beat.page, beatIndex, paused, visible]);
 
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(""), 2600);
+    const timer = window.setTimeout(() => setToast(""), 3600);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -569,8 +590,15 @@ function Demo() {
     if (next < 0 || next >= DEMO_BEATS.length) return;
     setAutoplay(false);
     setBeatIndex(next);
+    setDecision(null);
     setPaused(false);
     setAsking(false);
+  }
+
+  function decide(choice: Decision) {
+    setAutoplay(false);
+    setDecision(choice);
+    setBeatIndex(4);
   }
 
   function takeOver() {
@@ -587,17 +615,17 @@ function Demo() {
   }
 
   const speech = paused
-    ? {
-        say: "All yours.",
-        text: "I’ll hover. Tap “keep going” when you want me back in the box.",
-      }
-    : beat;
+    ? { say: "All yours.", text: "I’ll hover. Tap “keep going” when you want me back in the box." }
+    : outcome ?? beat;
+  const page: PageState | undefined = outcome ? outcome.page : beat.page;
+  const railIndex = Math.min(beatIndex, RAIL.length - 1);
 
   return (
     <div
       className="scene"
       ref={sceneRef}
       style={{ backgroundImage: `url(${wallpaper.src})` }}
+      onPointerDown={() => setAutoplay(false)}
     >
       <div className="stage-area">
         <div className="window" role="application" aria-label="Studi demo">
@@ -607,9 +635,7 @@ function Demo() {
               <span className="tl min" />
               <span className="tl max" />
             </div>
-            <span className="logo">
-              studi <span className="pencil">✎</span>
-            </span>
+            <span className="logo">studi</span>
             <button
               type="button"
               className={`nav-link${beat.view === "is-week" ? " on" : ""}`}
@@ -624,7 +650,7 @@ function Demo() {
               onClick={() => go(beatIndex >= 2 ? 1 : 2)}
             >
               <span
-                className={`desk-dot${beat.driving && !paused ? " working" : beat.view === "is-desk" ? " needs" : ""}`}
+                className={`desk-dot${beat.driving && !paused ? " working" : beat.view === "is-desk" && beatIndex < 4 ? " needs" : ""}`}
               />
               Inky’s desk
             </button>
@@ -641,11 +667,16 @@ function Demo() {
               <div className="copy">
                 <div className="who-row">Inky</div>
                 <div className="bubbles">
-                  <div className="speech" key={`${beatIndex}-${paused}`}>
+                  <div className="speech" key={`${beatIndex}-${paused}-${decision ?? ""}`}>
                     <span className="tail" aria-hidden="true" />
                     <div className="line">{speech.say}</div>
                     <div>{speech.text}</div>
                   </div>
+                  {beat.driving && !paused ? (
+                    <div className="status" role="status">
+                      <span className="desk-dot working" /> Problem {currentProblem(typedCount)} of {PROBLEMS.length}
+                    </div>
+                  ) : null}
                 </div>
                 <div className="replies">
                   {paused ? (
@@ -653,22 +684,20 @@ function Demo() {
                       keep going
                     </button>
                   ) : (
-                    beat.replies.map((reply) =>
-                      reply.href ? (
-                        <a className="btn primary" href={reply.href} key={reply.label}>
-                          {reply.label}
-                        </a>
-                      ) : (
-                        <button
-                          type="button"
-                          className={`btn${reply.secondary ? "" : " primary"}`}
-                          onClick={() => go(reply.beat ?? 0)}
-                          key={reply.label}
-                        >
-                          {reply.label}
-                        </button>
-                      ),
-                    )
+                    beat.replies.map((reply) => (
+                      <button
+                        type="button"
+                        className={`btn${reply.secondary ? "" : " primary"}`}
+                        onClick={() => {
+                          if (reply.focus) focusField(reply.focus);
+                          else if (reply.decide) decide(reply.decide);
+                          else go(reply.beat ?? 0);
+                        }}
+                        key={reply.label}
+                      >
+                        {reply.label}
+                      </button>
+                    ))
                   )}
                 </div>
               </div>
@@ -686,11 +715,11 @@ function Demo() {
                     <span>every morning</span>
                   </div>
                 </div>
-                <div className="week-say">
-                  <div className="speech" key={beatIndex}>
+                <div className={`week-say${toast ? " quiz-nudge" : ""}`}>
+                  <div className="speech" key={`${beatIndex}-${toast}`} role={toast ? "status" : undefined}>
                     <span className="tail" aria-hidden="true" />
-                    <div className="line">{beat.say}</div>
-                    <div>{beat.text}</div>
+                    <div className="line">{toast ? toast : beat.say}</div>
+                    <div>{toast ? "Quizzes and tests stay yours. I’ll sit here looking helpful." : beat.text}</div>
                   </div>
                   <div className="replies">
                     <button type="button" className="btn primary" onClick={() => go(2)}>
@@ -700,11 +729,10 @@ function Demo() {
                 </div>
               </div>
               <div className="command app-command">
-                <div className="pen">✎</div>
                 <input
                   type="text"
                   aria-label="Tell Inky what to do"
-                  placeholder="Tell Inky what to do — “start my essay”…"
+                  placeholder="Type “start the problem set” and press enter…"
                   onKeyDown={(event) => {
                     if (event.key === "Enter") {
                       event.preventDefault();
@@ -717,16 +745,11 @@ function Demo() {
                 </button>
               </div>
               <WeekBoard onStart={() => go(2)} onRefuse={setToast} />
-              {toast ? (
-                <div className="ink-toast" role="status">
-                  {toast}
-                </div>
-              ) : null}
             </section>
 
             <aside className="school" aria-label="School page">
               <div className="school-page">
-                <LmsPage page={beat.page} typed={typed} />
+                <LmsPage page={page} typedCount={typedCount} />
                 {beat.driving && !paused ? (
                   <>
                     <button
@@ -776,13 +799,15 @@ function Demo() {
           <span className="dock-ico folder" />
           <span className="dock-ico inky on" />
         </div>
-        <div className="scroll-hint" aria-hidden="true">scroll ↓</div>
+        <button type="button" className="scroll-hint" onClick={settleDesktop}>
+          Keep scrolling ↓
+        </button>
         <div className="rail" aria-label="Demo steps">
           {RAIL.map((label, index) => (
             <button
               type="button"
-              className={`${index === beatIndex ? "on" : ""}${index < beatIndex ? " done" : ""}`}
-              aria-pressed={index === beatIndex}
+              className={`${index === railIndex ? "on" : ""}${index < railIndex ? " done" : ""}`}
+              aria-pressed={index === railIndex}
               onClick={() => go(index)}
               key={label}
             >
@@ -813,20 +838,20 @@ function WeekBoard({
         </div>
         <button type="button" className="app-assignment card selected" onClick={onStart}>
           <div className="assignment-top">
-            <span className="dot hist" /> HIST 210
+            <span className="dot calc" /> CALC 1
             <span className="badge due">tonight</span>
           </div>
-          <strong>Essay: Causes of the Cold War</strong>
+          <strong>Problem set 4: Related rates</strong>
           <small>
             due 11:59 <span className="chip">Make Inky do this</span>
           </small>
         </button>
         <div className="app-assignment card">
           <div className="assignment-top">
-            <span className="dot calc" /> CALC 1
+            <span className="dot hist" /> HIST 210
           </div>
-          <strong>Problem set 4</strong>
-          <small>queued</small>
+          <strong>Essay: Causes of the Cold War</strong>
+          <small>after the problem set</small>
         </div>
       </div>
       <div className="app-day">
@@ -870,7 +895,7 @@ function WeekBoard({
           <small>Oct 9</small>
         </div>
         <div className="app-empty">
-          nothing due —<br />good study day ✎
+          nothing due —<br />good study day
         </div>
       </div>
       <div className="app-day">
@@ -891,14 +916,16 @@ function WeekBoard({
   );
 }
 
-function LmsPage({
-  page,
-  typed,
-}: {
-  page?: "essay" | "review";
-  typed: string;
-}) {
-  const reviewed = page === "review";
+function LmsPage({ page, typedCount }: { page?: PageState; typedCount: number }) {
+  const finished = page === "ready" || page === "submitted";
+
+  // Slice the typing script into per-problem work and answer text.
+  let remaining = finished ? SOLVE_TOTAL : typedCount;
+  const shown = SOLVE_SCRIPT.map((segment) => {
+    const take = Math.max(0, Math.min(segment.length, remaining));
+    remaining -= take;
+    return segment.slice(0, take);
+  });
 
   return (
     <div className="lms">
@@ -910,35 +937,43 @@ function LmsPage({
         <span>Inbox</span>
         <i>MR</i>
       </div>
-      <div className="lms-course">HIST 210 · Europe since 1945 · Fall</div>
-      <div className="lms-crumb">
-        Courses / HIST 210 / Assignments / Causes of the Cold War
-      </div>
-      <h3>Causes of the Cold War</h3>
+      <div className="lms-course">CALC 1 · Calculus I · Fall</div>
+      <div className="lms-crumb">Courses / CALC 1 / Assignments / Problem Set 4</div>
+      <h3>Problem Set 4: Related Rates</h3>
       <div className="lms-meta">
         <span>Due Oct 6 at 11:59pm</span>
-        <span>100 pts</span>
-        <span>Text entry</span>
-        <span>Attempts: 1</span>
+        <span>30 pts</span>
+        <span>3 questions</span>
+        <span>Attempts: 1 of 2</span>
       </div>
+      {page === "submitted" ? (
+        <div className="lms-banner">✓ Submitted Oct 6 at 9:42pm · 3 of 3 answered</div>
+      ) : null}
       <div className="lms-body">
-        <p>
-          Write 1,200 words on the origins of the Cold War. Use at least two
-          primary sources from lecture and cite them in Chicago style.
-        </p>
-        <div className="lms-editor">
-          <div className="lms-tools">B &nbsp; I &nbsp; U &nbsp; · &nbsp; ¶ &nbsp; ≡ &nbsp; 🔗</div>
-          <div className="lms-box">
-            <p className={`typed${reviewed ? " done" : ""}`}>
-              {reviewed ? ESSAY_OPENING : typed}
-            </p>
-            {reviewed ? <p className="typed done">{ESSAY_ENDING}</p> : null}
-          </div>
-        </div>
+        {PROBLEMS.map((problem, index) => {
+          const work = shown[index * 2] ?? "";
+          const answer = shown[index * 2 + 1] ?? "";
+          const done = answer.length === problem.answer.length;
+          const typing = !done && answer.length > 0;
+          return (
+            <div className={`q${done ? " done" : ""}`} key={index}>
+              <div className="qn">{index + 1}.</div>
+              <div className="qbody">
+                <p>{problem.prompt}</p>
+                <div className="ans">
+                  <span className="ans-label">Answer</span>
+                  <span className={`field${typing ? " typing" : ""}`}>{answer}</span>
+                  {done ? <span className="ans-ok">✓</span> : null}
+                </div>
+                {work ? <div className="work">{work}</div> : null}
+              </div>
+            </div>
+          );
+        })}
         <div className="lms-actions">
-          <button type="button">Save draft</button>
-          <button type="button" className="submit" disabled={!reviewed}>
-            Submit Assignment
+          <button type="button">Save answers</button>
+          <button type="button" className="submit" disabled={page !== "ready"}>
+            {page === "submitted" ? "Submitted ✓" : "Submit answers"}
           </button>
         </div>
       </div>

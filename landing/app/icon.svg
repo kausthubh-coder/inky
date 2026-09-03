@@ -1,8 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Studi">
-  <rect width="64" height="64" rx="16" fill="#8ab8e8"/>
-  <g transform="rotate(-48 32 34)">
-    <rect x="29" y="14" width="6" height="28" rx="2" fill="#f7c948" stroke="#3b342c" stroke-width="2.4"/>
-    <rect x="29" y="14" width="6" height="5" rx="1.4" fill="#f28b6f" stroke="#3b342c" stroke-width="2.2"/>
-    <path d="M29 42 L35 42 L32 52 Z" fill="#3b342c"/>
+  <defs>
+    <clipPath id="tile"><rect x="1.5" y="1.5" width="61" height="61" rx="15"/></clipPath>
+  </defs>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="15" fill="#fbf7ee"/>
+  <g clip-path="url(#tile)" transform="translate(-20 -16) scale(0.87)">
+    <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#1c1612" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M60 15 Q57 5 66 3" stroke="#1c1612" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="45" cy="56" rx="5.5" ry="7.5" fill="#1c1612"/>
+    <ellipse cx="75" cy="56" rx="5.5" ry="7.5" fill="#1c1612"/>
+    <circle cx="47" cy="53" r="2" fill="#fff"/>
+    <circle cx="77" cy="53" r="2" fill="#fff"/>
+    <path d="M50 73 Q60 83 70 73" stroke="#1c1612" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+    <ellipse cx="33" cy="68" rx="6.5" ry="4.5" fill="#f2a8c4" opacity="0.8"/>
+    <ellipse cx="87" cy="68" rx="6.5" ry="4.5" fill="#f2a8c4" opacity="0.8"/>
   </g>
+  <rect x="1.5" y="1.5" width="61" height="61" rx="15" fill="none" stroke="#1c1612" stroke-width="3"/>
 </svg>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SiteNav } from "../../components/site-nav";
 
 export const metadata: Metadata = {
   title: "Mission · Studi",
@@ -8,20 +9,7 @@ export const metadata: Metadata = {
 export default function MissionPage() {
   return (
     <>
-      <header className="site-nav flat">
-        <a className="wordmark" href="/">
-          studi <span className="pencil">✎</span>
-        </a>
-        <nav className="links" aria-label="Page">
-          <a href="/#what">Inky</a>
-          <a href="/#trust">Trust</a>
-          <a href="/mission">Mission</a>
-          <a href="/#faq">FAQ</a>
-        </nav>
-        <a className="cta" href="/#wait">
-          Get a seat
-        </a>
-      </header>
+      <SiteNav flat current="/mission" />
 
       <main className="inner">
         <p className="kicker">Mission</p>
@@ -63,6 +51,11 @@ export default function MissionPage() {
           Get a seat
         </a>
       </main>
+
+      <footer className="foot">
+        © 2026 Studi <span>·</span> Private beta <span>·</span>{" "}
+        <a href="/">Home</a> <span>·</span> <a href="/#wait">Waitlist</a>
+      </footer>
     </>
   );
 }
