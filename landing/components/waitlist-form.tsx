@@ -62,7 +62,7 @@ function ConnectedWaitlistForm({
   return (
     <form className="join" onSubmit={onSubmit}>
       <label className="visually-hidden" htmlFor={emailId}>
-        Campus email
+        Email
       </label>
       <div className="join-row">
         <input
@@ -72,7 +72,7 @@ function ConnectedWaitlistForm({
           required
           autoComplete="email"
           inputMode="email"
-          placeholder="you@school.edu"
+          placeholder="you@example.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           disabled={busy}
