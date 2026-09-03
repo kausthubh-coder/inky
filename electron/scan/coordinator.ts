@@ -145,7 +145,7 @@ export class SchoolScanCoordinator {
         handoff: null,
       });
       this.#updateProfileState("scanning");
-      return this.#run(resumed, "The student has returned after the requested handoff. Take a fresh browser snapshot, verify the sign-in state, then continue the same scan. If sign-in is still required, request another handoff and stop.");
+      return this.#run(resumed, "The student has returned after the requested handoff. Take a fresh browser snapshot. If login still blocks the assignment list, request another handoff and stop. If this is a linked homework system, list the student's assignments or confirm an empty assignment index before recording it verified. Account names and dashboards are not verification. Then continue the same scan.");
     });
   }
 
@@ -230,7 +230,7 @@ export class SchoolScanCoordinator {
       : "";
     return this.#run(
       scan,
-      `Scan the visible school from its root. Verify sign-in through the page, discover courses and assignments, and record linked systems as they appear. Record explicit coverage before finishing.\n\n# Student corrections\n${feedback}${priorWorkflow}`,
+      `Scan the visible school from its root. Verify school sign-in through the page, then discover courses and assignments. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing.\n\n# Student corrections\n${feedback}${priorWorkflow}`,
     );
   }
 
@@ -361,7 +361,7 @@ export class SchoolScanCoordinator {
     const recordLinkedSystem = defineTool({
       name: "scan_record_linked_system",
       label: "Record linked school system",
-      description: "Record a linked course system as needing sign-in or verified from the current visible page.",
+      description: "Record a linked assignment source. Use needs_user only when login is blocking the student's assignment list. Use verified only after this scan listed at least one assignment from this page's origin, or the current page shows an empty assignment index. Account names and dashboards are not verification.",
       parameters: Type.Object({
         label: Type.String({ minLength: 1, maxLength: 300 }),
         systemKey: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
@@ -375,11 +375,19 @@ export class SchoolScanCoordinator {
         const snapshot = await this.#browser.snapshot();
         const labelObservation = requireSnapshotFact(snapshot, input.label, input.observationRef, "linked-system label");
         const stateObservation = requireSnapshotFact(snapshot, input.stateText, input.stateObservationRef, "linked-system state");
-        requireLinkedSystemStateFact(input.state, input.stateText);
+        requireLinkedSystemStateFact({
+          state: input.state,
+          stateText: input.stateText,
+          scan,
+          snapshot,
+          getAssignment: (assignmentId) => this.#store.assignments.get(assignmentId),
+        });
         const evidence = this.#evidence(
           scanId,
           snapshot,
-          `Observed linked system ${input.label.trim()} in ${labelObservation}; ${input.state} is backed by “${input.stateText.trim()}” in ${stateObservation}.`,
+          input.state === "verified"
+            ? `Observed linked system ${input.label.trim()} in ${labelObservation}; assignment inventory is backed by “${input.stateText.trim()}” in ${stateObservation}.`
+            : `Observed linked system ${input.label.trim()} in ${labelObservation}; ${input.state} is backed by “${input.stateText.trim()}” in ${stateObservation}.`,
         );
         const linkedSystemId = stableId("linked", input.systemKey ?? `${snapshot.url}|${input.label.trim()}`);
         const existing = this.#store.school.getLinkedSystem(linkedSystemId);
@@ -728,17 +736,46 @@ function requireObservedDueAt(
   return new Date(parsedDueAt).toISOString();
 }
 
-function requireLinkedSystemStateFact(state: "needs_user" | "verified", stateText: string): void {
-  const fact = normalizeFact(stateText);
-  if (state === "verified" && contradictsVerifiedLinkedSystemState(fact)) {
+function requireLinkedSystemStateFact(input: {
+  readonly state: "needs_user" | "verified";
+  readonly stateText: string;
+  readonly scan: SchoolScan;
+  readonly snapshot: BrowserSnapshot;
+  readonly getAssignment: (assignmentId: string) => Assignment | null | undefined;
+}): void {
+  const fact = normalizeFact(input.stateText);
+  if (input.state === "needs_user") {
+    const markers = ["sign in", "log in", "login", "authenticate", "session expired", "access denied"];
+    if (!markers.some((marker) => fact.includes(marker))) {
+      throw new Error("The visible linked-system state text does not prove needs_user");
+    }
+    return;
+  }
+  const pageFact = normalizeFact(`${input.snapshot.title}\n${input.snapshot.text}`);
+  if (contradictsVerifiedLinkedSystemState(fact) || contradictsVerifiedLinkedSystemState(pageFact)) {
     throw new Error("The visible linked-system state text contradicts verified");
   }
-  const markers = state === "needs_user"
-    ? ["sign in", "log in", "login", "authenticate", "session expired", "access denied"]
-    : ["signed in", "logged in", "log out", "logout", "my account", "account menu", "profile menu"];
-  if (!markers.some((marker) => fact.includes(marker))) {
-    throw new Error(`The visible linked-system state text does not prove ${state}`);
+  const listedFromOrigin = input.scan.observedAssignmentIds.some((assignmentId) => {
+    const assignment = input.getAssignment(assignmentId);
+    return Boolean(assignment && sameOrigin(assignment.sourceTarget, input.snapshot.url));
+  });
+  if (listedFromOrigin || isEmptyAssignmentIndex(fact)) return;
+  throw new Error("A linked system is verified only after this scan lists its assignments or shows an empty assignment list");
+}
+
+function sameOrigin(left: string, right: string): boolean {
+  try {
+    const leftUrl = new URL(left);
+    const rightUrl = new URL(right);
+    return leftUrl.protocol === rightUrl.protocol && leftUrl.host === rightUrl.host;
+  } catch {
+    return false;
   }
+}
+
+function isEmptyAssignmentIndex(fact: string): boolean {
+  return ["no assignments", "no homework", "nothing due", "0 assignments", "no due dates"]
+    .some((marker) => fact.includes(marker));
 }
 
 function contradictsVerifiedLinkedSystemState(fact: string): boolean {

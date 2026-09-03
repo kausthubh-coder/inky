@@ -80,14 +80,51 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
           "a contradictory sign-in fact is rejected before persistence",
         );
         browser.showLinkedSignedIn();
+        await assert.rejects(
+          invoke(tools, "scan_record_linked_system", {
+            label: "WebAssign",
+            systemKey: "webassign",
+            state: "verified",
+            observationRef: "linked-webassign",
+            stateText: "Signed in as Avery",
+            stateObservationRef: "linked-state",
+          }),
+          /lists its assignments or shows an empty assignment list/,
+        );
+        assert.equal(
+          store.school.getLinkedSystem(linkedSystemId).state,
+          "needs_user",
+          "a dashboard or account-name page cannot persist verified",
+        );
+        browser.showEmptyIndex();
         await invoke(tools, "scan_record_linked_system", {
           label: "WebAssign",
           systemKey: "webassign",
           state: "verified",
           observationRef: "linked-webassign",
-          stateText: "Signed in as Avery",
+          stateText: "No assignments due",
           stateObservationRef: "linked-state",
         });
+        assert.equal(store.school.getLinkedSystem(linkedSystemId).state, "verified");
+        browser.showLinkedHomework();
+        await invoke(tools, "scan_record_assignment", {
+          courseId: courseId("calc-101"),
+          title: "Series homework",
+          assignmentKey: "series-1",
+          dueAt: "2026-09-04T15:00:00.000Z",
+          dueText: "2026-09-04T15:00:00.000Z",
+          observationRef: "assignment-series",
+        });
+        await invoke(tools, "scan_record_linked_system", {
+          label: "WebAssign",
+          systemKey: "webassign",
+          state: "verified",
+          observationRef: "linked-webassign",
+          stateText: "Series homework",
+          stateObservationRef: "assignment-series",
+        });
+        // A submit/autograde page is not an assignment catalog, so the scan omits it.
+        browser.showAutograder();
         await invoke(tools, "scan_finish", {
           coverage: [{ target: "Course: Calculus", status: "verified" }],
           navigationHints: ["Open the Courses link, then each current course."],
@@ -143,15 +180,19 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
     state = await coordinator.resume();
     assert.equal(state.scan.state, "succeeded");
     assert.equal(state.profile.onboardingState, "ready");
+    assert.equal(state.linkedSystems.length, 1, "a non-catalog autograder page is omitted");
     assert.equal(state.linkedSystems[0].state, "verified");
     assert.equal(state.workflowRevision, 1);
     assert.equal(state.courses[0].lastVerifiedScanId, state.scan.scanId);
+    assert.equal(state.assignments.length, 2);
     assert.equal(state.assignments[0].lastVerifiedScanId, state.scan.scanId);
     assert.equal(state.assignments[0].evidence[0].sourceTarget, rootUrl);
+    const webAssignHomework = state.assignments.find((item) => item.title === "Series homework");
+    assert.equal(webAssignHomework?.sourceTarget, "https://webassign.example.edu/home");
     const assignment = state.assignments[0];
     const assignmentTasks = store.tasks.listAll().filter((task) => task.assignmentId === assignment.assignmentId);
     assert.equal(assignmentTasks.length, 1, "a verified assignment has one durable task origin");
-    assert.equal(manager.state().entries.length, 1, "the permitted task enters the existing manager queue once");
+    assert.equal(manager.state().entries.length, 2, "each permitted assignment enters the existing manager queue once");
     assert.equal(manager.state().entries[0].taskId, assignmentTasks[0].taskId);
 
     const workflowPath = join(root, "artifacts", "workflows", "school-scan-workflow.md");
@@ -176,7 +217,7 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
     assert.equal(state.courses[0].lastVerifiedScanId, state.scan.scanId, "replay re-observed the course");
     assert.equal(state.assignments[0].lastVerifiedScanId, state.scan.scanId, "replay refreshed the assignment from a current fact");
     assert.equal(store.tasks.listAll().filter((task) => task.assignmentId === assignment.assignmentId).length, 1, "replay does not duplicate the task origin");
-    assert.equal(manager.state().entries.length, 1, "replay does not duplicate the queue entry");
+    assert.equal(manager.state().entries.length, 2, "replay does not duplicate the queue entry");
     assert.equal(manager.state().entries[0].priority, manualPriority, "replay preserves manual priority");
     assert.equal(state.workflowRevision, 1, "partial replay does not write a workflow");
 
@@ -269,6 +310,7 @@ class RecordingBrowser {
   }
 
   showLinkedSignedIn() {
+    this.url = "https://webassign.example.edu/";
     this.text = "WebAssign Signed in as Avery";
     this.elements = [
       { ref: "linked-webassign", role: "heading", name: "WebAssign" },
@@ -277,10 +319,38 @@ class RecordingBrowser {
   }
 
   showLinkedSignedOut() {
+    this.url = "https://webassign.example.edu/";
     this.text = "WebAssign Not signed in";
     this.elements = [
       { ref: "linked-webassign", role: "heading", name: "WebAssign" },
       { ref: "linked-state", role: "status", name: "Not signed in" },
+    ];
+  }
+
+  showEmptyIndex() {
+    this.url = "https://webassign.example.edu/home";
+    this.text = "WebAssign No assignments due";
+    this.elements = [
+      { ref: "linked-webassign", role: "heading", name: "WebAssign" },
+      { ref: "linked-state", role: "status", name: "No assignments due" },
+    ];
+  }
+
+  showLinkedHomework() {
+    this.url = "https://webassign.example.edu/home";
+    this.text = "WebAssign Series homework 2026-09-04T15:00:00.000Z";
+    this.elements = [
+      { ref: "linked-webassign", role: "heading", name: "WebAssign" },
+      { ref: "assignment-series", role: "link", name: "Series homework — due 2026-09-04T15:00:00.000Z" },
+    ];
+  }
+
+  showAutograder() {
+    this.url = "https://jenkins.example.edu/job/csc316";
+    this.text = "Jenkins dashboard Build now IBM Sorting Machine";
+    this.elements = [
+      { ref: "jenkins", role: "heading", name: "Jenkins" },
+      { ref: "build", role: "button", name: "Build now" },
     ];
   }
 }
