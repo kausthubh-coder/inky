@@ -22,6 +22,7 @@ import squirrelStartup from "electron-squirrel-startup";
 import {
   CONTRACT_MANIFEST,
   ContractManifestSchema,
+  DEFAULT_NOTIFICATION_PREFERENCES,
   RuntimeInfoSchema,
   STUDI_SCHEMA_VERSION,
   browserDriver,
@@ -165,6 +166,15 @@ interface LifecycleSelfTestObservation {
   readonly singleInstanceLock: true;
   readonly closeHides: true;
   readonly trayOpenHandled: true;
+}
+
+interface NotificationSelfTestObservation {
+  readonly persistedWhenMuted: true;
+  readonly mutedShown: false;
+  readonly mutedDelivered: false;
+  readonly enabledShown: boolean;
+  readonly enabledDelivered: boolean;
+  readonly sound: "inky_nudge";
 }
 
 const ipcHandlers: StudiIpcHandlers = {
@@ -355,6 +365,16 @@ const ipcHandlers: StudiIpcHandlers = {
     requireAssignmentExecutionCoordinator().configureReviewHandoff(preferences.reviewMinutes, preferences.handoffMinutes);
     return preferences;
   },
+  saveNotificationPreferences: async (input) => {
+    const current = await requireLocalStore().productPreferences.get();
+    return requireLocalStore().productPreferences.put({
+      ...current,
+      schemaVersion: STUDI_SCHEMA_VERSION,
+      notifications: input,
+      updatedAt: new Date().toISOString(),
+    });
+  },
+  testNotification: ({ kind }) => requireAppKernel().preview(kind),
   savePermissionRule: async (input) => {
     requireLocalStore().permissionRules.put({
       ...input,
@@ -853,6 +873,7 @@ async function runSelfTest(window: BrowserWindow): Promise<void> {
       revision: browserSnapshot.revision,
       telemetryIsolated: await requireSchoolBrowserTelemetryIsolation(),
     };
+    const notifications = await collectNotificationReceipt();
     const closeCount = requireAppKernel().lifecycleReceipt().closeInterceptions;
     window.close();
     const hiddenAfterClose = await waitForWindowVisibility(window, false);
@@ -871,6 +892,7 @@ async function runSelfTest(window: BrowserWindow): Promise<void> {
       agent: agentSelfTestObservation,
       browser: browserSelfTestObservation,
       lifecycle,
+      notifications,
     };
     if (!isSuccessfulObservation(observation)) {
       throw new Error(`self-test returned an invalid observation: ${JSON.stringify(observation)}`);
@@ -906,6 +928,7 @@ function isSuccessfulObservation(value: unknown): boolean {
     isSuccessfulAgentObservation(record.agent) &&
     isSuccessfulBrowserObservation(record.browser) &&
     isSuccessfulLifecycleObservation(record.lifecycle) &&
+    isSuccessfulNotificationObservation(record.notifications) &&
     isSuccessfulOnboardingUiObservation(record.onboardingUi) &&
     isSuccessfulUiQualityObservation(record.uiQuality)
   );
@@ -923,6 +946,52 @@ function isSuccessfulLifecycleObservation(value: unknown): value is LifecycleSel
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
   return record.singleInstanceLock === true && record.closeHides === true && record.trayOpenHandled === true;
+}
+
+function isSuccessfulNotificationObservation(value: unknown): value is NotificationSelfTestObservation {
+  if (!value || typeof value !== "object") return false;
+  const record = value as Record<string, unknown>;
+  return record.persistedWhenMuted === true &&
+    record.mutedShown === false &&
+    record.mutedDelivered === false &&
+    typeof record.enabledShown === "boolean" &&
+    record.enabledDelivered === record.enabledShown &&
+    record.sound === "inky_nudge";
+}
+
+async function collectNotificationReceipt(): Promise<NotificationSelfTestObservation> {
+  const kernel = requireAppKernel();
+  const store = requireLocalStore();
+  const current = await store.productPreferences.get();
+  const enabled = await kernel.preview("handoff");
+  await store.productPreferences.put({
+    ...current,
+    notifications: {
+      ...DEFAULT_NOTIFICATION_PREFERENCES,
+      enabled: false,
+    },
+    updatedAt: new Date().toISOString(),
+  });
+  const muted = await kernel.preview("handoff");
+  await store.productPreferences.put({
+    ...current,
+    notifications: DEFAULT_NOTIFICATION_PREFERENCES,
+    updatedAt: new Date().toISOString(),
+  });
+  if (muted.shown || muted.notification.deliveredAt) {
+    throw new Error("muted notification preview still delivered a toast");
+  }
+  if (enabled.shown !== Boolean(enabled.notification.deliveredAt)) {
+    throw new Error("notification delivery flag does not match the toast receipt");
+  }
+  return {
+    persistedWhenMuted: true,
+    mutedShown: false,
+    mutedDelivered: false,
+    enabledShown: enabled.shown,
+    enabledDelivered: Boolean(enabled.notification.deliveredAt),
+    sound: "inky_nudge",
+  };
 }
 
 function isSuccessfulOnboardingUiObservation(
@@ -1276,9 +1345,12 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
       browserWork: requireVisibleBrowserWork(),
       reviewWindowMs: productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
-      notify: (intent) => {
+      notify: async (intent) => {
         observeExecutionNotification(intent);
-        if (appKernel) return appKernel.notify(intent);
+        if (appKernel) {
+          await appKernel.notify(intent);
+          return;
+        }
         pendingNotifications.push(intent);
       },
     },
@@ -1305,6 +1377,7 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
         }
       },
       focusBrowser: () => browserView?.webContents.focus(),
+      iconPath: appIconPath,
     },
   );
   const profile = requireLocalStore().school.getProfile();

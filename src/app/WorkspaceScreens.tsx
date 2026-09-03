@@ -6,6 +6,10 @@ import {
   type DiagnosticsExportReceipt,
   type LibraryState,
   type LifecycleState,
+  type NotificationKind,
+  type NotificationPreferences,
+  type NotificationSoundId,
+  type NotificationTestReceipt,
   type PermissionMode,
   type ProductSettingsState,
   type RuntimeInfo,
@@ -234,6 +238,115 @@ function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, select
   );
 }
 
+const NOTIFICATION_ROWS: ReadonlyArray<{ kind: NotificationKind; label: string; hint: string }> = [
+  { kind: "handoff", label: "Needs you", hint: "Inky is waiting in the page." },
+  { kind: "review_ready", label: "Ready to look over", hint: "An assignment is sitting for you." },
+  { kind: "scan_result", label: "Scan finished", hint: "A class look-through finished." },
+  { kind: "failure", label: "Something went wrong", hint: "Inky had to stop." },
+];
+
+const SOUND_OPTIONS: ReadonlyArray<{ id: NotificationSoundId; label: string }> = [
+  { id: "silent", label: "Silent" },
+  { id: "os", label: "Windows sound" },
+  { id: "inky_nudge", label: "Inky nudge" },
+  { id: "inky_done", label: "Inky done" },
+  { id: "inky_soft", label: "Inky soft" },
+  { id: "inky_uh_oh", label: "Inky uh-oh" },
+];
+
+function NotificationSettings({
+  preferences,
+  busy,
+  onSave,
+  onPreview,
+}: {
+  preferences: NotificationPreferences | undefined;
+  busy: boolean;
+  onSave: (notifications: NotificationPreferences) => void;
+  onPreview: (kind: NotificationKind) => Promise<NotificationTestReceipt | undefined>;
+}) {
+  const [receipt, setReceipt] = useState<NotificationTestReceipt | null>(null);
+  const [previewing, setPreviewing] = useState<NotificationKind | null>(null);
+  if (!preferences) return null;
+
+  const update = (next: NotificationPreferences) => {
+    onSave(next);
+  };
+
+  return (
+    <PaperCard tone="pink" className="settings-card settings-card--wide">
+      <p className="eyebrow">Inky pings</p>
+      <h2>Let Inky ping you</h2>
+      <label className="toggle-row">
+        <input
+          type="checkbox"
+          checked={preferences.enabled}
+          disabled={busy}
+          onChange={(event) => update({ ...preferences, enabled: event.target.checked })}
+        />
+        <span>
+          <strong>Let Inky ping you</strong>
+          <small>Banners can pop up even while Studi is already open.</small>
+        </span>
+      </label>
+      <div className="notification-rows">
+        {NOTIFICATION_ROWS.map((row) => {
+          const kind = preferences.kinds[row.kind];
+          return (
+            <div className="notification-row" key={row.kind}>
+              <label className="toggle-row">
+                <input
+                  type="checkbox"
+                  checked={kind.banner}
+                  disabled={busy || !preferences.enabled}
+                  onChange={(event) => update({
+                    ...preferences,
+                    kinds: { ...preferences.kinds, [row.kind]: { ...kind, banner: event.target.checked } },
+                  })}
+                />
+                <span>
+                  <strong>{row.label}</strong>
+                  <small>{row.hint}</small>
+                </span>
+              </label>
+              <Field label="Sound">
+                <select
+                  value={kind.sound}
+                  disabled={busy || !preferences.enabled}
+                  onChange={(event) => update({
+                    ...preferences,
+                    kinds: { ...preferences.kinds, [row.kind]: { ...kind, sound: event.target.value as NotificationSoundId } },
+                  })}
+                >
+                  {SOUND_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                </select>
+              </Field>
+              <button
+                className="button button--paper"
+                type="button"
+                disabled={busy || previewing !== null}
+                onClick={() => {
+                  setPreviewing(row.kind);
+                  void onPreview(row.kind).then((next) => {
+                    if (next) setReceipt(next);
+                    setPreviewing(null);
+                  });
+                }}
+              >
+                {previewing === row.kind ? "Pinging…" : "Preview"}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      <small>Inky sounds use the Windows ping until the Inky files are added.</small>
+      {receipt && !receipt.shown && (
+        <small>If nothing popped up, Windows may be hiding Studi. Check Settings → System → Notifications.</small>
+      )}
+    </PaperCard>
+  );
+}
+
 export function SettingsScreen({
   chrome,
   settings,
@@ -245,6 +358,8 @@ export function SettingsScreen({
   busy,
   error,
   onSavePreferences,
+  onSaveNotifications,
+  onTestNotification,
   onSaveRule,
   onDeleteRule,
   onSchedule,
@@ -266,6 +381,8 @@ export function SettingsScreen({
   busy: string | null;
   error: string | null;
   onSavePreferences: (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all") => void;
+  onSaveNotifications: (notifications: NotificationPreferences) => void;
+  onTestNotification: (kind: NotificationKind) => Promise<NotificationTestReceipt | undefined>;
   onSaveRule: (input: SaveRuleInput) => void;
   onDeleteRule: (ruleId: string) => void;
   onSchedule: (cadence: "manual" | "daily" | "weekly", localTime: string, weekday?: number) => void;
@@ -343,6 +460,7 @@ export function SettingsScreen({
               </div>
               <button className="button button--yellow" disabled={busy !== null} onClick={() => onSavePreferences(review, handoff, memory)}>Save</button>
             </PaperCard>
+            <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />
           </div>
         )}
 

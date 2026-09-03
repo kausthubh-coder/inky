@@ -252,6 +252,8 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "openAnswerArtifact",
     "getProductSettings",
     "saveProductPreferences",
+    "saveNotificationPreferences",
+    "testNotification",
     "savePermissionRule",
     "deletePermissionRule",
     "configureScanSchedule",
@@ -299,6 +301,8 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       openAnswerArtifact: "studi:open-answer-artifact",
       getProductSettings: "studi:product-settings",
       saveProductPreferences: "studi:save-product-preferences",
+      saveNotificationPreferences: "studi:save-notification-preferences",
+      testNotification: "studi:test-notification",
       savePermissionRule: "studi:save-permission-rule",
       deletePermissionRule: "studi:delete-permission-rule",
       configureScanSchedule: "studi:configure-scan-schedule",
@@ -317,7 +321,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   );
   assert.deepEqual(CONTRACT_MANIFEST, {
     schemaVersion: 1,
-    contractVersion: "10",
+    contractVersion: "11",
     ipcMethods: [
       { method: "getRuntimeInfo", channel: "studi:runtime-info" },
       { method: "getContractManifest", channel: "studi:contract-manifest" },
@@ -348,6 +352,8 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       { method: "openAnswerArtifact", channel: "studi:open-answer-artifact" },
       { method: "getProductSettings", channel: "studi:product-settings" },
       { method: "saveProductPreferences", channel: "studi:save-product-preferences" },
+      { method: "saveNotificationPreferences", channel: "studi:save-notification-preferences" },
+      { method: "testNotification", channel: "studi:test-notification" },
       { method: "savePermissionRule", channel: "studi:save-permission-rule" },
       { method: "deletePermissionRule", channel: "studi:delete-permission-rule" },
       { method: "configureScanSchedule", channel: "studi:configure-scan-schedule" },
@@ -398,6 +404,18 @@ test("IPC request and result schemas reject malformed values", () => {
   assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "" }).success, false);
   assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol" }).success, false);
   assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, true);
+  assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "handoff" }).success, true);
+  assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "toast" }).success, false);
+  assert.equal(studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({ enabled: true }).success, false);
+  assert.equal(studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({
+    enabled: true,
+    kinds: {
+      handoff: { banner: true, sound: "inky_nudge" },
+      review_ready: { banner: true, sound: "inky_done" },
+      scan_result: { banner: true, sound: "inky_soft" },
+      failure: { banner: true, sound: "inky_uh_oh" },
+    },
+  }).success, true);
   assert.equal(
     studiIpcRegistry.runManager.requestSchema.safeParse({ prompt: "   ", memoryArtifactIds: [] }).success,
     false,
@@ -438,8 +456,11 @@ test("preload derives named methods and exposes no caller-selected channel primi
 
   assert.match(preload, /createIpcApi\(studiIpcRegistry/);
   assert.match(preload, /ipcRenderer\.invoke\(channel, request\)/);
+  assert.match(preload, /LIFECYCLE_ACTIVATED_CHANNEL/);
+  assert.match(preload, /PLAY_NOTIFICATION_SOUND_CHANNEL/);
   assert.doesNotMatch(preload, /studi:/);
-  assert.doesNotMatch(preload, /ipcRenderer\.(?:send|sendSync|on|once)\s*\(/);
+  assert.doesNotMatch(preload, /ipcRenderer\.(?:send|sendSync|once)\s*\(/);
+  assert.doesNotMatch(preload, /ipcRenderer\.on\s*\(\s*["'`]/);
   assert.doesNotMatch(preload, /\b(?:invoke|send|on)\s*:\s*\([^)]*channel/);
   assert.match(ipcSource, /getRuntimeInfo/);
   assert.match(ipcSource, /getContractManifest/);

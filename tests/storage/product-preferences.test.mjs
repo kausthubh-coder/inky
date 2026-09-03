@@ -11,6 +11,15 @@ test("product preferences default safely and survive a validated atomic save", a
   const path = join(root, "product-preferences.json");
   try {
     const store = new ProductPreferencesStore(path);
+    const defaultNotifications = {
+      enabled: true,
+      kinds: {
+        handoff: { banner: true, sound: "inky_nudge" },
+        review_ready: { banner: true, sound: "inky_done" },
+        scan_result: { banner: true, sound: "inky_soft" },
+        failure: { banner: true, sound: "inky_uh_oh" },
+      },
+    };
     assert.deepEqual(await store.get(), {
       schemaVersion: 1,
       reviewMinutes: 15,
@@ -18,6 +27,7 @@ test("product preferences default safely and survive a validated atomic save", a
       memoryVisibility: "selected",
       agentModelId: "gpt-5.6-sol",
       agentReasoningEffort: "high",
+      notifications: defaultNotifications,
       updatedAt: "1970-01-01T00:00:00.000Z",
     });
 
@@ -28,6 +38,15 @@ test("product preferences default safely and survive a validated atomic save", a
       memoryVisibility: "all",
       agentModelId: "gpt-5.6-sol",
       agentReasoningEffort: "high",
+      notifications: {
+        enabled: false,
+        kinds: {
+          handoff: { banner: false, sound: "silent" },
+          review_ready: { banner: true, sound: "os" },
+          scan_result: { banner: true, sound: "inky_soft" },
+          failure: { banner: true, sound: "inky_uh_oh" },
+        },
+      },
       updatedAt: "2026-09-01T12:00:00.000Z",
     };
     await store.put(saved);
@@ -47,6 +66,7 @@ test("product preferences default safely and survive a validated atomic save", a
       memoryVisibility: "selected",
       agentModelId: "gpt-5.6-sol",
       agentReasoningEffort: "high",
+      notifications: defaultNotifications,
       updatedAt: "2026-09-01T12:00:00.000Z",
     });
 

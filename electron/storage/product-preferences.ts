@@ -5,6 +5,7 @@ import { dirname, resolve } from "node:path";
 import {
   DEFAULT_AGENT_MODEL_ID,
   DEFAULT_AGENT_REASONING_EFFORT,
+  DEFAULT_NOTIFICATION_PREFERENCES,
   ProductPreferencesSchema,
   STUDI_SCHEMA_VERSION,
   type ProductPreferences,
@@ -17,6 +18,7 @@ const defaults: ProductPreferences = ProductPreferencesSchema.parse({
   memoryVisibility: "selected",
   agentModelId: DEFAULT_AGENT_MODEL_ID,
   agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT,
+  notifications: DEFAULT_NOTIFICATION_PREFERENCES,
   updatedAt: "1970-01-01T00:00:00.000Z",
 });
 

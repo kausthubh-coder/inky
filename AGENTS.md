@@ -63,6 +63,7 @@ Build app UI in `src/`. `npm run build` compiles Electron and the Vite client on
 - Week feedback is a compact note near the board, not a wide footer form. Settings also keeps a place to send a note. Settings copy stays student-plain: Inky, school, privacy, and account.
 - Private-beta telemetry may store personal information students already consented to share: Clerk name and email, student name, school URL, course and assignment titles, error messages, selected model, reasoning effort, duration, token counts, and estimated cost. Do not redact those fields from PostHog product events or the local inspector.
 - Still never send school passwords, cookies, tokens, authorization headers, page HTML, assignment answers, or school-browser replay. The school WebContentsView stays outside PostHog.
+- Inky pings are local Electron toasts. Settings can turn them off or pick a kind. They still fire while Studi is open. Sounds are Silent, the Windows ping, or a reserved Inky slot. Missing Inky WAV files use the Windows ping. Persist every intent; only mark it delivered when a toast is shown. A toast click opens This week and the matching week sidebar, not Library.
 
 ## Cursor Cloud specific instructions
 
