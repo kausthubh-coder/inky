@@ -2,6 +2,7 @@ import {
   CONTRACT_MANIFEST,
   DEFAULT_AGENT_MODEL_ID,
   DEFAULT_AGENT_REASONING_EFFORT,
+  DEFAULT_NOTIFICATION_PREFERENCES,
   isLivePhase,
   type Assignment,
   type LifecycleState,
@@ -106,7 +107,7 @@ export function installDevPreview(): void {
   };
 
   let settings: ProductSettingsState = {
-    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "selected", agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, updatedAt: now },
+    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "selected", agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
     permissionRules: [{ schemaVersion: 1, ruleId: "preview-global", scope: "global", mode: "attempt", updatedAt: now }],
     schedule: lifecycle.schedule,
   };
@@ -168,6 +169,21 @@ export function installDevPreview(): void {
     openAnswerArtifact: async () => true,
     getProductSettings: async () => settings,
     saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    testNotification: async ({ kind }) => ({
+      notification: {
+        schemaVersion: 1,
+        notificationId: "preview-ping",
+        kind,
+        target: { type: "task", id: "task-1" },
+        title: "Preview ping",
+        body: "This is a preview ping.",
+        createdAt: now,
+      },
+      shown: false,
+      sound: settings.preferences.notifications.kinds[kind].sound,
+      supported: false,
+    }),
     savePermissionRule: async () => settings,
     deletePermissionRule: async () => settings,
     configureScanSchedule: async () => settings,
