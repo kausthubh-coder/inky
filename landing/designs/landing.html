@@ -3,248 +3,153 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Hi. I'm Inky. I do your homework. · Studi</title>
+<title>Studi — Hi. I’m Inky. I do your homework.</title>
+<meta name="description" content="Studi is a desktop app for students. Inky finds what’s due, puts your week on one board, and takes the assignment you’ve been avoiding while you watch. You still hit submit.">
+<meta property="og:title" content="Hi. I’m Inky. I do your homework.">
+<meta property="og:description" content="Your week on one board. The assignment you’re avoiding, done while you watch. The last click stays yours.">
+<meta property="og:type" content="website">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon.svg">
 <link rel="stylesheet" href="sketch.css">
 <link rel="stylesheet" href="inky.css">
 <link rel="stylesheet" href="theme.css">
 <style>
-  html, body {
-    height: auto;
-    min-height: 100%;
+  :root { --nav-o: 1; }
+  html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+  html, body { height: auto; min-height: 100%; overflow-x: hidden; }
+  body { display: block; padding: 0; background: var(--paper); }
+
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 28px; }
+  .kicker {
+    font-family: "Shantell Sans", cursive;
+    font-size: 13px; font-weight: 700; color: var(--ink-soft);
+    margin-bottom: 8px;
   }
-  body {
-    display: block;
-    padding: 0;
-    background: var(--paper);
+  .lead { font-size: 17px; font-weight: 700; color: var(--ink-soft); line-height: 1.5; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+  /* ---------- nav ---------- */
+  .site-nav { padding: 9px 18px; }
+  .site-nav .links a.is-on { background: var(--sticky); color: var(--ink); }
+
+  /* ---------- hero ---------- */
+  .hero {
+    padding: 108px 0 34px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+    gap: 32px; align-items: center;
   }
-  html.is-locking,
-  html.is-locking body {
-    overflow: hidden;
-    height: 100%;
-    height: 100dvh;
+  .hero h1 {
+    font-size: clamp(34px, 4.6vw, 54px); line-height: 1.06;
+    letter-spacing: -0.03em; margin-bottom: 14px; max-width: 14ch;
+  }
+  .hero .lead { max-width: 46ch; margin-bottom: 22px; font-size: 18px; }
+  .hero .lead b { color: var(--ink); }
+
+  .join {
+    display: flex; flex-direction: column; gap: 8px;
+    max-width: 480px;
+  }
+  .join .row { display: flex; gap: 8px; }
+  .join input {
+    flex: 1; min-width: 0;
+    font: inherit; font-size: 15px; font-weight: 700; color: var(--ink);
+    background: #fff; border: 2.5px solid var(--ink);
+    border-radius: 14px 12px 14px 12px; padding: 11px 14px;
+    box-shadow: 3px 3px 0 rgba(28, 22, 18, 0.16);
+  }
+  .join input::placeholder { color: var(--ink-faint); font-weight: 700; }
+  .join input:focus-visible { outline: 2px dashed var(--ink); outline-offset: 3px; }
+  .join button.btn { font-size: 14px; padding: 10px 18px; white-space: nowrap; }
+  .join .fine {
+    font-size: 13px; font-weight: 700; color: var(--ink-soft); margin: 2px 0 0 2px;
+  }
+  .join .fine b { color: var(--ink); }
+  .join[hidden] { display: none !important; }
+  .form-block .ok-msg {
+    background: var(--mint); border: 2.5px solid var(--ink);
+    border-radius: var(--wobble); padding: 12px 16px;
+    box-shadow: 3px 3px 0 rgba(28, 22, 18, 0.16);
+    max-width: 480px; line-height: 1.4;
   }
 
-  :root {
-    --nav-o: 0;
-    --inset-t: 0px;
-    --inset-x: 0px;
-    --inset-b: 0px;
-    --radius: 0px;
-    --win-m: 0px;
-    --win-w: 78%;
-    --win-h: 72%;
-    --hint-o: 1;
+  .hero-inky {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    justify-self: center;
   }
+  .hero-inky .shadow {
+    display: grid; place-items: center; width: 220px; height: 220px;
+    background: radial-gradient(ellipse 60% 20% at 50% 90%, rgba(28,22,18,0.14), transparent 70%);
+  }
+  .hero-inky inky-mascot, .hero-inky inky-mascot svg { width: 100%; height: 100%; display: block; }
+  .say {
+    position: relative; background: #fff; border: 2.5px solid var(--ink);
+    border-radius: 26px 30px 28px 26px; padding: 12px 16px 12px;
+    box-shadow: 3px 4px 0 rgba(28,22,18,0.14);
+    font-weight: 700; font-size: 15px; line-height: 1.4;
+    max-width: 280px; text-align: center;
+  }
+  .say .tail {
+    position: absolute; top: -11px; left: 50%;
+    width: 18px; height: 18px; background: #fff;
+    border-left: 2.5px solid var(--ink); border-top: 2.5px solid var(--ink);
+    transform: translateX(-50%) rotate(45deg); border-radius: 3px 0 0 0;
+  }
+  .say .line { font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 18px; margin-bottom: 4px; }
 
-  .site-nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-    display: flex; align-items: center; gap: 10px;
-    padding: 9px 16px 9px 18px;
-    background: rgba(251, 247, 238, calc(var(--nav-o) * 0.96));
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 2px solid rgba(28, 22, 18, calc(var(--nav-o) * 0.88));
-    opacity: var(--nav-o);
-    pointer-events: none;
-    transform: translateY(calc((1 - var(--nav-o)) * -10px));
+  /* ---------- demo scene ---------- */
+  .demo { padding: 0 0 92px; }
+  .demo-head {
+    display: flex; align-items: flex-end; justify-content: space-between; gap: 16px;
+    margin-bottom: 12px; flex-wrap: wrap;
   }
-  html.is-min .site-nav { pointer-events: auto; }
-  .site-nav .wordmark {
-    font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 22px;
-    color: var(--ink); text-decoration: none;
-    display: inline-flex; align-items: center; gap: 2px;
-    flex-shrink: 0;
+  .demo-head h2 { font-size: 22px; letter-spacing: -0.02em; }
+  .demo-head p { font-size: 14px; font-weight: 700; color: var(--ink-soft); margin-top: 2px; }
+  .rail { display: flex; gap: 6px; flex-wrap: wrap; }
+  .rail button {
+    font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer;
+    border: 2px solid var(--ink); background: #fff; color: var(--ink-soft);
+    border-radius: var(--wobble-pill); padding: 6px 12px;
+    display: inline-flex; align-items: center; gap: 7px;
   }
-  .site-nav .wordmark .pencil { display: inline-block; transform: rotate(8deg); }
-  .site-nav .links {
-    display: flex; align-items: center; gap: 2px;
-    margin: 0 auto;
+  .rail button .k {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 10.5px; border: 2px solid var(--ink); background: var(--paper-2);
   }
-  .site-nav .links a {
-    font-size: 13px; font-weight: 800; color: var(--ink-soft); text-decoration: none;
-    padding: 6px 12px; border-radius: var(--wobble-pill);
-    border: 2px solid transparent;
-    white-space: nowrap;
-  }
-  .site-nav .links a:hover { color: var(--ink); background: var(--sticky); }
-  .site-nav .cta {
-    margin-left: auto;
-    text-decoration: none; display: inline-flex; align-items: center;
-    font: inherit; font-size: 13px; font-weight: 800;
-    border: 2px solid var(--ink); background: var(--sunny); color: var(--ink);
-    border-radius: var(--wobble-pill); padding: 7px 14px;
-    box-shadow: 2px 2px 0 var(--ink);
-    rotate: -1.4deg;
-    flex-shrink: 0;
-  }
-  .site-nav .cta:hover { rotate: 0deg; }
+  .rail button.on { background: var(--sunny); color: var(--ink); box-shadow: 2px 2px 0 var(--ink); }
+  .rail button.done .k { background: var(--mint); }
 
-  .pin { height: 100vh; height: 100dvh; }
-  .sticky {
-    height: 100%;
-    display: flex; flex-direction: column;
-    padding: var(--inset-t) var(--inset-x) var(--inset-b);
-    box-sizing: border-box;
-  }
   .scene {
-    flex: 1; min-height: 0;
-    border-radius: var(--radius);
-    overflow: hidden;
+    border-radius: 24px 22px 26px 22px;
+    border: 2.5px solid var(--ink);
+    box-shadow: 5px 5px 0 var(--ink);
+    padding: 26px 26px 22px;
+    background: #8ec8e8 url("wallpaper.png") center 40% / cover no-repeat;
     position: relative;
-    background-color: #8ec8e8;
-    background-image: url("wallpaper.png");
-    background-size: cover;
-    background-position: center 40%;
-    box-shadow: 0 18px 50px rgba(12, 22, 32, calc(var(--nav-o) * 0.4));
-    border: calc(var(--nav-o) * 2.5px) solid var(--ink);
-  }
-  .wallpaper {
-    position: absolute; inset: 0;
-    pointer-events: none;
     overflow: hidden;
-    background: url("wallpaper.png") center 40% / cover no-repeat;
-  }
-  .lede-hero {
-    flex-shrink: 0;
-    height: calc(var(--nav-o) * 8.2rem);
-    opacity: var(--nav-o);
-    overflow: hidden;
-    text-align: center;
-    padding-top: calc(var(--nav-o) * 14px);
-  }
-  .lede-hero h1 {
-    font-size: clamp(28px, 4vw, 42px); line-height: 1.12;
-    letter-spacing: -0.03em; margin-bottom: 6px;
-  }
-  .lede-hero p { font-size: 16px; font-weight: 700; color: var(--ink-soft); }
-
-  .desk {
-    height: 100%;
-    display: grid;
-    grid-template-rows: 32px 1fr 72px;
-    position: relative;
-    z-index: 1;
-  }
-  .os-bar {
-    display: flex; align-items: center; gap: 14px;
-    padding: 0 16px;
-    background: rgba(16, 24, 32, 0.38);
-    backdrop-filter: blur(18px) saturate(1.5);
-    -webkit-backdrop-filter: blur(18px) saturate(1.5);
-    color: rgba(255,255,255,0.94);
-    font-size: 13px; font-weight: 600;
-    letter-spacing: 0.01em;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.25);
-  }
-  .os-bar .apple {
-    width: 12px; height: 12px; border-radius: 3.5px;
-    background: #fff; opacity: 0.92; flex-shrink: 0;
-  }
-  .os-bar .app-name { font-weight: 800; }
-  .os-bar .menus { display: flex; gap: 14px; opacity: 0.88; }
-  .os-bar .spacer { flex: 1; }
-  .os-bar .clock { font-variant-numeric: tabular-nums; opacity: 0.9; font-size: 12.5px; }
-
-  .stage-area {
-    display: grid;
-    place-items: center;
-    min-height: 0;
-    padding: 8px 24px 4px;
   }
 
   .window {
-    width: var(--win-w);
-    height: var(--win-h);
-    max-width: 1140px;
-    min-height: 0;
+    height: 560px;
     background: var(--paper);
     background-image: radial-gradient(#e9e0cd 1.1px, transparent 1.1px);
     background-size: 24px 24px;
-    border: 1.5px solid rgba(20, 16, 12, 0.55);
+    border: 1.5px solid rgba(20, 16, 12, 0.6);
     border-radius: 12px;
-    box-shadow:
-      0 0 0 1px rgba(255,255,255,0.22),
-      0 40px 90px rgba(6, 14, 22, 0.5),
-      0 10px 28px rgba(6, 14, 22, 0.32);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.22), 0 30px 70px rgba(6, 14, 22, 0.45), 0 8px 24px rgba(6, 14, 22, 0.3);
     display: flex; flex-direction: column;
     overflow: hidden;
+    text-align: left;
   }
-
-  .traffic {
-    display: flex; align-items: center; gap: 8px;
-    margin-right: 10px; flex-shrink: 0;
-  }
+  .traffic { display: flex; align-items: center; gap: 8px; margin-right: 10px; flex-shrink: 0; }
   .tl {
     width: 12px; height: 12px; border-radius: 50%;
-    position: relative;
-    box-shadow:
-      inset 0 1px 1px rgba(255,255,255,0.55),
-      inset 0 -1px 1px rgba(0,0,0,0.28),
-      0 0 0 0.5px rgba(0,0,0,0.25);
+    box-shadow: inset 0 1px 1px rgba(255,255,255,0.55), inset 0 -1px 1px rgba(0,0,0,0.28), 0 0 0 0.5px rgba(0,0,0,0.25);
   }
   .tl.close { background: linear-gradient(#ff746c, #ff5f57); }
   .tl.min { background: linear-gradient(#ffd76a, #febc2e); }
   .tl.max { background: linear-gradient(#59d86a, #28c840); }
-  .window:hover .tl::after {
-    content: "";
-    position: absolute; inset: 0;
-    display: grid; place-items: center;
-    font-size: 8px; font-weight: 800; line-height: 12px;
-    text-align: center; color: rgba(40, 20, 10, 0.72);
-  }
-  .window:hover .tl.close::after { content: "×"; }
-  .window:hover .tl.min::after { content: "–"; }
-  .window:hover .tl.max::after { content: "+"; }
-
-  .dock {
-    display: flex; align-items: center; justify-content: center;
-    padding-bottom: 10px;
-  }
-  .dock-inner {
-    display: flex; align-items: flex-end; gap: 10px;
-    padding: 8px 14px 9px;
-    background: rgba(255,255,255,0.16);
-    backdrop-filter: blur(16px) saturate(1.4);
-    -webkit-backdrop-filter: blur(16px) saturate(1.4);
-    border: 1px solid rgba(255,255,255,0.28);
-    border-radius: 22px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.22);
-  }
-  .dock-ico {
-    width: 42px; height: 42px; border-radius: 11px;
-    border: 1.5px solid rgba(255,255,255,0.35);
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    position: relative;
-  }
-  .dock-ico.notes { background: linear-gradient(#fff6c8, #f7c948); }
-  .dock-ico.folder { background: linear-gradient(#8ec8f0, #5a9fd4); }
-  .dock-ico.inky {
-    background: #8ab8e8 url("icon.svg") center / cover no-repeat;
-    outline: 2px solid #fff;
-    outline-offset: 0;
-  }
-  .dock-ico.on { transform: translateY(-4px); }
-  .dock-ico.on::before {
-    content: "";
-    position: absolute;
-    left: 50%; bottom: -7px;
-    width: 4px; height: 4px; border-radius: 50%;
-    background: rgba(255,255,255,.9);
-    transform: translateX(-50%);
-  }
-
-  .scroll-hint {
-    position: absolute; left: 50%; bottom: 86px;
-    transform: translateX(-50%);
-    font-size: 11.5px; font-weight: 800; color: rgba(255,255,255,0.78);
-    text-shadow: 0 1px 6px rgba(0,0,0,0.4);
-    opacity: var(--hint-o);
-    pointer-events: none;
-    letter-spacing: 0.06em;
-  }
 
   .titlebar {
     display: flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -252,21 +157,14 @@
     background: var(--paper-2);
     border-bottom: 2px solid var(--ink);
   }
-  .titlebar .logo {
-    font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 18px;
-    text-decoration: none; color: var(--ink);
-  }
+  .titlebar .logo { font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 18px; color: var(--ink); text-decoration: none; }
   .titlebar .logo .pencil { display: inline-block; transform: rotate(8deg); }
   .titlebar .nav-link {
     appearance: none; -webkit-appearance: none;
-    text-decoration: none; color: var(--ink-soft);
-    padding: 5px 12px; border-radius: var(--wobble-pill); border: 2px solid transparent;
+    color: var(--ink-soft); padding: 5px 12px; border-radius: var(--wobble-pill); border: 2px solid transparent;
     background: none; font: inherit; font-weight: 800; font-size: 13px; cursor: pointer;
   }
-  .titlebar .nav-link.on {
-    background: var(--sticky); border-color: var(--ink); color: var(--ink);
-    box-shadow: 1.5px 1.5px 0 rgba(59,52,44,0.18);
-  }
+  .titlebar .nav-link.on { background: var(--sticky); border-color: var(--ink); color: var(--ink); box-shadow: 1.5px 1.5px 0 rgba(59,52,44,0.18); }
   .titlebar .spacer { flex: 1; }
   .titlebar .user { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; }
   .titlebar .avatar {
@@ -275,7 +173,7 @@
     display: grid; place-items: center; font-size: 11px; font-weight: 800;
   }
   .desk-toggle {
-    position: relative; font: inherit; font-size: 12.5px; font-weight: 800;
+    font: inherit; font-size: 12.5px; font-weight: 800;
     display: inline-flex; align-items: center; gap: 7px;
     border: 2px solid var(--ink); background: #fff; color: var(--ink);
     border-radius: var(--wobble-pill); padding: 5px 12px; cursor: pointer;
@@ -289,154 +187,65 @@
 
   .stage {
     flex: 1; min-height: 0;
-    display: grid;
-    grid-template-columns: 1fr;
-    transition: grid-template-columns 560ms cubic-bezier(0.23, 1, 0.32, 1);
+    display: grid; grid-template-columns: 1fr;
+    transition: grid-template-columns 560ms var(--ease-out);
   }
-  .stage.is-hello .app-main,
-  .stage.is-hello .school,
-  .stage.is-week .talk,
-  .stage.is-week .school,
+  .stage.is-hello .app-main, .stage.is-hello .school,
+  .stage.is-week .talk, .stage.is-week .school,
   .stage.is-desk .app-main { display: none; }
   .stage.is-desk { grid-template-columns: minmax(250px, 0.86fr) minmax(340px, 1.22fr); }
 
   .talk {
     min-width: 0; min-height: 0;
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center; padding: 24px 28px 28px;
-    transition: padding 560ms var(--ease-out), background 560ms var(--ease-out);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 24px 28px 28px;
   }
-  .stage.is-desk .talk {
-    align-items: stretch; justify-content: flex-start;
-    padding: 12px 14px 12px;
-    background: transparent;
-    overflow: hidden;
-  }
-
+  .stage.is-desk .talk { align-items: stretch; justify-content: flex-start; padding: 12px 14px; overflow: hidden; }
   .inky-wrap {
-    display: grid; place-items: center;
-    width: 200px; height: 200px; flex-shrink: 0;
-    overflow: visible;
+    display: grid; place-items: center; width: 190px; height: 190px; flex-shrink: 0;
     background: radial-gradient(ellipse 62% 22% at 50% 88%, rgba(59,52,44,0.12), transparent 70%);
-    transition: width 560ms var(--ease-out), height 560ms var(--ease-out), margin 560ms var(--ease-out);
+    transition: width 560ms var(--ease-out), height 560ms var(--ease-out);
   }
-  .inky-wrap inky-mascot,
-  .inky-wrap inky-mascot svg { width: 100%; height: 100%; display: block; }
+  .inky-wrap inky-mascot, .inky-wrap inky-mascot svg { width: 100%; height: 100%; display: block; }
   .stage.is-desk .inky-wrap { width: 76px; height: 76px; margin: 0 auto 2px; }
 
-  .copy {
-    width: min(460px, 100%);
-    display: flex; flex-direction: column; align-items: center;
-    transition: opacity 240ms var(--ease-out), transform 280ms var(--ease-out);
-  }
-  .stage.is-desk .copy {
-    width: 100%; flex: 1; min-height: 0; align-items: stretch;
-    overflow: hidden; padding-left: 12px;
-  }
+  .copy { width: min(460px, 100%); display: flex; flex-direction: column; align-items: center; transition: opacity 240ms var(--ease-out), transform 280ms var(--ease-out); }
+  .stage.is-desk .copy { width: 100%; flex: 1; min-height: 0; align-items: stretch; overflow: hidden; padding-left: 12px; }
   .copy.turning { opacity: 0; transform: translateY(10px); pointer-events: none; }
-
-  .who-row {
-    font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 14px;
-    margin: 4px 0 12px; color: var(--ink-soft);
-  }
+  .who-row { font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 14px; margin: 4px 0 12px; color: var(--ink-soft); }
   .stage.is-desk .who-row { display: none; }
-
   .bubbles { width: 100%; display: flex; flex-direction: column; gap: 12px; align-items: center; }
-  .stage.is-desk .bubbles {
-    align-items: stretch; gap: 10px;
-    flex: 1; min-height: 0; overflow: auto;
-  }
+  .stage.is-desk .bubbles { align-items: stretch; gap: 10px; flex: 1; min-height: 0; overflow: auto; }
 
   .speech {
-    position: relative; background: #fff;
-    border: 2.5px solid var(--ink);
-    border-radius: 28px 32px 30px 28px;
-    padding: 16px 20px 15px;
+    position: relative; background: #fff; border: 2.5px solid var(--ink);
+    border-radius: 28px 32px 30px 28px; padding: 16px 20px 15px;
     box-shadow: 3px 4px 0 rgba(59,52,44,0.12);
     font-weight: 700; font-size: 16px; line-height: 1.45; width: 100%;
-    overflow-wrap: anywhere;
-    animation: bubble-in 380ms var(--ease-out);
+    overflow-wrap: anywhere; animation: bubble-in 380ms var(--ease-out);
   }
-  .speech .line {
-    font-family: "Shantell Sans", cursive;
-    font-weight: 800; font-size: 22px; line-height: 1.22; margin-bottom: 8px;
-  }
+  .speech .line { font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 22px; line-height: 1.22; margin-bottom: 8px; }
   .speech .tail {
-    position: absolute; top: -11px; left: 50%;
-    width: 18px; height: 18px; background: #fff;
+    position: absolute; top: -11px; left: 50%; width: 18px; height: 18px; background: #fff;
     border-left: 2.5px solid var(--ink); border-top: 2.5px solid var(--ink);
     transform: translateX(-50%) rotate(45deg); border-radius: 3px 0 0 0;
   }
-  .stage.is-desk .speech {
-    font-size: 14px; padding: 11px 14px 12px;
-    border-radius: 8px 22px 22px 18px;
-    width: auto; max-width: 100%; align-self: flex-start;
-  }
+  .stage.is-desk .speech { font-size: 14px; padding: 11px 14px 12px; border-radius: 8px 22px 22px 18px; width: auto; max-width: 100%; align-self: flex-start; }
   .stage.is-desk .speech .line { font-size: 16px; margin-bottom: 4px; }
   .stage.is-desk .speech .tail { top: 16px; left: -8px; transform: rotate(-48deg); }
-  .speech.faq-ans { background: var(--paper); font-size: 13.5px; padding: 10px 14px; }
-  .speech.faq-ans .line { font-size: 14px; margin-bottom: 4px; }
+  @keyframes bubble-in { from { opacity: 0; transform: translateY(12px) scale(0.97); } to { opacity: 1; transform: none; } }
 
-  @keyframes bubble-in {
-    from { opacity: 0; transform: translateY(12px) scale(0.97); }
-    to { opacity: 1; transform: none; }
-  }
+  .replies { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 14px; width: 100%; }
+  .stage.is-desk .replies { justify-content: flex-start; margin-top: 10px; padding-top: 10px; border-top: 2px dashed var(--line); flex-shrink: 0; }
+  .replies a.btn { font-size: 12.5px; padding: 7px 15px; }
+  .replies a.btn:not(.primary) { background: #fff; }
 
-  .replies {
-    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
-    margin-top: 14px; width: 100%;
-  }
-  .stage.is-desk .replies {
-    justify-content: flex-start; margin-top: 10px;
-    padding-top: 10px; border-top: 2px dashed var(--line);
-    flex-shrink: 0;
-  }
-  .stage.is-desk .asks.on { flex-shrink: 0; }
-
-  .form-block { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
-  .form-block[hidden] { display: none !important; }
-  label.field {
-    display: flex; flex-direction: column; gap: 4px;
-    font-size: 11px; font-weight: 800; color: var(--ink-soft);
-  }
-  label.field input {
-    font: inherit; font-size: 14px; font-weight: 700; color: var(--ink);
-    background: var(--paper-2); border: 2px solid var(--ink);
-    border-radius: 12px; padding: 8px 11px;
-  }
-  .form-row { display: flex; gap: 8px; flex-wrap: wrap; }
-
-  .asks { display: none; flex-wrap: wrap; gap: 6px; margin-top: 10px; width: 100%; }
-  .asks.on { display: flex; }
-  .asks button {
-    font: inherit; font-size: 12px; font-weight: 800; cursor: pointer;
-    border: 1.5px dashed var(--ink); background: #fff; color: var(--ink);
-    border-radius: var(--wobble-pill); padding: 5px 11px;
-  }
-  .asks button.on { background: var(--sticky); border-style: solid; }
-
-  .app-main {
-    position: relative;
-    min-width: 0; min-height: 0;
-    display: flex; flex-direction: column;
-    padding: 10px 14px 12px;
-    overflow: hidden;
-  }
-  .app-hero {
-    display: flex; align-items: flex-start; gap: 12px;
-    margin-bottom: 10px; flex-shrink: 0;
-  }
+  .app-main { position: relative; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 10px 14px 12px; overflow: hidden; }
+  .app-hero { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 10px; flex-shrink: 0; }
   .app-hero .hi { flex: 1; min-width: 0; }
-  .app-hero h1 { font-size: 18px; line-height: 1.2; margin: 0 0 6px; }
-  .sync-bar {
-    display: inline-flex; align-items: stretch;
-    border: 2px solid var(--ink); border-radius: var(--wobble-pill);
-    background: #fff; box-shadow: 1.5px 1.5px 0 rgba(59,52,44,0.12); overflow: hidden;
-  }
-  .sync-seg {
-    font-size: 11.5px; font-weight: 700; color: var(--ink-soft);
-    padding: 4px 10px;
-  }
+  .app-hero h3 { font-size: 18px; line-height: 1.2; margin: 0 0 6px; }
+  .sync-bar { display: inline-flex; align-items: stretch; border: 2px solid var(--ink); border-radius: var(--wobble-pill); background: #fff; box-shadow: 1.5px 1.5px 0 rgba(59,52,44,0.12); overflow: hidden; }
+  .sync-seg { font-size: 11.5px; font-weight: 700; color: var(--ink-soft); padding: 4px 10px; }
   .sync-seg + .sync-seg { border-left: 2px dashed var(--line); }
   .sync-seg b { color: var(--ink); font-weight: 800; }
   .week-say { width: min(280px, 36%); flex-shrink: 0; }
@@ -444,87 +253,35 @@
   .week-say .speech .line { font-size: 15px; margin-bottom: 2px; }
   .week-say .replies { margin-top: 8px; justify-content: flex-start; }
   .app-command { margin-bottom: 10px; flex-shrink: 0; padding: 8px 12px; font-size: 13px; }
-  .app-command input {
-    flex: 1; min-width: 0; font: inherit; font-weight: 700; color: var(--ink);
-    border: none; outline: none; background: transparent;
-  }
+  .app-command input { flex: 1; min-width: 0; font: inherit; font-weight: 700; color: var(--ink); border: none; outline: none; background: transparent; }
   .app-command input::placeholder { color: var(--ink-faint); }
-  .app-week {
-    flex: 1; min-height: 0;
-    display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr));
-    gap: 8px; overflow: auto;
-  }
+  .app-command .send { font: inherit; background: none; cursor: pointer; }
+  .app-week { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(5, minmax(120px, 1fr)); gap: 8px; overflow: auto; }
   .app-day { min-width: 0; }
-  .app-day .dh {
-    display: flex; align-items: baseline; gap: 6px;
-    margin-bottom: 7px; padding: 0 2px;
-    font-weight: 800; font-size: 12px;
-  }
+  .app-day .dh { display: flex; align-items: baseline; gap: 6px; margin-bottom: 7px; padding: 0 2px; font-weight: 800; font-size: 12px; }
   .app-day .dh .n { color: var(--ink-faint); font-size: 11px; }
-  .app-day.today .dh .d {
-    background: var(--sunny); border: 2px solid var(--ink);
-    border-radius: var(--wobble-pill); padding: 0 8px;
-    box-shadow: 1.5px 1.5px 0 var(--ink);
-  }
+  .app-day.today .dh .d { background: var(--sunny); border: 2px solid var(--ink); border-radius: var(--wobble-pill); padding: 0 8px; box-shadow: 1.5px 1.5px 0 var(--ink); }
   .app-day .stack { display: flex; flex-direction: column; gap: 7px; }
-  .app-assn {
-    padding: 8px 9px 8px; cursor: pointer; text-align: left;
-    font: inherit; color: inherit; width: 100%;
-    appearance: none; -webkit-appearance: none;
-  }
-  .app-assn .chip {
-    display: inline-flex; align-items: center; min-height: 0;
-    font-size: 10px; font-weight: 800;
-    border: 2px solid var(--ink); background: var(--sunny); color: var(--ink);
-    border-radius: var(--wobble-pill); padding: 2px 7px; white-space: nowrap;
-  }
-  .app-command .send {
-    font: inherit; background: none; cursor: pointer;
-  }
-  .app-assn .top {
-    display: flex; align-items: center; gap: 5px;
-    font-size: 10px; font-weight: 800; color: var(--ink-soft); margin-bottom: 3px;
-  }
+  .app-assn { padding: 8px 9px; cursor: pointer; text-align: left; font: inherit; color: inherit; width: 100%; appearance: none; -webkit-appearance: none; }
+  .app-assn .chip { display: inline-flex; align-items: center; min-height: 0; font-size: 10px; font-weight: 800; border: 2px solid var(--ink); background: var(--sunny); color: var(--ink); border-radius: var(--wobble-pill); padding: 2px 7px; white-space: nowrap; }
+  .app-assn .top { display: flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; color: var(--ink-soft); margin-bottom: 3px; }
   .app-assn .title { font-weight: 800; font-size: 12.5px; line-height: 1.25; margin-bottom: 5px; }
-  .app-assn .bottom {
-    display: flex; align-items: center; justify-content: space-between; gap: 6px;
-    font-size: 10.5px; font-weight: 700; color: var(--ink-faint);
-  }
+  .app-assn .bottom { display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 10.5px; font-weight: 700; color: var(--ink-faint); }
   .app-assn.on { background: #fff8e0; }
-  .app-empty {
-    border: 2px dashed var(--ink-faint); border-radius: var(--wobble);
-    color: var(--ink-faint); font-size: 11px; font-weight: 700;
-    text-align: center; padding: 16px 6px;
-  }
+  .app-empty { border: 2px dashed var(--ink-faint); border-radius: var(--wobble); color: var(--ink-faint); font-size: 11px; font-weight: 700; text-align: center; padding: 16px 6px; }
   .ink-toast {
     position: absolute; left: 18px; bottom: 14px; z-index: 4;
-    background: #fff; border: 2px solid var(--ink);
-    border-radius: 14px 18px 18px 6px;
-    padding: 8px 12px; font-size: 13px; font-weight: 800;
-    box-shadow: 2px 2px 0 rgba(59,52,44,0.14);
+    background: #fff; border: 2px solid var(--ink); border-radius: 14px 18px 18px 6px;
+    padding: 8px 12px; font-size: 13px; font-weight: 800; box-shadow: 2px 2px 0 rgba(59,52,44,0.14);
     display: none;
   }
   .ink-toast.on { display: block; animation: bubble-in 280ms var(--ease-out); }
 
-  .school {
-    min-width: 0; min-height: 0;
-    display: flex; flex-direction: column;
-    padding: 10px 12px 12px 2px;
-    background: transparent;
-  }
-  .school-page {
-    position: relative;
-    flex: 1; min-height: 0;
-    border-radius: 22px 20px 24px 18px;
-    overflow: hidden;
-    background: #fff;
-    box-shadow: 0 10px 28px rgba(59,52,44,0.14);
-  }
+  .school { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 10px 12px 12px 2px; }
+  .school-page { position: relative; flex: 1; min-height: 0; border-radius: 22px 20px 24px 18px; overflow: hidden; background: #fff; box-shadow: 0 10px 28px rgba(59,52,44,0.14); }
   .page { height: 100%; overflow: auto; background: #fff; }
   .drive-fade {
-    position: absolute; inset: 0;
-    border-radius: inherit;
-    pointer-events: auto;
+    position: absolute; inset: 0; border-radius: inherit; cursor: pointer;
     background:
       linear-gradient(to right, rgba(138,184,232,0.42), transparent 22%, transparent 78%, rgba(138,184,232,0.42)),
       linear-gradient(to bottom, rgba(138,184,232,0.28), transparent 18%, transparent 82%, rgba(138,184,232,0.28));
@@ -532,445 +289,281 @@
   }
   .drive-fade[hidden], .drive-inky[hidden], .drive-ask[hidden] { display: none !important; }
   @keyframes veil { from { opacity: 0.55; } to { opacity: 1; } }
-  .drive-inky {
-    position: absolute; right: 14px; bottom: 14px;
-    display: flex; align-items: flex-end; gap: 8px;
-    pointer-events: none; z-index: 3;
-  }
+  .drive-inky { position: absolute; right: 14px; bottom: 14px; display: flex; align-items: flex-end; gap: 8px; pointer-events: none; z-index: 3; }
   .drive-inky .cap {
-    pointer-events: auto;
-    background: #8ab8e8; border: 2px solid #3b342c; color: #3b342c;
-    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-    padding: 5px 11px; margin-bottom: 12px;
-    font: inherit; font-size: 12px; font-weight: 800;
-    box-shadow: 2px 2px 0 #3b342c;
-    white-space: nowrap; cursor: pointer;
+    pointer-events: auto; background: #8ab8e8; border: 2px solid #3b342c; color: #3b342c;
+    border-radius: var(--wobble-pill); padding: 5px 11px; margin-bottom: 12px;
+    font: inherit; font-size: 12px; font-weight: 800; box-shadow: 2px 2px 0 #3b342c; white-space: nowrap; cursor: pointer;
   }
   .drive-inky .cap:active { transform: translate(2px, 2px); box-shadow: none; }
-  .drive-ask {
-    position: absolute; inset: 0; z-index: 4;
-    display: grid; place-items: center;
-    background: rgba(251,247,238,0.18);
-  }
-  .ask-card {
-    width: min(280px, calc(100% - 36px));
-    padding: 16px 16px 14px;
-    border: 2px solid #3b342c;
-    border-radius: 18px 13px 16px 14px;
-    background: #fffdf6;
-    box-shadow: 3px 3px 0 rgb(59 52 44 / 18%);
-  }
-  .ask-card strong {
-    display: block;
-    font-family: "Shantell Sans", cursive;
-    font-size: 1.15rem; letter-spacing: -.03em;
-  }
+  .drive-ask { position: absolute; inset: 0; z-index: 4; display: grid; place-items: center; background: rgba(251,247,238,0.18); }
+  .ask-card { width: min(280px, calc(100% - 36px)); padding: 16px 16px 14px; border: 2px solid #3b342c; border-radius: 18px 13px 16px 14px; background: #fffdf6; box-shadow: 3px 3px 0 rgb(59 52 44 / 18%); }
+  .ask-card strong { display: block; font-family: "Shantell Sans", cursive; font-size: 1.15rem; letter-spacing: -.03em; }
   .ask-card p { margin: 6px 0 12px; font-size: 13px; font-weight: 700; color: #7d746a; }
   .ask-row { display: flex; flex-wrap: wrap; gap: 8px; }
-  .ask-row button {
-    min-height: 34px; padding: 6px 11px;
-    border: 2px solid #3b342c; color: #3b342c;
-    border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
-    font: inherit; font-size: 12px; font-weight: 800;
-    box-shadow: 2px 2px 0 #3b342c; cursor: pointer;
-  }
+  .ask-row button { min-height: 34px; padding: 6px 11px; border: 2px solid #3b342c; color: #3b342c; border-radius: var(--wobble-pill); font: inherit; font-size: 12px; font-weight: 800; box-shadow: 2px 2px 0 #3b342c; cursor: pointer; }
   .ask-go { background: #8ab8e8; }
   .ask-keep { background: #fffdf6; }
 
-  .cv { min-height: 100%; font-family: Lato, "Helvetica Neue", Arial, sans-serif; color: #2d3b45; }
-  .cv-nav {
-    display: flex; align-items: center; gap: 14px;
-    height: 36px; padding: 0 14px;
-    background: #394B58; color: #fff;
-    font-size: 12px; font-weight: 700;
-  }
-  .cv-logo { font-weight: 800; letter-spacing: 0.03em; }
-  .cv-nav span.on { color: #fff; border-bottom: 2px solid #fff; padding: 8px 0; }
-  .cv-nav .dim { opacity: 0.72; }
-  .cv-spacer { flex: 1; }
-  .cv-avatar {
-    width: 22px; height: 22px; border-radius: 50%;
-    background: #8ab8e8; color: #2d3b45;
-    display: grid; place-items: center; font-size: 9px; font-weight: 800;
-  }
-  .cv-course {
-    background: #f5f5f5; border-bottom: 1px solid #e4e7ea;
-    padding: 6px 16px; font-size: 12px; font-weight: 700; color: #556572;
-  }
-  .cv-crumb { font-size: 11px; color: #6b7780; padding: 8px 16px 0; }
-  .cv-title { font-size: 20px; font-weight: 700; margin: 4px 16px 0; color: #2d3b45; }
-  .cv-meta {
-    display: flex; flex-wrap: wrap; gap: 14px;
-    font-size: 12px; color: #6b7780; font-weight: 600;
-    padding: 6px 16px 10px; border-bottom: 1px solid #e8e8e8;
-  }
-  .cv-body { padding: 12px 16px 16px; }
-  .cv-prompt { font-size: 13px; line-height: 1.45; color: #4b5563; margin: 0 0 12px; }
-  .cv-editor { border: 1px solid #c7cdd1; border-radius: 3px; background: #fff; }
-  .cv-tools {
-    background: #f5f5f5; border-bottom: 1px solid #c7cdd1;
-    padding: 5px 8px; font-size: 11px; color: #6b7780; font-weight: 700; letter-spacing: 0.04em;
-  }
-  .cv-box { min-height: 118px; padding: 10px 12px; }
-  .typed {
-    margin: 0; font-size: 13.5px; font-weight: 500; line-height: 1.55;
-    min-height: 3.2em; border-right: 1.5px solid #2d3b45; padding-right: 2px;
-    color: #2d3b45;
-  }
+  /* fake LMS assignment page */
+  .lms { min-height: 100%; font-family: Lato, "Helvetica Neue", Arial, sans-serif; color: #2d3b45; }
+  .lms-nav { display: flex; align-items: center; gap: 14px; height: 36px; padding: 0 14px; background: #394B58; color: #fff; font-size: 12px; font-weight: 700; }
+  .lms-logo { font-weight: 800; letter-spacing: 0.03em; }
+  .lms-nav span.on { color: #fff; border-bottom: 2px solid #fff; padding: 8px 0; }
+  .lms-nav .dim { opacity: 0.72; }
+  .lms-spacer { flex: 1; }
+  .lms-avatar { width: 22px; height: 22px; border-radius: 50%; background: #8ab8e8; color: #2d3b45; display: grid; place-items: center; font-size: 9px; font-weight: 800; }
+  .lms-course { background: #f5f5f5; border-bottom: 1px solid #e4e7ea; padding: 6px 16px; font-size: 12px; font-weight: 700; color: #556572; }
+  .lms-crumb { font-size: 11px; color: #6b7780; padding: 8px 16px 0; }
+  .lms-title { font-size: 20px; font-weight: 700; margin: 4px 16px 0; color: #2d3b45; font-family: inherit; }
+  .lms-meta { display: flex; flex-wrap: wrap; gap: 14px; font-size: 12px; color: #6b7780; font-weight: 600; padding: 6px 16px 10px; border-bottom: 1px solid #e8e8e8; }
+  .lms-body { padding: 12px 16px 16px; }
+  .lms-prompt { font-size: 13px; line-height: 1.45; color: #4b5563; margin: 0 0 12px; }
+  .lms-editor { border: 1px solid #c7cdd1; border-radius: 3px; background: #fff; }
+  .lms-tools { background: #f5f5f5; border-bottom: 1px solid #c7cdd1; padding: 5px 8px; font-size: 11px; color: #6b7780; font-weight: 700; letter-spacing: 0.04em; }
+  .lms-box { min-height: 118px; padding: 10px 12px; }
+  .typed { margin: 0; font-size: 13.5px; font-weight: 500; line-height: 1.55; min-height: 3.2em; border-right: 1.5px solid #2d3b45; padding-right: 2px; color: #2d3b45; }
   .typed.done { border-right-color: transparent; }
-  .cv-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
-  .cv-ghost {
-    background: #fff; border: 1px solid #c7cdd1; color: #2d3b45;
-    border-radius: 3px; padding: 7px 12px; font-size: 12.5px; font-weight: 700;
-  }
-  .cv-submit {
-    background: #E62429; color: #fff; border: 0;
-    border-radius: 3px; padding: 7px 13px; font-size: 12.5px; font-weight: 800;
-  }
-  .cv-submit[disabled] { opacity: 0.45; }
-  .badge.scanning { background: var(--sky); }
+  .typed + .typed { margin-top: 10px; }
+  .lms-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+  .lms-ghost { background: #fff; border: 1px solid #c7cdd1; color: #2d3b45; border-radius: 3px; padding: 7px 12px; font-size: 12.5px; font-weight: 700; }
+  .lms-submit { background: #0374B5; color: #fff; border: 0; border-radius: 3px; padding: 7px 13px; font-size: 12.5px; font-weight: 800; }
+  .lms-submit[disabled] { opacity: 0.45; }
 
-  .page-rest {
-    position: relative; z-index: 2;
-    background: var(--paper);
-    background-image: radial-gradient(#e9e0cd 1.1px, transparent 1.1px);
-    background-size: 24px 24px;
-    padding: 12px 28px 96px;
-  }
-  .wrap {
-    max-width: 1040px;
-    margin: 0 auto;
-  }
-  .block {
-    margin: 0 auto 88px;
-    scroll-margin-top: 88px;
-  }
-  .kicker {
-    font-family: "Shantell Sans", cursive;
-    font-size: 13px; font-weight: 700; color: var(--ink-soft);
-    margin-bottom: 8px;
-  }
-  .block h2 {
-    font-size: clamp(26px, 3.4vw, 36px);
-    line-height: 1.15; letter-spacing: -0.03em;
-    margin-bottom: 10px; max-width: 18ch;
-  }
-  .block > .lead, .block .lead {
-    font-size: 17px; font-weight: 700; color: var(--ink-soft);
-    max-width: 52ch; margin-bottom: 28px; line-height: 1.45;
-  }
+  /* ---------- sections ---------- */
+  .block { margin: 0 auto 92px; scroll-margin-top: 84px; }
+  .block h2 { font-size: clamp(28px, 3.6vw, 40px); line-height: 1.12; letter-spacing: -0.03em; margin-bottom: 10px; max-width: 20ch; }
+  .block > .lead { max-width: 54ch; margin-bottom: 28px; }
   .center { text-align: center; }
   .center h2, .center .lead, .center .kicker { margin-left: auto; margin-right: auto; }
 
-  .feats {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
+  .feats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .feat { padding: 20px 20px 22px; display: flex; flex-direction: column; gap: 10px; }
+  .feat .n { font-family: "Shantell Sans", cursive; font-size: 13px; font-weight: 800; color: var(--ink-soft); }
+  .feat h3 { font-size: 21px; line-height: 1.15; }
+  .feat p { font-size: 14.5px; font-weight: 700; color: var(--ink-soft); line-height: 1.5; }
+  .feat .pic {
+    margin-top: auto; padding-top: 12px;
+    border-top: 2px dashed var(--line);
   }
-  .feat { padding: 22px 20px 20px; position: relative; }
-  .feat .n {
-    font-family: "Shantell Sans", cursive;
-    font-size: 13px; font-weight: 800; color: var(--ink-soft);
-    margin-bottom: 10px;
+  .mini { display: flex; flex-direction: column; gap: 6px; }
+  .mini .assn { padding: 8px 10px; margin: 0; }
+  .mini .assn .top { font-size: 10px; }
+  .mini .assn .title { font-size: 12.5px; margin: 2px 0 3px; }
+  .mini .assn .bottom { font-size: 10.5px; }
+  .mini-page {
+    position: relative; height: 96px; border-radius: 14px 12px 14px 12px; overflow: hidden;
+    background: #fff; border: 1.5px solid rgba(20,16,12,0.25);
   }
-  .feat h3 { font-size: 20px; margin-bottom: 8px; }
-  .feat p { font-size: 14.5px; font-weight: 700; color: var(--ink-soft); line-height: 1.45; }
-
-  .week-mock {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(150px, 1fr));
-    gap: 10px;
-    overflow-x: auto;
-    padding-bottom: 6px;
-    -webkit-overflow-scrolling: touch;
+  .mini-page .bar { height: 14px; background: #394B58; }
+  .mini-page .ln { height: 6px; background: #e3e7ea; border-radius: 3px; margin: 8px 12px 0; }
+  .mini-page .ln.s { width: 55%; }
+  .mini-page .fade {
+    position: absolute; inset: 0;
+    background:
+      linear-gradient(to right, rgba(138,184,232,0.42), transparent 22%, transparent 78%, rgba(138,184,232,0.42)),
+      linear-gradient(to bottom, rgba(138,184,232,0.28), transparent 18%, transparent 82%, rgba(138,184,232,0.28));
+    animation: veil 2.4s ease-in-out infinite alternate;
   }
-  .day-col {
-    background: rgba(255,253,246,0.7);
-    border: 2px solid var(--ink);
-    border-radius: var(--wobble);
-    padding: 10px 10px 12px;
-    min-width: 150px;
-  }
-  .day-col.today { background: #fff8e0; }
-  .day-col .dh {
-    display: flex; justify-content: space-between; align-items: baseline;
-    font-weight: 800; font-size: 12px; margin-bottom: 10px;
-  }
-  .day-col .dh .n { color: var(--ink-soft); font-size: 11px; }
-  .assn {
-    padding: 10px 10px 9px; margin-bottom: 8px;
-  }
-  .assn:last-child { margin-bottom: 0; }
-  .assn .top {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 10.5px; font-weight: 800; margin-bottom: 4px;
-  }
-  .assn .title { font-weight: 800; font-size: 13px; line-height: 1.25; margin-bottom: 6px; }
-  .assn .bottom { font-size: 11px; font-weight: 700; color: var(--ink-soft); }
-  .day-empty {
-    color: var(--ink-faint); font-weight: 800; font-size: 12px;
-    text-align: center; padding: 18px 6px;
-  }
-  .dot.hist { background: var(--lavender); }
-  .dot.calc { background: var(--sky); }
-  .dot.bio { background: var(--mint); }
-  .dot.psy { background: var(--pink); }
-  .dot.eng { background: var(--coral); }
-
-  .do-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-  }
-  .do-col { padding: 22px 22px 18px; }
-  .do-col h3 { font-size: 20px; margin-bottom: 12px; }
-  .do-col ul { list-style: none; display: grid; gap: 8px; }
-  .do-col li {
-    font-weight: 700; font-size: 14.5px;
-    display: flex; gap: 10px; align-items: flex-start;
-  }
-  .do-col .mark { font-weight: 800; flex-shrink: 0; }
-  .do-col.yes .mark { color: #4d8b63; }
-  .do-col.no .mark { color: #c45c48; }
-  .do-col.no { background: #fbf1ea; }
-
-  .modes {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-  }
-  .mode { padding: 22px 20px 20px; }
-  .mode.default { background: #fff8e0; }
-  .mode h3 { font-size: 18px; margin: 8px 0; }
-  .mode p { font-size: 14px; font-weight: 700; color: var(--ink-soft); }
-
-  .stops {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-  }
-  .stop { padding: 18px 16px 16px; }
-  .stop h3 { font-size: 16px; margin-bottom: 6px; }
-  .stop p { font-size: 13.5px; font-weight: 700; color: var(--ink-soft); }
-
-  .sites {
-    display: flex; flex-wrap: wrap; gap: 8px;
-  }
-  .site-chip {
-    font-weight: 800; font-size: 13px;
-    border: 2px solid var(--ink); background: #fff;
-    border-radius: var(--wobble-pill);
-    padding: 7px 14px;
-  }
-  .site-chip.muted {
-    background: transparent; border-style: dashed; color: var(--ink-soft);
+  .mini-page .who { position: absolute; right: 8px; bottom: 2px; display: flex; align-items: flex-end; gap: 6px; }
+  .mini-page .who .cap { font-size: 10px; font-weight: 800; background: #8ab8e8; border: 2px solid #3b342c; border-radius: var(--wobble-pill); padding: 2px 7px; margin-bottom: 8px; box-shadow: 1.5px 1.5px 0 #3b342c; }
+  .mini-submit { display: flex; align-items: center; gap: 10px; }
+  .mini-submit .btnish { background: #0374B5; color: #fff; border-radius: 3px; padding: 7px 13px; font-size: 12.5px; font-weight: 800; font-family: Lato, Arial, sans-serif; }
+  .mini-submit .tag {
+    font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 14px;
+    background: var(--sticky); border: 2px solid var(--ink); border-radius: var(--wobble-pill);
+    padding: 3px 10px; rotate: -3deg; box-shadow: 2px 2px 0 var(--ink);
   }
 
-  .local {
-    display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 14px; align-items: stretch;
-  }
-  .local .card { padding: 24px 24px 22px; }
-  .local h3 { font-size: 22px; margin-bottom: 8px; }
-  .local p { font-weight: 700; color: var(--ink-soft); font-size: 15px; }
-  .local .note {
-    background: var(--sticky); display: flex; flex-direction: column; justify-content: center;
-  }
+  .trust .feats { grid-template-columns: repeat(3, 1fr); }
+  .trust .feat { padding: 20px 20px 18px; gap: 8px; }
+  .trust .feat h3 { font-size: 19px; }
+  .trust .feat .n::before { content: "✓ "; color: #4d8b63; }
+
+  .sites { display: flex; flex-wrap: wrap; gap: 8px; }
+  .site-chip { font-weight: 800; font-size: 13px; border: 2px solid var(--ink); background: #fff; border-radius: var(--wobble-pill); padding: 7px 14px; }
+  .site-chip.muted { background: transparent; border-style: dashed; color: var(--ink-soft); }
 
   .wait-block {
-    max-width: 560px; margin: 0 auto 88px; padding: 28px 28px 26px;
-    text-align: center;
+    max-width: 640px; margin: 0 auto 92px; padding: 30px 30px 26px;
+    text-align: center; scroll-margin-top: 84px;
   }
-  .wait-block h2 { font-size: 30px; margin-bottom: 8px; max-width: none; }
-  .wait-block .sub { font-weight: 700; color: var(--ink-soft); margin-bottom: 18px; font-size: 16px; }
-  .wait-block .form-row { justify-content: center; }
-  .wait-block label.field { text-align: left; }
-  .ok-msg { display: none; font-weight: 800; font-size: 16px; }
-  .ok-msg.on { display: block; }
+  .wait-block h2 { font-size: clamp(28px, 3.6vw, 36px); margin-bottom: 8px; max-width: none; }
+  .wait-block .sub { font-weight: 700; margin: 0 auto 18px; font-size: 16px; max-width: 40ch; line-height: 1.45; }
+  .wait-block .join { margin: 0 auto; align-items: stretch; }
+  .wait-block .join .fine { text-align: left; }
+  .wait-block .join button.btn.primary { background: var(--ink); color: var(--paper-2); box-shadow: 2px 2px 0 rgba(28,22,18,0.35); }
+  .wait-block .join button.btn.primary:hover { box-shadow: 1px 1px 0 rgba(28,22,18,0.35); }
+  .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 22px; text-align: left; }
+  .step { background: rgba(255,255,255,0.55); border: 2px solid var(--ink); border-radius: var(--wobble); padding: 10px 12px; }
+  .step .k { font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 13px; color: var(--ink-soft); }
+  .step p { font-size: 13.5px; font-weight: 800; margin-top: 2px; line-height: 1.35; }
 
-  .end-band {
-    text-align: center;
-    padding: 8px 0 0;
-  }
-  .end-band h2 {
-    max-width: none; margin: 0 auto 14px;
-    font-size: clamp(28px, 4vw, 42px);
-  }
-  a.btn {
-    text-decoration: none; display: inline-flex; align-items: center;
-    font: inherit; font-size: 13px; font-weight: 800;
-    border: 2px solid var(--ink); background: var(--sunny); color: var(--ink);
-    border-radius: var(--wobble-pill); padding: 8px 16px;
-    box-shadow: 2px 2px 0 var(--ink);
-  }
+  .faq { max-width: 760px; margin: 0 auto 80px; display: grid; gap: 10px; scroll-margin-top: 84px; }
+  .faq h2 { text-align: center; font-size: 30px; margin: 0 auto 6px; max-width: none; }
+  .faq .lead { text-align: center; margin: 0 auto 20px; }
+  .faq details { background: var(--paper-2); border: 2px solid var(--ink); border-radius: var(--wobble); padding: 14px 18px; }
+  .faq summary { font-weight: 800; cursor: pointer; font-size: 15.5px; list-style: none; display: flex; justify-content: space-between; gap: 12px; }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after { content: "+"; font-family: "Shantell Sans", cursive; font-weight: 800; flex-shrink: 0; }
+  .faq details[open] summary::after { content: "–"; }
+  .faq p { margin-top: 8px; font-weight: 700; color: var(--ink-soft); font-size: 14.5px; line-height: 1.5; }
 
-  .faq {
-    max-width: 760px; margin: 0 auto 72px;
-    display: grid; gap: 10px;
-  }
-  .faq h2 { text-align: center; font-size: 30px; margin: 0 auto 8px; max-width: none; }
-  .faq .lead { text-align: center; margin: 0 auto 22px; }
-  .faq details {
-    background: var(--paper-2); border: 2px solid var(--ink);
-    border-radius: var(--wobble); padding: 14px 18px;
-  }
-  .faq summary { font-weight: 800; cursor: pointer; font-size: 15.5px; }
-  .faq p { margin-top: 8px; font-weight: 700; color: var(--ink-soft); font-size: 14.5px; }
-
-  .foot {
-    text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft);
-  }
+  .end-band { text-align: center; padding: 8px 0 0; }
+  .end-band h2 { max-width: none; margin: 0 auto 6px; font-size: clamp(28px, 4vw, 42px); }
+  .end-band p { font-weight: 700; color: var(--ink-soft); margin-bottom: 16px; }
+  .foot { text-align: center; font-size: 12.5px; font-weight: 700; color: var(--ink-soft); padding-bottom: 40px; }
   .foot a { color: var(--ink); }
+  .foot .sep { margin: 0 8px; color: var(--ink-faint); }
 
+  /* ---------- responsive ---------- */
   @media (max-width: 1100px) {
-    .week-mock { grid-template-columns: repeat(5, minmax(148px, 1fr)); }
     .app-week { grid-template-columns: repeat(5, minmax(132px, 1fr)); }
-    .feats { grid-template-columns: 1fr; }
     .titlebar .nav-link { display: none; }
   }
 
-  @media (max-width: 860px) {
-    html, body { overflow-x: hidden; }
-    .pin { height: 100vh; height: 100dvh; }
-    .lede-hero { height: calc(var(--nav-o) * 6.4rem); padding-left: 12px; padding-right: 12px; }
-    .lede-hero h1 { font-size: 22px; }
-    .lede-hero p { font-size: 14px; }
-    .site-nav { padding: 8px 12px; gap: 8px; }
-    .site-nav .links { display: none; }
-    .site-nav .wordmark { font-size: 20px; }
-    .site-nav .cta { font-size: 12.5px; padding: 7px 12px; rotate: 0deg; }
-    .os-bar { padding: 0 10px; font-size: 12px; }
-    .os-bar .menus { display: none; }
-    .desk { grid-template-rows: 28px 1fr 56px; }
-    .stage-area { padding: 6px 10px 2px; }
-    .window { max-width: none; border-radius: 10px; }
+  @media (max-width: 980px) {
+    .hero { grid-template-columns: 1fr; gap: 18px; padding-top: 92px; text-align: left; }
+    .hero-inky { grid-row: 1; justify-self: start; flex-direction: row; align-items: flex-end; gap: 8px; }
+    .hero-inky .shadow { width: 128px; height: 128px; }
+    .say { max-width: 260px; text-align: left; margin-bottom: 14px; }
+    .say .tail { top: 18px; left: -11px; transform: rotate(-45deg); }
+    .feats, .trust .feats { grid-template-columns: repeat(2, 1fr); }
+  }
+
+  @media (max-width: 760px) {
+    .wrap { padding: 0 16px; }
+    .hero { padding-top: 84px; padding-bottom: 26px; }
+    .hero h1 { font-size: 32px; max-width: none; }
+    .hero .lead { font-size: 16px; }
+    .join .row { flex-direction: column; }
+    .join button.btn { justify-content: center; }
+    .demo { padding-bottom: 60px; }
+    .demo-head { margin-bottom: 10px; }
+    .rail { width: 100%; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+    .rail button { flex-shrink: 0; }
+    .scene { padding: 10px; border-radius: 18px; box-shadow: 4px 4px 0 var(--ink); }
+    .window { height: 640px; border-radius: 10px; }
     .titlebar { padding: 7px 10px; gap: 8px; }
     .titlebar .user { font-size: 0; gap: 0; }
-    .titlebar .user .avatar { margin: 0; }
-    .stage, .stage.is-desk {
-      grid-template-columns: 1fr;
-      grid-template-rows: minmax(0, auto) minmax(200px, 1fr);
-    }
-    .stage.is-hello { grid-template-rows: 1fr; }
+    .stage, .stage.is-desk { grid-template-columns: 1fr; grid-template-rows: minmax(0, auto) minmax(260px, 1fr); }
+    .stage.is-hello, .stage.is-week { grid-template-rows: 1fr; }
     .talk { padding: 16px 16px 18px; }
     .inky-wrap { width: 120px; height: 120px; }
     .speech .line { font-size: 18px; }
     .speech { font-size: 14px; padding: 12px 14px 13px; }
-    .school { min-height: 200px; padding: 0 10px 10px; }
+    .school { padding: 0 10px 10px; }
     .week-say { display: none; }
     .app-main { padding: 8px 10px 10px; }
-    .app-hero { gap: 8px; }
-    .app-hero h1 { font-size: 15px; }
+    .app-hero h3 { font-size: 15px; }
     .sync-seg { font-size: 10.5px; padding: 3px 8px; }
     .app-command { padding: 7px 10px; font-size: 12px; }
-    .page-rest { padding: 8px 14px 64px; }
-    .block { margin-bottom: 52px; }
-    .block h2 { max-width: none; font-size: 26px; }
-    .block > .lead, .block .lead { font-size: 15.5px; }
-    .dock { padding-bottom: 6px; }
-    .dock-ico { width: 30px; height: 30px; }
-    .scroll-hint { bottom: 62px; }
-    .wait-block { margin: 0 14px 56px; padding: 22px 16px 20px; box-sizing: border-box; }
-    .wait-block input { width: 100%; box-sizing: border-box; }
-    .wait-block h2 { font-size: 26px; }
-    .form-row { flex-direction: column; }
-    .form-row .btn { justify-content: center; width: 100%; }
-    .faq { padding: 0 14px; margin-bottom: 48px; }
-    .end-band { padding: 0 8px; }
-  }
-
-  @media (max-width: 560px) {
-    .desk { grid-template-rows: 26px 1fr 0px; }
-    .dock { display: none; }
-    .scroll-hint { bottom: 14px; }
-    .titlebar .desk-toggle { padding: 5px 8px; font-size: 11.5px; }
-    .week-mock { gap: 8px; }
-    .day-col { min-width: 148px; }
-    .sites { gap: 6px; }
+    .app-week { grid-template-columns: repeat(5, minmax(150px, 1fr)); scroll-snap-type: x proximity; }
+    .app-day { scroll-snap-align: start; }
+    .block { margin-bottom: 56px; }
+    .block h2 { max-width: none; font-size: 27px; }
+    .lead { font-size: 15.5px; }
+    .feats, .trust .feats { grid-template-columns: 1fr; gap: 12px; }
+    .wait-block { margin: 0 0 56px; padding: 22px 16px 20px; }
+    .steps { grid-template-columns: 1fr; gap: 8px; }
+    .faq { margin-bottom: 48px; }
     .site-chip { font-size: 12px; padding: 6px 11px; }
   }
 
+  @media (max-width: 560px) {
+    .window { height: 600px; }
+    .titlebar .desk-toggle { padding: 5px 8px; font-size: 11.5px; }
+    .hero-inky .shadow { width: 108px; height: 108px; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
-    .pin { height: auto; }
-    .sticky { position: relative; height: auto; min-height: 100vh; }
-    .sticky { padding: 72px 20px 20px; }
-    .scene { border-radius: 18px; border-width: 2.5px; height: min(70vh, 640px); flex: none; }
-    .lede-hero { height: auto; opacity: 1; padding-top: 14px; }
-    .site-nav { opacity: 1; pointer-events: auto; transform: none; }
-    .scroll-hint { display: none; }
-    .stage, .inky-wrap, .school, .speech, .copy { transition: none !important; animation: none !important; }
+    .stage, .inky-wrap, .copy, .speech, .drive-fade, .mini-page .fade, .desk-dot { transition: none !important; animation: none !important; }
+    html { scroll-behavior: auto; }
   }
 </style>
 </head>
 <body>
-<header class="site-nav" id="site-nav">
-  <a class="wordmark" href="#">studi <span class="pencil">✎</span></a>
+<header class="site-nav is-on" id="site-nav">
+  <a class="wordmark" href="#top">studi <span class="pencil">✎</span></a>
   <nav class="links" aria-label="Page">
-    <a href="#value">Inky</a>
+    <a href="#what">Inky</a>
+    <a href="#trust">Trust</a>
     <a href="mission.html">Mission</a>
     <a href="#faq">FAQ</a>
   </nav>
   <a class="cta" href="#wait">Get a seat</a>
 </header>
 
-<div class="pin" id="pin">
-  <div class="sticky">
-    <div class="scene" id="scene">
-      <div class="wallpaper" aria-hidden="true"></div>
-      <div class="desk">
-        <div class="os-bar">
-          <span class="apple" aria-hidden="true"></span>
-          <span class="app-name">Studi</span>
-          <div class="menus"><span>File</span><span>Edit</span><span>View</span><span>Window</span></div>
-          <div class="spacer"></div>
-          <span class="clock" id="os-clock"></span>
+<main id="top">
+  <div class="wrap">
+    <section class="hero" aria-labelledby="hero-h">
+      <div class="hero-copy">
+        <h1 class="display" id="hero-h">Hi. I’m Inky. I do your homework.</h1>
+        <p class="lead">Studi puts your whole week on one board and lets me take the assignment you’ve been avoiding, right where it lives, while you watch. <b>I write. You read it. You hit submit.</b></p>
+        <div class="form-block">
+          <form class="join" data-waitlist novalidate>
+            <label class="visually-hidden" for="hero-email">Campus email</label>
+            <div class="row">
+              <input id="hero-email" name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@school.edu">
+              <button type="submit" class="btn primary">Save me a seat</button>
+            </div>
+            <p class="fine">Private beta, small batches. <b>One email</b> when your seat opens. I’ve never seen a password and tests stay yours.</p>
+          </form>
+          <p class="ok-msg">You’re on the list. I’ll email you once, when your seat opens. Go do something that isn’t a lab report.</p>
         </div>
-        <div class="stage-area">
+      </div>
+      <div class="hero-inky" aria-hidden="true">
+        <div class="shadow"><inky-mascot data-state="hello" data-size="220"></inky-mascot></div>
+        <div class="say"><span class="tail"></span><div class="line">See the email box?</div>Campus email goes in it. I’ll save you a seat.</div>
+      </div>
+    </section>
+
+    <section class="demo" aria-labelledby="demo-h">
+      <div class="demo-head">
+        <div>
+          <p class="kicker">Here’s me on a Monday</p>
+          <h2 class="display" id="demo-h">Click around. I don’t bite.</h2>
+          <p>A tour of Studi with pretend classes. Nothing here is real, except my personality.</p>
+        </div>
+        <div class="rail" aria-label="Demo steps">
+          <button type="button" data-beat="0" class="on" aria-pressed="true"><span class="k">1</span>Hi</button>
+          <button type="button" data-beat="1" aria-pressed="false"><span class="k">2</span>Your week</button>
+          <button type="button" data-beat="2" aria-pressed="false"><span class="k">3</span>Inky’s desk</button>
+          <button type="button" data-beat="3" aria-pressed="false"><span class="k">4</span>You review</button>
+        </div>
+      </div>
+
+      <div class="scene">
         <div class="window" role="application" aria-label="Studi demo">
           <header class="titlebar">
-            <div class="traffic" aria-hidden="true">
-              <span class="tl close"></span>
-              <span class="tl min"></span>
-              <span class="tl max"></span>
-            </div>
-            <a class="logo" href="#wait">studi <span class="pencil">✎</span></a>
+            <div class="traffic" aria-hidden="true"><span class="tl close"></span><span class="tl min"></span><span class="tl max"></span></div>
+            <span class="logo">studi <span class="pencil">✎</span></span>
             <button type="button" class="nav-link on" id="week-nav" data-go="1">This week</button>
             <div class="spacer"></div>
             <button type="button" class="desk-toggle" id="desk-toggle" data-desk>
-              <span class="desk-dot" id="desk-dot"></span> Inky's desk
+              <span class="desk-dot" id="desk-dot"></span> Inky’s desk
             </button>
             <div class="user"><div class="avatar">M</div> Maya R.</div>
           </header>
+
           <div class="stage is-hello" id="stage">
             <section class="talk">
-              <div class="inky-wrap">
-                <inky-mascot id="inky" data-state="hello" data-size="200"></inky-mascot>
-              </div>
+              <div class="inky-wrap"><inky-mascot id="inky" data-state="hello" data-size="190"></inky-mascot></div>
               <div class="copy" id="copy">
                 <div class="who-row">Inky</div>
                 <div class="bubbles" id="bubbles"></div>
                 <div class="replies" id="replies"></div>
-                <div class="form-block" id="join-form" hidden>
-                  <form data-waitlist novalidate>
-                    <label class="field">Campus email
-                      <input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@school.edu">
-                    </label>
-                    <div class="form-row">
-                      <button type="submit" class="btn primary">Save me a seat</button>
-                    </div>
-                  </form>
-                  <p class="ok-msg">You’re on the list. I’ll wait.</p>
-                </div>
               </div>
             </section>
+
             <section class="app-main" id="app-main">
               <div class="app-hero">
                 <inky-mascot id="week-inky" data-state="idle" data-size="64"></inky-mascot>
                 <div class="hi">
-                  <h1 class="display">Hey Maya — 2 things due tonight.</h1>
+                  <h3 class="display">Hey Maya — 2 things due tonight.</h3>
                   <div class="sync-bar">
-                    <span class="sync-seg"><b>✓ Canvas</b> · 2h ago</span>
-                    <span class="sync-seg">checks every morning</span>
+                    <span class="sync-seg"><b>✓ Classes checked</b> · 2h ago</span>
+                    <span class="sync-seg">every morning</span>
                   </div>
                 </div>
                 <div class="week-say">
@@ -980,7 +573,7 @@
               </div>
               <div class="command command-live app-command">
                 <div class="pen">✎</div>
-                <input id="command-input" type="text" placeholder='Tell Inky what to do — "start my essay"…' autocomplete="off">
+                <input id="command-input" type="text" placeholder='Tell Inky what to do — “start my essay”…' autocomplete="off">
                 <button type="button" class="send" data-go="2">enter ↵</button>
               </div>
               <div class="app-week">
@@ -1003,9 +596,9 @@
                   <div class="dh"><span class="d">Tue</span><span class="n">Oct 7</span></div>
                   <div class="stack">
                     <div class="app-assn card">
-                      <div class="top"><span class="dot bio"></span> BIO 150</div>
+                      <div class="top"><span class="dot bio"></span> BIO 150 <span class="badge needs" style="margin-left:auto;">needs you</span></div>
                       <div class="title">Lab report: Osmosis</div>
-                      <div class="bottom"><span>file is yours</span></div>
+                      <div class="bottom"><span>you attach the file</span></div>
                     </div>
                   </div>
                 </div>
@@ -1015,7 +608,7 @@
                     <button type="button" class="app-assn card" data-nope>
                       <div class="top"><span class="dot psy"></span> PSY 101 <span class="badge soft" style="margin-left:auto;">yours</span></div>
                       <div class="title">Reading quiz: Ch. 6</div>
-                      <div class="bottom"><span>cute try</span></div>
+                      <div class="bottom"><span>not touching it</span></div>
                     </button>
                     <div class="app-assn card">
                       <div class="top"><span class="dot eng"></span> ENG 102</div>
@@ -1032,19 +625,20 @@
                   <div class="dh"><span class="d">Fri</span><span class="n">Oct 10</span></div>
                   <div class="stack">
                     <button type="button" class="app-assn card" data-nope>
-                      <div class="top"><span class="dot psy"></span> PSY 101</div>
+                      <div class="top"><span class="dot psy"></span> PSY 101 <span class="badge soft" style="margin-left:auto;">yours</span></div>
                       <div class="title">Midterm exam</div>
-                      <div class="bottom"><span>that's you</span></div>
+                      <div class="bottom"><span>that’s you</span></div>
                     </button>
                   </div>
                 </div>
               </div>
-              <div class="ink-toast" id="ink-toast">Cute. That's a you problem.</div>
+              <div class="ink-toast" id="ink-toast" role="status"></div>
             </section>
+
             <aside class="school" aria-label="School page">
               <div class="school-page">
                 <div class="page" id="page"></div>
-                <div class="drive-fade" id="drive-fade" hidden data-ask></div>
+                <div class="drive-fade" id="drive-fade" hidden data-ask title="Want the page?"></div>
                 <div class="drive-ask" id="drive-ask" hidden>
                   <div class="ask-card" role="dialog" aria-labelledby="ask-title">
                     <strong id="ask-title">Want the page?</strong>
@@ -1063,197 +657,176 @@
             </aside>
           </div>
         </div>
-        </div>
-        <div class="dock" aria-hidden="true">
-          <div class="dock-inner">
-            <span class="dock-ico notes"></span>
-            <span class="dock-ico folder"></span>
-            <span class="dock-ico inky on"></span>
+      </div>
+    </section>
+
+    <section class="block" id="what">
+      <p class="kicker">Meet Inky</p>
+      <h2>Three things. I’m good at them.</h2>
+      <p class="lead">No dashboards to learn. No prompts to write. Your classes show up, you point at a card, and I get to work where you can see me.</p>
+      <div class="feats">
+        <article class="feat card">
+          <div class="n">your week</div>
+          <h3>I find what’s due and put it on one board.</h3>
+          <p>Essays, problem sets, lab reports, the quiz you forgot existed. Sorted by day, checked every morning, so it stops living in your head.</p>
+          <div class="pic mini" aria-hidden="true">
+            <div class="assn card">
+              <div class="top"><span class="dot hist"></span> HIST 210 <span class="badge due" style="margin-left:auto;">tonight</span></div>
+              <div class="title">Essay: Causes of the Cold War</div>
+              <div class="bottom">due 11:59</div>
+            </div>
+            <div class="assn card">
+              <div class="top"><span class="dot bio"></span> BIO 150 <span class="badge needs" style="margin-left:auto;">needs you</span></div>
+              <div class="title">Lab report: Osmosis</div>
+              <div class="bottom">you attach the file</div>
+            </div>
           </div>
-        </div>
-        <div class="scroll-hint">scroll</div>
+        </article>
+        <article class="feat card">
+          <div class="n">the assignment</div>
+          <h3>I take the one you’re avoiding.</h3>
+          <p>Say “Make Inky do this” and watch me work, right on the assignment page. Take it back whenever you want. I’m not sneaky. I’m just in the box.</p>
+          <div class="pic" aria-hidden="true">
+            <div class="mini-page">
+              <div class="bar"></div>
+              <div class="ln"></div><div class="ln s"></div><div class="ln"></div><div class="ln s"></div>
+              <div class="fade"></div>
+              <div class="who"><span class="cap">Takeover</span><inky-mascot data-state="steering" data-size="54"></inky-mascot></div>
+            </div>
+          </div>
+        </article>
+        <article class="feat card">
+          <div class="n">you</div>
+          <h3>You stay the student.</h3>
+          <p>I write, then I stop. You read it, fix what you’d fix, and click the scary button yourself. Quizzes, tests, and exams stay yours. Cute try though.</p>
+          <div class="pic" aria-hidden="true">
+            <div class="mini-submit"><span class="btnish">Submit Assignment</span><span class="tag">← yours</span></div>
+          </div>
+        </article>
       </div>
-    </div>
-    <div class="lede-hero">
-      <h1 class="display">Hi. I’m Inky. I do your homework.</h1>
-      <p>The 11:59 kind. You still hit submit.</p>
-    </div>
-  </div>
-</div>
+    </section>
 
-<main class="page-rest">
-  <div class="wrap">
-  <section class="block" id="value">
-    <p class="kicker">Meet Inky</p>
-    <h2>Hi. I do your homework.</h2>
-    <p class="lead">The 11:59 kind. The one you’ve been staring at since Tuesday. I steal the boring parts. You still click submit.</p>
-    <div class="feats">
-      <article class="feat card">
-        <div class="n">your week</div>
-        <h3>One board. Your whole mess.</h3>
-        <p>Homework I can nibble. Quizzes I leave sitting there looking guilty. Tests stay yours. Cute try though.</p>
-      </article>
-      <article class="feat card">
-        <div class="n">the essay</div>
-        <h3>I take the thing you’re avoiding.</h3>
-        <p>You watch. You can steal the page whenever. I’m not sneaking. I’m just… in the box.</p>
-      </article>
-      <article class="feat card">
-        <div class="n">you</div>
-        <h3>You click the scary button.</h3>
-        <p>I write. I stop. Submit is your whole personality. Passwords too. I have never seen one and I would like to keep it that way.</p>
-      </article>
-    </div>
-  </section>
+    <section class="block trust" id="trust">
+      <p class="kicker">Why this isn’t weird</p>
+      <h2>You can see me. That’s the point.</h2>
+      <p class="lead">No hidden tab. No stealth mode. No “trust me.” Everything I do happens in front of you, on your own computer, and a few things I simply won’t do.</p>
+      <div class="feats">
+        <article class="feat card">
+          <div class="n">passwords</div>
+          <h3>I’ve never seen one.</h3>
+          <p>You sign in to your school yourself. I look away, and I don’t keep anything you type there. I’d be a terrible vault and I know that about myself.</p>
+        </article>
+        <article class="feat card">
+          <div class="n">tests</div>
+          <h3>Not mine to take.</h3>
+          <p>Quizzes, midterms, anything with a timer. I sit there looking helpful and refuse. That part is yours, and it should be.</p>
+        </article>
+        <article class="feat card">
+          <div class="n">submit</div>
+          <h3>The last click is yours.</h3>
+          <p>I never hit submit. You read what I wrote, change what you want, and put your name on it. It is still your week.</p>
+        </article>
+        <article class="feat card">
+          <div class="n">your stuff</div>
+          <h3>It stays with you.</h3>
+          <p>Your classes, drafts, and school pages live on your computer. The cloud gets your account and this email address. That’s it.</p>
+        </article>
+        <article class="feat card">
+          <div class="n">your syllabus</div>
+          <h3>It still wins.</h3>
+          <p>If a class bans this kind of help, don’t run me there. I’m useful. I’m not your alibi.</p>
+        </article>
+        <article class="feat card">
+          <div class="n">honesty</div>
+          <h3>I’m new. I’ll say so.</h3>
+          <p>This is a small private beta. Sometimes I’ll get stuck, and when I do I’ll stop and tell you instead of pretending I finished.</p>
+        </article>
+      </div>
+    </section>
 
-  <section class="block" id="week">
-    <p class="kicker">This week</p>
-    <h2>Your week, on one board.</h2>
-    <p class="lead">Due tonight. Due Thursday. The quiz I’m not touching. All in one place so it stops living in your head.</p>
-    <div class="week-mock" aria-hidden="true">
-      <div class="day-col today">
-        <div class="dh"><span>Mon</span><span class="n">today</span></div>
-        <div class="assn card">
-          <div class="top"><span class="dot hist"></span> HIST 210 <span class="badge working" style="margin-left:auto;">on it</span></div>
-          <div class="title">Essay: Causes of the Cold War</div>
-          <div class="bottom">due tonight</div>
-        </div>
-        <div class="assn card">
-          <div class="top"><span class="dot calc"></span> CALC 1</div>
-          <div class="title">Problem set 4</div>
-          <div class="bottom">after the essay</div>
-        </div>
+    <section class="block" id="sites">
+      <p class="kicker">Your classes</p>
+      <h2>Canvas. Moodle. The weird one.</h2>
+      <p class="lead">If you can open it, I can try it. Including the extra login your TA forgot to mention.</p>
+      <div class="sites">
+        <span class="site-chip">Canvas</span>
+        <span class="site-chip">Moodle</span>
+        <span class="site-chip">Google Classroom</span>
+        <span class="site-chip">Blackboard</span>
+        <span class="site-chip">WebAssign</span>
+        <span class="site-chip">Pearson</span>
+        <span class="site-chip">Gradescope</span>
+        <span class="site-chip">McGraw Hill</span>
+        <span class="site-chip">zyBooks</span>
+        <span class="site-chip muted">the weird one</span>
       </div>
-      <div class="day-col">
-        <div class="dh"><span>Tue</span><span class="n">Oct 7</span></div>
-        <div class="assn card">
-          <div class="top"><span class="dot bio"></span> BIO 150 <span class="badge needs" style="margin-left:auto;">needs you</span></div>
-          <div class="title">Lab report: Osmosis</div>
-          <div class="bottom">you attach the file</div>
-        </div>
-      </div>
-      <div class="day-col">
-        <div class="dh"><span>Wed</span><span class="n">Oct 8</span></div>
-        <div class="assn card">
-          <div class="top"><span class="dot psy"></span> PSY 101 <span class="badge soft" style="margin-left:auto;">yours</span></div>
-          <div class="title">Reading quiz: Ch. 6</div>
-          <div class="bottom">cute try</div>
-        </div>
-        <div class="assn card">
-          <div class="top"><span class="dot eng"></span> ENG 102</div>
-          <div class="title">Peer review draft</div>
-          <div class="bottom">due 11:59</div>
-        </div>
-      </div>
-      <div class="day-col">
-        <div class="dh"><span>Thu</span><span class="n">Oct 9</span></div>
-        <div class="day-empty">nothing due —<br>good study day ✎</div>
-      </div>
-      <div class="day-col">
-        <div class="dh"><span>Fri</span><span class="n">Oct 10</span></div>
-        <div class="assn card">
-          <div class="top"><span class="dot psy"></span> PSY 101</div>
-          <div class="title">Midterm exam</div>
-          <div class="bottom">that's you</div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="block" id="trust">
-    <p class="kicker">Why this isn’t weird</p>
-    <h2>You can see me. That’s the point.</h2>
-    <p class="lead">No hide button. No “trust me bro.” If a class bans this, don’t run it there. I’m funny. I’m not your alibi.</p>
-    <div class="feats trust-feats">
-      <article class="feat card">
-        <div class="n">quizzes</div>
-        <h3>I don’t do tests.</h3>
-        <p>Homework, yes. The quiz, the midterm, the thing with a timer — that’s you. I will sit there looking helpful and refuse.</p>
-      </article>
-      <article class="feat card">
-        <div class="n">passwords</div>
-        <h3>I have never seen a password.</h3>
-        <p>You type those. I look away. I do not keep them. I would be a terrible vault and I know that about myself.</p>
-      </article>
-      <article class="feat card">
-        <div class="n">submit</div>
-        <h3>The last click is yours.</h3>
-        <p>I write. I stop. You read it. You hit submit. Your name goes on it because it is still your week.</p>
-      </article>
-    </div>
-  </section>
-
-  <section class="block" id="sites">
-    <p class="kicker">Your classes</p>
-    <h2>Canvas. Moodle. The weird one.</h2>
-    <p class="lead">If you can open it, I can try it. Including the extra login your TA forgot to mention.</p>
-    <div class="sites">
-      <span class="site-chip">Canvas</span>
-      <span class="site-chip">Moodle</span>
-      <span class="site-chip">Google Classroom</span>
-      <span class="site-chip">Blackboard</span>
-      <span class="site-chip">WebAssign</span>
-      <span class="site-chip">Pearson</span>
-      <span class="site-chip">Gradescope</span>
-      <span class="site-chip">McGraw Hill</span>
-      <span class="site-chip">zyBooks</span>
-      <span class="site-chip muted">the weird one</span>
-    </div>
-  </section>
+    </section>
   </div>
 
-  <section class="wait-block card" id="wait">
-    <p class="kicker">Seats</p>
-    <h2>Get a seat.</h2>
-    <p class="sub">Campus email. I’ll save you one. Then go do something that isn’t a lab report.</p>
-    <form class="form-block" data-waitlist novalidate>
-      <label class="field">Campus email
-        <input name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@school.edu">
-      </label>
-      <div class="form-row">
-        <button type="submit" class="btn primary">Save me a seat</button>
-      </div>
-    </form>
-    <p class="ok-msg">You’re on the list. I’ll wait.</p>
-  </section>
-
-  <section class="faq" id="faq">
-    <h2>The obvious questions</h2>
-    <p class="lead">Short answers. If a class bans this, don’t run it there.</p>
-    <details>
-      <summary>Is this cheating?</summary>
-      <p>That’s your syllabus. I don’t hide. If a class bans this, don’t run it there.</p>
-    </details>
-    <details>
-      <summary>Will you take my quiz?</summary>
-      <p>Nope. Homework, yes. Tests stay yours. Cute try though.</p>
-    </details>
-    <details>
-      <summary>Do you see my password?</summary>
-      <p>No. You type those. I look away. I do not keep them.</p>
-    </details>
-    <details>
-      <summary>Will you submit for me?</summary>
-      <p>Not unless you ask. I write. You click the scary button.</p>
-    </details>
-    <details>
-      <summary>Can my professor tell?</summary>
-      <p>I work where you work. Typed text looks like typed text. There is no stealth mode. Don’t use me where I’m not allowed.</p>
-    </details>
-    <details>
-      <summary>How do I get in?</summary>
-      <p>Campus email. I’ll save you a seat.</p>
-    </details>
-  </section>
-
   <div class="wrap">
+    <section class="wait-block card" id="wait">
+      <p class="kicker">Seats</p>
+      <h2>Get a seat.</h2>
+      <p class="sub">Campus email. I’ll save you one and email you once when it opens. Then go do something that isn’t a lab report.</p>
+      <div class="form-block">
+        <form class="join" data-waitlist novalidate>
+          <label class="visually-hidden" for="wait-email">Campus email</label>
+          <div class="row">
+            <input id="wait-email" name="email" type="email" required autocomplete="email" inputmode="email" placeholder="you@school.edu">
+            <button type="submit" class="btn primary">Save me a seat</button>
+          </div>
+          <p class="fine">No newsletter. No sharing. Just the invite.</p>
+        </form>
+        <p class="ok-msg">You’re on the list. I’ll email you once, when your seat opens.</p>
+      </div>
+      <div class="steps" aria-label="What happens next">
+        <div class="step"><div class="k">1 · now</div><p>You drop your campus email here.</p></div>
+        <div class="step"><div class="k">2 · soon</div><p>I email you once when a seat opens.</p></div>
+        <div class="step"><div class="k">3 · then</div><p>You open Studi. I meet your week.</p></div>
+      </div>
+    </section>
+
+    <section class="faq" id="faq">
+      <h2>The obvious questions</h2>
+      <p class="lead">Short answers. Honest ones.</p>
+      <details>
+        <summary>Is this cheating?</summary>
+        <p>That depends on your syllabus, and I mean that. I don’t hide. Everything I do happens where you can watch it. If a class bans this kind of help, don’t run me there.</p>
+      </details>
+      <details>
+        <summary>Will you take my quiz?</summary>
+        <p>No. Quizzes, tests, and exams stay yours. Essays, problem sets, reports, the stuff with a due date and no timer, those I’ll take a swing at.</p>
+      </details>
+      <details>
+        <summary>Do you see my password?</summary>
+        <p>No. You sign in to your school yourself. I look away, and I don’t keep anything you type there.</p>
+      </details>
+      <details>
+        <summary>Will you submit for me?</summary>
+        <p>No. I write and then I stop. You read it, change what you want, and hit submit yourself. The work waits on the page until you do.</p>
+      </details>
+      <details>
+        <summary>Can my professor tell?</summary>
+        <p>I don’t have a stealth mode and I won’t pretend I do. Typed text is typed text. Use me where you’re allowed, and read what I wrote before you send it.</p>
+      </details>
+      <details>
+        <summary>Where does my stuff live?</summary>
+        <p>Your classes, drafts, and school pages stay on your computer. The cloud holds your account and your email. That’s it.</p>
+      </details>
+      <details>
+        <summary>When do I get in?</summary>
+        <p>Seats open in small batches so I can keep up. Your campus email gets you in line, and I email you once when yours is ready.</p>
+      </details>
+    </section>
+
     <section class="end-band block">
       <h2>Get a seat before the week starts.</h2>
+      <p>Your homework isn’t going anywhere. I could be.</p>
       <a class="btn primary" href="#wait">Get a seat</a>
     </section>
   </div>
 
-  <p class="foot">Hi. I’m Inky. · <a href="mission.html">Mission</a></p>
+  <p class="foot">Hi. I’m Inky. <span class="sep">·</span> <a href="mission.html">Mission</a> <span class="sep">·</span> <a href="#wait">Waitlist</a></p>
 </main>
 
 <script src="inky.js"></script>
@@ -1261,181 +834,80 @@
 <script>
 (function () {
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const root = document.documentElement;
-  const clock = document.getElementById("os-clock");
+  const $ = (id) => document.getElementById(id);
 
-  function lerp(a, b, t) { return a + (b - a) * t; }
-  function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
-  function ease(t) { return 1 - Math.pow(1 - t, 3); }
+  const ESSAY_1 = "The wartime alliance did not survive the peace. By 1946, two occupation zones and two stories about who won were already hardening into policy.";
+  const ESSAY_2 = "The question is not who started the Cold War. It is how two winners talked themselves into being enemies, and how quickly each decided the other had planned it all along.";
 
-  function tickClock() {
-    const d = new Date();
-    const days = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
-    let h = d.getHours();
-    const m = String(d.getMinutes()).padStart(2, "0");
-    const am = h >= 12 ? "PM" : "AM";
-    h = h % 12 || 12;
-    clock.textContent = days[d.getDay()] + "  " + h + ":" + m + " " + am;
-  }
-  tickClock();
-  window.setInterval(tickClock, 30000);
-
-  let progress = 0;
-  const SHRINK = 780;
-
-  function applyProgress(next) {
-    progress = clamp(next, 0, 1);
-    const t = reduce ? 1 : ease(progress);
-    const mobile = window.innerWidth < 860;
-    root.style.setProperty("--nav-o", String(t));
-    root.style.setProperty("--inset-t", lerp(0, mobile ? 58 : 62, t) + "px");
-    root.style.setProperty("--inset-x", lerp(0, mobile ? 12 : 28, t) + "px");
-    root.style.setProperty("--inset-b", lerp(0, mobile ? 10 : 16, t) + "px");
-    root.style.setProperty("--radius", lerp(0, 22, t) + "px");
-    root.style.setProperty("--win-w", lerp(mobile ? 92 : 78, 94, t) + "%");
-    root.style.setProperty("--win-h", lerp(mobile ? 72 : 72, 84, t) + "%");
-    root.style.setProperty("--hint-o", String(Math.max(0, 1 - t * 1.4)));
-    const locked = !reduce && progress < 1;
-    root.classList.toggle("is-locking", locked);
-    root.classList.toggle("is-min", t > 0.92);
-    if (locked) window.scrollTo(0, 0);
-  }
-
-  function onWheel(event) {
-    if (reduce) return;
-    const down = event.deltaY > 0;
-    if (progress < 1) {
-      event.preventDefault();
-      applyProgress(progress + event.deltaY / SHRINK);
-      return;
-    }
-    if (progress >= 1 && window.scrollY <= 0 && !down) {
-      event.preventDefault();
-      applyProgress(progress + event.deltaY / SHRINK);
-    }
-  }
-
-  let touchY = 0;
-  function onTouchStart(event) {
-    touchY = event.touches[0] ? event.touches[0].clientY : 0;
-  }
-  function onTouchMove(event) {
-    if (reduce || !event.touches[0]) return;
-    const y = event.touches[0].clientY;
-    const delta = touchY - y;
-    touchY = y;
-    if (progress < 1) {
-      event.preventDefault();
-      applyProgress(progress + delta / SHRINK);
-      return;
-    }
-    if (progress >= 1 && window.scrollY <= 0 && delta < 0) {
-      event.preventDefault();
-      applyProgress(progress + delta / SHRINK);
-    }
-  }
-
-  window.addEventListener("wheel", onWheel, { passive: false });
-  window.addEventListener("touchstart", onTouchStart, { passive: true });
-  window.addEventListener("touchmove", onTouchMove, { passive: false });
-  window.addEventListener("keydown", (event) => {
-    if (reduce || progress >= 1) return;
-    const keys = ["ArrowDown", "PageDown", " ", "Spacebar"];
-    const up = ["ArrowUp", "PageUp"];
-    if (keys.includes(event.key)) {
-      event.preventDefault();
-      applyProgress(progress + 0.18);
-    } else if (up.includes(event.key)) {
-      event.preventDefault();
-      applyProgress(progress - 0.18);
-    }
-  });
-  window.addEventListener("resize", () => applyProgress(progress));
-  document.addEventListener("click", (event) => {
-    const link = event.target.closest('a[href^="#"]');
-    if (!link || reduce) return;
-    applyProgress(1);
-  });
-  applyProgress(reduce ? 1 : 0);
-
-  const ESSAY = "The wartime alliance did not survive the peace. By 1946, two occupation zones and two stories about who won were already hardening into policy. The question is not who started the Cold War. It is how two winners talked themselves into being enemies.";
   const BEATS = [
     {
-      id: "hi", view: "is-hello", inky: "hello", hold: 0, page: "",
+      view: "is-hello", inky: "hello", hold: 3400, page: "",
       say: "Hi. I’m Inky.",
       text: "I do your homework. The 11:59 kind. The one you’ve been staring at since Tuesday.",
-      replies: [{ label: "okay show me", go: 1 }]
+      replies: [{ label: "okay, show me", go: 1 }]
     },
     {
-      id: "week", view: "is-week", inky: "idle", hold: 0, page: "",
-      say: "That essay is staring.",
-      text: "Want me to take it? I don’t do quizzes. Cute try though.",
+      view: "is-week", inky: "idle", hold: 4200, page: "",
+      say: "That essay is staring at you.",
+      text: "Want me to take it? Not the quiz. Cute try though.",
       replies: [{ label: "Make Inky do this", go: 2 }]
     },
     {
-      id: "work", view: "is-desk", inky: "working", hold: 7800, page: "essay", drive: true,
+      view: "is-desk", inky: "working", hold: 8200, page: "essay", drive: true,
       say: "Don’t mind me.",
-      text: "I’m in the box. Steal the page whenever.",
-      replies: [{ label: "then what?", go: 3 }]
+      text: "I’m in the box. Take the page back whenever you like.",
+      replies: [{ label: "skip ahead", go: 3, ghost: true }]
     },
     {
-      id: "review", view: "is-desk", inky: "waiting", hold: 0, page: "review",
+      view: "is-desk", inky: "waiting", hold: 0, page: "review",
       say: "Wrote it.",
       text: "I’m not clicking Submit. That’s your whole personality.",
       replies: [
-        { label: "I want in", go: 4 },
-        { label: "again", go: 1, ghost: true }
+        { label: "Save me a seat", href: "#wait" },
+        { label: "play again", go: 0, ghost: true }
       ]
-    },
-    {
-      id: "join", view: "is-desk", inky: "hello", hold: 0, page: "review", form: true,
-      say: "Cool.",
-      text: "Campus email. I’ll save you a seat.",
-      replies: [{ label: "see the rest", href: "#week", ghost: true }]
     }
   ];
 
-  const S = { beat: 0, paused: false, asking: false };
+  const S = { beat: 0, paused: false, asking: false, auto: true, visible: true };
   let turning = false;
   let autoTimer = 0;
   let typeTimer = 0;
   let toastTimer = 0;
-  const $ = (id) => document.getElementById(id);
 
-  function canvasPage(done) {
-    const submit = done
-      ? `<button type="button" class="cv-submit">Submit Assignment</button>`
-      : `<button type="button" class="cv-submit" disabled>Submit Assignment</button>`;
+  function lmsPage(done) {
+    const submit = `<button type="button" class="lms-submit"${done ? "" : " disabled"}>Submit Assignment</button>`;
     const box = done
-      ? `<p class="typed done">${ESSAY}</p>`
+      ? `<p class="typed done">${ESSAY_1}</p><p class="typed done">${ESSAY_2}</p>`
       : `<p class="typed" id="typed"></p>`;
     return `
-      <div class="cv">
-        <div class="cv-nav">
-          <span class="cv-logo">Canvas</span>
+      <div class="lms">
+        <div class="lms-nav">
+          <span class="lms-logo">Ridgeway</span>
           <span class="dim">Dashboard</span>
           <span class="on">Courses</span>
           <span class="dim">Calendar</span>
           <span class="dim">Inbox</span>
-          <span class="cv-spacer"></span>
-          <span class="cv-avatar">MR</span>
+          <span class="lms-spacer"></span>
+          <span class="lms-avatar">MR</span>
         </div>
-        <div class="cv-course">HIST 210 · Europe since 1945</div>
-        <div class="cv-crumb">Courses / HIST 210 / Assignments / Causes of the Cold War</div>
-        <h3 class="cv-title">Causes of the Cold War</h3>
-        <div class="cv-meta">
-          <span>Due May 3 at 11:59pm</span>
+        <div class="lms-course">HIST 210 · Europe since 1945 · Fall</div>
+        <div class="lms-crumb">Courses / HIST 210 / Assignments / Causes of the Cold War</div>
+        <h3 class="lms-title">Causes of the Cold War</h3>
+        <div class="lms-meta">
+          <span>Due Oct 6 at 11:59pm</span>
           <span>100 pts</span>
-          <span>Text Entry</span>
+          <span>Text entry</span>
+          <span>Attempts: 1</span>
         </div>
-        <div class="cv-body">
-          <p class="cv-prompt">Write 1,200 words on the origins of the Cold War. Use at least two primary sources from lecture.</p>
-          <div class="cv-editor">
-            <div class="cv-tools">B &nbsp; I &nbsp; U &nbsp; · &nbsp; ¶ &nbsp; ≡ &nbsp; 🔗</div>
-            <div class="cv-box">${box}</div>
+        <div class="lms-body">
+          <p class="lms-prompt">Write 1,200 words on the origins of the Cold War. Use at least two primary sources from lecture and cite them in Chicago style.</p>
+          <div class="lms-editor">
+            <div class="lms-tools">B &nbsp; I &nbsp; U &nbsp; · &nbsp; ¶ &nbsp; ≡ &nbsp; 🔗</div>
+            <div class="lms-box">${box}</div>
           </div>
-          <div class="cv-actions">
-            <button type="button" class="cv-ghost">Save Draft</button>
+          <div class="lms-actions">
+            <button type="button" class="lms-ghost">Save draft</button>
             ${submit}
           </div>
         </div>
@@ -1468,22 +940,24 @@
     stopType();
     const el = $("typed");
     if (!el) return;
-    if (reduce) { el.textContent = ESSAY; el.classList.add("done"); return; }
+    if (reduce) { el.textContent = ESSAY_1; el.classList.add("done"); return; }
     let i = 0;
     el.textContent = "";
     el.classList.remove("done");
     typeTimer = window.setInterval(() => {
-      if (S.paused) return;
+      if (S.paused || !S.visible) return;
       i += 1;
-      el.textContent = ESSAY.slice(0, i);
-      if (i >= ESSAY.length) { stopType(); el.classList.add("done"); }
-    }, 18);
+      el.textContent = ESSAY_1.slice(0, i);
+      if (i >= ESSAY_1.length) { stopType(); el.classList.add("done"); }
+    }, 22);
   }
 
   function clearAuto() { window.clearTimeout(autoTimer); autoTimer = 0; }
-  function scheduleAuto(beat) {
+  function scheduleAuto() {
     clearAuto();
-    if (reduce || !beat.hold || S.paused) return;
+    const beat = BEATS[S.beat];
+    if (reduce || !beat.hold || S.paused || !S.visible) return;
+    if (!S.auto && !beat.drive) return;
     autoTimer = window.setTimeout(() => go(S.beat + 1), beat.hold);
   }
 
@@ -1495,27 +969,29 @@
   }
 
   function showPage(kind) {
-    if (!kind) {
-      $("page").innerHTML = "";
-      stopType();
-      return;
-    }
-    $("page").innerHTML = canvasPage(kind === "review");
-    if (kind === "essay") startType();
-    else stopType();
+    if (!kind) { $("page").innerHTML = ""; stopType(); return; }
+    $("page").innerHTML = lmsPage(kind === "review");
+    if (kind === "essay") startType(); else stopType();
+  }
+
+  function paintRail() {
+    document.querySelectorAll(".rail [data-beat]").forEach((b) => {
+      const n = Number(b.dataset.beat);
+      b.classList.toggle("on", n === S.beat);
+      b.classList.toggle("done", n < S.beat);
+      b.setAttribute("aria-pressed", n === S.beat ? "true" : "false");
+    });
   }
 
   function paint() {
     const beat = BEATS[S.beat];
     S.asking = false;
-    if (beat.view !== "is-desk" || !beat.drive) S.paused = false;
+    if (!beat.drive) S.paused = false;
     $("stage").className = "stage " + beat.view;
     $("week-nav").classList.toggle("on", beat.view === "is-week");
     $("desk-toggle").classList.toggle("on", beat.view === "is-desk");
-    const dot = $("desk-dot");
-    dot.className = "desk-dot" + (beat.drive && !S.paused ? " working" : beat.view === "is-desk" ? " needs" : "");
-    setInky("inky", S.paused ? "waiting" : beat.inky, 200);
-    setInky("week-inky", beat.view === "is-week" ? "idle" : "idle", 64);
+    $("desk-dot").className = "desk-dot" + (beat.drive && !S.paused ? " working" : beat.view === "is-desk" ? " needs" : "");
+    setInky("inky", S.paused ? "waiting" : beat.inky, 190);
     showPage(beat.page);
     setDrive(!!beat.drive && !S.paused);
     const bubble = speechHtml(beat);
@@ -1523,15 +999,13 @@
     $("replies").innerHTML = replyHtml(beat.replies);
     $("week-speech").innerHTML = bubble;
     $("week-replies").innerHTML = replyHtml(beat.replies);
-    $("join-form").hidden = !beat.form;
-    if (beat.form && window.StudiWaitlist && window.StudiWaitlist.joined()) {
-      window.StudiWaitlist.paintJoined(document);
-    }
+    paintRail();
     requestAnimationFrame(() => $("copy").classList.remove("turning"));
-    scheduleAuto(beat);
+    scheduleAuto();
   }
 
-  function go(n) {
+  function go(n, byUser) {
+    if (byUser) S.auto = false;
     if (turning || n === S.beat || n < 0 || n >= BEATS.length) return;
     turning = true;
     clearAuto();
@@ -1558,10 +1032,12 @@
     if (!beat.drive) return;
     S.paused = true;
     S.asking = false;
+    S.auto = false;
     clearAuto();
     setDrive(false);
-    setInky("inky", "waiting", 200);
-    $("bubbles").innerHTML = `<div class="speech"><span class="tail" aria-hidden="true"></span><div class="line">All yours.</div><div>I’ll hover. Tap keep going if you want me back in the box.</div></div>`;
+    $("desk-dot").className = "desk-dot needs";
+    setInky("inky", "waiting", 190);
+    $("bubbles").innerHTML = `<div class="speech"><span class="tail" aria-hidden="true"></span><div class="line">All yours.</div><div>I’ll hover. Tap “keep going” when you want me back in the box.</div></div>`;
     $("replies").innerHTML = `<button type="button" class="btn primary" data-keep>keep going</button>`;
   }
 
@@ -1572,49 +1048,62 @@
     if (!S.paused || !beat.drive) return;
     S.paused = false;
     setDrive(true);
-    setInky("inky", "working", 200);
+    $("desk-dot").className = "desk-dot working";
+    setInky("inky", "working", 190);
     $("bubbles").innerHTML = `<div class="speech">${speechHtml(beat)}</div>`;
     $("replies").innerHTML = replyHtml(beat.replies);
     if (!$("typed")) showPage("essay");
-    scheduleAuto(beat);
+    scheduleAuto();
   }
 
   document.addEventListener("click", (e) => {
-    if (e.target.closest("[data-desk]")) {
-      go(S.beat >= 2 ? 1 : 2);
-      return;
-    }
-    if (e.target.closest("[data-nope]")) {
-      showToast("Cute. That’s a you problem.");
-      return;
-    }
+    const rail = e.target.closest(".rail [data-beat]");
+    if (rail) { go(Number(rail.dataset.beat), true); return; }
+    if (e.target.closest("[data-desk]")) { go(S.beat >= 2 ? 1 : 2, true); return; }
+    if (e.target.closest("[data-nope]")) { showToast("Cute. That one’s a you problem."); return; }
     if (e.target.closest("[data-ask]")) {
       if (!BEATS[S.beat].drive || S.paused) return;
       S.asking = true;
       $("drive-ask").hidden = false;
       return;
     }
-    if (e.target.closest("[data-takeover]")) {
-      takeover();
-      return;
-    }
-    if (e.target.closest("[data-keep]")) {
-      keepGoing();
-      return;
-    }
+    if (e.target.closest("[data-takeover]")) { takeover(); return; }
+    if (e.target.closest("[data-keep]")) { keepGoing(); return; }
     const next = e.target.closest("[data-go]");
-    if (next) go(Number(next.dataset.go));
+    if (next) { go(Number(next.dataset.go), true); return; }
+
+    const seat = e.target.closest('a[href="#wait"]');
+    if (seat) {
+      window.setTimeout(() => {
+        const input = document.querySelector("#wait input[type='email']");
+        if (input && !input.closest("[hidden]")) input.focus({ preventScroll: true });
+      }, reduce ? 0 : 500);
+    }
   });
 
   $("command-input").addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      go(2);
-    }
+    if (e.key === "Enter") { e.preventDefault(); go(2, true); }
+  });
+
+  if ("IntersectionObserver" in window) {
+    const io = new IntersectionObserver((entries) => {
+      S.visible = entries.some((en) => en.isIntersecting);
+      if (S.visible) scheduleAuto(); else clearAuto();
+    }, { threshold: 0.35 });
+    io.observe(document.querySelector(".scene"));
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearAuto(); else scheduleAuto();
   });
 
   if (window.StudiWaitlist) window.StudiWaitlist.bind(document);
 
+  // Review aid: landing.html?beat=2 opens the demo on that step and holds it there.
+  const startBeat = Number(new URLSearchParams(window.location.search).get("beat"));
+  if (Number.isInteger(startBeat) && startBeat > 0 && startBeat < BEATS.length) {
+    S.beat = startBeat;
+    S.auto = false;
+  }
   paint();
 })();
 </script>

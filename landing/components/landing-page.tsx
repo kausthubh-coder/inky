@@ -1,562 +1,840 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import wallpaper from "../designs/wallpaper.png";
+import type { InkyState } from "../lib/inky";
 import { InkyMascot } from "./inky-mascot";
 import { WaitlistForm } from "./waitlist-form";
-import type { InkyState } from "../lib/inky";
 
-const ESSAY =
+const ESSAY_OPENING =
   "The wartime alliance did not survive the peace. By 1946, two occupation zones and two stories about who won were already hardening into policy.";
+const ESSAY_ENDING =
+  "The question is not who started the Cold War. It is how two winners talked themselves into being enemies, and how quickly each decided the other had planned it all along.";
 
-const FAQ = {
-  quizzes: { q: "Quizzes?", say: "Quizzes stay yours.", text: "I will not start them or click through them. Study guides, yes. The test itself, no." },
-  passwords: { q: "Passwords?", say: "Not in Studi.", text: "You log in inside the school browser. Those credentials never leave that window." },
-  submit: { q: "Will it submit?", say: "Not unless you say so.", text: "Default is I attempt the work, you hit submit. Auto-submit is a switch you turn on." },
-} as const;
-
-type Beat = {
-  id: string;
+type DemoBeat = {
+  view: "is-hello" | "is-week" | "is-desk";
   inky: InkyState;
-  pill: string;
-  desk: boolean;
   hold: number;
+  page?: "essay" | "review";
+  driving?: boolean;
   say: string;
   text: string;
-  url?: string;
-  badge?: string;
-  page?: "essay" | "login";
-  replies: readonly { label: string; go: number; ghost: boolean }[];
+  replies: readonly {
+    label: string;
+    beat?: number;
+    href?: string;
+    secondary?: boolean;
+  }[];
 };
 
-const BEATS: readonly Beat[] = [
+const DEMO_BEATS: readonly DemoBeat[] = [
   {
-    id: "hi",
+    view: "is-hello",
+    inky: "hello",
+    hold: 3400,
+    say: "Hi. I’m Inky.",
+    text: "I do your homework. The 11:59 kind. The one you’ve been staring at since Tuesday.",
+    replies: [{ label: "okay, show me", beat: 1 }],
+  },
+  {
+    view: "is-week",
     inky: "idle",
-    pill: "talking",
-    desk: false,
-    hold: 0,
-    say: "It does your homework for you.",
-    text: "I’m Inky. I’ll do it in a school browser you can watch. Click around. Scroll when you want the rest.",
-    replies: [{ label: "Show me", go: 1, ghost: false }],
+    hold: 4200,
+    say: "That essay is staring at you.",
+    text: "Want me to take it? Not the quiz. Cute try though.",
+    replies: [{ label: "Make Inky do this", beat: 2 }],
   },
   {
-    id: "work",
+    view: "is-desk",
     inky: "working",
-    pill: "on it",
-    desk: true,
-    hold: 5200,
-    say: "Watch.",
-    text: "One browser. One assignment. Maya’s Cold War essay. Stop me whenever.",
-    url: "canvas.university.edu / HIST 210 / essay",
-    badge: "working",
+    hold: 8200,
     page: "essay",
-    replies: [{ label: "Keep watching", go: 2, ghost: false }],
+    driving: true,
+    say: "Don’t mind me.",
+    text: "I’m in the box. Take the page back whenever you like.",
+    replies: [{ label: "skip ahead", beat: 3, secondary: true }],
   },
   {
-    id: "need",
-    inky: "needs",
-    pill: "needs you",
-    desk: true,
+    view: "is-desk",
+    inky: "waiting",
     hold: 0,
-    say: "Your turn.",
-    text: "WebAssign wants a login. I don’t type school passwords. Quizzes I leave alone.",
-    url: "webassign.net / calc1 / login",
-    badge: "needs",
-    page: "login",
-    replies: [{ label: "That’s the idea", go: 0, ghost: true }],
+    page: "review",
+    say: "Wrote it.",
+    text: "I’m not clicking Submit. That’s your whole personality.",
+    replies: [
+      { label: "Save me a seat", href: "#wait" },
+      { label: "play again", beat: 0, secondary: true },
+    ],
   },
 ] as const;
 
-function lerp(a: number, b: number, t: number) {
-  return a + (b - a) * t;
-}
-function clamp(n: number, a: number, b: number) {
-  return Math.max(a, Math.min(b, n));
-}
-function ease(t: number) {
-  return 1 - (1 - t) ** 3;
-}
+const TRUST = [
+  {
+    label: "passwords",
+    title: "I’ve never seen one.",
+    copy: "You sign in to your school yourself. I look away, and I don’t keep anything you type there. I’d be a terrible vault and I know that about myself.",
+  },
+  {
+    label: "tests",
+    title: "Not mine to take.",
+    copy: "Quizzes, midterms, anything with a timer. I sit there looking helpful and refuse. That part is yours, and it should be.",
+  },
+  {
+    label: "submit",
+    title: "The last click is yours.",
+    copy: "I never hit submit. You read what I wrote, change what you want, and put your name on it. It is still your week.",
+  },
+  {
+    label: "your stuff",
+    title: "It stays with you.",
+    copy: "Your classes, drafts, and school pages live on your computer. The cloud gets your account and this email address. That’s it.",
+  },
+  {
+    label: "your syllabus",
+    title: "It still wins.",
+    copy: "If a class bans this kind of help, don’t run me there. I’m useful. I’m not your alibi.",
+  },
+  {
+    label: "honesty",
+    title: "I’m new. I’ll say so.",
+    copy: "This is a small private beta. Sometimes I’ll get stuck, and when I do I’ll stop and tell you instead of pretending I finished.",
+  },
+] as const;
 
-function formatClock(date: Date) {
-  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  let hour = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const am = hour >= 12 ? "PM" : "AM";
-  hour = hour % 12 || 12;
-  return `${days[date.getDay()]}  ${hour}:${minutes} ${am}`;
-}
+const FAQ = [
+  [
+    "Is this cheating?",
+    "That depends on your syllabus, and I mean that. I don’t hide. Everything I do happens where you can watch it. If a class bans this kind of help, don’t run me there.",
+  ],
+  [
+    "Will you take my quiz?",
+    "No. Quizzes, tests, and exams stay yours. Essays, problem sets, reports, the stuff with a due date and no timer, those I’ll take a swing at.",
+  ],
+  [
+    "Do you see my password?",
+    "No. You sign in to your school yourself. I look away, and I don’t keep anything you type there.",
+  ],
+  [
+    "Will you submit for me?",
+    "No. I write and then I stop. You read it, change what you want, and hit submit yourself. The work waits on the page until you do.",
+  ],
+  [
+    "Can my professor tell?",
+    "I don’t have a stealth mode and I won’t pretend I do. Typed text is typed text. Use me where you’re allowed, and read what I wrote before you send it.",
+  ],
+  [
+    "Where does my stuff live?",
+    "Your classes, drafts, and school pages stay on your computer. The cloud holds your account and your email. That’s it.",
+  ],
+  [
+    "When do I get in?",
+    "Seats open in small batches so I can keep up. Your campus email gets you in line, and I email you once when yours is ready.",
+  ],
+] as const;
+
+const SITES = [
+  "Canvas",
+  "Moodle",
+  "Google Classroom",
+  "Blackboard",
+  "WebAssign",
+  "Pearson",
+  "Gradescope",
+  "McGraw Hill",
+  "zyBooks",
+] as const;
 
 export function LandingPage() {
-  const [beat, setBeat] = useState(0);
-  const [faq, setFaq] = useState<keyof typeof FAQ | null>(null);
-  const [typed, setTyped] = useState("");
-  const [clock, setClock] = useState("");
-  const [turning, setTurning] = useState(false);
-
-  const current = BEATS[beat] ?? BEATS[0];
-
-  useEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const pin = document.getElementById("pin");
-    const root = document.documentElement;
-
-    function applyScroll() {
-      if (!pin) return;
-      if (reduce) {
-        root.style.setProperty("--nav-o", "1");
-        root.classList.add("is-min");
-        return;
-      }
-      const range = Math.max(1, pin.offsetHeight - window.innerHeight);
-      const t = ease(clamp(window.scrollY / range, 0, 1));
-      const mobile = window.innerWidth < 860;
-      root.style.setProperty("--nav-o", String(t));
-      root.style.setProperty("--inset-t", `${lerp(0, mobile ? 58 : 62, t)}px`);
-      root.style.setProperty("--inset-x", `${lerp(0, mobile ? 12 : 28, t)}px`);
-      root.style.setProperty("--inset-b", `${lerp(0, mobile ? 10 : 16, t)}px`);
-      root.style.setProperty("--radius", `${lerp(0, 22, t)}px`);
-      root.style.setProperty("--win-w", `${lerp(mobile ? 88 : 68, 92, t)}%`);
-      root.style.setProperty("--win-h", `${lerp(mobile ? 68 : 64, 82, t)}%`);
-      root.style.setProperty("--hint-o", String(Math.max(0, 1 - t * 1.4)));
-      root.classList.toggle("is-min", t > 0.55);
-    }
-
-    let raf = 0;
-    function onScroll() {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        raf = 0;
-        applyScroll();
-      });
-    }
-
-    applyScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", applyScroll);
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", applyScroll);
-    };
-  }, []);
-
-  useEffect(() => {
-    const tick = () => setClock(formatClock(new Date()));
-    tick();
-    const id = window.setInterval(tick, 30_000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  useEffect(() => {
-    if (current.page !== "essay") {
-      setTyped("");
-      return;
-    }
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) {
-      setTyped(ESSAY);
-      return;
-    }
-    let i = 0;
-    const id = window.setInterval(() => {
-      i += 1;
-      setTyped(ESSAY.slice(0, i));
-      if (i >= ESSAY.length) window.clearInterval(id);
-    }, 22);
-    return () => window.clearInterval(id);
-  }, [current.page, beat]);
-
-  useEffect(() => {
-    if (!current.hold) return;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduce) return;
-    const id = window.setTimeout(() => go(beat + 1), current.hold);
-    return () => window.clearTimeout(id);
-  }, [beat, current.hold]);
-
-  function go(next: number) {
-    if (turning || next === beat || next < 0 || next >= BEATS.length) return;
-    setTurning(true);
-    setFaq(null);
-    window.setTimeout(() => {
-      setBeat(next);
-      window.setTimeout(() => setTurning(false), 280);
-    }, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 220);
-  }
-
-  const faqItem = faq ? FAQ[faq] : null;
+  const [joined, setJoined] = useState(false);
 
   return (
     <>
-      <header className="site-nav" id="site-nav">
-        <a className="wordmark" href="#">studi <span className="pencil">✎</span></a>
-        <div className="links">
-          <a href="#how">How it works</a>
-          <a href="#week">This week</a>
-          <a href="#rules">Rules</a>
+      <header className="site-nav">
+        <a className="wordmark" href="#top">
+          studi <span className="pencil">✎</span>
+        </a>
+        <nav className="links" aria-label="Page">
+          <a href="#what">Inky</a>
+          <a href="#trust">Trust</a>
+          <a href="/mission">Mission</a>
           <a href="#faq">FAQ</a>
-        </div>
-        <a className="btn primary cta" href="#wait">Join waitlist</a>
+        </nav>
+        <a className="cta" href="#wait">
+          Get a seat
+        </a>
       </header>
 
-      <div className="pin" id="pin">
-        <div className="sticky">
-          <div className="scene" id="scene">
-            <div className="wallpaper" aria-hidden="true">
-              <div className="stars" />
-              <div className="moon" />
-              <div className="hill a" />
-              <div className="hill b" />
-              <div className="hill c" />
+      <main id="top">
+        <div className="wrap">
+          <section className="hero" aria-labelledby="hero-title">
+            <div className="hero-copy">
+              <h1 id="hero-title">Hi. I’m Inky. I do your homework.</h1>
+              <p className="lead">
+                Studi puts your whole week on one board and lets me take the
+                assignment you’ve been avoiding, right where it lives, while
+                you watch. <strong>I write. You read it. You hit submit.</strong>
+              </p>
+              <WaitlistForm
+                emailId="hero-email"
+                joined={joined}
+                onJoined={() => setJoined(true)}
+                finePrint={
+                  <>
+                    Private beta, small batches. <strong>One email</strong> when
+                    your seat opens. I’ve never seen a password and tests stay
+                    yours.
+                  </>
+                }
+              />
             </div>
-            <div className="desk-icons" aria-hidden="true">
-              <div className="desk-icon"><span className="pic notes" />Notes</div>
-              <div className="desk-icon"><span className="pic folder" />School</div>
-            </div>
-            <div className="desk">
-              <div className="os-bar">
-                <span className="apple" aria-hidden="true" />
-                <span className="app-name">Studi</span>
-                <div className="menus"><span>File</span><span>Edit</span><span>View</span><span>Window</span></div>
-                <div className="spacer" />
-                <span className="clock">{clock}</span>
+            <div className="hero-inky" aria-hidden="true">
+              <div className="hero-inky-shadow">
+                <InkyMascot state="hello" size={220} />
               </div>
-              <div className="stage-area">
-                <div className="window" role="application" aria-label="Studi demo">
-                  <header className="titlebar">
-                    <div className="traffic" aria-hidden="true">
-                      <span className="tl close" />
-                      <span className="tl min" />
-                      <span className="tl max" />
+              <div className="say">
+                <span className="tail" />
+                <div className="line">See the email box?</div>
+                Campus email goes in it. I’ll save you a seat.
+              </div>
+            </div>
+          </section>
+
+          <Demo />
+
+          <section className="block" id="what">
+            <p className="kicker">Meet Inky</p>
+            <h2>Three things. I’m good at them.</h2>
+            <p className="lead">
+              No dashboards to learn. No prompts to write. Your classes show up,
+              you point at a card, and I get to work where you can see me.
+            </p>
+            <div className="features">
+              <article className="feature card">
+                <div className="n">your week</div>
+                <h3>I find what’s due and put it on one board.</h3>
+                <p>
+                  Essays, problem sets, lab reports, the quiz you forgot
+                  existed. Sorted by day, checked every morning, so it stops
+                  living in your head.
+                </p>
+                <div className="feature-visual mini-stack" aria-hidden="true">
+                  <div className="mini-assignment card">
+                    <div className="assignment-top">
+                      <span className="dot hist" /> HIST 210
+                      <span className="badge due">tonight</span>
                     </div>
-                    <a className="logo" href="#wait">studi <span className="pencil">✎</span></a>
-                    <span className="badge soft">{current.pill}</span>
-                    <div className="spacer" />
-                    <span className="badge">private beta</span>
-                    <div className="user"><div className="avatar">M</div> Maya</div>
-                  </header>
-                  <div className={`stage${current.desk ? " with-browser" : ""}`}>
-                    <section className="talk">
-                      <div className="inky-wrap">
-                        <InkyMascot state={current.inky} size={200} />
-                      </div>
-                      <div className={`copy${turning ? " turning" : ""}`}>
-                        <div className="who-row">talking to Inky</div>
-                        <div className="bubbles">
-                          <div className="speech">
-                            <span className="tail" aria-hidden="true" />
-                            <div className="line">{current.say}</div>
-                            <div>{current.text}</div>
-                          </div>
-                          {faqItem ? (
-                            <div className="speech faq-ans">
-                              <span className="tail" aria-hidden="true" />
-                              <div className="line">{faqItem.say}</div>
-                              <div>{faqItem.text}</div>
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className="replies">
-                          {current.replies.map((reply) => (
-                            <button
-                              key={reply.label}
-                              type="button"
-                              className={reply.ghost ? "btn" : "btn primary"}
-                              onClick={() => go(reply.go)}
-                            >
-                              {reply.label}
-                            </button>
-                          ))}
-                        </div>
-                        {current.desk && beat === 2 ? (
-                          <div className="asks on">
-                            {Object.entries(FAQ).map(([key, value]) => (
-                              <button
-                                key={key}
-                                type="button"
-                                className={faq === key ? "on" : ""}
-                                onClick={() => setFaq((currentFaq) => (currentFaq === key ? null : key as keyof typeof FAQ))}
-                              >
-                                {value.q}
-                              </button>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </section>
-                    <aside className="school" aria-label="School browser">
-                      <div className="school-label">
-                        <span>school browser · you sign in here</span>
-                        <span className={`badge ${current.badge ?? "waiting"}`}>{current.badge ?? current.pill}</span>
-                      </div>
-                      <div className="browser">
-                        <div className="bar">
-                          <span className="b-dot" />
-                          <span className="b-dot" />
-                          <span className="b-dot" />
-                          <span className="url">{current.url ?? "waiting for a school link"}</span>
-                        </div>
-                        <div className="page">
-                          {current.page === "essay" ? (
-                            <>
-                              <div className="lms-top">✎ University Canvas</div>
-                              <div className="essay-meta">ASSIGNMENT · 1,200 WORDS · HIST 210</div>
-                              <h3 className="essay-title">Causes of the Cold War</h3>
-                              <p className={`typed${typed === ESSAY ? " done" : ""}`}>{typed}</p>
-                            </>
-                          ) : current.page === "login" ? (
-                            <>
-                              <div className="lms-top">WebAssign · Cengage</div>
-                              <div className="login-card card">
-                                <h3>CALC 1 login</h3>
-                                <div className="sub">This is the school page. Not a Studi form.</div>
-                                <label>Username <input value="maya.r" readOnly autoComplete="off" /></label>
-                                <label>Password <input type="password" value="not-in-studi" readOnly autoComplete="off" /></label>
-                              </div>
-                            </>
-                          ) : (
-                            <p style={{ color: "var(--ink-faint)", fontWeight: 700 }}>School isn’t open yet.</p>
-                          )}
-                        </div>
-                      </div>
-                    </aside>
+                    <strong>Essay: Causes of the Cold War</strong>
+                    <small>due 11:59</small>
+                  </div>
+                  <div className="mini-assignment card">
+                    <div className="assignment-top">
+                      <span className="dot bio" /> BIO 150
+                      <span className="badge needs">needs you</span>
+                    </div>
+                    <strong>Lab report: Osmosis</strong>
+                    <small>you attach the file</small>
                   </div>
                 </div>
-              </div>
-              <div className="dock" aria-hidden="true">
-                <div className="dock-inner">
-                  <span className="dock-ico notes" />
-                  <span className="dock-ico folder" />
-                  <span className="dock-ico inky on" />
-                </div>
-              </div>
-              <div className="scroll-hint">scroll</div>
-            </div>
-          </div>
-          <div className="lede-hero">
-            <h1 className="display">It does your homework for you.</h1>
-            <p>A Windows app. One school browser you can watch. You keep logins and submit.</p>
-          </div>
-        </div>
-      </div>
+              </article>
 
-      <main className="page-rest">
-        <div className="wrap">
-          <section className="block" id="how">
-            <p className="kicker">How it works</p>
-            <h2>Open Studi. Watch it work. Submit when you’re ready.</h2>
-            <p className="lead">A Windows app with one school browser you can see. It finds what’s due, attempts the homework, and waits for you. Nothing happens in a tab you can’t watch.</p>
-            <div className="feats">
-              <article className="feat card">
-                <div className="n">01</div>
-                <h3>It finds the week</h3>
-                <p>Point it at Canvas, Moodle, Classroom, WebAssign — anything that loads in a browser. It scans while you watch and puts the week on a board. Incomplete scans stay incomplete. No fake checkmarks.</p>
+              <article className="feature card">
+                <div className="n">the assignment</div>
+                <h3>I take the one you’re avoiding.</h3>
+                <p>
+                  Say “Make Inky do this” and watch me work, right on the
+                  assignment page. Take it back whenever you want. I’m not
+                  sneaky. I’m just in the box.
+                </p>
+                <div className="feature-visual" aria-hidden="true">
+                  <div className="mini-page">
+                    <div className="bar" />
+                    <div className="line" />
+                    <div className="line short" />
+                    <div className="line" />
+                    <div className="line short" />
+                    <div className="mini-fade" />
+                    <div className="mini-driver">
+                      <span>Takeover</span>
+                      <InkyMascot state="steering" size={54} />
+                    </div>
+                  </div>
+                </div>
               </article>
-              <article className="feat card">
-                <div className="n">02</div>
-                <h3>It does one assignment</h3>
-                <p>It opens the real school page and types in the real box. One task at a time. You can stop it. There is no second hidden agent somewhere else.</p>
-              </article>
-              <article className="feat card">
-                <div className="n">03</div>
-                <h3>You hit submit</h3>
-                <p>Default is it attempts the work. You review. File uploads stay yours. Auto-submit exists — it’s a switch, and it’s off.</p>
-              </article>
-            </div>
-          </section>
 
-          <section className="block" id="week">
-            <p className="kicker">This week</p>
-            <h2>Homework on the board. Quizzes sitting there looking ignored.</h2>
-            <p className="lead">Studi is a week board plus one school browser. Essays get written. Problem sets get attempted. Quizzes and exams stay on the board so you don’t forget them — Studi will not open them.</p>
-            <div className="week-mock" aria-hidden="true">
-              <div className="day-col today">
-                <div className="dh"><span>Mon</span><span className="n">today</span></div>
-                <div className="assn card">
-                  <div className="top"><span className="dot hist" /> HIST 210 <span className="badge working" style={{ marginLeft: "auto" }}>on it</span></div>
-                  <div className="title">Essay: Causes of the Cold War</div>
-                  <div className="bottom">typing in Canvas · due tonight</div>
+              <article className="feature card">
+                <div className="n">you</div>
+                <h3>You stay the student.</h3>
+                <p>
+                  I write, then I stop. You read it, fix what you’d fix, and
+                  click the scary button yourself. Quizzes, tests, and exams
+                  stay yours. Cute try though.
+                </p>
+                <div className="feature-visual" aria-hidden="true">
+                  <div className="mini-submit">
+                    <span>Submit Assignment</span>
+                    <strong>← yours</strong>
+                  </div>
                 </div>
-                <div className="assn card">
-                  <div className="top"><span className="dot calc" /> CALC 1</div>
-                  <div className="title">Problem set 4</div>
-                  <div className="bottom">queued behind the essay</div>
-                </div>
-              </div>
-              <div className="day-col">
-                <div className="dh"><span>Tue</span><span className="n">Oct 7</span></div>
-                <div className="assn card">
-                  <div className="top"><span className="dot bio" /> BIO 150 <span className="badge needs" style={{ marginLeft: "auto" }}>needs you</span></div>
-                  <div className="title">Lab report: Osmosis</div>
-                  <div className="bottom">file upload is yours</div>
-                </div>
-              </div>
-              <div className="day-col">
-                <div className="dh"><span>Wed</span><span className="n">Oct 8</span></div>
-                <div className="assn card">
-                  <div className="top"><span className="dot psy" /> PSY 101 <span className="badge soft" style={{ marginLeft: "auto" }}>yours</span></div>
-                  <div className="title">Reading quiz: Ch. 6</div>
-                  <div className="bottom">Studi will not start this</div>
-                </div>
-                <div className="assn card">
-                  <div className="top"><span className="dot eng" /> ENG 102</div>
-                  <div className="title">Peer review draft</div>
-                  <div className="bottom">due 11:59</div>
-                </div>
-              </div>
-              <div className="day-col">
-                <div className="dh"><span>Thu</span><span className="n">Oct 9</span></div>
-                <div className="day-empty">nothing due —<br />good study day ✎</div>
-              </div>
-              <div className="day-col">
-                <div className="dh"><span>Fri</span><span className="n">Oct 10</span></div>
-                <div className="assn card">
-                  <div className="top"><span className="dot psy" /> PSY 101</div>
-                  <div className="title">Midterm exam</div>
-                  <div className="bottom">in class · study guide, yes</div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section className="block" id="does">
-            <p className="kicker">What it will and won’t</p>
-            <h2>Homework, yes. The test, no.</h2>
-            <p className="lead">It works wherever the assignment lives in a browser. It does not take over your whole education. You still sit the exam.</p>
-            <div className="do-grid">
-              <article className="do-col yes card">
-                <h3>It will attempt</h3>
-                <ul>
-                  <li><span className="mark">✓</span> Essays and discussion posts</li>
-                  <li><span className="mark">✓</span> Problem sets and worksheets</li>
-                  <li><span className="mark">✓</span> Lab write-ups, until a file picker</li>
-                  <li><span className="mark">✓</span> Study guides for quizzes you take yourself</li>
-                  <li><span className="mark">✓</span> Anything else it can do on a page you can see</li>
-                </ul>
-              </article>
-              <article className="do-col no card">
-                <h3>It will not</h3>
-                <ul>
-                  <li><span className="mark">×</span> Start or click through quizzes, tests, exams</li>
-                  <li><span className="mark">×</span> Type a school password</li>
-                  <li><span className="mark">×</span> Solve a CAPTCHA</li>
-                  <li><span className="mark">×</span> Upload your files for you</li>
-                  <li><span className="mark">×</span> Hide. There is no stealth mode</li>
-                </ul>
               </article>
             </div>
           </section>
 
-          <section className="block" id="rules">
-            <p className="kicker">The leash</p>
-            <h2>You decide how far it goes.</h2>
-            <p className="lead">Set a default for everything, then override a course, a repeating pattern, or one assignment. The most specific rule wins.</p>
-            <div className="modes">
-              <article className="mode card">
-                <span className="badge soft">leave it</span>
-                <h3>Don’t attempt</h3>
-                <p>It finds the work and leaves it alone. Useful for a class you actually want to do, or a professor who said no.</p>
-              </article>
-              <article className="mode card default">
-                <span className="badge">default</span>
-                <h3>Attempt, you submit</h3>
-                <p>It writes. It stops. You read it on the school page and hit submit. This is how Studi ships.</p>
-              </article>
-              <article className="mode card">
-                <span className="badge soft">a switch</span>
-                <h3>Auto-submit</h3>
-                <p>It can click submit if you turn that on for that work. It re-checks the rule before it does. Still never a quiz.</p>
-              </article>
-            </div>
-          </section>
-
-          <section className="block" id="stops">
-            <p className="kicker">Honest stops</p>
-            <h2>When it doesn’t know, it taps you.</h2>
-            <p className="lead">Inky doesn’t guess a login or a robot check. The school browser stays open. You do the human part. It picks up after.</p>
-            <div className="stops">
-              <article className="stop card">
-                <h3>Logins</h3>
-                <p>School passwords live in that browser. Studi never asks for them and doesn’t store them.</p>
-              </article>
-              <article className="stop card">
-                <h3>CAPTCHA</h3>
-                <p>If the site wants a human, you are the human. Same for “are you a robot.”</p>
-              </article>
-              <article className="stop card">
-                <h3>Files</h3>
-                <p>Uploads stay yours. It can draft the report. You attach the PDF.</p>
-              </article>
-              <article className="stop card">
-                <h3>Quizzes</h3>
-                <p>It will not start them. Study guides, yes. The test itself, no.</p>
-              </article>
+          <section className="block trust" id="trust">
+            <p className="kicker">Why this isn’t weird</p>
+            <h2>You can see me. That’s the point.</h2>
+            <p className="lead">
+              No hidden tab. No stealth mode. No “trust me.” Everything I do
+              happens in front of you, on your own computer, and a few things I
+              simply won’t do.
+            </p>
+            <div className="trust-grid">
+              {TRUST.map((item) => (
+                <article className="trust-card card" key={item.label}>
+                  <div className="n">✓ {item.label}</div>
+                  <h3>{item.title}</h3>
+                  <p>{item.copy}</p>
+                </article>
+              ))}
             </div>
           </section>
 
           <section className="block" id="sites">
-            <p className="kicker">School sites</p>
-            <h2>If it loads in a browser, that’s the school site.</h2>
-            <p className="lead">One visible browser. Canvas today, WebAssign tomorrow, a department portal next week. Linked tools get found during the scan, then you sign into those too.</p>
+            <p className="kicker">Your classes</p>
+            <h2>Canvas. Moodle. The weird one.</h2>
+            <p className="lead">
+              If you can open it, I can try it. Including the extra login your
+              TA forgot to mention.
+            </p>
             <div className="sites">
-              {["Canvas", "Moodle", "Google Classroom", "Blackboard", "WebAssign", "Pearson", "Gradescope", "McGraw Hill", "zyBooks"].map((site) => (
-                <span key={site} className="site-chip">{site}</span>
+              {SITES.map((site) => (
+                <span className="site-chip" key={site}>
+                  {site}
+                </span>
               ))}
-              <span className="site-chip muted">anything in a browser</span>
-            </div>
-          </section>
-
-          <section className="block" id="local">
-            <p className="kicker">On the computer</p>
-            <h2>School stays here. The cloud gets an email.</h2>
-            <div className="local">
-              <article className="card">
-                <h3>Local-first, on purpose</h3>
-                <p>Assignments, drafts, the school browser, memories — those live on the Windows machine. Closing the window keeps Studi in the tray so scheduled scans still run. Quit it when you want it actually off.</p>
-              </article>
-              <article className="card note">
-                <h3>What we store</h3>
-                <p>Account, waitlist, credits. Not your Canvas cookies. Not the essay.</p>
-              </article>
+              <span className="site-chip muted">the weird one</span>
             </div>
           </section>
         </div>
-
-        <section className="wait-block card" id="wait">
-          <p className="kicker">Seats</p>
-          <h2>Private beta</h2>
-          <p className="sub">Campus email. We’ll send a seat. Nothing from school gets uploaded to join.</p>
-          <WaitlistForm />
-        </section>
-
-        <section className="faq" id="faq">
-          <h2>The obvious questions</h2>
-          <p className="lead">Short answers. If a class bans this, don’t run it there.</p>
-          {[
-            ["Is this cheating?", "That’s your syllabus. It does the homework in a browser you can watch. There is no hide button. If a class bans this, don’t run it there."],
-            ["Will it take my quiz?", "No. Quizzes, tests, exams — it will not start them or click through them. Study guides, yes. You still sit the test."],
-            ["Where do school passwords go?", "Only in the school browser. Studi never asks for them and doesn’t store them. Linked tools like WebAssign work the same way: you sign in there, it never gets a copy."],
-            ["Does it auto-submit?", "Not unless you turn that on. Default is it writes, you submit. File uploads stay yours too. Auto-submit still refuses quizzes."],
-            ["What computer do I need?", "Windows desktop. One computer, one school browser profile. It is not a website you leave open in Chrome, and it is not on your phone."],
-            ["Can my professor tell?", "It works in the same school site you’d use yourself. Typed text looks like typed text. There is no stealth mode and no “undetectable” claim. Don’t use it where it isn’t allowed."],
-            ["What if I close the window?", "Studi stays in the tray. Scheduled scans and queued work keep going until you quit. If a review timer runs out, answers get saved as a local Markdown file so they aren’t just gone."],
-            ["How do I get in?", "Waitlist with a campus email. When you have a seat, you sign in with Clerk. We don’t need your name again — the account already has it."],
-          ].map(([question, answer]) => (
-            <details key={question}>
-              <summary>{question}</summary>
-              <p>{answer}</p>
-            </details>
-          ))}
-        </section>
 
         <div className="wrap">
+          <section className="wait-block card" id="wait">
+            <p className="kicker">Seats</p>
+            <h2>Get a seat.</h2>
+            <p className="sub">
+              Campus email. I’ll save you one and email you once when it opens.
+              Then go do something that isn’t a lab report.
+            </p>
+            <WaitlistForm
+              emailId="wait-email"
+              joined={joined}
+              onJoined={() => setJoined(true)}
+              darkButton
+              finePrint={<>No newsletter. No sharing. Just the invite.</>}
+            />
+            <div className="steps" aria-label="What happens next">
+              <div className="step">
+                <div className="k">1 · now</div>
+                <p>You drop your campus email here.</p>
+              </div>
+              <div className="step">
+                <div className="k">2 · soon</div>
+                <p>I email you once when a seat opens.</p>
+              </div>
+              <div className="step">
+                <div className="k">3 · then</div>
+                <p>You open Studi. I meet your week.</p>
+              </div>
+            </div>
+          </section>
+
+          <section className="faq" id="faq">
+            <h2>The obvious questions</h2>
+            <p className="lead">Short answers. Honest ones.</p>
+            {FAQ.map(([question, answer]) => (
+              <details key={question}>
+                <summary>{question}</summary>
+                <p>{answer}</p>
+              </details>
+            ))}
+          </section>
+
           <section className="end-band block">
-            <h2>It does your homework for you.</h2>
-            <a className="btn primary" href="#wait">Join the waitlist</a>
+            <h2>Get a seat before the week starts.</h2>
+            <p>Your homework isn’t going anywhere. I could be.</p>
+            <a className="btn primary" href="#wait">
+              Get a seat
+            </a>
           </section>
         </div>
 
-        <p className="foot">Windows desktop · local-first · waitlist is an email</p>
+        <footer className="foot">
+          Hi. I’m Inky. <span>·</span> <a href="/mission">Mission</a>
+          <span>·</span> <a href="#wait">Waitlist</a>
+        </footer>
       </main>
     </>
+  );
+}
+
+function Demo() {
+  const [beatIndex, setBeatIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [autoplay, setAutoplay] = useState(true);
+  const [visible, setVisible] = useState(true);
+  const [typed, setTyped] = useState("");
+  const [toast, setToast] = useState("");
+  const demoRef = useRef<HTMLElement>(null);
+  const typedRef = useRef(0);
+  const beat = DEMO_BEATS[beatIndex] ?? DEMO_BEATS[0];
+
+  useEffect(() => {
+    const requested = Number(
+      new URLSearchParams(window.location.search).get("beat"),
+    );
+    if (Number.isInteger(requested) && requested > 0 && requested < DEMO_BEATS.length) {
+      setBeatIndex(requested);
+      setAutoplay(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const node = demoRef.current;
+    if (!node || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(Boolean(entry?.isIntersecting)),
+      { threshold: 0.35 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!beat.hold || paused || !visible) return;
+    if (!autoplay && !beat.driving) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const timer = window.setTimeout(() => {
+      setBeatIndex((current) => Math.min(current + 1, DEMO_BEATS.length - 1));
+      setPaused(false);
+      setAsking(false);
+    }, beat.hold);
+    return () => window.clearTimeout(timer);
+  }, [autoplay, beat.driving, beat.hold, paused, visible]);
+
+  // Typing progress lives in a ref so Takeover pauses mid-sentence and resumes there.
+  useEffect(() => {
+    typedRef.current = 0;
+    setTyped("");
+  }, [beatIndex]);
+
+  useEffect(() => {
+    if (beat.page !== "essay") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setTyped(ESSAY_OPENING);
+      return;
+    }
+    if (paused || !visible) return;
+
+    const timer = window.setInterval(() => {
+      typedRef.current += 1;
+      setTyped(ESSAY_OPENING.slice(0, typedRef.current));
+      if (typedRef.current >= ESSAY_OPENING.length) window.clearInterval(timer);
+    }, 22);
+    return () => window.clearInterval(timer);
+  }, [beat.page, beatIndex, paused, visible]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 2600);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  function go(next: number, userInitiated = true) {
+    if (next < 0 || next >= DEMO_BEATS.length) return;
+    if (userInitiated) setAutoplay(false);
+    setBeatIndex(next);
+    setPaused(false);
+    setAsking(false);
+  }
+
+  function takeOver() {
+    if (!beat.driving) return;
+    setPaused(true);
+    setAsking(false);
+    setAutoplay(false);
+  }
+
+  function keepGoing() {
+    if (!beat.driving) return;
+    setPaused(false);
+    setAsking(false);
+  }
+
+  const speech = paused
+    ? {
+        say: "All yours.",
+        text: "I’ll hover. Tap “keep going” when you want me back in the box.",
+      }
+    : beat;
+
+  return (
+    <section className="demo" aria-labelledby="demo-title" ref={demoRef}>
+      <div className="demo-head">
+        <div>
+          <p className="kicker">Here’s me on a Monday</p>
+          <h2 id="demo-title">Click around. I don’t bite.</h2>
+          <p>
+            A tour of Studi with pretend classes. Nothing here is real, except
+            my personality.
+          </p>
+        </div>
+        <div className="rail" aria-label="Demo steps">
+          {["Hi", "Your week", "Inky’s desk", "You review"].map((label, index) => (
+            <button
+              type="button"
+              className={`${index === beatIndex ? "on" : ""}${index < beatIndex ? " done" : ""}`}
+              aria-pressed={index === beatIndex}
+              onClick={() => go(index)}
+              key={label}
+            >
+              <span>{index + 1}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div
+        className="scene"
+        style={{ backgroundImage: `url(${wallpaper.src})` }}
+      >
+        <div className="window" role="application" aria-label="Studi demo">
+          <header className="titlebar">
+            <div className="traffic" aria-hidden="true">
+              <span className="tl close" />
+              <span className="tl min" />
+              <span className="tl max" />
+            </div>
+            <span className="logo">
+              studi <span className="pencil">✎</span>
+            </span>
+            <button
+              type="button"
+              className={`nav-link${beat.view === "is-week" ? " on" : ""}`}
+              onClick={() => go(1)}
+            >
+              This week
+            </button>
+            <div className="spacer" />
+            <button
+              type="button"
+              className={`desk-toggle${beat.view === "is-desk" ? " on" : ""}`}
+              onClick={() => go(beatIndex >= 2 ? 1 : 2)}
+            >
+              <span
+                className={`desk-dot${beat.driving && !paused ? " working" : beat.view === "is-desk" ? " needs" : ""}`}
+              />
+              Inky’s desk
+            </button>
+            <div className="user">
+              <div className="avatar">M</div> Maya R.
+            </div>
+          </header>
+
+          <div className={`stage ${beat.view}`}>
+            <section className="talk">
+              <div className="inky-wrap">
+                <InkyMascot state={paused ? "waiting" : beat.inky} size={190} />
+              </div>
+              <div className="copy">
+                <div className="who-row">Inky</div>
+                <div className="bubbles">
+                  <div className="speech" key={`${beatIndex}-${paused}`}>
+                    <span className="tail" aria-hidden="true" />
+                    <div className="line">{speech.say}</div>
+                    <div>{speech.text}</div>
+                  </div>
+                </div>
+                <div className="replies">
+                  {paused ? (
+                    <button type="button" className="btn primary" onClick={keepGoing}>
+                      keep going
+                    </button>
+                  ) : (
+                    beat.replies.map((reply) =>
+                      reply.href ? (
+                        <a className="btn primary" href={reply.href} key={reply.label}>
+                          {reply.label}
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          className={`btn${reply.secondary ? "" : " primary"}`}
+                          onClick={() => go(reply.beat ?? 0)}
+                          key={reply.label}
+                        >
+                          {reply.label}
+                        </button>
+                      ),
+                    )
+                  )}
+                </div>
+              </div>
+            </section>
+
+            <section className="app-main">
+              <div className="app-hero">
+                <InkyMascot state="idle" size={64} />
+                <div className="hi">
+                  <h3>Hey Maya — 2 things due tonight.</h3>
+                  <div className="sync-bar">
+                    <span>
+                      <strong>✓ Classes checked</strong> · 2h ago
+                    </span>
+                    <span>every morning</span>
+                  </div>
+                </div>
+                <div className="week-say">
+                  <div className="speech" key={beatIndex}>
+                    <span className="tail" aria-hidden="true" />
+                    <div className="line">{beat.say}</div>
+                    <div>{beat.text}</div>
+                  </div>
+                  <div className="replies">
+                    <button type="button" className="btn primary" onClick={() => go(2)}>
+                      Make Inky do this
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div className="command app-command">
+                <div className="pen">✎</div>
+                <input
+                  type="text"
+                  aria-label="Tell Inky what to do"
+                  placeholder="Tell Inky what to do — “start my essay”…"
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      go(2);
+                    }
+                  }}
+                />
+                <button type="button" className="send" onClick={() => go(2)}>
+                  enter ↵
+                </button>
+              </div>
+              <WeekBoard onStart={() => go(2)} onRefuse={setToast} />
+              {toast ? (
+                <div className="ink-toast" role="status">
+                  {toast}
+                </div>
+              ) : null}
+            </section>
+
+            <aside className="school" aria-label="School page">
+              <div className="school-page">
+                <LmsPage page={beat.page} typed={typed} />
+                {beat.driving && !paused ? (
+                  <>
+                    <button
+                      type="button"
+                      className="drive-fade"
+                      aria-label="Ask Inky to pause"
+                      onClick={() => setAsking(true)}
+                    />
+                    <div className="drive-inky">
+                      <button type="button" onClick={() => setAsking(true)}>
+                        Takeover
+                      </button>
+                      <InkyMascot state="steering" size={72} />
+                    </div>
+                  </>
+                ) : null}
+                {asking ? (
+                  <div className="drive-ask">
+                    <div
+                      className="ask-card"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-labelledby="takeover-title"
+                    >
+                      <strong id="takeover-title">Want the page?</strong>
+                      <p>I’ll pause so you can click.</p>
+                      <div>
+                        <button type="button" className="ask-go" onClick={takeOver}>
+                          Takeover
+                        </button>
+                        <button type="button" className="ask-keep" onClick={() => setAsking(false)}>
+                          Keep going
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function WeekBoard({
+  onStart,
+  onRefuse,
+}: {
+  onStart: () => void;
+  onRefuse: (message: string) => void;
+}) {
+  return (
+    <div className="app-week">
+      <div className="app-day today">
+        <div className="day-heading">
+          <span>Mon</span>
+          <small>today</small>
+        </div>
+        <button type="button" className="app-assignment card selected" onClick={onStart}>
+          <div className="assignment-top">
+            <span className="dot hist" /> HIST 210
+            <span className="badge due">tonight</span>
+          </div>
+          <strong>Essay: Causes of the Cold War</strong>
+          <small>
+            due 11:59 <span className="chip">Make Inky do this</span>
+          </small>
+        </button>
+        <div className="app-assignment card">
+          <div className="assignment-top">
+            <span className="dot calc" /> CALC 1
+          </div>
+          <strong>Problem set 4</strong>
+          <small>queued</small>
+        </div>
+      </div>
+      <div className="app-day">
+        <div className="day-heading">
+          <span>Tue</span>
+          <small>Oct 7</small>
+        </div>
+        <div className="app-assignment card">
+          <div className="assignment-top">
+            <span className="dot bio" /> BIO 150
+            <span className="badge needs">needs you</span>
+          </div>
+          <strong>Lab report: Osmosis</strong>
+          <small>you attach the file</small>
+        </div>
+      </div>
+      <div className="app-day">
+        <div className="day-heading">
+          <span>Wed</span>
+          <small>Oct 8</small>
+        </div>
+        <button
+          type="button"
+          className="app-assignment card"
+          onClick={() => onRefuse("Cute. That one’s a you problem.")}
+        >
+          <div className="assignment-top">
+            <span className="dot psy" /> PSY 101
+            <span className="badge soft">yours</span>
+          </div>
+          <strong>Reading quiz: Ch. 6</strong>
+          <small>not touching it</small>
+        </button>
+        <div className="app-assignment card">
+          <div className="assignment-top">
+            <span className="dot eng" /> ENG 102
+          </div>
+          <strong>Peer review draft</strong>
+          <small>due 11:59</small>
+        </div>
+      </div>
+      <div className="app-day">
+        <div className="day-heading">
+          <span>Thu</span>
+          <small>Oct 9</small>
+        </div>
+        <div className="app-empty">
+          nothing due —<br />good study day ✎
+        </div>
+      </div>
+      <div className="app-day">
+        <div className="day-heading">
+          <span>Fri</span>
+          <small>Oct 10</small>
+        </div>
+        <button
+          type="button"
+          className="app-assignment card"
+          onClick={() => onRefuse("Cute. That one’s a you problem.")}
+        >
+          <div className="assignment-top">
+            <span className="dot psy" /> PSY 101
+            <span className="badge soft">yours</span>
+          </div>
+          <strong>Midterm exam</strong>
+          <small>that’s you</small>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function LmsPage({
+  page,
+  typed,
+}: {
+  page?: "essay" | "review";
+  typed: string;
+}) {
+  const reviewed = page === "review";
+
+  return (
+    <div className="lms">
+      <div className="lms-nav">
+        <strong>Ridgeway</strong>
+        <span>Dashboard</span>
+        <span className="on">Courses</span>
+        <span>Calendar</span>
+        <span>Inbox</span>
+        <i>MR</i>
+      </div>
+      <div className="lms-course">HIST 210 · Europe since 1945 · Fall</div>
+      <div className="lms-crumb">
+        Courses / HIST 210 / Assignments / Causes of the Cold War
+      </div>
+      <h3>Causes of the Cold War</h3>
+      <div className="lms-meta">
+        <span>Due Oct 6 at 11:59pm</span>
+        <span>100 pts</span>
+        <span>Text entry</span>
+        <span>Attempts: 1</span>
+      </div>
+      <div className="lms-body">
+        <p>
+          Write 1,200 words on the origins of the Cold War. Use at least two
+          primary sources from lecture and cite them in Chicago style.
+        </p>
+        <div className="lms-editor">
+          <div className="lms-tools">B &nbsp; I &nbsp; U &nbsp; · &nbsp; ¶ &nbsp; ≡ &nbsp; 🔗</div>
+          <div className="lms-box">
+            <p className={`typed${reviewed ? " done" : ""}`}>
+              {reviewed ? ESSAY_OPENING : typed}
+            </p>
+            {reviewed ? <p className="typed done">{ESSAY_ENDING}</p> : null}
+          </div>
+        </div>
+        <div className="lms-actions">
+          <button type="button">Save draft</button>
+          <button type="button" className="submit" disabled={!reviewed}>
+            Submit Assignment
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
