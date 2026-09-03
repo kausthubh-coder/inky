@@ -12,7 +12,7 @@ Build app UI in `src/`. `npm run build` compiles Electron and the Vite client on
 
 - The local desktop app owns the main product experience. The website is not part of this prototype.
 - OpenAI Sites packaging is gone. Do not restore `.openai/hosting.json`, `worker/index.js`, `scripts/prepare-sites-build.mjs`, `tests/sites-worker.test.mjs`, or a `test:sites` script.
-- Feature testing reuses the gitignored `.studi-qa/profile` after one human onboarding (Clerk, Codex, school sign-in) in that window. Do not point QA at the everyday Electron `userData`. Persistent QA must not sign out. Playwright drives Studi chrome; Pi owns the school guest pane.
+- Feature testing reuses the gitignored `.studi-qa/profile` after one human onboarding (Clerk, Codex, school sign-in) in that window. Do not point QA at the everyday Electron `userData`. Persistent QA must not sign out. Playwright drives Studi chrome; Pi owns the school guest pane. Isolated Playwright cannot finish OpenAI device authorization. Reuse `.studi-qa/codex-auth` locally, or the Cursor Runtime Secret `STUDI_QA_CODEX_AUTH` for cloud and remote agents. If a code still appears, the user enters it in a real browser. Never commit the token or put it on GitHub.
 - First-run onboarding asks for the student's name, checks the active agent runtime, uses an onboarding-agent chat to collect the student's school platform or URL, opens a persistent embedded browser for each required sign-in, asks for an automatic scan schedule, runs a visible first browser scan, then opens the populated weekly dashboard.
 - School passwords stay inside the embedded browser session. Do not add password fields to the React app or store school credentials in app state.
 - The school onboarding agent owns human handoffs. It tells the student when to sign in, verifies the browser session after the student returns, scans classes and assignments, detects linked third-party systems such as Cengage WebAssign, Pearson, Gradescope, McGraw Hill Connect, and zyBooks, and asks the student to sign in to those too.
@@ -53,3 +53,9 @@ Build app UI in `src/`. `npm run build` compiles Electron and the Vite client on
 - Sign-in and onboarding talk like Inky. Use simple student copy. Do not say “school browser,” “this computer,” “tray,” or other product jargon on those screens.
 - The ChatGPT device step shows a copyable code and “If the page didn't open, click this link.” Do not show the URL.
 - The class link is one paste field. Moodle, Canvas, and Classroom are examples in the sentence, not a picker.
+
+## Cursor Cloud specific instructions
+
+- Do not expect `.studi-qa/` to exist on a fresh Cloud VM. Hydrate Codex with `node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import`, which reads the Runtime Secret `STUDI_QA_CODEX_AUTH`. Never echo that variable or commit the written file.
+- The live Electron QA launcher is Windows `electron.exe`. If this VM cannot start that app, hydrate, say so, and stop. Do not claim a desktop onboarding or feature pass.
+- If onboarding still shows a ChatGPT device code, send the code to the user and wait. Isolated Playwright cannot finish OpenAI login. After `ready`, export locally; only a human can refresh the Cursor secret.

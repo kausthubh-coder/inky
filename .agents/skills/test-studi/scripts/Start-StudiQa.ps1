@@ -12,6 +12,8 @@ param(
 
   [switch]$ResetPersistent,
 
+  [switch]$ImportCodexAuth,
+
   [switch]$DryRun
 )
 
@@ -92,6 +94,7 @@ if ($DryRun) {
     persistent = [bool]$Persistent
     profileReused = [bool]($Persistent -and $profileHadData)
     profileReset = $profileReset
+    importCodexAuth = [bool]$ImportCodexAuth
     workspaceRoot = $workspaceRoot
     executable = $electronPath
     profilePath = $profilePath
@@ -105,6 +108,18 @@ if ($DryRun) {
 
 if (-not (Test-Path -LiteralPath $profilePath -PathType Container)) {
   New-Item -ItemType Directory -Path $profilePath -ErrorAction Stop | Out-Null
+}
+
+$codexAuthImported = $false
+$codexAuthMissing = $false
+if ($ImportCodexAuth) {
+  $syncScript = Join-Path $PSScriptRoot "Sync-StudiQaCodexAuth.ps1"
+  & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $syncScript -Import -ProfilePath $profilePath | Out-Null
+  if ($LASTEXITCODE -eq 0) {
+    $codexAuthImported = $true
+  } else {
+    $codexAuthMissing = $true
+  }
 }
 
 $nativeArguments = '. --user-data-dir="{0}" --remote-debugging-address=127.0.0.1 --remote-debugging-port={1}' -f $profilePath, $Port
@@ -137,6 +152,9 @@ $receipt = [ordered]@{
   executable = $electronPath
   profilePath = $profilePath
   profileOwnedByHelper = $true
+  importCodexAuth = [bool]$ImportCodexAuth
+  codexAuthImported = $codexAuthImported
+  codexAuthMissing = $codexAuthMissing
   cdpEndpoint = $cdpEndpoint
   launchArguments = $launchArguments
   processId = $process.Id
