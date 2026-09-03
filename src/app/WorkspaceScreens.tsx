@@ -11,6 +11,7 @@ import {
   type RuntimeInfo,
   type SchoolOnboardingState,
   type StudiWorkspaceState,
+  type SchoolPageBounds,
   type TaskDetail,
   type TaskSummary,
   type TelemetryState,
@@ -43,6 +44,7 @@ export function DashboardScreen({
   library,
   detail,
   panel,
+  showingLiveDesk,
   talk,
   managerReply,
   busy,
@@ -61,6 +63,7 @@ export function DashboardScreen({
   onScanAgain,
   onConnectRuntime,
   onFeedback,
+  onSchoolSlot,
 }: {
   chrome: ChromeProps;
   onboarding: SchoolOnboardingState;
@@ -69,6 +72,7 @@ export function DashboardScreen({
   library: LibraryState | null;
   detail: TaskDetail | null;
   panel: DeskPanel;
+  showingLiveDesk: boolean;
   talk: readonly { who: "you" | "inky"; text: string }[];
   managerReply: string;
   busy: string | null;
@@ -87,6 +91,7 @@ export function DashboardScreen({
   onScanAgain: () => void;
   onConnectRuntime: () => void;
   onFeedback: (context: string, message: string) => void;
+  onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
 }) {
   const [prompt, setPrompt] = useState("");
   const [feedback, setFeedback] = useState("");
@@ -118,7 +123,7 @@ export function DashboardScreen({
   };
 
   return (
-    <main className={`app-shell ${panel.kind !== "closed" ? "is-drawer-open" : ""} ${panel.kind === "desk" ? "is-desk-open" : ""}`} data-studi-app-ready="true">
+    <main className={`app-shell ${panel.kind !== "closed" ? "is-drawer-open" : ""} ${showingLiveDesk ? "is-desk-open" : ""}`} data-studi-app-ready="true">
       <AppChrome {...chrome} />
       <div className="page dashboard-page">
         <header className="page-hero dashboard-hero">
@@ -176,7 +181,8 @@ export function DashboardScreen({
                     {items.length === 0 ? <p className="empty-day"><span aria-hidden="true">〰</span>No verified deadlines</p> : items.map((assignment) => {
                       const task = taskByAssignment.get(assignment.assignmentId);
                       const course = courseLabel(onboarding, assignment.courseId);
-                      const selected = panel.kind === "assignment" && panel.assignmentId === assignment.assignmentId;
+                      const selected = (panel.kind === "assignment" && panel.assignmentId === assignment.assignmentId)
+                        || (showingLiveDesk && lifecycle.execution?.assignmentId === assignment.assignmentId);
                       return <AssignmentCard key={assignment.assignmentId} assignmentId={assignment.assignmentId} selected={selected} {...(task ? { item: task } : {})} title={assignment.title} {...(assignment.dueAt ? { dueAt: assignment.dueAt } : {})} course={course} tone={courseTone(course)} onAssignment={onAssignment} />;
                     })}
                   </div>
@@ -197,6 +203,7 @@ export function DashboardScreen({
           detail={detail}
           assignment={selectedAssignment}
           task={selectedTask}
+          showingLiveDesk={showingLiveDesk}
           busy={busy}
           error={error}
           talk={talk}
@@ -209,6 +216,7 @@ export function DashboardScreen({
           onVerifySubmission={onVerifySubmission}
           onOpenArtifact={onOpenArtifact}
           onConnectRuntime={onConnectRuntime}
+          onSchoolSlot={onSchoolSlot}
         />
       )}
     </main>

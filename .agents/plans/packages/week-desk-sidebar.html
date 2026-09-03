@@ -18,7 +18,7 @@
     <li>Feedback sits in a compact week note and in Settings. Settings uses Inky / school / privacy / account copy.</li>
   </ul></section>
   <section class="card"><h2>Data shape</h2>
-    <p>One renderer panel: closed, assignment, or desk. Electron still owns tasks, permission, and execution. <code>startAssignment(taskId)</code> enqueues if needed, then starts that task. Browser layout is desk only while the desk panel is open and a run is live.</p>
+    <p>One renderer panel: closed, assignment, or desk. One derived <code>showingLiveDesk</code> value means the sidebar is on the live run. Electron still owns tasks, permission, and execution. <code>startAssignment(taskId)</code> refuses before enqueue if a run is live, otherwise enqueues, steers, and starts that task. The guest page uses measured sidebar slot bounds.</p>
   </section>
   <section class="card"><h2>Reuse or delete</h2><ul>
     <li>Reuse task detail, manager talk, desk activity, and settings persistence.</li>

@@ -12,6 +12,14 @@ import { RunSchema } from "./run.js";
 export const BrowserLayoutModeSchema = z.enum(["hidden", "onboarding", "desk"]);
 export type BrowserLayoutMode = z.infer<typeof BrowserLayoutModeSchema>;
 
+export const SchoolPageBoundsSchema = z.strictObject({
+  x: z.number().int().min(0).max(10_000),
+  y: z.number().int().min(0).max(10_000),
+  width: z.number().int().min(1).max(10_000),
+  height: z.number().int().min(1).max(10_000),
+});
+export type SchoolPageBounds = z.infer<typeof SchoolPageBoundsSchema>;
+
 export const ProductPreferencesSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   reviewMinutes: z.number().int().min(1).max(120),

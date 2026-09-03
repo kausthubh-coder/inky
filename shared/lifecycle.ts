@@ -132,3 +132,10 @@ export type AssignmentExecution = z.infer<typeof AssignmentExecutionSchema>;
 export type NotificationIntent = z.infer<typeof NotificationIntentSchema>;
 export type SubmissionReceipt = z.infer<typeof SubmissionReceiptSchema>;
 export type LifecycleState = z.infer<typeof LifecycleStateSchema>;
+
+export const LIVE_EXECUTION_PHASES = ["working", "needs_user", "ready_review", "submitting"] as const;
+export type LiveExecutionPhase = (typeof LIVE_EXECUTION_PHASES)[number];
+
+export function isLivePhase(phase: AssignmentExecution["phase"] | string | undefined): phase is LiveExecutionPhase {
+  return phase !== undefined && (LIVE_EXECUTION_PHASES as readonly string[]).includes(phase);
+}

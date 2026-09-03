@@ -10,6 +10,7 @@ import { LifecycleStateSchema } from "./lifecycle.js";
 import { ArtifactDocumentSchema } from "./artifact.js";
 import {
   BrowserLayoutModeSchema,
+  SchoolPageBoundsSchema,
   LibraryStateSchema,
   ProductPreferencesSchema,
   ProductSettingsStateSchema,
@@ -502,7 +503,10 @@ export const studiIpcRegistry = Object.freeze({
   }),
   [setBrowserLayoutMethod]: Object.freeze({
     channel: setBrowserLayoutChannel,
-    requestSchema: z.strictObject({ mode: BrowserLayoutModeSchema }),
+    requestSchema: z.strictObject({
+      mode: BrowserLayoutModeSchema,
+      bounds: SchoolPageBoundsSchema.optional(),
+    }),
     resultSchema: BrowserLayoutModeSchema,
   }),
   [getTelemetryStateMethod]: Object.freeze({

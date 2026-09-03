@@ -406,6 +406,15 @@ test("IPC request and result schemas reject malformed values", () => {
     studiIpcRegistry.runManager.requestSchema.safeParse({ prompt: "Inspect", memoryArtifactIds: [""] }).success,
     false,
   );
+  assert.equal(studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk" }).success, true);
+  assert.equal(
+    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk", bounds: { x: 10, y: 20, width: 400, height: 300 } }).success,
+    true,
+  );
+  assert.equal(
+    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk", bounds: { x: 10, y: 20, width: 0, height: 300 } }).success,
+    false,
+  );
 
   assert.equal(RuntimeInfoSchema.safeParse({ app: "1", electron: "1", chrome: "1" }).success, false);
   assert.equal(

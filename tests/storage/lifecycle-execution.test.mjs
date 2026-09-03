@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { AssignmentExecutionCoordinator } from "../../dist/electron/assignment/coordinator.js";
+import { startSelectedAssignment } from "../../dist/electron/assignment/start-selected.js";
 import { VisibleBrowserWork } from "../../dist/electron/browser/work-ownership.js";
 import { nextScheduleRun } from "../../dist/electron/lifecycle/schedule.js";
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
@@ -291,6 +292,35 @@ test("restart during submission pauses without repeating the destructive effect"
   } finally {
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+});
+
+test("start-while-busy does not enqueue or steer another assignment", async () => {
+  await withStore(async (store) => {
+    seedTask(store, "busy", "2026-09-02T12:00:00.000Z");
+    seedTask(store, "waiting", "2026-09-03T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    const manager = await ManagerCoordinator.create(store, new ScriptedRuntime([]), { now: () => initialNow });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => initialNow });
+    store.lifecycle.putExecution({
+      schemaVersion: 1,
+      taskId: "task-busy",
+      assignmentId: "assignment-busy",
+      phase: "working",
+      taskBudget: { maxAgentTurns: 1, maxRecoveryAttempts: 2 },
+      attemptCount: 0,
+      updatedAt: initialNow,
+    });
+    const queueBefore = manager.state().entries.map((entry) => ({ taskId: entry.taskId, priority: entry.priority }));
+    await assert.rejects(startSelectedAssignment(store, manager, execution, "task-waiting"), /already on another page/);
+    assert.equal(store.tasks.get("task-waiting").state, "discovered");
+    assert.deepEqual(
+      manager.state().entries.map((entry) => ({ taskId: entry.taskId, priority: entry.priority })),
+      queueBefore,
+    );
+    assert.equal(store.lifecycle.getActiveExecution()?.taskId, "task-busy");
+    execution.dispose();
+    manager.dispose();
+  });
 });
 
 test("restart during review preserves answers and hands off without claiming the page survived", async () => {

@@ -291,25 +291,27 @@ body{background:radial-gradient(circle at 1px 1px,#e9e0cd 1.1px,transparent 1.2p
   border-radius:18px 16px 18px 14px;background:var(--panel);box-shadow:4px 5px 0 rgb(59 52 44 / 16%);
 }
 .workspace-drawer.is-desk{width:calc(46% - 12px);min-width:360px}
-.drawer-head{display:flex;align-items:center;justify-content:space-between;gap:10px;height:52px;padding:6px 12px;border-bottom:1.5px solid var(--ink);background:#fff8df}
+.drawer-head{display:flex;align-items:center;justify-content:space-between;gap:10px;height:52px;padding:6px 12px;border-bottom:1.5px solid var(--ink);background:#fff8df;flex:0 0 auto}
 .drawer-who{display:flex;align-items:center;gap:8px}
 .drawer-who strong{font-size:.78rem}
-.drawer-scroll{display:grid;align-content:start;gap:10px;min-height:0;flex:1;overflow:auto;padding:12px}
-.drawer-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.drawer-meta{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex:0 0 auto;padding:10px 12px 0}
 .drawer-meta h2{margin:0 0 4px;font-size:1.2rem}
 .drawer-meta p{margin:0;color:var(--muted);font-size:.74rem}
-.drawer-actions,.drawer-start{margin-top:2px}
+.drawer-actions,.drawer-start{margin:8px 12px 0}
 .drawer-actions{display:flex;flex-wrap:wrap;gap:8px}
-.drawer-start{width:100%}
-.drawer-note{margin:0;color:var(--muted);font-size:.74rem;font-weight:700}
+.drawer-start{width:calc(100% - 24px)}
+.drawer-note{margin:8px 12px 0;color:var(--muted);font-size:.74rem;font-weight:700}
+.workspace-drawer>.truth-banner{margin:8px 12px 0}
 .drawer-card{padding:12px;box-shadow:2px 2px 0 rgb(59 52 44 / 12%)}
 .drawer-card h3{margin-bottom:6px;font-size:1rem}
+.drawer-school-pane{display:grid;grid-template-rows:auto minmax(160px,1fr);gap:8px;flex:1 1 220px;min-height:180px;margin:8px 12px 0}
+.drawer-school-pane .live-chip{min-width:0}
 .drawer-school-slot{
-  position:relative;min-height:220px;border:2px dashed #b3a99c;border-radius:16px;
+  min-height:160px;border:2px dashed #b3a99c;border-radius:16px;
   background:linear-gradient(180deg,#eef6ff,rgb(220 236 255 / 35%));
 }
-.native-browser-frame--drawer{inset:auto;pointer-events:none;box-shadow:none}
-.native-browser-frame--drawer .live-chip{position:absolute;top:10px;left:10px;right:10px}
+.drawer-scroll{display:grid;align-content:start;gap:10px;min-height:0;flex:1 1 120px;overflow:auto;padding:10px 12px 12px}
+.workspace-drawer.is-desk .drawer-scroll{flex:0 1 auto;max-height:min(240px,28vh)}
 .drawer-talk-log{display:grid;gap:7px}
 .drawer-bubble{margin:0;max-width:92%;padding:8px 10px;border:1.5px solid var(--ink);border-radius:14px 16px 14px 8px;background:#fff;font-size:.74rem;font-weight:700}
 .drawer-bubble--you{justify-self:end;border-radius:16px 14px 8px 14px;background:#fff2b5}

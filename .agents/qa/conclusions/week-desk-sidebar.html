@@ -17,7 +17,7 @@
   </section>
   <section class="card">
     <h2>How control moves</h2>
-    <p>Renderer panel state is closed, assignment, or desk. Task records still come from local library reads. <code>startAssignment</code> enqueues a discovered task, steers it next, and starts that run. The school view is shown only while the desk is open and a run is live. Assignment talk uses the existing manager with assignment context and stays in the sidebar.</p>
+    <p>Renderer panel state is closed, assignment, or desk. One derived value, <code>showingLiveDesk</code>, means the open sidebar is the live run. That value shows the school page, widens the drawer, and shrinks the week board. <code>startAssignment</code> refuses before enqueue if a run is already live. Talk and task detail stay keyed to the open assignment. The guest view uses the measured sidebar slot, not guessed coordinates.</p>
   </section>
   <section class="card">
     <h2>Why this stays small</h2>
@@ -25,11 +25,11 @@
   </section>
   <section class="card">
     <h2>Proof</h2>
-    <p>Typecheck passed. Contract tests passed, including IPC contract 10 with <code>startAssignment</code>. A Vite preview walkthrough opened assignments, started Inky, synced the week Inky, reopened the desk from the mascot, and walked Settings without Library.</p>
+    <p>Typecheck, contract tests, and the Electron self-test are the gates. A start-while-busy store dump proves a second <code>startAssignment</code> leaves the waiting task discovered and the queue unchanged. Vite <code>?preview</code> is not the desk proof: it never runs the real start or layout path.</p>
   </section>
   <section class="card">
     <h2>Debug first</h2>
-    <p>If the school page misses the sidebar, compare <code>schoolBrowserBounds</code> desk math with <code>.workspace-drawer.is-desk</code>. If start fails, read the manager enqueue/permission error on the task before the execution coordinator.</p>
+    <p>If the school page misses the sidebar, inspect the renderer slot <code>data-school-slot</code> and the last <code>setBrowserLayout</code> bounds. If start mutates the queue without a live run, the busy guard in <code>startSelectedAssignment</code> did not run first.</p>
   </section>
 </body>
 </html>

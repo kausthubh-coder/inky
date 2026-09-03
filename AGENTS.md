@@ -56,6 +56,9 @@ Build app UI in `src/`. `npm run build` compiles Electron and the Vite client on
 - Library is not a chrome destination. Assignment records open from the week board into a paper sidebar. Local artifacts stay available from that sidebar when a task has them.
 - Clicking a week-board assignment opens the sidebar with the verified details, a “Make Inky do this” action when the task may start, prior Inky work when it exists, and a bottom field to talk to Inky about that assignment.
 - Inky’s desk is a chrome control, not a separate app screen. It opens the same sidebar on the live school page and what Inky is doing. Closing the sidebar keeps any running work; the week board stays visible.
+- One meaning of “the live desk is showing”: the week sidebar is open on that live run (plain desk or the same week card). That value drives the school page, the wide desk drawer, and week-board shrink. Opening the live card keeps the page; peeking another card may hide it; closing the sidebar hides it.
+- `startAssignment` must refuse before enqueue or steer if a run is already working, waiting, in review, or submitting. “Make Inky do this” stays off while any run is live.
+- Assignment talk and prior-work notes are keyed to the open card. The guest school page sits in a measured, non-scrolling sidebar slot; hide it until that slot exists. Do not guess a rectangle.
 - The week-view Inky mirrors the active assignment: working, waiting, or needing the student. When the sidebar is closed, clicking Inky opens Inky’s desk.
 - Week feedback is a compact note near the board, not a wide footer form. Settings also keeps a place to send a note. Settings copy stays student-plain: Inky, school, privacy, and account.
 

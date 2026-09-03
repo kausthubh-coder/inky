@@ -2,6 +2,7 @@ import {
   CONTRACT_MANIFEST,
   DEFAULT_AGENT_MODEL_ID,
   DEFAULT_AGENT_REASONING_EFFORT,
+  isLivePhase,
   type Assignment,
   type LifecycleState,
   type LibraryState,
@@ -151,6 +152,9 @@ export function installDevPreview(): void {
     setAutomationPaused: async () => lifecycle,
     startNextAssignment: async () => api.startAssignment({ taskId: tasks[0]!.task.taskId }),
     startAssignment: async ({ taskId }) => {
+      if (lifecycle.execution && isLivePhase(lifecycle.execution.phase)) {
+        throw new Error("Inky is already on another page.");
+      }
       const item = tasks.find((task) => task.task.taskId === taskId);
       if (!item) throw new Error("That assignment is not in the preview.");
       item.task = { ...item.task, state: "working", revision: item.task.revision + 1, updatedAt: new Date().toISOString() };
