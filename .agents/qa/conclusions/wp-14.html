@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Studi · WP-14 conclusion</title>
+  <style>
+    :root{color:#352f2a;background:#fffaf0;font:16px/1.55 system-ui,sans-serif}body{max-width:880px;margin:0 auto;padding:40px 24px}h1,h2{line-height:1.15}code{background:#f5ecd9;padding:2px 5px;border-radius:4px}.card{border:2px solid #352f2a;border-radius:16px;padding:18px 20px;margin:18px 0;background:#fffdf8}
+  </style>
+</head>
+<body>
+  <p>WP-14</p>
+  <h1>The week board keeps the student; Inky’s desk slides in beside it</h1>
+  <section class="card">
+    <h2>What the student gets</h2>
+    <p>This week stays the home screen. A week card opens a paper sidebar with the checked assignment, a start action, earlier Inky work, and a talk field. Inky’s desk is a chrome control for the same sidebar on the live school page. The greeting Inky matches the run and reopens the desk. Library is gone. Feedback is a small week note and a Settings note.</p>
+  </section>
+  <section class="card">
+    <h2>How control moves</h2>
+    <p>Renderer panel state is closed, assignment, or desk. Task records still come from local library reads. <code>startAssignment</code> enqueues a discovered task, steers it next, and starts that run. The school view is shown only while the desk is open and a run is live. Assignment talk uses the existing manager with assignment context and stays in the sidebar.</p>
+  </section>
+  <section class="card">
+    <h2>Why this stays small</h2>
+    <p>The full-page desk and Library screen are gone. Settings still writes the same preferences, rules, schedule, and telemetry. No second queue or second Inky machine was added.</p>
+  </section>
+  <section class="card">
+    <h2>Proof</h2>
+    <p>Typecheck passed. Contract tests passed, including IPC contract 10 with <code>startAssignment</code>. A Vite preview walkthrough opened assignments, started Inky, synced the week Inky, reopened the desk from the mascot, and walked Settings without Library.</p>
+  </section>
+  <section class="card">
+    <h2>Debug first</h2>
+    <p>If the school page misses the sidebar, compare <code>schoolBrowserBounds</code> desk math with <code>.workspace-drawer.is-desk</code>. If start fails, read the manager enqueue/permission error on the task before the execution coordinator.</p>
+  </section>
+</body>
+</html>
