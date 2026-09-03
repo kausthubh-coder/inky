@@ -10,13 +10,13 @@ export default function MissionPage() {
     <>
       <header className="site-nav flat">
         <a className="wordmark" href="/">
-          studi <span className="pencil">✎</span>
+          studi
         </a>
         <nav className="links" aria-label="Page">
           <a href="/#what">Inky</a>
           <a href="/#trust">Trust</a>
-          <a href="/mission">Mission</a>
           <a href="/#faq">FAQ</a>
+          <a className="on" href="/mission">Mission</a>
         </nav>
         <a className="cta" href="/#wait">
           Get a seat
@@ -63,6 +63,11 @@ export default function MissionPage() {
           Get a seat
         </a>
       </main>
+
+      <footer className="foot">
+        © 2026 Studi <span>·</span> Private beta <span>·</span>{" "}
+        <a href="/">Home</a> <span>·</span> <a href="/#wait">Waitlist</a>
+      </footer>
     </>
   );
 }

@@ -82,7 +82,7 @@ function ConnectedWaitlistForm({
           className={`btn primary${darkButton ? " dark" : ""}`}
           disabled={busy}
         >
-          {busy ? "Saving…" : "Save me a seat"}
+          {busy ? "Saving…" : "Save my seat"}
         </button>
       </div>
       {error ? (
