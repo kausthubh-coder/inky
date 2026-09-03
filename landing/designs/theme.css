@@ -20,27 +20,33 @@ body {
 
 .site-nav {
   position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-  display: flex; align-items: center; gap: 18px;
-  padding: 12px 28px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px 9px 18px;
   background: rgba(243, 234, 214, calc(var(--nav-o) * 0.97));
   border-bottom: 2px solid rgba(28, 22, 18, var(--nav-o));
 }
 .site-nav .wordmark {
   font-family: "Shantell Sans", cursive; font-weight: 800; font-size: 22px;
   color: var(--ink); text-decoration: none;
+  display: inline-flex; align-items: center; flex-shrink: 0;
 }
 .site-nav .wordmark .pencil { display: inline-block; transform: rotate(8deg); }
-.site-nav .links { display: flex; gap: 16px; flex: 1; }
+.site-nav .links { display: flex; align-items: center; gap: 2px; margin: 0 auto; }
 .site-nav .cta {
+  margin-left: auto;
   text-decoration: none; display: inline-flex; align-items: center;
-  font: inherit; font-size: 12.5px; font-weight: 800;
+  font: inherit; font-size: 13px; font-weight: 800;
   border: 2px solid var(--ink); background: var(--sunny); color: var(--ink);
-  border-radius: var(--wobble-pill); padding: 7px 15px;
+  border-radius: var(--wobble-pill); padding: 7px 14px;
   box-shadow: 2px 2px 0 var(--ink);
+  rotate: -1.4deg; flex-shrink: 0;
 }
-.site-nav .links a { color: var(--ink-soft); }
+.site-nav .links a {
+  color: var(--ink-soft); text-decoration: none; font-weight: 800; font-size: 13px;
+  padding: 6px 12px; border-radius: var(--wobble-pill); border: 2px solid transparent;
+}
 .site-nav .links a:hover,
-.site-nav .links a.is-on { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.site-nav .links a.is-on { color: var(--ink); background: var(--sticky); }
 .site-nav.is-on {
   opacity: 1;
   pointer-events: auto;
@@ -88,7 +94,8 @@ a.btn {
 .ok-msg.on { display: block; }
 
 @media (max-width: 860px) {
-  .site-nav { padding: 10px 14px; gap: 10px; }
+  .site-nav { padding: 8px 12px; gap: 8px; }
   .site-nav .links { display: none; }
+  .site-nav .cta { rotate: 0deg; font-size: 12.5px; padding: 7px 12px; }
   .inner { padding: 88px 16px 64px; }
 }
