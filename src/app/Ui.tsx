@@ -2,28 +2,38 @@ import type { ReactNode } from "react";
 
 import { agentRuntimeAttentionCopy, type AgentRuntimeAttention, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
 
-export type AppScreen = "week" | "library" | "settings";
+export type AppScreen = "week" | "settings";
 
 export function AppChrome({
   screen,
   studentName,
   status,
+  deskOpen,
+  deskBusy,
   onNavigate,
+  onOpenDesk,
 }: {
   screen: AppScreen;
   studentName: string;
   status: string;
+  deskOpen: boolean;
+  deskBusy: boolean;
   onNavigate: (screen: AppScreen) => void;
+  onOpenDesk: () => void;
 }) {
   return (
     <header className="app-chrome">
       <div className="brand-lockup"><strong>studi <span className="brand-pencil" aria-hidden="true">✎</span></strong><small>{status}</small></div>
       <nav aria-label="Main navigation">
         <button className={screen === "week" ? "is-active" : ""} onClick={() => onNavigate("week")}>This week</button>
-        <button className={screen === "library" ? "is-active" : ""} onClick={() => onNavigate("library")}>Library</button>
         <button className={screen === "settings" ? "is-active" : ""} onClick={() => onNavigate("settings")}>Settings</button>
       </nav>
-      <span className="account-chip"><span aria-hidden="true">{(studentName || "S").slice(0, 1).toUpperCase()}</span>{studentName || "Student"}</span>
+      <div className="chrome-end">
+        <button className={`desk-launch ${deskOpen ? "is-open" : ""} ${deskBusy ? "is-busy" : ""}`} type="button" onClick={onOpenDesk}>
+          Inky’s desk
+        </button>
+        <span className="account-chip"><span aria-hidden="true">{(studentName || "S").slice(0, 1).toUpperCase()}</span>{studentName || "Student"}</span>
+      </div>
     </header>
   );
 }

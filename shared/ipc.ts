@@ -75,6 +75,8 @@ const setAutomationPausedMethod = "setAutomationPaused" as const;
 const setAutomationPausedChannel = "studi:set-automation-paused" as const;
 const startNextAssignmentMethod = "startNextAssignment" as const;
 const startNextAssignmentChannel = "studi:start-next-assignment" as const;
+const startAssignmentMethod = "startAssignment" as const;
+const startAssignmentChannel = "studi:start-assignment" as const;
 const resumeAssignmentMethod = "resumeAssignment" as const;
 const resumeAssignmentChannel = "studi:resume-assignment" as const;
 const verifyStudentSubmissionMethod = "verifyStudentSubmission" as const;
@@ -191,6 +193,7 @@ const RecordMissedCourseFeedbackManifestEntrySchema = z.strictObject({
 const GetLifecycleStateManifestEntrySchema = z.strictObject({ method: z.literal(getLifecycleStateMethod), channel: z.literal(getLifecycleStateChannel) });
 const SetAutomationPausedManifestEntrySchema = z.strictObject({ method: z.literal(setAutomationPausedMethod), channel: z.literal(setAutomationPausedChannel) });
 const StartNextAssignmentManifestEntrySchema = z.strictObject({ method: z.literal(startNextAssignmentMethod), channel: z.literal(startNextAssignmentChannel) });
+const StartAssignmentManifestEntrySchema = z.strictObject({ method: z.literal(startAssignmentMethod), channel: z.literal(startAssignmentChannel) });
 const ResumeAssignmentManifestEntrySchema = z.strictObject({ method: z.literal(resumeAssignmentMethod), channel: z.literal(resumeAssignmentChannel) });
 const VerifyStudentSubmissionManifestEntrySchema = z.strictObject({ method: z.literal(verifyStudentSubmissionMethod), channel: z.literal(verifyStudentSubmissionChannel) });
 const OpenAnswerArtifactManifestEntrySchema = z.strictObject({ method: z.literal(openAnswerArtifactMethod), channel: z.literal(openAnswerArtifactChannel) });
@@ -213,7 +216,7 @@ const ExportDiagnosticsManifestEntrySchema = z.strictObject({ method: z.literal(
 
 export const ContractManifestSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
-  contractVersion: z.literal("9"),
+  contractVersion: z.literal("10"),
   ipcMethods: z.tuple([
     RuntimeInfoManifestEntrySchema,
     ContractManifestEntrySchema,
@@ -238,6 +241,7 @@ export const ContractManifestSchema = z.strictObject({
     GetLifecycleStateManifestEntrySchema,
     SetAutomationPausedManifestEntrySchema,
     StartNextAssignmentManifestEntrySchema,
+    StartAssignmentManifestEntrySchema,
     ResumeAssignmentManifestEntrySchema,
     VerifyStudentSubmissionManifestEntrySchema,
     OpenAnswerArtifactManifestEntrySchema,
@@ -420,6 +424,11 @@ export const studiIpcRegistry = Object.freeze({
   [startNextAssignmentMethod]: Object.freeze({
     channel: startNextAssignmentChannel,
     requestSchema: z.undefined(),
+    resultSchema: LifecycleStateSchema,
+  }),
+  [startAssignmentMethod]: Object.freeze({
+    channel: startAssignmentChannel,
+    requestSchema: z.strictObject({ taskId: z.string().min(1).max(256) }),
     resultSchema: LifecycleStateSchema,
   }),
   [resumeAssignmentMethod]: Object.freeze({
@@ -608,7 +617,7 @@ export function createIpcHandlerRegistrations<Registry extends IpcRegistryDefini
 
 const contractManifest = ContractManifestSchema.parse({
   schemaVersion: STUDI_SCHEMA_VERSION,
-  contractVersion: "9",
+  contractVersion: "10",
   ipcMethods: studiIpcMethods.map((method) => ({
     method,
     channel: studiIpcRegistry[method].channel,
