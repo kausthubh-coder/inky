@@ -292,6 +292,16 @@ const ipcHandlers: StudiIpcHandlers = {
     captureQueueTransition("assignment_start", state);
     return state;
   },
+  startAssignment: async ({ taskId }) => {
+    await requireReadyProviderForScan();
+    const manager = requireManagerCoordinator();
+    manager.enqueue({ taskId });
+    manager.steerNext(taskId);
+    await requireAssignmentExecutionCoordinator().start(taskId);
+    const state = requireAppKernel().state();
+    captureQueueTransition("assignment_start", state);
+    return state;
+  },
   resumeAssignment: async ({ taskId }) => {
     await requireReadyProviderForScan();
     await requireAssignmentExecutionCoordinator().resume(taskId);
@@ -660,8 +670,8 @@ function schoolBrowserBounds(
     const y = gapTop;
     return { x, y, width: Math.max(300, width - x - edge), height: Math.max(300, height - y - edge) };
   }
-  const start = Math.round(width * 0.52);
-  return { x: start, y: 76, width: Math.max(300, width - start - 18), height: Math.max(300, height - 94) };
+  const start = Math.round(width * 0.54);
+  return { x: start + 14, y: 192, width: Math.max(280, width - start - 28), height: Math.max(220, height - 276) };
 }
 
 function currentBrowserDriver() {

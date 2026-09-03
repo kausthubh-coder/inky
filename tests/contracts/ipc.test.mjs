@@ -246,6 +246,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "getLifecycleState",
     "setAutomationPaused",
     "startNextAssignment",
+    "startAssignment",
     "resumeAssignment",
     "verifyStudentSubmission",
     "openAnswerArtifact",
@@ -292,6 +293,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       getLifecycleState: "studi:lifecycle-state",
       setAutomationPaused: "studi:set-automation-paused",
       startNextAssignment: "studi:start-next-assignment",
+      startAssignment: "studi:start-assignment",
       resumeAssignment: "studi:resume-assignment",
       verifyStudentSubmission: "studi:verify-student-submission",
       openAnswerArtifact: "studi:open-answer-artifact",
@@ -315,7 +317,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   );
   assert.deepEqual(CONTRACT_MANIFEST, {
     schemaVersion: 1,
-    contractVersion: "9",
+    contractVersion: "10",
     ipcMethods: [
       { method: "getRuntimeInfo", channel: "studi:runtime-info" },
       { method: "getContractManifest", channel: "studi:contract-manifest" },
@@ -340,6 +342,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       { method: "getLifecycleState", channel: "studi:lifecycle-state" },
       { method: "setAutomationPaused", channel: "studi:set-automation-paused" },
       { method: "startNextAssignment", channel: "studi:start-next-assignment" },
+      { method: "startAssignment", channel: "studi:start-assignment" },
       { method: "resumeAssignment", channel: "studi:resume-assignment" },
       { method: "verifyStudentSubmission", channel: "studi:verify-student-submission" },
       { method: "openAnswerArtifact", channel: "studi:open-answer-artifact" },

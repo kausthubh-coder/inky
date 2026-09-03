@@ -4,8 +4,11 @@ import "@fontsource/shantell-sans/600.css";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
+import { installDevPreview } from "./app/devPreview";
 import { StudiApp } from "./app/StudiApp";
 import "./app/app.css";
+
+installDevPreview();
 
 const rootElement = document.getElementById("root");
 

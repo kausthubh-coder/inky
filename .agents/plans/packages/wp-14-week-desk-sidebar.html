@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Studi · WP-14 Week desk sidebar</title>
+  <style>
+    :root{color:#352f2a;background:#fffaf0;font:16px/1.55 system-ui,sans-serif}body{max-width:960px;margin:0 auto;padding:40px 24px}h1,h2{line-height:1.15}code{background:#f5ecd9;padding:2px 5px;border-radius:4px}.card{border:2px solid #352f2a;border-radius:16px;padding:18px 20px;margin:18px 0;background:#fffdf8}.gate{background:#e2f3e9}.fail{background:#ffe3de}li+li{margin-top:7px}
+  </style>
+</head>
+<body>
+  <p>WP-14</p>
+  <h1>Keep the week board, open Inky’s desk beside it</h1>
+  <p>The student stays on This week. Assignments, Inky, and Inky’s desk share one sidebar. Library leaves chrome. Settings becomes a quieter student page.</p>
+  <section class="card"><h2>Outcome</h2><ul>
+    <li>Clicking a verified assignment opens a paper sidebar with details, a start action, prior Inky work, and a talk field.</li>
+    <li>Inky’s desk opens that sidebar on the live school page and the current run. Week-view Inky matches the run and reopens the desk.</li>
+    <li>Feedback sits in a compact week note and in Settings. Settings uses Inky / school / privacy / account copy.</li>
+  </ul></section>
+  <section class="card"><h2>Data shape</h2>
+    <p>One renderer panel: closed, assignment, or desk. Electron still owns tasks, permission, and execution. <code>startAssignment(taskId)</code> enqueues if needed, then starts that task. Browser layout is desk only while the desk panel is open and a run is live.</p>
+  </section>
+  <section class="card"><h2>Reuse or delete</h2><ul>
+    <li>Reuse task detail, manager talk, desk activity, and settings persistence.</li>
+    <li>Delete the Library chrome screen and the full-page desk takeover of the week board.</li>
+    <li>Do not add a second queue or a second Inky state machine.</li>
+  </ul></section>
+  <section class="card gate"><h2>Pass</h2><ul>
+    <li>Week board stays up during work. Sidebar shows the selected assignment or the live desk.</li>
+    <li>Make Inky do this calls the new start path. Talk-about-this uses the existing manager with assignment context.</li>
+    <li>Library is gone. Settings sections still save the same records.</li>
+  </ul></section>
+  <section class="card fail"><h2>Fail</h2><ul>
+    <li>Work still replaces the week board, Library remains in chrome, or Inky reports a false state.</li>
+    <li>Seeded assignments appear when a scan is empty or partial.</li>
+  </ul></section>
+</body>
+</html>
