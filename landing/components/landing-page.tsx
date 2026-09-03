@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import wallpaper from "../designs/wallpaper.png";
 import type { InkyState } from "../lib/inky";
 import { InkyMascot } from "./inky-mascot";
+import { SiteNav } from "./site-nav";
 import { WaitlistForm } from "./waitlist-form";
 
 // Three related-rates problems with correct answers, so anyone checking the demo finds real math.
@@ -66,7 +67,7 @@ const DEMO_BEATS: readonly DemoBeat[] = [
   {
     view: "is-hello",
     inky: "hello",
-    hold: 5600,
+    hold: 7000,
     say: "Hi. I’m Inky.",
     text: "I do your homework. The 11:59 kind. The one you’ve been staring at since Tuesday.",
     replies: [{ label: "okay, show me", beat: 1 }],
@@ -129,13 +130,6 @@ const OUTCOME: Record<Decision, { say: string; text: string; page: PageState }> 
 };
 
 const RAIL = ["Hi", "Your week", "Inky’s desk", "Your call"] as const;
-
-const NAV_LINKS = [
-  ["#what", "Inky"],
-  ["#trust", "Trust"],
-  ["#faq", "FAQ"],
-  ["/mission", "Mission"],
-] as const;
 
 const TRUST = [
   {
@@ -516,65 +510,6 @@ function useDesktopShrink() {
   }, []);
 }
 
-function SiteNav() {
-  const [active, setActive] = useState("");
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    // Observe every section so the highlight clears on sections without a nav link.
-    const ids = ["what", "compare", "trust", "sites", "wait", "faq"];
-    const linked = new Set<string>(NAV_LINKS.map(([href]) => href));
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const hit = entries.find((entry) => entry.isIntersecting);
-        if (!hit) return;
-        const href = `#${hit.target.id}`;
-        setActive(linked.has(href) ? href : "");
-      },
-      { rootMargin: "-40% 0px -50% 0px" },
-    );
-    ids.forEach((id) => {
-      const node = document.getElementById(id);
-      if (node) observer.observe(node);
-    });
-    return () => observer.disconnect();
-  }, []);
-
-  return (
-    <header className={`site-nav${open ? " open" : ""}`}>
-      <a className="wordmark" href="#top" onClick={() => setOpen(false)}>
-        studi
-      </a>
-      <nav className="links" id="site-links" aria-label="Page">
-        {NAV_LINKS.map(([href, label]) => (
-          <a
-            href={href}
-            key={href}
-            className={active === href ? "on" : ""}
-            onClick={() => setOpen(false)}
-          >
-            {label}
-          </a>
-        ))}
-      </nav>
-      <a className="cta" href="#wait" onClick={() => setOpen(false)}>
-        Get a seat
-      </a>
-      <button
-        type="button"
-        className="menu"
-        aria-expanded={open}
-        aria-controls="site-links"
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span className="visually-hidden">Menu</span>
-        <i />
-        <i />
-      </button>
-    </header>
-  );
-}
-
 function Demo() {
   const [beatIndex, setBeatIndex] = useState(0);
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -690,6 +625,7 @@ function Demo() {
       className="scene"
       ref={sceneRef}
       style={{ backgroundImage: `url(${wallpaper.src})` }}
+      onPointerDown={() => setAutoplay(false)}
     >
       <div className="stage-area">
         <div className="window" role="application" aria-label="Studi demo">
@@ -779,11 +715,11 @@ function Demo() {
                     <span>every morning</span>
                   </div>
                 </div>
-                <div className="week-say">
-                  <div className="speech" key={beatIndex}>
+                <div className={`week-say${toast ? " quiz-nudge" : ""}`}>
+                  <div className="speech" key={`${beatIndex}-${toast}`} role={toast ? "status" : undefined}>
                     <span className="tail" aria-hidden="true" />
-                    <div className="line">{beat.say}</div>
-                    <div>{beat.text}</div>
+                    <div className="line">{toast ? toast : beat.say}</div>
+                    <div>{toast ? "Quizzes and tests stay yours. I’ll sit here looking helpful." : beat.text}</div>
                   </div>
                   <div className="replies">
                     <button type="button" className="btn primary" onClick={() => go(2)}>
@@ -809,11 +745,6 @@ function Demo() {
                 </button>
               </div>
               <WeekBoard onStart={() => go(2)} onRefuse={setToast} />
-              {toast ? (
-                <div className="ink-toast" role="status">
-                  {toast}
-                </div>
-              ) : null}
             </section>
 
             <aside className="school" aria-label="School page">
