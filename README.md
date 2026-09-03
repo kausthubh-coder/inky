@@ -4,7 +4,7 @@ Studi is a local-first Electron agent that helps students manage and complete br
 
 This is a Bun workspace:
 
-- Desktop app: `electron/`, `src/`, `shared/`
+- Desktop app: `desktop/` (`electron/`, `src/`, and `shared/`)
 - Public site: `landing/` (Next.js, Vercel project `inky`)
 - Shared backend: `convex/` (same Clerk + Convex deployment)
 

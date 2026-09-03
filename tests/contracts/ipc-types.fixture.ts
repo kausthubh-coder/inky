@@ -4,7 +4,7 @@ import {
   createIpcApi,
   createIpcHandlerRegistrations,
   type IpcHandlers,
-} from "../../shared/ipc.js";
+} from "../../desktop/shared/ipc.js";
 
 const registry = Object.freeze({
   measure: Object.freeze({

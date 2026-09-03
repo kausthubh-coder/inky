@@ -7,6 +7,7 @@ out/
 .vite/
 coverage/
 .playwright-mcp/
+.agents/playwright-mcp/
 .studi-qa/
 .studi-fresh/
 .agents/studi-qa/

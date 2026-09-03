@@ -31,12 +31,12 @@ Isolated official Playwright cannot finish that page. A real QA run reached the 
 
 ## Persistence without GitHub
 
-The cache file stays gitignored. Cloud and remote agents do not share that disk, so the durable copy is a **Cursor Runtime Secret** named `STUDI_QA_CODEX_AUTH`.
+The cache file stays gitignored. Local Codex-managed worktrees receive it through `.worktreeinclude`. Remote environments use a secret named `STUDI_QA_CODEX_AUTH` during setup to hydrate the same gitignored cache.
 
 | Place | What lives there | Who sees it |
 | --- | --- | --- |
 | `.agents/studi-qa/codex-auth/auth.json` | Local Pi `auth.json` copy | This machine only |
-| Cursor secret `STUDI_QA_CODEX_AUTH` | Same bytes, base64 or raw JSON | Cloud agent process as an env var. Use **Runtime Secret** so transcripts, tool results, and commits show `[REDACTED]` |
+| Remote secret `STUDI_QA_CODEX_AUTH` | Same bytes, base64 or raw JSON | Setup phase only; hydrate the gitignored cache before the agent phase |
 | GitHub | Nothing | — |
 
 Do not use a plain Environment Variable secret. That type is visible to the agent in chat.
@@ -50,8 +50,8 @@ Do not use a plain Environment Variable secret. That type is visible to the agen
    node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --export --copy-secret
    ```
 
-3. In [cursor.com/dashboard/cloud-agents](https://cursor.com/dashboard/cloud-agents) → Secrets, add `STUDI_QA_CODEX_AUTH` as a **Runtime Secret**. Paste the clipboard. Do not paste it into chat or a repo file.
-4. Restart later cloud agents so they receive the new secret.
+3. In the remote environment settings, add `STUDI_QA_CODEX_AUTH` as a secret and make its setup script run `node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import`. Paste from the clipboard. Do not paste it into chat or a tracked file.
+4. Reset the environment cache after rotating the secret.
 
 If Studi later says Codex needs login again, repeat the human device code, re-export, and replace the same secret. Cloud agents cannot update Cursor Secrets themselves.
 
@@ -65,6 +65,20 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\.agents\skills\test-studi\
 
 ```bash
 node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import
+```
+
+For a new local Codex-managed worktree, select the Studi local environment whose Windows setup action is:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\.agents\skills\test-studi\scripts\Setup-StudiWorktree.ps1
+```
+
+`.worktreeinclude` supplies `.env.local` and the gitignored Codex auth cache to that managed worktree. Use a distinct CDP port when two QA apps run at once.
+
+For Codex Cloud, add `STUDI_QA_CODEX_AUTH` as a **secret** and use this setup command:
+
+```bash
+bash .agents/skills/test-studi/scripts/setup-studi-cloud.sh
 ```
 
 The receipt may say `source=env` or `source=file`. It reports byte length only. If import ran and the app still says `needs_login`, the secret is stale. Do not import a second time in the same run. Fall back to a human device code.
@@ -87,9 +101,9 @@ The bubble says **Already connected**. Click **Let's go**. Do not start another 
 
 A dedicated ChatGPT account is better than the user's everyday ChatGPT. The skill does not create that account.
 
-## Cloud-agent limit
+## Codex Cloud limit
 
-Cursor Cloud VMs are Linux. This helper can hydrate the token there. The current Studi QA launcher starts Windows `electron.exe`, so the live desktop onboarding pass still runs on the Windows machine. A cloud agent that cannot start Studi should hydrate, report that, and stop. Do not claim a renderer pass it could not open.
+Codex Cloud containers are Linux. This helper can hydrate the token there, but the current Studi QA launcher starts Windows `electron.exe`, so a live desktop pass still runs on Windows Local or a Windows worktree. A cloud agent may build and run non-Electron checks; it must not claim a renderer pass it could not open.
 
 ## Options that are not the current path
 

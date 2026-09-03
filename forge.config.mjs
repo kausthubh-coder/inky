@@ -4,9 +4,9 @@ export default {
     executableName: "Studi",
     asar: false,
     icon: "assets/studi-inky",
-    extraResource: ["assets/studi-inky.png", "THIRD_PARTY_NOTICES.md"],
+    extraResource: ["assets/studi-inky.png", "assets/studi-inky.ico", "THIRD_PARTY_NOTICES.md"],
     ignore: [
-      /^\/(?:\.agents|\.openai|\.playwright-mcp|convex|electron|landing|scripts|shared|src|tests|worker)(?:\/|$)/,
+      /^\/(?:\.agents|\.openai|\.playwright-mcp|convex|desktop|landing|scripts|tests|worker)(?:\/|$)/,
       /^\/\.env(?:\.|$)/,
       /^\/node_modules\/\.vite(?:\/|$)/,
       /^\/dist\/(?:\.openai|server)(?:\/|$)/,

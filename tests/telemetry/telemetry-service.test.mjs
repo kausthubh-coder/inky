@@ -191,11 +191,11 @@ test("the inspector is bounded to upload-eligible envelopes and shutdown is awai
 });
 
 test("renderer replay records Studi text, still masks passwords, and never enters the school view", async () => {
-  const { filterRendererTelemetryEvent } = await import("../../src/telemetry/renderer.ts");
+  const { filterRendererTelemetryEvent } = await import("../../desktop/src/telemetry/renderer.ts");
   const [renderer, main, app] = await Promise.all([
-    readFile(new URL("../../src/telemetry/renderer.ts", import.meta.url), "utf8"),
-    readFile(new URL("../../electron/main.ts", import.meta.url), "utf8"),
-    readFile(new URL("../../src/app/StudiApp.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../../desktop/src/telemetry/renderer.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../desktop/electron/main.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../desktop/src/app/StudiApp.tsx", import.meta.url), "utf8"),
   ]);
   for (const policy of [
     /maskTextSelector:\s*"input\[type='password'\], \[data-secret\]"/,

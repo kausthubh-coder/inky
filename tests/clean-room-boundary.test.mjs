@@ -7,15 +7,15 @@ import test from "node:test";
 const root = new URL("../", import.meta.url);
 const rootPath = fileURLToPath(root);
 const discardedFiles = [
-  "src/App.jsx",
-  "src/Onboarding.jsx",
-  "src/data.js",
-  "src/main.jsx",
-  "src/styles.css",
-  "electron/main.cjs",
-  "electron/preload.cjs",
-  "electron/moodle-adapter.cjs",
-  "electron/school-workflow.cjs",
+  "desktop/src/App.jsx",
+  "desktop/src/Onboarding.jsx",
+  "desktop/src/data.js",
+  "desktop/src/main.jsx",
+  "desktop/src/styles.css",
+  "desktop/electron/main.cjs",
+  "desktop/electron/preload.cjs",
+  "desktop/electron/moodle-adapter.cjs",
+  "desktop/electron/school-workflow.cjs",
   "public/assets/studi-mascot.png",
   "public/demo/assignment.html",
   "public/demo/external.html",
@@ -47,7 +47,7 @@ test("discarded prototype modules are absent", async () => {
 });
 
 test("active runtime source does not reference discarded behavior", async () => {
-  const sourceFiles = await collectFiles(["src", "electron", "shared", "public"]);
+  const sourceFiles = await collectFiles(["desktop", "public"]);
   const activeFiles = [join(rootPath, "package.json"), ...sourceFiles];
   const violations = [];
 

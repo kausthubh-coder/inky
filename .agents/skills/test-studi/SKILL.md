@@ -9,7 +9,7 @@ Exercise the built desktop app as a student would, without touching the everyday
 
 There are two jobs. Pick one:
 
-- **Skip to app (default):** reuse `.agents/studi-qa/profile` and drive the week board. Use this when onboarding is already done, or when the job is chrome, Settings, Library, or desk layout. Codex is required only if the job starts a manager, scan, or desk agent turn.
+- **Skip to app (default):** reuse `.agents/studi-qa/profile` and drive the week board. Use this when onboarding is already done, or when the job is chrome, Settings, assignment-sidebar, or desk layout. Codex is required only if the job starts a manager, scan, or desk agent turn.
 - **Full onboarding:** walk first-run from the signed-out gate through Clerk and Codex. Stop before a live LMS sign-in until a local school fixture exists.
 
 ## Before the run
@@ -34,7 +34,7 @@ node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --export --c
 node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import
 ```
 
-That binds CDP to `127.0.0.1` only and reuses `<repo>\.agents\studi-qa\profile`. `-ImportCodexAuth` hydrates Codex from `STUDI_QA_CODEX_AUTH` (Cursor Runtime Secret) or `.agents\studi-qa\codex-auth\auth.json`, then copies it into the profile. First time both are empty: the user completes Clerk and Codex by hand, then the agent exports and asks them to store the Cursor secret. After that, do not ask them to log in again unless auth or Codex is actually gone.
+That binds CDP to `127.0.0.1` only, starts a short-lived loopback Clerk handoff, and reuses `<repo>\.agents\studi-qa\profile`. `-ImportCodexAuth` hydrates Codex from `STUDI_QA_CODEX_AUTH` or `.agents\studi-qa\codex-auth\auth.json`, then copies it into the profile. The launcher receipt exposes a safe `clerkClaimUrl`; use it with isolated Playwright after activating **Sign in to Studi**. First time both Codex sources are empty, the user completes only the ChatGPT device code, then the agent exports the refreshed secret to the clipboard. After that, do not ask them to log in again unless auth is actually gone.
 
 Do not pass `-ResetPersistent` unless the user asked to wipe the onboarded QA profile.
 
@@ -44,7 +44,7 @@ Isolated Playwright cannot finish OpenAI device authorization. A real run got HT
 
 1. If `provider.state` is already `ready`, continue.
 2. If the launcher receipt says `codexAuthImported=true`, confirm `ready` in the renderer.
-3. If Codex is still needed, the ChatGPT onboarding step already started a device code. Tell the user the code, poll until `ready`, then `node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --export --copy-secret`. Ask them to put the clipboard into the Cursor Runtime Secret `STUDI_QA_CODEX_AUTH`. Never print the token.
+3. If Codex is still needed, the ChatGPT onboarding step already started a device code. Tell the user the code, poll until `ready`, then `node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --export --copy-secret`. Ask them to replace the `STUDI_QA_CODEX_AUTH` secret in each remote environment that needs it. Never print the token.
 4. Never open `auth.openai.com` or ChatGPT login in isolated Playwright. Never copy everyday `%APPDATA%\Studi` unless the user explicitly asked to seed QA from it. Never commit `.agents/studi-qa/`.
 
 Chrome-only skip-to-app tests may continue when Codex is disconnected. Manager, scan, and desk agent turns may not.
@@ -52,7 +52,7 @@ Chrome-only skip-to-app tests may continue when Codex is disconnected. Manager, 
 ## Invariants
 
 - Drive the Electron renderer with Microsoft's official Playwright MCP (`playwright-electron`). The school guest pane is for Pi, not for Playwright. Do not use Computer Use for Studi chrome.
-- Never interact with the system-browser page Electron opens for Clerk. If a *new* Clerk login is required, capture its fresh authorize URL with [scripts/Get-FreshClerkAuthorizeUrl.ps1](scripts/Get-FreshClerkAuthorizeUrl.ps1) and complete it in the isolated Playwright browser.
+- Never interact with the user's system-browser session for Clerk. The QA launcher redirects the one-shot authorize URL into its in-memory loopback handoff; open only the receipt's `clerkClaimUrl` in isolated Playwright.
 - Treat authorize URLs, device codes, tokens, cookies, `auth.json`, and browser command lines as ephemeral. Do not save them in evidence, screenshots, shell history, or repository files.
 - Use only a dedicated identity in Clerk's development instance. Reuse an existing test user when possible. Creating a user or approving beta access requires explicit user authorization, a lookup or dry run first, and the existing controlled development admin boundary.
 - Never use or alter the user's personal Clerk session or everyday Studi `userData`. Stop if Clerk shows a different identity than the dedicated test identity.

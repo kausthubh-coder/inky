@@ -449,10 +449,10 @@ test("IPC request and result schemas reject malformed values", () => {
 });
 
 test("preload derives named methods and exposes no caller-selected channel primitive", async () => {
-  const preload = await readFile(new URL("../../electron/preload.cts", import.meta.url), "utf8");
-  const main = await readFile(new URL("../../electron/main.ts", import.meta.url), "utf8");
-  const ipcSource = await readFile(new URL("../../shared/ipc.ts", import.meta.url), "utf8");
-  const rendererTypes = await readFile(new URL("../../src/types/window.d.ts", import.meta.url), "utf8");
+  const preload = await readFile(new URL("../../desktop/electron/preload.cts", import.meta.url), "utf8");
+  const main = await readFile(new URL("../../desktop/electron/main.ts", import.meta.url), "utf8");
+  const ipcSource = await readFile(new URL("../../desktop/shared/ipc.ts", import.meta.url), "utf8");
+  const rendererTypes = await readFile(new URL("../../desktop/src/types/window.d.ts", import.meta.url), "utf8");
 
   assert.match(preload, /createIpcApi\(studiIpcRegistry/);
   assert.match(preload, /ipcRenderer\.invoke\(channel, request\)/);
@@ -471,7 +471,7 @@ test("preload derives named methods and exposes no caller-selected channel primi
 
 test("runtime-info shape is declared only by the shared schema", async () => {
   const sources = await Promise.all(
-    ["../../electron/main.ts", "../../electron/preload.cts", "../../src/app/StudiApp.tsx"].map((path) =>
+    ["../../desktop/electron/main.ts", "../../desktop/electron/preload.cts", "../../desktop/src/app/StudiApp.tsx"].map((path) =>
       readFile(new URL(path, import.meta.url), "utf8"),
     ),
   );

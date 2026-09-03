@@ -7,6 +7,10 @@
         "@playwright/mcp@latest",
         "--cdp-endpoint",
         "http://127.0.0.1:9222",
+        "--output-dir",
+        ".agents/playwright-mcp",
+        "--output-max-size",
+        "52428800",
         "--allow-unrestricted-file-access"
       ]
     },
@@ -16,7 +20,11 @@
         "-y",
         "@playwright/mcp@latest",
         "--headless",
-        "--isolated"
+        "--isolated",
+        "--output-dir",
+        ".agents/playwright-mcp",
+        "--output-max-size",
+        "52428800"
       ]
     }
   }

@@ -53,7 +53,7 @@ test("packaged launches ignore the development URL switch", () => {
 
 test("Electron development renderer selection is explicit per launch", async () => {
   const [mainSource, packageSource] = await Promise.all([
-    readFile(new URL("../../electron/main.ts", import.meta.url), "utf8"),
+    readFile(new URL("../../desktop/electron/main.ts", import.meta.url), "utf8"),
     readFile(new URL("../../package.json", import.meta.url), "utf8"),
   ]);
   const scripts = JSON.parse(packageSource).scripts;

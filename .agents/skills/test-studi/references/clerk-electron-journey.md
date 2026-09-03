@@ -18,30 +18,23 @@ args = ["-y", "@playwright/mcp@latest", "--cdp-endpoint", "http://127.0.0.1:9222
 
 The generic `playwright` instance owns an isolated Chromium profile and completes Clerk. `playwright-electron` attaches to Studi's renderer. Keep their pages and observations separate. The local Codex configuration may add an explicit Chromium executable or `--caps vision`; those do not change this ownership model.
 
-## Launch and capture
+## Launch and claim
 
 1. Build when needed with `bun run build`.
 2. Run `scripts/Start-StudiQa.ps1` from this skill. For a throwaway Clerk proof, omit `-Persistent`. For the onboarded feature profile, pass `-Persistent` so the receipt path is `<repo>\.agents\studi-qa\profile`. Do not add `--studi-development-url`; the test target is `dist/client/index.html`.
 3. Attach `playwright-electron`. On a fresh profile, confirm the file URL and signed-out gate. On a reused persistent profile, read `window.studi.getAuthState()` first — if it is already approved, skip this Clerk capture unless the user asked to re-prove sign-in.
-4. Immediately before activating **Sign in to Studi**, record a UTC baseline and start the capture helper in a long-running terminal session:
+4. Activate **Sign in to Studi** through `playwright-electron`. In QA mode Electron publishes the authorize URL to the launcher's short-lived in-memory loopback handoff instead of opening the system browser.
+5. Navigate isolated generic Playwright to the receipt's `clerkClaimUrl`. The relay validates Clerk's host, S256 PKCE fields, and the loopback callback before issuing a one-time redirect. It never prints or writes the authorize URL.
 
-   ```powershell
-   $captureBaseline = [DateTimeOffset]::UtcNow
-   .\.agents\skills\test-studi\scripts\Get-FreshClerkAuthorizeUrl.ps1 -StartedAfterUtc $captureBaseline
-   ```
-
-5. Activate sign-in through `playwright-electron`. Electron opens the system browser, but do not focus, inspect, close, or automate that browser. The helper polls only newly created browser-process command lines, validates the configured Clerk host, S256 PKCE fields, and a `127.0.0.1` callback, then emits the ephemeral URL as JSON.
-6. Pass the URL directly to the isolated generic Playwright browser. Do not paste it into notes, evidence, or another shell command.
-
-If the capture helper times out, stop. A stale tab, browser history, or the user's active browser profile is not an acceptable substitute.
+If the claim returns `425`, wait briefly for Electron to publish and retry once. If it still fails, stop. A stale tab, browser history, or the user's active browser profile is not an acceptable substitute.
 
 ## Dedicated development identity
 
-The existing reusable Clerk development identity is `studi.wp12+clerk_test@example.com`. Clerk's development email-code flow accepts the documented development code `424242`. These values are test fixtures, not production credentials; do not put them into app code or helper scripts.
+The existing reusable Clerk development identity is `studi.wp12+clerk_test@example.com`. Clerk's development email-code flow accepts the documented development code `424242`. These values are test fixtures, not production credentials; do not put them into app code or helper scripts. The agent completes this Clerk flow in isolated Playwright. Do not ask the user to sign in to Studi or use their own Clerk identity. Human help is reserved for the separate ChatGPT device-code handoff.
 
 In the isolated browser:
 
-1. Navigate to the exact captured authorize URL.
+1. Navigate to the launch receipt's `clerkClaimUrl` and follow its redirect.
 2. Enter the dedicated email, choose email-code verification, and enter the development code.
 3. Before consent, verify Clerk says the request is on behalf of that dedicated identity. If it shows the user's personal identity or any other account, stop without consenting or signing it out.
 4. Allow access and follow the redirect to the existing `http://127.0.0.1:<ephemeral>/callback` listener. A Clerk redirect alone is not proof of completion; wait for Electron's public auth state to settle.

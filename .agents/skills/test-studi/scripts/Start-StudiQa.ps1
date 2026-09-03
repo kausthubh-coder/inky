@@ -3,10 +3,13 @@ param(
   [ValidateRange(1, 65535)]
   [int]$Port = 9222,
 
+  [ValidateRange(0, 65535)]
+  [int]$ClerkHandoffPort = 0,
+
   [string]$ProfileParent = [System.IO.Path]::GetTempPath(),
 
   [ValidateRange(1, 60)]
-  [int]$ReadinessTimeoutSeconds = 15,
+  [int]$ReadinessTimeoutSeconds = 30,
 
   [switch]$Persistent,
 
@@ -42,8 +45,9 @@ $workspaceRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\.
 $electronPath = Join-Path $workspaceRoot "node_modules\electron\dist\electron.exe"
 $mainPath = Join-Path $workspaceRoot "dist\electron\main.js"
 $rendererPath = Join-Path $workspaceRoot "dist\client\index.html"
+$clerkHandoffScript = Join-Path $PSScriptRoot "clerk-qa-handoff.mjs"
 
-foreach ($requiredPath in @($electronPath, $mainPath, $rendererPath)) {
+foreach ($requiredPath in @($electronPath, $mainPath, $rendererPath, $clerkHandoffScript)) {
   if (-not (Test-Path -LiteralPath $requiredPath -PathType Leaf)) {
     throw "Built Studi artifact is missing: $requiredPath. Run bun run build first."
   }
@@ -51,6 +55,13 @@ foreach ($requiredPath in @($electronPath, $mainPath, $rendererPath)) {
 
 if (-not (Test-PortAvailable -CandidatePort $Port)) {
   throw "CDP port $Port is already in use. Choose another loopback port and configure the Electron Playwright MCP to match."
+}
+
+if ($ClerkHandoffPort -eq 0) {
+  $ClerkHandoffPort = if ($Port -lt 65535) { $Port + 1 } else { 9223 }
+}
+if ($ClerkHandoffPort -eq $Port -or -not (Test-PortAvailable -CandidatePort $ClerkHandoffPort)) {
+  throw "Clerk handoff port $ClerkHandoffPort is unavailable. Choose a different loopback port."
 }
 
 if ($Persistent) {
@@ -80,11 +91,14 @@ if ($Persistent -and $ResetPersistent -and $profileExisted) {
 }
 
 $cdpEndpoint = "http://127.0.0.1:$Port"
+$clerkHandoffEndpoint = "http://127.0.0.1:$ClerkHandoffPort/publish"
+$clerkClaimUrl = "http://127.0.0.1:$ClerkHandoffPort/claim"
 $launchArguments = @(
   ".",
   "--user-data-dir=$profilePath",
   "--remote-debugging-address=127.0.0.1",
-  "--remote-debugging-port=$Port"
+  "--remote-debugging-port=$Port",
+  "--studi-qa-clerk-handoff=$clerkHandoffEndpoint"
 )
 
 if ($DryRun) {
@@ -99,6 +113,7 @@ if ($DryRun) {
     executable = $electronPath
     profilePath = $profilePath
     cdpEndpoint = $cdpEndpoint
+    clerkClaimUrl = $clerkClaimUrl
     launchArguments = $launchArguments
     processId = $null
     cdpReady = $null
@@ -122,7 +137,26 @@ if ($ImportCodexAuth) {
   }
 }
 
-$nativeArguments = '. --user-data-dir="{0}" --remote-debugging-address=127.0.0.1 --remote-debugging-port={1}' -f $profilePath, $Port
+$nodePath = (Get-Command node.exe -ErrorAction Stop).Source
+$handoffProcess = Start-Process -FilePath $nodePath -WorkingDirectory $workspaceRoot -ArgumentList @($clerkHandoffScript, "--port", "$ClerkHandoffPort", "--clerk-host", "novel-eel-63.clerk.accounts.dev") -WindowStyle Hidden -PassThru
+$handoffDeadline = [DateTimeOffset]::UtcNow.AddSeconds(5)
+$handoffReady = $false
+do {
+  $handoffProcess.Refresh()
+  if ($handoffProcess.HasExited) { break }
+  try {
+    $handoffHealth = Invoke-RestMethod -Uri "http://127.0.0.1:$ClerkHandoffPort/health" -TimeoutSec 1
+    if ($handoffHealth.ready) { $handoffReady = $true; break }
+  } catch {
+    Start-Sleep -Milliseconds 100
+  }
+} while ([DateTimeOffset]::UtcNow -lt $handoffDeadline)
+if (-not $handoffReady) {
+  if (-not $handoffProcess.HasExited) { Stop-Process -Id $handoffProcess.Id -Force }
+  throw "The isolated Clerk handoff did not become ready."
+}
+
+$nativeArguments = '. --user-data-dir="{0}" --remote-debugging-address=127.0.0.1 --remote-debugging-port={1} --studi-qa-clerk-handoff="{2}"' -f $profilePath, $Port, $clerkHandoffEndpoint
 $startedAt = [DateTimeOffset]::UtcNow
 $process = Start-Process -FilePath $electronPath -WorkingDirectory $workspaceRoot -ArgumentList $nativeArguments -PassThru
 
@@ -156,6 +190,8 @@ $receipt = [ordered]@{
   codexAuthImported = $codexAuthImported
   codexAuthMissing = $codexAuthMissing
   cdpEndpoint = $cdpEndpoint
+  clerkClaimUrl = $clerkClaimUrl
+  clerkHandoffProcessId = $handoffProcess.Id
   launchArguments = $launchArguments
   processId = $process.Id
   startedAtUtc = $startedAt.ToString("o")
@@ -165,5 +201,6 @@ $receipt = [ordered]@{
 $receipt | ConvertTo-Json -Depth 4 -Compress
 
 if (-not $cdpReady) {
+  if (-not $handoffProcess.HasExited) { Stop-Process -Id $handoffProcess.Id -Force }
   exit 2
 }

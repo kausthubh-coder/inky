@@ -1,4 +1,4 @@
-import { copyFile, mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -102,8 +102,14 @@ function writeReceipt(receipt) {
 
 async function fileInfo(path) {
   try {
-    const info = await stat(path);
-    return { exists: true, bytes: info.size, usable: info.size > 2 };
+    const bytes = await readFile(path);
+    const parsed = JSON.parse(bytes.toString("utf8"));
+    const credential = parsed?.["openai-codex"];
+    const usable = credential?.type === "oauth"
+      && typeof credential.access === "string" && credential.access.length > 0
+      && typeof credential.refresh === "string" && credential.refresh.length > 0
+      && typeof credential.expires === "number" && Number.isFinite(credential.expires);
+    return { exists: true, bytes: bytes.length, usable };
   } catch {
     return { exists: false, bytes: 0, usable: false };
   }

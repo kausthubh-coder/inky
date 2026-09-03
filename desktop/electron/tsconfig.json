@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "types": ["node", "electron"],
+    "rootDir": "..",
+    "outDir": "../../dist",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "sourceMap": true
+  },
+  "include": ["main.ts", "development-url.ts", "diagnostics.ts", "agent/**/*.ts", "auth/**/*.ts", "assignment/**/*.ts", "browser/**/*.ts", "lifecycle/**/*.ts", "manager/**/*.ts", "scan/**/*.ts", "storage/**/*.ts", "telemetry/**/*.ts", "../shared/**/*.ts"]
+}
