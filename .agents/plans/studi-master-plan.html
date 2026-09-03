@@ -250,18 +250,18 @@
           <div class="arch-col">
             <div class="node external"><strong>School WebContentsView</strong><small>Persistent cookies, no Node, sandboxed, visible takeover, one active profile.</small></div>
             <div class="node external"><strong>Clerk + Convex</strong><small>Identity, beta entitlement, plan/credits, usage summary, feedback only.</small></div>
-            <div class="node external"><strong>PostHog</strong><small>Studi UI replay, product analytics, redacted errors and agent/tool traces.</small></div>
+            <div class="node external"><strong>PostHog</strong><small>Studi UI replay, product analytics, consented school context, and agent cost/model traces. Secrets stay out.</small></div>
             <div class="node external"><strong>Model provider</strong><small>Beta provider auth through Pi. Future paid traffic goes through a thin Studi gateway.</small></div>
           </div>
         </div>
-        <div class="boundary">Prohibited boundary crossing: cookies, passwords, auth headers, page HTML, school-browser screenshots/replay, raw school content, local rules, queues, memory files, and agent session transcripts must not be written to Convex or PostHog.</div>
+        <div class="boundary">Prohibited boundary crossing: cookies, passwords, auth headers, page HTML, school-browser screenshots/replay, assignment answers, local rules, queues, memory files, and agent session transcripts must not be written to Convex or PostHog. Consented names, emails, school URLs, and course titles may leave the device through PostHog during private beta.</div>
         <table>
           <thead><tr><th>Boundary</th><th>Allowed</th><th>Rejected</th><th>Enforcement</th></tr></thead>
           <tbody>
             <tr><td>Renderer → main</td><td>Typed commands with IDs and user intent</td><td>Arbitrary IPC channels, filesystem paths, executable code</td><td>Context isolation, allowlisted preload API, schema validation</td></tr>
             <tr><td>Agent → browser</td><td>Named tools with task/session/tab IDs</td><td>Raw CDP socket, unrestricted OS or shell access</td><td>Custom Pi tools and policy middleware</td></tr>
             <tr><td>School page → app</td><td>Normalized snapshot/evidence</td><td>Node APIs, preload bridge, direct IPC</td><td><code>nodeIntegration:false</code>, sandbox, no preload</td></tr>
-            <tr><td>Local → cloud</td><td>Account ID, entitlement, counters, redacted event metadata</td><td>School content and secrets</td><td>Explicit DTOs + redaction tests + outbound audit log</td></tr>
+            <tr><td>Local → cloud</td><td>Account ID, entitlement, counters, consented school context, model/cost/duration</td><td>Secrets, answers, page HTML, school-browser replay</td><td>Explicit DTOs + secret-strip tests + outbound allowlist</td></tr>
           </tbody>
         </table>
       </section>
@@ -281,7 +281,7 @@
             <tr><td>browser profile</td><td>Electron session</td><td><code>persist:studi-school</code></td><td>One profile; passwords/cookies remain Chromium-owned.</td></tr>
             <tr><td>answer fallbacks</td><td>Artifact service</td><td>Markdown per task</td><td>Atomic write; linked from the task after review timeout.</td></tr>
             <tr><td>identity / beta access / credits</td><td>Convex</td><td>Convex tables</td><td>No school references beyond opaque aggregate usage categories.</td></tr>
-            <tr><td>product telemetry</td><td>PostHog</td><td>PostHog</td><td>Stable Clerk user ID; redacted and opt-out capable.</td></tr>
+            <tr><td>product telemetry</td><td>PostHog</td><td>PostHog</td><td>Clerk identity plus consented personal and school facts; secrets stripped; opt-out capable.</td></tr>
           </tbody>
         </table>
         <h3 style="margin-top:22px">Initial local schema</h3>
@@ -471,6 +471,11 @@ requestTakeover(taskId, reason)</pre><p>Every mutation includes <code>taskId</co
           <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-13.html">Read the WP-13 conclusion →</a> <a class="button" href="../qa/conclusions/wp-13-code-walkthrough.html">Open code walkthrough</a> <a class="button" href="../qa/conclusions/studi-wp-00-13.html">Whole-repo conclusion</a></p></div><div><h3>Delivered</h3><ol><li>Self-contained Forge Windows package with bundled Pi, fonts, native/runtime dependencies, icons, and notices.</li><li>Validated migration backup, app version, and allowlisted diagnostic export.</li><li>Portable release ZIP with environment/cache exclusion and retained SHA-256.</li><li>External-working-directory normal-user run with approved Clerk/Convex state, real Codex provider, tray/restart, and Moodle handoff.</li></ol></div><div><h3>Current release candidate</h3><ul><li><code>out/Studi-0.1.0-win32-x64-release.zip</code></li><li>209,729,805 bytes; SHA-256 <code>AD2B851713857DA5426C69B09E9CD69E4BF8AD138BCA914C709AF07B06BDFE02</code>.</li><li>29,894 entries, zero environment/Vite-cache entries, required runtime resources present.</li></ul></div><div class="gatebox pass"><strong>Verified so far:</strong> packaging, migration, diagnostics, identity/provider restore, close/reopen, and current release structure.</div><div class="gatebox fail"><strong>Open live gate:</strong> resume the real Moodle scan after Unity ID + Duo, then run the final packaged self-test and freeze the archive.</div></div>
         </details>
 
+        <details class="package" data-tags="parallel platform posthog telemetry evidence">
+          <summary><span class="wp-id">WP-16</span><span>Store consented beta evidence for scans, assignments, models, and errors</span><span class="meta">implemented · programmatic gates</span></summary>
+          <div class="package-body"><div class="full"><p><a class="button primary" href="../qa/conclusions/wp-16.html">Read the WP-16 conclusion →</a> <a class="button" href="../qa/conclusions/wp-16-code-walkthrough.html">Open code walkthrough</a> <a class="button" href="./packages/wp-16-beta-evidence.html">Dossier</a></p></div><div><h3>Delivered in this pass</h3><ol><li>Scan and assignment events include model, reasoning, duration, tokens, and cost when Pi reports usage.</li><li>Clerk name/email, student name, school URL, and course/assignment titles are stored.</li><li>Errors keep their message after secret stripping. Arbitrary properties are still rejected.</li><li>School browser stays outside PostHog. Answers, cookies, and passwords stay local.</li></ol></div><div class="gatebox pass"><strong>Intent:</strong> later analysis can see which models people use, how long scans take, and what a run costs.</div></div>
+        </details>
+
         <details class="package" data-tags="critical validation live school comparison">
           <summary><span class="wp-id">WP-14</span><span>Compare Studi against the existing /school Codex automation</span><span class="meta">validation · depends WP-09, WP-12, WP-13</span></summary>
           <div class="package-body"><div><h3>Procedure</h3><ol><li>Define the same representative course/assignment objectives and evidence rubric.</li><li>Run the existing Codex automation in a separate task in <code>/school</code>.</li><li>Run the installed Studi build on the same objectives without sharing its hidden execution trace.</li><li>Compare discovery coverage, tool failures, handoffs, answer preservation, time, and user interventions.</li><li>Convert each material gap into a reproducible fixture/test before fixing it.</li><li>Rerun until all P1-critical gaps close or are explicitly accepted.</li></ol></div><div><h3>Comparison is evidence, not a demo</h3><ul><li>Record objective outcomes and interventions.</li><li>Do not compare raw prose quality alone.</li><li>Keep credentials and school content local.</li><li>Failures remain visible in the release report.</li></ul></div><div class="gatebox pass"><strong>Pass:</strong> Studi discovers and completes the selected supported workflows with no unexplained critical capability gap.</div><div class="gatebox fail"><strong>Fail:</strong> a gap is dismissed without a fixture, or comparison uses different objectives.</div></div>
@@ -512,11 +517,11 @@ requestTakeover(taskId, reason)</pre><p>Every mutation includes <code>taskId</co
 
       <section id="privacy">
         <span class="kicker">12 · Security, privacy, and telemetry</span>
-        <h2>Observe Studi, not the student's school session.</h2>
+        <h2>Observe the product, keep secrets and the school page local.</h2>
         <div class="grid">
-          <article class="card wide coral"><h3>Never leave the device</h3><p>Passwords, cookies, refresh tokens, authorization headers, school page HTML, school-browser replay/screenshots, assignment answers, course rosters, local rules, memories, workflows, queues, and Pi session transcripts.</p></article>
-          <article class="card wide mint"><h3>Allowed after redaction</h3><p>Clerk user ID, app version, anonymized platform type, run/task IDs, state transitions, tool names, durations, retry/error codes, token/credit counters, feature usage, masked Studi renderer replay, feedback the user explicitly sends.</p></article>
-          <article class="card full"><h3>Outbound architecture</h3><p>All telemetry and Convex writes pass through typed DTO builders. Builders use field allowlists rather than object spreading. A development interceptor records outbound keys and runs canary tests. The school <code>WebContentsView</code> never loads PostHog code. Pi prompts and outputs remain local by default; temporary debug capture is a separate opt-in mode with an obvious indicator and automatic expiry.</p></article>
+          <article class="card wide coral"><h3>Never leave the device</h3><p>Passwords, cookies, refresh tokens, authorization headers, school page HTML, school-browser replay/screenshots, assignment answers, local rules, memories, workflows, queues, and Pi session transcripts.</p></article>
+          <article class="card wide mint"><h3>Allowed in private beta</h3><p>Clerk user ID, name, email, student name, school URL, course and assignment titles, model, reasoning effort, durations, token counts, estimated cost, error messages after secret stripping, Studi renderer replay, and feedback the user explicitly sends.</p></article>
+          <article class="card full"><h3>Outbound architecture</h3><p>All telemetry and Convex writes pass through typed DTO builders. Builders use field allowlists rather than object spreading. Secrets are stripped; consented personal and school facts are stored. The school <code>WebContentsView</code> never loads PostHog code. Pi prompts and answers remain local.</p></article>
         </div>
       </section>
 
@@ -524,7 +529,7 @@ requestTakeover(taskId, reason)</pre><p>Every mutation includes <code>taskId</co
         <span class="kicker">13 · P1 release gate</span>
         <h2>“Almost deployable” has a concrete meaning.</h2>
         <div class="grid">
-          <article class="card wide yellow"><h3>Blocking capabilities</h3><ul><li>Approved Clerk account signs in and unapproved account cannot.</li><li>Real Pi AgentSession works without Codex CLI.</li><li>Persistent visible browser survives restart.</li><li>Real scan populates dashboard with provenance.</li><li>Rule hierarchy and repeating-pattern confirmation work.</li><li>Supported assignment reaches truthful terminal state.</li><li>Review expiry creates readable Markdown.</li><li>Tray/schedule/notification recovery works.</li><li>PostHog redaction canaries pass.</li><li>Clean Windows install passes.</li></ul></article>
+          <article class="card wide yellow"><h3>Blocking capabilities</h3><ul><li>Approved Clerk account signs in and unapproved account cannot.</li><li>Real Pi AgentSession works without Codex CLI.</li><li>Persistent visible browser survives restart.</li><li>Real scan populates dashboard with provenance.</li><li>Rule hierarchy and repeating-pattern confirmation work.</li><li>Supported assignment reaches truthful terminal state.</li><li>Review expiry creates readable Markdown.</li><li>Tray/schedule/notification recovery works.</li><li>PostHog secret-strip canaries pass.</li><li>Clean Windows install passes.</li></ul></article>
           <article class="card wide sky"><h3>Accepted limitations</h3><ul><li>Private beta, Windows only.</li><li>Unsigned installer may show SmartScreen warning.</li><li>One computer/profile/browser-driving task.</li><li>Physical, CAD, Blender, and unsupported workspace tasks hand off.</li><li>Tutoring and learning sessions absent.</li><li>Tester-provided model authentication.</li><li>School UI changes can break a workflow; evidence and diagnostics make the breakage visible.</li></ul></article>
         </div>
       </section>

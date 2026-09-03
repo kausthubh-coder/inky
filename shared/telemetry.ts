@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { AgentReasoningEffortSchema } from "./agent-runtime.js";
+
 export const TelemetryEventNameSchema = z.enum([
   "studi_app_started",
   "studi_auth_gate",
@@ -8,6 +10,8 @@ export const TelemetryEventNameSchema = z.enum([
   "studi_scan_finished",
   "studi_dashboard_viewed",
   "studi_queue_transition",
+  "studi_assignment_finished",
+  "studi_model_selected",
   "studi_handoff",
   "studi_review",
   "studi_fallback",
@@ -17,7 +21,7 @@ export const TelemetryEventNameSchema = z.enum([
 ]);
 
 export const TelemetryPropertyValueSchema = z.union([
-  z.string().max(256),
+  z.string().max(2_000),
   z.number().finite(),
   z.boolean(),
 ]);
@@ -59,9 +63,22 @@ export const UiTelemetryInputSchema = z.discriminatedUnion("event", [
   }),
 ]);
 
+export const TelemetryAgentFactsSchema = z.strictObject({
+  model: z.string().min(1).max(128).optional(),
+  reasoning_effort: AgentReasoningEffortSchema.optional(),
+  duration_ms: z.number().int().nonnegative().optional(),
+  input_tokens: z.number().int().nonnegative().optional(),
+  output_tokens: z.number().int().nonnegative().optional(),
+  cache_read_tokens: z.number().int().nonnegative().optional(),
+  cache_write_tokens: z.number().int().nonnegative().optional(),
+  cost_usd: z.number().finite().nonnegative().optional(),
+  tool_calls: z.number().int().nonnegative().optional(),
+});
+
 export type TelemetryEventName = z.infer<typeof TelemetryEventNameSchema>;
 export type TelemetryInspectorEnvelope = z.infer<typeof TelemetryInspectorEnvelopeSchema>;
 export type TelemetryState = z.infer<typeof TelemetryStateSchema>;
 export type TelemetryPreferencesInput = z.infer<typeof TelemetryPreferencesInputSchema>;
 export type TelemetryDebugInput = z.infer<typeof TelemetryDebugInputSchema>;
 export type UiTelemetryInput = z.infer<typeof UiTelemetryInputSchema>;
+export type TelemetryAgentFacts = z.infer<typeof TelemetryAgentFactsSchema>;

@@ -5,35 +5,56 @@ import {
   type TelemetryInspectorEnvelope,
 } from "../shared/index.js";
 import type { StorageHealth } from "./storage/index.js";
+import { stripSecrets } from "./telemetry/service.js";
 
 const safePropertyKeys = new Set([
   "action",
   "app_version",
   "assignment_count",
+  "assignment_title",
   "beta_debug",
   "boundary",
+  "cache_read_tokens",
+  "cache_write_tokens",
   "cadence",
   "channel",
   "code",
   "configured",
+  "cost_usd",
   "course_count",
+  "course_label",
+  "course_titles",
+  "current_step",
   "debug_summary",
   "duration_ms",
+  "email",
   "enabled",
+  "failure_count",
+  "input_tokens",
   "kind",
   "launch",
   "linked_system_count",
+  "message",
   "mode",
+  "model",
+  "name",
   "operation",
+  "output_tokens",
   "phase",
   "platform",
   "reason",
+  "reasoning_effort",
   "replay_enabled",
+  "scan_id",
+  "school_root",
   "section",
   "setting",
   "state",
   "status",
   "step",
+  "student_name",
+  "task_id",
+  "tool_calls",
 ]);
 
 export interface DiagnosticsSnapshotInput {
@@ -60,13 +81,12 @@ export function buildDiagnosticsSnapshot(input: DiagnosticsSnapshotInput) {
       formatVersion: 1,
       exportedAt,
       policy: "main-process-allowlist-v1",
-      includes: ["runtime versions", "storage health", "redacted recent diagnostic events"],
+      includes: ["runtime versions", "storage health", "recent diagnostic events"],
       excludes: [
         "credentials and tokens",
-        "school URLs and page content",
-        "prompts and answer artifacts",
+        "school page HTML",
+        "assignment answers",
         "cookies and OAuth state",
-        "filesystem paths and account identifiers",
       ],
     },
     runtime: {
@@ -88,7 +108,7 @@ export function buildDiagnosticsSnapshot(input: DiagnosticsSnapshotInput) {
       enabled: input.telemetryEnabled,
       replayEnabled: input.replayEnabled,
     },
-    diagnostics: input.diagnostics.slice(-30).map(redactDiagnostic),
+    diagnostics: input.diagnostics.slice(-30).map(sanitizeDiagnostic),
   } as const;
 }
 
@@ -102,25 +122,16 @@ export async function writeDiagnosticsSnapshot(
   });
 }
 
-function redactDiagnostic(rawEnvelope: TelemetryInspectorEnvelope) {
+function sanitizeDiagnostic(rawEnvelope: TelemetryInspectorEnvelope) {
   const envelope = TelemetryInspectorEnvelopeSchema.parse(rawEnvelope);
   const properties = Object.fromEntries(
     Object.entries(envelope.properties)
       .filter(([key]) => safePropertyKeys.has(key))
-      .map(([key, value]) => [key, typeof value === "string" ? redactString(value) : value]),
+      .map(([key, value]) => [key, typeof value === "string" ? stripSecrets(value).slice(0, 500) : value]),
   );
   return {
     capturedAt: envelope.capturedAt,
     event: envelope.event,
     properties,
   };
-}
-
-function redactString(value: string): string {
-  return value
-    .replace(/https?:\/\/\S+/gi, "[redacted-url]")
-    .replace(/[A-Z]:\\[^\s]+/gi, "[redacted-path]")
-    .replace(/[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g, "[redacted-email]")
-    .replace(/\b(?:bearer|token|password|cookie|client_secret|oauth|authorization)\b(?:\s*[:=]?\s*\S+)?/gi, "[redacted]")
-    .slice(0, 120);
 }

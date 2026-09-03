@@ -22,7 +22,7 @@
     "test:contracts": "npm run build:electron && node --test \"tests/contracts/*.test.mjs\"",
     "test:agent": "npm run build:electron && node --test \"tests/agent/*.test.mjs\"",
     "test:auth": "npm run build:electron && node --test \"tests/auth/*.test.mjs\"",
-    "test:telemetry": "npm run build:electron && node --test \"tests/telemetry/*.test.mjs\"",
+    "test:telemetry": "npm run build:electron && node --experimental-strip-types --test \"tests/telemetry/*.test.mjs\"",
     "test:packaging": "npm run build:electron && node --test \"tests/packaging/*.test.mjs\"",
     "test:storage": "npm run build:electron && node --test \"tests/storage/*.test.mjs\"",
     "test:foundation": "node --test tests/clean-room-boundary.test.mjs tests/build-shape.test.mjs",

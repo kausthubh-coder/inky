@@ -61,6 +61,8 @@ Build app UI in `src/`. `npm run build` compiles Electron and the Vite client on
 - Assignment talk and prior-work notes are keyed to the open card. The guest school page sits in a measured, non-scrolling sidebar slot; hide it until that slot exists. Do not guess a rectangle.
 - The week-view Inky mirrors the active assignment: working, waiting, or needing the student. When the sidebar is closed, clicking Inky opens Inky’s desk.
 - Week feedback is a compact note near the board, not a wide footer form. Settings also keeps a place to send a note. Settings copy stays student-plain: Inky, school, privacy, and account.
+- Private-beta telemetry may store personal information students already consented to share: Clerk name and email, student name, school URL, course and assignment titles, error messages, selected model, reasoning effort, duration, token counts, and estimated cost. Do not redact those fields from PostHog product events or the local inspector.
+- Still never send school passwords, cookies, tokens, authorization headers, page HTML, assignment answers, or school-browser replay. The school WebContentsView stays outside PostHog.
 
 ## Cursor Cloud specific instructions
 
