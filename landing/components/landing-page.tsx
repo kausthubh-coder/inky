@@ -68,6 +68,15 @@ const DEMO_BEATS: readonly DemoBeat[] = [
   },
 ] as const;
 
+const RAIL = ["Hi", "Your week", "Inky’s desk", "You review"] as const;
+
+const NAV_LINKS = [
+  ["#what", "Inky"],
+  ["#trust", "Trust"],
+  ["#faq", "FAQ"],
+  ["/mission", "Mission"],
+] as const;
+
 const TRUST = [
   {
     label: "passwords",
@@ -123,12 +132,16 @@ const FAQ = [
     "I don’t have a stealth mode and I won’t pretend I do. Typed text is typed text. Use me where you’re allowed, and read what I wrote before you send it.",
   ],
   [
+    "Do I need a school email?",
+    "No. Any email works. I only use it to tell you your seat is ready.",
+  ],
+  [
     "Where does my stuff live?",
     "Your classes, drafts, and school pages stay on your computer. The cloud holds your account and your email. That’s it.",
   ],
   [
     "When do I get in?",
-    "Seats open in small batches so I can keep up. Your campus email gets you in line, and I email you once when yours is ready.",
+    "Seats open in small batches so I can keep up. Your email gets you in line, and I email you once when yours is ready.",
   ],
 ] as const;
 
@@ -144,63 +157,45 @@ const SITES = [
   "zyBooks",
 ] as const;
 
+const FINE_PRINT = (
+  <>
+    Private beta, small batches. <strong>One email</strong> when your seat opens.
+    No newsletter.
+  </>
+);
+
 export function LandingPage() {
   const [joined, setJoined] = useState(false);
+  useDesktopShrink();
 
   return (
     <>
-      <header className="site-nav">
-        <a className="wordmark" href="#top">
-          studi <span className="pencil">✎</span>
-        </a>
-        <nav className="links" aria-label="Page">
-          <a href="#what">Inky</a>
-          <a href="#trust">Trust</a>
-          <a href="/mission">Mission</a>
-          <a href="#faq">FAQ</a>
-        </nav>
-        <a className="cta" href="#wait">
-          Get a seat
-        </a>
-      </header>
+      <SiteNav />
 
       <main id="top">
-        <div className="wrap">
-          <section className="hero" aria-labelledby="hero-title">
-            <div className="hero-copy">
+        <div className="pin" id="pin">
+          <div className="sticky">
+            <section className="lede" id="lede" aria-labelledby="hero-title">
               <h1 id="hero-title">Hi. I’m Inky. I do your homework.</h1>
-              <p className="lead">
-                Studi puts your whole week on one board and lets me take the
-                assignment you’ve been avoiding, right where it lives, while
-                you watch. <strong>I write. You read it. You hit submit.</strong>
-              </p>
-              <WaitlistForm
-                emailId="hero-email"
-                joined={joined}
-                onJoined={() => setJoined(true)}
-                finePrint={
-                  <>
-                    Private beta, small batches. <strong>One email</strong> when
-                    your seat opens. I’ve never seen a password and tests stay
-                    yours.
-                  </>
-                }
-              />
-            </div>
-            <div className="hero-inky" aria-hidden="true">
-              <div className="hero-inky-shadow">
-                <InkyMascot state="hello" size={220} />
+              <div className="lede-row">
+                <p className="lead">
+                  Studi puts your whole week on one board and lets me take the
+                  assignment you’ve been avoiding, right where it lives, while
+                  you watch. <strong>I write. You read it. You hit submit.</strong>
+                </p>
+                <WaitlistForm
+                  emailId="hero-email"
+                  joined={joined}
+                  onJoined={() => setJoined(true)}
+                  finePrint={FINE_PRINT}
+                />
               </div>
-              <div className="say">
-                <span className="tail" />
-                <div className="line">See the email box?</div>
-                Campus email goes in it. I’ll save you a seat.
-              </div>
-            </div>
-          </section>
+            </section>
+            <Demo />
+          </div>
+        </div>
 
-          <Demo />
-
+        <div className="wrap">
           <section className="block" id="what">
             <p className="kicker">Meet Inky</p>
             <h2>Three things. I’m good at them.</h2>
@@ -211,11 +206,10 @@ export function LandingPage() {
             <div className="features">
               <article className="feature card">
                 <div className="n">your week</div>
-                <h3>I find what’s due and put it on one board.</h3>
+                <h3>Never get blindsided by a due date again.</h3>
                 <p>
-                  Essays, problem sets, lab reports, the quiz you forgot
-                  existed. Sorted by day, checked every morning, so it stops
-                  living in your head.
+                  I check every class each morning and lay the week out on one
+                  board. Essays, problem sets, labs, the quiz you forgot existed.
                 </p>
                 <div className="feature-visual mini-stack" aria-hidden="true">
                   <div className="mini-assignment card">
@@ -239,10 +233,10 @@ export function LandingPage() {
 
               <article className="feature card">
                 <div className="n">the assignment</div>
-                <h3>I take the one you’re avoiding.</h3>
+                <h3>The boring part gets done while you watch.</h3>
                 <p>
-                  Say “Make Inky do this” and watch me work, right on the
-                  assignment page. Take it back whenever you want. I’m not
+                  Point at a card, say “Make Inky do this,” and I work right on
+                  the assignment page. Take it back whenever you like. I’m not
                   sneaky. I’m just in the box.
                 </p>
                 <div className="feature-visual" aria-hidden="true">
@@ -263,11 +257,11 @@ export function LandingPage() {
 
               <article className="feature card">
                 <div className="n">you</div>
-                <h3>You stay the student.</h3>
+                <h3>Your name stays on work you actually read.</h3>
                 <p>
-                  I write, then I stop. You read it, fix what you’d fix, and
-                  click the scary button yourself. Quizzes, tests, and exams
-                  stay yours. Cute try though.
+                  I write, then I stop. You read it, fix what you’d fix, and hit
+                  the scary button yourself. Quizzes, tests, and exams stay
+                  yours. Cute try though.
                 </p>
                 <div className="feature-visual" aria-hidden="true">
                   <div className="mini-submit">
@@ -275,6 +269,35 @@ export function LandingPage() {
                     <strong>← yours</strong>
                   </div>
                 </div>
+              </article>
+            </div>
+          </section>
+
+          <section className="block compare" id="compare">
+            <p className="kicker">Not another chat box</p>
+            <h2>You already tried pasting it into a chatbot.</h2>
+            <p className="lead">
+              That works right up until it doesn’t know what’s due, where the
+              assignment lives, or what you already turned in. I do.
+            </p>
+            <div className="compare-grid">
+              <article className="compare-card card them">
+                <h3>Copy, paste, pray</h3>
+                <ul>
+                  <li>You copy the prompt over. Every time.</li>
+                  <li>It has no idea what’s due or when.</li>
+                  <li>You paste the answer back and hope the formatting holds.</li>
+                  <li>Six assignments a week, six little rituals.</li>
+                </ul>
+              </article>
+              <article className="compare-card card me">
+                <h3>Inky, in Studi</h3>
+                <ul>
+                  <li>I already see your week, every class, every due date.</li>
+                  <li>I work on the assignment page itself, while you watch.</li>
+                  <li>The draft is already where it needs to be. You read it there.</li>
+                  <li>You hit submit. Then you go do literally anything else.</li>
+                </ul>
               </article>
             </div>
           </section>
@@ -314,15 +337,16 @@ export function LandingPage() {
               <span className="site-chip muted">the weird one</span>
             </div>
           </section>
-        </div>
 
-        <div className="wrap">
           <section className="wait-block card" id="wait">
+            <div className="wait-inky" aria-hidden="true">
+              <InkyMascot state="hello" size={120} />
+            </div>
             <p className="kicker">Seats</p>
             <h2>Get a seat.</h2>
             <p className="sub">
-              Campus email. I’ll save you one and email you once when it opens.
-              Then go do something that isn’t a lab report.
+              Leave your email. I’ll save you a seat and email you once when it
+              opens. Then go do something that isn’t a lab report.
             </p>
             <WaitlistForm
               emailId="wait-email"
@@ -334,7 +358,7 @@ export function LandingPage() {
             <div className="steps" aria-label="What happens next">
               <div className="step">
                 <div className="k">1 · now</div>
-                <p>You drop your campus email here.</p>
+                <p>You leave your email here.</p>
               </div>
               <div className="step">
                 <div className="k">2 · soon</div>
@@ -376,6 +400,97 @@ export function LandingPage() {
   );
 }
 
+// Scroll progress 0→1 shrinks the full-screen desktop into the landing box.
+// Native scrolling only: the pin is taller than the viewport and the scene is sticky.
+function useDesktopShrink() {
+  useEffect(() => {
+    const root = document.documentElement;
+    const pin = document.getElementById("pin");
+    const lede = document.getElementById("lede");
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let raf = 0;
+
+    function apply() {
+      raf = 0;
+      const stacked = window.innerWidth < 860;
+      const range = Math.max(1, (pin?.offsetHeight ?? 0) - window.innerHeight);
+      const raw = stacked || reduce ? 1 : Math.min(1, Math.max(0, window.scrollY / range));
+      const eased = 1 - (1 - raw) ** 3;
+      root.style.setProperty("--p", eased.toFixed(4));
+      if (lede) root.style.setProperty("--lede-h", `${lede.scrollHeight}px`);
+      root.classList.toggle("desk-open", eased < 0.5);
+    }
+
+    function schedule() {
+      if (!raf) raf = requestAnimationFrame(apply);
+    }
+
+    apply();
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    return () => {
+      window.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+}
+
+function SiteNav() {
+  const [active, setActive] = useState("");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    const ids = ["what", "trust", "faq"];
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.find((entry) => entry.isIntersecting);
+        if (hit) setActive(`#${hit.target.id}`);
+      },
+      { rootMargin: "-40% 0px -50% 0px" },
+    );
+    ids.forEach((id) => {
+      const node = document.getElementById(id);
+      if (node) observer.observe(node);
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <header className={`site-nav${open ? " open" : ""}`}>
+      <a className="wordmark" href="#top" onClick={() => setOpen(false)}>
+        studi <span className="pencil">✎</span>
+      </a>
+      <nav className="links" id="site-links" aria-label="Page">
+        {NAV_LINKS.map(([href, label]) => (
+          <a
+            href={href}
+            key={href}
+            className={active === href ? "on" : ""}
+            onClick={() => setOpen(false)}
+          >
+            {label}
+          </a>
+        ))}
+      </nav>
+      <a className="cta" href="#wait" onClick={() => setOpen(false)}>
+        Get a seat
+      </a>
+      <button
+        type="button"
+        className="menu"
+        aria-expanded={open}
+        aria-controls="site-links"
+        onClick={() => setOpen((value) => !value)}
+      >
+        <span className="visually-hidden">Menu</span>
+        <i />
+        <i />
+      </button>
+    </header>
+  );
+}
+
 function Demo() {
   const [beatIndex, setBeatIndex] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -384,7 +499,7 @@ function Demo() {
   const [visible, setVisible] = useState(true);
   const [typed, setTyped] = useState("");
   const [toast, setToast] = useState("");
-  const demoRef = useRef<HTMLElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
   const typedRef = useRef(0);
   const beat = DEMO_BEATS[beatIndex] ?? DEMO_BEATS[0];
 
@@ -399,7 +514,7 @@ function Demo() {
   }, []);
 
   useEffect(() => {
-    const node = demoRef.current;
+    const node = sceneRef.current;
     if (!node || !("IntersectionObserver" in window)) return;
     const observer = new IntersectionObserver(
       ([entry]) => setVisible(Boolean(entry?.isIntersecting)),
@@ -450,9 +565,9 @@ function Demo() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
-  function go(next: number, userInitiated = true) {
+  function go(next: number) {
     if (next < 0 || next >= DEMO_BEATS.length) return;
-    if (userInitiated) setAutoplay(false);
+    setAutoplay(false);
     setBeatIndex(next);
     setPaused(false);
     setAsking(false);
@@ -479,36 +594,12 @@ function Demo() {
     : beat;
 
   return (
-    <section className="demo" aria-labelledby="demo-title" ref={demoRef}>
-      <div className="demo-head">
-        <div>
-          <p className="kicker">Here’s me on a Monday</p>
-          <h2 id="demo-title">Click around. I don’t bite.</h2>
-          <p>
-            A tour of Studi with pretend classes. Nothing here is real, except
-            my personality.
-          </p>
-        </div>
-        <div className="rail" aria-label="Demo steps">
-          {["Hi", "Your week", "Inky’s desk", "You review"].map((label, index) => (
-            <button
-              type="button"
-              className={`${index === beatIndex ? "on" : ""}${index < beatIndex ? " done" : ""}`}
-              aria-pressed={index === beatIndex}
-              onClick={() => go(index)}
-              key={label}
-            >
-              <span>{index + 1}</span>
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div
-        className="scene"
-        style={{ backgroundImage: `url(${wallpaper.src})` }}
-      >
+    <div
+      className="scene"
+      ref={sceneRef}
+      style={{ backgroundImage: `url(${wallpaper.src})` }}
+    >
+      <div className="stage-area">
         <div className="window" role="application" aria-label="Studi demo">
           <header className="titlebar">
             <div className="traffic" aria-hidden="true">
@@ -678,7 +769,30 @@ function Demo() {
           </div>
         </div>
       </div>
-    </section>
+
+      <div className="desk-foot">
+        <div className="dock" aria-hidden="true">
+          <span className="dock-ico notes" />
+          <span className="dock-ico folder" />
+          <span className="dock-ico inky on" />
+        </div>
+        <div className="scroll-hint" aria-hidden="true">scroll ↓</div>
+        <div className="rail" aria-label="Demo steps">
+          {RAIL.map((label, index) => (
+            <button
+              type="button"
+              className={`${index === beatIndex ? "on" : ""}${index < beatIndex ? " done" : ""}`}
+              aria-pressed={index === beatIndex}
+              onClick={() => go(index)}
+              key={label}
+            >
+              <span>{index + 1}</span>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -689,6 +803,7 @@ function WeekBoard({
   onStart: () => void;
   onRefuse: (message: string) => void;
 }) {
+  const refuse = () => onRefuse("Cute. That one’s a you problem.");
   return (
     <div className="app-week">
       <div className="app-day today">
@@ -733,11 +848,7 @@ function WeekBoard({
           <span>Wed</span>
           <small>Oct 8</small>
         </div>
-        <button
-          type="button"
-          className="app-assignment card"
-          onClick={() => onRefuse("Cute. That one’s a you problem.")}
-        >
+        <button type="button" className="app-assignment card" onClick={refuse}>
           <div className="assignment-top">
             <span className="dot psy" /> PSY 101
             <span className="badge soft">yours</span>
@@ -767,11 +878,7 @@ function WeekBoard({
           <span>Fri</span>
           <small>Oct 10</small>
         </div>
-        <button
-          type="button"
-          className="app-assignment card"
-          onClick={() => onRefuse("Cute. That one’s a you problem.")}
-        >
+        <button type="button" className="app-assignment card" onClick={refuse}>
           <div className="assignment-top">
             <span className="dot psy" /> PSY 101
             <span className="badge soft">yours</span>

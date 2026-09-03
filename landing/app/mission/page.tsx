@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 export default function MissionPage() {
   return (
     <>
-      <header className="site-nav">
+      <header className="site-nav flat">
         <a className="wordmark" href="/">
           studi <span className="pencil">✎</span>
         </a>
