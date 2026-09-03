@@ -13,7 +13,7 @@ export const join = mutation({
   handler: async (ctx, args) => {
     const email = normalizeEmail(args.email);
     if (email.length < 5 || email.length > 320 || !emailPattern.test(email)) {
-      throw new Error("Enter a campus email");
+      throw new Error("Enter a real email address");
     }
 
     const existing = await ctx.db
