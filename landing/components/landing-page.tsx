@@ -385,6 +385,7 @@ function Demo() {
   const [typed, setTyped] = useState("");
   const [toast, setToast] = useState("");
   const demoRef = useRef<HTMLElement>(null);
+  const typedRef = useRef(0);
   const beat = DEMO_BEATS[beatIndex] ?? DEMO_BEATS[0];
 
   useEffect(() => {
@@ -421,22 +422,24 @@ function Demo() {
     return () => window.clearTimeout(timer);
   }, [autoplay, beat.driving, beat.hold, paused, visible]);
 
+  // Typing progress lives in a ref so Takeover pauses mid-sentence and resumes there.
   useEffect(() => {
-    if (beat.page !== "essay") {
-      setTyped("");
-      return;
-    }
+    typedRef.current = 0;
+    setTyped("");
+  }, [beatIndex]);
+
+  useEffect(() => {
+    if (beat.page !== "essay") return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setTyped(ESSAY_OPENING);
       return;
     }
+    if (paused || !visible) return;
 
-    let index = 0;
     const timer = window.setInterval(() => {
-      if (paused || !visible) return;
-      index += 1;
-      setTyped(ESSAY_OPENING.slice(0, index));
-      if (index >= ESSAY_OPENING.length) window.clearInterval(timer);
+      typedRef.current += 1;
+      setTyped(ESSAY_OPENING.slice(0, typedRef.current));
+      if (typedRef.current >= ESSAY_OPENING.length) window.clearInterval(timer);
     }, 22);
     return () => window.clearInterval(timer);
   }, [beat.page, beatIndex, paused, visible]);
@@ -547,7 +550,7 @@ function Demo() {
               <div className="copy">
                 <div className="who-row">Inky</div>
                 <div className="bubbles">
-                  <div className="speech">
+                  <div className="speech" key={`${beatIndex}-${paused}`}>
                     <span className="tail" aria-hidden="true" />
                     <div className="line">{speech.say}</div>
                     <div>{speech.text}</div>
@@ -593,7 +596,7 @@ function Demo() {
                   </div>
                 </div>
                 <div className="week-say">
-                  <div className="speech">
+                  <div className="speech" key={beatIndex}>
                     <span className="tail" aria-hidden="true" />
                     <div className="line">{beat.say}</div>
                     <div>{beat.text}</div>

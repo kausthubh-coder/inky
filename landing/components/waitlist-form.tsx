@@ -45,7 +45,7 @@ function ConnectedWaitlistForm({
       await join({ email });
       onJoined();
     } catch {
-      setError("I couldn’t save that seat. Check the email and try once more.");
+      setError("Something on my end hiccuped. Give it a second and try again.");
     } finally {
       setBusy(false);
     }
