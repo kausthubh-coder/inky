@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Landing nav — Inky is the nav</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .nav {
+      position: fixed;
+      z-index: 40;
+      top: 16px;
+      right: 20px;
+      left: 20px;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      min-height: 64px;
+      padding: 6px 14px;
+    }
+    .wordmark {
+      justify-self: start;
+      font-size: 22px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .buddy {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 14px 4px 6px;
+      border: 2.5px solid var(--ink);
+      border-radius: 999px;
+      background: rgb(255 250 240 / 94%);
+      box-shadow: 3px 3px 0 var(--ink);
+      text-decoration: none;
+    }
+    .buddy svg { width: 44px; height: 44px; }
+    .buddy strong { display: block; font-size: 14px; }
+    .buddy small { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .end {
+      justify-self: end;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .more {
+      position: relative;
+    }
+    .more summary {
+      list-style: none;
+      padding: 7px 12px;
+      border: 2px solid transparent;
+      border-radius: var(--pill);
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .more summary::-webkit-details-marker { display: none; }
+    .more[open] summary, .more summary:hover { background: var(--sticky); }
+    .more nav {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      display: grid;
+      min-width: 160px;
+      padding: 8px;
+      border: 2px solid var(--ink);
+      border-radius: 14px;
+      background: var(--paper-2);
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+    .more a {
+      padding: 7px 10px;
+      border-radius: 8px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .more a:hover { background: var(--sticky); }
+    .cta { rotate: -1.5deg; }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="nav">
+    <a class="wordmark" href="#">studi</a>
+    <a class="buddy" href="#wait">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <g class="eyes">
+            <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+            <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+            <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+            <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+          </g>
+          <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <span>
+        <strong>Sit with Inky</strong>
+        <small>He does the homework</small>
+      </span>
+    </a>
+    <div class="end">
+      <details class="more">
+        <summary>The rest</summary>
+        <nav>
+          <a href="#">How he works</a>
+          <a href="#">Trust</a>
+          <a href="#">FAQ</a>
+          <a href="#">Mission</a>
+        </nav>
+      </details>
+      <a class="btn sunny cta" href="#">I’m in</a>
+    </div>
+  </header>
+
+  <section class="hero-dummy">
+    <p class="kicker">Landing · variation C</p>
+    <h1>You don’t browse Studi. You meet Inky.</h1>
+    <p>The middle of the bar is a person. Links hide because a student does not come here to read a sitemap.</p>
+  </section>
+</body>
+</html>

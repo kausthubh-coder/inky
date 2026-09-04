@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Studi design board</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body { padding: 36px 28px 80px; }
+    .mast {
+      max-width: 980px;
+      margin: 0 auto 36px;
+    }
+    .mast h1 { margin: 6px 0 10px; }
+    .mast p { max-width: 52ch; font-size: 16px; font-weight: 700; }
+    .row { max-width: 1100px; margin: 0 auto 42px; }
+    .row h2 { margin-bottom: 6px; }
+    .row > p { margin-bottom: 16px; font-weight: 700; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .tile {
+      display: grid;
+      gap: 8px;
+      text-decoration: none;
+      transition: translate 120ms var(--ease), box-shadow 120ms var(--ease);
+    }
+    .tile:hover { translate: -1px -2px; box-shadow: 5px 6px 0 rgba(28, 22, 18, 0.2); }
+    .tile h3 { margin: 0; }
+    .tile p { margin: 0; font-size: 13px; font-weight: 700; }
+    .preview {
+      height: 88px;
+      overflow: hidden;
+      border: 2px solid var(--ink);
+      border-radius: 12px;
+      background: #fffaf0;
+      pointer-events: none;
+    }
+    .preview iframe {
+      width: 1440px;
+      height: 900px;
+      border: 0;
+      transform: scale(0.5);
+      transform-origin: top left;
+    }
+    .tag { align-self: start; }
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr; }
+      body { padding: 22px 16px 60px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="mast">
+    <p class="kicker">.agents / .design</p>
+    <h1>Pick the one that feels like Inky.</h1>
+    <p>Paper mockups. Nothing here is wired to the app yet. Open a page, sit with it, then tell me which one to build.</p>
+  </header>
+
+  <section class="row">
+    <h2>Landing nav</h2>
+    <p>Today the bar is logo, four links, yellow “Get a seat.” These keep the paper look and make the bar feel like a person, not a website.</p>
+    <div class="grid">
+      <a class="card tile sunny" href="landing-nav-island.html">
+        <span class="pill tag">A</span>
+        <h3>Floating island</h3>
+        <p>A paper pill sitting on the page. Inky peeks over the left edge. The CTA is still a sticky, just less “SaaS header.”</p>
+      </a>
+      <a class="card tile sky" href="landing-nav-tabs.html">
+        <span class="pill tag">B</span>
+        <h3>Notebook tabs</h3>
+        <p>The page is a composition book. Links hang off the top like labeled tabs. Mission is a tab. Seat is a torn note.</p>
+      </a>
+      <a class="card tile mint" href="landing-nav-companion.html">
+        <span class="pill tag">C</span>
+        <h3>Inky is the nav</h3>
+        <p>No link row. Inky sits in the middle. You talk to him. Trust / FAQ / Mission live in a quiet menu so the bar stays a person.</p>
+      </a>
+      <a class="card tile lavender" href="landing-nav-slim.html">
+        <span class="pill tag">D</span>
+        <h3>Slim underline</h3>
+        <p>Almost invisible. Handwritten wordmark, hairline links, one tilted seat. For if the current bar feels too loud.</p>
+      </a>
+    </div>
+  </section>
+
+  <section class="row">
+    <h2>Settings</h2>
+    <p>Today is four tabs and a pile of colored cards. These treat settings as “how Inky works for you,” not a control panel.</p>
+    <div class="grid">
+      <a class="card tile mint" href="settings-sidebar.html">
+        <span class="pill tag">A</span>
+        <h3>Inky’s desk rail</h3>
+        <p>Click a drawer, one page. He talks, then the control. ChatGPT, finish, apps, folder, nudges, school, rules, you.</p>
+      </a>
+      <a class="card tile sunny" href="settings-journal.html">
+        <span class="pill tag">B</span>
+        <h3>A note from Inky</h3>
+        <p>One column. Inky explains each choice in his voice, then the control. Feels like the onboarding chat never ended.</p>
+      </a>
+      <a class="card tile coral" href="settings-desk.html">
+        <span class="pill tag">C</span>
+        <h3>Three drawers</h3>
+        <p>Inky. School. You. Big cards you open. No tabs. The interface is the furniture.</p>
+      </a>
+      <a class="card tile sky" href="settings-split.html">
+        <span class="pill tag">D</span>
+        <h3>Split with Inky</h3>
+        <p>He sits on the left and talks. The control for that sentence sits on the right. One topic at a time.</p>
+      </a>
+      <a class="card tile" href="settings-home.html">
+        <span class="pill tag">E</span>
+        <h3>Paper map</h3>
+        <p>Six papers on the desk. You pick a topic. No tabs, no scroll dump.</p>
+      </a>
+      <a class="card tile sunny" href="settings-inspector.html">
+        <span class="pill tag">F</span>
+        <h3>On the week</h3>
+        <p>Settings is not a page. Click Bio, the rule is beside it. Global stuff hangs off you.</p>
+      </a>
+      <a class="card tile coral" href="settings-binder.html">
+        <span class="pill tag">G</span>
+        <h3>School binder</h3>
+        <p>Coral spine, metal rings, Inky on top. Tabs are Inky / School / You. Inside is Studi cards, not a form.</p>
+      </a>
+      <a class="card tile sunny" href="settings-folders.html">
+        <span class="pill tag">H</span>
+        <h3>File box</h3>
+        <p>One kraft box. Click a hanging tab, that jacket comes forward. The other two stay on the rail.</p>
+      </a>
+      <a class="card tile" href="settings-notebook.html">
+        <span class="pill tag">I</span>
+        <h3>Composition book</h3>
+        <p>Open spread. Left is contents + Inky. Right is the chapter as notes and stickies.</p>
+      </a>
+    </div>
+  </section>
+
+  <section class="row">
+    <h2>Inky’s desk</h2>
+    <p>Minimal. Details on top, the school page in the middle (like onboarding), talk at the bottom. No logs. Expand the page or open the whole assignment.</p>
+    <div class="grid">
+      <a class="card tile sunny" href="desk-peek-live.html">
+        <span class="pill tag">A</span>
+        <h3>Peek, then live</h3>
+        <p>The quiet rail. Start him. Then the Northstar page, takeover, and chat. Expand becomes a paper sheet: chat | browser.</p>
+      </a>
+      <a class="card tile sky" href="desk-simple.html">
+        <span class="pill tag">B</span>
+        <h3>Rail + modal</h3>
+        <p>Same three pieces. Expand makes the school page a bigger paper modal. The week stays behind.</p>
+      </a>
+      <a class="card tile mint" href="desk-open.html">
+        <span class="pill tag">C</span>
+        <h3>Open the assignment</h3>
+        <p>Like onboarding. Inky chat on the left, school page on the right. Shrink back to the rail.</p>
+      </a>
+    </div>
+  </section>
+
+  <section class="row">
+    <h2>App top bar</h2>
+    <p>Today “This week” and “Settings” sit as equals, and Inky’s desk is a button. These make Inky the living thing in the chrome.</p>
+    <div class="grid">
+      <a class="card tile sky" href="app-topbar-presence.html">
+        <span class="pill tag">A</span>
+        <h3>Inky is here</h3>
+        <p>Inky’s face is the desk. His status is a sentence. Settings hides behind you. The week is the page, not a tab.</p>
+      </a>
+      <a class="card tile pink" href="app-topbar-command.html">
+        <span class="pill tag">B</span>
+        <h3>Talk in the bar</h3>
+        <p>The ask-Inky field lives up top. Status and you sit on the ends. Homework talk is the product, so it gets the chrome.</p>
+      </a>
+      <a class="card tile sunny" href="app-topbar-ticket.html">
+        <span class="pill tag">C</span>
+        <h3>Torn ticket</h3>
+        <p>What Inky is on right now is a ticket stub. Click it, you’re at his desk. Settings is a small gear. Week is implied.</p>
+      </a>
+      <a class="card tile mint" href="app-topbar-day.html">
+        <span class="pill tag">D</span>
+        <h3>Today’s name</h3>
+        <p>Thursday, not “This week.” Inky is a live chip. Settings is still just you.</p>
+      </a>
+      <a class="card tile lavender" href="app-topbar-desk.html">
+        <span class="pill tag">E</span>
+        <h3>Week or desk</h3>
+        <p>Two rooms in a switch: your week, or Inky’s desk. That’s the only nav.</p>
+      </a>
+      <a class="card tile" href="app-topbar-quiet.html">
+        <span class="pill tag">F</span>
+        <h3>Quiet pulse</h3>
+        <p>Almost no chrome. A green pulse means he’s working. Hover to hear what. Click him for the desk.</p>
+      </a>
+      <a class="card tile coral" href="app-topbar-progress.html">
+        <span class="pill tag">G</span>
+        <h3>The assignment is the bar</h3>
+        <p>A progress strip for what’s live. Click it, you’re at the desk. Week is a quiet exit.</p>
+      </a>
+    </div>
+  </section>
+</body>
+</html>

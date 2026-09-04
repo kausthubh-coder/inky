@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>App top bar — Talk in the bar</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: auto minmax(280px, 520px) auto;
+      align-items: center;
+      gap: 16px;
+      height: 62px;
+      padding: 0 16px 0 18px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    .brand svg { width: 36px; height: 36px; }
+    .brand strong { display: block; font-size: 16px; }
+    .brand small { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .ask {
+      display: grid;
+      grid-template-columns: 28px 1fr auto;
+      align-items: center;
+      gap: 8px;
+      height: 42px;
+      padding: 0 8px 0 10px;
+      border: 2px solid var(--ink);
+      border-radius: 14px;
+      background: #fff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.14);
+    }
+    .ask:focus-within { box-shadow: 3px 4px 0 rgba(28, 22, 18, 0.18); translate: 0 -1px; }
+    .pen {
+      display: grid; width: 26px; height: 26px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 8px;
+      background: var(--sunny); font-size: 12px; rotate: -8deg;
+    }
+    .ask input { height: 38px; border: 0; background: transparent; font-weight: 800; }
+    .ask input:focus { outline: none; }
+    .ask button {
+      padding: 4px 10px;
+      border: 1.5px dashed #b3a99c;
+      border-radius: 999px;
+      background: transparent;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .end { display: flex; align-items: center; gap: 8px; }
+    .status {
+      padding: 4px 9px;
+      border: 1.5px solid var(--ink);
+      border-radius: var(--pill);
+      background: #dff4e9;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .you {
+      display: grid; width: 32px; height: 32px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%;
+      background: var(--pink); font-size: 12px; font-weight: 900;
+      text-decoration: none;
+    }
+    .caption {
+      max-width: 1100px;
+      margin: 20px auto 0;
+      padding: 0 24px;
+      font-weight: 700;
+    }
+    @media (max-width: 800px) {
+      .bar { grid-template-columns: auto 1fr auto; }
+      .brand small, .status { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="bar">
+    <a class="brand" href="#">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g>
+        </g>
+      </svg>
+      <span>
+        <strong>studi</strong>
+        <small>Inky’s at his desk</small>
+      </span>
+    </a>
+    <form class="ask" action="#">
+      <span class="pen" aria-hidden="true">✎</span>
+      <input type="text" placeholder="Tell Inky what to do this week" />
+      <button type="button">Send</button>
+    </form>
+    <div class="end">
+      <span class="status">On Bio · watching</span>
+      <a class="you" href="settings-sidebar.html" title="You and settings">K</a>
+    </div>
+  </header>
+  <p class="caption">Top bar · variation B. The thing you do most — talk to Inky — lives in the chrome. Settings is just you.</p>
+  <section class="week-ghost" aria-hidden="true">
+    <article><strong>Today</strong><i></i><i></i></article>
+    <article><strong>Friday</strong><i></i></article>
+    <article><strong>Saturday</strong></article>
+    <article><strong>Sunday</strong><i></i></article>
+    <article><strong>Monday</strong><i></i><i></i></article>
+  </section>
+</body>
+</html>

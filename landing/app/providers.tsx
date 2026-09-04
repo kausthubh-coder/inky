@@ -27,7 +27,26 @@ function ClerkConvexTree({ children }: { children: ReactNode }) {
 export function Providers({ children }: { children: ReactNode }) {
   if (!clerkKey) return <ConvexTree>{children}</ConvexTree>;
   return (
-    <ClerkProvider publishableKey={clerkKey}>
+    <ClerkProvider
+      publishableKey={clerkKey}
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      waitlistUrl="/#wait"
+      signInFallbackRedirectUrl="/dashboard"
+      signUpFallbackRedirectUrl="/dashboard"
+      afterSignOutUrl="/"
+      appearance={{
+        variables: {
+          colorPrimary: "#1c1612",
+          colorBackground: "#fffaf0",
+          colorText: "#1c1612",
+          colorInputBackground: "#ffffff",
+          colorInputText: "#1c1612",
+          borderRadius: "14px",
+          fontFamily: "var(--font-nunito), Nunito Sans, sans-serif",
+        },
+      }}
+    >
       <ClerkConvexTree>{children}</ClerkConvexTree>
     </ClerkProvider>
   );

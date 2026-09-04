@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — nothing on it</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(#d8cbb3 1.15px, transparent 1.15px) 0 0 / 22px 22px,
+        #e8dcc4;
+    }
+
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      align-items: center;
+      height: 58px;
+      padding: 0 18px 0 20px;
+      border-bottom: 2.5px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 22px; font-weight: 800; text-decoration: none; }
+    .presence {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 14px 3px 4px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: #fffaf0;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.16);
+      text-decoration: none;
+    }
+    .presence svg { width: 40px; height: 40px; }
+    .presence strong { display: block; font-size: 13px; line-height: 1.15; }
+    .presence small { color: var(--ink-soft); font-size: 11px; font-weight: 800; }
+    .end { display: flex; align-items: center; gap: 8px; }
+    .gear {
+      width: 34px;
+      height: 34px;
+      border: 2px solid transparent;
+      border-radius: 50%;
+      background: transparent;
+      font-size: 16px;
+      text-decoration: none;
+    }
+    .gear:hover { background: var(--sticky); }
+    .you {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 8px 3px 3px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .you:hover { background: var(--sticky); }
+    .you i {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--pink);
+      font-style: normal;
+      font-size: 12px;
+    }
+
+    .desk {
+      display: grid;
+      grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+      gap: 22px;
+      align-items: start;
+      min-height: calc(100vh - 58px);
+      padding: 22px 22px 80px;
+    }
+
+    .planner {
+      position: relative;
+      padding: 18px 16px 16px 28px;
+      border: 2.5px solid var(--ink);
+      border-radius: 18px 14px 20px 12px;
+      background:
+        linear-gradient(90deg, #edd8b0 0 18px, transparent 18px),
+        var(--paper-2);
+      box-shadow:
+        5px 6px 0 rgba(28, 22, 18, 0.16),
+        0 18px 36px rgba(28, 22, 18, 0.08);
+      rotate: -0.55deg;
+    }
+    .planner::before,
+    .planner::after {
+      content: "";
+      position: absolute;
+      left: 7px;
+      width: 8px;
+      height: 8px;
+      border: 1.5px solid var(--ink);
+      border-radius: 50%;
+      background: #c9b184;
+      box-shadow: inset 1px 1px 0 #fff6;
+    }
+    .planner::before { top: 28px; }
+    .planner::after { bottom: 28px; }
+    .planner-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin: 0 4px 12px 6px;
+    }
+    .planner-head h1 { font-size: 1.55rem; }
+    .planner-head small { color: var(--muted); font-weight: 800; }
+
+    .days {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      min-height: 520px;
+      border: 2.5px solid var(--ink);
+      border-radius: 6px 8px 7px 5px;
+      background: #fffef8;
+      overflow: hidden;
+    }
+    .day {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-width: 0;
+      border-right: 1.5px solid var(--ink);
+    }
+    .day:last-child { border-right: 0; }
+    .day > header {
+      display: grid;
+      gap: 1px;
+      padding: 10px 8px 8px;
+      border-bottom: 1.5px solid var(--ink);
+      background: #f7f0de;
+    }
+    .day > header strong {
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.05rem;
+      line-height: 1;
+    }
+    .day > header small {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .day.is-today > header { background: #fff2b5; }
+    .day.is-today { background: #fffaf0; }
+    .stack { padding: 10px 8px 12px; }
+
+    .slip {
+      display: grid;
+      gap: 3px;
+      width: 100%;
+      padding: 9px 9px 8px;
+      border: 2px solid var(--ink);
+      border-radius: 12px 9px 13px 10px;
+      background: #fff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.1);
+      text-align: left;
+    }
+    .slip:nth-child(odd) { rotate: -1.1deg; }
+    .slip:nth-child(even) { rotate: 0.8deg; }
+    .slip:hover { translate: 0 -2px; box-shadow: 3px 3px 0 rgba(28, 22, 18, 0.16); }
+    .slip small {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .slip strong {
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+    .slip em {
+      color: var(--ink-faint);
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 800;
+    }
+    .empty {
+      margin: 14px 4px 0;
+      color: var(--muted);
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-weight: 600;
+      font-style: italic;
+      line-height: 1.25;
+    }
+
+    .mat {
+      position: relative;
+      min-height: 560px;
+      padding: 18px 10px 8px;
+    }
+    .mat::before {
+      content: "";
+      position: absolute;
+      right: 36px;
+      bottom: 48px;
+      width: 86px;
+      height: 86px;
+      border: 12px solid rgb(28 22 18 / 6%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .blotter {
+      --rule: 30px;
+      position: relative;
+      display: grid;
+      grid-template-rows: auto auto auto 1fr auto;
+      align-content: start;
+      min-height: 620px;
+      padding: 34px 22px 18px 44px;
+      border: 2.5px solid var(--ink);
+      border-radius: 3px 5px 4px 3px;
+      background-color: #fffef6;
+      background-image:
+        linear-gradient(#e08b86, #e08b86),
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0 calc(var(--rule) - 1px),
+          #c5d4e8 calc(var(--rule) - 1px) var(--rule)
+        );
+      background-size: 2px 100%, 100% var(--rule);
+      background-position: 28px 0, 0 12px;
+      background-repeat: no-repeat, repeat;
+      box-shadow:
+        6px 8px 0 rgba(28, 22, 18, 0.14),
+        0 22px 40px rgba(28, 22, 18, 0.08);
+      rotate: 1.15deg;
+    }
+    .tape {
+      position: absolute;
+      z-index: 3;
+      width: 78px;
+      height: 22px;
+      border: 1px solid rgb(28 22 18 / 22%);
+      background: rgb(247 201 72 / 68%);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%);
+    }
+    .tape.l { top: -8px; left: 28px; rotate: -8deg; }
+    .tape.r { top: -7px; right: 36px; rotate: 7deg; background: rgb(232 214 168 / 78%); }
+
+    .away {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      z-index: 2;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .away:hover { color: var(--ink); }
+
+    .who {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 4px 0 8px -8px;
+    }
+    .who svg { width: 92px; height: 92px; flex: 0 0 92px; margin-top: -10px; }
+    .who .speech {
+      margin-top: 18px;
+      font-size: 1.15rem;
+      line-height: 1.2;
+    }
+    .who .speech::before {
+      content: "";
+      position: absolute;
+      left: -7px;
+      top: 18px;
+      width: 12px;
+      height: 12px;
+      border-left: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+      background: #fff;
+      rotate: 45deg;
+    }
+
+    .aside {
+      min-height: calc(var(--rule) * 2);
+      margin: 0 8px 8px 0;
+      color: var(--ink);
+      font-family: "Shantell Sans", cursive;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: var(--rule);
+    }
+
+    .props {
+      position: relative;
+      min-height: 168px;
+      margin: 4px 8px 0 0;
+    }
+    .seat {
+      width: min(210px, 72%);
+      height: 122px;
+      border: 2px dashed #b7c0a4;
+      border-radius: 12px 10px 13px 9px;
+      background: rgb(255 250 240 / 35%);
+    }
+    .sticky {
+      position: absolute;
+      top: 18px;
+      left: 168px;
+      z-index: 2;
+      width: 96px;
+      padding: 12px 8px 14px;
+      border: 1.5px solid #c9b36a;
+      border-radius: 2px;
+      background: var(--sticky);
+      box-shadow: 2px 3px 0 rgb(28 22 18 / 10%);
+      rotate: 7deg;
+      font-family: "Shantell Sans", cursive;
+      font-size: 17px;
+      font-weight: 800;
+      text-align: center;
+      line-height: 1.1;
+    }
+    .sticky::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      left: 0;
+      height: 11px;
+      background: rgb(255 255 255 / 38%);
+    }
+    .pencil {
+      position: absolute;
+      left: 10px;
+      bottom: 8px;
+      z-index: 2;
+      width: 176px;
+      rotate: -16deg;
+      filter: drop-shadow(2px 2px 0 rgb(28 22 18 / 10%));
+    }
+
+    .talk {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      padding: 0 0 2px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .talk input {
+      height: 36px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .talk input:focus { outline: none; }
+    .talk input::placeholder { color: #a79d91; }
+    .talk button {
+      padding: 5px 12px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: #fff;
+      box-shadow: 2px 2px 0 var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .talk button:hover { translate: 1px 1px; box-shadow: 1px 1px 0 var(--ink); }
+
+    @media (max-width: 980px) {
+      .desk { grid-template-columns: 1fr; padding-bottom: 96px; }
+      .planner, .blotter { rotate: 0; }
+      .days { min-height: 280px; overflow-x: auto; grid-template-columns: repeat(5, minmax(140px, 1fr)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .planner, .blotter, .slip, .sticky, .pencil { rotate: 0; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+
+  <header class="bar">
+    <a class="wordmark" href="desk-week.html">studi</a>
+    <a class="presence" href="#" title="Inky’s desk is open">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <g class="eyes">
+            <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+            <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+            <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+            <circle cx="45" cy="56" r="3.5" fill="#3b342c"/>
+            <circle cx="75" cy="56" r="3.5" fill="#3b342c"/>
+          </g>
+        </g>
+      </svg>
+      <span>
+        <strong>Ready when you are</strong>
+        <small>nothing on the desk</small>
+      </span>
+    </a>
+    <div class="end">
+      <a class="gear" href="settings-sidebar.html" title="Settings">⚙</a>
+      <a class="you" href="settings-sidebar.html"><i>K</i>Kaustubh</a>
+    </div>
+  </header>
+
+  <main class="desk">
+    <section class="planner" aria-label="Your week">
+      <div class="planner-head">
+        <h1>Sep 3–7</h1>
+        <small>open a card</small>
+      </div>
+      <div class="days">
+        <article class="day is-today">
+          <header>
+            <strong>Thu 3</strong>
+            <small>today</small>
+          </header>
+          <div class="stack">
+            <button class="slip" type="button">
+              <small>CSC 316</small>
+              <strong>IBM Sorting Machine</strong>
+              <em>tonight</em>
+            </button>
+          </div>
+        </article>
+        <article class="day">
+          <header>
+            <strong>Fri 4</strong>
+            <small>tomorrow</small>
+          </header>
+          <div class="stack">
+            <button class="slip" type="button">
+              <small>Bio 201</small>
+              <strong>Bio lab</strong>
+              <em>Friday</em>
+            </button>
+          </div>
+        </article>
+        <article class="day">
+          <header>
+            <strong>Sat 5</strong>
+            <small>weekend</small>
+          </header>
+          <p class="empty">Nothing due.</p>
+        </article>
+        <article class="day">
+          <header>
+            <strong>Sun 6</strong>
+            <small>weekend</small>
+          </header>
+          <p class="empty">Nothing due.</p>
+        </article>
+        <article class="day">
+          <header>
+            <strong>Mon 7</strong>
+            <small>next</small>
+          </header>
+          <div class="stack">
+            <button class="slip" type="button">
+              <small>Calc II</small>
+              <strong>Calc</strong>
+              <em>Monday</em>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <aside class="mat" aria-label="Inky’s desk">
+      <article class="blotter">
+        <span class="tape l" aria-hidden="true"></span>
+        <span class="tape r" aria-hidden="true"></span>
+        <a class="away" href="desk-week.html">put away</a>
+
+        <div class="who">
+          <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+            <g class="body">
+              <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+              <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g class="eyes">
+                <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+                <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+                <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+                <circle cx="45" cy="56" r="3.5" fill="#3b342c"/>
+                <circle cx="75" cy="56" r="3.5" fill="#3b342c"/>
+              </g>
+              <path d="M54 76 Q60 80 66 76" stroke="#3b342c" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+            </g>
+          </svg>
+          <p class="speech">Ready when you are.</p>
+        </div>
+
+        <p class="aside">Nothing’s on the desk. Open a week card, or tell me what to start.</p>
+
+        <div class="props" aria-hidden="true">
+          <div class="seat"></div>
+          <p class="sticky">pick one</p>
+          <svg class="pencil" viewBox="0 0 180 28">
+            <rect x="18" y="7" width="132" height="14" rx="2" fill="#f7c948" stroke="#3b342c" stroke-width="2.2"/>
+            <polygon points="150,7 172,14 150,21" fill="#f3ead6" stroke="#3b342c" stroke-width="2.2" stroke-linejoin="round"/>
+            <polygon points="166,11 176,14 166,17" fill="#3b342c"/>
+            <rect x="4" y="7" width="16" height="14" rx="2" fill="#f2a8c4" stroke="#3b342c" stroke-width="2.2"/>
+            <rect x="18" y="7" width="8" height="14" fill="#cfc6b4" stroke="#3b342c" stroke-width="2"/>
+          </svg>
+        </div>
+        <div class="rest" aria-hidden="true"></div>
+
+        <form class="talk" action="#">
+          <label class="visually-hidden" for="say">Talk to Inky</label>
+          <input id="say" name="say" placeholder="Tell me what to do…" maxlength="400" />
+          <button type="submit">say it</button>
+        </form>
+      </article>
+    </aside>
+  </main>
+</body>
+</html>

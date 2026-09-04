@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>App top bar — Torn ticket</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      height: 60px;
+      padding: 0 18px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 20px; font-weight: 800; text-decoration: none; }
+    .ticket {
+      display: flex;
+      align-items: stretch;
+      margin-left: 8px;
+      text-decoration: none;
+      filter: drop-shadow(2px 2px 0 rgba(28, 22, 18, 0.16));
+    }
+    .stub, .pass {
+      display: grid;
+      align-content: center;
+      padding: 6px 12px;
+      border: 2px solid var(--ink);
+      background: var(--sticky);
+    }
+    .stub {
+      border-right: 0;
+      border-radius: 10px 0 0 10px;
+      background: #fff2b5;
+    }
+    .pass { border-radius: 0 10px 10px 0; }
+    .stub small, .pass small { font-size: 9px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+    .stub strong, .pass strong { font-size: 13px; line-height: 1.1; }
+    .perfs {
+      width: 12px;
+      background:
+        radial-gradient(circle at 6px 6px, var(--paper) 3px, transparent 3.2px) 0 2px / 12px 10px,
+        var(--sticky);
+      border-top: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+    }
+    .spacer { flex: 1; }
+    .quiet {
+      padding: 6px 10px;
+      border: 0;
+      background: transparent;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .quiet:hover { background: var(--sticky); border-radius: var(--pill); }
+    .you {
+      display: grid; width: 32px; height: 32px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%;
+      background: var(--pink); font-weight: 900; text-decoration: none;
+    }
+    .caption {
+      max-width: 1100px;
+      margin: 20px auto 0;
+      padding: 0 24px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <a class="ticket" href="#" title="Open Inky’s desk">
+      <span class="stub">
+        <small>Inky</small>
+        <strong>working</strong>
+      </span>
+      <span class="perfs" aria-hidden="true"></span>
+      <span class="pass">
+        <small>now</small>
+        <strong>Bio 201 · lab writeup</strong>
+      </span>
+    </a>
+    <span class="spacer"></span>
+    <a class="quiet" href="#">This week</a>
+    <a class="quiet" href="settings-sidebar.html">Settings</a>
+    <a class="you" href="settings-sidebar.html">K</a>
+  </header>
+  <p class="caption">Top bar · variation C. The live assignment is a ticket you can tear off — click it, you’re at the desk. Week and settings stay quiet.</p>
+  <section class="week-ghost" aria-hidden="true">
+    <article><strong>Today</strong><i></i><i></i></article>
+    <article><strong>Friday</strong><i></i></article>
+    <article><strong>Saturday</strong></article>
+    <article><strong>Sunday</strong><i></i></article>
+    <article><strong>Monday</strong><i></i><i></i></article>
+  </section>
+</body>
+</html>

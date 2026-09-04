@@ -138,7 +138,7 @@ if ($ImportCodexAuth) {
 }
 
 $nodePath = (Get-Command node.exe -ErrorAction Stop).Source
-$handoffProcess = Start-Process -FilePath $nodePath -WorkingDirectory $workspaceRoot -ArgumentList @($clerkHandoffScript, "--port", "$ClerkHandoffPort", "--clerk-host", "novel-eel-63.clerk.accounts.dev") -WindowStyle Hidden -PassThru
+$handoffProcess = Start-Process -FilePath $nodePath -WorkingDirectory $workspaceRoot -ArgumentList @($clerkHandoffScript, "--port", "$ClerkHandoffPort", "--clerk-host", "smashing-tadpole-3981.clerk.accounts.dev") -WindowStyle Hidden -PassThru
 $handoffDeadline = [DateTimeOffset]::UtcNow.AddSeconds(5)
 $handoffReady = $false
 do {

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation } from "./_generated/server.js";
+import { mutation, query } from "./_generated/server.js";
 import { nullableText, requireIdentity } from "./identity.js";
 
 const accountResult = v.object({
@@ -11,6 +11,113 @@ const accountResult = v.object({
   plan: v.union(v.literal("beta"), v.literal("supporter"), v.null()),
   credits: v.union(v.number(), v.null()),
   checkedAt: v.number(),
+});
+
+const portalOverviewResult = v.object({
+  email: v.union(v.string(), v.null()),
+  name: v.union(v.string(), v.null()),
+  access: v.union(v.literal("approved"), v.literal("waitlist"), v.literal("revoked")),
+  plan: v.union(v.literal("beta"), v.literal("supporter"), v.null()),
+  credits: v.union(v.number(), v.null()),
+  desktop: v.object({
+    connected: v.boolean(),
+    registeredAt: v.union(v.number(), v.null()),
+    lastSeenAt: v.union(v.number(), v.null()),
+  }),
+  usage: v.object({
+    period: v.string(),
+    agentTokens: v.number(),
+    browserMinutes: v.number(),
+    assignments: v.number(),
+  }),
+  checkedAt: v.number(),
+});
+
+export const portalOverview = query({
+  args: {},
+  returns: portalOverviewResult,
+  handler: async (ctx) => {
+    const identity = await requireIdentity(ctx);
+    const subject = identity.subject;
+    const period = new Date().toISOString().slice(0, 7);
+    const [account, access, entitlement, desktop, agentTokens, browserMinutes, assignments] = await Promise.all([
+      ctx.db.query("accounts").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject)).unique(),
+      ctx.db.query("betaAccess").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject)).unique(),
+      ctx.db.query("entitlements").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject)).unique(),
+      ctx.db.query("activeDevices").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject)).unique(),
+      ctx.db
+        .query("usageSummary")
+        .withIndex("by_clerk_subject_and_period_and_category", (q) =>
+          q.eq("clerkSubject", subject).eq("period", period).eq("category", "agent_tokens"),
+        )
+        .unique(),
+      ctx.db
+        .query("usageSummary")
+        .withIndex("by_clerk_subject_and_period_and_category", (q) =>
+          q.eq("clerkSubject", subject).eq("period", period).eq("category", "browser_minutes"),
+        )
+        .unique(),
+      ctx.db
+        .query("usageSummary")
+        .withIndex("by_clerk_subject_and_period_and_category", (q) =>
+          q.eq("clerkSubject", subject).eq("period", period).eq("category", "assignments"),
+        )
+        .unique(),
+    ]);
+
+    const accessState = access?.approved
+      ? "approved" as const
+      : access?.reason === "revoked"
+        ? "revoked" as const
+        : "waitlist" as const;
+
+    return {
+      email: nullableText(identity.email) ?? account?.email ?? null,
+      name: nullableText(identity.name) ?? account?.name ?? null,
+      access: accessState,
+      plan: accessState === "approved" ? entitlement?.plan ?? null : null,
+      credits: accessState === "approved" ? entitlement?.credits ?? null : null,
+      desktop: {
+        connected: Boolean(desktop),
+        registeredAt: desktop?.registeredAt ?? null,
+        lastSeenAt: desktop?.lastSeenAt ?? null,
+      },
+      usage: {
+        period,
+        agentTokens: agentTokens?.amount ?? 0,
+        browserMinutes: browserMinutes?.amount ?? 0,
+        assignments: assignments?.amount ?? 0,
+      },
+      checkedAt: Date.now(),
+    };
+  },
+});
+
+export const syncWebProfile = mutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const identity = await requireIdentity(ctx);
+    const now = Date.now();
+    const email = nullableText(identity.email);
+    const name = nullableText(identity.name);
+    const account = await ctx.db
+      .query("accounts")
+      .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject))
+      .unique();
+    if (account) {
+      await ctx.db.patch(account._id, { email, name, lastSeenAt: now });
+    } else {
+      await ctx.db.insert("accounts", {
+        clerkSubject: identity.subject,
+        email,
+        name,
+        createdAt: now,
+        lastSeenAt: now,
+      });
+    }
+    return null;
+  },
 });
 
 export const bootstrap = mutation({

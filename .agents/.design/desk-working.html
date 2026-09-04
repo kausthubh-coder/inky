@@ -1,0 +1,513 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — Inky is on the page</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      align-items: center;
+      height: 58px;
+      padding: 0 18px 0 20px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 20px; font-weight: 800; text-decoration: none; }
+    .presence {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 12px 3px 4px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: #dff4e9;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.16);
+      text-decoration: none;
+    }
+    .presence svg { width: 40px; height: 40px; }
+    .presence strong { display: block; font-size: 13px; line-height: 1.15; }
+    .presence small { color: var(--ink-soft); font-size: 11px; font-weight: 800; }
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px; margin-right: 5px;
+      border-radius: 50%;
+      background: #2f9e62; border: 1px solid var(--ink);
+      box-shadow: 0 0 0 3px rgb(47 158 98 / 18%);
+      vertical-align: 1px;
+      animation: pulse 1.8s var(--ease) infinite;
+    }
+    .end { display: flex; align-items: center; gap: 8px; }
+    .you {
+      display: flex; align-items: center; gap: 8px;
+      padding: 3px 8px 3px 3px;
+      border-radius: 999px;
+      font-size: 13px; font-weight: 800;
+      text-decoration: none;
+    }
+    .you:hover { background: var(--sticky); }
+    .you i {
+      display: grid; width: 28px; height: 28px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%;
+      background: var(--pink); font-style: normal; font-size: 12px;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: 196px minmax(0, 1fr);
+      gap: 18px;
+      max-width: 1240px;
+      min-height: calc(100vh - 58px);
+      margin: 0 auto;
+      padding: 18px 20px 72px;
+    }
+
+    .week {
+      display: grid;
+      align-content: start;
+      gap: 8px;
+    }
+    .week > .kicker { padding-left: 4px; }
+    .day {
+      padding: 8px 9px 10px;
+      border: 1.5px dashed #c6b8a6;
+      border-radius: 12px;
+      background: rgb(255 250 240 / 55%);
+    }
+    .day header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .day header strong {
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+    }
+    .day header small { color: var(--muted); font-size: 10px; font-weight: 800; }
+    .day.empty p {
+      color: #b3a99c;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .slip {
+      display: grid;
+      gap: 1px;
+      width: 100%;
+      padding: 7px 8px 8px;
+      border: 1.5px solid var(--ink);
+      border-radius: 10px 8px 11px 9px;
+      background: #fff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.1);
+      text-align: left;
+      text-decoration: none;
+    }
+    .slip small {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .slip b { font-size: 12px; line-height: 1.2; }
+    .day.on {
+      padding: 10px;
+      border: 2.5px solid var(--ink);
+      border-style: solid;
+      background: #fff2b5;
+      box-shadow: 3px 3px 0 rgba(28, 22, 18, 0.16);
+    }
+    .day.on header strong {
+      padding: 1px 8px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: var(--sunny);
+    }
+    .day.on .slip {
+      background: #e0f0ff;
+      rotate: -1.2deg;
+    }
+
+    .desk {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 16px 18px 14px;
+      border: 2.5px solid var(--ink);
+      border-radius: 22px 18px 24px 16px;
+      background:
+        radial-gradient(ellipse at 12% 0, rgb(255 250 240 / 90%), transparent 46%),
+        linear-gradient(180deg, #fffdf6, #f4ead4);
+      box-shadow: 5px 6px 0 rgba(28, 22, 18, 0.14);
+    }
+
+    .who {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      margin: 0 6px -12px;
+    }
+    .who > svg {
+      width: 86px;
+      height: 86px;
+      flex: 0 0 auto;
+      filter: drop-shadow(2px 3px 0 rgba(28, 22, 18, 0.12));
+    }
+    .who-copy { display: grid; gap: 8px; padding-top: 10px; min-width: 0; }
+    .who .speech {
+      width: fit-content;
+      max-width: 28ch;
+    }
+    .who .speech::before {
+      content: "";
+      position: absolute;
+      left: -7px; top: 16px;
+      width: 12px; height: 12px;
+      border-left: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+      background: #fff;
+      transform: rotate(45deg);
+    }
+    .hands {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .printout {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      min-height: 460px;
+      border: 2px solid var(--ink);
+      border-radius: 4px 6px 5px 4px;
+      background: #fff8ee;
+      box-shadow: 4px 5px 0 rgba(28, 22, 18, 0.12);
+      transform: rotate(-0.45deg);
+      overflow: hidden;
+    }
+    .tape {
+      position: absolute;
+      z-index: 4;
+      width: 54px; height: 16px;
+      background: rgb(255 220 80 / 74%);
+      border: 1px solid rgb(28 22 18 / 18%);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%);
+    }
+    .tape.l { top: -8px; left: 28px; rotate: -9deg; }
+    .tape.r { top: -7px; right: 36px; rotate: 8deg; }
+
+    .live-chip {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      padding: 8px 14px 7px;
+      border-bottom: 1.5px dashed #d1c7b8;
+      background: #fffdf4;
+    }
+    .live-chip .dot { margin-right: 2px; }
+    .live-chip strong { font-size: 12px; }
+    .live-chip small { color: var(--muted); font-size: 11px; font-weight: 800; }
+
+    .lms-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 14px;
+      background: #cfe4f8;
+      border-bottom: 2px solid var(--ink);
+    }
+    .lms-top strong {
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+    }
+    .lms-top span { color: var(--ink-soft); font-size: 12px; font-weight: 800; }
+    .lms-top i {
+      display: grid; width: 26px; height: 26px; place-items: center;
+      border: 1.5px solid var(--ink); border-radius: 50%;
+      background: var(--pink); font-style: normal; font-size: 11px; font-weight: 900;
+    }
+    .lms-nav {
+      display: flex;
+      gap: 16px;
+      padding: 7px 14px;
+      background: #e7f3ff;
+      border-bottom: 1.5px solid #c5d7ea;
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--ink-faint);
+    }
+    .lms-nav b { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+
+    .lms-body {
+      display: grid;
+      align-content: start;
+      gap: 12px;
+      padding: 14px 16px 16px;
+      background:
+        linear-gradient(#e8f3ff 0 36px, transparent 36px),
+        #fff8ee;
+    }
+    .lms-body .course {
+      color: var(--ink-faint);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .lms-body h2 { font-size: 1.45rem; }
+    .lms-body .when { color: var(--muted); font-size: 12px; font-weight: 800; }
+
+    .q {
+      padding: 10px 12px 12px;
+      border: 1.5px solid #d3c6b2;
+      border-radius: 10px 8px 11px 9px;
+      background: #fffdf8;
+    }
+    .q.on {
+      border-color: var(--ink);
+      background: #eef6ff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.08);
+    }
+    .q strong { display: block; margin-bottom: 3px; font-size: 13px; }
+    .q p { margin-bottom: 8px; font-size: 13px; font-weight: 700; }
+    .box {
+      min-height: 72px;
+      padding: 8px 10px;
+      border: 1.5px solid var(--ink);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.4;
+      color: var(--ink-soft);
+    }
+    .box.quiet { min-height: 48px; background: #faf6ee; color: #b3a99c; }
+    .caret {
+      display: inline-block;
+      width: 1.5px; height: 13px;
+      margin-left: 1px;
+      background: var(--ink);
+      vertical-align: -2px;
+      animation: caret 1s steps(1) infinite;
+    }
+
+    .talk {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+      padding: 0 6px 2px;
+    }
+    .talk .speech {
+      width: fit-content;
+      max-width: 42ch;
+      background: #fff;
+    }
+    .reply {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 10px;
+      max-width: 520px;
+      padding: 0 2px 4px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .reply input {
+      height: 36px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .reply input:focus { outline: none; }
+    .reply input::placeholder { color: #b3a99c; }
+    .reply button {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgb(47 158 98 / 18%); }
+      50% { box-shadow: 0 0 0 6px rgb(47 158 98 / 0%); }
+    }
+    @keyframes caret {
+      0%, 45% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dot, .caret { animation: none; }
+    }
+    @media (max-width: 860px) {
+      .stage { grid-template-columns: 1fr; padding-bottom: 88px; }
+      .week { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      .who { margin-bottom: 8px; }
+      .printout { min-height: 380px; }
+    }
+    @media (max-width: 620px) {
+      .bar { grid-template-columns: auto 1fr auto; padding: 0 10px; }
+      .wordmark { font-size: 16px; }
+      .presence small, .you span { display: none; }
+      .week { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <a class="presence" href="#" title="Inky’s desk">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+          <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+          <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+          <circle cx="45" cy="56" r="3.5" fill="#3b342c"/>
+          <circle cx="75" cy="56" r="3.5" fill="#3b342c"/>
+        </g>
+      </svg>
+      <span>
+        <strong>On IBM Sorting Machine</strong>
+        <small><span class="dot"></span>on the page · you still submit</small>
+      </span>
+    </a>
+    <div class="end">
+      <a class="you" href="settings-sidebar.html"><i>K</i><span>Kaustubh</span></a>
+    </div>
+  </header>
+
+  <main class="stage">
+    <aside class="week" aria-label="This week">
+      <p class="kicker">This week</p>
+
+      <article class="day on">
+        <header><strong>Thursday</strong><small>today</small></header>
+        <a class="slip" href="#">
+          <small>CSC 316</small>
+          <b>IBM Sorting Machine</b>
+        </a>
+      </article>
+
+      <article class="day">
+        <header><strong>Friday</strong><small>Sep 4</small></header>
+        <a class="slip" href="#">
+          <small>ST 370</small>
+          <b>Quiz 4</b>
+        </a>
+      </article>
+
+      <article class="day empty">
+        <header><strong>Saturday</strong><small>Sep 5</small></header>
+        <p>〰</p>
+      </article>
+
+      <article class="day empty">
+        <header><strong>Sunday</strong><small>Sep 6</small></header>
+        <p>〰</p>
+      </article>
+
+      <article class="day">
+        <header><strong>Monday</strong><small>Sep 7</small></header>
+        <a class="slip" href="#">
+          <small>CSC 316</small>
+          <b>Project 2</b>
+        </a>
+      </article>
+    </aside>
+
+    <section class="desk" aria-label="Inky’s desk">
+      <div class="who">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+            <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+            <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+            <circle cx="45" cy="56" r="3.5" fill="#3b342c"/>
+            <circle cx="75" cy="56" r="3.5" fill="#3b342c"/>
+          </g>
+        </svg>
+        <div class="who-copy">
+          <p class="speech">I’m on the school page.</p>
+          <div class="hands">
+            <span class="pill sunny">I’m on it</span>
+            <button class="btn coral" type="button">I’ll take over</button>
+            <button class="btn" type="button">Stop this</button>
+          </div>
+        </div>
+      </div>
+
+      <article class="printout" aria-label="School page">
+        <i class="tape l" aria-hidden="true"></i>
+        <i class="tape r" aria-hidden="true"></i>
+        <div class="live-chip">
+          <strong><span class="dot"></span>On the page</strong>
+          <small>using the site</small>
+        </div>
+        <header class="lms-top">
+          <div>
+            <strong>Northstar University</strong>
+            <span> · student</span>
+          </div>
+          <i>K</i>
+        </header>
+        <nav class="lms-nav" aria-label="School">
+          <span>Home</span>
+          <b>Courses</b>
+          <span>Calendar</span>
+          <span>Grades</span>
+        </nav>
+        <div class="lms-body">
+          <p class="course">CSC 316 · Homework 3</p>
+          <h2>IBM Sorting Machine</h2>
+          <p class="when">Tonight · 20 points</p>
+
+          <div class="q on">
+            <strong>1.</strong>
+            <p>Feed these keys through the machine: 17, 4, 22, 9, 11. Show each pass.</p>
+            <div class="box">Pass 1 — 4 is already home. Hopper still holds 17, 22, 9, 11.<span class="caret"></span></div>
+          </div>
+
+          <div class="q">
+            <strong>2.</strong>
+            <p>How many comparisons does one full sort take? Why?</p>
+            <div class="box quiet">Write your answer here</div>
+          </div>
+        </div>
+      </article>
+
+      <div class="talk">
+        <p class="speech">Sorting the first list now.</p>
+        <form class="reply" action="#">
+          <input type="text" aria-label="Talk to Inky" placeholder="I’m listening…" />
+          <button type="button">say it</button>
+        </form>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

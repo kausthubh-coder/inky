@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — Composition book</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body { overflow-x: hidden; }
+
+    .stamp {
+      position: fixed;
+      z-index: 20;
+      top: 16px;
+      left: 18px;
+      font-family: "Shantell Sans", cursive;
+      font-size: 22px;
+      font-weight: 800;
+    }
+
+    .desk {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 56px 20px 88px;
+    }
+
+    .book {
+      --cover: #3a3226;
+      position: relative;
+      display: grid;
+      grid-template-columns: 64px minmax(0, 1fr);
+      width: min(1100px, 100%);
+      min-height: 680px;
+      border: 3px solid var(--ink);
+      border-radius: 10px 20px 18px 8px;
+      background: var(--cover);
+      box-shadow:
+        8px 10px 0 rgba(28, 22, 18, 0.16),
+        0 24px 48px rgba(28, 22, 18, 0.1);
+      overflow: visible;
+      rotate: -0.4deg;
+    }
+
+    .cover {
+      position: relative;
+      overflow: hidden;
+      border-radius: 7px 0 0 5px;
+      background-color: var(--cover);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='88' viewBox='0 0 72 88'%3E%3Ccircle cx='6' cy='9' r='1.6' fill='%23f3ead6'/%3E%3Ccircle cx='19' cy='4' r='1.1' fill='%23fffaf0'/%3E%3Ccircle cx='31' cy='14' r='1.2' fill='%231c1612'/%3E%3Ccircle cx='44' cy='7' r='1.4' fill='%23f3ead6'/%3E%3Ccircle cx='58' cy='18' r='1.3' fill='%23fff2b5'/%3E%3Ccircle cx='67' cy='5' r='1.2' fill='%238fcbaa'/%3E%3Ccircle cx='8' cy='28' r='1.3' fill='%23f7c948'/%3E%3Ccircle cx='22' cy='22' r='1.5' fill='%23f3ead6'/%3E%3Ccircle cx='37' cy='31' r='1.1' fill='%23fffaf0'/%3E%3Ccircle cx='51' cy='25' r='1' fill='%231c1612'/%3E%3Ccircle cx='63' cy='34' r='1.15' fill='%238ab8e8'/%3E%3Ccircle cx='4' cy='44' r='1.4' fill='%23f3ead6'/%3E%3Ccircle cx='16' cy='39' r='0.9' fill='%233d362f'/%3E%3Ccircle cx='29' cy='48' r='1.2' fill='%231c1612'/%3E%3Ccircle cx='42' cy='41' r='1.2' fill='%23fffaf0'/%3E%3Ccircle cx='55' cy='50' r='1.35' fill='%23f3ead6'/%3E%3Ccircle cx='68' cy='43' r='1.2' fill='%238fcbaa'/%3E%3Ccircle cx='11' cy='58' r='1.2' fill='%23fffaf0'/%3E%3Ccircle cx='25' cy='63' r='1.4' fill='%23f3ead6'/%3E%3Ccircle cx='38' cy='55' r='1.15' fill='%23f7c948'/%3E%3Ccircle cx='49' cy='66' r='1.1' fill='%231c1612'/%3E%3Ccircle cx='61' cy='59' r='1' fill='%23dff4e9'/%3E%3Ccircle cx='7' cy='76' r='1.1' fill='%231c1612'/%3E%3Ccircle cx='20' cy='81' r='1.2' fill='%238ab8e8'/%3E%3Ccircle cx='33' cy='73' r='1.5' fill='%23f3ead6'/%3E%3Ccircle cx='46' cy='80' r='1.2' fill='%23fffaf0'/%3E%3Ccircle cx='59' cy='72' r='1.3' fill='%23fff2b5'/%3E%3Ccircle cx='70' cy='83' r='1.15' fill='%238fcbaa'/%3E%3Ccircle cx='14' cy='16' r='1' fill='%23f7c948'/%3E%3Ccircle cx='52' cy='12' r='1.1' fill='%23fffaf0'/%3E%3Ccircle cx='40' cy='20' r='1' fill='%238fcbaa'/%3E%3C/svg%3E");
+    }
+
+    .cover-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      display: grid;
+      place-items: center;
+      width: 34px;
+      height: 118px;
+      padding: 10px 4px;
+      border: 2px solid var(--ink);
+      border-radius: 6px 7px 6px 8px;
+      background: #fffef8;
+      box-shadow: 1px 1px 0 rgba(28, 22, 18, 0.2);
+      translate: -50% -50%;
+      rotate: -1.5deg;
+      text-align: center;
+    }
+
+    .cover-label span {
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.05;
+      writing-mode: vertical-rl;
+      transform: rotate(180deg);
+    }
+
+    .stitches {
+      position: absolute;
+      top: 14px;
+      right: 5px;
+      bottom: 14px;
+      width: 7px;
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0 9px,
+          #f3ead6 9px 11px,
+          transparent 11px 15px
+        );
+      opacity: 0.85;
+    }
+
+    .spread {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(240px, 0.9fr) 28px minmax(280px, 1.2fr);
+      margin: 11px 12px 11px 0;
+      border: 2.5px solid var(--ink);
+      border-radius: 2px 13px 12px 2px;
+      background: #fffaf0;
+      box-shadow:
+        inset -10px 0 0 #efe4c4,
+        3px 0 0 #e6d7b4,
+        6px 0 0 #ddd0b0;
+    }
+
+    .page {
+      position: relative;
+      min-width: 0;
+      padding: 28px 22px 36px 28px;
+      background:
+        linear-gradient(#e8b4a8 0 0) 22px / 1.5px 100% no-repeat,
+        repeating-linear-gradient(transparent 0 31px, #e4d2b0 31px 32px),
+        #fffaf0;
+    }
+
+    .verso { padding-right: 52px; }
+    .recto { padding-left: 48px; padding-right: 26px; }
+
+    .gutter {
+      position: relative;
+      z-index: 4;
+      background:
+        linear-gradient(90deg, rgba(28, 22, 18, 0.1), transparent 42%, transparent 58%, rgba(28, 22, 18, 0.08)),
+        repeating-linear-gradient(to bottom, transparent 0 13px, #c4a574 13px 14.5px, transparent 14.5px 22px),
+        #efe2c4;
+      box-shadow: inset 0 0 10px rgba(28, 22, 18, 0.08);
+    }
+
+    .perch {
+      position: absolute;
+      left: 50%;
+      top: -42px;
+      z-index: 6;
+      width: 96px;
+      translate: -50% 0;
+      pointer-events: none;
+    }
+
+    .perch svg { width: 96px; height: 110px; filter: drop-shadow(2px 3px 0 rgba(28, 22, 18, 0.12)); }
+
+    .folio {
+      position: absolute;
+      right: 18px;
+      bottom: 10px;
+      color: var(--muted);
+      font-family: "Shantell Sans", cursive;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .verso .folio { left: 28px; right: auto; }
+
+    .belong {
+      position: absolute;
+      left: 28px;
+      bottom: 44px;
+      max-width: 16ch;
+      color: var(--muted);
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-weight: 700;
+      rotate: -3deg;
+    }
+
+    .contents { position: relative; z-index: 2; }
+    .contents .kicker { margin-bottom: 2px; }
+    .contents h1 { font-size: clamp(1.7rem, 3vw, 2.35rem); margin-bottom: 8px; }
+
+    .speech.inky-line {
+      max-width: 28ch;
+      margin: 0 0 18px;
+      rotate: -1deg;
+    }
+
+    .toc {
+      display: grid;
+      gap: 4px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .toc button {
+      display: grid;
+      grid-template-columns: 1.6rem 1fr auto;
+      gap: 4px 8px;
+      width: 100%;
+      padding: 8px 8px 8px 6px;
+      border: 0;
+      border-radius: 8px;
+      background: transparent;
+      text-align: left;
+    }
+
+    .toc button:hover { background: rgb(253 240 184 / 45%); }
+    .toc button.on {
+      background:
+        linear-gradient(105deg, transparent 0 4%, rgb(253 240 184 / 88%) 8% 92%, transparent 96%);
+    }
+
+    .toc b {
+      font-family: "Shantell Sans", cursive;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    .toc strong { font-size: 16px; }
+    .toc small { grid-column: 2; color: var(--muted); font-size: 12px; font-weight: 800; }
+    .toc em {
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-style: normal;
+      color: var(--muted);
+    }
+
+    .chapter { display: none; }
+    .chapter.on { display: block; }
+
+    .chapter > header { margin-bottom: 10px; }
+    .chapter h2 { font-size: clamp(1.55rem, 2.6vw, 2.1rem); }
+
+    .note {
+      padding: 6px 0 14px;
+    }
+
+    .note h3 {
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.15rem;
+    }
+
+    .note > p { font-weight: 700; }
+
+    .stickies {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 8px;
+    }
+
+    .sticky {
+      flex: 1 1 180px;
+      padding: 12px 12px 14px;
+      border: 2px solid var(--ink);
+      border-radius: var(--wobble);
+      box-shadow: 2px 3px 0 rgba(28, 22, 18, 0.12);
+      rotate: -1.1deg;
+    }
+
+    .sticky.mint { background: #dff4e9; rotate: 1.2deg; }
+    .sticky.sunny { background: var(--sticky); rotate: -0.8deg; }
+    .sticky.sky { background: #e0f0ff; rotate: 0.9deg; }
+    .sticky.pink { background: #f7d9e5; rotate: -1.4deg; }
+    .sticky.lavender { background: #ede9fb; rotate: 1deg; }
+    .sticky.coral { background: #ffe1d8; rotate: 0.6deg; }
+
+    .sticky .tape {
+      display: block;
+      width: 42px;
+      height: 10px;
+      margin: -16px auto 8px;
+      background: rgb(253 240 184 / 72%);
+      border-left: 1px solid rgb(28 22 18 / 12%);
+      border-right: 1px solid rgb(28 22 18 / 12%);
+      rotate: -2deg;
+    }
+
+    .sticky .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .sticky .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .sticky .btn, .sticky .field { margin-top: 8px; }
+    .sticky .grid2 + .btn { margin-top: 10px; }
+
+    .hand {
+      display: grid;
+      gap: 3px;
+      margin: 8px 0 0;
+    }
+
+    .hand li {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 3px 0;
+      font-weight: 800;
+      list-style: none;
+    }
+
+    .hand { padding: 0; }
+    .hand small { color: var(--muted); font-weight: 800; }
+
+    .nudge-line {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      align-items: center;
+      padding: 6px 0;
+      border-top: 1.5px dashed #d4c4a6;
+    }
+
+    .nudge-line:first-of-type { border-top: 0; }
+    .nudge-line small { display: block; color: var(--muted); font-weight: 800; }
+
+    @media (max-width: 820px) {
+      .book {
+        grid-template-columns: 1fr;
+        rotate: 0deg;
+      }
+      .cover {
+        height: 52px;
+        border-radius: 7px 16px 0 0;
+      }
+      .cover-label {
+        width: 88px;
+        height: 32px;
+        rotate: -1deg;
+      }
+      .cover-label span {
+        writing-mode: horizontal-tb;
+        transform: none;
+      }
+      .stitches {
+        top: auto;
+        right: 16px;
+        bottom: 6px;
+        left: 16px;
+        width: auto;
+        height: 7px;
+        background: repeating-linear-gradient(to right, transparent 0 9px, #f3ead6 9px 11px, transparent 11px 15px);
+      }
+      .spread {
+        grid-template-columns: 1fr;
+        margin: 0 10px 10px;
+      }
+      .gutter { min-height: 72px; }
+      .perch { top: -28px; }
+      .verso, .recto { padding: 22px 18px 40px 28px; }
+      .sticky .grid2 { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .book { rotate: 0deg; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+  <p class="stamp">studi ✎</p>
+
+  <main class="desk">
+    <div class="book" data-chapter="inky">
+      <aside class="cover" aria-hidden="true">
+        <div class="cover-label"><span>Inky</span></div>
+        <div class="stitches"></div>
+      </aside>
+
+      <div class="spread">
+        <section class="page verso">
+          <div class="contents">
+            <p class="kicker">Open notebook</p>
+            <h1>Contents</h1>
+            <p class="speech inky-line" id="line">Three chapters. Tap one. I’ll flip.</p>
+            <ol class="toc">
+              <li>
+                <button class="on" type="button" data-go="inky" aria-current="page">
+                  <b>I.</b>
+                  <strong>Inky</strong>
+                  <em>3</em>
+                  <small>ChatGPT · When I finish · Homework files</small>
+                </button>
+              </li>
+              <li>
+                <button type="button" data-go="school">
+                  <b>II.</b>
+                  <strong>School</strong>
+                  <em>7</em>
+                  <small>When I look · What I may try</small>
+                </button>
+              </li>
+              <li>
+                <button type="button" data-go="you">
+                  <b>III.</b>
+                  <strong>You</strong>
+                  <em>11</em>
+                  <small>Nudges · Private stuff</small>
+                </button>
+              </li>
+            </ol>
+          </div>
+          <p class="belong">for Kaustubh — don’t lose this</p>
+          <span class="folio">ii</span>
+        </section>
+
+        <div class="gutter" aria-hidden="true">
+          <div class="perch">
+            <svg class="inky" viewBox="0 0 120 130">
+              <g class="body">
+                <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <g class="eyes">
+                  <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                  <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                  <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+                  <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+                </g>
+                <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+              </g>
+              <g transform="rotate(28 98 88)">
+                <rect x="95" y="62" width="6" height="34" rx="1.2" fill="#f7c948" stroke="#3b342c" stroke-width="2"/>
+                <path d="M95 96 h6 l-3 10 z" fill="#f3ead6" stroke="#3b342c" stroke-width="2" stroke-linejoin="round"/>
+                <path d="M96.8 104 L98 108 L99.2 104" fill="#3b342c"/>
+                <rect x="95" y="58" width="6" height="6" fill="#f28b6f" stroke="#3b342c" stroke-width="2"/>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <section class="page recto">
+          <article class="chapter on" data-page="inky">
+            <header>
+              <p class="eyebrow">I.</p>
+              <h2>Inky</h2>
+            </header>
+
+            <div class="note">
+              <h3>ChatGPT</h3>
+              <p>Yours. GPT-5.4, thinking hard. Studi never sees the password.</p>
+              <div class="stickies">
+                <div class="sticky mint">
+                  <i class="tape" aria-hidden="true"></i>
+                  <div class="grid2">
+                    <label class="field"><span>Which one</span><select><option>GPT-5.4</option><option>GPT-5.4 mini</option></select></label>
+                    <label class="field"><span>How hard</span><select><option>High</option><option>Medium</option><option>Low</option></select></label>
+                  </div>
+                  <div class="row">
+                    <span class="pill mint">ready</span>
+                    <button class="btn sunny" type="button">Use another ChatGPT</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="note">
+              <h3>When I finish</h3>
+              <p>You look. I wait. You hit submit.</p>
+              <div class="stickies">
+                <div class="sticky sunny">
+                  <div class="grid2">
+                    <label class="field"><span>You look</span><input type="number" value="15" /><small>minutes</small></label>
+                    <label class="field"><span>I wait</span><input type="number" value="30" /><small>then I park</small></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="note">
+              <h3>Homework files</h3>
+              <p>One folder. Gmail in. Calendar out. Drive still waiting.</p>
+              <div class="stickies">
+                <div class="sticky sky">
+                  <p class="eyebrow">This laptop</p>
+                  <h3>Documents\Homework</h3>
+                  <div class="row">
+                    <span class="pill mint">Gmail</span>
+                    <span class="pill">Calendar out</span>
+                    <span class="pill sunny">Drive waiting</span>
+                  </div>
+                  <button class="btn mint" type="button">Choose folder</button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="chapter" data-page="school">
+            <header>
+              <p class="eyebrow">II.</p>
+              <h2>School</h2>
+            </header>
+
+            <div class="note">
+              <h3>When I look</h3>
+              <p>Every day at 9:00. Next look is tomorrow morning.</p>
+              <div class="stickies">
+                <div class="sticky sky">
+                  <i class="tape" aria-hidden="true"></i>
+                  <div class="grid2">
+                    <label class="field"><span>How often</span><select><option>Every day</option><option>Every week</option><option>Only when I ask</option></select></label>
+                    <label class="field"><span>Time</span><input type="time" value="09:00" /></label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="note">
+              <h3>What I may try</h3>
+              <p>You write it. I follow. Specific beats general.</p>
+              <ul class="hand">
+                <li><span>Bio 201</span><small>try, don’t submit</small></li>
+                <li><span>Calc II</span><small>don’t</small></li>
+                <li><span>Everything else</span><small>don’t</small></li>
+              </ul>
+              <div class="stickies">
+                <div class="sticky coral">
+                  <div class="grid2">
+                    <label class="field"><span>For</span><select><option>A class</option><option>Everything</option><option>One assignment</option></select></label>
+                    <label class="field"><span>I may</span><select><option>Try it, don’t submit</option><option>Don’t try it</option><option>Submit if that’s allowed</option></select></label>
+                  </div>
+                  <button class="btn" type="button">Add a rule</button>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="chapter" data-page="you">
+            <header>
+              <p class="eyebrow">III.</p>
+              <h2>You</h2>
+            </header>
+
+            <div class="note">
+              <h3>Nudges</h3>
+              <p>On. Finished, stuck, school check.</p>
+              <div class="stickies">
+                <div class="sticky sunny">
+                  <label class="toggle"><input type="checkbox" checked /><span><strong>Let me ping you</strong><small>Even if Studi is already open.</small></span></label>
+                  <div class="nudge-line"><span><strong>I finished</strong><small>Ready for your look</small></span><span class="pill">soft tap</span></div>
+                  <div class="nudge-line"><span><strong>I need you</strong><small>Login, a choice, a stuck page</small></span><span class="pill">soft tap</span></div>
+                  <div class="nudge-line"><span><strong>Something broke</strong><small>I stopped</small></span><span class="pill">soft tap</span></div>
+                  <div class="nudge-line"><span><strong>School check</strong><small>The week updated</small></span><span class="pill">none</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="note">
+              <h3>Private stuff</h3>
+              <p>The app window. Not the school page. Not passwords.</p>
+              <div class="stickies">
+                <div class="sticky lavender">
+                  <label class="toggle"><input type="checkbox" checked /><span><strong>Share what happens in Studi</strong><small>Messages, answers, errors. Not school.</small></span></label>
+                  <label class="toggle" style="margin-top:8px"><input type="checkbox" checked /><span><strong>Share a Studi replay</strong><small>This window only.</small></span></label>
+                </div>
+                <div class="sticky pink">
+                  <p class="eyebrow">This laptop</p>
+                  <h3>Kaustubh</h3>
+                  <p>Sign out leaves school here. I stay.</p>
+                  <button class="btn coral" type="button">Sign out</button>
+                </div>
+              </div>
+            </div>
+          </article>
+          <span class="folio" id="folio">3</span>
+        </section>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const lines = {
+      inky: "Chapter one is me. How I think, how I finish, which files I may touch.",
+      school: "School is simple. When I look. What I may try. You write it.",
+      you: "This side is yours. Nudges, private stuff, this laptop.",
+    };
+    const folios = { inky: "3", school: "7", you: "11" };
+    const buttons = [...document.querySelectorAll("[data-go]")];
+    const pages = [...document.querySelectorAll("[data-page]")];
+    const line = document.getElementById("line");
+    const folio = document.getElementById("folio");
+    const book = document.querySelector(".book");
+
+    const openChapter = (go) => {
+      const button = buttons.find((item) => item.dataset.go === go);
+      if (!button) return;
+      buttons.forEach((item) => {
+        const on = item === button;
+        item.classList.toggle("on", on);
+        item.toggleAttribute("aria-current", on);
+      });
+      pages.forEach((page) => page.classList.toggle("on", page.dataset.page === go));
+      line.textContent = lines[go];
+      folio.textContent = folios[go];
+      book.dataset.chapter = go;
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => openChapter(button.dataset.go));
+    });
+
+    const start = new URLSearchParams(location.search).get("ch");
+    if (start) openChapter(start);
+  </script>
+</body>
+</html>

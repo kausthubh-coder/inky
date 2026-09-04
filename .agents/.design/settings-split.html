@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — Split with Inky</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .shell { display: grid; grid-template-columns: 42% 58%; min-height: 100vh; }
+    .inky-side {
+      position: sticky;
+      top: 0;
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      height: 100vh;
+      padding: 28px 24px 40px;
+      border-right: 2px solid var(--ink);
+      background: #e8f3ff;
+    }
+    .inky-side svg { width: 120px; height: 120px; }
+    .topics { display: flex; flex-wrap: wrap; gap: 6px; }
+    .topics button {
+      padding: 6px 12px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: #fff;
+      font-weight: 800;
+    }
+    .topics button.on { background: var(--sticky); }
+    .form-side { padding: 28px 36px 80px; }
+    .form-side header { margin-bottom: 18px; max-width: 42ch; }
+    .stack { display: grid; gap: 12px; max-width: 560px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 800px) { .shell { grid-template-columns: 1fr; } .inky-side { height: auto; border-right: 0; border-bottom: 2px solid var(--ink); } }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <div class="shell">
+    <aside class="inky-side">
+      <p class="eyebrow">Settings · variation D</p>
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/><circle cx="47" cy="53" r="1.8" fill="#fff"/><circle cx="77" cy="53" r="1.8" fill="#fff"/></g>
+          <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <p class="speech" id="line">I think with your ChatGPT. Change the pair if you want. I’ll use it on the next assignment.</p>
+      <div class="topics">
+        <button class="on" type="button" data-topic="brain">Brain</button>
+        <button type="button" data-topic="finish">Finish</button>
+        <button type="button" data-topic="school">School</button>
+        <button type="button" data-topic="quiet">Quiet</button>
+      </div>
+    </aside>
+    <main class="form-side">
+      <section class="stack" data-form="brain">
+        <header>
+          <p class="kicker">The controls</p>
+          <h1>Brain</h1>
+        </header>
+        <section class="card mint">
+          <div class="grid2">
+            <label class="field"><span>Model</span><select><option>GPT-5.4</option></select></label>
+            <label class="field"><span>How hard</span><select><option>High</option></select></label>
+          </div>
+          <button class="btn sunny" type="button" style="margin-top:12px">Use another ChatGPT</button>
+        </section>
+      </section>
+      <section class="stack" data-form="finish" hidden>
+        <header><p class="kicker">The controls</p><h1>Finish</h1></header>
+        <section class="card sunny">
+          <div class="grid2">
+            <label class="field"><span>Your look</span><input type="number" value="15" /></label>
+            <label class="field"><span>I wait</span><input type="number" value="30" /></label>
+          </div>
+        </section>
+      </section>
+      <section class="stack" data-form="school" hidden>
+        <header><p class="kicker">The controls</p><h1>School</h1></header>
+        <section class="card sky">
+          <div class="grid2">
+            <label class="field"><span>Look</span><select><option>Every day at 9:00</option></select></label>
+            <label class="field"><span>Bio 201</span><select><option>Try, don’t submit</option></select></label>
+          </div>
+        </section>
+      </section>
+      <section class="stack" data-form="quiet" hidden>
+        <header><p class="kicker">The controls</p><h1>Quiet</h1></header>
+        <section class="card lavender">
+          <label class="toggle"><input type="checkbox" checked /><span><strong>Share product events</strong><small>Not the school page.</small></span></label>
+          <button class="btn coral" type="button" style="margin-top:10px">Sign out</button>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script>
+    const lines = {
+      brain: "I think with your ChatGPT. Change the pair if you want. I’ll use it on the next assignment.",
+      finish: "When I’m done, I wait. You look. You submit. Tell me how long to hover.",
+      school: "I check school every morning. Bio I may try. Calc I leave alone.",
+      quiet: "Studi can see the app. Not your school password. Sign out anytime.",
+    };
+    document.querySelectorAll("[data-topic]").forEach((button) => {
+      button.addEventListener("click", () => {
+        document.querySelectorAll("[data-topic]").forEach((item) => item.classList.toggle("on", item === button));
+        document.querySelectorAll("[data-form]").forEach((form) => { form.hidden = form.dataset.form !== button.dataset.topic; });
+        document.getElementById("line").textContent = lines[button.dataset.topic];
+      });
+    });
+  </script>
+</body>
+</html>

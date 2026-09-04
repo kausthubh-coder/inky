@@ -230,6 +230,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "signOut",
     "retryEntitlement",
     "submitFeedback",
+    "getUsageState",
     "getConnectedApps",
     "connectApp",
     "refreshConnectedApp",
@@ -284,6 +285,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       signOut: "studi:sign-out",
       retryEntitlement: "studi:retry-entitlement",
       submitFeedback: "studi:submit-feedback",
+      getUsageState: "studi:usage-state",
       getConnectedApps: "studi:connected-apps",
       connectApp: "studi:connect-app",
       refreshConnectedApp: "studi:refresh-connected-app",
@@ -331,7 +333,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   );
   assert.deepEqual(CONTRACT_MANIFEST, {
     schemaVersion: 1,
-    contractVersion: "14",
+    contractVersion: "15",
     ipcMethods: [
       { method: "getRuntimeInfo", channel: "studi:runtime-info" },
       { method: "getContractManifest", channel: "studi:contract-manifest" },
@@ -340,6 +342,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       { method: "signOut", channel: "studi:sign-out" },
       { method: "retryEntitlement", channel: "studi:retry-entitlement" },
       { method: "submitFeedback", channel: "studi:submit-feedback" },
+      { method: "getUsageState", channel: "studi:usage-state" },
       { method: "getConnectedApps", channel: "studi:connected-apps" },
       { method: "connectApp", channel: "studi:connect-app" },
       { method: "refreshConnectedApp", channel: "studi:refresh-connected-app" },
@@ -395,6 +398,7 @@ test("IPC request and result schemas reject malformed values", () => {
     "signIn",
     "signOut",
     "retryEntitlement",
+    "getUsageState",
     "getWorkspaceState",
     "loginOpenAiCodex",
     "cancelOpenAiCodexLogin",

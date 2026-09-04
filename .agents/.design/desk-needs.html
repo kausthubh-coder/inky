@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — Need you</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body { min-height: 100vh; overflow: hidden; }
+
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      align-items: center;
+      height: 58px;
+      padding: 0 18px 0 20px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 20px; font-weight: 800; text-decoration: none; }
+    .presence {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 12px 3px 4px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: #ffe1d8;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.16);
+      text-decoration: none;
+    }
+    .presence svg { width: 40px; height: 40px; }
+    .presence strong { display: block; font-size: 13px; line-height: 1.15; }
+    .presence small { color: var(--ink-soft); font-size: 11px; font-weight: 800; }
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px; margin-right: 5px;
+      border: 1px solid var(--ink); border-radius: 50%;
+      background: var(--coral);
+      vertical-align: 1px;
+    }
+    .end { display: flex; align-items: center; gap: 8px; }
+    .gear {
+      width: 34px; height: 34px;
+      border: 2px solid transparent;
+      border-radius: 50%;
+      background: transparent;
+      font-size: 16px;
+    }
+    .gear:hover { background: var(--sticky); }
+    .you {
+      display: flex; align-items: center; gap: 8px;
+      padding: 3px 8px 3px 3px;
+      border-radius: 999px;
+      font-size: 13px; font-weight: 800;
+      text-decoration: none;
+    }
+    .you:hover { background: var(--sticky); }
+    .you i {
+      display: grid; width: 28px; height: 28px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%;
+      background: var(--pink); font-style: normal; font-size: 12px;
+    }
+
+    .inky.needs .body {
+      animation: none;
+      transform: rotate(-14deg) translate(3px, 5px);
+    }
+    .inky.needs .eyes { animation: blink 7.4s cubic-bezier(0.2, 0, 0.2, 1) infinite; }
+    .who .inky.needs .body { transform: rotate(-16deg) translate(4px, 6px); }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(380px, 42%);
+      height: calc(100vh - 58px);
+    }
+
+    .week {
+      min-width: 0;
+      padding: 16px 18px 28px;
+      overflow: auto;
+    }
+    .week h1 {
+      margin: 0 0 14px;
+      font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+    }
+    .days {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(112px, 1fr));
+      gap: 10px;
+    }
+    .day { min-width: 0; }
+    .day header {
+      display: flex; align-items: baseline; gap: 7px;
+      margin-bottom: 8px; padding: 0 2px;
+    }
+    .day header strong { font-family: "Shantell Sans", cursive; font-size: 14px; }
+    .day header small { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .day.is-today header strong {
+      padding: 2px 10px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: var(--sunny);
+      box-shadow: 1.5px 1.5px 0 var(--ink);
+    }
+    .stack { display: grid; gap: 8px; }
+    .empty {
+      min-height: 72px;
+      padding: 16px 8px;
+      border: 2px dashed #c6b8a6;
+      border-radius: 14px;
+      color: #a09689;
+      font-size: 11px;
+      font-weight: 800;
+      text-align: center;
+    }
+    .ticket {
+      display: grid; gap: 3px;
+      width: 100%;
+      padding: 10px 11px;
+      border: 2px solid var(--ink);
+      border-radius: 15px 18px 16px 14px;
+      background: var(--paper-2);
+      box-shadow: var(--shadow);
+      text-align: left;
+    }
+    .ticket:nth-child(odd) { rotate: -0.5deg; }
+    .ticket:nth-child(even) { rotate: 0.5deg; }
+    .ticket small {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .ticket strong { font-size: 13px; line-height: 1.2; }
+    .ticket em {
+      color: var(--muted);
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 800;
+    }
+    .ticket.on {
+      background: #fff2b5;
+      box-shadow: 4px 5px 0 rgba(28, 22, 18, 0.18);
+      outline: 2px solid var(--ink);
+      rotate: -1.2deg;
+    }
+    .pill.need { background: #ffd4c8; }
+
+    .desk {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      margin: 10px 12px 12px 0;
+      overflow: hidden;
+      border: 2px solid var(--ink);
+      border-radius: 22px 18px 20px 16px;
+      background:
+        linear-gradient(90deg, transparent 27px, rgb(142 189 233 / 20%) 27px, rgb(142 189 233 / 20%) 28.5px, transparent 28.5px),
+        repeating-linear-gradient(180deg, transparent 0 26px, rgb(57 52 46 / 6%) 26px 27px),
+        #fffdf6;
+      box-shadow: 5px 6px 0 rgba(28, 22, 18, 0.14);
+    }
+    .who {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 14px 0;
+    }
+    .who .inky { width: 78px; height: 78px; flex: 0 0 auto; margin-top: -4px; }
+    .who .speech { margin-top: 8px; flex: 1; min-width: 0; }
+    .who .speech::before {
+      content: "";
+      position: absolute;
+      left: -7px; top: 16px;
+      width: 12px; height: 12px;
+      border-left: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+      background: #fff;
+      transform: rotate(45deg);
+    }
+    .close {
+      margin: 16px 12px 0 0;
+      padding: 2px 4px;
+      border: 0;
+      background: transparent;
+      color: #9a9186;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .close:hover { color: var(--ink); }
+    .status { margin: 10px 18px 0; }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 16px 0;
+    }
+    .actions .btn.sunny { min-height: 42px; padding: 8px 16px; font-size: 14px; }
+
+    .tape {
+      position: relative;
+      display: grid;
+      flex: 1 1 auto;
+      min-height: 220px;
+      margin: 14px 16px 0;
+      border: 2px solid var(--ink);
+      border-radius: 4px 6px 5px 4px;
+      background: #d7dee8;
+      box-shadow: 3px 4px 0 rgba(28, 22, 18, 0.12);
+      transform: rotate(-0.4deg);
+    }
+    .tape::before, .tape::after {
+      content: "";
+      position: absolute;
+      z-index: 4;
+      width: 52px; height: 16px;
+      background: rgb(255 242 181 / 86%);
+      border: 1px solid rgb(28 22 18 / 16%);
+    }
+    .tape::before { top: -8px; left: 18px; transform: rotate(-10deg); }
+    .tape::after { top: -7px; right: 22px; transform: rotate(8deg); }
+
+    .school {
+      position: relative;
+      min-height: 0;
+      overflow: hidden;
+      color: #243247;
+      background: #f7f9fc;
+      font-family: "Nunito Sans", system-ui, sans-serif;
+      filter: grayscale(0.55) saturate(0.4) brightness(0.78);
+    }
+    .school > header {
+      display: flex; align-items: center; gap: 14px;
+      height: 40px; padding: 0 14px;
+      color: #fff; background: #243b66;
+    }
+    .school > header strong { font-size: 13px; letter-spacing: 0.02em; }
+    .school > header span { flex: 1; font-size: 11px; opacity: 0.8; }
+    .school > header i {
+      display: grid; width: 22px; height: 22px; place-items: center;
+      border-radius: 50%; background: #f6c945; color: #243247;
+      font-style: normal; font-size: 10px; font-weight: 800;
+    }
+    .school > nav {
+      display: flex; gap: 16px;
+      padding: 8px 14px;
+      border-bottom: 1px solid #cad3df;
+      background: #fff;
+      color: #64748b;
+      font-size: 11px; font-weight: 800;
+    }
+    .school > nav b { color: #243247; }
+    .school > main { padding: 14px 16px 80px; }
+    .school > main > p { margin: 0 0 2px; color: #64748b; font-size: 10px; font-weight: 800; text-transform: uppercase; }
+    .school > main > h2 { margin: 0 0 4px; color: #243247; font: 800 18px/1.15 "Nunito Sans", sans-serif; letter-spacing: 0; }
+    .school > main > small { color: #64748b; font-size: 11px; }
+    .q {
+      margin-top: 12px; padding: 12px;
+      border: 1px solid #cad3df; border-radius: 8px; background: #fff;
+    }
+    .q strong { font-size: 12px; }
+    .q p { margin: 6px 0 0; color: #334155; font-size: 12px; }
+    .q .blank {
+      height: 44px; margin-top: 10px;
+      border: 1px solid #9cabc0; border-radius: 6px; background: #fff;
+    }
+
+    .frost {
+      position: absolute; inset: 0;
+      background: rgb(36 50 71 / 22%);
+      pointer-events: none;
+    }
+    .gate {
+      position: absolute;
+      z-index: 3;
+      top: 52%; left: 50%;
+      width: min(240px, 78%);
+      padding: 14px 14px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 16px 14px 18px 12px;
+      background: #fffaf0;
+      box-shadow: 4px 5px 0 rgba(28, 22, 18, 0.22);
+      transform: translate(-50%, -46%) rotate(2.2deg);
+      filter: none;
+    }
+    .gate .eyebrow { margin-bottom: 4px; }
+    .gate h3 { margin-bottom: 10px; font-size: 1.05rem; }
+    .codes { display: flex; justify-content: space-between; gap: 5px; }
+    .codes i {
+      display: grid; width: 28px; height: 34px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 8px;
+      background: #fff;
+      font-style: normal; font-size: 16px; font-weight: 800;
+    }
+    .codes i:first-child { background: var(--sticky); }
+
+    .talk {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin: 10px 12px 12px;
+      padding: 8px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 18px 16px 18px 14px;
+      background: #fff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.1);
+    }
+    .talk input { height: 40px; border: 0; background: transparent; font-weight: 800; }
+    .talk input:focus { outline: 0; }
+    .talk input::placeholder { color: #a79d91; }
+    .talk button {
+      padding: 4px 9px;
+      border: 1.5px dashed #b3a99c;
+      border-radius: 99px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+    }
+
+    @media (max-width: 900px) {
+      body { overflow: auto; }
+      .bar { grid-template-columns: auto 1fr auto; }
+      .presence span { display: none; }
+      .stage { grid-template-columns: 1fr; height: auto; }
+      .days { grid-template-columns: repeat(5, 160px); overflow-x: auto; }
+      .desk { min-height: 70vh; margin: 0 10px 16px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .inky.needs .eyes { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <a class="presence" href="#desk" title="Inky’s desk">
+      <svg class="inky needs" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <g class="eyes">
+            <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+            <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+            <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+            <circle cx="47" cy="58" r="3.5" fill="#3b342c"/>
+            <circle cx="73" cy="58" r="3.5" fill="#3b342c"/>
+          </g>
+        </g>
+      </svg>
+      <span>
+        <strong>Need you</strong>
+        <small><span class="dot"></span>IBM Sorting Machine</small>
+      </span>
+    </a>
+    <div class="end">
+      <a class="gear" href="settings-sidebar.html" title="Settings">⚙</a>
+      <a class="you" href="settings-sidebar.html"><i>K</i>Kaustubh</a>
+    </div>
+  </header>
+
+  <div class="stage">
+    <section class="week">
+      <h1>Your week</h1>
+      <div class="days">
+        <article class="day is-today">
+          <header><strong>Thursday</strong><small>today</small></header>
+          <div class="stack">
+            <button class="ticket on" type="button">
+              <small>CSC 316</small>
+              <strong>IBM Sorting Machine</strong>
+              <em>7:59 PM</em>
+              <span class="pill need">Need you</span>
+            </button>
+            <button class="ticket" type="button">
+              <small>ST 370</small>
+              <strong>Quiz 4</strong>
+              <em>11:59 PM</em>
+            </button>
+          </div>
+        </article>
+        <article class="day">
+          <header><strong>Friday</strong><small>Sep 4</small></header>
+          <div class="stack">
+            <button class="ticket" type="button">
+              <small>BIO 201</small>
+              <strong>Lab writeup</strong>
+              <em>5:00 PM</em>
+            </button>
+          </div>
+        </article>
+        <article class="day">
+          <header><strong>Saturday</strong><small>Sep 5</small></header>
+          <p class="empty">〰</p>
+        </article>
+        <article class="day">
+          <header><strong>Sunday</strong><small>Sep 6</small></header>
+          <p class="empty">〰</p>
+        </article>
+        <article class="day">
+          <header><strong>Monday</strong><small>Sep 7</small></header>
+          <div class="stack">
+            <button class="ticket" type="button">
+              <small>ENG 101</small>
+              <strong>Reading notes</strong>
+              <em>9:00 AM</em>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <aside class="desk" id="desk" aria-label="Inky’s desk">
+      <div class="who">
+        <svg class="inky needs" viewBox="0 0 120 120" aria-label="Inky needs you">
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <g class="eyes">
+              <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+              <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+              <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+              <circle cx="47" cy="58" r="3.5" fill="#3b342c"/>
+              <circle cx="73" cy="58" r="3.5" fill="#3b342c"/>
+            </g>
+          </g>
+        </svg>
+        <p class="speech">I need you on this one.</p>
+        <button class="close" type="button">Close</button>
+      </div>
+
+      <div class="status">
+        <span class="pill need">Need you</span>
+      </div>
+
+      <div class="actions">
+        <button class="btn sunny" type="button">Inky, keep going</button>
+        <button class="btn" type="button">I’ll take over</button>
+        <button class="btn quiet" type="button">Stop this</button>
+      </div>
+
+      <div class="tape">
+        <div class="school" aria-hidden="true">
+          <header>
+            <strong>Northstar University</strong>
+            <span>Student dashboard</span>
+            <i>K</i>
+          </header>
+          <nav><b>Home</b><span>Courses</span><span>Calendar</span><span>Grades</span></nav>
+          <main>
+            <p>CSC 316 · Homework</p>
+            <h2>IBM Sorting Machine</h2>
+            <small>Due today at 7:59 PM</small>
+            <div class="q">
+              <strong>Question 4</strong>
+              <p>Explain the running time and support your answer.</p>
+              <div class="blank"></div>
+            </div>
+          </main>
+          <div class="frost"></div>
+        </div>
+        <div class="gate">
+          <p class="eyebrow">Northstar</p>
+          <h3>We texted you a code</h3>
+          <div class="codes" aria-hidden="true">
+            <i></i><i></i><i></i><i></i><i></i><i></i>
+          </div>
+        </div>
+      </div>
+
+      <form class="talk" action="#">
+        <input aria-label="Talk to Inky" placeholder="I’m listening…" maxlength="20000" />
+        <button type="submit">say it</button>
+      </form>
+    </aside>
+  </div>
+</body>
+</html>

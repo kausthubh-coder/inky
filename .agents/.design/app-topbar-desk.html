@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>App top bar — Week or desk</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .bar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; align-items: center; gap: 14px;
+      height: 58px; padding: 0 16px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 20px; font-weight: 800; text-decoration: none; }
+    .switch {
+      display: flex;
+      overflow: hidden;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: #fff;
+    }
+    .switch a {
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .switch a.on { background: var(--sticky); }
+    .switch a.desk { display: inline-flex; align-items: center; gap: 6px; }
+    .switch svg { width: 22px; height: 22px; }
+    .spacer { flex: 1; }
+    .you {
+      display: grid; width: 32px; height: 32px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%;
+      background: var(--pink); font-weight: 900; text-decoration: none;
+    }
+    .caption { max-width: 1100px; margin: 20px auto 0; padding: 0 24px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <nav class="switch" aria-label="Where">
+      <a class="on" href="#">Your week</a>
+      <a class="desk" href="#">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+        Inky’s desk
+      </a>
+    </nav>
+    <span class="pill mint">working</span>
+    <span class="spacer"></span>
+    <a class="you" href="settings-sidebar.html">K</a>
+  </header>
+  <p class="caption">Top bar · variation E. Two rooms. Your week, or his desk. Settings is still just you.</p>
+  <section class="week-ghost" aria-hidden="true">
+    <article><strong>Today</strong><i></i><i></i></article>
+    <article><strong>Friday</strong><i></i></article>
+    <article><strong>Saturday</strong></article>
+    <article><strong>Sunday</strong><i></i></article>
+    <article><strong>Monday</strong><i></i><i></i></article>
+  </section>
+</body>
+</html>

@@ -1,6 +1,8 @@
 "use client";
 
+import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
+import { InkyMascot } from "./inky-mascot";
 
 const NAV_LINKS = [
   ["#what", "Inky"],
@@ -45,7 +47,10 @@ export function SiteNav({ current = "", flat = false }: SiteNavProps) {
   return (
     <header className={`site-nav${open ? " open" : ""}${flat ? " flat" : ""}`}>
       <a className="wordmark" href={home} onClick={() => setOpen(false)}>
-        studi
+        <span className="nav-inky" aria-hidden="true">
+          <InkyMascot state="idle" size={44} />
+        </span>
+        <span>studi</span>
       </a>
       <nav className="links" id="site-links" aria-label="Page">
         {NAV_LINKS.map(([href, label]) => {
@@ -62,9 +67,40 @@ export function SiteNav({ current = "", flat = false }: SiteNavProps) {
           );
         })}
       </nav>
-      <a className="cta" href={wait} onClick={() => setOpen(false)}>
-        Get a seat
-      </a>
+      <div className="nav-actions">
+        {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
+          <>
+            <SignedOut>
+              <a className="sign-in-link" href="/sign-in" onClick={() => setOpen(false)}>
+                Sign in
+              </a>
+              <a className="cta" href={wait} onClick={() => setOpen(false)}>
+                Save me a seat
+              </a>
+            </SignedOut>
+            <SignedIn>
+              <a className="dashboard-link" href="/dashboard" onClick={() => setOpen(false)}>
+                Dashboard
+              </a>
+              <UserButton>
+                <UserButton.MenuItems>
+                  <UserButton.Link label="Dashboard" labelIcon={<span aria-hidden="true">⌂</span>} href="/dashboard" />
+                  <UserButton.Link label="Settings" labelIcon={<span aria-hidden="true">⚙</span>} href="/settings" />
+                </UserButton.MenuItems>
+              </UserButton>
+            </SignedIn>
+          </>
+        ) : (
+          <>
+            <a className="sign-in-link" href="/sign-in" onClick={() => setOpen(false)}>
+              Sign in
+            </a>
+            <a className="cta" href={wait} onClick={() => setOpen(false)}>
+              Save me a seat
+            </a>
+          </>
+        )}
+      </div>
       <button
         type="button"
         className="menu"

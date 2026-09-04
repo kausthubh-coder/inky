@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — File folders</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .chrome {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 54px;
+      padding: 0 22px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 94%);
+    }
+    .chrome strong { font-family: "Shantell Sans", cursive; font-size: 20px; }
+
+    .desk {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 28px 20px 100px;
+    }
+    .desk > header { max-width: 38ch; margin-bottom: 10px; }
+    .desk > header p { font-weight: 700; }
+
+    .stage { position: relative; margin-top: 36px; }
+
+    .blotter {
+      position: absolute;
+      inset: 48px -18px -22px;
+      border: 2.5px solid var(--ink);
+      border-radius: 18px 22px 16px 20px;
+      background: #dce8c8;
+      rotate: -0.6deg;
+      box-shadow: 4px 5px 0 rgba(28, 22, 18, 0.12);
+      z-index: 0;
+    }
+
+    .cabinet {
+      --manila: #f3d98a;
+      --manila-deep: #e4c56a;
+      position: relative;
+      z-index: 1;
+      border: 3px solid var(--ink);
+      border-radius: 10px 12px 22px 20px;
+      background:
+        linear-gradient(180deg, rgb(0 0 0 / 10%) 0 14px, transparent 14px),
+        repeating-linear-gradient(
+          90deg,
+          transparent 0 11px,
+          rgb(28 22 18 / 4%) 11px 12px
+        ),
+        #c9a36a;
+      box-shadow:
+        7px 9px 0 rgba(28, 22, 18, 0.16),
+        inset 0 1px 0 rgb(255 255 255 / 28%);
+    }
+    .cabinet[data-open="inky"] { --manila: #f3d98a; --manila-deep: #e4c56a; }
+    .cabinet[data-open="school"] { --manila: #b9d6f4; --manila-deep: #8eb8e4; }
+    .cabinet[data-open="you"] { --manila: #b7dfc6; --manila-deep: #8fcbaa; }
+
+    .rail-row {
+      position: relative;
+      z-index: 4;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      min-height: 78px;
+      padding: 16px 22px 0;
+    }
+    .rail-row::before {
+      content: "";
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      top: 18px;
+      height: 9px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: linear-gradient(180deg, #f6f1e6 0%, #c4beb0 46%, #7f796c 100%);
+      box-shadow: inset 0 1px 0 #fff, 0 2px 0 rgba(28, 22, 18, 0.18);
+    }
+
+    .hang {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      justify-items: center;
+      align-content: start;
+      flex: 1;
+      padding: 22px 0 0;
+      border: 0;
+      background: transparent;
+      text-align: center;
+    }
+    .hang.on { z-index: 5; }
+    .hooks {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      display: flex;
+      justify-content: space-between;
+      width: 52px;
+      translate: -50% 0;
+    }
+    .hooks i {
+      display: block;
+      width: 11px;
+      height: 16px;
+      border: 2.5px solid #4d4840;
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+      background: linear-gradient(#ece7dc, #b7b1a4);
+    }
+    .tab {
+      min-width: 92px;
+      padding: 7px 16px 5px;
+      border: 2.5px solid var(--ink);
+      border-radius: 12px 14px 5px 5px;
+      background: var(--tab);
+      font-family: "Shantell Sans", cursive;
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.12);
+    }
+    .hang small {
+      display: block;
+      width: 64%;
+      min-height: 16px;
+      margin-top: -1px;
+      padding: 3px 6px 4px;
+      border: 2px solid var(--ink);
+      border-top: 0;
+      border-radius: 0 0 8px 8px;
+      background: var(--tab);
+      color: var(--ink-soft);
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .hang.on small {
+      background: transparent;
+      border-color: transparent;
+      color: transparent;
+    }
+    .hang[data-folder="inky"] { --tab: #f3d98a; }
+    .hang[data-folder="school"] { --tab: #b9d6f4; }
+    .hang[data-folder="you"] { --tab: #b7dfc6; }
+    .hang.on .tab {
+      border-bottom-color: var(--tab);
+      box-shadow: none;
+    }
+
+    .well {
+      position: relative;
+      z-index: 2;
+      min-height: 560px;
+      margin: -8px 14px 0;
+      padding: 0 0 14px;
+      border-radius: 0 0 10px 10px;
+      background: rgb(28 22 18 / 10%);
+    }
+
+    .jacket {
+      display: none;
+      position: relative;
+      min-height: 540px;
+      padding: 22px 20px 20px;
+      border: 2.5px solid var(--ink);
+      border-radius: 8px 16px 14px 14px;
+      background:
+        linear-gradient(180deg, var(--manila-deep), var(--manila) 28px);
+      box-shadow:
+        0 14px 0 rgba(28, 22, 18, 0.1),
+        8px 12px 0 rgba(28, 22, 18, 0.14);
+    }
+    .jacket.on { display: block; animation: lift 420ms var(--ease); }
+    .jacket::after {
+      content: "";
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      height: 18px;
+      border-radius: 0 0 10px 10px;
+      background: rgb(28 22 18 / 8%);
+      pointer-events: none;
+    }
+
+    .sheets {
+      position: relative;
+      min-height: 500px;
+      padding: 20px 18px 22px;
+      border: 2.5px solid var(--ink);
+      border-radius: 6px 12px 10px 10px;
+      background:
+        radial-gradient(#eadcc0 0.7px, transparent 0.7px) 0 0 / 16px 16px,
+        #fff8ea;
+    }
+    .sheets::before,
+    .sheets::after {
+      content: "";
+      position: absolute;
+      inset: -7px 10px auto;
+      height: 10px;
+      border: 2px solid var(--ink);
+      border-bottom: 0;
+      border-radius: 6px 8px 0 0;
+      background: #fff3d6;
+      pointer-events: none;
+    }
+    .sheets::after {
+      inset: -13px 28px auto;
+      background: #ffeec0;
+      rotate: -0.4deg;
+    }
+
+    .jacket-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding-right: 110px;
+    }
+    .jacket-head h2 { margin-bottom: 4px; }
+    .jacket-head p { font-weight: 700; max-width: 42ch; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .cards .card { padding: 14px; }
+    .cards .card:nth-child(1) { rotate: -0.7deg; }
+    .cards .card:nth-child(2) { rotate: 0.8deg; }
+    .cards .card:nth-child(3) { rotate: 0.45deg; }
+    .cards .card:nth-child(4) { rotate: -0.5deg; }
+    .cards .wide { grid-column: 1 / -1; rotate: 0.2deg; }
+    .cards h3 { margin-bottom: 8px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .apps, .rules { display: grid; gap: 7px; margin-top: 10px; }
+    .app, .rule {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 8px;
+      border: 1.5px solid var(--ink);
+      border-radius: 10px 8px 11px 9px;
+      background: #fff;
+    }
+    .app b {
+      display: grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      border-radius: 7px;
+      font-size: 12px;
+    }
+    .app span, .rule span { display: grid; flex: 1; min-width: 0; }
+    .app small, .rule small { color: var(--muted); font-size: 11px; font-weight: 700; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+
+    .lip {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 10px 10px;
+      padding: 10px 14px 12px;
+      border: 2.5px solid var(--ink);
+      border-radius: 8px 10px 14px 14px;
+      background: #b48a4e;
+      box-shadow: inset 0 3px 0 rgba(28, 22, 18, 0.12);
+    }
+    .lip em {
+      position: absolute;
+      left: 28px;
+      font-family: "Shantell Sans", cursive;
+      font-style: italic;
+      font-weight: 700;
+      font-size: 15px;
+    }
+    .handle {
+      width: 96px;
+      height: 16px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: linear-gradient(#7a6550, #2f261c);
+      box-shadow: inset 0 2px 0 rgb(255 255 255 / 18%);
+    }
+
+    .perch {
+      position: absolute;
+      top: 92px;
+      right: 22px;
+      z-index: 6;
+      width: 120px;
+      pointer-events: none;
+    }
+    .perch svg { width: 92px; height: 92px; margin-left: auto; filter: drop-shadow(3px 4px 0 rgba(28, 22, 18, 0.12)); }
+    .perch .speech {
+      width: 132px;
+      margin: 0 0 -4px -28px;
+      padding: 8px 10px;
+      font-size: 13px;
+    }
+    .perch .line { display: none; }
+    .cabinet[data-open="inky"] .say-inky,
+    .cabinet[data-open="school"] .say-school,
+    .cabinet[data-open="you"] .say-you { display: block; }
+
+    @keyframes lift {
+      from { translate: 0 18px; opacity: 0.2; }
+      to { translate: 0 0; opacity: 1; }
+    }
+
+    @media (max-width: 760px) {
+      .cards, .grid2 { grid-template-columns: 1fr; }
+      .cards .wide { grid-column: auto; }
+      .jacket-head { padding-right: 0; }
+      .perch { display: none; }
+      .well { min-height: 0; }
+      .jacket, .sheets { min-height: 0; }
+      .tab { min-width: 0; font-size: 15px; padding: 6px 10px 4px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .jacket.on { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+  <header class="chrome">
+    <strong>studi ✎</strong>
+    <span class="pill">Settings · folders</span>
+  </header>
+
+  <main class="desk">
+    <header>
+      <p class="kicker">A box on the desk. Three jackets.</p>
+      <h1>Pull the one you mean.</h1>
+      <p>Inky. School. You. Grab a tab — the jacket comes up. The rest stay hanging.</p>
+    </header>
+
+    <div class="stage">
+      <div class="blotter" aria-hidden="true"></div>
+
+      <div class="cabinet" data-open="inky">
+        <div class="rail-row">
+          <button class="hang on" type="button" data-folder="inky" aria-pressed="true">
+            <span class="hooks" aria-hidden="true"><i></i><i></i></span>
+            <span class="tab">Inky</span>
+            <small>ChatGPT · one folder</small>
+          </button>
+          <button class="hang" type="button" data-folder="school" aria-pressed="false">
+            <span class="hooks" aria-hidden="true"><i></i><i></i></span>
+            <span class="tab">School</span>
+            <small>Daily 9:00</small>
+          </button>
+          <button class="hang" type="button" data-folder="you" aria-pressed="false">
+            <span class="hooks" aria-hidden="true"><i></i><i></i></span>
+            <span class="tab">You</span>
+            <small>Nudges on</small>
+          </button>
+        </div>
+
+        <div class="well">
+          <section class="jacket on" data-open="inky">
+            <div class="sheets">
+              <div class="jacket-head">
+                <div>
+                  <p class="eyebrow">His jacket</p>
+                  <h2>How I work</h2>
+                  <p>ChatGPT. When I finish. Apps I can use. The homework folder I may touch.</p>
+                </div>
+              </div>
+              <div class="cards">
+                <article class="card sunny">
+                  <p class="eyebrow">ChatGPT</p>
+                  <h3>Connected</h3>
+                  <div class="grid2">
+                    <label class="field"><span>Which one</span><select><option>GPT-5.4</option><option>GPT-5.4 mini</option></select></label>
+                    <label class="field"><span>How hard</span><select><option>High</option><option>Medium</option><option>Low</option></select></label>
+                  </div>
+                  <div class="actions">
+                    <button class="btn sunny" type="button">Use another ChatGPT</button>
+                  </div>
+                </article>
+                <article class="card coral">
+                  <p class="eyebrow">When I finish</p>
+                  <h3>You get the last look</h3>
+                  <div class="grid2">
+                    <label class="field"><span>Minutes to look</span><input type="number" value="15" /></label>
+                    <label class="field"><span>Minutes I wait</span><input type="number" value="30" /></label>
+                  </div>
+                </article>
+                <article class="card mint">
+                  <p class="eyebrow">Apps I can use</p>
+                  <h3>You sign in. I never get the password.</h3>
+                  <div class="apps">
+                    <div class="app"><b style="background:#ea4335;color:#fff">G</b><span><strong>Gmail</strong><small>In · read mail</small></span><button class="btn quiet" type="button">Check</button></div>
+                    <div class="app"><b style="background:#4285f4;color:#fff">C</b><span><strong>Calendar</strong><small>Out</small></span><button class="btn quiet" type="button">Connect</button></div>
+                    <div class="app"><b style="background:#34a853;color:#fff">D</b><span><strong>Drive</strong><small>Waiting on the browser</small></span><button class="btn quiet" type="button">I finished</button></div>
+                  </div>
+                </article>
+                <article class="card sky">
+                  <p class="eyebrow">Homework files</p>
+                  <h3>I only touch this folder</h3>
+                  <p>C:\Users\kaust\Documents\Homework</p>
+                  <div class="chip-row">
+                    <span class="pill mint">list</span>
+                    <span class="pill">read</span>
+                    <span class="pill">write</span>
+                  </div>
+                  <div class="actions">
+                    <button class="btn mint" type="button">Choose folder</button>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="jacket" data-open="school">
+            <div class="sheets">
+              <div class="jacket-head">
+                <div>
+                  <p class="eyebrow">The school jacket</p>
+                  <h2>The work</h2>
+                  <p>When I look. What I may try. That’s the whole pile.</p>
+                </div>
+              </div>
+              <div class="cards">
+                <article class="card sky">
+                  <p class="eyebrow">When I look</p>
+                  <h3>Every day at 9:00</h3>
+                  <div class="grid2">
+                    <label class="field"><span>How often</span><select><option>Every day</option><option>Every week</option><option>Only when I ask</option></select></label>
+                    <label class="field"><span>Local time</span><input type="time" value="09:00" /></label>
+                  </div>
+                  <div class="actions">
+                    <button class="btn mint" type="button">Save</button>
+                  </div>
+                </article>
+                <article class="card coral">
+                  <p class="eyebrow">What I may try</p>
+                  <h3>A rule has to say so</h3>
+                  <div class="grid2">
+                    <label class="field"><span>For</span><select><option>A class</option><option>Everything</option><option>One assignment</option></select></label>
+                    <label class="field"><span>I may</span><select><option>Try it, don’t submit</option><option>Don’t try it</option><option>Submit if that’s allowed</option></select></label>
+                  </div>
+                  <div class="rules">
+                    <div class="rule"><span><strong>Bio 201</strong><small>Try it, don’t submit</small></span><button class="btn quiet" type="button">Remove</button></div>
+                    <div class="rule"><span><strong>Calc II</strong><small>Don’t try it</small></span><button class="btn quiet" type="button">Remove</button></div>
+                    <div class="rule"><span><strong>Everything else</strong><small>Don’t try it</small></span><button class="btn quiet" type="button">Remove</button></div>
+                  </div>
+                  <div class="actions">
+                    <button class="btn" type="button">Add a rule</button>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+
+          <section class="jacket" data-open="you">
+            <div class="sheets">
+              <div class="jacket-head">
+                <div>
+                  <p class="eyebrow">Your jacket</p>
+                  <h2>Quiet stuff</h2>
+                  <p>Nudges. Private stuff. Sign out. This pile stays yours.</p>
+                </div>
+              </div>
+              <div class="cards">
+                <article class="card pink">
+                  <p class="eyebrow">Nudges</p>
+                  <h3>When I should tap you</h3>
+                  <label class="toggle"><input type="checkbox" checked /><span><strong>Let Inky ping you</strong><small>Finished, stuck, school check.</small></span></label>
+                  <div class="grid2" style="margin-top:10px">
+                    <label class="field"><span>I finished</span><select><option>Soft tap</option><option>None</option></select></label>
+                    <label class="field"><span>I need you</span><select><option>Soft tap</option><option>None</option></select></label>
+                  </div>
+                </article>
+                <article class="card lavender">
+                  <p class="eyebrow">Private stuff</p>
+                  <h3>The app, not the school page</h3>
+                  <label class="toggle"><input type="checkbox" checked /><span><strong>Share what happens in Studi</strong><small>Not the password. Not the school page.</small></span></label>
+                  <label class="toggle" style="margin-top:8px"><input type="checkbox" checked /><span><strong>Share Studi replay</strong><small>This window only.</small></span></label>
+                </article>
+                <article class="card wide">
+                  <p class="eyebrow">This laptop</p>
+                  <h3>Kaustubh</h3>
+                  <p>Signing out leaves school pages and saved work here. I stay.</p>
+                  <div class="actions">
+                    <button class="btn coral" type="button">Sign out</button>
+                  </div>
+                </article>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="lip">
+          <em>settings</em>
+          <span class="handle" aria-hidden="true"></span>
+        </div>
+
+        <div class="perch" aria-hidden="true">
+          <p class="speech line say-inky">This pile is me.</p>
+          <p class="speech line say-school">School stays in this one.</p>
+          <p class="speech line say-you">Yours. I won’t snoop.</p>
+          <svg class="inky" viewBox="0 0 120 120">
+            <g class="body">
+              <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+              <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g class="eyes">
+                <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+                <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+              </g>
+              <path d="M52 73 Q60 80 68 73" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            </g>
+          </svg>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const cabinet = document.querySelector(".cabinet");
+    const hangs = [...document.querySelectorAll("[data-folder]")];
+    const jackets = [...document.querySelectorAll(".jacket[data-open]")];
+    function openFolder(folder) {
+      cabinet.dataset.open = folder;
+      hangs.forEach((item) => {
+        const on = item.dataset.folder === folder;
+        item.classList.toggle("on", on);
+        item.setAttribute("aria-pressed", String(on));
+      });
+      jackets.forEach((jacket) => jacket.classList.toggle("on", jacket.dataset.open === folder));
+    }
+    hangs.forEach((hang) => hang.addEventListener("click", () => openFolder(hang.dataset.folder)));
+    const start = location.hash.replace("#", "");
+    if (start === "school" || start === "you") openFolder(start);
+  </script>
+</body>
+</html>

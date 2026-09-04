@@ -17,3 +17,17 @@ also use bun not npm, and bunx not npx ect.
 also the user is dumb, we have to spell it our for him in a intvitive manner, and spell it out for him with interface deisng not extra words,
 
 the user should feel like inky is a person,
+
+<!-- convex-ai-start -->
+
+This project uses [Convex](https://convex.dev) as its backend.
+
+When working on Convex code, **always read
+`convex/_generated/ai/guidelines.md` first** for important guidelines on
+how to correctly use Convex APIs and patterns. The file contains rules that
+override what you may have learned about Convex from training data.
+
+Convex agent skills for common tasks can be installed by running
+`bunx convex ai-files install`.
+
+<!-- convex-ai-end -->

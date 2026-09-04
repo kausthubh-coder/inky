@@ -68,17 +68,17 @@ const DEMO_BEATS: readonly DemoBeat[] = [
     view: "is-hello",
     inky: "hello",
     hold: 7000,
-    say: "Hi. I’m Inky.",
-    text: "I do your homework. The 11:59 kind. The one you’ve been staring at since Tuesday.",
-    replies: [{ label: "okay, show me", beat: 1 }],
+    say: "Hi, I’m Inky.",
+    text: "I finish all your homework before you know it even exists.",
+    replies: [{ label: "Okay, show me", beat: 1 }],
   },
   {
     view: "is-week",
     inky: "idle",
-    hold: 4200,
-    say: "That problem set is staring at you.",
-    text: "Related rates, three problems, due tonight. Want me to take it? Not the quiz. Cute try though.",
-    replies: [{ label: "Make Inky do this", beat: 2 }],
+    hold: 6800,
+    say: "I scan all your schoolwork every day.",
+    text: "Or whenever you ask. Then I can finish every assignment and save the answers for you to submit. Tell me to, and I can submit them too.",
+    replies: [{ label: "Do this one", beat: 2 }],
   },
   {
     view: "is-desk",
@@ -129,7 +129,7 @@ const OUTCOME: Record<Decision, { say: string; text: string; page: PageState }> 
   },
 };
 
-const RAIL = ["Hi", "Your week", "Inky’s desk", "Your call"] as const;
+const RAIL = ["Hi", "The scan", "The work", "Your call"] as const;
 
 const TRUST = [
   {
@@ -195,7 +195,7 @@ const FAQ = [
   ],
   [
     "When do I get in?",
-    "Seats open in small batches so I can keep up. Your email gets you in line, and I email you once when yours is ready.",
+    "Seats open in small batches so I can keep up. I’ll confirm your place, then email you again when yours is ready.",
   ],
 ] as const;
 
@@ -213,8 +213,8 @@ const SITES = [
 
 const FINE_PRINT = (
   <>
-    Private beta, small batches. <strong>One email</strong> when your seat opens.
-    No newsletter.
+    Private beta, small batches. I’ll confirm your place, then email when your
+    seat opens. No newsletter. <a href="/sign-in">Already have a seat? Sign in.</a>
   </>
 );
 
@@ -401,8 +401,8 @@ export function LandingPage() {
             <p className="kicker">Seats</p>
             <h2>Get a seat.</h2>
             <p className="sub">
-              Leave your email. I’ll save you a seat and email you once when it
-              opens. Then go do something that isn’t a problem set.
+              Leave your email. I’ll confirm your place, then write again when
+              it opens. Then go do something that isn’t a problem set.
             </p>
             <WaitlistForm
               emailId="wait-email"
@@ -418,7 +418,7 @@ export function LandingPage() {
               </div>
               <div className="step">
                 <div className="k">2 · soon</div>
-                <p>I email you once when a seat opens.</p>
+                <p>I email you again when a seat opens.</p>
               </div>
               <div className="step">
                 <div className="k">3 · then</div>
@@ -635,14 +635,10 @@ function Demo() {
               <span className="tl min" />
               <span className="tl max" />
             </div>
+            <span className="titlebar-icon" aria-hidden="true">
+              <InkyMascot state="idle" size={30} />
+            </span>
             <span className="logo">studi</span>
-            <button
-              type="button"
-              className={`nav-link${beat.view === "is-week" ? " on" : ""}`}
-              onClick={() => go(1)}
-            >
-              This week
-            </button>
             <div className="spacer" />
             <button
               type="button"
@@ -723,7 +719,7 @@ function Demo() {
                   </div>
                   <div className="replies">
                     <button type="button" className="btn primary" onClick={() => go(2)}>
-                      Make Inky do this
+                      Do this one
                     </button>
                   </div>
                 </div>
@@ -797,7 +793,9 @@ function Demo() {
         <div className="dock" aria-hidden="true">
           <span className="dock-ico notes" />
           <span className="dock-ico folder" />
-          <span className="dock-ico inky on" />
+          <span className="dock-ico inky on">
+            <InkyMascot state="idle" size={34} />
+          </span>
         </div>
         <button type="button" className="scroll-hint" onClick={settleDesktop}>
           Keep scrolling ↓

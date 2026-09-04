@@ -1,0 +1,903 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inky’s desk — the room</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    :root {
+      --walnut: #4a2f1e;
+      --walnut-2: #6a4328;
+      --walnut-3: #3a2416;
+      --leather: #2f4a38;
+      --leather-2: #3d5c46;
+      --brass: #c9a15a;
+      --dusk: #2a3348;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      color: var(--ink);
+      background:
+        linear-gradient(180deg, rgb(18 12 8 / 28%) 0%, transparent 38%),
+        repeating-linear-gradient(
+          90deg,
+          rgb(0 0 0 / 10%) 0 1px,
+          transparent 1px 13px
+        ),
+        linear-gradient(90deg, #3a2416 0%, #52301c 18%, #3f2618 42%, #5a3620 68%, #3a2416 100%);
+    }
+
+    input[name="state"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .room {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .wall {
+      position: relative;
+      min-height: 168px;
+      padding: 18px 28px 0;
+      border-bottom: 8px solid #2a1a10;
+      box-shadow: inset 0 -18px 28px rgb(0 0 0 / 18%);
+      background:
+        linear-gradient(180deg, rgb(0 0 0 / 22%), transparent 40%),
+        repeating-linear-gradient(
+          90deg,
+          #4a301c 0 86px,
+          #3c2616 86px 90px,
+          #523520 90px 176px,
+          #3c2616 176px 180px
+        );
+    }
+
+    .wordmark {
+      position: absolute;
+      top: 20px;
+      left: 24px;
+      z-index: 3;
+      padding: 6px 12px 7px;
+      border: 2px solid #1c1612;
+      border-radius: 6px 8px 7px 6px;
+      background: #d8c49a;
+      box-shadow: 2px 2px 0 rgb(0 0 0 / 35%);
+      font-size: 20px;
+      font-weight: 800;
+      text-decoration: none;
+      rotate: -2deg;
+    }
+
+    .window {
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      width: min(280px, 42vw);
+      height: 118px;
+      translate: -50% 0;
+      border: 7px solid #2a1c12;
+      border-radius: 4px;
+      background:
+        radial-gradient(circle at 78% 28%, #f7e3b0 0 7px, transparent 8px),
+        linear-gradient(180deg, #6a5a7a 0%, #3d4a66 42%, #243040 100%);
+      box-shadow:
+        inset 0 0 0 3px #c9a15a,
+        0 10px 20px rgb(0 0 0 / 25%);
+      overflow: hidden;
+    }
+
+    .tree {
+      position: absolute;
+      left: 18px;
+      bottom: 0;
+      width: 70px;
+      height: 78px;
+      background:
+        radial-gradient(circle at 50% 28%, #1a2218 0 22px, transparent 23px),
+        radial-gradient(circle at 28% 48%, #1a2218 0 16px, transparent 17px),
+        radial-gradient(circle at 70% 50%, #1a2218 0 14px, transparent 15px);
+    }
+
+    .tree::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      width: 7px;
+      height: 28px;
+      background: #1a2218;
+      translate: -50% 0;
+    }
+
+    .window::before,
+    .window::after {
+      content: "";
+      position: absolute;
+      background: #c9a15a;
+    }
+
+    .window::before {
+      top: 0; bottom: 0; left: 50%;
+      width: 3px;
+      translate: -50% 0;
+    }
+
+    .window::after {
+      left: 0; right: 0; top: 50%;
+      height: 3px;
+      translate: 0 -50%;
+    }
+
+    .sill {
+      position: absolute;
+      left: -16px;
+      right: -16px;
+      bottom: -12px;
+      height: 12px;
+      border: 2px solid #1c1612;
+      background: #6a4a2c;
+      box-shadow: 0 4px 0 #2a1a10;
+    }
+
+    .cork {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      display: flex;
+      gap: 10px;
+      padding: 10px 12px 12px;
+      border: 2.5px solid #1c1612;
+      border-radius: 8px 10px 9px 8px;
+      background:
+        radial-gradient(#c9a46a 1px, transparent 1px) 0 0 / 8px 8px,
+        #d2ae74;
+      box-shadow: 3px 4px 0 rgb(0 0 0 / 28%);
+      rotate: 1.5deg;
+    }
+
+    .pin-note {
+      position: relative;
+      width: 92px;
+      padding: 14px 8px 10px;
+      border: 2px solid var(--ink);
+      border-radius: 3px 4px 3px 3px;
+      background: var(--sticky);
+      box-shadow: 2px 2px 0 rgb(28 22 18 / 28%);
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .pin-note::before {
+      content: "";
+      position: absolute;
+      top: -7px;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--coral);
+      translate: -50% 0;
+      box-shadow: 1px 1px 0 rgb(0 0 0 / 25%);
+    }
+
+    .pin-note[for="work"] { background: #dff4e9; }
+    .pin-note[for="work"]::before { background: var(--mint); }
+
+    .pin-note strong {
+      display: block;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      line-height: 1.1;
+    }
+
+    .pin-note small {
+      display: block;
+      margin-top: 3px;
+      color: var(--ink-soft);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    body:has(#peek:checked) [for="peek"],
+    body:has(#work:checked) [for="work"] {
+      translate: 0 -3px;
+      box-shadow: 3px 4px 0 var(--ink);
+      outline: 2px dashed var(--ink);
+      outline-offset: 3px;
+    }
+
+    .you-pic {
+      position: absolute;
+      top: 28px;
+      right: 248px;
+      width: 58px;
+      padding: 5px 5px 8px;
+      border: 2px solid var(--ink);
+      background: #fffaf0;
+      box-shadow: 2px 3px 0 rgb(0 0 0 / 25%);
+      rotate: -8deg;
+      text-align: center;
+      text-decoration: none;
+    }
+
+    .you-pic i {
+      display: grid;
+      place-items: center;
+      height: 36px;
+      background: var(--pink);
+      border: 1.5px solid var(--ink);
+      font-style: normal;
+      font-weight: 900;
+    }
+
+    .you-pic span {
+      display: block;
+      margin-top: 3px;
+      font-family: "Shantell Sans", cursive;
+      font-size: 9px;
+      font-weight: 700;
+    }
+
+    .desk {
+      position: relative;
+      display: grid;
+      align-content: start;
+      padding: 22px 28px 0;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          transparent 0 18px,
+          rgb(255 220 160 / 6%) 18px 19px,
+          transparent 19px 47px
+        ),
+        linear-gradient(180deg, #7a4e2e 0%, #5c3820 14%, #4a2c18 100%);
+      box-shadow: inset 0 18px 30px rgb(0 0 0 / 18%);
+    }
+
+    .blotter {
+      position: relative;
+      min-height: calc(100vh - 268px);
+      padding: 28px 36px 120px 168px;
+      border: 3px solid #1a120c;
+      border-radius: 18px 16px 20px 14px;
+      background:
+        radial-gradient(ellipse 52% 42% at 72% 28%, rgb(247 201 72 / 22%), transparent 58%),
+        radial-gradient(ellipse 40% 30% at 18% 80%, rgb(0 0 0 / 16%), transparent 55%),
+        repeating-linear-gradient(
+          0deg,
+          rgb(255 255 255 / 4%) 0 1px,
+          transparent 1px 7px
+        ),
+        linear-gradient(180deg, #3f5d4a 0%, #2f4a38 55%, #274033 100%);
+      box-shadow:
+        inset 0 0 0 10px #24382c,
+        inset 0 0 0 12px #c9a15a,
+        0 18px 0 #2a1a10,
+        0 28px 40px rgb(0 0 0 / 28%);
+    }
+
+    body:has(#work:checked) .blotter {
+      background:
+        radial-gradient(ellipse 58% 48% at 68% 30%, rgb(247 201 72 / 34%), transparent 60%),
+        radial-gradient(ellipse 40% 30% at 18% 80%, rgb(0 0 0 / 16%), transparent 55%),
+        repeating-linear-gradient(
+          0deg,
+          rgb(255 255 255 / 4%) 0 1px,
+          transparent 1px 7px
+        ),
+        linear-gradient(180deg, #3f5d4a 0%, #2f4a38 55%, #274033 100%);
+    }
+
+    .corner {
+      position: absolute;
+      width: 28px;
+      height: 28px;
+      border: 2px solid #1c1612;
+      background: var(--brass);
+      box-shadow: 1px 1px 0 rgb(0 0 0 / 30%);
+    }
+
+    .corner.tl { top: 8px; left: 8px; clip-path: polygon(0 0, 100% 0, 0 100%); }
+    .corner.tr { top: 8px; right: 8px; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+    .corner.bl { bottom: 8px; left: 8px; clip-path: polygon(0 0, 0 100%, 100% 100%); }
+    .corner.br { bottom: 8px; right: 8px; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+
+    .tray {
+      position: absolute;
+      z-index: 4;
+      top: 36px;
+      left: 18px;
+      width: 132px;
+      padding: 10px 8px 14px;
+      border: 2.5px solid #1c1612;
+      border-radius: 6px 8px 7px 6px;
+      background:
+        repeating-linear-gradient(90deg, #6b4328 0 10px, #5a3620 10px 12px),
+        #5a3620;
+      box-shadow: 4px 6px 0 rgb(0 0 0 / 28%);
+      rotate: -3deg;
+    }
+
+    .tray > span {
+      display: block;
+      margin: 0 4px 8px;
+      color: #f3ead6;
+      font-family: "Shantell Sans", cursive;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .index {
+      display: block;
+      width: 100%;
+      padding: 8px 8px 7px;
+      border: 2px solid var(--ink);
+      border-radius: 3px;
+      background: #fffaf0;
+      box-shadow: 2px 2px 0 rgb(28 22 18 / 20%);
+      text-align: left;
+      text-decoration: none;
+    }
+
+    .index + .index { margin-top: -4px; }
+    .index:nth-child(3) { rotate: 2deg; background: #fff2b5; }
+    .index:nth-child(4) { rotate: -1.5deg; background: #e0f0ff; }
+    .index:nth-child(5) { rotate: 1deg; background: #f7d9e5; }
+
+    .index strong {
+      display: block;
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      line-height: 1.1;
+    }
+
+    .index small {
+      color: var(--ink-soft);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .index.on {
+      position: relative;
+      z-index: 2;
+      background: #fff;
+      rotate: -2deg;
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+
+    .sheet,
+    .printout {
+      position: relative;
+      width: min(520px, 100%);
+      border: 2.5px solid var(--ink);
+      background: #fffaf0;
+      box-shadow: 6px 8px 0 rgb(0 0 0 / 22%);
+    }
+
+    .sheet {
+      padding: 22px 24px 20px;
+      border-radius: 3px 5px 4px 3px;
+      rotate: -1.4deg;
+      background:
+        repeating-linear-gradient(
+          0deg,
+          transparent 0 27px,
+          rgb(138 184 232 / 28%) 27px 28px
+        ),
+        #fffaf0;
+    }
+
+    .sheet .course {
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .sheet h1 {
+      max-width: 14ch;
+      margin-bottom: 10px;
+    }
+
+    .sheet p {
+      max-width: 34ch;
+      font-weight: 700;
+    }
+
+    .sheet .do {
+      margin-top: 16px;
+      rotate: 1deg;
+    }
+
+    .printout {
+      display: none;
+      overflow: hidden;
+      border-radius: 2px;
+      rotate: 1.2deg;
+    }
+
+    .printout header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 2px solid var(--ink);
+      background: #1c1612;
+      color: #f3ead6;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .printout header b {
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+    }
+
+    .printout nav {
+      display: flex;
+      gap: 14px;
+      padding: 6px 12px;
+      border-bottom: 1.5px solid #c9b8a0;
+      background: #efe4cc;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .printout nav b { text-decoration: underline; text-underline-offset: 3px; }
+    .printout nav span { color: var(--muted); }
+
+    .printout main { padding: 14px 16px 18px; }
+    .printout main > p { font-size: 11px; font-weight: 800; }
+    .printout h2 { margin: 2px 0 4px; font-size: 22px; }
+    .printout main > small { display: block; margin-bottom: 12px; font-weight: 800; color: var(--ink-soft); }
+
+    .q {
+      padding: 10px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 8px 10px 9px 8px;
+      background: #fff;
+    }
+
+    .q strong { display: block; font-size: 12px; }
+    .q p { margin: 4px 0 8px; font-size: 13px; font-weight: 700; }
+    .q .answer {
+      min-height: 54px;
+      padding: 8px;
+      border: 1.5px dashed #c6b8a6;
+      border-radius: 6px;
+      background: #fffdf6;
+      color: var(--ink-soft);
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .tape {
+      position: absolute;
+      z-index: 2;
+      width: 54px;
+      height: 18px;
+      border: 1.5px solid rgb(28 22 18 / 35%);
+      background: rgb(247 201 72 / 72%);
+      box-shadow: 1px 1px 0 rgb(0 0 0 / 12%);
+    }
+
+    .tape.a { top: -8px; left: 18px; rotate: -12deg; }
+    .tape.b { top: -7px; right: 28px; rotate: 8deg; background: rgb(143 203 170 / 70%); }
+    .tape.c { bottom: -8px; left: 36px; rotate: 6deg; background: rgb(242 139 111 / 55%); }
+    .tape.d { bottom: -7px; right: 16px; rotate: -10deg; background: rgb(242 168 196 / 60%); }
+
+    .buddy {
+      position: absolute;
+      z-index: 5;
+      right: 36px;
+      top: 34px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 8px;
+      width: min(280px, 38vw);
+    }
+
+    .buddy svg {
+      width: 132px;
+      height: 132px;
+      filter: drop-shadow(3px 6px 0 rgb(0 0 0 / 22%));
+    }
+
+    .buddy::after {
+      content: "";
+      position: absolute;
+      right: 28px;
+      bottom: 58px;
+      width: 72px;
+      height: 16px;
+      border-radius: 50%;
+      background: rgb(0 0 0 / 22%);
+      filter: blur(2px);
+      z-index: -1;
+    }
+
+    .buddy .speech {
+      max-width: 24ch;
+      rotate: 2deg;
+    }
+
+    .buddy .speech::after {
+      content: "";
+      position: absolute;
+      right: 22px;
+      top: -8px;
+      width: 12px;
+      height: 12px;
+      border-top: 2px solid var(--ink);
+      border-left: 2px solid var(--ink);
+      background: #fff;
+      rotate: 45deg;
+    }
+
+    .lamp {
+      position: absolute;
+      z-index: 6;
+      top: -8px;
+      right: 72px;
+      width: 110px;
+      height: 168px;
+      pointer-events: none;
+    }
+
+    .lamp .base {
+      position: absolute;
+      right: 8px;
+      bottom: 0;
+      width: 36px;
+      height: 14px;
+      border: 2px solid #1c1612;
+      border-radius: 8px 8px 4px 4px;
+      background: linear-gradient(180deg, #e6c36d, #b8863a);
+    }
+
+    .lamp .arm {
+      position: absolute;
+      right: 22px;
+      bottom: 10px;
+      width: 8px;
+      height: 92px;
+      border: 2px solid #1c1612;
+      border-radius: 4px;
+      background: linear-gradient(90deg, #e6c36d, #b8863a);
+      rotate: -22deg;
+      transform-origin: bottom center;
+    }
+
+    .lamp .shade {
+      position: absolute;
+      top: 18px;
+      left: 4px;
+      width: 78px;
+      height: 36px;
+      border: 2.5px solid #1c1612;
+      border-radius: 10px 10px 3px 3px;
+      background: linear-gradient(180deg, #f3ead6, #c9a15a);
+      box-shadow: 2px 3px 0 rgb(0 0 0 / 25%);
+      rotate: -18deg;
+    }
+
+    .lamp .glow {
+      position: absolute;
+      top: 46px;
+      left: -16px;
+      width: 130px;
+      height: 110px;
+      background: radial-gradient(ellipse at 50% 0, rgb(247 201 72 / 48%), transparent 70%);
+      animation: glow 3.2s ease-in-out infinite;
+    }
+
+    @keyframes glow {
+      50% { opacity: 0.72; }
+    }
+
+    .mug {
+      position: absolute;
+      right: 28px;
+      bottom: 132px;
+      width: 42px;
+      height: 38px;
+      border: 2.5px solid #1c1612;
+      border-radius: 6px 7px 10px 9px;
+      background: #f28b6f;
+      box-shadow: 2px 3px 0 rgb(0 0 0 / 2%);
+      rotate: 6deg;
+    }
+
+    .mug::after {
+      content: "";
+      position: absolute;
+      right: -12px;
+      top: 8px;
+      width: 12px;
+      height: 16px;
+      border: 2.5px solid #1c1612;
+      border-left: 0;
+      border-radius: 0 10px 10px 0;
+    }
+
+    .pencil {
+      position: absolute;
+      left: 188px;
+      bottom: 118px;
+      width: 86px;
+      height: 8px;
+      border: 2px solid #1c1612;
+      border-radius: 2px 6px 6px 2px;
+      background: linear-gradient(90deg, #f7c948 80%, #f28b6f 80%);
+      rotate: -18deg;
+    }
+
+    .talk {
+      position: absolute;
+      z-index: 5;
+      left: 176px;
+      bottom: 22px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: min(460px, calc(100% - 220px));
+      padding: 10px 12px 10px 14px;
+      border: 2px solid var(--ink);
+      border-radius: 3px 12px 4px 10px;
+      background: #fff8d8;
+      box-shadow: 3px 4px 0 rgb(0 0 0 / 22%);
+      rotate: -1deg;
+    }
+
+    .talk::before {
+      content: "slide this over";
+      position: absolute;
+      top: -10px;
+      left: 16px;
+      padding: 0 6px;
+      background: #fff8d8;
+      font-family: "Shantell Sans", cursive;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .talk input {
+      height: 36px;
+      border: 0;
+      border-bottom: 2px solid var(--ink);
+      border-radius: 0;
+      background: transparent;
+    }
+
+    .talk input:focus { outline: none; border-bottom-style: dashed; }
+    .talk .btn { flex: 0 0 auto; }
+
+    .scraps {
+      display: none;
+      width: min(240px, 100%);
+      margin: 18px 0 0 28px;
+      padding: 10px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 4px 14px 6px 3px;
+      background: #efe4cc;
+      box-shadow: 3px 3px 0 rgb(0 0 0 / 18%);
+      rotate: 2.5deg;
+    }
+
+    .scraps p {
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .scraps p + p { margin-top: 4px; }
+
+    .takeover {
+      display: none;
+      margin-top: 12px;
+    }
+
+    .apron {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      height: 54px;
+      margin-top: 10px;
+      padding: 0 48px;
+      background:
+        linear-gradient(180deg, #3a2416, #2a1a10);
+      box-shadow: inset 0 8px 12px rgb(0 0 0 / 25%);
+    }
+
+    .knob {
+      align-self: center;
+      justify-self: center;
+      width: 22px;
+      height: 22px;
+      border: 2px solid #1c1612;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 30%, #f3ead6, var(--brass));
+      box-shadow: 1px 2px 0 rgb(0 0 0 / 35%);
+    }
+
+    body:has(#work:checked) .sheet,
+    body:has(#work:checked) .only-peek { display: none; }
+    body:has(#work:checked) .printout,
+    body:has(#work:checked) .scraps,
+    body:has(#work:checked) .takeover { display: block; }
+    body:has(#peek:checked) .only-work { display: none; }
+
+    body:has(#work:checked) .buddy {
+      top: 18px;
+      right: 18px;
+    }
+
+    body:has(#work:checked) .buddy svg { rotate: -8deg; }
+
+    .stage {
+      position: relative;
+      min-height: 420px;
+    }
+
+    @media (max-width: 860px) {
+      .blotter { padding: 200px 16px 150px; }
+      .tray { top: 16px; left: 16px; width: min(100% - 32px, 420px); rotate: 0; }
+      .tray { display: flex; flex-wrap: wrap; gap: 6px; align-items: end; }
+      .tray > span { width: 100%; }
+      .index { width: calc(50% - 6px); }
+      .index + .index { margin-top: 0; }
+      .buddy { position: relative; right: auto; top: auto; width: auto; align-items: flex-start; margin-bottom: 12px; }
+      .lamp { right: 12px; }
+      .talk { left: 16px; width: calc(100% - 32px); }
+      .you-pic { display: none; }
+      .window { left: 42%; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .lamp .glow { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+  <input id="peek" type="radio" name="state" checked />
+  <input id="work" type="radio" name="state" />
+
+  <div class="room">
+    <header class="wall">
+      <a class="wordmark" href="#">studi</a>
+      <div class="window" aria-hidden="true"><i class="tree"></i><i class="sill"></i></div>
+      <a class="you-pic" href="settings-sidebar.html" title="You">
+        <i>K</i>
+        <span>you</span>
+      </a>
+      <div class="cork" role="tablist" aria-label="Desk state">
+        <label class="pin-note" for="peek">
+          <strong>Peek</strong>
+          <small>before he starts</small>
+        </label>
+        <label class="pin-note" for="work">
+          <strong>Working</strong>
+          <small>he’s on the page</small>
+        </label>
+      </div>
+    </header>
+
+    <main class="desk">
+      <section class="blotter" aria-label="Inky’s blotter">
+        <i class="corner tl"></i>
+        <i class="corner tr"></i>
+        <i class="corner bl"></i>
+        <i class="corner br"></i>
+
+        <aside class="tray" aria-label="This week">
+          <span>this week</span>
+          <a class="index on" href="#">
+            <strong>Today</strong>
+            <small>sorting machine</small>
+          </a>
+          <a class="index" href="#">
+            <strong>Friday</strong>
+            <small>bio lab</small>
+          </a>
+          <a class="index" href="#">
+            <strong>Sunday</strong>
+            <small>problem set</small>
+          </a>
+          <a class="index" href="#">
+            <strong>Monday</strong>
+            <small>recitation</small>
+          </a>
+        </aside>
+
+        <div class="lamp" aria-hidden="true">
+          <span class="glow"></span>
+          <span class="arm"></span>
+          <span class="shade"></span>
+          <span class="base"></span>
+        </div>
+
+        <div class="buddy">
+          <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+            <g class="body">
+              <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+              <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g class="eyes">
+                <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+                <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+                <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+                <circle cx="45" cy="56" r="3.5" fill="#3b342c"/>
+                <circle cx="75" cy="56" r="3.5" fill="#3b342c"/>
+              </g>
+            </g>
+          </svg>
+          <p class="speech only-peek">Want me to do this? The sorting machine. Tonight.</p>
+          <p class="speech only-work">I’m on it. Question 4. You still submit.</p>
+        </div>
+
+        <div class="stage">
+          <article class="sheet">
+            <p class="course">CSC 316 · Data Structures</p>
+            <h1>IBM Sorting Machine</h1>
+            <p>Tonight, after dinner. I already looked. Four questions. The last one is the one that takes time.</p>
+            <p>I can try this and stop before you submit.</p>
+            <button class="btn sunny do" type="button">Yeah, do this</button>
+          </article>
+
+          <article class="printout" aria-label="School page taped to the blotter">
+            <i class="tape a"></i>
+            <i class="tape b"></i>
+            <i class="tape c"></i>
+            <i class="tape d"></i>
+            <header>
+              <b>Northstar University</b>
+              <span>K</span>
+            </header>
+            <nav><b>Homework</b><span>Courses</span><span>Grades</span></nav>
+            <main>
+              <p>CSC 316 · Homework</p>
+              <h2>IBM Sorting Machine</h2>
+              <small>Tonight. You still submit.</small>
+              <div class="q">
+                <strong>Question 4</strong>
+                <p>Explain the running time and support your answer.</p>
+                <div class="answer">The algorithm performs one comparison per pass…</div>
+              </div>
+              <button class="btn coral takeover" type="button">I’ll take over</button>
+            </main>
+          </article>
+
+          <aside class="scraps" aria-label="What Inky has done">
+            <p>Opened the page.</p>
+            <p>Read question 4 twice.</p>
+            <p>Drafting the runtime now.</p>
+          </aside>
+        </div>
+
+        <i class="mug" aria-hidden="true"></i>
+        <i class="pencil" aria-hidden="true"></i>
+
+        <form class="talk" action="#">
+          <input type="text" aria-label="Talk to Inky" placeholder="I’m listening…" />
+          <button class="btn" type="submit">say it</button>
+        </form>
+      </section>
+
+      <div class="apron" aria-hidden="true">
+        <i class="knob"></i>
+        <i class="knob"></i>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

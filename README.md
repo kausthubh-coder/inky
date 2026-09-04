@@ -33,6 +33,12 @@ Landing site:
 bun run dev:landing
 ```
 
+Copy `landing/.env.example` to `landing/.env.local` and fill in the keys for the dedicated **Inky** Clerk application. Its development instance uses Waitlist access mode, the `convex` JWT template, and the public **Inky Desktop** OAuth client with PKCE. Convex needs `CLERK_JWT_ISSUER_DOMAIN` plus that desktop client's `CLERK_OAUTH_CLIENT_ID`; its auth config accepts both the web `convex` token and the Electron OAuth ID token.
+
+Private-beta access is free. The billing page is an account-facing beta-plan receipt and never asks for a card. Clerk sends the waitlist confirmation and invitation emails from the source-controlled templates in `clerk/email-templates`.
+
+The website's **Open Studi** button sends only `studi://connect`. Electron owns the PKCE verifier, state, nonce, loopback callback, code exchange, and token storage.
+
 Create a production desktop build and run the focused smoke test:
 
 ```bash

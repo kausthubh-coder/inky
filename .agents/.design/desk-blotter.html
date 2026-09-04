@@ -1,0 +1,709 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — blotter</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(#d8cbb3 1.1px, transparent 1.1px) 0 0 / 22px 22px,
+        #e8dcc4;
+    }
+
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 18px 0 20px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 94%);
+    }
+    .wordmark { font-size: 20px; font-weight: 800; text-decoration: none; }
+    .you {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 2px 8px 2px 2px;
+      border-radius: 999px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .you:hover { background: rgb(255 242 181 / 55%); color: var(--ink); }
+    .you i {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border: 1.5px solid var(--ink);
+      border-radius: 50%;
+      background: var(--pink);
+      color: var(--ink);
+      font-style: normal;
+      font-size: 11px;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+      align-items: stretch;
+      min-height: calc(100vh - 48px);
+    }
+
+    .ghost {
+      min-width: 0;
+      padding: 28px 20px 80px 24px;
+      opacity: 0.34;
+      filter: grayscale(0.35);
+      pointer-events: none;
+      user-select: none;
+    }
+    .ghost .kicker { margin-bottom: 10px; }
+    .ghost h1 {
+      margin-bottom: 16px;
+      font-size: clamp(1.4rem, 2.4vw, 1.9rem);
+    }
+    .week-ghost {
+      margin: 0;
+      padding: 0;
+      max-width: none;
+      gap: 10px;
+    }
+    .week-ghost article {
+      min-height: 200px;
+      padding: 10px;
+    }
+    .week-ghost article:first-child {
+      background: rgb(255 242 181 / 28%);
+    }
+    .week-ghost i { height: 44px; }
+    .week-ghost em {
+      display: block;
+      margin-top: 8px;
+      color: #b8ad9c;
+      font-size: 11px;
+      font-style: italic;
+      font-weight: 700;
+    }
+
+    .rail {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 10px 14px 72px 8px;
+    }
+
+    .switcher {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px 2px;
+      margin: 0 6px 8px;
+      border: 0;
+      padding: 0;
+    }
+    .switcher legend { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .switcher label {
+      position: relative;
+      padding: 3px 8px;
+      color: var(--muted);
+      font-family: "Shantell Sans", cursive;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .switcher label + label::before {
+      content: "·";
+      position: absolute;
+      left: -2px;
+      color: #c4b8a6;
+      pointer-events: none;
+    }
+    .switcher input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+    .switcher label:hover { color: var(--ink); }
+    .switcher label:has(:checked) {
+      color: var(--ink);
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+    }
+    .switcher label:has(:focus-visible) {
+      outline: 2px dashed var(--ink);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    .mat { position: relative; flex: 1 1 auto; min-height: 0; padding: 10px 4px 0; }
+    .mat::before {
+      content: "";
+      position: absolute;
+      right: 22px;
+      bottom: 56px;
+      width: 72px;
+      height: 72px;
+      border: 11px solid rgb(28 22 18 / 5%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .blotter {
+      --rule: 28px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: min(720px, calc(100vh - 140px));
+      padding: 28px 18px 14px 40px;
+      border: 2.5px solid var(--ink);
+      border-radius: 3px 6px 4px 3px;
+      background-color: #fffef6;
+      background-image:
+        linear-gradient(#e08b86, #e08b86),
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0 calc(var(--rule) - 1px),
+          #c5d4e8 calc(var(--rule) - 1px) var(--rule)
+        );
+      background-size: 2px 100%, 100% var(--rule);
+      background-position: 24px 0, 0 10px;
+      background-repeat: no-repeat, repeat;
+      box-shadow:
+        6px 8px 0 rgba(28, 22, 18, 0.14),
+        0 22px 40px rgba(28, 22, 18, 0.08);
+      rotate: 1.2deg;
+    }
+    .pad-tape {
+      position: absolute;
+      z-index: 4;
+      width: 72px;
+      height: 20px;
+      border: 1px solid rgb(28 22 18 / 22%);
+      background: rgb(247 201 72 / 66%);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%);
+    }
+    .pad-tape.l { top: -8px; left: 26px; rotate: -8deg; }
+    .pad-tape.r { top: -7px; right: 32px; rotate: 8deg; background: rgb(232 214 168 / 78%); }
+
+    .who {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      margin: 2px 0 6px -10px;
+    }
+    .who svg { width: 88px; height: 88px; flex: 0 0 88px; margin-top: -8px; }
+    .who .speech {
+      margin-top: 16px;
+      max-width: 18ch;
+      font-size: 1.08rem;
+      line-height: 1.2;
+    }
+    .who .speech::before {
+      content: "";
+      position: absolute;
+      left: -7px;
+      top: 16px;
+      width: 12px;
+      height: 12px;
+      border-left: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+      background: #fff;
+      rotate: 45deg;
+    }
+
+    .course {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .notes {
+      display: grid;
+      list-style: none;
+      margin: 0 0 6px;
+    }
+    .notes li {
+      min-height: var(--rule);
+      color: var(--ink);
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: var(--rule);
+    }
+    .notes .sign {
+      color: var(--ink-faint);
+      font-size: 13px;
+      font-style: italic;
+      font-weight: 600;
+    }
+
+    .stamp {
+      width: max-content;
+      margin: 8px 0 12px;
+      padding: 2px 9px;
+      border: 2px solid #2f7a4e;
+      border-radius: 4px;
+      color: #2f7a4e;
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      rotate: -7deg;
+    }
+    .stamp.onit {
+      border-color: #2a628c;
+      color: #2a628c;
+      rotate: -5deg;
+    }
+    .stamp.need {
+      border-color: #b4533a;
+      color: #b4533a;
+      rotate: 6deg;
+    }
+    .stamp.look {
+      border-color: #8a5a1e;
+      color: #8a5a1e;
+      rotate: -4deg;
+    }
+
+    .go {
+      display: grid;
+      place-items: center;
+      width: calc(100% - 6px);
+      min-height: 68px;
+      margin: 2px 2px 14px 0;
+      padding: 12px 14px;
+      border: 2.5px solid var(--ink);
+      border-radius: 4px 6px 3px 5px;
+      background: var(--sunny);
+      box-shadow: 4px 5px 0 rgba(28, 22, 18, 0.2);
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.35rem;
+      font-weight: 800;
+      line-height: 1.1;
+      rotate: -1.4deg;
+    }
+    .go:hover { translate: 1px 1px; box-shadow: 3px 4px 0 rgba(28, 22, 18, 0.2); }
+    .go:active { translate: 2px 2px; box-shadow: none; }
+
+    .hands {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 2px 0 12px;
+    }
+
+    .clip {
+      position: relative;
+      margin: 4px 2px 14px 0;
+      border: 2px solid var(--ink);
+      border-radius: 3px 5px 4px 3px;
+      background: #f7f9fc;
+      box-shadow: 4px 5px 0 rgba(28, 22, 18, 0.12);
+      rotate: -1.1deg;
+      overflow: hidden;
+    }
+    .clip-tape {
+      position: absolute;
+      z-index: 5;
+      width: 54px;
+      height: 16px;
+      border: 1px solid rgb(28 22 18 / 18%);
+      background: rgb(247 201 72 / 72%);
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%);
+      pointer-events: none;
+    }
+    .clip-tape.a { top: -7px; left: 16px; rotate: -9deg; }
+    .clip-tape.b { top: -6px; right: 18px; rotate: 10deg; }
+
+    .lms-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      color: #fff;
+      background: #243b66;
+    }
+    .lms-top strong { font-size: 11px; letter-spacing: 0.02em; }
+    .lms-top span { color: rgb(255 255 255 / 72%); font-size: 10px; font-weight: 800; }
+    .lms-nav {
+      display: flex;
+      gap: 12px;
+      padding: 5px 10px;
+      border-bottom: 1px solid #cad3df;
+      background: #fff;
+      color: #5b6b82;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .lms-nav b { color: #243b66; }
+    .lms-body { padding: 10px 12px 12px; }
+    .lms-body .crumb {
+      color: #64748b;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .lms-body h2 {
+      margin: 2px 0 2px;
+      color: #243247;
+      font-family: "Nunito Sans", sans-serif;
+      font-size: 16px;
+    }
+    .lms-body .when { color: #7a5a2a; font-size: 11px; font-weight: 800; }
+
+    .q {
+      margin-top: 8px;
+      padding: 8px 9px 9px;
+      border: 1px solid #cad3df;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .q strong { display: block; color: #243247; font-size: 12px; }
+    .q p { margin: 3px 0 6px; color: #445266; font-size: 12px; }
+    .hand {
+      min-height: 40px;
+      padding: 6px 8px;
+      border: 1px dashed #9cabc0;
+      border-radius: 6px;
+      background:
+        repeating-linear-gradient(transparent, transparent 16px, #e8eef6 16px 17px),
+        #fbfcfe;
+      color: #2a4578;
+      font-family: "Shantell Sans", cursive;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.4;
+    }
+    .caret {
+      display: inline-block;
+      width: 1.5px;
+      height: 12px;
+      margin-left: 1px;
+      background: var(--ink);
+      vertical-align: -2px;
+      animation: caret 1s steps(1) infinite;
+    }
+
+    .clip.is-gate { min-height: 210px; }
+    .school-dim {
+      filter: grayscale(0.55) saturate(0.4) brightness(0.78);
+    }
+    .frost {
+      position: absolute;
+      inset: 0;
+      background: rgb(36 50 71 / 24%);
+    }
+    .gate {
+      position: absolute;
+      z-index: 3;
+      top: 54%;
+      left: 50%;
+      width: min(220px, 82%);
+      padding: 12px 12px 11px;
+      border: 2px solid var(--ink);
+      border-radius: 14px 12px 16px 11px;
+      background: #fffaf0;
+      box-shadow: 4px 5px 0 rgba(28, 22, 18, 0.22);
+      translate: -50% -50%;
+      rotate: 2deg;
+    }
+    .gate h3 { margin: 2px 0 10px; font-size: 1rem; }
+    .codes { display: flex; justify-content: space-between; gap: 4px; }
+    .codes i {
+      display: grid;
+      width: 26px;
+      height: 32px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 7px;
+      background: #fff;
+      font-style: normal;
+    }
+    .codes i:first-child { background: var(--sticky); }
+
+    .talk {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-top: auto;
+      padding: 0 2px 2px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .talk input {
+      height: 34px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .talk input:focus { outline: none; }
+    .talk input::placeholder { color: #a79d91; }
+    .talk button {
+      padding: 4px 11px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: #fff;
+      box-shadow: 2px 2px 0 var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .talk button:hover { translate: 1px 1px; box-shadow: 1px 1px 0 var(--ink); }
+
+    .show-empty,
+    .show-peek,
+    .show-work,
+    .show-need,
+    .show-review { display: none !important; }
+
+    .rail:has(#s-empty:checked) .show-empty,
+    .rail:has(#s-peek:checked) .show-peek,
+    .rail:has(#s-work:checked) .show-work,
+    .rail:has(#s-need:checked) .show-need,
+    .rail:has(#s-review:checked) .show-review { display: block !important; }
+
+    .rail:has(#s-work:checked) .hands.show-work,
+    .rail:has(#s-need:checked) .hands.show-need,
+    .rail:has(#s-review:checked) .hands.show-review { display: flex !important; }
+
+    .rail:has(#s-need:checked) .inky .body {
+      animation: none;
+      transform: rotate(-12deg) translate(3px, 4px);
+    }
+
+    @keyframes caret {
+      0%, 45% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    @media (max-width: 860px) {
+      .stage { grid-template-columns: 1fr; }
+      .ghost { display: none; }
+      .blotter { rotate: 0; min-height: 640px; }
+      .rail { padding-bottom: 88px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .blotter, .clip, .go, .stamp, .gate { rotate: 0; }
+      .caret { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <a class="you" href="settings-sidebar.html"><i>K</i>you</a>
+  </header>
+
+  <div class="stage">
+    <section class="ghost" aria-hidden="true">
+      <p class="kicker">Your week</p>
+      <h1>Sep 3–7</h1>
+      <div class="week-ghost">
+        <article>
+          <strong>Thu 3</strong>
+          <i></i>
+          <em>IBM Sorting Machine</em>
+        </article>
+        <article>
+          <strong>Fri 4</strong>
+          <i></i>
+        </article>
+        <article>
+          <strong>Sat 5</strong>
+          <i></i>
+        </article>
+        <article>
+          <strong>Sun 6</strong>
+          <i></i>
+        </article>
+        <article>
+          <strong>Mon 7</strong>
+          <i></i>
+        </article>
+      </div>
+    </section>
+
+    <aside class="rail" aria-label="Inky’s desk">
+      <fieldset class="switcher">
+        <legend>Desk state</legend>
+        <label><input id="s-empty" type="radio" name="desk" value="empty" /> Empty</label>
+        <label><input id="s-peek" type="radio" name="desk" value="peek" checked /> This page</label>
+        <label><input id="s-work" type="radio" name="desk" value="work" /> Working</label>
+        <label><input id="s-need" type="radio" name="desk" value="need" /> Needs you</label>
+        <label><input id="s-review" type="radio" name="desk" value="review" /> Look this over</label>
+      </fieldset>
+
+      <div class="mat">
+        <article class="blotter">
+          <span class="pad-tape l" aria-hidden="true"></span>
+          <span class="pad-tape r" aria-hidden="true"></span>
+
+          <div class="who">
+            <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+              <g class="body">
+                <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <g class="eyes">
+                  <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                  <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                  <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+                  <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+                </g>
+                <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+              </g>
+            </svg>
+            <p class="speech show-empty">Nothing’s on the desk. Open a week card.</p>
+            <p class="speech show-peek">Want me to do IBM Sorting Machine?</p>
+            <p class="speech show-work">I’m on the school page.</p>
+            <p class="speech show-need">I need you on this one.</p>
+            <p class="speech show-review">The answers are still on the page.</p>
+          </div>
+
+          <p class="course show-peek show-work show-need show-review">CSC 316</p>
+
+          <ul class="notes show-peek">
+            <li>Due Thursday night.</li>
+            <li>I can try this and stop before submit.</li>
+            <li>I already looked at the page.</li>
+            <li class="sign">— inky</li>
+          </ul>
+          <ul class="notes show-work">
+            <li>I’m writing the first pass now.</li>
+            <li>I stop before submit.</li>
+            <li class="sign">— inky</li>
+          </ul>
+          <ul class="notes show-need">
+            <li>They want a code from you.</li>
+            <li>I’ll wait right here.</li>
+            <li class="sign">— inky</li>
+          </ul>
+          <ul class="notes show-review">
+            <li>I left everything on the page.</li>
+            <li>You still submit.</li>
+            <li class="sign">— inky</li>
+          </ul>
+
+          <p class="stamp show-peek">Ready</p>
+          <p class="stamp onit show-work">I’m on it</p>
+          <p class="stamp need show-need">Need you</p>
+          <p class="stamp look show-review">Look this over</p>
+
+          <button class="go show-peek" type="button">Make Inky do this</button>
+
+          <div class="hands show-work">
+            <button class="btn coral" type="button">I’ll take over</button>
+            <button class="btn" type="button">Stop this</button>
+          </div>
+          <div class="hands show-need">
+            <button class="btn sunny" type="button">Inky, keep going</button>
+          </div>
+          <div class="hands show-review">
+            <button class="btn mint" type="button">I submitted it</button>
+          </div>
+
+          <article class="clip show-work" aria-label="School page">
+            <span class="clip-tape a" aria-hidden="true"></span>
+            <span class="clip-tape b" aria-hidden="true"></span>
+            <header class="lms-top">
+              <strong>Northstar University</strong>
+              <span>student</span>
+            </header>
+            <nav class="lms-nav" aria-hidden="true"><b>Courses</b><span>Calendar</span><span>Grades</span></nav>
+            <div class="lms-body">
+              <p class="crumb">CSC 316 · Homework 3</p>
+              <h2>IBM Sorting Machine</h2>
+              <p class="when">Thursday night · 20 points</p>
+              <div class="q">
+                <strong>1.</strong>
+                <p>Feed these keys through the machine: 17, 4, 22, 9, 11. Show each pass.</p>
+                <div class="hand">Pass 1 — 4 is already home. Hopper still holds 17, 22, 9, 11.<span class="caret"></span></div>
+              </div>
+            </div>
+          </article>
+
+          <article class="clip is-gate show-need" aria-label="School login">
+            <span class="clip-tape a" aria-hidden="true"></span>
+            <span class="clip-tape b" aria-hidden="true"></span>
+            <div class="school-dim">
+              <header class="lms-top">
+                <strong>Northstar University</strong>
+                <span>sign in</span>
+              </header>
+              <nav class="lms-nav" aria-hidden="true"><b>Home</b><span>Courses</span><span>Calendar</span></nav>
+              <div class="lms-body">
+                <p class="crumb">CSC 316 · Homework 3</p>
+                <h2>IBM Sorting Machine</h2>
+                <p class="when">Thursday night</p>
+                <div class="q">
+                  <strong>1.</strong>
+                  <p>Feed these keys through the machine: 17, 4, 22, 9, 11.</p>
+                </div>
+              </div>
+            </div>
+            <div class="frost" aria-hidden="true"></div>
+            <div class="gate">
+              <p class="eyebrow">Northstar</p>
+              <h3>We texted you a code</h3>
+              <div class="codes" aria-hidden="true">
+                <i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+            </div>
+          </article>
+
+          <article class="clip show-review" aria-label="Finished school page">
+            <span class="clip-tape a" aria-hidden="true"></span>
+            <span class="clip-tape b" aria-hidden="true"></span>
+            <header class="lms-top">
+              <strong>Northstar University</strong>
+              <span>student</span>
+            </header>
+            <nav class="lms-nav" aria-hidden="true"><b>Courses</b><span>Calendar</span><span>Grades</span></nav>
+            <div class="lms-body">
+              <p class="crumb">CSC 316 · Homework 3</p>
+              <h2>IBM Sorting Machine</h2>
+              <p class="when">Thursday night</p>
+              <div class="q">
+                <strong>1. Worst-case running time</strong>
+                <p>Explain insertion sort and support your answer.</p>
+                <div class="hand">O(n²) — one comparison per pass, worst when the deck is reversed.</div>
+              </div>
+              <div class="q">
+                <strong>2. Why cards?</strong>
+                <p>What is each punched card doing in the machine?</p>
+                <div class="hand">Each card is one record. The machine reads a column and bins them.</div>
+              </div>
+            </div>
+          </article>
+
+          <form class="talk" action="javascript:void(0)">
+            <label class="visually-hidden" for="say">Talk to Inky</label>
+            <input id="say" name="say" placeholder="I’m listening…" maxlength="400" />
+            <button type="submit">say it</button>
+          </form>
+        </article>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

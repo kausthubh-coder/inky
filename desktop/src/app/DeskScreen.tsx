@@ -9,12 +9,13 @@ import {
   type SchoolPageBounds,
   type StudiWorkspaceState,
   type TaskDetail,
+  type TaskState,
   type TaskSummary,
 } from "../../shared/index.js";
 import { Inky, type InkyState } from "./Inky.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
-import { Field, PaperCard, RuntimeAttentionBanner, StatusPill, executionLabel, formatDateTime, formatDue } from "./Ui.js";
+import { Field, PaperCard, RuntimeAttentionBanner, StatusPill, formatDateTime } from "./Ui.js";
 
 export type DeskPanel =
   | { kind: "closed" }
@@ -186,27 +187,37 @@ export function DeskDrawer({
     setPrompt("");
   };
 
+  const status = task ? taskStatusCopy(task.task.state) : null;
+
   return (
     <aside className={`workspace-drawer ${desk ? "is-desk" : "is-peek"}`} aria-label={desk ? "Inky’s desk" : title}>
       <header className="drawer-head">
         <div className="drawer-who">
-          <Inky state={inkyState} size={42} label={`Inky is ${inkyState}`} />
-          <div>
-            <p className="eyebrow">{desk ? "Inky’s desk" : course?.label ?? "Assignment"}</p>
-            <strong>{desk ? (live ? executionLabel(execution!.phase) : "Ready when you are") : "Assignment"}</strong>
-          </div>
+          <Inky state={inkyState} size={56} label={`Inky is ${inkyState}`} />
+          <p className="drawer-speech">{inkyLine({ assignment, live, execution, currentTool, desk })}</p>
         </div>
-        <button className="quiet-button" type="button" onClick={onClose}>Close</button>
+        <button className="drawer-close" type="button" onClick={onClose} aria-label="Close">Close</button>
       </header>
 
-      <section className="drawer-meta">
-        <div>
-          <p className="eyebrow">{course?.label ?? "Verified from school"}</p>
-          <h2>{title}</h2>
-          <p>{assignment ? formatDue(assignment.dueAt) : "Pick a week card, or start the next queued task."}</p>
+      {assignment && (live || course) && (
+        <p className="drawer-course">{live ? assignment.title : course?.label}</p>
+      )}
+
+      {assignment && (
+        <div className="drawer-facts">
+          <p>{dueSentence(assignment.dueAt)}</p>
+          {task && <p>{permissionLine(task)}</p>}
+          {!live && assignment.evidence.length > 0 && <p>I already looked at the page.</p>}
         </div>
-        {task && <StatusPill tone={done ? "mint" : live ? "yellow" : "plain"}>{task.task.state.replaceAll("_", " ")}</StatusPill>}
-      </section>
+      )}
+
+      {status && (
+        <div className="drawer-status">
+          <StatusPill tone={live && execution?.phase === "ready_review" ? "coral" : live && execution?.phase === "needs_user" ? "coral" : live ? "yellow" : status.tone}>
+            {live && execution?.phase === "ready_review" ? "Look this over" : live && execution?.phase === "needs_user" ? "Need you" : live ? "I’m on it" : status.label}
+          </StatusPill>
+        </div>
+      )}
 
       {live && execution && (
         <div className="drawer-actions">
@@ -222,29 +233,29 @@ export function DeskDrawer({
         </button>
       )}
       {!live && task && ["discovered", "queued"].includes(task.task.state) && task.permission.mayAttempt && anyLive && (
-        <p className="drawer-note">Inky is already on another page.</p>
+        <p className="drawer-note">I’m already on another page.</p>
       )}
       {!live && task && !task.permission.mayAttempt && (
-        <p className="drawer-note">Inky isn’t allowed to try this yet. Change that in Settings.</p>
+        <p className="drawer-note">You haven’t let me try this yet. That’s in Settings.</p>
       )}
       {!live && !task && assignment && (
-        <p className="drawer-note">This page was checked, but Inky doesn’t have a task for it yet. Tell Inky below if something’s missing.</p>
+        <p className="drawer-note">I saw this page, but I don’t have a task for it yet. Tell me if something’s missing.</p>
       )}
       {!assignment && !live && (
-        <p className="drawer-note">Nothing is on the desk. Open a week card, or tell Inky what to start.</p>
+        <p className="drawer-note">Nothing’s on the desk. Open a week card, or tell me what to start.</p>
       )}
 
       <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />
       {execution?.returnPredicate && runtimeAttention === "none" && (
-        <div className="truth-banner truth-banner--partial"><strong>Inky is waiting for you.</strong><span>{execution.lastError ?? execution.returnPredicate}</span></div>
+        <div className="truth-banner truth-banner--partial"><strong>I need you here.</strong><span>{execution.lastError ?? execution.returnPredicate}</span></div>
       )}
 
       {showingLiveDesk && (
         <div className="drawer-school-pane">
           <div className="live-chip">
             <span className={execution?.phase === "working" ? "live-dot" : "live-dot is-paused"} />
-            <strong>{currentTool ? `Using ${currentTool}` : executionLabel(execution?.phase ?? "working")}</strong>
-            <small>Same school page Inky is on</small>
+            <strong>{liveChipLine(execution?.phase ?? "working", currentTool)}</strong>
+            <small>The page I’m on</small>
           </div>
           <div ref={slotRef} className="drawer-school-slot" data-school-slot="true" aria-label="Live school page">{readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}</div>
         </div>
@@ -252,9 +263,9 @@ export function DeskDrawer({
 
       <div className="drawer-scroll">
         {visibleDetail && (done || (visibleDetail.attempts.length > 0 && !live)) && (
-          <PaperCard tone="mint" className="drawer-card">
-            <p className="eyebrow">Inky already worked on this</p>
-            <h3>{visibleDetail.submissionReceipt?.verifiedStatus ?? `${visibleDetail.attempts.length} saved checkpoint${visibleDetail.attempts.length === 1 ? "" : "s"}`}</h3>
+          <PaperCard className="drawer-card">
+            <p className="eyebrow">Already did this</p>
+            <h3>{visibleDetail.submissionReceipt?.verifiedStatus ?? (visibleDetail.attempts.length === 1 ? "I saved a checkpoint" : `I saved ${visibleDetail.attempts.length} checkpoints`)}</h3>
             {visibleDetail.submissionReceipt && <p>Checked on the page at {formatDateTime(visibleDetail.submissionReceipt.submittedAt)}.</p>}
             {visibleDetail.attempts.slice(-2).map((attempt) => (
               <p key={attempt.ordinal}><strong>{attempt.plan}</strong> {attempt.result}</p>
@@ -263,30 +274,18 @@ export function DeskDrawer({
           </PaperCard>
         )}
 
-        {assignment && (
-          <PaperCard className="drawer-card">
-            <p className="eyebrow">From the school page</p>
-            <dl className="detail-grid">
-              <div><dt>Due</dt><dd>{formatDue(assignment.dueAt)}</dd></div>
-              <div><dt>Checked</dt><dd>{assignment.evidence.length} page note{assignment.evidence.length === 1 ? "" : "s"}</dd></div>
-              {task && <div><dt>Inky may</dt><dd>{task.permission.mode.replaceAll("_", " ")}</dd></div>}
-            </dl>
-            {task && <p>{task.permission.rationale}</p>}
-          </PaperCard>
-        )}
-
         {live && visibleDetail && (
-          <PaperCard tone="paper" className="drawer-card">
-            <p className="eyebrow">What Inky has done</p>
+          <PaperCard className="drawer-card">
+            <p className="eyebrow">What I’ve done</p>
             <div className="activity-feed">
-              {(visibleDetail.activity.length === 0) && <p>No live step yet.</p>}
+              {(visibleDetail.activity.length === 0) && <p>Just sitting down with the page.</p>}
               {visibleDetail.activity.map((event, index) => <ActivityRow key={`${event.type}-${index}`} event={event} />)}
             </div>
           </PaperCard>
         )}
 
         {execution?.phase === "ready_review" && (
-          <PaperCard tone="coral" className="drawer-card">
+          <PaperCard className="drawer-card drawer-card--nudge">
             <p className="eyebrow">Your turn</p>
             <h3>The answers are still on the page.</h3>
             <p>{execution.reviewDeadline ? `Look before ${formatDateTime(execution.reviewDeadline)}.` : "Look over the page before you submit."}</p>
@@ -321,14 +320,82 @@ export function DeskDrawer({
           aria-label={assignment ? `Talk to Inky about ${assignment.title}` : "Talk to Inky"}
           value={prompt}
           onChange={(event) => setPrompt(event.target.value)}
-          placeholder={assignment ? "Ask Inky about this…" : "Tell Inky what to do…"}
+          placeholder={assignment ? "I’m listening…" : "Tell me what to do…"}
           maxLength={20_000}
         />
-        <button className="manager-send" disabled={busy !== null || !prompt.trim()}>{busy === "manager" ? "…" : "enter ↵"}</button>
+        <button className="manager-send" disabled={busy !== null || !prompt.trim()}>{busy === "manager" ? "…" : "say it"}</button>
       </form>
       {error && <p className="error-note" role="alert">{error}</p>}
     </aside>
   );
+}
+
+export function taskStatusCopy(state: TaskState | string): { label: string; tone: "plain" | "mint" | "yellow" | "coral" } {
+  if (state === "submitted" || state === "preserved") return { label: "Done", tone: "mint" };
+  if (state === "working" || state === "submitting") return { label: "I’m on it", tone: "yellow" };
+  if (state === "needs_user") return { label: "Need you", tone: "coral" };
+  if (state === "ready_review") return { label: "Look this over", tone: "coral" };
+  if (state === "failed" || state === "cancelled") return { label: "Stopped", tone: "coral" };
+  if (state === "ignored") return { label: "Left alone", tone: "plain" };
+  return { label: "Ready", tone: "plain" };
+}
+
+function inkyLine({
+  assignment,
+  live,
+  execution,
+  currentTool,
+  desk,
+}: {
+  assignment: Assignment | null;
+  live: boolean;
+  execution: LifecycleState["execution"] | null;
+  currentTool: string | null;
+  desk: boolean;
+}): string {
+  if (live && execution) {
+    if (execution.phase === "needs_user") return "I need you on this one.";
+    if (execution.phase === "ready_review") return "Take a look when you can.";
+    if (execution.phase === "submitting") return "Checking that it went in.";
+    if (currentTool) return `I’m using ${currentTool} on the school page.`;
+    return "I’m on the school page.";
+  }
+  if (assignment) return `Want me to do ${assignment.title}?`;
+  if (desk) return "Ready when you are.";
+  return "Pick a week card and I’ll sit with it.";
+}
+
+function dueSentence(dueAt?: string): string {
+  if (!dueAt) return "No due date.";
+  const due = new Date(dueAt);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const dueDay = new Date(due.getFullYear(), due.getMonth(), due.getDate()).getTime();
+  const days = Math.round((dueDay - today) / 86_400_000);
+  const hour = due.getHours();
+  const part = hour < 12 ? "morning" : hour < 17 ? "afternoon" : hour < 20 ? "evening" : "night";
+  const weekday = new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(due);
+  if (days === 0) return part === "night" || part === "evening" ? "Due tonight." : `Due this ${part}.`;
+  if (days === 1) return `Due tomorrow ${part}.`;
+  if (days > 1 && days < 7) return `Due ${weekday} ${part}.`;
+  if (days < 0 && days > -7) return `Was due ${weekday}.`;
+  const later = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(due);
+  if (days <= -7) return `Was due ${later}.`;
+  return `Due ${later}.`;
+}
+
+function permissionLine(task: TaskSummary): string {
+  if (!task.permission.mayAttempt) return "You haven’t let me try this yet.";
+  if (task.permission.mode === "auto_submit") return "I can try this and submit if that’s allowed.";
+  return "I can try this and stop before submit.";
+}
+
+function liveChipLine(phase: string, tool: string | null): string {
+  if (tool) return `Using ${tool}`;
+  if (phase === "needs_user") return "Waiting for you";
+  if (phase === "ready_review") return "Ready for you";
+  if (phase === "submitting") return "Checking submit";
+  return "On the page";
 }
 
 function currentToolName(detail: TaskDetail | null): string | null {
@@ -349,8 +416,8 @@ function currentToolName(detail: TaskDetail | null): string | null {
 
 function ActivityRow({ event }: { event: TaskDetail["activity"][number] }) {
   if (event.type === "text") return <div className="activity-row"><span>Inky</span><p>{event.delta}</p></div>;
-  if (event.type === "tool_started") return <div className="activity-row activity-row--tool"><span>tool</span><p>Started {event.toolName}</p></div>;
-  if (event.type === "tool_finished") return <div className="activity-row activity-row--tool"><span>tool</span><p>{event.toolName} {event.outcome}</p></div>;
-  if (event.type === "terminal") return <div className="activity-row activity-row--state"><span>run</span><p>{event.outcome}{event.reason ? ` · ${event.reason}` : ""}</p></div>;
-  return <div className="activity-row activity-row--state"><span>run</span><p>{event.type.replace("_", " ")}</p></div>;
+  if (event.type === "tool_started") return <div className="activity-row activity-row--tool"><span>Inky</span><p>Opened {event.toolName}</p></div>;
+  if (event.type === "tool_finished") return <div className="activity-row activity-row--tool"><span>Inky</span><p>{event.toolName} {event.outcome}</p></div>;
+  if (event.type === "terminal") return <div className="activity-row activity-row--state"><span>Inky</span><p>{event.outcome}{event.reason ? ` · ${event.reason}` : ""}</p></div>;
+  return <div className="activity-row activity-row--state"><span>Inky</span><p>{event.type.replace("_", " ")}</p></div>;
 }

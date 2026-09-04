@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — Three drawers</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .chrome {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 54px;
+      padding: 0 24px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 94%);
+    }
+    .chrome strong { font-family: "Shantell Sans", cursive; font-size: 20px; }
+    .desk {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 22px 80px;
+    }
+    .desk > header { margin-bottom: 22px; max-width: 40ch; }
+    .drawers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .drawer {
+      display: grid;
+      align-content: start;
+      min-height: 280px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .drawer svg { width: 72px; height: 72px; margin-bottom: 8px; }
+    .drawer h2 { margin: 4px 0 6px; }
+    .drawer p { font-weight: 700; font-size: 13px; }
+    .drawer .peek { margin-top: 16px; display: grid; gap: 8px; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .open {
+      display: none;
+      grid-column: 1 / -1;
+      margin-top: 4px;
+    }
+    .drawers:has(#inky:checked) .open-inky,
+    .drawers:has(#school:checked) .open-school,
+    .drawers:has(#you:checked) .open-you { display: grid; gap: 12px; }
+    .drawers:has(#inky:checked) label[for="inky"],
+    .drawers:has(#school:checked) label[for="school"],
+    .drawers:has(#you:checked) label[for="you"] {
+      outline: 3px solid var(--ink);
+      translate: -2px -2px;
+    }
+    .drawers input { position: absolute; opacity: 0; pointer-events: none; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 800px) {
+      .drawers { grid-template-columns: 1fr; }
+      .grid2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="chrome"><strong>studi ✎</strong><span class="pill">Settings · C</span></header>
+  <main class="desk">
+    <header>
+      <p class="kicker">Three drawers on the desk</p>
+      <h1>Open one.</h1>
+      <p>Inky. School. You. That’s the whole settings page.</p>
+    </header>
+    <div class="drawers">
+      <input id="inky" type="radio" name="drawer" checked />
+      <input id="school" type="radio" name="drawer" />
+      <input id="you" type="radio" name="drawer" />
+
+      <label class="card mint drawer" for="inky">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g>
+            <path d="M52 73 Q60 80 68 73" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </g>
+        </svg>
+        <p class="eyebrow">Drawer 1</p>
+        <h2>Inky</h2>
+        <p>His brain, the apps he can use, the folder he may touch.</p>
+        <div class="peek chip-row">
+          <span class="pill mint">ChatGPT ready</span>
+          <span class="pill">Gmail</span>
+          <span class="pill">Folder set</span>
+        </div>
+      </label>
+
+      <label class="card sky drawer" for="school">
+        <p class="eyebrow">Drawer 2</p>
+        <h2>School</h2>
+        <p>When he looks, and what he’s allowed to try.</p>
+        <div class="peek chip-row">
+          <span class="pill sky">Daily 9:00</span>
+          <span class="pill">3 rules</span>
+        </div>
+      </label>
+
+      <label class="card pink drawer" for="you">
+        <p class="eyebrow">Drawer 3</p>
+        <h2>You</h2>
+        <p>Nudges, privacy, sign out. The quiet stuff.</p>
+        <div class="peek chip-row">
+          <span class="pill">Kaustubh</span>
+          <span class="pill sunny">Beta on</span>
+        </div>
+      </label>
+
+      <section class="open open-inky card">
+        <h2>Inky’s drawer</h2>
+        <div class="grid2">
+          <label class="field"><span>Brain</span><select><option>GPT-5.4 · high</option></select></label>
+          <label class="field"><span>Homework folder</span><input value="Documents\Homework" /></label>
+        </div>
+        <p>Apps: Gmail is in. Calendar isn’t. Drive is waiting on the browser.</p>
+        <div class="chip-row">
+          <button class="btn sunny" type="button">Use another ChatGPT</button>
+          <button class="btn" type="button">Choose folder</button>
+        </div>
+      </section>
+
+      <section class="open open-school card sky">
+        <h2>School drawer</h2>
+        <div class="grid2">
+          <label class="field"><span>Look</span><select><option>Every day at 9:00</option></select></label>
+          <label class="field"><span>Bio 201</span><select><option>Try, don’t submit</option></select></label>
+        </div>
+        <button class="btn" type="button">Add a rule</button>
+      </section>
+
+      <section class="open open-you card pink">
+        <h2>Your drawer</h2>
+        <label class="field"><span>Share what happens in Studi</span><select><option>On, for the private beta</option><option>Off</option></select></label>
+        <button class="btn coral" type="button">Sign out</button>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

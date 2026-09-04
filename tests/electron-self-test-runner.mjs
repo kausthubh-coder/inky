@@ -37,7 +37,7 @@ try {
 
   const onboarding = await runControlledScenario("onboarding-ready");
   assert.equal(onboarding.observation.marker, true);
-  assert.equal(onboarding.observation.contractVersion, "14");
+  assert.equal(onboarding.observation.contractVersion, "15");
   assert.equal(onboarding.observation.runtime.electron, "37.10.3");
   assert.equal(onboarding.observation.runtime.node, "22.21.1");
   assert.deepEqual(onboarding.observation.onboarding, {
@@ -177,7 +177,7 @@ async function inspectPublicApp(client) {
         toolkits: connectedApps.toolkits.map((item) => item.toolkit),
       },
       weekBoard: {
-        visible: [...document.querySelectorAll('button')].some((item) => item.textContent?.trim() === 'This week'),
+        visible: Boolean(document.querySelector('[data-studi-week-board="true"]')),
         hasCourse: library.tasks.some((item) => item.assignment.courseId === 'course-calculus'),
         hasAssignment: library.tasks.some((item) => item.assignment.title === 'Problem set 4'),
       },

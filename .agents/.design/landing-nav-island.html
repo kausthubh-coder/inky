@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Landing nav — Floating island</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .nav {
+      position: fixed;
+      z-index: 40;
+      top: 18px;
+      left: 50%;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      width: min(920px, calc(100% - 36px));
+      padding: 8px 12px;
+      border: 2.5px solid var(--ink);
+      border-radius: 28px;
+      background: rgb(255 250 240 / 92%);
+      box-shadow: 4px 4px 0 var(--ink);
+      backdrop-filter: blur(12px);
+      translate: -50% 0;
+    }
+    .brand {
+      grid-column: 1;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      justify-self: start;
+      min-width: 0;
+    }
+    .perch {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      margin-bottom: -8px;
+    }
+    .wordmark {
+      font-size: 22px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .links { display: flex; gap: 2px; grid-column: 2; justify-self: center; }
+    .cta { grid-column: 3; justify-self: end; rotate: -2deg; transition: rotate 220ms cubic-bezier(0.45, 0, 0.55, 1); }
+    .links a {
+      padding: 6px 12px;
+      border: 2px solid transparent;
+      border-radius: var(--pill);
+      color: var(--ink-soft);
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .links a:hover, .links a.on { background: var(--sticky); color: var(--ink); }
+    .links a.on { border-color: var(--ink); }
+    .cta:hover { rotate: 0deg; }
+    .perch .ground {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: perch-shadow 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    .brand:hover .perch .body {
+      animation: perch-hi 1.05s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    @keyframes perch-shadow {
+      0%, 100% { transform: scaleX(1); opacity: 0.12; }
+      35% { transform: scaleX(0.76); opacity: 0.05; }
+      68% { transform: scaleX(0.94); opacity: 0.1; }
+    }
+    @keyframes perch-hi {
+      0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+      50% { transform: translateY(-3px) rotate(-7deg) scale(1.04, 0.97); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .perch .ground { animation: none; }
+    }
+    .note {
+      max-width: 760px;
+      margin: 28px auto 0;
+      padding: 12px 16px;
+      border-left: 3px solid var(--ink);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    @media (max-width: 720px) {
+      .links { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="nav">
+    <a class="brand" href="#">
+    <svg class="inky perch" viewBox="0 0 120 120" aria-hidden="true">
+      <ellipse class="ground" cx="60" cy="111" rx="26" ry="5" fill="#3b342c" opacity="0.1"/>
+      <g class="body">
+        <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+        <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <g class="eyes">
+          <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+          <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+          <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+          <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+        </g>
+        <path d="M52 73 Q60 80 68 73" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <ellipse cx="33" cy="68" rx="6" ry="4" fill="#f2a8c4" opacity="0.7"/>
+        <ellipse cx="87" cy="68" rx="6" ry="4" fill="#f2a8c4" opacity="0.7"/>
+      </g>
+    </svg>
+    <span class="wordmark">studi</span>
+    </a>
+    <nav class="links" aria-label="Page">
+      <a href="#">Inky</a>
+      <a class="on" href="#">Trust</a>
+      <a href="#">FAQ</a>
+      <a href="#">Mission</a>
+    </nav>
+    <a class="btn sunny cta" href="#">Save me a seat</a>
+  </header>
+
+  <section class="hero-dummy">
+    <p class="kicker">Landing · variation A</p>
+    <h1>Hi. I’m Inky. I do your homework.</h1>
+    <p>The bar is an object on the desk, not a website header. Inky is already sitting there before you scroll.</p>
+    <p class="note">Keep the wobble and the yellow seat. Lose the three-column “logo / links / product CTA” that every other site uses.</p>
+  </section>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>App top bar — Today’s name</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .bar {
+      position: sticky; top: 0; z-index: 20;
+      display: grid; grid-template-columns: auto 1fr auto;
+      align-items: center; gap: 16px;
+      height: 64px; padding: 0 20px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 18px; font-weight: 800; text-decoration: none; }
+    .day { justify-self: start; }
+    .day strong { display: block; font-size: 1.35rem; line-height: 1; }
+    .day small { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .live {
+      justify-self: end;
+      display: flex; align-items: center; gap: 8px;
+      padding: 3px 12px 3px 4px;
+      border: 2px solid var(--ink); border-radius: 999px;
+      background: #dff4e9; text-decoration: none;
+    }
+    .live svg { width: 34px; height: 34px; }
+    .live strong { font-size: 12px; }
+    .end { display: flex; align-items: center; gap: 8px; }
+    .you {
+      display: grid; width: 32px; height: 32px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%;
+      background: var(--pink); font-weight: 900; text-decoration: none;
+    }
+    .caption { max-width: 1100px; margin: 20px auto 0; padding: 0 24px; font-weight: 700; }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <div class="day">
+      <strong>Thursday</strong>
+      <small>4 due · Inky is in Bio</small>
+    </div>
+    <div class="end">
+      <a class="live" href="#">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/><circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/></g></svg>
+        <strong>Watching the page</strong>
+      </a>
+      <a class="you" href="settings-sidebar.html">K</a>
+    </div>
+  </header>
+  <p class="caption">Top bar · variation D. The week is a day with a name, not a tab. Settings is you. Inky is the live chip.</p>
+  <section class="week-ghost" aria-hidden="true">
+    <article><strong>Today</strong><i></i><i></i></article>
+    <article><strong>Friday</strong><i></i></article>
+    <article><strong>Saturday</strong></article>
+    <article><strong>Sunday</strong><i></i></article>
+    <article><strong>Monday</strong><i></i><i></i></article>
+  </section>
+</body>
+</html>

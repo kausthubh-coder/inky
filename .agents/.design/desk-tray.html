@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — inbox tray</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    :root {
+      --walnut: #5a3a22;
+      --walnut-2: #6e4528;
+      --walnut-3: #3d2616;
+      --brass: #c9a15a;
+      --brass-2: #e4c56a;
+      --steel: #b8b2a4;
+      --steel-2: #8a8478;
+      --well: #3a2618;
+    }
+
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(#d8cbb3 1.15px, transparent 1.15px) 0 0 / 22px 22px,
+        #e8dcc4;
+    }
+
+    input[name="state"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      align-items: center;
+      height: 56px;
+      padding: 0 18px 0 20px;
+      border-bottom: 2.5px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 21px; font-weight: 800; text-decoration: none; }
+    .presence {
+      justify-self: center;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 3px 14px 3px 4px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: var(--sticky);
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.16);
+      text-decoration: none;
+    }
+    .presence svg { width: 38px; height: 38px; }
+    .presence strong { display: block; font-size: 13px; line-height: 1.15; }
+    .presence small { color: var(--ink-soft); font-size: 11px; font-weight: 800; }
+    .presence .say { display: none; }
+    body:has(#peek:checked) .presence { background: var(--sticky); }
+    body:has(#peek:checked) .presence .say-peek { display: block; }
+    body:has(#work:checked) .presence { background: #dff4e9; }
+    body:has(#work:checked) .presence .say-work { display: block; }
+    body:has(#need:checked) .presence { background: #ffe1d8; }
+    body:has(#need:checked) .presence .say-need { display: block; }
+    body:has(#look:checked) .presence { background: #dff4e9; }
+    body:has(#look:checked) .presence .say-look { display: block; }
+    body:has(#empty:checked) .presence { background: #fffaf0; }
+    body:has(#empty:checked) .presence .say-empty { display: block; }
+
+    .end { display: flex; align-items: center; gap: 8px; }
+    .you {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 8px 3px 3px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .you:hover { background: var(--sticky); }
+    .you i {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--pink);
+      font-style: normal;
+      font-size: 12px;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+      align-items: stretch;
+      min-height: calc(100vh - 56px);
+    }
+
+    .ghost-side {
+      min-width: 0;
+      padding: 28px 8px 96px;
+      opacity: 0.32;
+      filter: saturate(0.55);
+      pointer-events: none;
+      user-select: none;
+    }
+    .ghost-side .week-ghost {
+      margin: 0;
+      max-width: none;
+      padding: 0 18px;
+    }
+
+    .rail {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 18px 16px 108px;
+      border-left: 2.5px solid var(--ink);
+      background:
+        radial-gradient(ellipse at 80% 0, rgb(90 58 34 / 18%), transparent 46%),
+        linear-gradient(180deg, #c4a574 0%, #b08958 38%, #9a7344 100%);
+      box-shadow: inset 18px 0 28px rgb(28 22 18 / 10%);
+    }
+
+    .blotter {
+      position: relative;
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      padding: 22px 14px 16px;
+      border: 2.5px solid var(--ink);
+      border-radius: 8px 10px 7px 9px;
+      background:
+        radial-gradient(circle at 18% 82%, rgb(28 22 18 / 10%) 0 42px, transparent 43px),
+        repeating-linear-gradient(90deg, rgb(28 22 18 / 5%) 0 1px, transparent 1px 11px),
+        linear-gradient(180deg, #3f5a46, #334a3a);
+      box-shadow:
+        inset 0 0 0 7px #2a3d30,
+        5px 7px 0 rgb(28 22 18 / 22%);
+    }
+
+    .tray {
+      --paper-h: 390px;
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 520px;
+      margin: 4px 2px 0;
+      overflow: visible;
+      padding: 16px 14px 48px;
+      border: 3px solid #24180f;
+      border-radius: 7px 8px 5px 5px;
+      background:
+        linear-gradient(180deg, #4a301c 0 16px, transparent 16px),
+        repeating-linear-gradient(
+          92deg,
+          #6b4428 0 3px,
+          #7a4e2e 3px 7px,
+          #5e3c24 7px 9px
+        );
+      box-shadow:
+        inset 0 14px 18px rgb(0 0 0 / 28%),
+        8px 14px 0 rgb(28 22 18 / 20%),
+        0 24px 36px rgb(28 22 18 / 14%);
+    }
+    .rivet {
+      position: absolute;
+      z-index: 6;
+      width: 11px;
+      height: 11px;
+      border: 1.5px solid #24180f;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at 35% 30%, #f0d78a, var(--brass) 55%, #8a6a28);
+      box-shadow: 1px 1px 0 rgb(0 0 0 / 35%);
+    }
+    .rivet.a { top: 8px; left: 8px; }
+    .rivet.b { top: 8px; right: 8px; }
+    .rivet.c { bottom: 42px; left: 8px; }
+    .rivet.d { bottom: 42px; right: 8px; }
+
+    .well {
+      position: relative;
+      z-index: 1;
+      min-height: var(--paper-h);
+      height: var(--paper-h);
+      padding: 14px 12px 22px;
+      overflow: visible;
+      border: 2px solid #24180f;
+      border-radius: 3px 4px 2px 3px;
+      background:
+        radial-gradient(ellipse at 50% 0, rgb(0 0 0 / 22%), transparent 62%),
+        repeating-linear-gradient(0deg, transparent 0 17px, rgb(0 0 0 / 10%) 17px 18px),
+        var(--well);
+      box-shadow: inset 0 10px 20px rgb(0 0 0 / 40%);
+    }
+
+    .dust {
+      display: none;
+      position: absolute;
+      inset: 18px 16px 28px;
+      border-radius: 3px;
+      background:
+        repeating-linear-gradient(108deg, transparent 0 16px, rgb(232 214 180 / 10%) 16px 17px),
+        repeating-linear-gradient(-6deg, transparent 0 26px, rgb(28 22 18 / 16%) 26px 27px);
+      pointer-events: none;
+    }
+    .dust::before,
+    .dust::after {
+      content: "";
+      position: absolute;
+      border: 1.5px dashed rgb(232 214 180 / 22%);
+      border-radius: 2px;
+    }
+    .dust::before {
+      inset: 18px 22px 48px 14px;
+      rotate: -2deg;
+    }
+    .dust::after {
+      inset: 28px 12px 36px 28px;
+      rotate: 3deg;
+    }
+    body:has(#empty:checked) .dust { display: block; }
+
+    .sheet {
+      position: absolute;
+      left: 10px;
+      right: 14px;
+      top: 12px;
+      height: calc(100% - 36px);
+      border: 2px solid var(--ink);
+      border-radius: 2px 3px 2px 2px;
+      pointer-events: none;
+    }
+    .sheet.g3 {
+      background: #d9c8a4;
+      translate: 11px 14px;
+      rotate: 3.4deg;
+      box-shadow: 3px 4px 0 rgb(0 0 0 / 22%);
+    }
+    .sheet.g2 {
+      background: #e8d7b4;
+      translate: 6px 8px;
+      rotate: -1.6deg;
+      box-shadow: 2px 3px 0 rgb(0 0 0 / 18%);
+    }
+    .sheet.g1 {
+      background: #f0e2c4;
+      translate: 3px 3px;
+      rotate: 0.9deg;
+      box-shadow: 2px 2px 0 rgb(0 0 0 / 14%);
+    }
+    body:has(#empty:checked) .sheet { display: none; }
+
+    .paper,
+    .school {
+      position: absolute;
+      left: 10px;
+      right: 16px;
+      top: 12px;
+      z-index: 3;
+      display: none;
+      min-height: calc(100% - 34px);
+      height: calc(100% - 34px);
+      overflow: visible;
+      padding: 16px 16px 18px;
+      border: 2.5px solid var(--ink);
+      border-radius: 2px 4px 3px 2px;
+      box-shadow:
+        1px 1px 0 #efe4c8,
+        2px 2px 0 var(--ink),
+        3px 3px 0 #efe4c8,
+        5px 6px 0 rgb(28 22 18 / 22%),
+        9px 12px 0 rgb(28 22 18 / 10%);
+    }
+    .school { overflow: hidden; }
+    .paper.cream {
+      background:
+        linear-gradient(#c9b48a, #c9b48a) 22px 0 / 1.5px 100% no-repeat,
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0 27px,
+          #d5c4a4 27px 28px
+        ),
+        #f6eed8;
+      rotate: -1.1deg;
+    }
+    .paper.coral {
+      background:
+        radial-gradient(#f0b09a 0.7px, transparent 0.7px) 0 0 / 14px 14px,
+        #ffd4c8;
+      rotate: 1.6deg;
+    }
+    .paper.mint {
+      background:
+        repeating-linear-gradient(
+          to bottom,
+          transparent 0 26px,
+          #7aa88a 26px 27px
+        ),
+        #dff4e9;
+      rotate: -0.6deg;
+    }
+
+    body:has(#peek:checked) .paper.cream { display: grid; align-content: start; }
+    body:has(#work:checked) .paper.cream {
+      display: grid;
+      align-content: start;
+      z-index: 5;
+      height: 168px;
+      min-height: 168px;
+      padding: 12px 14px 10px;
+      translate: -22px -78px;
+      rotate: -11deg;
+      box-shadow:
+        10px 16px 0 rgb(28 22 18 / 16%),
+        0 18px 28px rgb(28 22 18 / 18%);
+    }
+    body:has(#need:checked) .paper.coral { display: grid; align-content: start; }
+    body:has(#look:checked) .paper.mint { display: grid; align-content: start; }
+
+    .paper h2 {
+      font-size: 1.35rem;
+      line-height: 1.1;
+      margin: 0 0 2px;
+    }
+    .paper .course {
+      color: var(--ink-faint);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .paper .note {
+      margin: 14px 0 0;
+      color: var(--ink);
+      font-family: "Shantell Sans", cursive;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.55;
+    }
+    .paper .sign {
+      margin-top: 16px;
+      color: var(--ink-faint);
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-style: italic;
+      font-weight: 600;
+    }
+    body:has(#work:checked) .paper.cream .note,
+    body:has(#work:checked) .paper.cream .sign,
+    body:has(#work:checked) .paper.cream .sticker { display: none; }
+    body:has(#work:checked) .paper.cream h2 { font-size: 1.1rem; }
+
+    .clip {
+      position: absolute;
+      top: -10px;
+      right: 22px;
+      width: 18px;
+      height: 28px;
+      border: 2px solid #5a5248;
+      border-bottom: 0;
+      border-radius: 8px 8px 0 0;
+      background: transparent;
+      box-shadow: inset 0 0 0 3px #c8c2b4;
+      rotate: 8deg;
+    }
+
+    .sticker {
+      display: grid;
+      place-items: center;
+      width: max-content;
+      margin: 18px 0 0;
+      padding: 10px 14px 12px;
+      border: 1.5px solid #c9a24a;
+      border-radius: 2px;
+      background: var(--sunny);
+      box-shadow:
+        3px 4px 0 rgb(28 22 18 / 16%),
+        inset 0 10px 0 rgb(255 255 255 / 28%);
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1.1;
+      rotate: -6deg;
+    }
+    .sticker:hover { translate: 1px 1px; box-shadow: 2px 3px 0 rgb(28 22 18 / 16%); }
+    .sticker:active { translate: 2px 2px; box-shadow: none; }
+
+    .school {
+      display: none;
+      z-index: 2;
+      padding: 0;
+      color: #243247;
+      background: #f4f7fb;
+      font-family: "Nunito Sans", system-ui, sans-serif;
+      rotate: 0.4deg;
+    }
+    body:has(#work:checked) .school { display: flex; flex-direction: column; }
+    .school header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 34px;
+      padding: 0 12px;
+      color: #fff;
+      background: #243b66;
+    }
+    .school header strong { font-size: 12px; letter-spacing: 0.02em; }
+    .school header span { flex: 1; font-size: 10px; opacity: 0.75; font-weight: 800; }
+    .school header i {
+      display: grid;
+      width: 20px;
+      height: 20px;
+      place-items: center;
+      border-radius: 50%;
+      background: #f6c945;
+      color: #243247;
+      font-style: normal;
+      font-size: 9px;
+      font-weight: 900;
+    }
+    .school nav {
+      display: flex;
+      gap: 12px;
+      padding: 6px 12px;
+      border-bottom: 1px solid #cad3df;
+      background: #fff;
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .school nav b { color: #243247; }
+    .school .page {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      padding: 10px 12px 14px;
+      background:
+        linear-gradient(#e8f3ff 0 28px, transparent 28px),
+        #fff8ee;
+    }
+    .school .page > p {
+      margin: 0;
+      color: #64748b;
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .school .page h3 {
+      margin: 2px 0 8px;
+      color: #243247;
+      font: 800 16px/1.15 "Nunito Sans", sans-serif;
+    }
+    .q {
+      padding: 8px 9px 10px;
+      border: 1px solid #cad3df;
+      border-radius: 7px;
+      background: #fff;
+    }
+    .q + .q { margin-top: 8px; opacity: 0.55; }
+    .q strong { display: block; font-size: 11px; }
+    .q p { margin: 3px 0 7px; color: #445266; font-size: 11px; font-weight: 700; }
+    .box {
+      min-height: 44px;
+      padding: 6px 8px;
+      border: 1px solid #9cabc0;
+      border-radius: 5px;
+      background: #eef6ff;
+      color: #2a4578;
+      font-family: "Shantell Sans", cursive;
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1.35;
+    }
+    .caret {
+      display: inline-block;
+      width: 1.5px;
+      height: 12px;
+      margin-left: 1px;
+      background: var(--ink);
+      vertical-align: -2px;
+      animation: caret 1s steps(1) infinite;
+    }
+    @keyframes caret {
+      0%, 45% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+
+    .lip {
+      position: absolute;
+      z-index: 8;
+      left: -5px;
+      right: -5px;
+      bottom: 0;
+      height: 40px;
+      border: 2.5px solid #24180f;
+      border-radius: 0 0 6px 6px;
+      background:
+        linear-gradient(180deg, #efeae0 0%, var(--steel) 36%, var(--steel-2) 62%, #cfc8ba 100%);
+      box-shadow:
+        inset 0 2px 0 #f6f2ea,
+        inset 0 -3px 0 #6a6458,
+        0 6px 0 #4a443c;
+    }
+    .label {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      translate: -50% -50%;
+      padding: 3px 16px 4px;
+      border: 1.5px solid #5a4018;
+      border-radius: 2px;
+      background:
+        linear-gradient(180deg, var(--brass-2), var(--brass) 55%, #a6853a);
+      box-shadow:
+        inset 0 1px 0 rgb(255 255 255 / 45%),
+        1px 1px 0 rgb(0 0 0 / 25%);
+      font-family: "Shantell Sans", cursive;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .inky-spot {
+      position: absolute;
+      z-index: 7;
+      left: 14px;
+      bottom: -2px;
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .inky-spot svg {
+      width: 86px;
+      height: 86px;
+      filter: drop-shadow(2px 3px 0 rgb(28 22 18 / 18%));
+    }
+    .inky-spot .speech {
+      position: relative;
+      z-index: 11;
+      display: none;
+      max-width: 16ch;
+      margin-bottom: 36px;
+      padding: 8px 10px;
+      font-size: 15px;
+      line-height: 1.15;
+      pointer-events: auto;
+    }
+    .inky-spot .speech::before {
+      content: "";
+      position: absolute;
+      left: -6px;
+      bottom: 10px;
+      width: 10px;
+      height: 10px;
+      border-left: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+      background: #fff;
+      rotate: 45deg;
+    }
+
+    body:has(#peek:checked) .inky-spot { bottom: -4px; }
+    body:has(#peek:checked) .inky-spot svg { width: 96px; height: 96px; }
+    body:has(#peek:checked) .s-peek { display: block; }
+
+    body:has(#work:checked) .inky-spot {
+      left: 50%;
+      bottom: 118px;
+      translate: -50% 0;
+      z-index: 4;
+    }
+    body:has(#work:checked) .inky-spot svg { width: 70px; height: 70px; }
+    body:has(#work:checked) .inky-spot .speech { margin-bottom: 8px; }
+    body:has(#work:checked) .s-work { display: block; }
+    body:has(#work:checked) .inky-spot .speech::before {
+      left: 18px;
+      bottom: -5px;
+      rotate: -45deg;
+    }
+
+    body:has(#need:checked) .inky-spot { bottom: -2px; left: 12px; }
+    body:has(#need:checked) .inky-spot .inky .body {
+      animation: none;
+      transform: rotate(-16deg) translate(4px, 8px);
+    }
+    body:has(#need:checked) .s-need { display: block; }
+
+    body:has(#look:checked) .inky-spot {
+      left: auto;
+      right: 4px;
+      bottom: 2px;
+      flex-direction: row-reverse;
+    }
+    body:has(#look:checked) .inky-spot .speech { margin-bottom: 40px; }
+    body:has(#look:checked) .s-look { display: block; }
+    body:has(#look:checked) .inky-spot .speech::before {
+      left: auto;
+      right: -6px;
+    }
+
+    body:has(#empty:checked) .inky-spot {
+      left: 50%;
+      bottom: auto;
+      top: -62px;
+      translate: -50% 0;
+      z-index: 0;
+    }
+    body:has(#empty:checked) .inky-spot svg { width: 104px; height: 104px; }
+    body:has(#empty:checked) .s-empty { display: block; }
+    body:has(#empty:checked) .inky-spot .speech {
+      z-index: 11;
+      max-width: 18ch;
+      margin-bottom: 22px;
+    }
+
+    .talk {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 6px 10px 4px;
+      border: 2px solid var(--ink);
+      border-radius: 14px 16px 14px 12px;
+      background: rgb(255 250 240 / 92%);
+      box-shadow: 2px 2px 0 rgb(28 22 18 / 16%);
+    }
+    .talk input {
+      height: 34px;
+      border: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .talk input:focus { outline: none; }
+    .talk input::placeholder { color: #a79d91; }
+    .talk button {
+      padding: 4px 10px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: #fff;
+      box-shadow: 2px 2px 0 var(--ink);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .talk button:hover { translate: 1px 1px; box-shadow: 1px 1px 0 var(--ink); }
+
+    .switcher {
+      position: fixed;
+      z-index: 90;
+      left: 16px;
+      bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      max-width: calc(100% - 160px);
+      padding: 5px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: rgb(255 250 240 / 94%);
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+    .switcher label {
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .switcher label:hover { background: rgb(247 201 72 / 35%); }
+    body:has(#empty:checked) [for="empty"],
+    body:has(#peek:checked) [for="peek"],
+    body:has(#work:checked) [for="work"],
+    body:has(#need:checked) [for="need"],
+    body:has(#look:checked) [for="look"] {
+      background: var(--sunny);
+    }
+
+    @media (max-width: 900px) {
+      .stage { grid-template-columns: 1fr; }
+      .ghost-side { display: none; }
+      .rail { border-left: 0; min-height: calc(100vh - 56px); }
+      .switcher { max-width: calc(100% - 28px); left: 12px; right: 12px; bottom: 58px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .caret { animation: none; }
+      .paper, .school, .sheet, .sticker { rotate: 0; }
+      body:has(#work:checked) .paper.cream { rotate: 0; translate: 0 -40px; }
+      body:has(#need:checked) .inky-spot .inky .body { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <input type="radio" name="state" id="empty" />
+  <input type="radio" name="state" id="peek" checked />
+  <input type="radio" name="state" id="work" />
+  <input type="radio" name="state" id="need" />
+  <input type="radio" name="state" id="look" />
+
+  <a class="back" href="index.html">← All designs</a>
+
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <a class="presence" href="#tray" title="Inky’s desk">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <g class="eyes">
+            <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+            <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+            <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+            <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+          </g>
+          <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <span class="say say-peek">
+        <strong>Sitting with this one</strong>
+        <small>IBM Sorting Machine</small>
+      </span>
+      <span class="say say-work">
+        <strong>On the page</strong>
+        <small>I’m in the tray</small>
+      </span>
+      <span class="say say-need">
+        <strong>Need you</strong>
+        <small>login</small>
+      </span>
+      <span class="say say-look">
+        <strong>Look this over</strong>
+        <small>answers are on the page</small>
+      </span>
+      <span class="say say-empty">
+        <strong>Ready when you are</strong>
+        <small>nothing in the tray</small>
+      </span>
+    </a>
+    <div class="end">
+      <a class="you" href="settings-sidebar.html"><i>K</i>Kaustubh</a>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="ghost-side" aria-hidden="true">
+      <div class="week-ghost">
+        <article>
+          <strong>Thu 3</strong>
+          <i></i>
+          <i></i>
+        </article>
+        <article>
+          <strong>Fri 4</strong>
+          <i></i>
+        </article>
+        <article>
+          <strong>Sat 5</strong>
+          <i></i>
+        </article>
+        <article>
+          <strong>Sun 6</strong>
+          <i></i>
+        </article>
+        <article>
+          <strong>Mon 7</strong>
+          <i></i>
+        </article>
+      </div>
+    </section>
+
+    <aside class="rail" id="tray" aria-label="Inky’s desk">
+      <div class="blotter">
+        <div class="tray">
+          <i class="rivet a" aria-hidden="true"></i>
+          <i class="rivet b" aria-hidden="true"></i>
+          <i class="rivet c" aria-hidden="true"></i>
+          <i class="rivet d" aria-hidden="true"></i>
+
+          <div class="well">
+            <div class="dust" aria-hidden="true"></div>
+            <i class="sheet g3" aria-hidden="true"></i>
+            <i class="sheet g2" aria-hidden="true"></i>
+            <i class="sheet g1" aria-hidden="true"></i>
+
+            <article class="school" aria-label="School page under the work">
+              <header>
+                <strong>Northstar University</strong>
+                <span>student</span>
+                <i>K</i>
+              </header>
+              <nav><span>Home</span><b>Courses</b><span>Calendar</span></nav>
+              <div class="page">
+                <p>CSC 316 · Homework 3</p>
+                <h3>IBM Sorting Machine</h3>
+                <div class="q">
+                  <strong>1.</strong>
+                  <p>Feed these keys through the machine: 17, 4, 22, 9, 11.</p>
+                  <div class="box">Pass 1 — 4 is already home. Hopper still holds 17, 22, 9, 11.<span class="caret"></span></div>
+                </div>
+                <div class="q">
+                  <strong>2.</strong>
+                  <p>How many comparisons does one full sort take?</p>
+                </div>
+              </div>
+            </article>
+
+            <article class="paper cream">
+              <i class="clip" aria-hidden="true"></i>
+              <p class="course">CSC 316</p>
+              <h2>IBM Sorting Machine</h2>
+              <p class="note">Tonight. I already looked at the page. I can try this and stop before you submit.</p>
+              <p class="sign">— inky</p>
+              <button class="sticker" type="button">I’ll do this</button>
+            </article>
+
+            <article class="paper coral">
+              <p class="course">CSC 316</p>
+              <h2>Need you — login.</h2>
+              <p class="note">Northstar stopped me. I can’t get past this one on my own.</p>
+              <p class="sign">— inky</p>
+            </article>
+
+            <article class="paper mint">
+              <p class="course">CSC 316</p>
+              <h2>Your look.</h2>
+              <p class="note">Answers are still on the page. I finished. They’re sitting where I left them. Look when you can.</p>
+              <p class="sign">— inky</p>
+            </article>
+          </div>
+
+          <div class="inky-spot">
+            <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+              <g class="body">
+                <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <g class="eyes">
+                  <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                  <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                  <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+                  <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+                </g>
+                <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+              </g>
+            </svg>
+            <p class="speech s-peek">Want me to do this?</p>
+            <p class="speech s-work">I’m on the page.</p>
+            <p class="speech s-need">I need you on this one.</p>
+            <p class="speech s-look">Take a look when you can.</p>
+            <p class="speech s-empty">Ready when you are.</p>
+          </div>
+
+          <div class="lip">
+            <span class="label">Inky’s desk</span>
+          </div>
+        </div>
+
+        <form class="talk" action="javascript:void(0)">
+          <label class="visually-hidden" for="say">Talk to Inky</label>
+          <input id="say" name="say" placeholder="I’m listening…" maxlength="400" />
+          <button type="submit">say it</button>
+        </form>
+      </div>
+    </aside>
+  </main>
+
+  <nav class="switcher" aria-label="Desk state">
+    <label for="empty">Empty</label>
+    <label for="peek">This page</label>
+    <label for="work">Working</label>
+    <label for="need">Needs you</label>
+    <label for="look">Look this over</label>
+  </nav>
+</body>
+</html>

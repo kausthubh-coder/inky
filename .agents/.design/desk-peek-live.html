@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — IBM Sorting Machine</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    input[name="view"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 18px 0 20px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 20px; font-weight: 800; text-decoration: none; }
+    .you {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 2px 8px 2px 2px;
+      border-radius: 999px;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .you:hover { background: var(--sticky); color: var(--ink); }
+    .you i {
+      display: grid;
+      width: 24px;
+      height: 24px;
+      place-items: center;
+      border: 1.5px solid var(--ink);
+      border-radius: 50%;
+      background: var(--pink);
+      color: var(--ink);
+      font-style: normal;
+      font-size: 11px;
+    }
+
+    .app {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+      height: calc(100vh - 48px);
+    }
+    body:has(#v-live:checked) .app,
+    body:has(#v-chat:checked) .app {
+      grid-template-columns: minmax(0, 1fr) minmax(460px, 46%);
+    }
+
+    .week {
+      overflow: auto;
+      padding: 20px 22px 88px;
+    }
+    .week > header { margin: 0 2px 16px; }
+    .week > header h1 { font-size: 1.5rem; }
+    .week > header p { font-weight: 700; font-size: 13px; }
+
+    .days {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .day { min-width: 0; }
+    .day > span {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 6px;
+      margin: 0 2px 8px;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .day > span small {
+      color: var(--muted);
+      font-family: "Nunito Sans", sans-serif;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .day.is-today > span strong {
+      padding: 1px 8px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: var(--sunny);
+    }
+
+    .slip {
+      display: grid;
+      gap: 2px;
+      width: 100%;
+      padding: 10px 11px 11px;
+      border: 2px solid var(--ink);
+      border-radius: 12px 10px 13px 11px;
+      background: #fff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.1);
+      text-align: left;
+    }
+    .slip small {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .slip b { font-size: 13px; line-height: 1.2; }
+    .slip em {
+      color: var(--ink-faint);
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 800;
+    }
+    .slip.on {
+      background: #fff2b5;
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+    .empty {
+      margin: 4px 2px 0;
+      color: #b3a794;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .rail {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      border-left: 2px solid var(--ink);
+      background: var(--paper-2);
+    }
+
+    .who {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 16px 16px 0;
+    }
+    .who svg { width: 44px; height: 44px; flex: 0 0 44px; }
+    .facts { min-width: 0; padding-top: 2px; }
+    .facts .course {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .facts h2 {
+      margin: 2px 0 4px;
+      font-size: 1.2rem;
+    }
+    .facts .due { font-size: 13px; font-weight: 800; }
+    .facts .line {
+      margin-top: 6px;
+      color: var(--ink-soft);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .go {
+      display: grid;
+      place-items: center;
+      width: calc(100% - 32px);
+      min-height: 48px;
+      margin: 14px 16px 0;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: var(--sunny);
+      box-shadow: 2px 2px 0 var(--ink);
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.05rem;
+      font-weight: 800;
+    }
+    .go:hover { translate: 1px 1px; box-shadow: 1px 1px 0 var(--ink); }
+
+    .browser {
+      display: none;
+      flex: 1 1 auto;
+      flex-direction: column;
+      min-height: 0;
+      margin: 12px 16px 0;
+      border: 2px solid var(--ink);
+      border-radius: 10px 8px 11px 9px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .browser-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 7px 10px;
+      border-bottom: 1.5px solid var(--ink);
+      background: #fffdf4;
+    }
+    .browser-bar strong { font-size: 12px; }
+    .browser-bar .hands { display: flex; gap: 6px; flex-wrap: wrap; }
+    .browser-bar .btn { padding: 4px 10px; font-size: 12px; }
+    .dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 5px;
+      border: 1px solid var(--ink);
+      border-radius: 50%;
+      background: #2f9e62;
+      vertical-align: 1px;
+    }
+
+    .lms { min-height: 0; overflow: auto; background: #f4f7fb; }
+    .lms-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: #cfe4f8;
+      border-bottom: 1.5px solid var(--ink);
+    }
+    .lms-top strong { font-family: "Shantell Sans", cursive; font-size: 13px; }
+    .lms-top span { color: var(--ink-soft); font-size: 11px; font-weight: 800; }
+    .lms-nav {
+      display: flex;
+      gap: 14px;
+      padding: 6px 12px;
+      background: #e7f3ff;
+      border-bottom: 1px solid #c5d7ea;
+      color: var(--ink-faint);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .lms-nav b { color: var(--ink); }
+    .lms-body { display: grid; gap: 8px; padding: 12px; }
+    .lms-body .crumb {
+      color: var(--ink-faint);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .lms-body h3 { font-size: 1.05rem; }
+    .lms-body .when { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .q {
+      padding: 8px 10px 10px;
+      border: 1.5px solid #d3c6b2;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .q.on { border-color: var(--ink); background: #eef6ff; }
+    .q strong { display: block; margin-bottom: 2px; font-size: 12px; }
+    .q p { margin-bottom: 6px; font-size: 12px; font-weight: 700; }
+    .box {
+      min-height: 44px;
+      padding: 7px 8px;
+      border: 1.5px solid var(--ink);
+      border-radius: 7px;
+      background: #fff;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+    .box.quiet { background: #faf6ee; color: #b3a99c; }
+    .caret {
+      display: inline-block;
+      width: 1.5px;
+      height: 12px;
+      margin-left: 1px;
+      background: var(--ink);
+      vertical-align: -2px;
+      animation: caret 1s steps(1) infinite;
+    }
+
+    .dock {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: auto;
+      padding: 12px 16px 52px;
+    }
+    .bubbles { display: none; gap: 8px; }
+    .bubble {
+      max-width: 88%;
+      padding: 8px 11px;
+      border: 2px solid var(--ink);
+      border-radius: 8px 16px 16px 14px;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.35;
+    }
+    .bubble.you {
+      justify-self: end;
+      margin-left: auto;
+      border-radius: 16px 8px 14px 16px;
+      background: #fff2b5;
+    }
+    .talk {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      padding: 0 2px 4px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .talk input {
+      height: 36px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 600;
+    }
+    .talk input:focus { outline: none; }
+    .talk input::placeholder { color: #a79d91; }
+    .talk button {
+      border: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .sheet {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      grid-template-rows: auto 1fr;
+      background: var(--paper-2);
+    }
+    .sheet-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 20px;
+      border-bottom: 2px solid var(--ink);
+    }
+    .sheet-head strong {
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.05rem;
+    }
+    .sheet-close {
+      padding: 4px 2px;
+      border: 0;
+      background: transparent;
+      color: var(--ink-faint);
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .sheet-close:hover { color: var(--ink); }
+    .sheet-body {
+      display: grid;
+      grid-template-columns: minmax(280px, 36%) minmax(0, 1fr);
+      min-height: 0;
+    }
+    .sheet-chat {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 16px 18px 52px;
+      border-right: 2px solid var(--ink);
+    }
+    .sheet-chat .who { padding: 0; }
+    .sheet-chat .bubbles { display: grid; flex: 1 1 auto; align-content: start; margin: 16px 0; overflow: auto; }
+    .sheet-page {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      padding: 16px 18px 18px;
+    }
+    .sheet-page .browser {
+      display: flex;
+      flex: 1 1 auto;
+      margin: 0;
+    }
+
+    .switcher {
+      position: fixed;
+      z-index: 90;
+      left: 16px;
+      bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2px;
+    }
+    .switcher label {
+      position: relative;
+      padding: 3px 8px;
+      color: var(--muted);
+      font-family: "Shantell Sans", cursive;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .switcher label + label::before {
+      content: "·";
+      position: absolute;
+      left: -2px;
+      color: #c4b8a6;
+      pointer-events: none;
+    }
+    .switcher label:hover { color: var(--ink); }
+    .switcher label:has(:checked) {
+      color: var(--ink);
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+    }
+    .switcher label:has(:focus-visible) {
+      outline: 2px dashed var(--ink);
+      outline-offset: 2px;
+      border-radius: 6px;
+    }
+
+    body:has(#v-live:checked) .line,
+    body:has(#v-chat:checked) .line,
+    body:has(#v-sheet:checked) .line,
+    body:has(#v-live:checked) .go,
+    body:has(#v-chat:checked) .go,
+    body:has(#v-sheet:checked) .go { display: none; }
+
+    body:has(#v-live:checked) .facts h2,
+    body:has(#v-chat:checked) .facts h2,
+    body:has(#v-sheet:checked) .facts h2 { font-size: 1rem; }
+
+    body:has(#v-live:checked) .browser,
+    body:has(#v-chat:checked) .browser,
+    body:has(#v-sheet:checked) .browser { display: flex; }
+
+    body:has(#v-chat:checked) .bubbles { display: grid; }
+
+    body:has(#v-sheet:checked) .sheet { display: grid; }
+
+    @keyframes caret {
+      0%, 45% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .caret { animation: none; }
+    }
+    @media (max-width: 860px) {
+      body { overflow: auto; }
+      .app { grid-template-columns: 1fr; height: auto; }
+      .week { padding-bottom: 24px; }
+      .days { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .rail {
+        border-left: 0;
+        border-top: 2px solid var(--ink);
+        min-height: 70vh;
+      }
+      .sheet-body { grid-template-columns: 1fr; }
+      .sheet-chat { border-right: 0; border-bottom: 2px solid var(--ink); }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <a class="you" href="settings-sidebar.html"><i>K</i>Kaustubh</a>
+  </header>
+
+  <div class="app">
+    <section class="week" aria-label="This week">
+      <header>
+        <h1>Sep 3–7</h1>
+        <p>Thursday</p>
+      </header>
+      <div class="days">
+        <article class="day is-today">
+          <span><strong>Thu 3</strong><small>today</small></span>
+          <button class="slip on" type="button">
+            <small>CSC 316</small>
+            <b>IBM Sorting Machine</b>
+            <em>tonight</em>
+          </button>
+        </article>
+        <article class="day">
+          <span><strong>Fri 4</strong><small>tomorrow</small></span>
+          <button class="slip" type="button">
+            <small>Bio 201</small>
+            <b>Lab</b>
+            <em>Friday</em>
+          </button>
+        </article>
+        <article class="day">
+          <span><strong>Sat 5</strong><small>weekend</small></span>
+          <p class="empty">Nothing due</p>
+        </article>
+        <article class="day">
+          <span><strong>Sun 6</strong><small>weekend</small></span>
+          <p class="empty">Nothing due</p>
+        </article>
+        <article class="day">
+          <span><strong>Mon 7</strong><small>next</small></span>
+          <button class="slip" type="button">
+            <small>Calc II</small>
+            <b>Set</b>
+            <em>Monday</em>
+          </button>
+        </article>
+      </div>
+    </section>
+
+    <aside class="rail" aria-label="IBM Sorting Machine">
+      <div class="who">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <g class="eyes">
+              <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+              <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+              <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+              <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+            </g>
+            <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+          </g>
+        </svg>
+        <div class="facts">
+          <p class="course">CSC 316</p>
+          <h2>IBM Sorting Machine</h2>
+          <p class="due">Due Thursday night</p>
+          <p class="line">I can try this and stop before submit.</p>
+        </div>
+      </div>
+
+      <label class="go" for="v-live">Make Inky do this</label>
+
+      <article class="browser" aria-label="School page">
+        <div class="browser-bar">
+          <strong><span class="dot"></span>Inky is clicking</strong>
+          <div class="hands">
+            <button class="btn coral" type="button">I’ll take over</button>
+            <label class="btn" for="v-sheet">Expand</label>
+          </div>
+        </div>
+        <div class="lms">
+          <header class="lms-top">
+            <strong>Northstar University</strong>
+            <span>student</span>
+          </header>
+          <nav class="lms-nav" aria-hidden="true"><b>Courses</b><span>Calendar</span><span>Grades</span></nav>
+          <div class="lms-body">
+            <p class="crumb">CSC 316 · Homework 3</p>
+            <h3>IBM Sorting Machine</h3>
+            <p class="when">Thursday night · 20 points</p>
+            <div class="q on">
+              <strong>1.</strong>
+              <p>Feed these keys through the machine: 17, 4, 22, 9, 11. Show each pass.</p>
+              <div class="box">Pass 1 — 4 is already home. Hopper still holds 17, 22, 9, 11.<span class="caret"></span></div>
+            </div>
+            <div class="q">
+              <strong>2.</strong>
+              <p>How many comparisons does one full sort take? Why?</p>
+              <div class="box quiet">Write your answer here</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <div class="dock">
+        <div class="bubbles" aria-live="polite">
+          <p class="bubble you">skip 1 if you have to</p>
+          <p class="bubble">ok. I’ll leave it and keep going on 2.</p>
+        </div>
+        <form class="talk" action="javascript:void(0)">
+          <label class="visually-hidden" for="say">Talk to Inky about IBM Sorting Machine</label>
+          <input id="say" name="say" placeholder="I’m listening…" maxlength="400" />
+          <button type="submit">say it</button>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <div class="sheet" role="dialog" aria-label="IBM Sorting Machine">
+    <header class="sheet-head">
+      <strong>IBM Sorting Machine</strong>
+      <label class="sheet-close" for="v-chat">Close</label>
+    </header>
+    <div class="sheet-body">
+      <section class="sheet-chat" aria-label="Chat">
+        <div class="who">
+          <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+            <g class="body">
+              <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+              <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g class="eyes">
+                <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+                <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+              </g>
+              <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+            </g>
+          </svg>
+          <div class="facts">
+            <p class="course">CSC 316</p>
+            <h2>IBM Sorting Machine</h2>
+            <p class="due">Due Thursday night</p>
+          </div>
+        </div>
+        <div class="bubbles">
+          <p class="bubble you">skip 1 if you have to</p>
+          <p class="bubble">ok. I’ll leave it and keep going on 2.</p>
+        </div>
+        <form class="talk" action="javascript:void(0)">
+          <label class="visually-hidden" for="say-sheet">Talk to Inky</label>
+          <input id="say-sheet" name="say-sheet" placeholder="I’m listening…" maxlength="400" />
+          <button type="submit">say it</button>
+        </form>
+      </section>
+      <section class="sheet-page" aria-label="School page">
+        <article class="browser">
+          <div class="browser-bar">
+            <strong><span class="dot"></span>Inky is clicking</strong>
+            <div class="hands">
+              <button class="btn coral" type="button">I’ll take over</button>
+            </div>
+          </div>
+          <div class="lms">
+            <header class="lms-top">
+              <strong>Northstar University</strong>
+              <span>student</span>
+            </header>
+            <nav class="lms-nav" aria-hidden="true"><b>Courses</b><span>Calendar</span><span>Grades</span></nav>
+            <div class="lms-body">
+              <p class="crumb">CSC 316 · Homework 3</p>
+              <h3>IBM Sorting Machine</h3>
+              <p class="when">Thursday night · 20 points</p>
+              <div class="q on">
+                <strong>1.</strong>
+                <p>Feed these keys through the machine: 17, 4, 22, 9, 11. Show each pass.</p>
+                <div class="box">Pass 1 — 4 is already home. Hopper still holds 17, 22, 9, 11.<span class="caret"></span></div>
+              </div>
+              <div class="q">
+                <strong>2.</strong>
+                <p>How many comparisons does one full sort take? Why?</p>
+                <div class="box quiet">Write your answer here</div>
+              </div>
+            </div>
+          </div>
+        </article>
+      </section>
+    </div>
+  </div>
+
+  <nav class="switcher" aria-label="Desk state">
+    <label><input id="v-peek" name="view" type="radio" value="peek" checked /> Peek</label>
+    <label><input id="v-live" name="view" type="radio" value="live" /> Live</label>
+    <label><input id="v-chat" name="view" type="radio" value="chat" /> Live + chat</label>
+    <label><input id="v-sheet" name="view" type="radio" value="sheet" /> Sheet</label>
+  </nav>
+  <script>
+    const radios = document.querySelectorAll('input[name="view"]');
+    const apply = () => {
+      const id = ({ peek: "v-peek", live: "v-live", chat: "v-chat", sheet: "v-sheet" })[location.hash.slice(1)];
+      if (id) document.getElementById(id).checked = true;
+    };
+    apply();
+    addEventListener("hashchange", apply);
+    radios.forEach((input) => {
+      input.addEventListener("change", () => {
+        if (input.checked) history.replaceState(null, "", "#" + input.value);
+      });
+    });
+  </script>
+</body>
+</html>

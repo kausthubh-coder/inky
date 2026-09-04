@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AgentReasoningEffortSchema } from "./agent-runtime.js";
 import { SchemaVersionSchema, STUDI_SCHEMA_VERSION } from "./schema-version.js";
 import { AuthStateSchema, FeedbackReceiptSchema } from "./auth.js";
+import { UsageStateSchema } from "./usage.js";
 import { DiagnosticsExportReceiptSchema } from "./diagnostics.js";
 import { StudiWorkspaceStateSchema } from "./browser-agent.js";
 import { ConnectedAppConnectionSchema, ConnectedAppsStateSchema } from "./composio.js";
@@ -53,6 +54,8 @@ const retryEntitlementMethod = "retryEntitlement" as const;
 const retryEntitlementChannel = "studi:retry-entitlement" as const;
 const submitFeedbackMethod = "submitFeedback" as const;
 const submitFeedbackChannel = "studi:submit-feedback" as const;
+const getUsageStateMethod = "getUsageState" as const;
+const getUsageStateChannel = "studi:usage-state" as const;
 const getConnectedAppsMethod = "getConnectedApps" as const;
 const getConnectedAppsChannel = "studi:connected-apps" as const;
 const connectAppMethod = "connectApp" as const;
@@ -162,6 +165,7 @@ const SignInManifestEntrySchema = z.strictObject({ method: z.literal(signInMetho
 const SignOutManifestEntrySchema = z.strictObject({ method: z.literal(signOutMethod), channel: z.literal(signOutChannel) });
 const RetryEntitlementManifestEntrySchema = z.strictObject({ method: z.literal(retryEntitlementMethod), channel: z.literal(retryEntitlementChannel) });
 const SubmitFeedbackManifestEntrySchema = z.strictObject({ method: z.literal(submitFeedbackMethod), channel: z.literal(submitFeedbackChannel) });
+const GetUsageStateManifestEntrySchema = z.strictObject({ method: z.literal(getUsageStateMethod), channel: z.literal(getUsageStateChannel) });
 const GetConnectedAppsManifestEntrySchema = z.strictObject({ method: z.literal(getConnectedAppsMethod), channel: z.literal(getConnectedAppsChannel) });
 const ConnectAppManifestEntrySchema = z.strictObject({ method: z.literal(connectAppMethod), channel: z.literal(connectAppChannel) });
 const RefreshConnectedAppManifestEntrySchema = z.strictObject({ method: z.literal(refreshConnectedAppMethod), channel: z.literal(refreshConnectedAppChannel) });
@@ -250,7 +254,7 @@ const ExportDiagnosticsManifestEntrySchema = z.strictObject({ method: z.literal(
 
 export const ContractManifestSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
-  contractVersion: z.literal("14"),
+  contractVersion: z.literal("15"),
   ipcMethods: z.tuple([
     RuntimeInfoManifestEntrySchema,
     ContractManifestEntrySchema,
@@ -259,6 +263,7 @@ export const ContractManifestSchema = z.strictObject({
     SignOutManifestEntrySchema,
     RetryEntitlementManifestEntrySchema,
     SubmitFeedbackManifestEntrySchema,
+    GetUsageStateManifestEntrySchema,
     GetConnectedAppsManifestEntrySchema,
     ConnectAppManifestEntrySchema,
     RefreshConnectedAppManifestEntrySchema,
@@ -380,6 +385,11 @@ export const studiIpcRegistry = Object.freeze({
     channel: submitFeedbackChannel,
     requestSchema: z.strictObject({ message: z.string().trim().min(1).max(1_000) }),
     resultSchema: FeedbackReceiptSchema,
+  }),
+  [getUsageStateMethod]: Object.freeze({
+    channel: getUsageStateChannel,
+    requestSchema: z.undefined(),
+    resultSchema: UsageStateSchema,
   }),
   [getConnectedAppsMethod]: Object.freeze({
     channel: getConnectedAppsChannel,
@@ -701,7 +711,7 @@ export function createIpcHandlerRegistrations<Registry extends IpcRegistryDefini
 
 const contractManifest = ContractManifestSchema.parse({
   schemaVersion: STUDI_SCHEMA_VERSION,
-  contractVersion: "14",
+  contractVersion: "15",
   ipcMethods: studiIpcMethods.map((method) => ({
     method,
     channel: studiIpcRegistry[method].channel,

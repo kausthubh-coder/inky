@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Landing nav — Slim underline</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .nav {
+      position: fixed;
+      z-index: 40;
+      top: 0;
+      right: 0;
+      left: 0;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: baseline;
+      padding: 18px 28px 14px;
+      background: linear-gradient(var(--paper) 70%, transparent);
+    }
+    .wordmark {
+      justify-self: start;
+      font-size: 20px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .links { display: flex; gap: 18px; justify-self: center; }
+    .links a {
+      position: relative;
+      color: var(--ink-soft);
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .links a:hover { color: var(--ink); }
+    .links a.on { color: var(--ink); }
+    .links a.on::after,
+    .links a:hover::after {
+      content: "";
+      position: absolute;
+      right: 2px;
+      bottom: -5px;
+      left: 2px;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--sunny);
+      rotate: -1deg;
+    }
+    .cta {
+      justify-self: end;
+      padding: 5px 12px;
+      rotate: -1.8deg;
+    }
+    @media (max-width: 640px) {
+      .links { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="nav">
+    <a class="wordmark" href="#">studi</a>
+    <nav class="links" aria-label="Page">
+      <a href="#">Inky</a>
+      <a class="on" href="#">Trust</a>
+      <a href="#">FAQ</a>
+      <a href="#">Mission</a>
+    </nav>
+    <a class="btn sunny cta" href="#">Get a seat</a>
+  </header>
+
+  <section class="hero-dummy">
+    <p class="kicker">Landing · variation D</p>
+    <h1>Quiet paper. One yellow seat.</h1>
+    <p>If the current bar feels like a product site, this is the opposite. Almost no chrome. The page does the talking.</p>
+  </section>
+</body>
+</html>

@@ -11,10 +11,21 @@ import { SignJWT, exportJWK, generateKeyPair } from "jose";
 import { AuthCoordinator } from "../../dist/electron/auth/coordinator.js";
 import { openLoopbackCallback } from "../../dist/electron/auth/loopback.js";
 import { createOAuthTransaction } from "../../dist/electron/auth/pkce.js";
+import { findDesktopConnectUrl, isDesktopConnectUrl } from "../../dist/electron/auth/desktop-link.js";
 import { AuthVault, createOfflineCache, validOfflineCache } from "../../dist/electron/auth/vault.js";
 
-const issuer = "https://novel-eel-63.clerk.accounts.dev";
-const clientId = "oNhxE8nbGeztDJzo";
+const issuer = "https://smashing-tadpole-3981.clerk.accounts.dev";
+
+test("the landing deep link accepts only the credential-free connect command", () => {
+  assert.equal(isDesktopConnectUrl("studi://connect"), true);
+  assert.equal(isDesktopConnectUrl("studi://connect/"), true);
+  assert.equal(findDesktopConnectUrl(["Studi.exe", "studi://connect"]), "studi://connect");
+  assert.equal(isDesktopConnectUrl("studi://connect?code=secret"), false);
+  assert.equal(isDesktopConnectUrl("studi://connect#token"), false);
+  assert.equal(isDesktopConnectUrl("studi://other"), false);
+  assert.equal(isDesktopConnectUrl("https://studi.example/connect"), false);
+});
+const clientId = "VXL3pTBDW4LQ7FYp";
 const testRoots = [];
 
 test.after(async () => {

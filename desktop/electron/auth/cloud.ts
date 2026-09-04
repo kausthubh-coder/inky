@@ -1,6 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
-import type { ConnectedAppConnection, ConnectedAppExecution, ConnectedAppsState, ConnectedAppToolSearch, FeedbackReceipt } from "../../shared/index.js";
+import type { ConnectedAppConnection, ConnectedAppExecution, ConnectedAppsState, ConnectedAppToolSearch, FeedbackReceipt, UsageRecordInput, UsageState } from "../../shared/index.js";
 
 export interface CloudAccountResult {
   readonly subject: string;
@@ -21,6 +21,18 @@ const authorizeConnectedApp = makeFunctionReference<"action", { toolkit: string 
 const getConnectedAppConnection = makeFunctionReference<"action", { toolkit: string }, ConnectedAppConnection>("composio:connection");
 const searchConnectedAppTools = makeFunctionReference<"action", { toolkit: string; query: string }, ConnectedAppToolSearch>("composio:search");
 const executeConnectedAppTool = makeFunctionReference<"action", { toolkit: string; toolSlug: string; arguments: Record<string, unknown> }, ConnectedAppExecution>("composio:execute");
+const getCurrentUsage = makeFunctionReference<"query", { period: string; throughDate: string }, UsageState>("usage:current");
+const recordUsage = makeFunctionReference<"mutation", {
+  deviceId: string;
+  eventId: string;
+  occurredAt: number;
+  kind: UsageRecordInput["kind"];
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  toolCalls: number;
+}, { recorded: boolean }>("usage:record");
 
 export class CloudAccountClient {
   readonly #client: ConvexHttpClient;
@@ -69,6 +81,20 @@ export class CloudAccountClient {
   async executeConnectedAppTool(toolkit: string, toolSlug: string, arguments_: Record<string, unknown>): Promise<ConnectedAppExecution> {
     await this.#authenticate();
     return this.#client.action(executeConnectedAppTool, { toolkit, toolSlug, arguments: arguments_ });
+  }
+
+  async usage(period: string, throughDate: string): Promise<UsageState> {
+    await this.#authenticate();
+    return this.#client.query(getCurrentUsage, { period, throughDate });
+  }
+
+  async recordUsage(deviceId: string, input: UsageRecordInput): Promise<void> {
+    await this.#authenticate();
+    await this.#client.mutation(recordUsage, {
+      ...input,
+      deviceId,
+      occurredAt: new Date(input.occurredAt).valueOf(),
+    });
   }
 
   clearAuth(): void {

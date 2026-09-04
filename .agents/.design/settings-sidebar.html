@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — Inky’s desk rail</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .shell { display: grid; grid-template-rows: 54px 1fr; min-height: 100vh; }
+    .chrome {
+      display: grid;
+      grid-template-columns: 160px 1fr auto;
+      align-items: center;
+      padding: 0 22px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 94%);
+    }
+    .chrome strong { font-family: "Shantell Sans", cursive; font-size: 20px; }
+    .chrome nav { display: flex; gap: 4px; }
+    .chrome nav a {
+      padding: 5px 12px;
+      border-radius: var(--pill);
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .chrome nav a.on { background: var(--sticky); }
+    .you { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 13px; }
+    .you i {
+      display: grid; width: 28px; height: 28px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%;
+      background: var(--pink); font-style: normal; font-size: 12px;
+    }
+    .body { display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
+    .rail {
+      display: grid;
+      align-content: start;
+      gap: 2px;
+      padding: 18px 14px 48px;
+      border-right: 2px solid var(--ink);
+      background: rgb(255 250 240 / 72%);
+    }
+    .who { display: flex; gap: 10px; align-items: center; margin: 2px 6px 14px; }
+    .who svg { width: 52px; height: 52px; }
+    .who small { display: block; color: var(--muted); font-size: 12px; font-weight: 800; }
+    .rail h3 { margin: 14px 8px 4px; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    .rail button {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 2px 10px;
+      width: 100%;
+      padding: 8px 10px;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      background: transparent;
+      color: var(--ink-soft);
+      text-align: left;
+    }
+    .rail button strong { font-size: 13px; }
+    .rail button small { grid-column: 1; color: var(--muted); font-size: 11px; font-weight: 800; }
+    .rail button:hover { background: #efe6cf; color: var(--ink); }
+    .rail button.on { border-color: var(--ink); background: var(--sticky); color: var(--ink); }
+    .page { min-width: 0; padding: 28px 40px 90px; }
+    .page-inner { max-width: 720px; display: grid; gap: 14px; }
+    .lead { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: start; margin-bottom: 4px; }
+    .lead svg { width: 56px; height: 56px; }
+    .lead h1 { font-size: clamp(1.7rem, 3vw, 2.4rem); margin-bottom: 4px; }
+    .lead p { font-weight: 700; max-width: 46ch; }
+    .head { display: flex; justify-content: space-between; gap: 12px; align-items: start; }
+    .apps { display: grid; gap: 8px; margin-top: 10px; }
+    .app {
+      display: grid;
+      grid-template-columns: 34px 1fr auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px;
+      border: 1.5px solid #cfc4b4;
+      border-radius: 12px;
+      background: #fff;
+    }
+    .app b { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 8px; font-size: 16px; }
+    .app span { display: grid; }
+    .app small { color: var(--muted); font-size: 12px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .rules { display: grid; gap: 8px; margin-top: 10px; }
+    .rule {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 10px 0; border-top: 1.5px dashed #c6b8a6;
+    }
+    .rule span { display: grid; }
+    .rule small { color: var(--muted); font-size: 12px; }
+    .nudge {
+      display: grid;
+      grid-template-columns: 1fr 140px auto;
+      gap: 10px;
+      align-items: center;
+      padding: 10px 0;
+      border-top: 1.5px dashed #c6b8a6;
+    }
+    .panel { display: none; }
+    .panel.on { display: grid; gap: 14px; }
+    @media (max-width: 860px) {
+      .body { grid-template-columns: 1fr; }
+      .rail { border-right: 0; border-bottom: 2px solid var(--ink); }
+      .grid2, .nudge { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <div class="shell">
+    <header class="chrome">
+      <strong>studi ✎</strong>
+      <nav><a href="app-topbar-presence.html">This week</a><a class="on" href="#">Settings</a></nav>
+      <div class="you"><i>K</i>Kaustubh</div>
+    </header>
+    <div class="body">
+      <aside class="rail">
+        <div class="who">
+          <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+            <g class="body">
+              <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+              <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/><circle cx="47" cy="53" r="1.8" fill="#fff"/><circle cx="77" cy="53" r="1.8" fill="#fff"/></g>
+              <path d="M52 73 Q60 80 68 73" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            </g>
+          </svg>
+          <div>
+            <strong>How I work</strong>
+            <small>for you, on this laptop</small>
+          </div>
+        </div>
+        <h3>Me</h3>
+        <button class="on" type="button" data-go="brain"><strong>My brain</strong><span class="pill mint">ready</span><small>GPT-5.4 · thinking hard</small></button>
+        <button type="button" data-go="finish"><strong>When I finish</strong><small>15 min look · I wait 30</small></button>
+        <button type="button" data-go="apps"><strong>Apps I can use</strong><small>Gmail in · 2 still out</small></button>
+        <button type="button" data-go="files"><strong>Homework folder</strong><small>Documents\Homework</small></button>
+        <button type="button" data-go="nudges"><strong>Nudges</strong><small>On · 4 kinds</small></button>
+        <h3>School</h3>
+        <button type="button" data-go="check"><strong>When I check</strong><small>Every day at 9:00</small></button>
+        <button type="button" data-go="rules"><strong>What I may try</strong><small>3 rules</small></button>
+        <h3>Quiet</h3>
+        <button type="button" data-go="privacy"><strong>What we can see</strong><small>Beta on</small></button>
+        <button type="button" data-go="you"><strong>You</strong><small>Kaustubh · sign out</small></button>
+      </aside>
+
+      <div class="page">
+        <article class="panel on" data-page="brain">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g><path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/></g></svg>
+              <div>
+                <p class="eyebrow">Settings · desk rail</p>
+                <h1>My brain</h1>
+                <p class="speech">I think with your ChatGPT. Studi never sees the password. If I go quiet, tap reconnect and I’ll wait with a code.</p>
+              </div>
+            </div>
+            <section class="card mint">
+              <div class="head">
+                <div>
+                  <p class="eyebrow">ChatGPT</p>
+                  <h2>Connected</h2>
+                  <p>New chats use the pair you save here.</p>
+                </div>
+                <span class="pill mint">ready</span>
+              </div>
+              <div class="grid2" style="margin-top:12px">
+                <label class="field"><span>Which model</span><select><option>GPT-5.4</option><option>GPT-5.4 mini</option></select></label>
+                <label class="field"><span>How hard I think</span><select><option>High</option><option>Medium</option><option>Low</option></select></label>
+              </div>
+              <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn sunny" type="button">Use another ChatGPT</button>
+                <button class="btn quiet" type="button">I’m stuck</button>
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-page="finish">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+              <div>
+                <p class="eyebrow">When I finish</p>
+                <h1>You always get the last look</h1>
+                <p class="speech">I wait on the page. You read. You hit submit. I won’t steal that click.</p>
+              </div>
+            </div>
+            <section class="card sunny">
+              <div class="grid2">
+                <label class="field"><span>Minutes to look</span><input type="number" value="15" /><small>How long the answers sit before I nudge you</small></label>
+                <label class="field"><span>Minutes I wait on the page</span><input type="number" value="30" /><small>Then I park and you take over</small></label>
+                <label class="field"><span>What I may remember</span>
+                  <select><option>Things you pick</option><option>Nothing</option><option>Everything saved</option></select>
+                </label>
+              </div>
+              <button class="btn" type="button" style="margin-top:12px">Save</button>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-page="apps">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+              <div>
+                <p class="eyebrow">Connected apps</p>
+                <h1>Tools I can use</h1>
+                <p class="speech">You sign in in the browser. I never get the password. I only get the read actions you allow.</p>
+              </div>
+            </div>
+            <section class="card">
+              <div class="apps">
+                <div class="app"><b style="background:#ea4335;color:#fff">G</b><span><strong>Gmail</strong><small>Connected · read mail</small></span><button class="btn quiet" type="button">Check</button></div>
+                <div class="app"><b style="background:#4285f4;color:#fff">C</b><span><strong>Calendar</strong><small>Not connected</small></span><button class="btn quiet" type="button">Connect</button></div>
+                <div class="app"><b style="background:#34a853;color:#fff">D</b><span><strong>Drive</strong><small>Waiting for the browser</small></span><button class="btn quiet" type="button">I finished</button></div>
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-page="files">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+              <div>
+                <p class="eyebrow">Homework folder</p>
+                <h1>I only touch this folder</h1>
+                <p class="speech">I can list, read, and write here. Nowhere else. Shell stays off — no sandbox yet.</p>
+              </div>
+            </div>
+            <section class="card sky">
+              <p class="eyebrow">This laptop</p>
+              <h2>C:\Users\kaust\Documents\Homework</h2>
+              <p>Inky sees files in this folder. School passwords stay in the page you signed into.</p>
+              <button class="btn mint" type="button" style="margin-top:10px">Choose folder</button>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-page="nudges">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+              <div>
+                <p class="eyebrow">Nudges</p>
+                <h1>When I should tap you</h1>
+                <p class="speech">I can ping even if Studi is already open. Windows might hide me — preview one if you want to check.</p>
+              </div>
+            </div>
+            <section class="card pink">
+              <label class="toggle"><input type="checkbox" checked /><span><strong>Let Inky ping you</strong><small>Banners can pop up while you’re in the week.</small></span></label>
+              <div class="nudge"><span><strong>I finished something</strong><small>Ready for your look</small></span><label class="field"><span>Sound</span><select><option>Soft tap</option><option>None</option></select></label><button class="btn" type="button">Preview</button></div>
+              <div class="nudge"><span><strong>I need you</strong><small>Login, a choice, a stuck page</small></span><label class="field"><span>Sound</span><select><option>Soft tap</option></select></label><button class="btn" type="button">Preview</button></div>
+              <div class="nudge"><span><strong>Something broke</strong><small>I stopped</small></span><label class="field"><span>Sound</span><select><option>Soft tap</option></select></label><button class="btn" type="button">Preview</button></div>
+              <div class="nudge"><span><strong>School check done</strong><small>The week updated</small></span><label class="field"><span>Sound</span><select><option>None</option></select></label><button class="btn" type="button">Preview</button></div>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-page="check">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+              <div>
+                <p class="eyebrow">School</p>
+                <h1>When I look</h1>
+                <p class="speech">I open your school page on this laptop and refresh the week. Next look is tomorrow at 9:00.</p>
+              </div>
+            </div>
+            <section class="card sky">
+              <div class="grid2">
+                <label class="field"><span>How often</span><select><option>Every day</option><option>Every week</option><option>Only when I ask</option></select></label>
+                <label class="field"><span>Local time</span><input type="time" value="09:00" /></label>
+              </div>
+              <button class="btn mint" type="button" style="margin-top:12px">Save schedule</button>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-page="rules">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+              <div>
+                <p class="eyebrow">Homework rules</p>
+                <h1>What I may try</h1>
+                <p class="speech">I won’t start homework unless a rule says I may. Specific beats general.</p>
+              </div>
+            </div>
+            <section class="card coral">
+              <div class="grid2">
+                <label class="field"><span>For</span><select><option>A class</option><option>Everything</option><option>One assignment</option></select></label>
+                <label class="field"><span>Class</span><select><option>Bio 201</option><option>Calc II</option><option>Write 110</option></select></label>
+                <label class="field"><span>I may</span><select><option>Try it, don’t submit</option><option>Don’t try it</option><option>Submit if that’s allowed</option></select></label>
+              </div>
+              <button class="btn coral" type="button" style="margin-top:12px">Add rule</button>
+              <div class="rules">
+                <div class="rule"><span><strong>Bio 201</strong><small>Try it, don’t submit</small></span><button class="btn quiet" type="button">Remove</button></div>
+                <div class="rule"><span><strong>Calc II · weekly-problem-set</strong><small>Don’t try it</small></span><button class="btn quiet" type="button">Remove</button></div>
+                <div class="rule"><span><strong>Everything else</strong><small>Don’t try it</small></span><button class="btn quiet" type="button">Remove</button></div>
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-page="privacy">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+              <div>
+                <p class="eyebrow">Quiet stuff</p>
+                <h1>What we can see</h1>
+                <p class="speech">Studi can share what happens in the app. Not your school password. Not the school page.</p>
+              </div>
+            </div>
+            <section class="card lavender">
+              <label class="toggle"><input type="checkbox" checked /><span><strong>Share product events</strong><small>Messages, answers, tool activity, performance, errors.</small></span></label>
+              <label class="toggle"><input type="checkbox" checked /><span><strong>Share Studi replay</strong><small>Records the Studi window. Not the school page.</small></span></label>
+              <button class="btn quiet" type="button">Enable beta debug for 30 minutes</button>
+            </section>
+            <section class="card">
+              <p class="eyebrow">If something broke</p>
+              <h2>Safe diagnostics</h2>
+              <p>A short JSON file. Versions and recent events. Secrets stay out.</p>
+              <button class="btn" type="button" style="margin-top:10px">Export diagnostics</button>
+            </section>
+          </div>
+        </article>
+
+        <article class="panel" data-page="you">
+          <div class="page-inner">
+            <div class="lead">
+              <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+              <div>
+                <p class="eyebrow">You</p>
+                <h1>Kaustubh</h1>
+                <p class="speech">Signing out leaves your school pages and saved work on this laptop. I stay here.</p>
+              </div>
+            </div>
+            <section class="card">
+              <p>Signed in on this laptop. School stays local.</p>
+              <button class="btn coral" type="button" style="margin-top:10px">Sign out</button>
+            </section>
+            <section class="card">
+              <p class="eyebrow">A note for us</p>
+              <h2>Something look wrong?</h2>
+              <textarea placeholder="Tell Studi what to fix"></textarea>
+              <button class="btn sunny" type="button" style="margin-top:10px">Send note</button>
+            </section>
+          </div>
+        </article>
+      </div>
+    </div>
+  </div>
+  <script>
+    const buttons = [...document.querySelectorAll("[data-go]")];
+    const pages = [...document.querySelectorAll("[data-page]")];
+    buttons.forEach((button) => {
+      button.addEventListener("click", () => {
+        buttons.forEach((item) => item.classList.toggle("on", item === button));
+        pages.forEach((page) => page.classList.toggle("on", page.dataset.page === button.dataset.go));
+        document.querySelector(".page").scrollTop = 0;
+      });
+    });
+  </script>
+</body>
+</html>

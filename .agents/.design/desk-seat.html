@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — Seat</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(#d8cbb3 1.1px, transparent 1.1px) 0 0 / 22px 22px,
+        #e6d8be;
+    }
+
+    input[name="seat"] {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 428px);
+      min-height: 100vh;
+    }
+
+    .ghost {
+      position: relative;
+      min-width: 0;
+      padding: 36px 8px 96px;
+      opacity: 0.34;
+      filter: saturate(0.7);
+      pointer-events: none;
+      user-select: none;
+    }
+    .ghost .week-ghost {
+      max-width: none;
+      margin: 0;
+      padding: 0 28px;
+    }
+    .ghost .week-ghost article:first-child {
+      background: rgb(255 242 181 / 55%);
+      border-style: solid;
+      border-color: #c6b8a6;
+    }
+
+    .seat {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      padding: 16px 22px 18px;
+      border-left: 2.5px solid var(--ink);
+      background:
+        radial-gradient(ellipse 90% 50% at 80% 6%, rgb(255 236 176 / 55%), transparent 62%),
+        linear-gradient(180deg, #fff8ea 0 70%, #efe2c4 70% 78%, transparent 78%),
+        repeating-linear-gradient(
+          90deg,
+          #7a5130 0 4px,
+          #8d5f38 4px 9px,
+          #6b4428 9px 13px,
+          #9a6840 13px 17px
+        );
+      box-shadow: inset 18px 0 28px rgb(28 22 18 / 6%);
+    }
+    .seat::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 22%;
+      background:
+        linear-gradient(180deg, rgb(28 22 18 / 22%) 0 10px, transparent 28px),
+        repeating-linear-gradient(92deg, transparent 0 13px, rgb(28 22 18 / 10%) 13px 14px);
+      pointer-events: none;
+    }
+    .scene {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1 1 auto;
+      min-height: 0;
+      justify-content: center;
+      padding: 4px 0 8px;
+    }
+
+    .away {
+      position: relative;
+      z-index: 2;
+      align-self: flex-start;
+      margin: 0 0 4px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .away:hover { color: var(--ink); }
+
+    .buddy {
+      position: relative;
+      z-index: 3;
+      display: grid;
+      justify-items: center;
+      margin: 2px 0 0;
+    }
+    .buddy svg {
+      width: 164px;
+      height: 164px;
+      filter: drop-shadow(3px 8px 0 rgb(28 22 18 / 16%));
+    }
+    .talking {
+      position: relative;
+      z-index: 4;
+      width: 100%;
+      margin: 0 0 2px;
+      text-align: center;
+    }
+    .talking .speech {
+      display: none;
+      width: fit-content;
+      max-width: 18ch;
+      margin: 0 auto;
+      padding: 10px 16px 12px;
+      border-radius: 22px 24px 24px 22px;
+      font-size: clamp(1.35rem, 2.4vw, 1.85rem);
+      font-weight: 800;
+      line-height: 1.08;
+      letter-spacing: -0.03em;
+    }
+    .talking .speech::after {
+      content: "";
+      position: absolute;
+      bottom: -7px;
+      left: 50%;
+      width: 14px;
+      height: 14px;
+      border-right: 2px solid var(--ink);
+      border-bottom: 2px solid var(--ink);
+      background: #fff;
+      transform: translateX(-50%) rotate(45deg);
+    }
+    .said {
+      display: none;
+      margin: 10px auto 0;
+      max-width: 22ch;
+      color: var(--ink-soft);
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 600;
+      font-style: italic;
+      line-height: 1.25;
+    }
+
+    .mat {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      justify-items: center;
+      align-content: start;
+      width: 100%;
+      margin-top: -18px;
+    }
+
+    .laptop {
+      display: none;
+      width: 248px;
+      transform: perspective(640px) rotateX(12deg);
+      transform-origin: 50% 100%;
+      filter: drop-shadow(0 10px 0 rgb(28 22 18 / 16%));
+    }
+    .lid {
+      overflow: hidden;
+      border: 2.5px solid var(--ink);
+      border-bottom-width: 2px;
+      border-radius: 10px 10px 2px 2px;
+      background: #1a2230;
+      box-shadow: inset 0 0 0 5px #2a3344;
+    }
+    .screen {
+      margin: 5px 5px 3px;
+      min-height: 132px;
+      padding: 0;
+      border-radius: 3px;
+      background: #f4f7fb;
+      color: #243247;
+      font-size: 8px;
+      line-height: 1.25;
+    }
+    .lms-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 6px 3px;
+      color: #fff;
+      background: #2b4a78;
+      font-weight: 800;
+    }
+    .lms-bar b { font-size: 8px; letter-spacing: 0.02em; }
+    .lms-bar i {
+      display: grid;
+      width: 10px;
+      height: 10px;
+      place-items: center;
+      border-radius: 50%;
+      background: #f6c945;
+      color: #243247;
+      font-style: normal;
+      font-size: 6px;
+      font-weight: 900;
+    }
+    .lms-nav {
+      display: flex;
+      gap: 7px;
+      padding: 2px 6px;
+      background: #e8eef6;
+      color: #6b7a90;
+      font-weight: 800;
+    }
+    .lms-nav em {
+      color: #2b4a78;
+      font-style: normal;
+      text-decoration: underline;
+      text-underline-offset: 1px;
+    }
+    .lms-copy { padding: 5px 6px 6px; }
+    .lms-copy span {
+      display: block;
+      color: #7a8798;
+      font-size: 6.5px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .lms-copy strong {
+      display: block;
+      margin: 1px 0 3px;
+      color: #243247;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1.1;
+    }
+    .qmini {
+      padding: 4px 5px 5px;
+      border: 1px solid #c9d3e0;
+      border-radius: 4px;
+      background: #fff;
+    }
+    .qmini p { margin: 0 0 3px; color: #445266; font-size: 7.5px; font-weight: 700; }
+    .typing {
+      min-height: 22px;
+      padding: 3px 4px;
+      border: 1px solid #9eb0c6;
+      border-radius: 3px;
+      background: #f8fbff;
+      color: #2a4578;
+      font-family: "Shantell Sans", cursive;
+      font-size: 8px;
+      font-weight: 600;
+    }
+    .caret {
+      display: inline-block;
+      width: 1px;
+      height: 8px;
+      margin-left: 1px;
+      background: #243247;
+      vertical-align: -1px;
+      animation: caret 1s steps(1) infinite;
+    }
+    .gate {
+      display: grid;
+      gap: 4px;
+      padding: 10px 12px 12px;
+      text-align: center;
+    }
+    .gate strong { font-size: 10px; }
+    .gate p { color: #5b6b82; font-size: 7.5px; font-weight: 700; }
+    .gate b {
+      display: block;
+      margin-top: 4px;
+      padding: 4px 0;
+      border: 1px solid #2b4a78;
+      border-radius: 3px;
+      background: #2b4a78;
+      color: #fff;
+      font-size: 8px;
+    }
+    .done .typing { background: #eef6ff; }
+    .hinge {
+      height: 6px;
+      background:
+        linear-gradient(#3b342c, #3b342c) 12% 50% / 8px 2px no-repeat,
+        linear-gradient(#3b342c, #3b342c) 88% 50% / 8px 2px no-repeat,
+        #2a241c;
+    }
+    .keys {
+      height: 28px;
+      border: 2.5px solid var(--ink);
+      border-top-width: 0;
+      border-radius: 0 0 10px 10px;
+      background:
+        repeating-linear-gradient(90deg, #c9c2b4 0 7px, #b7b0a2 7px 8px),
+        linear-gradient(#d8d1c2, #c4bcae);
+    }
+
+    .slip,
+    .sticker,
+    .sent {
+      display: none;
+    }
+    body:has(#s-empty:checked) .mat,
+    body:has(#s-page:checked) .mat { margin-top: 6px; }
+
+    .slip {
+      width: 210px;
+      padding: 12px 14px 14px;
+      border: 2px solid var(--ink);
+      border-radius: 3px 4px 3px 3px;
+      background:
+        repeating-linear-gradient(
+          transparent 0 21px,
+          #d5e0ef 21px 22px
+        ),
+        #fffef6;
+      box-shadow: 3px 4px 0 rgb(28 22 18 / 16%);
+      rotate: -2.2deg;
+      text-align: left;
+    }
+    .slip p {
+      color: var(--ink);
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .sticker,
+    .sent {
+      margin-top: 14px;
+      padding: 10px 16px;
+      border: 2.5px solid var(--ink);
+      border-radius: 4px 6px 3px 5px;
+      background: var(--sunny);
+      box-shadow: 3px 4px 0 rgb(28 22 18 / 18%);
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.15rem;
+      font-weight: 800;
+      line-height: 1.1;
+      rotate: -3deg;
+    }
+    .sticker:hover,
+    .sent:hover { translate: 1px 1px; box-shadow: 2px 3px 0 rgb(28 22 18 / 18%); }
+    .sent { background: var(--mint); rotate: 1.5deg; }
+
+    .feet {
+      position: relative;
+      z-index: 3;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: end;
+      gap: 10px;
+      margin-top: 10px;
+      padding: 4px 12px 2px;
+      border: 2px solid var(--ink);
+      border-radius: 16px 18px 8px 10px;
+      background: #fffaf0;
+      box-shadow: 2px 3px 0 rgb(28 22 18 / 16%);
+    }
+    .feet input {
+      height: 38px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .feet input:focus { outline: none; }
+    .feet input::placeholder { color: #b3a99c; }
+    .feet button {
+      padding: 0 2px 6px;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .states {
+      position: fixed;
+      z-index: 90;
+      left: 16px;
+      bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      max-width: calc(100% - 180px);
+      padding: 5px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: rgb(255 250 240 / 94%);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+    .states label {
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .states label:hover { background: var(--sticky); }
+
+    body:has(#s-empty:checked) label[for="s-empty"],
+    body:has(#s-page:checked) label[for="s-page"],
+    body:has(#s-work:checked) label[for="s-work"],
+    body:has(#s-need:checked) label[for="s-need"],
+    body:has(#s-look:checked) label[for="s-look"] {
+      background: var(--sunny);
+    }
+
+    body:has(#s-empty:checked) .when-empty,
+    body:has(#s-page:checked) .when-page,
+    body:has(#s-work:checked) .when-work,
+    body:has(#s-need:checked) .when-need,
+    body:has(#s-look:checked) .when-look { display: block; }
+
+    body:has(#s-work:checked) .laptop,
+    body:has(#s-need:checked) .laptop,
+    body:has(#s-look:checked) .laptop { display: block; }
+
+    body:has(#s-page:checked) .slip,
+    body:has(#s-page:checked) .sticker { display: block; }
+    body:has(#s-look:checked) .sent { display: block; }
+
+    body:has(#s-need:checked) .for-work,
+    body:has(#s-look:checked) .for-work { display: none; }
+    body:has(#s-need:checked) .for-need { display: block; }
+    body:has(#s-look:checked) .for-look { display: block; }
+    .for-need,
+    .for-look { display: none; }
+
+    body:has(#s-work:checked) .buddy,
+    body:has(#s-need:checked) .buddy,
+    body:has(#s-look:checked) .buddy {
+      margin-bottom: -36px;
+    }
+    body:has(#s-work:checked) .buddy svg {
+      translate: 0 10px;
+    }
+    body:has(#s-work:checked) .inky .body {
+      transform-origin: 60px 106px;
+      animation: work-bob 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    body:has(#s-work:checked) .inky .eyes {
+      transform-origin: 60px 70px;
+      animation: work-look 2.4s cubic-bezier(0.45, 0, 0.55, 1) infinite, blink 5.2s cubic-bezier(0.2, 0, 0.2, 1) infinite;
+    }
+    body:has(#s-need:checked) .inky .body {
+      animation: none;
+      transform: rotate(-16deg) translate(6px, 8px);
+    }
+    body:has(#s-need:checked) .seat {
+      background:
+        radial-gradient(ellipse 80% 46% at 78% 8%, rgb(242 139 111 / 32%), transparent 58%),
+        linear-gradient(180deg, #fff4ee 0 70%, #efe2c4 70% 78%, transparent 78%),
+        repeating-linear-gradient(
+          90deg,
+          #7a5130 0 4px,
+          #8d5f38 4px 9px,
+          #6b4428 9px 13px,
+          #9a6840 13px 17px
+        );
+    }
+    body:has(#s-look:checked) .inky .body {
+      animation: lean-back 4.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    }
+    body:has(#s-page:checked) .talking .speech { background: var(--sticky); }
+    body:has(#s-need:checked) .talking .speech { background: #ffe1d8; }
+    body:has(#s-look:checked) .talking .speech { background: #dff4e9; }
+    body:has(#s-work:checked) .talking .speech { background: #e0f0ff; }
+
+    @keyframes caret {
+      0%, 45% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    @keyframes work-bob {
+      0%, 100% { transform: translateY(2px) rotate(4deg) scale(1, 1); }
+      40% { transform: translateY(-2px) rotate(5.2deg) scale(0.98, 1.03); }
+      70% { transform: translateY(1px) rotate(3.4deg) scale(1.01, 0.99); }
+    }
+    @keyframes work-look {
+      0%, 100% { transform: translate(2px, 7px); }
+      50% { transform: translate(3px, 9px); }
+    }
+    @keyframes lean-back {
+      0%, 100% { transform: translateY(0) rotate(6deg); }
+      45% { transform: translateY(-3px) rotate(7deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .caret { animation: none; }
+      body:has(#s-work:checked) .inky .body,
+      body:has(#s-work:checked) .inky .eyes,
+      body:has(#s-look:checked) .inky .body { animation: none; }
+      body:has(#s-work:checked) .inky .body { transform: rotate(4deg); }
+      body:has(#s-look:checked) .inky .body { transform: rotate(6deg); }
+    }
+
+    @media (max-width: 820px) {
+      body { overflow: auto; }
+      .stage { grid-template-columns: 1fr; }
+      .ghost { display: none; }
+      .seat {
+        border-left: 0;
+        min-height: 100vh;
+      }
+      .states { max-width: calc(100% - 32px); left: 8px; right: 8px; bottom: 64px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+
+  <input id="s-empty" type="radio" name="seat" />
+  <input id="s-page" type="radio" name="seat" />
+  <input id="s-work" type="radio" name="seat" checked />
+  <input id="s-need" type="radio" name="seat" />
+  <input id="s-look" type="radio" name="seat" />
+
+  <nav class="states" aria-label="Desk state">
+    <label for="s-empty">Empty</label>
+    <label for="s-page">This page</label>
+    <label for="s-work">Working</label>
+    <label for="s-need">Needs you</label>
+    <label for="s-look">Look this over</label>
+  </nav>
+
+  <div class="stage">
+    <section class="ghost" aria-hidden="true">
+      <div class="week-ghost">
+        <article><strong>Thursday</strong><i></i><i></i></article>
+        <article><strong>Friday</strong><i></i></article>
+        <article><strong>Saturday</strong></article>
+        <article><strong>Sunday</strong><i></i></article>
+        <article><strong>Monday</strong><i></i><i></i></article>
+      </div>
+    </section>
+
+    <aside class="seat" aria-label="Inky’s seat">
+      <button class="away" type="button">back to the week</button>
+
+      <div class="scene">
+      <div class="talking">
+        <p class="speech when-empty">Ready when you are.</p>
+        <p class="speech when-page">Want me to do this?</p>
+        <p class="speech when-work">I’m on the school page.</p>
+        <p class="speech when-need">I need you.</p>
+        <p class="speech when-look">Look this over.</p>
+        <p class="said when-page">IBM Sorting Machine. Thursday night. I’ll stop before you submit.</p>
+        <p class="said when-work">IBM Sorting Machine. Thursday night.</p>
+        <p class="said when-need">It’s asking me to log in.</p>
+        <p class="said when-look">IBM Sorting Machine. I wrote it. You still send it.</p>
+      </div>
+
+      <div class="buddy">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <g class="eyes">
+              <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+              <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+              <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+              <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+            </g>
+            <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+          </g>
+        </svg>
+      </div>
+
+      <div class="mat">
+        <div class="slip when-page">
+          <p>CSC 316.</p>
+          <p>IBM Sorting Machine.</p>
+          <p>Thursday night.</p>
+        </div>
+        <button class="sticker" type="button">Make Inky do this</button>
+
+        <div class="laptop" aria-label="Inky’s laptop">
+          <div class="lid">
+            <div class="screen">
+              <div class="lms-bar"><b>Northstar University</b><i>K</i></div>
+              <div class="lms-nav"><em>Courses</em><span>Calendar</span><span>Grades</span></div>
+              <div class="lms-copy for-work">
+                <span>CSC 316 · Homework 3</span>
+                <strong>IBM Sorting Machine</strong>
+                <div class="qmini">
+                  <p>1. Feed 17, 4, 22, 9, 11. Show each pass.</p>
+                  <div class="typing">Pass 1 — 4 is home. Hopper still holds 17, 22, 9, 11.<span class="caret"></span></div>
+                </div>
+              </div>
+              <div class="gate for-need">
+                <strong>Sign in to continue</strong>
+                <p>student · Northstar</p>
+                <b>Log in</b>
+              </div>
+              <div class="lms-copy for-look done">
+                <span>CSC 316 · Homework 3</span>
+                <strong>IBM Sorting Machine</strong>
+                <div class="qmini">
+                  <p>1. Feed 17, 4, 22, 9, 11. Show each pass.</p>
+                  <div class="typing">Pass 1 — 4 is home. Then 9, 11, 17, 22.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="hinge"></div>
+          <div class="keys"></div>
+        </div>
+
+        <button class="sent" type="button">I submitted it</button>
+      </div>
+      </div>
+
+      <form class="feet" action="javascript:void(0)">
+        <label class="visually-hidden" for="say">Talk to Inky</label>
+        <input id="say" name="say" placeholder="I’m listening…" maxlength="400" />
+        <button type="submit">say it</button>
+      </form>
+    </aside>
+  </div>
+  <script>
+    const seats = { empty: "s-empty", page: "s-page", work: "s-work", need: "s-need", look: "s-look" };
+    const pick = seats[location.hash.slice(1)];
+    if (pick) document.getElementById(pick).checked = true;
+  </script>
+</body>
+</html>

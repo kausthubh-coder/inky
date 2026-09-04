@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — On the week</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .bar {
+      display: flex; align-items: center; gap: 12px;
+      height: 54px; padding: 0 18px; border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .bar strong { font-family: "Shantell Sans", cursive; font-size: 20px; }
+    .spacer { flex: 1; }
+    .you {
+      display: grid; width: 32px; height: 32px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%; background: var(--pink);
+      font-weight: 900; text-decoration: none;
+    }
+    .stage { display: grid; grid-template-columns: 1fr 340px; min-height: calc(100vh - 54px); }
+    .sheet {
+      padding: 18px 16px 40px;
+      border-left: 2px solid var(--ink);
+      background: rgb(255 250 240 / 88%);
+    }
+    .sheet h1 { font-size: 1.5rem; margin-bottom: 6px; }
+    .card-mini {
+      display: grid; gap: 8px; margin-top: 12px; padding: 12px;
+      border: 2px solid var(--ink); border-radius: 14px; background: #fff;
+    }
+    .week-ghost { margin-top: 20px; }
+    .pick { outline: 3px solid var(--ink); background: #fff2b5 !important; }
+    @media (max-width: 900px) { .stage { grid-template-columns: 1fr; } .sheet { border-left: 0; border-top: 2px solid var(--ink); } }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="bar">
+    <strong>studi</strong>
+    <span class="pill sunny">Settings live on the week</span>
+    <span class="spacer"></span>
+    <a class="you" href="#">K</a>
+  </header>
+  <div class="stage">
+    <section>
+      <p class="caption" style="padding:18px 24px 0;font-weight:700">Variation F. You don’t leave the week. Click a class — the rule is right there. Global stuff hangs off you.</p>
+      <div class="week-ghost">
+        <article><strong>Today</strong><i class="pick"></i><i></i></article>
+        <article><strong>Friday</strong><i></i></article>
+        <article><strong>Saturday</strong></article>
+        <article><strong>Sunday</strong><i></i></article>
+        <article><strong>Monday</strong><i></i><i></i></article>
+      </div>
+    </section>
+    <aside class="sheet">
+      <p class="eyebrow">This assignment</p>
+      <h1>Bio 201 · lab writeup</h1>
+      <p>Due Friday. Inky may try this. He will not submit.</p>
+      <div class="card-mini">
+        <label class="field"><span>For this class</span>
+          <select><option>Try it, don’t submit</option><option>Don’t try it</option><option>Submit if that’s allowed</option></select>
+        </label>
+        <button class="btn sunny" type="button">Save for Bio</button>
+      </div>
+      <div class="card-mini">
+        <p class="eyebrow">Everywhere else</p>
+        <p>Don’t try it. Change that in You if you want a new default.</p>
+        <button class="btn quiet" type="button">Open your drawer</button>
+      </div>
+    </aside>
+  </div>
+</body>
+</html>

@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Studi landing, Clerk, and account plan</title>
+  <style>
+    :root {
+      --paper: #f3ead6;
+      --paper-2: #fffaf0;
+      --ink: #1c1612;
+      --soft: #51483f;
+      --faint: #776d62;
+      --line: #1c1612;
+      --yellow: #f7c948;
+      --mint: #8fcbaa;
+      --sky: #8ab8e8;
+      --coral: #f28b6f;
+      --lavender: #b7a3dd;
+      --pink: #f2a8c4;
+      --shadow: 4px 4px 0 var(--ink);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: radial-gradient(#ded2bb 1px, transparent 1px) 0 0 / 24px 24px, var(--paper);
+      font: 15px/1.55 "Nunito Sans", ui-rounded, system-ui, sans-serif;
+    }
+    a { color: inherit; text-underline-offset: 3px; }
+    h1, h2, h3 { margin-top: 0; font-family: "Shantell Sans", "Comic Sans MS", cursive; line-height: 1.08; }
+    h1 { max-width: 900px; margin-bottom: 18px; font-size: clamp(2.6rem, 7vw, 6rem); letter-spacing: -.055em; }
+    h2 { margin-bottom: 12px; font-size: clamp(1.8rem, 4vw, 3rem); letter-spacing: -.035em; }
+    h3 { margin-bottom: 8px; font-size: 1.18rem; }
+    p { margin: 0 0 12px; color: var(--soft); }
+    code { padding: 2px 5px; border-radius: 5px; background: #ebe1cd; font: .9em Consolas, monospace; }
+    .hero { padding: 64px max(24px, calc((100vw - 1300px) / 2)); border-bottom: 3px solid var(--ink); background: rgb(255 250 240 / 84%); }
+    .eyebrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; color: var(--faint); font-size: 12px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+    .tag { padding: 5px 10px; border: 2px solid var(--ink); border-radius: 999px; background: var(--yellow); color: var(--ink); }
+    .hero > p { max-width: 840px; font-size: 1.1rem; font-weight: 700; }
+    .hero-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+    .button { padding: 9px 14px; border: 2px solid var(--ink); border-radius: 999px; background: var(--paper-2); box-shadow: 2px 2px 0 var(--ink); font-weight: 900; text-decoration: none; }
+    .button.primary { background: var(--yellow); }
+    .layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1300px; margin: 0 auto; }
+    aside { position: sticky; top: 0; height: 100vh; padding: 28px 18px; border-right: 2px solid var(--ink); background: rgb(243 234 214 / 93%); overflow: auto; }
+    aside strong { display: block; margin: 0 9px 10px; font-family: "Shantell Sans", cursive; }
+    aside a { display: block; padding: 7px 9px; border-radius: 8px; color: var(--soft); font-size: 13px; font-weight: 800; text-decoration: none; }
+    aside a:hover { background: #fff3bd; color: var(--ink); }
+    main { min-width: 0; padding: 34px 36px 100px; }
+    section { margin-bottom: 72px; scroll-margin-top: 28px; }
+    .lead { max-width: 820px; margin-bottom: 24px; font-size: 1.05rem; font-weight: 700; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+    .card { grid-column: span 4; padding: 18px; border: 2px solid var(--ink); border-radius: 16px 13px 18px 14px; background: var(--paper-2); box-shadow: 3px 3px 0 rgb(28 22 18 / 22%); }
+    .card.wide { grid-column: span 6; }
+    .card.full { grid-column: 1 / -1; }
+    .card.yellow { background: #fff2b5; }
+    .card.sky { background: #e1f0ff; }
+    .card.mint { background: #dff4e9; }
+    .card.coral { background: #ffe1d8; }
+    .card.lavender { background: #ede9fb; }
+    .card p:last-child, .card ul:last-child { margin-bottom: 0; }
+    .label { display: block; margin-bottom: 8px; color: var(--faint); font-size: 11px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+    .settled { color: #275e42; }
+    .replace { color: #9d3d2b; }
+    ul, ol { margin: 9px 0 14px; padding-left: 21px; }
+    li { margin-bottom: 5px; }
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .flow span { padding: 9px 11px; border: 1.5px solid var(--ink); border-radius: 10px 8px; background: #fff; font-size: 12px; font-weight: 850; }
+    .flow b { color: var(--faint); }
+    .sequence { display: grid; gap: 8px; }
+    .sequence article { display: grid; grid-template-columns: 34px minmax(150px, .42fr) 1fr; gap: 12px; align-items: start; padding: 12px; border: 1.5px solid #bdb19f; border-radius: 12px; background: rgb(255 250 240 / 88%); }
+    .sequence i { display: grid; width: 30px; height: 30px; border: 2px solid var(--ink); border-radius: 50%; background: var(--yellow); font-style: normal; font-weight: 900; place-items: center; }
+    .sequence strong { padding-top: 4px; }
+    .sequence p { margin: 3px 0 0; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; border: 2px solid var(--ink); border-radius: 13px; background: var(--paper-2); overflow: hidden; font-size: 13px; }
+    th, td { padding: 10px 11px; border-bottom: 1px solid #cfc4b1; text-align: left; vertical-align: top; }
+    th { background: #eee3cf; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+    .callout { padding: 17px 18px; border: 2px solid var(--ink); border-left-width: 9px; border-radius: 14px; background: #fff4bf; box-shadow: 3px 3px 0 var(--ink); }
+    .callout h3 { margin-bottom: 5px; }
+    .callout p:last-child { margin-bottom: 0; }
+    .packages { display: grid; gap: 12px; }
+    details { border: 2px solid var(--ink); border-radius: 14px; background: var(--paper-2); overflow: hidden; }
+    summary { display: grid; grid-template-columns: 80px 1fr auto; gap: 12px; padding: 15px; cursor: pointer; font-weight: 900; list-style: none; }
+    summary::-webkit-details-marker { display: none; }
+    details[open] summary { border-bottom: 1px solid #cfc4b1; background: #fff4c7; }
+    .wp { width: max-content; padding: 4px 8px; border: 1.5px solid var(--ink); border-radius: 7px; background: var(--yellow); font-size: 10px; }
+    .meta { color: var(--faint); font-size: 11px; text-align: right; }
+    .body { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 16px; }
+    .body .full { grid-column: 1 / -1; }
+    .checklist { list-style: none; padding: 0; }
+    .checklist li { padding-left: 22px; position: relative; }
+    .checklist li::before { content: "□"; position: absolute; left: 0; font-weight: 900; }
+    .source-list { display: grid; gap: 8px; }
+    .source-list a { padding: 11px 12px; border: 1.5px solid #bdb19f; border-radius: 9px; background: #fff; font-weight: 800; }
+    footer { padding: 24px; border-top: 2px solid var(--ink); background: var(--paper-2); color: var(--faint); text-align: center; font-size: 13px; font-weight: 700; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { display: none; }
+      main { padding: 26px 18px 72px; }
+      .card, .card.wide { grid-column: 1 / -1; }
+      .body { grid-template-columns: 1fr; }
+      .body .full { grid-column: auto; }
+    }
+    @media (max-width: 620px) {
+      .hero { padding: 38px 18px; }
+      .sequence article { grid-template-columns: 32px 1fr; }
+      .sequence p { grid-column: 2; }
+      summary { grid-template-columns: 66px 1fr; }
+      .meta { grid-column: 2; text-align: left; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="eyebrow"><span class="tag">Plan first</span><span>Landing, Clerk, account, billing, and desktop handoff · 3 Sep 2026</span></div>
+    <h1>One Studi account, all the way into the desktop.</h1>
+    <p>The new landing has a real Clerk waitlist, a signed-in account area, subscription settings, and a clean handoff into Studi's existing PKCE desktop sign-in. The product demo introduces Inky before it shows the week, and the landing navigation uses the floating island design.</p>
+    <div class="hero-actions">
+      <a class="button primary" href="../.design/landing-clerk-account.html">Open the interactive mockup</a>
+      <a class="button" href="#packages">Jump to work packages</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <strong>Plan map</strong>
+      <a href="#outcome">01 · Outcome</a>
+      <a href="#audit">02 · Current audit</a>
+      <a href="#journeys">03 · User journeys</a>
+      <a href="#pages">04 · Page map</a>
+      <a href="#ownership">05 · System ownership</a>
+      <a href="#pkce">06 · PKCE handoff</a>
+      <a href="#data">07 · Data contracts</a>
+      <a href="#copy">08 · Demo script</a>
+      <a href="#packages">09 · Work packages</a>
+      <a href="#verification">10 · Verification</a>
+      <a href="#release">11 · Release gate</a>
+      <a href="#sources">12 · Sources</a>
+    </aside>
+
+    <main>
+      <section id="outcome">
+        <span class="label">01 · Outcome and decisions</span>
+        <h2>The website is the front door. The desktop is the room.</h2>
+        <p class="lead">A visitor can join the beta, return later, sign in, see whether their seat is ready, manage their plan, download or open Studi, and finish the same account sign-in inside Electron without entering credentials twice.</p>
+        <div class="grid">
+          <article class="card yellow"><span class="label settled">Decision</span><h3>Clerk is the account source</h3><p>Clerk owns identity, waitlist status, invitation, browser sessions, and user subscriptions.</p></article>
+          <article class="card mint"><span class="label settled">Decision</span><h3>Convex is the app projection</h3><p>Convex keeps the small set Electron needs: approval, entitlement, credits, usage, active device, and billing event receipts.</p></article>
+          <article class="card sky"><span class="label settled">Decision</span><h3>Electron stays public</h3><p>No client secret ships in the app. OAuth uses Authorization Code with S256 PKCE, state, nonce, and a one-shot loopback callback.</p></article>
+          <article class="card wide"><span class="label settled">Design</span><h3>Use the floating nav island</h3><p>Adopt <code>.agents/.design/landing-nav-island.html</code>. Inky sits beside the wordmark. Signed-out visitors see "Sign in" and "Save me a seat". Signed-in users see "Dashboard" and their avatar.</p></article>
+          <article class="card wide coral"><span class="label replace">Replace</span><h3>Do not keep two live waitlists</h3><p>The current public Convex email mutation becomes a legacy import path. The new form uses Clerk's custom waitlist flow, so invite state and the email the visitor entered cannot drift apart.</p></article>
+        </div>
+      </section>
+
+      <section id="audit">
+        <span class="label">02 · Current audit</span>
+        <h2>Most of the hard pieces exist, but they do not meet yet.</h2>
+        <div class="grid">
+          <article class="card"><h3>Landing</h3><ul><li>Next 15 and Clerk 6.36.5 are installed.</li><li><code>ClerkProvider</code> exists but there are no sign-in, account, or protected dashboard routes.</li><li>The waitlist writes email directly to Convex.</li></ul></article>
+          <article class="card"><h3>Desktop auth</h3><ul><li>PKCE already creates 256-bit verifier, state, and nonce values.</li><li>The loopback callback validates state and is single-use.</li><li>ID tokens are verified against issuer, audience, signature, and nonce.</li></ul></article>
+          <article class="card"><h3>Entitlements</h3><ul><li>Convex already stores beta access, plan, credits, and one active device.</li><li>Plans are hand-managed as <code>beta</code> or <code>supporter</code>.</li><li>No Clerk Billing events update this state yet.</li></ul></article>
+          <article class="card wide lavender"><h3>Visible demo problems</h3><p>The title bar contains "This week," which makes the fake desktop feel like a website. The dock icon depends on <code>/icon.svg</code> as a CSS background, so it can disappear or crop badly. The first two beats jump from a joke to one problem set without explaining the daily scan or saved-answer flow.</p></article>
+          <article class="card wide"><h3>Protected-route gap</h3><p>The landing root should stay public. <code>/dashboard</code>, <code>/settings</code>, and <code>/billing</code> need server-side protection. API and webhook routes need separate rules, with webhooks verified by signature instead of a browser session.</p></article>
+        </div>
+      </section>
+
+      <section id="journeys">
+        <span class="label">03 · User journeys</span>
+        <h2>Four small journeys cover the whole account lifecycle.</h2>
+        <div class="grid">
+          <article class="card wide yellow"><span class="label">New visitor</span><div class="flow"><span>Landing</span><b>→</b><span>Email</span><b>→</b><span>Clerk waitlist</span><b>→</b><span>Confirmation</span></div><p>Keep the current inline form and Inky voice. Add "Already have a seat? Sign in." Duplicate submissions resolve to the same successful state.</p></article>
+          <article class="card wide mint"><span class="label">Approved student</span><div class="flow"><span>Invite</span><b>→</b><span>Create account</span><b>→</b><span>Dashboard</span><b>→</b><span>Download / open Studi</span></div><p>The dashboard leads with one next action, not analytics. Seat status, desktop connection, plan, and recent usage sit below it.</p></article>
+          <article class="card wide sky"><span class="label">Desktop connection</span><div class="flow"><span>Open Studi</span><b>→</b><span>PKCE</span><b>→</b><span>Browser session reused</span><b>→</b><span>Electron approved</span></div><p>The browser may already know the Clerk user, but Electron still generates and verifies its own OAuth transaction.</p></article>
+          <article class="card wide lavender"><span class="label">Billing</span><div class="flow"><span>Dashboard</span><b>→</b><span>Billing</span><b>→</b><span>Clerk checkout/profile</span><b>→</b><span>Webhook</span><b>→</b><span>Convex projection</span></div><p>Clerk shows payment methods, invoices, and plan changes. Convex consumes signed events and updates Electron's entitlement.</p></article>
+        </div>
+      </section>
+
+      <section id="pages">
+        <span class="label">04 · Page and navigation map</span>
+        <h2>The public site stays simple. Account pages share one shell.</h2>
+        <table>
+          <thead><tr><th>Route</th><th>Audience</th><th>Job</th><th>Primary action</th></tr></thead>
+          <tbody>
+            <tr><td><code>/</code></td><td>Everyone</td><td>Meet Inky, watch the desktop demo, understand trust, join waitlist.</td><td>Save me a seat</td></tr>
+            <tr><td><code>/sign-in/[[...sign-in]]</code></td><td>Signed out</td><td>Branded Clerk sign-in with return URL handling.</td><td>Continue</td></tr>
+            <tr><td><code>/sign-up/[[...sign-up]]</code></td><td>Invited</td><td>Accept invite and finish account creation.</td><td>Create my account</td></tr>
+            <tr><td><code>/dashboard</code></td><td>Signed in</td><td>Show seat, desktop, plan, credits/usage, and the one next step.</td><td>Open Studi</td></tr>
+            <tr><td><code>/settings</code></td><td>Signed in</td><td>Name, email, password/security, active desktop, and sign out.</td><td>Manage account</td></tr>
+            <tr><td><code>/billing</code></td><td>Signed in</td><td>Current plan, features, payment method, receipts, upgrade/cancel.</td><td>Manage plan</td></tr>
+            <tr><td><code>/connect/desktop</code></td><td>Signed in</td><td>Explain the handoff, open Studi, and recover if the protocol link is unavailable.</td><td>Open Studi</td></tr>
+            <tr><td><code>/api/webhooks/clerk</code></td><td>Clerk only</td><td>Verify signed waitlist, user, and billing events, then update Convex.</td><td>None</td></tr>
+          </tbody>
+        </table>
+        <div class="callout" style="margin-top:16px"><h3>Navigation rule</h3><p>The island never shows both "Save me a seat" and an account avatar. Authentication changes the right side of the same object. Mobile collapses only the center links.</p></div>
+      </section>
+
+      <section id="ownership">
+        <span class="label">05 · System ownership</span>
+        <h2>Each fact has one owner.</h2>
+        <table>
+          <thead><tr><th>Fact</th><th>Owner</th><th>Consumer</th><th>Rule</th></tr></thead>
+          <tbody>
+            <tr><td>Waitlist email and approval</td><td>Clerk</td><td>Landing, support tools</td><td>Do not accept new public writes into <code>waitlistEmails</code>.</td></tr>
+            <tr><td>User identity and browser session</td><td>Clerk</td><td>Next.js, Convex</td><td>Use Clerk subject as the stable account key.</td></tr>
+            <tr><td>Subscription and payment method</td><td>Clerk Billing</td><td>Landing account UI</td><td>Never store card data or synthesize billing state in Convex.</td></tr>
+            <tr><td>Desktop approval and plan projection</td><td>Convex</td><td>Electron</td><td>Only verified webhooks or controlled admin actions may change it.</td></tr>
+            <tr><td>PKCE verifier and refresh token</td><td>Electron</td><td>Electron only</td><td>Verifier stays in memory. Refresh token stays in encrypted local storage.</td></tr>
+            <tr><td>Homework, school pages, drafts</td><td>Desktop</td><td>Local Studi runtime</td><td>Do not send them to the landing or billing system.</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section id="pkce">
+        <span class="label">06 · Browser-to-desktop PKCE</span>
+        <h2>The landing helps the handoff. It never handles the verifier.</h2>
+        <div class="sequence">
+          <article><i>1</i><strong>Landing opens Studi</strong><p><code>/connect/desktop</code> launches a registered <code>studi://connect</code> link. If the app is missing, the page shows the Windows download and installation help.</p></article>
+          <article><i>2</i><strong>Electron starts the transaction</strong><p>Electron generates a fresh verifier, S256 challenge, state, and nonce. It starts a loopback listener and opens Clerk's authorization endpoint in the system browser.</p></article>
+          <article><i>3</i><strong>Clerk reuses the web session</strong><p>If the student is already signed in on the landing, authorization is quick. Clerk still owns the consent and account boundary. The landing never copies a session token into the deep link.</p></article>
+          <article><i>4</i><strong>Loopback receives one code</strong><p>Use one registered loopback URI strategy that Clerk accepts. Prefer a fixed high port for predictable allowlisting. If Clerk supports RFC 8252 loopback port matching for this OAuth app, keep the ephemeral port and prove it in a live development test.</p></article>
+          <article><i>5</i><strong>Electron exchanges and verifies</strong><p>The token request includes the verifier. Electron verifies issuer, audience, signature, expiry, and nonce, then calls Convex with the fresh identity token.</p></article>
+          <article><i>6</i><strong>Convex decides access</strong><p>Convex returns approved, waitlisted, device conflict, or billing-required. The browser dashboard and desktop show the same status because both read the same projection.</p></article>
+        </div>
+        <div class="callout" style="margin-top:16px"><h3>Configuration gate</h3><p>In Clerk, the Studi desktop OAuth application must be public and PKCE-required. Register the chosen loopback redirect URI exactly, keep the current client ID in environment-specific configuration, and never add a client secret to Electron.</p></div>
+      </section>
+
+      <section id="data">
+        <span class="label">07 · Data and event contracts</span>
+        <h2>Project Clerk into one small account record.</h2>
+        <div class="grid">
+          <article class="card wide"><h3><code>accountProfiles</code></h3><p><code>clerkSubject</code>, email, display name, waitlist state, approved at, plan slug, subscription state, credits, updated at.</p><p>One row per Clerk subject. This replaces split reads across <code>accounts</code>, <code>betaAccess</code>, and <code>entitlements</code> after a safe migration.</p></article>
+          <article class="card wide"><h3><code>clerkEventReceipts</code></h3><p>Clerk event ID, type, received at, processed at, and sanitized failure category.</p><p>The event ID is unique. Replayed webhooks return success without applying the change twice.</p></article>
+          <article class="card"><h3>Waitlist events</h3><p>Joined, invited, accepted. Historical Convex emails get a one-time controlled import or remain legacy-only.</p></article>
+          <article class="card"><h3>User events</h3><p>Created, updated, deleted. Deletion revokes approval and active-device access without erasing local schoolwork.</p></article>
+          <article class="card"><h3>Billing events</h3><p>Subscription active, updated, past due, and ended. The projection changes only after signature verification.</p></article>
+          <article class="card full lavender"><h3>Dashboard query</h3><p>Return a purpose-built view model: greeting, access status, plan name, credit or usage summary, desktop connection state, download build, and the primary action. Do not expose raw webhook payloads, device secrets, or Clerk metadata.</p></article>
+        </div>
+      </section>
+
+      <section id="copy">
+        <span class="label">08 · Landing desktop demo</span>
+        <h2>Inky explains the magic before performing it.</h2>
+        <div class="sequence">
+          <article><i>1</i><strong>Introduction</strong><p>"Hi, I'm Inky. I finish your homework before you know it even exists." Button: "Okay, show me."</p></article>
+          <article><i>2</i><strong>How it works</strong><p>"I scan all your schoolwork every morning, or whenever you ask. Then I can do it, save the answers for you to submit, or submit it after you tell me to." Button: "Scan my classes."</p></article>
+          <article><i>3</i><strong>The scan</strong><p>The board appears and Inky calls out what is due. Button: "Do the problem set." Tests and quizzes stay visibly marked as the student's work.</p></article>
+          <article><i>4</i><strong>The desk</strong><p>Inky works on the assignment page, then stops at the final decision. Buttons: "I'll submit" and "Submit it for me."</p></article>
+        </div>
+        <div class="grid" style="margin-top:16px">
+          <article class="card wide coral"><span class="label replace">Remove</span><h3>"This week" in the desktop title bar</h3><p>The week board can still be the content. The chrome should read as a desktop app, with Studi, Inky's desk state, and the signed-in person.</p></article>
+          <article class="card wide mint"><span class="label settled">Fix</span><h3>Use the real Inky icon component</h3><p>Render an inline SVG or the same imported asset as <code>InkyMascot</code>. Do not depend on a root-relative CSS background for the dock icon.</p></article>
+        </div>
+      </section>
+
+      <section id="packages">
+        <span class="label">09 · Ordered work packages</span>
+        <h2>Build account truth first, then hang pages from it.</h2>
+        <div class="packages">
+          <details open><summary><span class="wp">WP-01</span><span>Clerk configuration and route foundation</span><span class="meta">blocks everything</span></summary><div class="body"><div><h3>Build</h3><ul><li>Run Clerk integration health checks.</li><li>Add public-first Next middleware or proxy rules.</li><li>Add branded sign-in and invited sign-up routes.</li><li>Enable Clerk waitlist mode in the development instance.</li></ul></div><div><h3>Done when</h3><ul class="checklist"><li>Root and mission stay public.</li><li>Account pages redirect signed-out visitors.</li><li>API and webhook matchers are explicit.</li><li>No secret appears in browser code.</li></ul></div></div></details>
+          <details open><summary><span class="wp">WP-02</span><span>Clerk waitlist and legacy migration</span><span class="meta">after WP-01</span></summary><div class="body"><div><h3>Build</h3><ul><li>Replace the Convex mutation in <code>WaitlistForm</code> with Clerk's custom <code>useWaitlist</code> flow.</li><li>Preserve inline success, error, duplicate, and offline states.</li><li>Decide and run a controlled one-time import for existing addresses.</li></ul></div><div><h3>Done when</h3><ul class="checklist"><li>One email creates one Clerk waitlist entry.</li><li>The UI never implies an invite was sent when it was not.</li><li>Keyboard and screen-reader status feedback work.</li></ul></div></div></details>
+          <details open><summary><span class="wp">WP-03</span><span>Account projection and verified webhooks</span><span class="meta">after WP-01</span></summary><div class="body"><div><h3>Build</h3><ul><li>Add signed Clerk webhook handling.</li><li>Add idempotent event receipts.</li><li>Consolidate account, approval, and entitlement reads behind one Convex contract.</li><li>Migrate current beta/supporter data without releasing active devices.</li></ul></div><div><h3>Done when</h3><ul class="checklist"><li>A replay changes nothing.</li><li>A forged webhook fails.</li><li>Web and Electron see the same plan and access result.</li><li>User deletion revokes cloud access safely.</li></ul></div></div></details>
+          <details open><summary><span class="wp">WP-04</span><span>Dashboard, settings, and billing</span><span class="meta">after WP-03</span></summary><div class="body"><div><h3>Build</h3><ul><li>Create the account shell and compact dashboard.</li><li>Add settings with Clerk <code>UserProfile</code> or a thin custom shell around supported account pages.</li><li>Add Clerk Billing for users, a pricing/plan view, and subscription management.</li><li>Pin compatible Clerk packages while Billing is changing quickly.</li></ul></div><div><h3>Done when</h3><ul class="checklist"><li>Approved, waiting, past-due, and device-conflict states each have one clear action.</li><li>Payment details stay inside Clerk.</li><li>Plan changes reach Electron through Convex.</li></ul></div></div></details>
+          <details open><summary><span class="wp">WP-05</span><span>Desktop connect and PKCE proof</span><span class="meta">after WP-03</span></summary><div class="body"><div><h3>Build</h3><ul><li>Register the <code>studi://</code> protocol for packaged Windows builds.</li><li>Add <code>/connect/desktop</code> with open, download, and retry states.</li><li>Make loopback redirect configuration explicit per environment.</li><li>Keep verifier, token exchange, and identity validation in Electron.</li></ul></div><div><h3>Done when</h3><ul class="checklist"><li>A signed-in web user opens Studi and completes OAuth.</li><li>Wrong state, nonce, redirect, replay, and expired code fail.</li><li>A second desktop gets the existing device-conflict state.</li></ul></div></div></details>
+          <details open><summary><span class="wp">WP-06</span><span>Landing navigation and demo rewrite</span><span class="meta">can follow WP-01</span></summary><div class="body"><div><h3>Build</h3><ul><li>Port the floating island nav and authentication-aware actions.</li><li>Replace the first two desktop demo beats with the approved script.</li><li>Remove "This week" from the mock desktop title bar.</li><li>Render the dock/title icon from a reliable imported or inline asset.</li></ul></div><div><h3>Done when</h3><ul class="checklist"><li>The demo works by click, autoplay, keyboard, reduced motion, and mobile.</li><li>The nav never covers the hero form.</li><li>No broken icon request appears.</li></ul></div></div></details>
+        </div>
+      </section>
+
+      <section id="verification">
+        <span class="label">10 · Verification</span>
+        <h2>Prove the seams, not just the pages.</h2>
+        <div class="grid">
+          <article class="card"><h3>Unit and contract</h3><ul><li>Waitlist states and validation.</li><li>Route protection.</li><li>Webhook signatures and replay safety.</li><li>Account projection transitions.</li></ul></article>
+          <article class="card"><h3>PKCE boundary</h3><ul><li>Keep current entropy and S256 tests.</li><li>Add redirect allowlist and fixed-port behavior.</li><li>Prove wrong state, wrong nonce, reuse, timeout, and revoked refresh token.</li></ul></article>
+          <article class="card"><h3>Browser pass</h3><ul><li>Public landing and mobile nav.</li><li>Join, sign in, waiting dashboard, approved dashboard.</li><li>Settings and billing in Clerk's development gateway.</li></ul></article>
+          <article class="card full yellow"><h3>Studi feature pass</h3><p>Use the project's <code>test-studi</code> skill for the packaged Electron handoff. Reuse the dedicated QA profile. Never use the everyday Studi profile, never expose the authorization URL, and stop before a real school submission.</p></article>
+        </div>
+      </section>
+
+      <section id="release">
+        <span class="label">11 · Release gate</span>
+        <h2>Ship only when these statements are true.</h2>
+        <div class="grid">
+          <article class="card wide mint"><h3>Account truth</h3><ul class="checklist"><li>Clerk is the only live waitlist.</li><li>Every dashboard and Electron access state agrees.</li><li>Billing webhooks are verified and idempotent.</li><li>Legacy beta users keep their access and device binding.</li></ul></article>
+          <article class="card wide sky"><h3>Auth boundary</h3><ul class="checklist"><li>Electron contains no OAuth client secret.</li><li>PKCE is required in Clerk.</li><li>The exact loopback redirect works in development and packaged Windows.</li><li>The landing does not place Clerk tokens in a deep link or URL.</li></ul></article>
+          <article class="card wide yellow"><h3>Visible product</h3><ul class="checklist"><li>Floating island nav matches the approved design.</li><li>Signed-in and signed-out nav states are clear.</li><li>The Inky introduction uses the new script.</li><li>"This week" is gone from the title bar and the app icon renders.</li></ul></article>
+          <article class="card wide lavender"><h3>Operations</h3><ul class="checklist"><li>Development and production Clerk settings are documented separately.</li><li>Webhook secret and production keys live only in deployment secrets.</li><li>A rollback can disable billing projection without blocking existing beta users.</li><li>Support can identify waiting, approved, past-due, and device-conflict accounts.</li></ul></article>
+        </div>
+      </section>
+
+      <section id="sources">
+        <span class="label">12 · Primary references checked</span>
+        <h2>Clerk behavior used by this plan.</h2>
+        <div class="source-list">
+          <a href="https://clerk.com/docs/nextjs/reference/components/authentication/waitlist">Clerk Next.js waitlist component and access mode</a>
+          <a href="https://clerk.com/docs/guides/development/custom-flows/authentication/waitlist">Clerk custom waitlist flow with useWaitlist</a>
+          <a href="https://clerk.com/docs/nextjs/guides/billing/for-b2c">Clerk Billing for individual users</a>
+          <a href="https://clerk.com/docs/reference/components/billing/pricing-table">Clerk PricingTable component</a>
+          <a href="https://clerk.com/docs/nextjs/guides/development/webhooks/billing">Clerk Billing webhook events</a>
+          <a href="https://clerk.com/docs/guides/configure/auth-strategies/oauth/how-clerk-implements-oauth">Clerk public OAuth clients and PKCE</a>
+          <a href="https://clerk.com/docs/guides/customizing-clerk/adding-items/user-profile">Clerk UserProfile pages and links</a>
+        </div>
+      </section>
+    </main>
+  </div>
+  <footer>Studi account plan · prepared from the current repository and current Clerk documentation</footer>
+</body>
+</html>

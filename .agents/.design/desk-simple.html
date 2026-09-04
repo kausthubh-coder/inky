@@ -1,0 +1,721 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — IBM Sorting Machine</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    input[name="state"],
+    #open {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+    }
+
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      height: 46px;
+      padding: 0 16px 0 18px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 94%);
+    }
+    .wordmark { font-size: 20px; font-weight: 800; text-decoration: none; }
+    .bar .inky { width: 28px; height: 28px; margin-left: 8px; }
+    .end { margin-left: auto; }
+    .you {
+      display: grid;
+      width: 26px;
+      height: 26px;
+      place-items: center;
+      border: 1.5px solid var(--ink);
+      border-radius: 50%;
+      background: var(--pink);
+      font-size: 11px;
+      font-weight: 900;
+      text-decoration: none;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 400px;
+      height: calc(100vh - 46px);
+    }
+
+    .ghost {
+      min-width: 0;
+      padding: 22px 18px 56px 22px;
+      opacity: 0.28;
+      pointer-events: none;
+      user-select: none;
+    }
+    .ghost .kicker { margin-bottom: 8px; }
+    .ghost h1 {
+      margin-bottom: 14px;
+      font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+    }
+    .week-ghost {
+      margin: 0;
+      padding: 0;
+      max-width: none;
+      gap: 10px;
+    }
+    .week-ghost article { min-height: 210px; }
+    .week-ghost article:first-child {
+      background: rgb(255 242 181 / 40%);
+    }
+    .week-ghost em {
+      display: block;
+      margin-top: 8px;
+      color: #b8ad9c;
+      font-size: 11px;
+      font-style: normal;
+      font-weight: 800;
+    }
+
+    .rail {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      padding: 10px 14px 58px;
+      border-left: 2px solid var(--ink);
+      background:
+        linear-gradient(180deg, #fffdf8 0 72px, transparent 140px),
+        var(--paper-2);
+      box-shadow: -8px 0 24px rgba(28, 22, 18, 0.06);
+    }
+
+    .states {
+      display: flex;
+      gap: 1px;
+      margin: 0 0 8px -2px;
+    }
+    .states label {
+      padding: 2px 7px;
+      border-radius: 999px;
+      color: #b4aa9e;
+      font-size: 10px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .states label:hover { color: var(--ink-faint); background: rgb(253 240 184 / 45%); }
+    body:has(#s-peek:checked) label[for="s-peek"],
+    body:has(#s-work:checked) label[for="s-work"],
+    body:has(#s-chat:checked) label[for="s-chat"],
+    body:has(#s-take:checked) label[for="s-take"] {
+      color: var(--ink);
+      background: var(--sticky);
+    }
+
+    .meta {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .meta p {
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .meta p b { color: var(--ink); font-weight: 800; }
+    .close {
+      flex: 0 0 auto;
+      width: 26px;
+      height: 26px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1;
+      text-decoration: none;
+    }
+    .close:hover { color: var(--ink); background: var(--sticky); border-radius: 50%; }
+
+    .offer {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      min-height: 0;
+      padding: 8px 6px 18px;
+    }
+    .offer .inky { width: 92px; height: 92px; }
+    .go {
+      width: 100%;
+      min-height: 76px;
+      padding: 16px 14px;
+      border: 2.5px solid var(--ink);
+      border-radius: 22px 16px 24px 18px;
+      background: var(--sunny);
+      box-shadow: 4px 4px 0 var(--ink);
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.45rem;
+      font-weight: 800;
+      line-height: 1.1;
+      rotate: -1.2deg;
+    }
+    .go:hover { translate: 1px 1px; box-shadow: 3px 3px 0 var(--ink); }
+
+    .frame {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+      border: 2.5px solid var(--ink);
+      border-radius: 18px 14px 20px 16px;
+      background: #fff;
+      box-shadow: 3px 4px 0 rgba(28, 22, 18, 0.12);
+    }
+    .chrome {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 8px 7px 6px;
+      border-bottom: 1.5px dashed #d2c6b4;
+      background: #fffaf0;
+    }
+    .chrome .inky { width: 28px; height: 28px; flex: 0 0 28px; }
+    .live {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      background: #dff4e9;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.02em;
+    }
+    .live i {
+      width: 7px;
+      height: 7px;
+      border: 1px solid var(--ink);
+      border-radius: 50%;
+      background: #2f9e62;
+      box-shadow: 0 0 0 3px rgb(47 158 98 / 18%);
+      animation: pulse 1.8s var(--ease) infinite;
+      font-style: normal;
+    }
+    .take {
+      margin-left: auto;
+      padding: 4px 9px;
+      border: 1.5px solid var(--ink);
+      border-radius: var(--pill);
+      background: #ffd4c8;
+      box-shadow: 1.5px 1.5px 0 var(--ink);
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .take:hover { translate: 1px 1px; box-shadow: 0.5px 0.5px 0 var(--ink); }
+    .expand {
+      padding: 4px 8px;
+      border: 0;
+      background: transparent;
+      color: var(--ink-soft);
+      font-size: 11px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+    .expand:hover { color: var(--ink); }
+
+    .school {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      color: #243247;
+      background: #f4f7fb;
+      font-family: "Nunito Sans", system-ui, sans-serif;
+    }
+    .school > header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      height: 40px;
+      padding: 0 12px;
+      color: #fff;
+      background: #243b66;
+    }
+    .school > header strong {
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+    }
+    .school > header span { flex: 1; font-size: 10px; opacity: 0.75; }
+    .school > header b {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      border-radius: 50%;
+      background: #f6c945;
+      color: #243247;
+      font-size: 10px;
+    }
+    .school > nav {
+      display: flex;
+      gap: 14px;
+      padding: 7px 12px;
+      border-bottom: 1px solid #cad3df;
+      background: #fff;
+      color: #5b6b82;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .school > nav em {
+      color: #243b66;
+      font-style: normal;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .school > main { padding: 12px 12px 28px; }
+    .school > main > p {
+      margin: 0 0 2px;
+      color: #64748b;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .school > main > h2 {
+      margin: 0 0 3px;
+      color: #243247;
+      font-family: "Nunito Sans", sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+    .school > main > small {
+      display: block;
+      margin-bottom: 10px;
+      color: #7b889c;
+      font-size: 10px;
+      font-weight: 800;
+    }
+    .q {
+      padding: 9px 10px;
+      border: 1px solid #cad3df;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .q p { margin: 0 0 8px; color: #334155; font-size: 11px; font-weight: 700; }
+    .box {
+      min-height: 44px;
+      padding: 7px 8px;
+      border: 1px solid #9cabc0;
+      border-radius: 4px;
+      color: #243247;
+      background: #fbfcfe;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .q + .q { margin-top: 8px; opacity: 0.55; }
+
+    .pointer {
+      position: absolute;
+      z-index: 2;
+      width: 16px;
+      height: 20px;
+      filter: drop-shadow(1px 1px 0 rgb(28 22 18 / 35%));
+      animation: roam 9s var(--ease) infinite;
+      pointer-events: none;
+    }
+    .pointer path {
+      fill: #fff;
+      stroke: #1c1612;
+      stroke-width: 1.7;
+      stroke-linejoin: round;
+    }
+
+    .dock {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 0 0 auto;
+      padding-top: 10px;
+    }
+    .bubbles { display: none; grid-gap: 6px; }
+    .say {
+      max-width: 88%;
+      padding: 7px 11px;
+      border: 1.5px solid var(--ink);
+      border-radius: 14px 16px 16px 5px;
+      background: #fff;
+      box-shadow: 1.5px 1.5px 0 rgba(28, 22, 18, 0.08);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .say.me {
+      justify-self: end;
+      border-radius: 16px 14px 5px 16px;
+      background: var(--sunny);
+    }
+
+    .ask {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+    }
+    .ask input {
+      height: 38px;
+      border: 0;
+      border-bottom: 2px solid var(--ink);
+      border-radius: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .ask input:focus { outline: none; }
+    .ask button {
+      width: 34px;
+      height: 34px;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--sunny);
+      box-shadow: 2px 2px 0 var(--ink);
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .ask button:hover { translate: 1px 1px; box-shadow: 1px 1px 0 var(--ink); }
+
+    .sheet {
+      display: none;
+      grid-template-rows: auto minmax(0, 1fr);
+      grid-column: 1;
+      grid-row: 1;
+      z-index: 6;
+      min-height: 0;
+      margin: 14px 16px 20px 16px;
+      overflow: hidden;
+      border: 2.5px solid var(--ink);
+      border-radius: 22px 16px 24px 18px;
+      background: var(--paper-2);
+      box-shadow:
+        5px 7px 0 rgba(28, 22, 18, 0.16),
+        0 18px 40px rgba(28, 22, 18, 0.1);
+      rotate: -0.35deg;
+    }
+    .sheet-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 12px;
+      border-bottom: 1.5px dashed #d2c6b4;
+      background: #fffaf0;
+    }
+    .sheet-bar .inky { width: 32px; height: 32px; }
+    .sheet-bar p {
+      flex: 1;
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .back-page {
+      padding: 5px 11px;
+      border: 1.5px solid var(--ink);
+      border-radius: var(--pill);
+      background: var(--sticky);
+      box-shadow: 1.5px 1.5px 0 var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .back-page:hover { translate: 1px 1px; box-shadow: 0.5px 0.5px 0 var(--ink); }
+    .sheet .school { border-radius: 0 0 16px 12px; }
+    .sheet .school > header { height: 52px; padding: 0 20px; }
+    .sheet .school > header strong { font-size: 16px; }
+    .sheet .school > nav { gap: 22px; padding: 10px 20px; font-size: 12px; }
+    .sheet .school > main { padding: 22px 24px 36px; }
+    .sheet .school > main > h2 { font-size: 24px; }
+    .sheet .school > main > p { font-size: 11px; }
+    .sheet .q p { font-size: 13px; }
+    .sheet .box { min-height: 72px; font-size: 13px; }
+    .sheet .pointer { width: 18px; height: 22px; }
+
+    body:has(#s-peek:checked) .offer { display: flex; }
+    body:has(#s-work:checked) .frame,
+    body:has(#s-chat:checked) .frame,
+    body:has(#s-take:checked) .frame { display: flex; }
+    body:has(#s-work:checked) .one,
+    body:has(#s-chat:checked) .three { display: grid; }
+
+    body:has(#s-take:checked) .live {
+      background: var(--sticky);
+    }
+    body:has(#s-take:checked) .live i {
+      background: var(--sunny);
+      animation: none;
+    }
+    body:has(#s-take:checked) .for-inky,
+    body:has(#s-peek:checked) .for-inky,
+    body:has(#s-work:checked) .for-you,
+    body:has(#s-chat:checked) .for-you { display: none; }
+    body:has(#s-take:checked) .pointer,
+    body:has(#s-peek:checked) .pointer { display: none; }
+
+    body:has(#open:checked) .sheet { display: grid; }
+    body:has(#open:checked) .ghost { opacity: 0.08; }
+    body:has(#open:checked) .rail {
+      opacity: 0.4;
+      filter: saturate(0.65);
+      pointer-events: none;
+    }
+    body:has(#s-peek:checked):has(#open:checked) .sheet { display: none; }
+    body:has(#s-peek:checked):has(#open:checked) .rail {
+      opacity: 1;
+      filter: none;
+      pointer-events: auto;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgb(47 158 98 / 18%); }
+      50% { box-shadow: 0 0 0 6px rgb(47 158 98 / 0%); }
+    }
+    @keyframes roam {
+      0%, 100% { translate: 58px 132px; }
+      28% { translate: 168px 158px; }
+      52% { translate: 96px 198px; }
+      76% { translate: 210px 146px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .live i, .pointer { animation: none; }
+      .pointer { translate: 96px 158px; }
+    }
+
+    @media (max-width: 820px) {
+      body { overflow: auto; }
+      .stage { grid-template-columns: 1fr; height: auto; min-height: calc(100vh - 46px); }
+      .ghost { display: none; }
+      .rail { border-left: 0; min-height: calc(100vh - 46px); }
+      .sheet {
+        position: fixed;
+        inset: 56px 10px 12px;
+        grid-column: auto;
+        margin: 0;
+      }
+      body:has(#open:checked) .rail { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <input id="s-peek" type="radio" name="state" />
+  <input id="s-work" type="radio" name="state" checked />
+  <input id="s-chat" type="radio" name="state" />
+  <input id="s-take" type="radio" name="state" />
+  <input id="open" type="checkbox" />
+
+  <a class="back" href="index.html">← All designs</a>
+
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+      <g class="body">
+        <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+        <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+        <g class="eyes">
+          <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+          <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+          <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+          <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+        </g>
+        <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+      </g>
+    </svg>
+    <div class="end">
+      <a class="you" href="settings-sidebar.html">K</a>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="ghost" aria-hidden="true">
+      <p class="kicker">This week</p>
+      <h1>Thursday</h1>
+      <div class="week-ghost">
+        <article><strong>Thu</strong><i></i><em>IBM Sorting Machine</em></article>
+        <article><strong>Fri</strong><i></i><em>Quiz 4</em></article>
+        <article><strong>Sat</strong></article>
+        <article><strong>Sun</strong></article>
+        <article><strong>Mon</strong><i></i><em>Project 2</em></article>
+      </div>
+    </section>
+
+    <aside class="rail" aria-label="Assignment">
+      <nav class="states" aria-label="Desk state">
+        <label for="s-peek">Peek</label>
+        <label for="s-work">Working</label>
+        <label for="s-chat">Chat</label>
+        <label for="s-take">Takeover</label>
+      </nav>
+
+      <div class="meta">
+        <p>CSC 316 · <b>IBM Sorting Machine</b> · tonight</p>
+        <a class="close" href="#" aria-label="Close">×</a>
+      </div>
+
+      <div class="offer">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <g class="eyes">
+              <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+              <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+              <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+              <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+            </g>
+            <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+          </g>
+        </svg>
+        <button class="go" type="button">Make Inky do this</button>
+      </div>
+
+      <article class="frame" aria-label="School page">
+        <div class="chrome">
+          <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+            <g class="body">
+              <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+              <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g class="eyes">
+                <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+                <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+              </g>
+              <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+            </g>
+          </svg>
+          <span class="live for-inky"><i></i>Inky is clicking</span>
+          <span class="live for-you"><i></i>You’re on it</span>
+          <button class="take for-inky" type="button">I’ll take over</button>
+          <button class="take for-you" type="button">Give it back to Inky</button>
+          <label class="expand" for="open">Expand</label>
+        </div>
+
+        <div class="school">
+          <header>
+            <strong>Northstar University</strong>
+            <span>student</span>
+            <b>K</b>
+          </header>
+          <nav>
+            <span>Home</span>
+            <em>Courses</em>
+            <span>Calendar</span>
+            <span>Grades</span>
+          </nav>
+          <main>
+            <p>CSC 316 · Homework 3</p>
+            <h2>IBM Sorting Machine</h2>
+            <small>Tonight · 20 points</small>
+            <div class="q">
+              <p>1. Feed these keys through the machine: 17, 4, 22, 9, 11. Show each pass.</p>
+              <div class="box">Pass 1 — 4 is already home.</div>
+            </div>
+            <div class="q">
+              <p>2. How many comparisons does one full sort take?</p>
+              <div class="box">Write your answer here</div>
+            </div>
+          </main>
+          <svg class="pointer" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 3 L5 18.5 L9.2 14.2 L12.4 21.2 L15.2 20 L12.1 13.2 L19 13.2 Z"/>
+          </svg>
+        </div>
+      </article>
+
+      <div class="dock">
+        <div class="bubbles one">
+          <p class="say">I’m on the page.</p>
+        </div>
+        <div class="bubbles three">
+          <p class="say">I’m on the page.</p>
+          <p class="say me">Don’t submit yet.</p>
+          <p class="say">I won’t. Writing the first pass.</p>
+        </div>
+        <form class="ask" action="javascript:void(0)">
+          <label class="visually-hidden" for="say">Ask Inky about this</label>
+          <input id="say" name="say" placeholder="Ask Inky about this…" maxlength="400" />
+          <button type="submit" aria-label="Send">↑</button>
+        </form>
+      </div>
+    </aside>
+
+    <section class="sheet" aria-label="School page, bigger">
+      <div class="sheet-bar">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <g class="eyes">
+              <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+              <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+              <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+              <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+            </g>
+            <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+          </g>
+        </svg>
+        <p>Northstar · IBM Sorting Machine</p>
+        <label class="back-page" for="open">Give it back</label>
+      </div>
+      <div class="school">
+        <header>
+          <strong>Northstar University</strong>
+          <span>student</span>
+          <b>K</b>
+        </header>
+        <nav>
+          <span>Home</span>
+          <em>Courses</em>
+          <span>Calendar</span>
+          <span>Grades</span>
+        </nav>
+        <main>
+          <p>CSC 316 · Homework 3</p>
+          <h2>IBM Sorting Machine</h2>
+          <small>Tonight · 20 points</small>
+          <div class="q">
+            <p>1. Feed these keys through the machine: 17, 4, 22, 9, 11. Show each pass.</p>
+            <div class="box">Pass 1 — 4 is already home. Hopper still holds 17, 22, 9, 11.</div>
+          </div>
+          <div class="q">
+            <p>2. How many comparisons does one full sort take? Why?</p>
+            <div class="box">Write your answer here</div>
+          </div>
+        </main>
+        <svg class="pointer" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 3 L5 18.5 L9.2 14.2 L12.4 21.2 L15.2 20 L12.1 13.2 L19 13.2 Z"/>
+        </svg>
+      </div>
+    </section>
+  </main>
+  <script>
+    const pick = { peek: "s-peek", working: "s-work", chat: "s-chat", takeover: "s-take" }[location.hash.slice(1).replace(/\/expand$/, "")];
+    if (pick) document.getElementById(pick).checked = true;
+    if (/expand/.test(location.hash)) document.getElementById("open").checked = true;
+  </script>
+</body>
+</html>

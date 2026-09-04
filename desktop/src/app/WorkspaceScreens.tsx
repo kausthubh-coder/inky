@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   classifyAgentRuntimeAttention,
@@ -8,6 +8,7 @@ import {
   type ConnectedAppConnection,
   type ConnectedAppsState,
   type DiagnosticsExportReceipt,
+  type Entitlement,
   type LibraryState,
   type LifecycleState,
   type NotificationKind,
@@ -15,6 +16,7 @@ import {
   type NotificationSoundId,
   type NotificationTestReceipt,
   type PermissionMode,
+  type PermissionRule,
   type ProductSettingsState,
   type RuntimeInfo,
   type SchoolOnboardingState,
@@ -23,11 +25,20 @@ import {
   type TaskDetail,
   type TaskSummary,
   type TelemetryState,
+  type UsageState,
 } from "../../shared/index.js";
-import { DeskDrawer, deskInkyState, type DeskPanel } from "./DeskScreen.js";
+import { DeskDrawer, deskInkyState, taskStatusCopy, type DeskPanel } from "./DeskScreen.js";
 import { Inky } from "./Inky.js";
 import { readDevPreviewConfig } from "./devPreview.js";
-import { AppChrome, type AppScreen, Field, PaperCard, RuntimeAttentionBanner, StatusPill, TelemetryControls, formatDateTime } from "./Ui.js";
+import { AppChrome, type AppScreen, type SettingsLanding, Field, PaperCard, RuntimeAttentionBanner, StatusPill, TelemetryControls, formatDateTime } from "./Ui.js";
+
+type SettingsGroup = "inky" | "school" | "you";
+
+function settingsGroup(section?: "inky" | "school" | "privacy" | "account"): SettingsGroup {
+  if (section === "privacy" || section === "account") return "you";
+  if (section === "school") return "school";
+  return "inky";
+}
 
 type SaveRuleInput =
   | { ruleId?: string; scope: "global"; mode: PermissionMode }
@@ -37,12 +48,13 @@ type SaveRuleInput =
 
 export interface ChromeProps {
   screen: AppScreen;
+  settingsLanding: SettingsLanding;
   studentName: string;
-  status: string;
   deskOpen: boolean;
   deskBusy: boolean;
-  onNavigate: (screen: AppScreen) => void;
+  onNavigate: (screen: AppScreen, landing?: SettingsLanding) => void;
   onOpenDesk: () => void;
+  onSignOut: () => void;
 }
 
 export function DashboardScreen({
@@ -143,13 +155,13 @@ export function DashboardScreen({
             <div>
               <p className="eyebrow">Your week</p>
               <h1>Hey {chrome.studentName} — {dueToday === 0 ? "you’re clear today." : `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today.`}</h1>
-              <p>Everything here comes from school pages Studi actually checked.</p>
+              <p>I checked these on the school pages.</p>
             </div>
           </div>
           <div className="freshness">
             <div className="sync-status">
-              <StatusPill tone={scan?.state === "succeeded" ? "mint" : "yellow"}>{scan?.state ?? "not scanned"}</StatusPill>
-              <span>{scan?.completedAt ? `checked ${formatDateTime(scan.completedAt)}` : "first scan incomplete"}</span>
+              <StatusPill tone={scan?.state === "succeeded" ? "mint" : scan?.state === "failed" ? "coral" : "yellow"}>{scanStatusCopy(scan?.state)}</StatusPill>
+              <span>{scan?.completedAt ? `checked ${formatDateTime(scan.completedAt)}` : "haven’t looked yet"}</span>
               <button className="sync-now" onClick={onScanAgain} disabled={busy !== null} aria-label="Scan school again">↻</button>
             </div>
           </div>
@@ -166,11 +178,11 @@ export function DashboardScreen({
         </form>
         {managerReply && panel.kind === "closed" && <PaperCard tone="lavender" className="manager-reply"><p className="eyebrow">Inky</p><p>{managerReply}</p></PaperCard>}
 
-        <section className="week-section">
+        <section className="week-section" data-studi-week-board="true">
           <div className="section-title">
             <div><h2>This week</h2></div>
             <div className="week-tools">
-              <span>{verified.length} verified assignment{verified.length === 1 ? "" : "s"}</span>
+              <span>{verified.length === 0 ? "Nothing from school yet" : `${verified.length} from school`}</span>
               <button className="quiet-button" type="button" onClick={() => setNoteOpen((open) => !open)}>{noteOpen ? "Hide note" : "Something look wrong?"}</button>
             </div>
           </div>
@@ -187,7 +199,7 @@ export function DashboardScreen({
                 <section className={`day-column ${index === 0 ? "is-today" : ""}`} key={day.key}>
                   <header><strong>{day.label}</strong><small>{index === 0 ? "today" : day.date}</small></header>
                   <div className="day-stack">
-                    {items.length === 0 ? <p className="empty-day"><span aria-hidden="true">〰</span>No verified deadlines</p> : items.map((assignment) => {
+                    {items.length === 0 ? <p className="empty-day"><span aria-hidden="true">〰</span>Nothing due</p> : items.map((assignment) => {
                       const task = taskByAssignment.get(assignment.assignmentId);
                       const course = courseLabel(onboarding, assignment.courseId);
                       const selected = (panel.kind === "assignment" && panel.assignmentId === assignment.assignmentId)
@@ -199,7 +211,7 @@ export function DashboardScreen({
               );
             })}
           </div>
-          {verified.length === 0 && <PaperCard tone="yellow" className="empty-state"><p className="eyebrow">Nothing checked yet</p><h3>No verified assignments yet.</h3><p>{scan?.state === "succeeded" ? "The completed scan did not find assignment evidence. Check your school page or tell Studi what may be missing." : "Finish the visible school scan before Studi can populate your week."}</p></PaperCard>}
+          {verified.length === 0 && <PaperCard className="empty-state"><p className="eyebrow">Nothing here yet</p><h3>I haven’t found homework on the school pages.</h3><p>{scan?.state === "succeeded" ? "I looked, and nothing showed up. Check the school page or tell me what I missed." : "Let me look through school first."}</p></PaperCard>}
         </section>
         {error && panel.kind === "closed" && <p className="error-note" role="alert">{error}</p>}
       </div>
@@ -233,14 +245,24 @@ export function DashboardScreen({
 }
 
 function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, selected, onAssignment }: { assignmentId: string; item?: TaskSummary; title: string; dueAt?: string; course: string; tone: number; selected: boolean; onAssignment: (assignmentId: string) => void }) {
+  const status = item ? taskStatusCopy(item.task.state) : null;
   return (
     <button className={`assignment-card course-accent-${tone} ${selected ? "is-selected" : ""}`} onClick={() => onAssignment(assignmentId)}>
       <small>{course}</small>
       <strong>{title}</strong>
       <span>{dueAt ? new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(dueAt)) : "No time"}</span>
-      {item && <StatusPill tone={item.task.state === "submitted" || item.task.state === "preserved" ? "mint" : item.task.state === "needs_user" || item.task.state === "ready_review" ? "coral" : "plain"}>{item.task.state.replace("_", " ")}</StatusPill>}
+      {status && <StatusPill tone={status.tone}>{status.label}</StatusPill>}
     </button>
   );
+}
+
+function scanStatusCopy(state?: string): string {
+  if (state === "succeeded") return "Checked";
+  if (state === "running") return "Looking";
+  if (state === "partial") return "Some pages";
+  if (state === "failed") return "Stuck";
+  if (state === "needs_user") return "Need you";
+  return "Not yet";
 }
 
 const NOTIFICATION_ROWS: ReadonlyArray<{ kind: NotificationKind; label: string; hint: string }> = [
@@ -279,9 +301,9 @@ function NotificationSettings({
   };
 
   return (
-    <PaperCard tone="pink" className="settings-card settings-card--wide">
-      <p className="eyebrow">Inky pings</p>
-      <h2>Let Inky ping you</h2>
+    <PaperCard className="settings-card settings-card--wide">
+      <p className="eyebrow">Nudges</p>
+      <h2>When I should tap you</h2>
       <label className="toggle-row">
         <input
           type="checkbox"
@@ -290,7 +312,7 @@ function NotificationSettings({
           onChange={(event) => update({ ...preferences, enabled: event.target.checked })}
         />
         <span>
-          <strong>Let Inky ping you</strong>
+          <strong>Let me tap you</strong>
           <small>Banners can pop up even while Studi is already open.</small>
         </span>
       </label>
@@ -352,8 +374,85 @@ function NotificationSettings({
   );
 }
 
+function UsageCard({ entitlement, usage }: { entitlement: Entitlement | null; usage: UsageState | null }) {
+  if (!usage) {
+    return (
+      <PaperCard className="settings-card usage-card" id="usage-settings">
+        <div className="usage-heading">
+          <div>
+            <p className="eyebrow">Usage</p>
+            <h2>{entitlement?.plan === "supporter" ? "Supporter" : "Private beta"}</h2>
+          </div>
+          <span className="usage-plan">Offline</span>
+        </div>
+        <p>Connect to the internet and I’ll show your latest totals here.</p>
+      </PaperCard>
+    );
+  }
+
+  const remaining = Math.max(0, usage.tokenAllowance - usage.totalTokens);
+  const percentage = Math.min(100, Math.round((usage.totalTokens / usage.tokenAllowance) * 100));
+  const maximumDay = Math.max(1, ...usage.days.map((day) => day.tokens));
+  const month = new Date(`${usage.period}-01T00:00:00.000Z`).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+
+  return (
+    <PaperCard className="settings-card usage-card" id="usage-settings">
+      <div className="usage-heading">
+        <div>
+          <p className="eyebrow">{month} usage</p>
+          <h2>{formatTokenCount(usage.totalTokens)} tokens</h2>
+        </div>
+        <span className="usage-plan">{usage.plan === "supporter" ? "Supporter" : "Private beta"}</span>
+      </div>
+      <div className="usage-meter" aria-label={`${percentage}% of this month's included tokens used`}>
+        <span style={{ width: `${percentage}%` }} />
+      </div>
+      <div className="usage-meter-copy">
+        <strong>{formatTokenCount(remaining)} left</strong>
+        <span>{formatTokenCount(usage.tokenAllowance)} included</span>
+      </div>
+
+      <div className="usage-breakdown" aria-label="Token breakdown">
+        <UsageNumber label="Input" value={usage.inputTokens} />
+        <UsageNumber label="Output" value={usage.outputTokens} />
+        <UsageNumber label="Cached" value={usage.cachedTokens} />
+      </div>
+
+      <div className="usage-chart-block">
+        <div className="usage-section-heading">
+          <strong>Tokens by day</strong>
+          <span>{usage.toolCalls.toLocaleString()} tool calls</span>
+        </div>
+        <div className="usage-chart" aria-label={`Daily token usage for ${month}`}>
+          {usage.days.map((day) => {
+            const height = day.tokens === 0 ? 4 : Math.max(10, Math.round((day.tokens / maximumDay) * 100));
+            const label = new Date(`${day.date}T00:00:00.000Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+            return <span key={day.date} title={`${label}: ${day.tokens.toLocaleString()} tokens`} style={{ "--usage-height": `${height}%` } as CSSProperties} />;
+          })}
+        </div>
+      </div>
+
+      <div className="usage-activity">
+        <span><strong>{usage.inkyTurns.toLocaleString()}</strong> Inky turns</span>
+        <span><strong>{usage.assignmentsWorked.toLocaleString()}</strong> assignments worked</span>
+      </div>
+      <p className="usage-privacy">Only these totals sync. Your prompts, answers, and school pages stay out of usage tracking.</p>
+    </PaperCard>
+  );
+}
+
+function UsageNumber({ label, value }: { label: string; value: number }) {
+  return <span><small>{label}</small><strong>{formatTokenCount(value)}</strong></span>;
+}
+
+function formatTokenCount(value: number): string {
+  return new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 }).format(value);
+}
+
 export function SettingsScreen({
   chrome,
+  entitlement,
+  usage,
   initialSection = "inky",
   settings,
   onboarding,
@@ -383,6 +482,8 @@ export function SettingsScreen({
   onFeedback,
 }: {
   chrome: ChromeProps;
+  entitlement: Entitlement | null;
+  usage: UsageState | null;
   initialSection?: "inky" | "school" | "privacy" | "account";
   settings: ProductSettingsState | null;
   onboarding: SchoolOnboardingState;
@@ -413,7 +514,7 @@ export function SettingsScreen({
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
-  const [section, setSection] = useState<"inky" | "school" | "privacy" | "account">(() => readDevPreviewConfig()?.settingsSection ?? initialSection);
+  const [section, setSection] = useState<SettingsGroup>(() => chrome.settingsLanding === "settings" ? settingsGroup(readDevPreviewConfig()?.settingsSection ?? initialSection) : "you");
   const [review, setReview] = useState(15);
   const [handoff, setHandoff] = useState(30);
   const [memory, setMemory] = useState<"none" | "selected" | "all">("selected");
@@ -428,6 +529,12 @@ export function SettingsScreen({
   const [note, setNote] = useState("");
   useEffect(() => { if (preferences) { setReview(preferences.reviewMinutes); setHandoff(preferences.handoffMinutes); setMemory(preferences.memoryVisibility); } }, [preferences]);
   useEffect(() => { if (schedule) { setCadence(schedule.cadence); setLocalTime(schedule.localTime); setWeekday(schedule.weekday ?? 1); } }, [schedule]);
+  useEffect(() => {
+    const targetId = chrome.settingsLanding === "usage" ? "usage-settings" : chrome.settingsLanding === "feedback" ? "feedback-settings" : null;
+    if (!targetId) return undefined;
+    const frame = window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [chrome.settingsLanding]);
   const saveRule = (event: FormEvent) => {
     event.preventDefault();
     if (scope === "global") onSaveRule({ scope, mode });
@@ -441,45 +548,47 @@ export function SettingsScreen({
       <AppChrome {...chrome} />
       <div className="page settings-page">
         <header className="page-hero compact settings-hero">
-          <div>
-            <p className="eyebrow">Your Studi</p>
-            <h1>Settings</h1>
-            <p>How Inky works for you. School passwords stay in the page you signed into.</p>
+          <div className="settings-greeting">
+            <Inky state="idle" size={64} label="Inky" />
+            <div>
+              <p className="eyebrow">Settings</p>
+              <h1>This is how I work for you.</h1>
+            </div>
           </div>
         </header>
         <nav className="settings-tabs" aria-label="Settings sections">
-          {([["inky", "Inky"], ["school", "School"], ["privacy", "Privacy"], ["account", "Account"]] as const).map(([id, label]) => (
+          {([["inky", "Inky"], ["school", "School"], ["you", "You"]] as const).map(([id, label]) => (
             <button className={section === id ? "is-active" : ""} type="button" key={id} onClick={() => setSection(id)}>{label}</button>
           ))}
         </nav>
 
         {section === "inky" && (
           <div className="settings-stack">
-            <PaperCard tone="mint" className="settings-card">
-              <p className="eyebrow">ChatGPT</p>
-              <h2>{workspace?.provider.providerName ?? "Inky’s brain"}</h2>
+            <PaperCard className="settings-card">
+              <p className="eyebrow">How I think</p>
+              <h2>{workspace?.provider.providerName ?? "ChatGPT"}</h2>
               <p>{workspace?.provider.reason}</p>
               <RuntimeAttentionBanner attention={classifyAgentRuntimeAttention(workspace?.provider)} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />
               <button className="button button--yellow" type="button" onClick={onConnectRuntime} disabled={busy !== null}>{workspace?.provider.state === "ready" ? "Use another ChatGPT" : "Connect ChatGPT"}</button>
               <div className="form-grid form-grid--two">
                 <Field label="Model"><select value={workspace?.selectedModelId ?? ""} onChange={(event) => onSelectAgentRuntime(event.target.value, workspace?.selectedReasoningEffort ?? "high")} disabled={!workspace || busy !== null}>{workspace?.models.map((model) => <option value={model.id} key={model.id}>{model.name}</option>)}</select></Field>
-                <Field label="How hard Inky thinks"><select value={workspace?.selectedReasoningEffort ?? "high"} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedModelId, event.target.value as AgentReasoningEffort)} disabled={!workspace || busy !== null}><option value="off">Off</option><option value="minimal">Minimal</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option></select></Field>
+                <Field label="How hard I think"><select value={workspace?.selectedReasoningEffort ?? "high"} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedModelId, event.target.value as AgentReasoningEffort)} disabled={!workspace || busy !== null}><option value="off">Off</option><option value="minimal">Minimal</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option></select></Field>
               </div>
               <small>New chats use the pair you save here.</small>
             </PaperCard>
-            <PaperCard tone="yellow" className="settings-card">
-              <p className="eyebrow">When Inky finishes</p>
-              <h2>Review and memory</h2>
+            <PaperCard className="settings-card">
+              <p className="eyebrow">When I finish</p>
+              <h2>Your look, then I wait</h2>
               <div className="form-grid form-grid--two">
                 <Field label="Minutes to look over answers"><input type="number" min={1} max={120} value={review} onChange={(event) => setReview(Number(event.target.value))} /></Field>
-                <Field label="Minutes Inky waits on the page"><input type="number" min={1} max={240} value={handoff} onChange={(event) => setHandoff(Number(event.target.value))} /></Field>
-                <Field label="What Inky may remember"><select value={memory} onChange={(event) => setMemory(event.target.value as typeof memory)}><option value="none">Nothing</option><option value="selected">Things you pick</option><option value="all">Everything saved</option></select></Field>
+                <Field label="Minutes I wait on the page"><input type="number" min={1} max={240} value={handoff} onChange={(event) => setHandoff(Number(event.target.value))} /></Field>
+                <Field label="What I may remember"><select value={memory} onChange={(event) => setMemory(event.target.value as typeof memory)}><option value="none">Nothing</option><option value="selected">Things you pick</option><option value="all">Everything saved</option></select></Field>
               </div>
               <button className="button button--yellow" disabled={busy !== null} onClick={() => onSavePreferences(review, handoff, memory)}>Save</button>
             </PaperCard>
-            <PaperCard tone="mint" className="settings-card">
+            <PaperCard className="settings-card">
               <p className="eyebrow">Connected apps</p>
-              <h2>Tools Inky can use</h2>
+              <h2>Tools I can use</h2>
               <p>Connections happen in your browser. Studi never receives the app password or provider token.</p>
               {!connectedApps && <small>Connected apps need an online Studi account.</small>}
               {connectedApps && !connectedApps.configured && <small>Connected apps are not configured on this Studi server.</small>}
@@ -504,22 +613,21 @@ export function SettingsScreen({
                 })}
               </div>
             </PaperCard>
-            <PaperCard tone="sky" className="settings-card">
+            <PaperCard className="settings-card">
               <p className="eyebrow">Homework folder</p>
-              <h2>Files Inky may use</h2>
-              <p>Inky can list, read, and write only inside the folder you choose. Shell commands stay unavailable because Studi does not yet have a proven Windows sandbox.</p>
+              <h2>The folder I may use</h2>
+              <p>I can list, read, and write only inside the folder you choose. Shell commands stay unavailable because Studi does not yet have a proven Windows sandbox.</p>
               <small data-homework-root>{preferences?.homeworkRoot ?? "No folder selected"}</small>
               <button className="button button--mint" type="button" disabled={busy !== null} onClick={onSelectHomeworkRoot}>Choose folder</button>
             </PaperCard>
-            <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />
           </div>
         )}
 
         {section === "school" && (
           <div className="settings-stack">
-            <PaperCard tone="sky" className="settings-card">
-              <p className="eyebrow">Check school</p>
-              <h2>Automatic look</h2>
+            <PaperCard className="settings-card">
+              <p className="eyebrow">Look schedule</p>
+              <h2>When I check school</h2>
               <div className="form-grid form-grid--two">
                 <Field label="How often"><select value={cadence} onChange={(event) => setCadence(event.target.value as typeof cadence)}><option value="manual">Only when I ask</option><option value="daily">Every day</option><option value="weekly">Every week</option></select></Field>
                 <Field label="Local time"><input type="time" value={localTime} onChange={(event) => setLocalTime(event.target.value)} /></Field>
@@ -528,37 +636,39 @@ export function SettingsScreen({
               <button className="button button--mint" disabled={busy !== null} onClick={() => onSchedule(cadence, localTime, cadence === "weekly" ? weekday : undefined)}>Save schedule</button>
               {schedule && <small>Next look: {schedule.nextRunAt ? formatDateTime(schedule.nextRunAt) : "only when you ask"}</small>}
             </PaperCard>
-            <PaperCard tone="coral" className="settings-card">
-              <p className="eyebrow">What Inky may try</p>
+            <PaperCard className="settings-card">
+              <p className="eyebrow">What I may try</p>
               <h2>Homework rules</h2>
               <form className="rule-form rule-form--stack" onSubmit={saveRule}>
                 <Field label="For"><select value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="global">Everything</option><option value="course">A class</option><option value="pattern">A pattern</option><option value="assignment">One assignment</option></select></Field>
                 {(scope === "course" || scope === "pattern") && <Field label="Class"><select value={courseId} onChange={(event) => setCourseId(event.target.value)}>{onboarding.courses.map((course) => <option key={course.courseId} value={course.courseId}>{course.label}</option>)}</select></Field>}
                 {scope === "assignment" && <Field label="Assignment"><select value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)}>{onboarding.assignments.map((assignment) => <option key={assignment.assignmentId} value={assignment.assignmentId}>{assignment.title}</option>)}</select></Field>}
                 {scope === "pattern" && <Field label="Pattern"><input value={patternId} onChange={(event) => setPatternId(event.target.value)} placeholder="weekly-problem-set" /></Field>}
-                <Field label="Inky may"><select value={mode} onChange={(event) => setMode(event.target.value as PermissionMode)}><option value="do_not_attempt">Don’t try it</option><option value="attempt">Try it, don’t submit</option><option value="auto_submit">Submit if that’s allowed</option></select></Field>
+                <Field label="I may"><select value={mode} onChange={(event) => setMode(event.target.value as PermissionMode)}><option value="do_not_attempt">Don’t try it</option><option value="attempt">Try it, don’t submit</option><option value="auto_submit">Submit if that’s allowed</option></select></Field>
                 <button className="button button--coral" disabled={busy !== null}>Add rule</button>
               </form>
               <div className="rules-list">
                 {settings?.permissionRules.map((rule) => (
                   <div key={rule.ruleId}>
                     <span>
-                      <strong>{rule.scope === "global" ? "Everything" : rule.scope}</strong>
-                      <small>{rule.mode.replaceAll("_", " ")} · {"courseId" in rule ? rule.courseId : "assignmentId" in rule ? rule.assignmentId : "all homework"}{"patternId" in rule ? ` · ${rule.patternId}` : ""}</small>
+                      <strong>{ruleScopeLabel(rule, onboarding)}</strong>
+                      <small>{ruleModeLabel(rule.mode)}</small>
                     </span>
                     <button className="quiet-button" onClick={() => onDeleteRule(rule.ruleId)}>Remove</button>
                   </div>
                 ))}
-                {(settings?.permissionRules.length ?? 0) === 0 && <small>No rules yet. Inky won’t start homework without one.</small>}
+                {(settings?.permissionRules.length ?? 0) === 0 && <small>No rules yet. I won’t start homework without one.</small>}
               </div>
             </PaperCard>
           </div>
         )}
 
-        {section === "privacy" && (
+        {section === "you" && (
           <div className="settings-stack">
+            <UsageCard entitlement={entitlement} usage={usage} />
+            <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />
             <TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onTelemetryDebug} />
-            <PaperCard tone="lavender" className="settings-card">
+            <PaperCard className="settings-card">
               <p className="eyebrow">If something broke</p>
               <h2>Safe diagnostics</h2>
               <p>Saves a short JSON file with versions and recent product events. Secrets stay out. It never copies your school folder.</p>
@@ -567,7 +677,7 @@ export function SettingsScreen({
               {diagnosticsReceipt?.status === "cancelled" && <small>Nothing was written.</small>}
               <small>Studi {runtime?.app ?? "—"}</small>
             </PaperCard>
-            <PaperCard className="settings-card">
+            <PaperCard className="settings-card" id="feedback-settings">
               <p className="eyebrow">A note for us</p>
               <h2>Something look wrong?</h2>
               <form className="settings-note" onSubmit={(event) => { event.preventDefault(); if (!note.trim()) return; onFeedback("settings", note.trim()); setNote(""); }}>
@@ -575,12 +685,7 @@ export function SettingsScreen({
                 <button className="button button--yellow" disabled={!note.trim() || busy !== null}>Send note</button>
               </form>
             </PaperCard>
-          </div>
-        )}
-
-        {section === "account" && (
-          <div className="settings-stack">
-            <PaperCard tone="paper" className="settings-card">
+            <PaperCard className="settings-card">
               <p className="eyebrow">Signed in</p>
               <h2>{chrome.studentName}</h2>
               <p>Signing out leaves your school pages and saved work on this laptop.</p>
@@ -592,6 +697,19 @@ export function SettingsScreen({
       </div>
     </main>
   );
+}
+
+function ruleModeLabel(mode: PermissionMode): string {
+  if (mode === "do_not_attempt") return "don’t try";
+  if (mode === "auto_submit") return "try and submit";
+  return "try, don’t submit";
+}
+
+function ruleScopeLabel(rule: PermissionRule, onboarding: SchoolOnboardingState): string {
+  if (rule.scope === "global") return "Everything";
+  if (rule.scope === "course") return courseLabel(onboarding, rule.courseId);
+  if (rule.scope === "pattern") return `${courseLabel(onboarding, rule.courseId)} · ${rule.patternId}`;
+  return onboarding.assignments.find((assignment) => assignment.assignmentId === rule.assignmentId)?.title ?? "One assignment";
 }
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }

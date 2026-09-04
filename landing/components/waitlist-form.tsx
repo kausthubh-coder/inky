@@ -1,8 +1,6 @@
 "use client";
 
-import { useMutation } from "convex/react";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { api } from "../../convex/_generated/api";
 
 type WaitlistFormProps = {
   emailId: string;
@@ -13,25 +11,24 @@ type WaitlistFormProps = {
 };
 
 export function WaitlistForm(props: WaitlistFormProps) {
-  if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
+  if (!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
     return (
       <p className="form-error" role="alert">
-        The waitlist is temporarily offline. Please try again soon.
+        The waitlist is being connected. Check back in a little while.
       </p>
     );
   }
 
-  return <ConnectedWaitlistForm {...props} />;
+  return <ClerkWaitlistForm {...props} />;
 }
 
-function ConnectedWaitlistForm({
+function ClerkWaitlistForm({
   emailId,
   finePrint,
   joined,
   onJoined,
   darkButton = false,
 }: WaitlistFormProps) {
-  const join = useMutation(api.waitlist.join);
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,10 +39,20 @@ function ConnectedWaitlistForm({
     setBusy(true);
 
     try {
-      await join({ email });
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, company: "" }),
+      });
+      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(result?.error ?? "Waitlist request failed");
       onJoined();
-    } catch {
-      setError("Something on my end hiccuped. Give it a second and try again.");
+    } catch (cause) {
+      setError(
+        cause instanceof Error && cause.message === "Enter a real email address"
+          ? cause.message
+          : "Something on my end hiccuped. Give it a second and try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -54,7 +61,7 @@ function ConnectedWaitlistForm({
   if (joined) {
     return (
       <p className="ok-msg" role="status">
-        You’re on the list. I’ll email you once, when your seat opens.
+        You’re on the list. Check your inbox for confirmation, then I’ll write again when your seat opens.
       </p>
     );
   }

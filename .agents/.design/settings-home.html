@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — Paper map</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .chrome {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 54px; padding: 0 24px; border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 94%);
+    }
+    .chrome strong { font-family: "Shantell Sans", cursive; font-size: 20px; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 28px 22px 80px; }
+    .wrap > header { max-width: 40ch; margin-bottom: 22px; }
+    .map { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .map a { display: grid; align-content: start; gap: 8px; min-height: 190px; text-decoration: none; }
+    .map a:hover { translate: -1px -2px; box-shadow: 5px 6px 0 rgba(28, 22, 18, 0.2); }
+    .map svg { width: 56px; height: 56px; }
+    .map small { color: var(--muted); font-weight: 800; }
+    @media (max-width: 800px) { .map { grid-template-columns: 1fr 1fr; } }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="chrome"><strong>studi ✎</strong><span class="pill">Settings · E</span></header>
+  <main class="wrap">
+    <header>
+      <p class="kicker">A map, not a dump</p>
+      <h1>What do you want to change?</h1>
+      <p>Six papers on the desk. Open one. The rest stay put.</p>
+    </header>
+    <div class="map">
+      <a class="card mint" href="settings-sidebar.html">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true"><g class="body"><path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/><g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g></g></svg>
+        <h2>Inky’s brain</h2>
+        <p>ChatGPT, how hard he thinks.</p>
+        <small>Ready · GPT-5.4</small>
+      </a>
+      <a class="card sunny" href="settings-sidebar.html">
+        <h2>When he finishes</h2>
+        <p>Your look. His wait. What he remembers.</p>
+        <small>15 min · wait 30</small>
+      </a>
+      <a class="card" href="settings-sidebar.html">
+        <h2>Apps & folder</h2>
+        <p>Gmail, Calendar, Drive, and the one folder he may touch.</p>
+        <small>Gmail in</small>
+      </a>
+      <a class="card sky" href="settings-sidebar.html">
+        <h2>School</h2>
+        <p>When he checks, and what he’s allowed to try.</p>
+        <small>Daily 9:00 · 3 rules</small>
+      </a>
+      <a class="card lavender" href="settings-sidebar.html">
+        <h2>Quiet</h2>
+        <p>What Studi can see. Diagnostics. A note for us.</p>
+        <small>Beta on</small>
+      </a>
+      <a class="card pink" href="settings-sidebar.html">
+        <h2>You</h2>
+        <p>Nudges, name, sign out.</p>
+        <small>Kaustubh</small>
+      </a>
+    </div>
+  </main>
+</body>
+</html>

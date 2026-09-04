@@ -32,6 +32,11 @@ export default defineSchema({
       v.literal("agent_tokens"),
       v.literal("browser_minutes"),
       v.literal("assignments"),
+      v.literal("input_tokens"),
+      v.literal("output_tokens"),
+      v.literal("cached_tokens"),
+      v.literal("tool_calls"),
+      v.literal("inky_turns"),
     ),
     amount: v.number(),
     updatedAt: v.number(),
@@ -40,6 +45,14 @@ export default defineSchema({
     "period",
     "category",
   ]),
+
+  usageReceipts: defineTable({
+    clerkSubject: v.string(),
+    eventId: v.string(),
+    recordedAt: v.number(),
+  })
+    .index("by_clerk_subject_and_event_id", ["clerkSubject", "eventId"])
+    .index("by_recorded_at", ["recordedAt"]),
 
   feedback: defineTable({
     clerkSubject: v.string(),

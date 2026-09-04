@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Settings — A note from Inky</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    .chrome {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 54px;
+      padding: 0 24px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 94%);
+    }
+    .chrome strong { font-family: "Shantell Sans", cursive; font-size: 20px; }
+    .journal {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 36px 20px 90px;
+    }
+    .intro { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 28px; }
+    .intro svg { width: 72px; height: 72px; flex: 0 0 72px; }
+    .intro h1 { font-size: clamp(1.8rem, 4vw, 2.6rem); margin-bottom: 6px; }
+    .entry { display: grid; grid-template-columns: 56px 1fr; gap: 12px; margin-bottom: 22px; }
+    .entry > svg { width: 48px; height: 48px; }
+    .bubble {
+      padding: 12px 14px;
+      border: 2px solid var(--ink);
+      border-radius: 16px 18px 18px 6px;
+      background: #fff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.14);
+    }
+    .bubble p { font-weight: 700; }
+    .controls { margin-top: 10px; display: grid; gap: 10px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .you-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .you-chip i {
+      display: grid; width: 28px; height: 28px; place-items: center;
+      border: 2px solid var(--ink); border-radius: 50%; background: var(--pink); font-style: normal;
+    }
+    @media (max-width: 560px) { .row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← board</a>
+  <header class="chrome">
+    <strong>studi ✎</strong>
+    <div class="you-chip"><i>K</i>Kaustubh</div>
+  </header>
+  <main class="journal">
+    <div class="intro">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <g class="eyes">
+            <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+            <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+            <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+            <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+          </g>
+          <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <div>
+        <p class="eyebrow">Settings · variation B</p>
+        <h1>A few things about me.</h1>
+        <p>No tabs. I just tell you how I work, and you change what you want.</p>
+      </div>
+    </div>
+
+    <article class="entry">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g>
+          <path d="M52 73 Q60 80 68 73" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </g>
+      </svg>
+      <div class="bubble">
+        <p>I think with your ChatGPT. Right now that’s <b>GPT-5.4</b>, thinking hard. Want a different one?</p>
+        <div class="controls">
+          <div class="row">
+            <label class="field"><span>Model</span><select><option>GPT-5.4</option></select></label>
+            <label class="field"><span>How hard</span><select><option>High</option></select></label>
+          </div>
+          <button class="btn sunny" type="button">Use another ChatGPT</button>
+        </div>
+      </div>
+    </article>
+
+    <article class="entry">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g>
+        </g>
+      </svg>
+      <div class="bubble">
+        <p>When I finish, I wait. You look. You hit submit. How long should I hover?</p>
+        <div class="controls row">
+          <label class="field"><span>Your look</span><input type="number" value="15" /></label>
+          <label class="field"><span>I wait</span><input type="number" value="30" /></label>
+        </div>
+      </div>
+    </article>
+
+    <article class="entry">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g>
+        </g>
+      </svg>
+      <div class="bubble">
+        <p>I check school every morning at <b>9:00</b>. Or only when you ask. Your call.</p>
+        <div class="controls row">
+          <label class="field"><span>How often</span><select><option>Every day</option><option>Every week</option><option>Only when I ask</option></select></label>
+          <label class="field"><span>Time</span><input type="time" value="09:00" /></label>
+        </div>
+      </div>
+    </article>
+
+    <article class="entry">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g>
+        </g>
+      </svg>
+      <div class="bubble">
+        <p>I won’t start homework unless you say I may. For Bio I can try, but I won’t submit.</p>
+        <div class="controls">
+          <label class="field"><span>For Bio 201</span>
+            <select><option>Try it, don’t submit</option><option>Don’t try it</option><option>Submit if that’s allowed</option></select>
+          </label>
+          <button class="btn" type="button">Add another class</button>
+        </div>
+      </div>
+    </article>
+
+    <article class="entry">
+      <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+        <g class="body">
+          <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+          <g class="eyes"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/></g>
+        </g>
+      </svg>
+      <div class="bubble">
+        <p>Studi can share what I do in the app — not your school password, not the page. Off if you want.</p>
+        <label class="field"><span>Share product events</span>
+          <select><option>On, for the private beta</option><option>Off</option></select>
+        </label>
+      </div>
+    </article>
+  </main>
+</body>
+</html>

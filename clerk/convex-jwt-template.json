@@ -1,0 +1,16 @@
+{
+  "name": "convex",
+  "lifetime": 60,
+  "allowed_clock_skew": 5,
+  "claims": {
+    "aud": "convex",
+    "name": "{{user.full_name}}",
+    "nickname": "{{user.username}}",
+    "picture": "{{user.image_url}}",
+    "given_name": "{{user.first_name}}",
+    "family_name": "{{user.last_name}}",
+    "email": "{{user.primary_email_address}}",
+    "email_verified": "{{user.email_verified}}",
+    "updated_at": "{{user.updated_at}}"
+  }
+}

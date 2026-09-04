@@ -29,6 +29,7 @@ import {
   type ConversationTarget,
   type ProviderLoginMethod,
   type ProviderStatus,
+  type UsageEventKind,
 } from "../../shared/index.js";
 import type { BrowserController } from "../browser/controller.js";
 import { createBrowserTools } from "../browser/tools.js";
@@ -93,6 +94,7 @@ export interface PiAgentRuntimeOptions {
   readonly modelRuntime?: ModelRuntime;
   readonly model?: PiModel;
   readonly browserController?: BrowserController;
+  readonly onUsage?: (usage: AgentUsageSnapshot, kind: UsageEventKind) => void;
 }
 
 const studiProbe = defineTool({
@@ -116,6 +118,7 @@ export class PiAgentRuntime implements AgentRuntime {
   readonly #workerTools: ToolDefinition[];
   readonly #browserTools: ToolDefinition[] | null;
   readonly #assignmentBrowserTools: ToolDefinition[] | null;
+  readonly #onUsage: ((usage: AgentUsageSnapshot, kind: UsageEventKind) => void) | null;
   #model?: PiModel;
   #thinkingLevel: AgentReasoningEffort = DEFAULT_AGENT_REASONING_EFFORT;
   #usage = emptyUsage();
@@ -125,6 +128,7 @@ export class PiAgentRuntime implements AgentRuntime {
     this.#agentDir = options.agentDir;
     this.#sessionDirectory = options.sessionDirectory ?? join(options.agentDir, "sessions");
     this.#modelRuntime = modelRuntime;
+    this.#onUsage = options.onUsage ?? null;
     this.#browserTools = options.browserController
       ? createBrowserTools(options.browserController)
       : null;
@@ -163,7 +167,7 @@ export class PiAgentRuntime implements AgentRuntime {
         this.#workerTools,
         (await buildRuntimeInstructions("assignment", this.#workerTools.map((tool) => tool.name))).text,
       );
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "assignment_turn"));
   }
 
   async createAssignmentSession(
@@ -183,7 +187,7 @@ export class PiAgentRuntime implements AgentRuntime {
         tools,
         (await buildRuntimeInstructions("assignment", tools.map((tool) => tool.name))).text,
       );
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "assignment_turn"));
   }
 
   async createScanSession(
@@ -203,7 +207,7 @@ export class PiAgentRuntime implements AgentRuntime {
         tools,
         (await buildRuntimeInstructions("scan", tools.map((tool) => tool.name))).text,
       );
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "scan"));
   }
 
   async createJobSession(
@@ -227,7 +231,7 @@ export class PiAgentRuntime implements AgentRuntime {
     return new PiBackedAgentSession(
       await createPiSession(sessionTarget),
       createPiSession,
-      (usage) => this.addUsage(usage),
+      (usage) => this.addUsage(usage, "conversation"),
     );
   }
 
@@ -326,8 +330,9 @@ export class PiAgentRuntime implements AgentRuntime {
     return snapshot;
   }
 
-  addUsage(usage: AgentUsageSnapshot): void {
+  addUsage(usage: AgentUsageSnapshot, kind: UsageEventKind): void {
     this.#usage = addUsage(this.#usage, usage);
+    this.#onUsage?.(usage, kind);
   }
 
   async loginOpenAiCodex(

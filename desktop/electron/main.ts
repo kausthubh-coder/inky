@@ -44,11 +44,14 @@ import {
   type TaskDetail,
   type Task,
   type AgentReasoningEffort,
+  type UsageEventKind,
+  type UsageState,
   transitionTask,
 } from "../shared/index.js";
 import { getDevelopmentUrl } from "./development-url.js";
 import { buildDiagnosticsSnapshot, writeDiagnosticsSnapshot } from "./diagnostics.js";
 import { AuthCoordinator } from "./auth/coordinator.js";
+import { findDesktopConnectUrl, isDesktopConnectUrl, STUDI_CONNECT_PROTOCOL } from "./auth/desktop-link.js";
 import { AuthVault } from "./auth/vault.js";
 import { PiAgentRuntime } from "./agent/runtime.js";
 import { createConnectedAppTools } from "./agent/composio-tools.js";
@@ -65,7 +68,7 @@ import { SchoolScanCoordinator } from "./scan/coordinator.js";
 import { type LocalStore, openLocalStore } from "./storage/index.js";
 import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
-import { usageProperties } from "./telemetry/usage.js";
+import { usageProperties, type AgentUsageSnapshot } from "./telemetry/usage.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(moduleDirectory, "preload.cjs");
@@ -113,6 +116,7 @@ let authCoordinator: AuthCoordinator | null = null;
 let telemetryService: TelemetryService | null = null;
 let gateTray: Tray | null = null;
 let gateQuitting = false;
+let pendingDesktopConnect = !isSelfTest && Boolean(findDesktopConnectUrl(process.argv));
 let telemetryShutdownFinished = false;
 const pendingNotifications: ExecutionNotification[] = [];
 let assignmentRunStartedAt: number | null = null;
@@ -123,6 +127,27 @@ const selfTestAuthState: AuthState = {
   entitlement: { plan: "beta", credits: 0 },
   deviceId: "00000000-0000-4000-8000-000000000010",
   secureStorage: true,
+};
+
+const selfTestUsageState: UsageState = {
+  schemaVersion: STUDI_SCHEMA_VERSION,
+  period: "2026-09",
+  plan: "beta",
+  tokenAllowance: 1_000_000,
+  totalTokens: 284_600,
+  inputTokens: 136_400,
+  outputTokens: 71_200,
+  cachedTokens: 77_000,
+  toolCalls: 42,
+  inkyTurns: 12,
+  assignmentsWorked: 3,
+  days: [
+    { date: "2026-09-01", tokens: 48_200 },
+    { date: "2026-09-02", tokens: 91_700 },
+    { date: "2026-09-03", tokens: 62_300 },
+    { date: "2026-09-04", tokens: 82_400 },
+  ],
+  updatedAt: "2026-09-04T16:00:00.000Z",
 };
 
 interface StorageSelfTestObservation {
@@ -206,6 +231,7 @@ const ipcHandlers: StudiIpcHandlers = {
     requireTelemetryService().capture("studi_feedback_sent", { channel: "beta_gate" });
     return receipt;
   },
+  getUsageState: () => isSelfTest ? selfTestUsageState : requireAuthCoordinator().usage(),
   getConnectedApps: async () => {
     if (isSelfTest) {
       return {
@@ -1308,6 +1334,7 @@ async function initializeDesktopAgent(): Promise<void> {
     cwd: dataRoot,
     agentDir: join(dataRoot, "pi"),
     browserController: requireBrowserController(),
+    onUsage: recordAgentUsage,
   });
   await applyPersistedAgentRuntime();
   runtimeLoginAttempt = new OpenAiCodexLoginAttemptOwner((signal, notify) =>
@@ -1549,6 +1576,34 @@ function captureAssignmentFinished(
     ...assignmentLabels(execution?.assignmentId),
     ...currentAgentFacts(startedAt === null ? undefined : Math.max(0, Date.now() - startedAt)),
   });
+  void authCoordinator?.recordUsage({
+    eventId: `assignment-worked/${taskId}`.slice(0, 256),
+    occurredAt: new Date().toISOString(),
+    kind: "assignment_worked",
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    toolCalls: 0,
+  }).catch(() => undefined);
+}
+
+function recordAgentUsage(
+  usage: AgentUsageSnapshot,
+  kind: UsageEventKind,
+): void {
+  const hasUsage = usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens + usage.toolCalls > 0;
+  if (!hasUsage) return;
+  void authCoordinator?.recordUsage({
+    eventId: randomUUID(),
+    occurredAt: new Date().toISOString(),
+    kind,
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    cacheReadTokens: usage.cacheReadTokens,
+    cacheWriteTokens: usage.cacheWriteTokens,
+    toolCalls: usage.toolCalls,
+  }).catch(() => undefined);
 }
 
 function discardStaleAgentUsage(): void {
@@ -1888,6 +1943,7 @@ if (canStart) {
   void app.whenReady().then(async () => {
     try {
       app.setAppUserModelId("com.squirrel.studi.Studi");
+      registerDesktopConnectProtocol();
       initializeTelemetry();
       await initializeStorage();
       await initializeAgentSelfTest();
@@ -1906,6 +1962,7 @@ if (canStart) {
         const state = await requireAuthCoordinator().start();
         observeAuthState(state);
         await synchronizeProtectedRuntime(state);
+        await finishPendingDesktopConnect();
       }
     } catch (error) {
       if (isSelfTest) {
@@ -1920,12 +1977,19 @@ if (canStart) {
 
 if (selfTestConfigured && !canStart) app.quit();
 
-app.on("second-instance", () => {
-  if (appKernel) appKernel.open();
-  else if (mainWindow) {
-    mainWindow.show();
-    mainWindow.focus();
+app.on("second-instance", (_event, argv) => {
+  if (findDesktopConnectUrl(argv)) {
+    queueDesktopConnect();
+    return;
   }
+  if (appKernel) appKernel.open();
+  else openMainWindow();
+});
+
+app.on("open-url", (event, url) => {
+  if (!isDesktopConnectUrl(url)) return;
+  event.preventDefault();
+  queueDesktopConnect();
 });
 
 app.on("window-all-closed", () => {
@@ -1954,3 +2018,32 @@ app.on("will-quit", () => {
     ipcMain.removeHandler(studiIpcRegistry[method].channel);
   }
 });
+
+function registerDesktopConnectProtocol(): void {
+  if (isSelfTest) return;
+  if (app.isPackaged) {
+    app.setAsDefaultProtocolClient(STUDI_CONNECT_PROTOCOL);
+    return;
+  }
+  const entry = process.argv[1];
+  if (process.defaultApp && entry) {
+    app.setAsDefaultProtocolClient(STUDI_CONNECT_PROTOCOL, process.execPath, [resolve(entry)]);
+  }
+}
+
+function queueDesktopConnect(): void {
+  pendingDesktopConnect = true;
+  openMainWindow();
+  if (app.isReady() && authCoordinator) void finishPendingDesktopConnect();
+}
+
+async function finishPendingDesktopConnect(): Promise<void> {
+  if (!pendingDesktopConnect || !authCoordinator) return;
+  pendingDesktopConnect = false;
+  openMainWindow();
+  const current = authCoordinator.state();
+  if (current.status === "approved" || current.status === "offline") return;
+  const state = await authCoordinator.signIn();
+  observeAuthState(state);
+  await synchronizeProtectedRuntime(state);
+}

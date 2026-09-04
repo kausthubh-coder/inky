@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Desk — open</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    input[name="size"],
+    input[name="state"] {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .inky-face { width: 84px; height: 84px; }
+
+    /* ── Expanded room ── */
+
+    .room {
+      display: grid;
+      grid-template-rows: 48px minmax(0, 1fr);
+      height: 100vh;
+    }
+
+    .ticket {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 16px 0 20px;
+      border-bottom: 2px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .ticket .course {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .ticket h1 {
+      flex: 1;
+      min-width: 0;
+      font-size: 18px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .ticket .when {
+      color: var(--ink-soft);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .ticket .dot-sep {
+      color: #c6b8a6;
+      font-weight: 800;
+    }
+    .ticket .away {
+      margin-left: auto;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+    .ticket .away:hover { color: var(--ink); }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(280px, 2fr) minmax(340px, 3fr);
+      min-height: 0;
+      transition: grid-template-columns 560ms var(--ease);
+    }
+
+    .talk {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      padding: 16px 18px 72px;
+    }
+
+    .buddy {
+      display: grid;
+      place-items: center;
+      width: 84px;
+      height: 84px;
+      margin: 0 auto 6px;
+      background: radial-gradient(ellipse 70% 28% at 50% 90%, rgb(28 22 18 / 10%), transparent 70%);
+    }
+    .buddy .inky-face { width: 84px; height: 84px; }
+
+    .bubbles {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+      padding: 4px 2px 8px;
+    }
+
+    .said {
+      align-self: flex-start;
+      width: fit-content;
+      max-width: 92%;
+      padding: 11px 14px 12px;
+      border: 2px solid var(--ink);
+      border-radius: 8px 22px 22px 18px;
+      background: #fff;
+      box-shadow: 2px 3px 0 rgb(28 22 18 / 10%);
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.35;
+    }
+    .said.me {
+      align-self: flex-end;
+      border-radius: 22px 8px 18px 22px;
+      background: var(--sticky);
+    }
+
+    .go {
+      align-self: flex-start;
+      margin-top: 2px;
+    }
+
+    .composer {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 8px;
+      flex: 0 0 auto;
+      margin-top: 8px;
+      padding-top: 10px;
+      border-top: 2px dashed #cfc4b4;
+    }
+    .composer input {
+      height: 36px;
+      border: 0;
+      border-bottom: 2px solid var(--ink);
+      border-radius: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 700;
+    }
+    .composer input:focus { outline: none; border-bottom-style: dashed; }
+    .composer input::placeholder { color: #b3a99c; }
+    .composer button {
+      padding: 0;
+      border: 0;
+      background: transparent;
+      box-shadow: none;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .school {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      padding: 14px 14px 12px 8px;
+      transition: opacity 420ms var(--ease), transform 560ms var(--ease);
+    }
+
+    .chrome {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-height: 36px;
+      margin: 0 6px 8px;
+      padding: 5px 8px 5px 10px;
+      border: 1.5px solid var(--ink);
+      border-radius: 12px 14px 12px 10px;
+      background: #fff2b5;
+    }
+    .chrome .live {
+      align-items: center;
+      gap: 7px;
+      flex: 1;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .pulse {
+      width: 8px;
+      height: 8px;
+      border: 1px solid var(--ink);
+      border-radius: 50%;
+      background: #2f9e62;
+      box-shadow: 0 0 0 3px rgb(47 158 98 / 18%);
+      animation: pulse 1.8s var(--ease) infinite;
+    }
+    .chrome .hands {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .chrome .btn { padding: 5px 10px; font-size: 12px; }
+
+    .frame {
+      position: relative;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      border: 2px solid var(--ink);
+      border-radius: 16px 18px 16px 14px;
+      background: #f4f7fb;
+      box-shadow: 3px 4px 0 rgb(28 22 18 / 12%);
+    }
+
+    .lms {
+      min-height: 100%;
+      color: #243247;
+      background: #f7f9fc;
+    }
+    .lms > header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 40px;
+      padding: 0 14px;
+      color: #fff;
+      background: #2a4a72;
+    }
+    .lms > header strong { font-size: 13px; font-weight: 800; }
+    .lms > header span { color: rgb(255 255 255 / 70%); font-size: 11px; font-weight: 800; }
+    .lms > header i {
+      display: grid;
+      width: 22px;
+      height: 22px;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--pink);
+      color: var(--ink);
+      font-style: normal;
+      font-size: 10px;
+      font-weight: 900;
+    }
+    .lms > nav {
+      display: flex;
+      gap: 16px;
+      padding: 7px 14px;
+      border-bottom: 1px solid #cad3df;
+      background: #e8f0f8;
+      color: #64748b;
+      font-size: 11px;
+      font-weight: 800;
+    }
+    .lms > nav b { color: #243247; text-decoration: underline; text-underline-offset: 2px; }
+    .lms > main { padding: 14px 16px 28px; }
+    .lms .crumb {
+      color: #64748b;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .lms h2 {
+      margin: 3px 0 2px;
+      color: #1c2433;
+      font: 800 22px/1.15 "Nunito Sans", sans-serif;
+      letter-spacing: -0.02em;
+    }
+    .lms .due { color: #64748b; font-size: 12px; font-weight: 800; }
+
+    .q {
+      margin-top: 12px;
+      padding: 10px 12px 12px;
+      border: 1px solid #cad3df;
+      border-radius: 8px;
+      background: #fff;
+    }
+    .q.on { border-color: #2a4a72; background: #eef5ff; }
+    .q strong { display: block; margin-bottom: 3px; font-size: 12px; }
+    .q p { margin: 0 0 8px; color: #334155; font-size: 13px; font-weight: 700; }
+    .box {
+      min-height: 72px;
+      padding: 8px 10px;
+      border: 1px solid #9cabc0;
+      border-radius: 6px;
+      background: #fff;
+      color: #334155;
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+    .box.yours {
+      border-color: var(--ink);
+      box-shadow: 0 0 0 3px rgb(138 184 232 / 35%);
+    }
+    .box.quiet { color: #9aa6b5; background: #f6f8fb; }
+    .caret {
+      display: inline-block;
+      width: 1.5px;
+      height: 13px;
+      margin-left: 1px;
+      background: #1c2433;
+      vertical-align: -2px;
+      animation: caret 1s steps(1) infinite;
+    }
+
+    .pointer {
+      position: absolute;
+      z-index: 4;
+      width: 22px;
+      height: 22px;
+      top: 0;
+      left: 0;
+      filter: drop-shadow(1px 2px 0 rgb(28 22 18 / 35%));
+      animation: point 4.8s var(--ease) infinite;
+      pointer-events: none;
+    }
+
+    /* ── Compact rail ── */
+
+    .compact { display: none; }
+
+    .house {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
+      height: 100vh;
+    }
+
+    .ghost {
+      min-width: 0;
+      padding: 28px 18px 80px 22px;
+      opacity: 0.38;
+      filter: saturate(0.65);
+      pointer-events: none;
+      user-select: none;
+    }
+    .ghost .kicker { margin-bottom: 8px; }
+    .ghost h2 {
+      margin-bottom: 14px;
+      font-size: clamp(1.4rem, 2.4vw, 1.85rem);
+    }
+    .ghost .week-ghost {
+      margin: 0;
+      padding: 0;
+      max-width: none;
+      gap: 10px;
+    }
+    .ghost .week-ghost article { min-height: 210px; }
+    .ghost .week-ghost article:first-child {
+      border-style: solid;
+      background: rgb(255 242 181 / 40%);
+    }
+    .ghost em {
+      display: block;
+      margin-top: 8px;
+      color: #b8ad9c;
+      font-size: 11px;
+      font-style: italic;
+      font-weight: 700;
+    }
+
+    .rail {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      min-height: 0;
+      padding: 14px 14px 72px;
+      border-left: 2px solid var(--ink);
+      background:
+        radial-gradient(ellipse 80% 40% at 100% 0, rgb(255 242 181 / 40%), transparent 58%),
+        rgb(255 250 240 / 94%);
+    }
+
+    .facts {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+    .facts .course {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .facts h2 { margin: 2px 0 2px; font-size: 1.2rem; }
+    .facts .when { color: var(--ink-soft); font-size: 12px; font-weight: 800; }
+    .facts .btn { flex: 0 0 auto; margin-top: 2px; }
+
+    .preview {
+      position: relative;
+      flex: 0 0 auto;
+      height: 168px;
+      margin-bottom: 12px;
+      overflow: hidden;
+      border: 2px solid var(--ink);
+      border-radius: 12px 14px 12px 10px;
+      background: #f4f7fb;
+      box-shadow: 2px 3px 0 rgb(28 22 18 / 10%);
+    }
+    .preview .lms h2 { font-size: 16px; }
+    .preview .q { margin-top: 8px; }
+    .preview .box { min-height: 44px; font-size: 11px; }
+    .preview .pointer {
+      width: 16px;
+      height: 16px;
+      animation-name: point-mini;
+    }
+    .preview-hit {
+      position: absolute;
+      inset: 0;
+      z-index: 5;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .rail .chat {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: auto;
+    }
+    .rail .row {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .rail .row .inky-face {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 44px;
+      margin-top: -2px;
+    }
+    .rail .said { font-size: 14px; }
+    .rail .go { margin-top: 8px; }
+    .rail .composer { margin-top: auto; }
+
+    /* ── State visibility ── */
+
+    .only-peek,
+    .only-work,
+    .only-chat,
+    .only-take,
+    .extra,
+    .chrome .live.only-peek,
+    .chrome .live.only-work,
+    .chrome .live.only-chat,
+    .chrome .live.only-take { display: none; }
+
+    body:has(#peek:checked) .only-peek,
+    body:has(#work:checked) .only-work,
+    body:has(#chat:checked) .only-chat,
+    body:has(#take:checked) .only-take { display: block; }
+
+    body:has(#peek:checked) .live.only-peek,
+    body:has(#work:checked) .live.only-work,
+    body:has(#chat:checked) .live.only-chat,
+    body:has(#take:checked) .live.only-take { display: flex; }
+
+    body:has(#peek:checked) .btn.only-peek,
+    body:has(#work:checked) .btn.only-work,
+    body:has(#chat:checked) .btn.only-chat,
+    body:has(#take:checked) .btn.only-take { display: inline-flex; }
+
+    body:has(#chat:checked) .extra { display: block; }
+    body:has(#chat:checked) .said.me.extra { display: block; }
+
+    body:has(#peek:checked) .stage {
+      grid-template-columns: 1fr 0fr;
+    }
+    body:has(#peek:checked) .school {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(24px);
+    }
+    body:has(#peek:checked) .talk {
+      max-width: 440px;
+      margin: 0 auto;
+      width: 100%;
+      justify-content: center;
+    }
+    body:has(#peek:checked):has(#room:checked) .bubbles {
+      flex: 0 1 auto;
+      overflow: visible;
+    }
+    body:has(#peek:checked):has(#room:checked) .buddy {
+      width: 128px;
+      height: 128px;
+    }
+    body:has(#peek:checked):has(#room:checked) .buddy .inky-face {
+      width: 128px;
+      height: 128px;
+    }
+
+    body:has(#peek:checked) .preview { display: none; }
+
+    body:has(#take:checked) .chrome { background: #e0f0ff; }
+    body:has(#take:checked) .pulse {
+      background: var(--sky);
+      animation: none;
+      box-shadow: none;
+    }
+    body:has(#take:checked) .pointer,
+    body:has(#peek:checked) .pointer { display: none; }
+    body:has(#take:checked) .caret { display: none; }
+
+    body:has(#rail:checked) .room { display: none; }
+    body:has(#rail:checked) .compact { display: block; }
+
+    /* ── Switcher ── */
+
+    .switcher {
+      position: fixed;
+      z-index: 70;
+      left: 16px;
+      bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 5px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: var(--paper-2);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+    .switcher label {
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .switcher label:hover { background: var(--sticky); }
+    body:has(#peek:checked) [for="peek"],
+    body:has(#work:checked) [for="work"],
+    body:has(#chat:checked) [for="chat"],
+    body:has(#take:checked) [for="take"] {
+      background: var(--sunny);
+      box-shadow: 1.5px 1.5px 0 var(--ink);
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 3px rgb(47 158 98 / 18%); }
+      50% { box-shadow: 0 0 0 6px rgb(47 158 98 / 0%); }
+    }
+    @keyframes caret {
+      0%, 45% { opacity: 1; }
+      50%, 100% { opacity: 0; }
+    }
+    @keyframes point {
+      0%   { transform: translate(42%, 48%); }
+      22%  { transform: translate(58%, 62%); }
+      48%  { transform: translate(50%, 70%); }
+      72%  { transform: translate(64%, 56%); }
+      100% { transform: translate(42%, 48%); }
+    }
+    @keyframes point-mini {
+      0%   { transform: translate(36%, 54%); }
+      40%  { transform: translate(52%, 68%); }
+      100% { transform: translate(36%, 54%); }
+    }
+
+    @media (max-width: 860px) {
+      body { overflow: auto; }
+      .stage,
+      body:has(#peek:checked) .stage { grid-template-columns: 1fr; }
+      .school { min-height: 320px; padding: 8px 12px 16px; }
+      body:has(#peek:checked) .school { display: none; }
+      .house { grid-template-columns: 1fr; }
+      .ghost { display: none; }
+      .rail { border-left: 0; min-height: 100vh; }
+      .ticket h1 { font-size: 15px; }
+      .ticket .when { display: none; }
+      .switcher { left: 8px; right: 88px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .stage, .school { transition: none; }
+      .pulse, .caret, .pointer { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+
+  <input id="room" type="radio" name="size" checked />
+  <input id="rail" type="radio" name="size" />
+  <input id="peek" type="radio" name="state" />
+  <input id="work" type="radio" name="state" checked />
+  <input id="chat" type="radio" name="state" />
+  <input id="take" type="radio" name="state" />
+
+  <div class="room">
+    <header class="ticket">
+      <span class="course">CSC 316</span>
+      <span class="dot-sep" aria-hidden="true">·</span>
+      <h1>IBM Sorting Machine</h1>
+      <span class="dot-sep" aria-hidden="true">·</span>
+      <span class="when">Due Thursday night</span>
+      <label class="away" for="rail">Close</label>
+    </header>
+
+    <div class="stage">
+      <section class="talk" aria-label="Talking to Inky">
+        <div class="buddy">
+          <svg class="inky inky-face" viewBox="0 0 120 120" aria-hidden="true">
+            <g class="body">
+              <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+              <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+              <g class="eyes">
+                <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+                <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+              </g>
+              <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+            </g>
+          </svg>
+        </div>
+
+        <div class="bubbles">
+          <p class="said only-peek">Want me to do IBM Sorting Machine?</p>
+          <p class="said only-peek">Thursday night. I stop before you submit.</p>
+          <label class="btn sunny go only-peek" for="work">Yeah, do this</label>
+
+          <p class="said only-work">I’m on the page.</p>
+          <p class="said only-work">Question 4. The runtime one.</p>
+
+          <p class="said only-chat">I’m on the page.</p>
+          <p class="said me extra">Just 4. Leave the rest.</p>
+          <p class="said extra">Okay. Just that one.</p>
+          <p class="said me extra">And don’t submit.</p>
+          <p class="said extra">I never do.</p>
+
+          <p class="said only-take">You have the page.</p>
+          <p class="said only-take">Say when you want me back.</p>
+        </div>
+
+        <form class="composer" action="#">
+          <input type="text" aria-label="Talk to Inky" placeholder="I’m listening…" />
+          <button type="button">say it</button>
+        </form>
+      </section>
+
+      <aside class="school" aria-label="School page">
+        <div class="chrome">
+          <p class="live only-work only-chat"><i class="pulse" aria-hidden="true"></i>Inky is clicking</p>
+          <p class="live only-take"><i class="pulse" aria-hidden="true"></i>You have the page</p>
+          <p class="live only-peek"><i class="pulse" aria-hidden="true"></i>Ready</p>
+          <div class="hands">
+            <label class="btn coral only-work only-chat" for="take">I’ll take over</label>
+            <label class="btn only-take" for="work">Give it back</label>
+            <label class="btn ghost" for="rail">Shrink</label>
+          </div>
+        </div>
+
+        <div class="frame">
+          <div class="lms">
+            <header>
+              <strong>Northstar University</strong>
+              <span>student</span>
+              <i>K</i>
+            </header>
+            <nav><span>Home</span><b>Courses</b><span>Calendar</span><span>Grades</span></nav>
+            <main>
+              <p class="crumb">CSC 316 · Homework 3</p>
+              <h2>IBM Sorting Machine</h2>
+              <p class="due">Thursday night · 20 points</p>
+              <div class="q on">
+                <strong>4.</strong>
+                <p>Explain the running time and support your answer.</p>
+                <div class="box only-work only-chat">The algorithm performs one comparison per pass, so a reverse deck is n(n − 1) / 2.<span class="caret"></span></div>
+                <div class="box yours only-take">The algorithm performs one comparison per pass, so a reverse deck is n(n − 1) / 2.</div>
+                <div class="box only-peek">Write your answer here</div>
+              </div>
+              <div class="q">
+                <strong>5.</strong>
+                <p>What is each punched card doing in the machine?</p>
+                <div class="box quiet">Write your answer here</div>
+              </div>
+            </main>
+          </div>
+          <svg class="pointer" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 3 L5 18 L10 13.2 L13.4 21 L16.2 19.8 L12.6 12 L20 12 Z" fill="#1c1612"/>
+            <path d="M6.4 5.2 L6.4 15.2 L10.2 11.6 L13.2 18.4 L14.6 17.8 L11.5 10.8 L17.6 10.8 Z" fill="#fffaf0"/>
+          </svg>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <div class="compact">
+    <div class="house">
+      <section class="ghost" aria-hidden="true">
+        <p class="kicker">Your week</p>
+        <h2>Sep 3–7</h2>
+        <div class="week-ghost">
+          <article>
+            <strong>Thu 3</strong>
+            <i></i>
+            <em>IBM Sorting Machine</em>
+          </article>
+          <article>
+            <strong>Fri 4</strong>
+            <i></i>
+          </article>
+          <article><strong>Sat 5</strong></article>
+          <article><strong>Sun 6</strong></article>
+          <article>
+            <strong>Mon 7</strong>
+            <i></i>
+          </article>
+        </div>
+      </section>
+
+      <aside class="rail" aria-label="IBM Sorting Machine">
+        <div class="facts">
+          <div>
+            <p class="course">CSC 316</p>
+            <h2>IBM Sorting Machine</h2>
+            <p class="when">Thursday night</p>
+          </div>
+          <label class="btn sunny" for="room">Open</label>
+        </div>
+
+        <div class="preview">
+          <label class="preview-hit" for="room"><span class="visually-hidden">Open the school page</span></label>
+          <div class="lms">
+            <header>
+              <strong>Northstar University</strong>
+              <span>student</span>
+              <i>K</i>
+            </header>
+            <nav><b>Courses</b><span>Calendar</span><span>Grades</span></nav>
+            <main>
+              <p class="crumb">CSC 316 · Homework 3</p>
+              <h2>IBM Sorting Machine</h2>
+              <div class="q on">
+                <strong>4.</strong>
+                <p>Explain the running time and support your answer.</p>
+                <div class="box only-work only-chat">The algorithm performs one comparison per pass…<span class="caret"></span></div>
+                <div class="box yours only-take">The algorithm performs one comparison per pass…</div>
+              </div>
+            </main>
+          </div>
+          <svg class="pointer" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M5 3 L5 18 L10 13.2 L13.4 21 L16.2 19.8 L12.6 12 L20 12 Z" fill="#1c1612"/>
+            <path d="M6.4 5.2 L6.4 15.2 L10.2 11.6 L13.2 18.4 L14.6 17.8 L11.5 10.8 L17.6 10.8 Z" fill="#fffaf0"/>
+          </svg>
+        </div>
+
+        <div class="chat">
+          <div class="row">
+            <svg class="inky inky-face" viewBox="0 0 120 120" aria-hidden="true">
+              <g class="body">
+                <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+                <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+                <g class="eyes">
+                  <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                  <ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/>
+                  <circle cx="47" cy="53" r="1.8" fill="#fff"/>
+                  <circle cx="77" cy="53" r="1.8" fill="#fff"/>
+                </g>
+                <path d="M48 72 Q60 86 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/>
+              </g>
+            </svg>
+            <div>
+              <p class="said only-peek">Want me to do this?</p>
+              <label class="btn sunny go only-peek" for="work">Yeah, do this</label>
+              <p class="said only-work">I’m on question 4.</p>
+              <p class="said only-chat">Just 4. I never submit.</p>
+              <p class="said only-take">You have the page.</p>
+            </div>
+          </div>
+          <p class="said me extra">Just 4. Leave the rest.</p>
+          <p class="said extra">Okay. Just that one.</p>
+        </div>
+
+        <form class="composer" action="#">
+          <input type="text" aria-label="Talk to Inky" placeholder="I’m listening…" />
+          <button type="button">say it</button>
+        </form>
+      </aside>
+    </div>
+  </div>
+
+  <nav class="switcher" aria-label="Desk state">
+    <label for="peek">Peek</label>
+    <label for="work">Working</label>
+    <label for="chat">Chat</label>
+    <label for="take">Takeover</label>
+  </nav>
+  <script>
+    for (const id of location.hash.slice(1).split(",")) {
+      document.getElementById(id)?.click();
+    }
+  </script>
+</body>
+</html>

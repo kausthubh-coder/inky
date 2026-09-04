@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Your week — Thursday Sep 3</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      overflow-x: hidden;
+      background:
+        radial-gradient(#d8cbb3 1.15px, transparent 1.15px) 0 0 / 22px 22px,
+        #e8dcc4;
+    }
+
+    .bar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      align-items: center;
+      height: 58px;
+      padding: 0 18px 0 20px;
+      border-bottom: 2.5px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .wordmark { font-size: 22px; font-weight: 800; text-decoration: none; }
+    .when {
+      justify-self: center;
+      text-align: center;
+    }
+    .when strong {
+      display: block;
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.2rem;
+      line-height: 1;
+    }
+    .when small { color: var(--muted); font-size: 11px; font-weight: 800; }
+    .end { display: flex; align-items: center; gap: 8px; }
+    .gear {
+      width: 34px;
+      height: 34px;
+      border: 2px solid transparent;
+      border-radius: 50%;
+      background: transparent;
+      font-size: 16px;
+      text-decoration: none;
+    }
+    .gear:hover { background: var(--sticky); }
+    .you {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 3px 8px 3px 3px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .you:hover { background: var(--sticky); }
+    .you i {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--pink);
+      font-style: normal;
+      font-size: 12px;
+    }
+
+    .room {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 22px 22px 88px;
+    }
+
+    .hello {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      align-items: center;
+      gap: 16px;
+      margin: 0 8px 16px;
+    }
+    .inky-desk {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 96px;
+      height: 96px;
+      text-decoration: none;
+    }
+    .inky-desk svg {
+      width: 92px;
+      height: 92px;
+      filter: drop-shadow(2px 4px 0 rgb(28 22 18 / 12%));
+    }
+    .inky-desk:hover { translate: 0 -2px; }
+    .inky-desk:hover .hint,
+    .inky-desk:focus-visible .hint { opacity: 1; translate: 0 0; }
+    .hint {
+      position: absolute;
+      bottom: -4px;
+      padding: 2px 8px;
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      background: var(--sticky);
+      font-size: 10px;
+      font-weight: 900;
+      opacity: 0;
+      translate: 0 4px;
+      transition: opacity 160ms var(--ease), translate 160ms var(--ease);
+      white-space: nowrap;
+    }
+    .copy h1 { font-size: clamp(1.7rem, 3.2vw, 2.45rem); max-width: 16ch; }
+    .looked {
+      align-self: start;
+      margin-top: 10px;
+      padding: 4px 10px;
+      border: 2px solid var(--ink);
+      border-radius: 4px;
+      background: #dff4e9;
+      font-family: "Shantell Sans", cursive;
+      font-size: 14px;
+      font-weight: 800;
+      rotate: 4deg;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.12);
+    }
+
+    .talk {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 10px;
+      margin: 0 4px 18px;
+      padding: 4px 4px 6px 2px;
+      border-bottom: 2.5px solid var(--ink);
+    }
+    .talk input {
+      height: 42px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.15rem;
+      font-weight: 600;
+    }
+    .talk input:focus { outline: none; }
+    .talk input::placeholder { color: #a79d91; }
+    .talk button {
+      padding: 6px 14px;
+      border: 2px solid var(--ink);
+      border-radius: var(--pill);
+      background: var(--sunny);
+      box-shadow: 2px 2px 0 var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .talk button:hover { translate: 1px 1px; box-shadow: 1px 1px 0 var(--ink); }
+
+    .planner {
+      position: relative;
+      padding: 18px 16px 16px 28px;
+      border: 2.5px solid var(--ink);
+      border-radius: 18px 14px 20px 12px;
+      background:
+        linear-gradient(90deg, #edd8b0 0 18px, transparent 18px),
+        var(--paper-2);
+      box-shadow:
+        5px 6px 0 rgba(28, 22, 18, 0.16),
+        0 18px 36px rgba(28, 22, 18, 0.08);
+      rotate: -0.4deg;
+    }
+    .planner::before,
+    .planner::after {
+      content: "";
+      position: absolute;
+      left: 7px;
+      width: 8px;
+      height: 8px;
+      border: 1.5px solid var(--ink);
+      border-radius: 50%;
+      background: #c9b184;
+      box-shadow: inset 1px 1px 0 #fff6;
+    }
+    .planner::before { top: 28px; }
+    .planner::after { bottom: 28px; }
+
+    .days {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      min-height: 420px;
+      border: 2.5px solid var(--ink);
+      border-radius: 6px 8px 7px 5px;
+      background: #fffef8;
+      overflow: hidden;
+    }
+    .day {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-width: 0;
+      border-right: 1.5px solid var(--ink);
+    }
+    .day:last-child { border-right: 0; }
+    .day > header {
+      display: grid;
+      gap: 1px;
+      padding: 12px 10px 10px;
+      border-bottom: 1.5px solid var(--ink);
+      background: #f7f0de;
+    }
+    .day > header strong {
+      font-family: "Shantell Sans", cursive;
+      font-size: 1.15rem;
+      line-height: 1;
+    }
+    .day > header small {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .day.is-today > header { background: #fff2b5; }
+    .day.is-today { background: #fffaf0; }
+    .stack { padding: 12px 10px 14px; }
+
+    .slip {
+      display: grid;
+      gap: 4px;
+      width: 100%;
+      padding: 11px 11px 10px;
+      border: 2px solid var(--ink);
+      border-radius: 12px 9px 13px 10px;
+      background: #fff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.1);
+      text-align: left;
+    }
+    .slip:nth-child(odd) { rotate: -1.1deg; }
+    .slip:nth-child(even) { rotate: 0.8deg; }
+    .slip:hover { translate: 0 -2px; box-shadow: 3px 3px 0 rgba(28, 22, 18, 0.16); }
+    .slip small {
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .slip strong {
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 800;
+      line-height: 1.15;
+    }
+    .slip em {
+      color: var(--ink-faint);
+      font-size: 12px;
+      font-style: normal;
+      font-weight: 800;
+    }
+    .empty {
+      margin: 22px 8px 0;
+      color: var(--muted);
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 600;
+      font-style: italic;
+      line-height: 1.25;
+    }
+
+    @media (max-width: 860px) {
+      .hello { grid-template-columns: auto 1fr; }
+      .looked { grid-column: 2; justify-self: start; }
+      .planner { rotate: 0; }
+      .days { min-height: 280px; overflow-x: auto; grid-template-columns: repeat(5, minmax(150px, 1fr)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .planner, .slip, .looked { rotate: 0; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+
+  <header class="bar">
+    <a class="wordmark" href="#">studi</a>
+    <p class="when"><strong>Thursday</strong><small>September 3, 2026</small></p>
+    <div class="end">
+      <a class="gear" href="settings-sidebar.html" title="Settings">⚙</a>
+      <a class="you" href="settings-sidebar.html"><i>K</i>Kaustubh</a>
+    </div>
+  </header>
+
+  <main class="room">
+    <header class="hello">
+      <a class="inky-desk" href="desk-empty.html" title="Open Inky’s desk">
+        <svg class="inky" viewBox="0 0 120 120" aria-hidden="true">
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <path d="M60 15 Q57 5 66 3" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+            <g class="eyes">
+              <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+              <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+              <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+              <circle cx="45" cy="56" r="3.5" fill="#3b342c"/>
+              <circle cx="75" cy="56" r="3.5" fill="#3b342c"/>
+            </g>
+            <path d="M54 76 Q60 81 66 76" stroke="#3b342c" stroke-width="2.8" fill="none" stroke-linecap="round"/>
+          </g>
+        </svg>
+        <span class="hint">his desk</span>
+      </a>
+      <div class="copy">
+        <h1>Hey Kaustubh — 1 thing due today.</h1>
+      </div>
+      <span class="looked">I looked · 4:00</span>
+    </header>
+
+    <form class="talk" action="#">
+      <label class="visually-hidden" for="ask">Tell Inky what to do</label>
+      <input id="ask" name="ask" placeholder="Tell Inky what to do…" maxlength="400" />
+      <button type="submit">say it</button>
+    </form>
+
+    <section class="planner" aria-label="Your week">
+      <div class="days">
+        <article class="day is-today">
+          <header>
+            <strong>Thu 3</strong>
+            <small>today</small>
+          </header>
+          <div class="stack">
+            <button class="slip" type="button">
+              <small>CSC 316</small>
+              <strong>IBM Sorting Machine</strong>
+              <em>tonight</em>
+            </button>
+          </div>
+        </article>
+        <article class="day">
+          <header>
+            <strong>Fri 4</strong>
+            <small>tomorrow</small>
+          </header>
+          <div class="stack">
+            <button class="slip" type="button">
+              <small>Bio 201</small>
+              <strong>Bio lab</strong>
+              <em>Friday</em>
+            </button>
+          </div>
+        </article>
+        <article class="day">
+          <header>
+            <strong>Sat 5</strong>
+            <small>weekend</small>
+          </header>
+          <p class="empty">Nothing due.</p>
+        </article>
+        <article class="day">
+          <header>
+            <strong>Sun 6</strong>
+            <small>weekend</small>
+          </header>
+          <p class="empty">Nothing due.</p>
+        </article>
+        <article class="day">
+          <header>
+            <strong>Mon 7</strong>
+            <small>next</small>
+          </header>
+          <div class="stack">
+            <button class="slip" type="button">
+              <small>Calc II</small>
+              <strong>Calc</strong>
+              <em>Monday</em>
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

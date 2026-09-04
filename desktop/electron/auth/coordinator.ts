@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { z } from "zod";
 
-import type { AuthState, AuthUser, ConnectedAppConnection, ConnectedAppExecution, ConnectedAppsState, ConnectedAppToolSearch, FeedbackReceipt } from "../../shared/index.js";
+import { UsageRecordInputSchema, type AuthState, type AuthUser, type ConnectedAppConnection, type ConnectedAppExecution, type ConnectedAppsState, type ConnectedAppToolSearch, type FeedbackReceipt, type UsageRecordInput, type UsageState } from "../../shared/index.js";
 import { CloudAccountClient, type CloudAccountResult } from "./cloud.js";
 import { studiCloudConfig } from "./config.js";
 import { openLoopbackCallback } from "./loopback.js";
@@ -143,6 +143,17 @@ export class AuthCoordinator {
     return this.#cloud.submitFeedback(this.#deviceId, randomUUID(), message);
   }
 
+  async usage(): Promise<UsageState> {
+    this.#requireOnlineApproval("Usage needs an online approved Studi account");
+    const today = new Date().toISOString().slice(0, 10);
+    return this.#cloud.usage(today.slice(0, 7), today);
+  }
+
+  async recordUsage(input: UsageRecordInput): Promise<void> {
+    if (!this.#tokens || this.#state.status !== "approved") return;
+    await this.#cloud.recordUsage(this.#deviceId, UsageRecordInputSchema.parse(input));
+  }
+
   async connectedApps(): Promise<ConnectedAppsState> {
     this.#requireOnlineApproval();
     return this.#cloud.connectedApps();
@@ -170,9 +181,9 @@ export class AuthCoordinator {
     return this.#cloud.executeConnectedAppTool(toolkit, toolSlug, arguments_);
   }
 
-  #requireOnlineApproval(): void {
+  #requireOnlineApproval(message = "Connected apps need an online approved Studi account"): void {
     if (!this.#tokens || this.#state.status !== "approved") {
-      throw new Error("Connected apps need an online approved Studi account");
+      throw new Error(message);
     }
   }
 

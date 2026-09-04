@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Studi landing and account mockup</title>
+  <link rel="stylesheet" href="theme.css" />
+  <style>
+    :root { --nav-h: 66px; }
+    body { min-width: 320px; }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .review-switcher {
+      position: fixed;
+      z-index: 100;
+      right: 16px;
+      bottom: 16px;
+      display: flex;
+      gap: 4px;
+      padding: 5px;
+      border: 2px solid var(--ink);
+      border-radius: 999px;
+      background: rgb(255 250 240 / 94%);
+      box-shadow: 3px 3px 0 var(--ink);
+      backdrop-filter: blur(10px);
+    }
+    .review-switcher button {
+      padding: 6px 10px;
+      border: 0;
+      border-radius: 999px;
+      background: transparent;
+      cursor: pointer;
+      font-size: 11px;
+      font-weight: 900;
+    }
+    .review-switcher button.on { background: var(--sunny); }
+
+    .site-nav {
+      position: fixed;
+      z-index: 80;
+      top: 18px;
+      left: 50%;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      align-items: center;
+      width: min(960px, calc(100% - 36px));
+      min-height: 58px;
+      padding: 7px 10px;
+      border: 2.5px solid var(--ink);
+      border-radius: 28px;
+      background: rgb(255 250 240 / 92%);
+      box-shadow: 4px 4px 0 var(--ink);
+      backdrop-filter: blur(12px);
+      translate: -50% 0;
+    }
+    .brand { grid-column: 1; display: flex; align-items: center; gap: 4px; justify-self: start; text-decoration: none; }
+    .brand svg { width: 42px; height: 42px; margin-bottom: -7px; }
+    .wordmark { font-size: 22px; font-weight: 800; }
+    .nav-links { grid-column: 2; display: flex; gap: 2px; justify-self: center; }
+    .nav-links button {
+      padding: 6px 11px;
+      border: 2px solid transparent;
+      border-radius: var(--pill);
+      background: transparent;
+      color: var(--ink-soft);
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .nav-links button:hover, .nav-links button.on { background: var(--sticky); color: var(--ink); }
+    .nav-links button.on { border-color: var(--ink); }
+    .nav-actions { grid-column: 3; display: flex; align-items: center; gap: 8px; justify-self: end; }
+    .nav-actions .quiet-link { border: 0; background: none; cursor: pointer; font-size: 12px; font-weight: 900; }
+    .avatar-btn { display: none; align-items: center; gap: 7px; border: 0; background: none; cursor: pointer; font-size: 12px; font-weight: 900; }
+    .avatar { display: grid; width: 34px; height: 34px; border: 2px solid var(--ink); border-radius: 48% 52% 45%; background: var(--sky); place-items: center; }
+    body.signed-in .signed-out-action { display: none; }
+    body.signed-in .avatar-btn { display: flex; }
+
+    .page { display: none; min-height: 100vh; padding: 110px 24px 80px; }
+    .page.active { display: block; }
+    .landing-page { padding-right: 0; padding-left: 0; }
+    .landing-wrap { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+    .hero-copy { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, .72fr); gap: 36px; align-items: end; margin: 36px 0 26px; }
+    .hero-copy h1 { max-width: 820px; margin-bottom: 14px; font-size: clamp(42px, 7vw, 82px); letter-spacing: -.06em; }
+    .hero-copy .lead { max-width: 49ch; font-size: 18px; font-weight: 750; }
+    .waitlist-card { padding: 20px; rotate: 1deg; }
+    .waitlist-card h2 { margin-bottom: 8px; font-size: 25px; }
+    .waitlist-card p { margin-bottom: 12px; }
+    .email-row { display: flex; gap: 8px; }
+    .email-row input { height: 44px; min-width: 0; flex: 1; border-width: 2px; }
+    .form-note { margin: 9px 0 0; color: var(--muted); font-size: 11px; font-weight: 800; }
+    .joined { display: none; padding: 10px 12px; border: 2px solid var(--ink); border-radius: 12px; background: #dff4e9; font-weight: 900; }
+    .waitlist-card.is-joined form { display: none; }
+    .waitlist-card.is-joined .joined { display: block; }
+
+    .desktop-scene {
+      position: relative;
+      height: min(680px, calc(100vh - 120px));
+      min-height: 570px;
+      overflow: hidden;
+      border: 3px solid var(--ink);
+      border-radius: 23px 18px 25px 20px;
+      background: linear-gradient(135deg, #bfd8ed, #f4d8c8 48%, #d7c9ec);
+      box-shadow: 7px 7px 0 var(--ink);
+    }
+    .desktop-window { position: absolute; inset: 22px 28px 72px; display: grid; grid-template-rows: 48px 1fr; overflow: hidden; border: 2px solid #756a5f; border-radius: 14px; background: #fbf7ee; box-shadow: 0 18px 46px rgb(28 22 18 / 18%); }
+    .titlebar { display: flex; align-items: center; gap: 9px; padding: 7px 12px; border-bottom: 2px solid var(--ink); background: #f8f0df; }
+    .traffic { display: flex; gap: 5px; }
+    .traffic i { width: 10px; height: 10px; border: 1.5px solid var(--ink); border-radius: 50%; background: var(--coral); }
+    .traffic i:nth-child(2) { background: var(--sunny); }
+    .traffic i:nth-child(3) { background: var(--mint); }
+    .desktop-brand { display: flex; align-items: center; gap: 6px; margin-left: 4px; font-family: "Shantell Sans", cursive; font-weight: 800; }
+    .app-icon { display: grid; width: 28px; height: 28px; border: 1.5px solid var(--ink); border-radius: 8px 7px 9px; background: #e8f3ff; place-items: center; }
+    .app-icon svg { width: 24px; height: 24px; }
+    .title-spacer { flex: 1; }
+    .desk-state { display: flex; align-items: center; gap: 6px; padding: 5px 9px; border: 1.5px solid var(--ink); border-radius: 999px; background: #fff; font-size: 11px; font-weight: 900; }
+    .pulse { width: 8px; height: 8px; border: 1px solid var(--ink); border-radius: 50%; background: var(--mint); }
+    .desktop-user { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 900; }
+    .desktop-user i { display: grid; width: 26px; height: 26px; border: 1.5px solid var(--ink); border-radius: 50%; background: var(--pink); font-style: normal; place-items: center; }
+    .desktop-body { position: relative; min-height: 0; }
+    .beat { position: absolute; inset: 0; display: none; }
+    .beat.active { display: grid; }
+    .intro-beat { grid-template-columns: 220px minmax(0, 1fr); align-items: center; padding: 36px clamp(28px, 6vw, 78px); }
+    .intro-beat .mascot { width: 190px; height: 190px; }
+    .talk-panel { max-width: 620px; }
+    .speaker { margin: 0 0 7px 13px; font-family: "Shantell Sans", cursive; font-size: 13px; font-weight: 900; }
+    .bubble { position: relative; padding: 20px 22px; border: 2.5px solid var(--ink); border-radius: 21px 18px 20px 7px; background: #fff; box-shadow: 3px 3px 0 rgb(28 22 18 / 18%); font-family: "Shantell Sans", cursive; font-size: clamp(18px, 2.1vw, 27px); font-weight: 700; line-height: 1.34; }
+    .bubble::before { content: ""; position: absolute; left: -17px; bottom: 13px; width: 26px; height: 24px; border-bottom: 2.5px solid var(--ink); background: #fff; transform: skewX(-38deg) rotate(9deg); }
+    .reply-row { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+    .workspace-beat { grid-template-columns: minmax(0, 1fr); padding: 18px; }
+    .week-head { display: grid; grid-template-columns: auto 1fr auto; gap: 13px; align-items: center; margin-bottom: 14px; }
+    .week-head .mascot { width: 62px; height: 62px; }
+    .week-head h2 { margin-bottom: 2px; font-size: 21px; }
+    .week-head p { margin: 0; font-size: 12px; font-weight: 800; }
+    .scan-pill { padding: 7px 10px; border: 1.5px solid var(--ink); border-radius: 999px; background: #dff4e9; font-size: 11px; font-weight: 900; }
+    .week-board { display: grid; grid-template-columns: repeat(5, minmax(118px, 1fr)); gap: 9px; min-height: 0; }
+    .day { padding: 10px; border: 2px dashed #bdb09f; border-radius: 13px; background: rgb(255 255 255 / 50%); }
+    .day > strong { display: block; margin: 0 0 9px; font-family: "Shantell Sans", cursive; }
+    .task { padding: 9px; margin-bottom: 8px; border: 2px solid var(--ink); border-radius: 11px 9px 12px; background: #fff; box-shadow: 2px 2px 0 rgb(28 22 18 / 14%); }
+    .task small { display: block; margin-bottom: 3px; color: var(--muted); font-size: 9px; font-weight: 900; letter-spacing: .06em; }
+    .task b { display: block; font-size: 11px; line-height: 1.25; }
+    .task.hot { background: #fff4c7; }
+    .task.yours { border-style: dashed; background: #f7edf2; }
+    .task .mini-action { margin-top: 7px; padding: 3px 7px; border: 1.5px solid var(--ink); border-radius: 999px; background: var(--sunny); font-size: 9px; font-weight: 900; }
+    .desk-beat { grid-template-columns: minmax(0, 1fr) 320px; }
+    .fake-lms { padding: 18px; background: #fff; font-family: system-ui, sans-serif; }
+    .lms-bar { height: 28px; margin: -18px -18px 16px; background: #394b58; }
+    .fake-lms h3 { font: 700 20px system-ui, sans-serif; }
+    .fake-lms p { font-size: 12px; }
+    .answer { height: 34px; padding: 7px 9px; margin: 8px 0; border: 1px solid #b9c1c7; border-radius: 4px; background: #f1faf4; color: #2b6340; font-size: 12px; }
+    .submit-row { margin-top: 18px; text-align: right; }
+    .submit-row button { padding: 7px 12px; border: 0; border-radius: 4px; background: #0673b6; color: #fff; font-weight: 800; }
+    .desk-talk { display: flex; flex-direction: column; justify-content: center; padding: 20px; border-left: 2px solid var(--ink); background: #e1f0ff; }
+    .desk-talk .mascot { width: 112px; height: 112px; margin: 0 auto 10px; }
+    .desk-talk .bubble { padding: 14px; font-size: 17px; }
+    .dock { position: absolute; bottom: 13px; left: 50%; display: flex; gap: 8px; padding: 7px 9px; border: 1.5px solid rgb(28 22 18 / 45%); border-radius: 14px; background: rgb(255 255 255 / 55%); backdrop-filter: blur(12px); translate: -50% 0; }
+    .dock span { display: grid; width: 36px; height: 36px; border: 1.5px solid rgb(28 22 18 / 45%); border-radius: 9px; background: #fff; place-items: center; }
+    .dock .studi-icon { width: 42px; height: 42px; margin-top: -9px; border: 2px solid var(--ink); background: #e5f1ff; box-shadow: 2px 2px 0 var(--ink); }
+    .dock svg { width: 32px; height: 32px; }
+    .demo-rail { position: absolute; bottom: 18px; left: 18px; display: flex; gap: 5px; }
+    .demo-rail button { display: grid; width: 25px; height: 25px; border: 1.5px solid var(--ink); border-radius: 50%; background: #fff; cursor: pointer; font-size: 10px; font-weight: 900; place-items: center; }
+    .demo-rail button.on { background: var(--sunny); }
+
+    .proof-strip { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 66px 0; }
+    .proof-strip article { min-height: 150px; }
+    .proof-strip h3 { font-size: 20px; }
+    .final-cta { padding: 28px; margin-bottom: 30px; background: #ffe56a; text-align: center; }
+    .final-cta h2 { font-size: 34px; }
+
+    .account-wrap { width: min(1040px, 100%); margin: 18px auto 0; }
+    .account-head { display: flex; align-items: end; justify-content: space-between; gap: 18px; margin-bottom: 22px; }
+    .account-head h1 { max-width: 720px; margin-bottom: 6px; font-size: clamp(38px, 6vw, 64px); }
+    .account-head p { font-size: 17px; font-weight: 700; }
+    .status-chip { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 2px solid var(--ink); border-radius: 999px; background: #dff4e9; font-size: 12px; font-weight: 900; white-space: nowrap; }
+    .dashboard-grid { display: grid; grid-template-columns: 1.25fr .75fr; gap: 16px; }
+    .open-card { min-height: 280px; padding: 28px; background: #fff2b5; }
+    .open-card h2 { max-width: 12ch; font-size: clamp(31px, 4vw, 46px); }
+    .open-card p { max-width: 48ch; font-size: 16px; font-weight: 700; }
+    .open-card .mascot { float: right; width: 150px; height: 150px; margin: -18px -6px 0 18px; }
+    .open-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+    .stack { display: grid; gap: 16px; }
+    .metric { padding: 19px; }
+    .metric .big { display: block; margin: 4px 0; font-family: "Shantell Sans", cursive; font-size: 28px; font-weight: 800; }
+    .metric a, .text-btn { border: 0; background: none; color: inherit; cursor: pointer; font-weight: 900; text-decoration: underline; text-underline-offset: 3px; }
+    .activity { grid-column: 1 / -1; padding: 21px; }
+    .activity-row { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: center; padding: 12px 0; border-top: 1.5px dashed #c8bca8; }
+    .activity-row:first-of-type { border-top: 0; }
+    .activity-icon { display: grid; width: 38px; height: 38px; border: 1.5px solid var(--ink); border-radius: 11px; background: #e1f0ff; place-items: center; font-weight: 900; }
+    .activity-row p { margin: 0; }
+    .activity-row time { color: var(--muted); font-size: 11px; font-weight: 800; }
+
+    .settings-shell { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 16px; }
+    .settings-nav { padding: 12px; align-self: start; }
+    .settings-nav button { width: 100%; padding: 9px 10px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; font-size: 13px; font-weight: 900; text-align: left; }
+    .settings-nav button.on { border: 1.5px solid var(--ink); background: var(--sticky); }
+    .settings-content { padding: 24px; }
+    .settings-content > h2 { font-size: 31px; }
+    .plan-card { display: grid; grid-template-columns: 1fr auto; gap: 20px; padding: 20px; margin: 18px 0; border: 2px solid var(--ink); border-radius: 15px; background: #fff2b5; }
+    .price { font-family: "Shantell Sans", cursive; font-size: 25px; font-weight: 800; }
+    .setting-row { display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center; padding: 17px 0; border-top: 1.5px dashed #c8bca8; }
+    .setting-row p { margin: 3px 0 0; font-size: 13px; }
+    .field-line { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; width: min(560px, 100%); padding: 10px 12px; margin: 12px 0; border: 1.5px solid var(--ink); border-radius: 10px; background: #fff; }
+    .field-line span { color: var(--faint); font-size: 12px; font-weight: 800; }
+
+    @media (max-width: 850px) {
+      .site-nav { grid-template-columns: 1fr auto; }
+      .nav-links { display: none; }
+      .nav-actions { grid-column: 2; }
+      .hero-copy { grid-template-columns: 1fr; align-items: start; }
+      .hero-copy h1 { font-size: 48px; }
+      .desktop-scene { height: 720px; }
+      .desktop-window { inset: 18px 16px 70px; }
+      .intro-beat { grid-template-columns: 1fr; justify-items: center; padding: 22px; }
+      .intro-beat .mascot { width: 120px; height: 120px; }
+      .week-board { grid-template-columns: repeat(5, 150px); overflow-x: auto; }
+      .desk-beat { grid-template-columns: 1fr; }
+      .desk-talk { border-top: 2px solid var(--ink); border-left: 0; }
+      .desk-talk .mascot { display: none; }
+      .proof-strip { grid-template-columns: 1fr; }
+      .dashboard-grid { grid-template-columns: 1fr; }
+      .activity { grid-column: auto; }
+      .settings-shell { grid-template-columns: 1fr; }
+      .settings-nav { display: flex; overflow-x: auto; }
+      .settings-nav button { white-space: nowrap; }
+    }
+    @media (max-width: 560px) {
+      .page { padding: 98px 14px 72px; }
+      .landing-page { padding-right: 0; padding-left: 0; }
+      .landing-wrap { width: min(100% - 28px, 1120px); }
+      .site-nav { top: 10px; width: calc(100% - 20px); }
+      .signed-out-action.quiet-link, .avatar-btn span { display: none; }
+      .hero-copy { margin-top: 18px; }
+      .hero-copy h1 { font-size: 38px; }
+      .email-row { flex-direction: column; }
+      .desktop-scene { min-height: 660px; }
+      .desktop-window { inset: 12px 10px 62px; }
+      .desktop-user span { display: none; }
+      .intro-beat { padding: 16px; }
+      .bubble { padding: 15px; font-size: 17px; }
+      .week-head { grid-template-columns: auto 1fr; }
+      .scan-pill { grid-column: 1 / -1; }
+      .fake-lms { overflow: hidden; }
+      .review-switcher { right: 8px; bottom: 8px; max-width: calc(100% - 16px); overflow-x: auto; }
+      .review-switcher button { white-space: nowrap; }
+      .account-head { align-items: start; flex-direction: column; }
+      .open-card .mascot { width: 95px; height: 95px; }
+      .activity-row { grid-template-columns: 40px 1fr; }
+      .activity-row time { grid-column: 2; }
+      .plan-card { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <defs>
+      <symbol id="inky" viewBox="0 0 120 120">
+        <ellipse cx="60" cy="111" rx="25" ry="5" fill="#3b342c" opacity=".1" />
+        <path d="M60 15C86 11 105 31 104 58c-1 30-17 49-44 48-27-1-44-18-44-48 0-27 18-39 44-43Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round" />
+        <path d="M60 15Q57 5 66 3" fill="none" stroke="#3b342c" stroke-width="3" stroke-linecap="round" />
+        <ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c" /><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c" />
+        <circle cx="47" cy="53" r="1.8" fill="#fff" /><circle cx="77" cy="53" r="1.8" fill="#fff" />
+        <path d="M52 73q8 7 16 0" fill="none" stroke="#3b342c" stroke-width="3" stroke-linecap="round" />
+        <ellipse cx="33" cy="68" rx="6" ry="4" fill="#f2a8c4" opacity=".72" /><ellipse cx="87" cy="68" rx="6" ry="4" fill="#f2a8c4" opacity=".72" />
+      </symbol>
+    </defs>
+  </svg>
+
+  <header class="site-nav">
+    <button class="brand" type="button" data-page="landing" aria-label="Studi home">
+      <svg aria-hidden="true"><use href="#inky" /></svg><span class="wordmark">studi</span>
+    </button>
+    <nav class="nav-links" aria-label="Primary">
+      <button type="button" data-page="landing" class="on">Inky</button>
+      <button type="button" data-scroll="trust">Trust</button>
+      <button type="button" data-page="dashboard">Dashboard</button>
+      <button type="button" data-page="billing">Billing</button>
+    </nav>
+    <div class="nav-actions">
+      <button type="button" class="quiet-link signed-out-action" data-page="dashboard">Sign in</button>
+      <button type="button" class="btn sunny signed-out-action" data-scroll="waitlist">Save me a seat</button>
+      <button type="button" class="avatar-btn" data-page="settings"><span>Maya</span><i class="avatar">M</i></button>
+    </div>
+  </header>
+
+  <main id="landing" class="page landing-page active">
+    <div class="landing-wrap">
+      <section class="hero-copy">
+        <div>
+          <p class="kicker">Meet the student who never forgets a deadline</p>
+          <h1>Hi. I'm Inky. I finish your homework.</h1>
+          <p class="lead">I scan every class, find what is due, and do the work on the real school page while you watch. You can check every answer and keep the final click.</p>
+        </div>
+        <article class="card sunny waitlist-card" id="waitlist">
+          <p class="kicker">Private beta</p>
+          <h2>Let me save you a seat.</h2>
+          <form id="waitlist-form">
+            <div class="email-row"><input type="email" aria-label="Email address" placeholder="you@example.com" required /><button class="btn sunny" type="submit">Save my seat</button></div>
+            <p class="form-note">One email when your seat opens. Already invited? <button type="button" class="text-btn" data-page="dashboard">Sign in</button></p>
+          </form>
+          <div class="joined" role="status">You're on the list. I'll email you when your seat is ready.</div>
+        </article>
+      </section>
+
+      <section class="desktop-scene" aria-label="Interactive Studi desktop demo">
+        <div class="desktop-window">
+          <header class="titlebar">
+            <div class="traffic" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="desktop-brand">
+              <span class="app-icon"><svg aria-hidden="true"><use href="#inky" /></svg></span>
+              <span>studi</span>
+            </div>
+            <div class="title-spacer"></div>
+            <div class="desk-state"><span class="pulse"></span> Inky's desk</div>
+            <div class="desktop-user"><i>M</i><span>Maya R.</span></div>
+          </header>
+          <div class="desktop-body">
+            <section class="beat intro-beat active" data-beat="0">
+              <svg class="mascot" aria-hidden="true"><use href="#inky" /></svg>
+              <div class="talk-panel"><div class="speaker">Inky</div><div class="bubble">Hi, I'm Inky. I finish your homework before you know it even exists.</div><div class="reply-row"><button class="btn sunny next-beat" type="button">Okay, show me</button></div></div>
+            </section>
+            <section class="beat intro-beat" data-beat="1">
+              <svg class="mascot" aria-hidden="true"><use href="#inky" /></svg>
+              <div class="talk-panel"><div class="speaker">Inky</div><div class="bubble">I scan all your schoolwork every morning, or whenever you ask. Then I can do it, save the answers for you to submit, or submit it after you tell me to.</div><div class="reply-row"><button class="btn sunny next-beat" type="button">Scan my classes</button></div></div>
+            </section>
+            <section class="beat workspace-beat" data-beat="2">
+              <div class="week-head"><svg class="mascot" aria-hidden="true"><use href="#inky" /></svg><div><h2>I found five things.</h2><p>The problem set is first. Your quiz stays yours.</p></div><span class="scan-pill">✓ checked 4 classes just now</span></div>
+              <div class="week-board">
+                <div class="day"><strong>Mon · today</strong><div class="task hot"><small>CALC 1 · TONIGHT</small><b>Problem set 4</b><button class="mini-action next-beat" type="button">Do this one</button></div><div class="task"><small>HIST 210</small><b>Cold War essay</b></div></div>
+                <div class="day"><strong>Tue</strong><div class="task"><small>BIO 150</small><b>Osmosis lab report</b></div></div>
+                <div class="day"><strong>Wed</strong><div class="task yours"><small>PSY 101 · YOURS</small><b>Reading quiz</b></div><div class="task"><small>ENG 102</small><b>Peer review draft</b></div></div>
+                <div class="day"><strong>Thu</strong><p style="font-size:11px">Nothing due. Suspiciously peaceful.</p></div>
+                <div class="day"><strong>Fri</strong><div class="task yours"><small>PSY 101 · YOURS</small><b>Midterm exam</b></div></div>
+              </div>
+            </section>
+            <section class="beat desk-beat" data-beat="3">
+              <div class="fake-lms"><div class="lms-bar"></div><small>CALC 1 / Assignments</small><h3>Problem set 4: Related rates</h3><p>Due tonight at 11:59 PM · 3 questions</p><div class="answer">1. y' = -1.5 ft/s ✓</div><div class="answer">2. r' = 1/(25π) cm/s ✓</div><div class="answer">3. h' = 8/(9π) m/min ✓</div><div class="submit-row"><button type="button">Submit answers</button></div></div>
+              <aside class="desk-talk"><svg class="mascot" aria-hidden="true"><use href="#inky" /></svg><div class="bubble">Done. I saved every answer. Want the last click?</div><div class="reply-row"><button class="btn next-beat" type="button">I'll submit</button><button class="btn sunny next-beat" type="button">Submit it for me</button></div></aside>
+            </section>
+            <section class="beat intro-beat" data-beat="4">
+              <svg class="mascot" aria-hidden="true"><use href="#inky" /></svg>
+              <div class="talk-panel"><div class="speaker">Inky</div><div class="bubble">That's the whole thing. I find it, finish it, and wait when the choice should be yours.</div><div class="reply-row"><button class="btn sunny" type="button" data-demo-beat="0">Play it again</button><button class="btn" type="button" data-scroll="waitlist">Save my seat</button></div></div>
+            </section>
+          </div>
+        </div>
+        <div class="demo-rail" aria-label="Demo steps"><button type="button" class="on" data-demo-beat="0">1</button><button type="button" data-demo-beat="1">2</button><button type="button" data-demo-beat="2">3</button><button type="button" data-demo-beat="3">4</button><button type="button" data-demo-beat="4">5</button></div>
+        <div class="dock" aria-hidden="true"><span></span><span class="studi-icon"><svg><use href="#inky" /></svg></span><span></span><span></span></div>
+      </section>
+
+      <section class="proof-strip" id="trust">
+        <article class="card mint"><p class="kicker">You see everything</p><h3>I work on the real page.</h3><p>Take over at any moment. I stop exactly where I am.</p></article>
+        <article class="card sunny"><p class="kicker">The last click</p><h3>Submit is your call.</h3><p>I save the answers first. I submit only after you tell me to.</p></article>
+        <article class="card lavender"><p class="kicker">Hard boundary</p><h3>Tests stay yours.</h3><p>Quizzes, exams, and timed work are marked and left alone.</p></article>
+      </section>
+      <section class="card final-cta"><svg class="mascot" style="width:90px;height:90px;margin:-65px auto 8px" aria-hidden="true"><use href="#inky" /></svg><h2>Let me check what's due.</h2><p>Join the private beta. I will email you once when your seat opens.</p><button class="btn" type="button" data-scroll="waitlist">Save my seat</button></section>
+    </div>
+  </main>
+
+  <main id="dashboard" class="page">
+    <div class="account-wrap">
+      <header class="account-head"><div><p class="kicker">Your Studi account</p><h1>Hi Maya. Your seat is ready.</h1><p>One more step and Inky can check your classes.</p></div><span class="status-chip"><span class="pulse"></span> approved</span></header>
+      <div class="dashboard-grid">
+        <article class="card open-card"><svg class="mascot" aria-hidden="true"><use href="#inky" /></svg><p class="kicker">Continue on your computer</p><h2>Open Studi and meet Inky.</h2><p>Your browser session will carry you into a secure desktop sign-in. The PKCE proof stays inside the app.</p><div class="open-actions"><button class="btn sunny" id="open-studi" type="button">Open Studi</button><button class="btn" type="button">Download for Windows</button></div><p class="form-note" id="open-note">Studi 0.1 · Windows 10 or newer</p></article>
+        <div class="stack">
+          <article class="card metric mint"><p class="kicker">Plan</p><span class="big">Beta</span><p>Private beta access · 25 credits</p><button class="text-btn" type="button" data-page="billing">Manage billing</button></article>
+          <article class="card metric sky"><p class="kicker">Desktop</p><span class="big">Not linked</span><p>Open Studi to connect this account.</p><button class="text-btn" type="button" data-page="settings">View devices</button></article>
+        </div>
+        <article class="card activity"><p class="kicker">Account activity</p><h3>Everything that matters, in plain English.</h3><div class="activity-row"><span class="activity-icon">✓</span><div><strong>Your beta seat was approved</strong><p>You can sign in on one Studi desktop.</p></div><time>today</time></div><div class="activity-row"><span class="activity-icon">25</span><div><strong>25 beta credits added</strong><p>Credits update here and inside Studi.</p></div><time>today</time></div></article>
+      </div>
+    </div>
+  </main>
+
+  <main id="billing" class="page">
+    <div class="account-wrap">
+      <header class="account-head"><div><p class="kicker">Account · Billing</p><h1>Your plan, without a maze.</h1><p>Plan changes here update Studi after Clerk confirms them.</p></div><span class="status-chip"><span class="pulse"></span> active</span></header>
+      <div class="settings-shell">
+        <aside class="card settings-nav"><button type="button" data-page="dashboard">Overview</button><button type="button" data-page="settings">Account</button><button type="button" class="on">Billing</button></aside>
+        <section class="card settings-content"><p class="kicker">Current plan</p><h2>Studi Supporter</h2><div class="plan-card"><div><h3>Supporter</h3><p>Inky scans every morning, works eligible assignments, and saves your answers.</p><span class="pill mint">active</span></div><div><div class="price">$12 / month</div><button class="btn" type="button">Change plan</button></div></div><div class="setting-row"><div><strong>Payment method</strong><p>Visa ending in 4242 · expires 08/29</p></div><button class="btn" type="button">Update</button></div><div class="setting-row"><div><strong>Next payment</strong><p>$12.00 on October 3, 2026</p></div><button class="text-btn" type="button">View receipt</button></div><div class="setting-row"><div><strong>Cancel subscription</strong><p>Keep access through the end of the current billing period.</p></div><button class="text-btn" type="button">Cancel plan</button></div></section>
+      </div>
+    </div>
+  </main>
+
+  <main id="settings" class="page">
+    <div class="account-wrap">
+      <header class="account-head"><div><p class="kicker">Account · Settings</p><h1>The useful account stuff.</h1><p>Identity stays in Clerk. Homework stays on your computer.</p></div></header>
+      <div class="settings-shell">
+        <aside class="card settings-nav"><button type="button" data-page="dashboard">Overview</button><button type="button" class="on">Account</button><button type="button" data-page="billing">Billing</button></aside>
+        <section class="card settings-content"><p class="kicker">Profile</p><h2>Maya Rivera</h2><div class="field-line"><div><strong>Email</strong><br><span>maya@example.com</span></div><button class="text-btn" type="button">Change</button></div><div class="field-line"><div><strong>Password and security</strong><br><span>Managed by Clerk</span></div><button class="text-btn" type="button">Manage</button></div><div class="setting-row"><div><strong>Studi desktop</strong><p>No desktop is linked yet. Your plan allows one active computer.</p></div><button class="btn sunny" type="button" data-page="dashboard">Connect</button></div><div class="setting-row"><div><strong>Sign out</strong><p>This signs out the website. Studi keeps its own encrypted session.</p></div><button class="btn" id="sign-out" type="button">Sign out</button></div></section>
+      </div>
+    </div>
+  </main>
+
+  <div class="review-switcher" aria-label="Mockup views"><button type="button" class="on" data-page="landing">Landing</button><button type="button" data-page="dashboard">Dashboard</button><button type="button" data-page="billing">Billing</button><button type="button" data-page="settings">Settings</button></div>
+
+  <script>
+    const pages = [...document.querySelectorAll('.page')];
+    const pageButtons = [...document.querySelectorAll('[data-page]')];
+    const reviewButtons = [...document.querySelectorAll('.review-switcher [data-page]')];
+    const navButtons = [...document.querySelectorAll('.nav-links [data-page]')];
+    function showPage(id) {
+      pages.forEach(page => page.classList.toggle('active', page.id === id));
+      reviewButtons.forEach(button => button.classList.toggle('on', button.dataset.page === id));
+      navButtons.forEach(button => button.classList.toggle('on', button.dataset.page === id));
+      document.body.classList.toggle('signed-in', id !== 'landing');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    pageButtons.forEach(button => button.addEventListener('click', () => showPage(button.dataset.page)));
+    document.querySelectorAll('[data-scroll]').forEach(button => button.addEventListener('click', () => {
+      showPage('landing');
+      setTimeout(() => document.getElementById(button.dataset.scroll)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 20);
+    }));
+
+    let beat = 0;
+    const beats = [...document.querySelectorAll('[data-beat]')];
+    const beatButtons = [...document.querySelectorAll('[data-demo-beat]')];
+    function showBeat(next) {
+      beat = Math.max(0, Math.min(4, Number(next)));
+      beats.forEach(node => node.classList.toggle('active', Number(node.dataset.beat) === beat));
+      beatButtons.forEach(button => button.classList.toggle('on', Number(button.dataset.demoBeat) === beat));
+    }
+    document.querySelectorAll('.next-beat').forEach(button => button.addEventListener('click', () => showBeat(beat + 1)));
+    beatButtons.forEach(button => button.addEventListener('click', () => showBeat(button.dataset.demoBeat)));
+
+    document.getElementById('waitlist-form').addEventListener('submit', event => {
+      event.preventDefault();
+      event.currentTarget.closest('.waitlist-card').classList.add('is-joined');
+    });
+    document.getElementById('open-studi').addEventListener('click', () => {
+      document.getElementById('open-note').textContent = 'Opening Studi… If nothing happens, download the app below.';
+    });
+    document.getElementById('sign-out').addEventListener('click', () => showPage('landing'));
+  </script>
+</body>
+</html>
