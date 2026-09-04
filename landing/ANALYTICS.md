@@ -9,7 +9,7 @@ NEXT_PUBLIC_POSTHOG_KEY=phc_...
 NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-The integration is deliberately anonymous: no identify calls, form values, email addresses, autocaptured clicks, session recordings, cookies, persistent browser storage, or URL query strings are sent. Its anonymous identifier lives only in memory, which is enough for the landing-page conversion funnel without a consent banner.
+The integration is deliberately anonymous: no identify calls, form values, email addresses, autocaptured clicks, session recordings, cookies, persistent browser storage, or URL query strings are sent. PostHog cookieless server hash mode counts daily unique visitors without writing an identifier to the browser, which keeps the landing-page funnel useful without a consent banner.
 
 ## Events
 

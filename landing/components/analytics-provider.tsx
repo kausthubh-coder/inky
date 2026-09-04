@@ -30,6 +30,7 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
       api_host: host,
       ui_host: "https://us.posthog.com",
       defaults: "2026-05-30",
+      cookieless_mode: "always",
       capture_pageview: "history_change",
       persistence: "memory",
       autocapture: false,

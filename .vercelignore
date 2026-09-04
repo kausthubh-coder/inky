@@ -1,24 +1,24 @@
 # Local dependencies and build output
 node_modules
 **/node_modules
-out
-dist
+/out
+/dist
 landing/.next
 landing/tsconfig.tsbuildinfo
 
 # Local tooling, plans, and test artifacts
-.agent
-.agents
-.claude
-.cursor
-.studi-harness
-agent-harness
-desktop
-tests
-scripts
-docs
-assets
-clerk
+/.agent
+/.agents
+/.claude
+/.cursor
+/.studi-harness
+/agent-harness
+/desktop
+/tests
+/scripts
+/docs
+/assets
+/clerk
 
 # Local service state and secrets
 .env*
@@ -29,7 +29,6 @@ clerk
 **/.clerk
 
 # Desktop-only project files
-forge.config.mjs
-vite.config.mjs
-index.html
-
+/forge.config.mjs
+/vite.config.mjs
+/index.html
