@@ -12,6 +12,7 @@
     "@clerk/nextjs": "^6.36.5",
     "convex": "^1.45.0",
     "next": "^15.5.9",
+    "posthog-js": "^1.426.2",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { track } from "../lib/analytics";
 
 type WaitlistFormProps = {
   emailId: string;
@@ -32,6 +33,14 @@ function ClerkWaitlistForm({
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const started = useRef(false);
+  const placement = emailId === "hero-email" ? "hero" : "waitlist_section";
+
+  function onStart() {
+    if (started.current) return;
+    started.current = true;
+    track("waitlist_form_started", { placement });
+  }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,6 +55,7 @@ function ClerkWaitlistForm({
       });
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(result?.error ?? "Waitlist request failed");
+      track("waitlist_joined", { placement });
       onJoined();
     } catch (cause) {
       setError(
@@ -82,6 +92,7 @@ function ClerkWaitlistForm({
           placeholder="you@example.com"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
+          onFocus={onStart}
           disabled={busy}
         />
         <button

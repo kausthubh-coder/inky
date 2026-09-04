@@ -2,6 +2,7 @@
 
 import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
+import { track } from "../lib/analytics";
 import { InkyMascot } from "./inky-mascot";
 
 const NAV_LINKS = [
@@ -71,10 +72,10 @@ export function SiteNav({ current = "", flat = false }: SiteNavProps) {
         {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
           <>
             <SignedOut>
-              <a className="sign-in-link" href="/sign-in" onClick={() => setOpen(false)}>
+              <a className="sign-in-link" href="/sign-in" onClick={() => { track("sign_in_started", { placement: "navigation" }); setOpen(false); }}>
                 Sign in
               </a>
-              <a className="cta" href={wait} onClick={() => setOpen(false)}>
+              <a className="cta" href={wait} onClick={() => { track("waitlist_cta_clicked", { placement: "navigation" }); setOpen(false); }}>
                 Save me a seat
               </a>
             </SignedOut>

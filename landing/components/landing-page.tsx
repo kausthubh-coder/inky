@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import wallpaper from "../designs/wallpaper.png";
+import { track } from "../lib/analytics";
 import type { InkyState } from "../lib/inky";
 import { InkyMascot } from "./inky-mascot";
 import { SiteNav } from "./site-nav";
@@ -685,6 +686,8 @@ function Demo() {
                         type="button"
                         className={`btn${reply.secondary ? "" : " primary"}`}
                         onClick={() => {
+                          if (beatIndex === 0 && reply.beat === 1) track("demo_started");
+                          if (reply.focus) track("waitlist_cta_clicked", { placement: "demo" });
                           if (reply.focus) focusField(reply.focus);
                           else if (reply.decide) decide(reply.decide);
                           else go(reply.beat ?? 0);

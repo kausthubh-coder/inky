@@ -37,6 +37,8 @@ Copy `landing/.env.example` to `landing/.env.local` and fill in the keys for the
 
 Private-beta access is free. The billing page is an account-facing beta-plan receipt and never asks for a card. Clerk sends the waitlist confirmation and invitation emails from the source-controlled templates in `clerk/email-templates`.
 
+The landing site can send anonymous, cookieless traffic and conversion events to a dedicated Inky PostHog project. The event contract and dashboard recipe are in [`landing/ANALYTICS.md`](landing/ANALYTICS.md).
+
 The website's **Open Studi** button sends only `studi://connect`. Electron owns the PKCE verifier, state, nonce, loopback callback, code exchange, and token storage.
 
 Create a production desktop build and run the focused smoke test:
