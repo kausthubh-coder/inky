@@ -1,6 +1,6 @@
 # Inky launch analytics
 
-Use a dedicated PostHog project named `Inky`. Do not send Inky events to the existing `Default project` (`138887`). The landing and desktop apps can share the new Inky project because their events have separate, explicit names and neither SDK autocaptures arbitrary product activity.
+Use the dedicated PostHog organization and project named `Inky` (project `593320`). Do not send Inky events to the existing Studi project. The landing and desktop apps share the Inky project because their events have separate, explicit names and neither SDK autocaptures arbitrary product activity.
 
 The landing app stays fully functional when analytics is not configured. Set these Vercel variables to enable it:
 

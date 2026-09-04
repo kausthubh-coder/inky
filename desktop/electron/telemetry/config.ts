@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const allowedHosts = new Set(["https://us.i.posthog.com", "https://eu.i.posthog.com"] as const);
+const publicInkyProjectToken = "phc_r5ea5xTg6No4KuTaWKskB7gTRp9wWWwWgpeafJ77BU52";
 
 export interface TelemetryPublicConfig {
   readonly projectToken?: string;
@@ -10,7 +11,7 @@ export interface TelemetryPublicConfig {
 
 export function loadTelemetryPublicConfig(isPackaged: boolean): TelemetryPublicConfig {
   const local = isPackaged ? {} : readLocalEnvironment(resolve(process.cwd(), ".env.local"));
-  const projectToken = process.env.STUDI_POSTHOG_PROJECT_TOKEN ?? local.STUDI_POSTHOG_PROJECT_TOKEN;
+  const projectToken = process.env.STUDI_POSTHOG_PROJECT_TOKEN ?? local.STUDI_POSTHOG_PROJECT_TOKEN ?? publicInkyProjectToken;
   const candidateHost = process.env.STUDI_POSTHOG_HOST ?? local.STUDI_POSTHOG_HOST ?? "https://us.i.posthog.com";
   const host = allowedHosts.has(candidateHost as TelemetryPublicConfig["host"])
     ? candidateHost as TelemetryPublicConfig["host"]
