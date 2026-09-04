@@ -379,9 +379,13 @@ export class AssignmentExecutionCoordinator {
     const review = defineTool({
       name: "assignment_start_review",
       label: "Start assignment review",
-      description: "Verify completed page state, retain answers in the page, and start the student's review deadline without submitting.",
+      description: "After inspecting the entire assignment, list every required answer, file, graph, and other deliverable with current visible evidence. Only then retain the answers and start review without submitting.",
       parameters: Type.Object({
         answers: Type.Optional(Type.String({ minLength: 1, maxLength: 20_000 })),
+        completedRequirements: Type.Array(Type.Object({
+          requirement: Type.String({ minLength: 1, maxLength: 500 }),
+          evidence: Type.String({ minLength: 1, maxLength: 1_000 }),
+        }, { additionalProperties: false }), { minItems: 1, maxItems: 100 }),
         summary: Type.String({ minLength: 1, maxLength: 1_000 }),
       }, { additionalProperties: false }),
       execute: async (_id, input) => {
@@ -396,6 +400,10 @@ export class AssignmentExecutionCoordinator {
           ...execution,
           phase: "ready_review",
           answerSnapshot: answers,
+          completionChecklist: input.completedRequirements.map((item) => ({
+            requirement: item.requirement.trim(),
+            evidence: item.evidence.trim(),
+          })),
           reviewDeadline,
           handoffDeadline,
           reviewCheckpoint: this.#checkpoint(snapshot, input.summary.trim()),

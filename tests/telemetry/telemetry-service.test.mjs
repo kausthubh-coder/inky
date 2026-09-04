@@ -205,6 +205,27 @@ test("connected-app telemetry keeps scoped account state and timing without cred
   });
 });
 
+test("Composio execution telemetry is chartable without tool arguments or credentials", async () => {
+  await withService(async ({ client, service }) => {
+    assert.equal(service.capture("studi_composio_tool", {
+      toolkit: "googledrive",
+      tool: "GOOGLEDRIVE_FIND_FILE",
+      status: "succeeded",
+      duration_ms: 541,
+      original_bytes: 19_210,
+      retained_bytes: 8_192,
+      truncated: true,
+      log_id: "log_drive_1",
+    }), true);
+    const outbound = client.captures.at(-1);
+    assert.equal(outbound.event, "studi_composio_tool");
+    assert.equal(outbound.properties.toolkit, "googledrive");
+    assert.equal(outbound.properties.tool, "GOOGLEDRIVE_FIND_FILE");
+    assert.equal(outbound.properties.truncated, true);
+    assert.equal(Object.hasOwn(outbound.properties, "arguments"), false);
+  });
+});
+
 test("opt-out stops capture immediately, identity reset rotates anonymous state, and the choice survives restart", async () => {
   await withService(async ({ directory, client, service }) => {
     service.identifyClerk({ subject: "user_wp16" });

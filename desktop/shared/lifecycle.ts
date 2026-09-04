@@ -46,6 +46,11 @@ export const ExecutionAttemptSchema = z.strictObject({
   recordedAt: IsoTimestampSchema,
 });
 
+export const CompletionRequirementSchema = z.strictObject({
+  requirement: z.string().trim().min(1).max(500),
+  evidence: z.string().trim().min(1).max(1_000),
+});
+
 export const AssignmentExecutionSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   taskId: TaskIdSchema,
@@ -70,6 +75,7 @@ export const AssignmentExecutionSchema = z.strictObject({
   handoffDeadline: IsoTimestampSchema.optional(),
   reviewCheckpoint: BrowserCheckpointSchema.optional(),
   answerSnapshot: z.string().trim().min(1).max(20_000).optional(),
+  completionChecklist: z.array(CompletionRequirementSchema).min(1).max(100).optional(),
   answerArtifactId: z.string().min(1).max(128).optional(),
   submissionReceiptId: z.string().min(1).max(256).optional(),
   submissionAttemptedAt: IsoTimestampSchema.optional(),
@@ -129,6 +135,7 @@ export const LifecycleStateSchema = z.strictObject({
 export type AutomationSchedule = z.infer<typeof AutomationScheduleSchema>;
 export type BrowserCheckpoint = z.infer<typeof BrowserCheckpointSchema>;
 export type ExecutionAttempt = z.infer<typeof ExecutionAttemptSchema>;
+export type CompletionRequirement = z.infer<typeof CompletionRequirementSchema>;
 export type AssignmentExecution = z.infer<typeof AssignmentExecutionSchema>;
 export type NotificationIntent = z.infer<typeof NotificationIntentSchema>;
 export type SubmissionReceipt = z.infer<typeof SubmissionReceiptSchema>;

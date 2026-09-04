@@ -56,6 +56,10 @@ test("attempt-only work retains its browser lease through review and saves Markd
     const runtime = new ScriptedRuntime([
       async (tools) => invoke(tools, "assignment_start_review", {
         answers: "1. x = 4\n2. y = 9",
+        completedRequirements: [
+          { requirement: "Question 1", evidence: "The first answer field contains x = 4." },
+          { requirement: "Question 2", evidence: "The second answer field contains y = 9." },
+        ],
         summary: "Both answer fields are visibly complete.",
       }),
     ]);
@@ -74,6 +78,7 @@ test("attempt-only work retains its browser lease through review and saves Markd
 
     const ready = await execution.startNext();
     assert.equal(ready.phase, "ready_review");
+    assert.equal(ready.completionChecklist.length, 2);
     assert.equal(store.tasks.get("task-review").state, "ready_review");
     assert.equal(manager.state().lease.taskId, "task-review", "the completed page remains leased during review");
     assert.equal(ready.reviewDeadline, "2026-09-01T12:01:00.000Z");
@@ -334,6 +339,9 @@ test("restart during review preserves answers and hands off without claiming the
     let runtime = new ScriptedRuntime([
       async (tools) => invoke(tools, "assignment_start_review", {
         answers: "Restart-safe answer: 42",
+        completedRequirements: [
+          { requirement: "Written response", evidence: "The visible answer field contains 42." },
+        ],
         summary: "The visible answer was complete before restart.",
       }),
     ]);

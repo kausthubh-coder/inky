@@ -14,6 +14,7 @@ import { startSchoolFixture } from "./school-fixture.js";
 export async function runFoundationSuite(options: {
   readonly cwd: string;
   readonly runsRoot: string;
+  readonly fixturePath?: string;
 }): Promise<{ readonly record: HarnessRunRecord; readonly path: string }> {
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
@@ -21,9 +22,11 @@ export async function runFoundationSuite(options: {
   const store = new FileAgentJobStore(join(options.runsRoot, runId, "state.json"));
   const host = await AgentJobHost.create({ driver: new ScriptedAgentDriver(), store });
   const school = await startSchoolFixture({
-    fixturePath: join(options.cwd, "agent-harness", "fixtures", "school", "assignment-basic.yaml"),
+    fixturePath: options.fixturePath ?? join(options.cwd, "agent-harness", "fixtures", "school", "assignment-basic.yaml"),
   });
-  const assignmentPage = await fetch(`${school.url}/assignments/assignment-1`).then((response) => response.text());
+  const firstAssignment = school.fixture.assignments[0];
+  if (!firstAssignment) throw new Error("The foundation fixture requires at least one assignment");
+  const assignmentPage = await fetch(`${school.url}/assignments/${encodeURIComponent(firstAssignment.id)}`).then((response) => response.text());
   const emptyCourses = await fetch(`${school.url}/courses?state=empty`).then((response) => response.text());
   await school.close();
   const replies: HarnessReply[] = [];
@@ -49,7 +52,7 @@ export async function runFoundationSuite(options: {
     check("tutor is refused with zero tools", !tutor.ok && tutor.toolNames?.length === 0),
     check("restart restores all logical jobs", host.snapshot().jobs.length === 4),
     check("trace sequences are monotonic", host.traceEvents().every((event, index) => event.sequence === index)),
-    check("loopback school renders assignment details", assignmentPage.includes("Huffman coding project") && assignmentPage.includes("data-studi-fixture")),
+    check("loopback school renders assignment details", assignmentPage.includes(firstAssignment.title) && assignmentPage.includes("data-studi-fixture")),
     check("loopback school renders empty state", emptyCourses.includes("No courses found.")),
   ];
   const outcome = assertions.every((assertion) => assertion.passed) ? "passed" as const : "failed" as const;

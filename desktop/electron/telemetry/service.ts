@@ -135,6 +135,17 @@ export const telemetryEventSchemas = {
     connected_account_id: z.string().min(1).max(256).optional(),
     duration_ms: z.number().int().nonnegative(),
   }),
+  studi_composio_tool: z.strictObject({
+    toolkit: z.string().min(1).max(128),
+    tool: z.string().min(1).max(256),
+    status: z.enum(["succeeded", "failed"]),
+    duration_ms: z.number().int().nonnegative(),
+    original_bytes: z.number().int().nonnegative().optional(),
+    retained_bytes: z.number().int().nonnegative().optional(),
+    truncated: z.boolean().optional(),
+    log_id: z.string().min(1).max(256).optional(),
+    error: z.string().max(2_000).optional(),
+  }),
   studi_error: z.strictObject({
     boundary: z.enum(["startup", "auth", "ipc", "scan", "queue", "renderer"]),
     operation: z.enum([

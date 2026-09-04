@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  connectedAppCatalogEntry,
   connectedAppIsActive,
   presentSchoolOnboardingScan,
   type ConnectedAppConnection,
@@ -218,17 +219,20 @@ function StepExtra({ step, workspace, connectedApps, appConnections, providerRea
     if (!connectedApps.configured) return <p className="fable-hint">Connected apps are not available on this Studi server yet.</p>;
     return (
       <div className="fable-picks" data-onboarding-connected-apps="true">
-        {connectedApps.toolkits.map(({ toolkit, tools }) => {
+        {connectedApps.toolkits.filter(({ toolkit }) => connectedAppCatalogEntry(toolkit).onboarding).map(({ toolkit, tools }) => {
           const connection = appConnections[toolkit] ?? null;
           const active = connectedAppIsActive(connection);
           const waiting = connection?.status === "INITIATED";
+          const app = connectedAppCatalogEntry(toolkit);
           return (
             <div className="fable-pick fable-connected-app" data-connected-app={toolkit} key={toolkit}>
-              <span><strong>{connectedAppLabel(toolkit)}</strong><small>{active ? "Connected" : waiting ? "Waiting for browser sign-in" : "Not connected"} · {tools.length} thing{tools.length === 1 ? "" : "s"} I can do</small></span>
+              <img className="connected-app-logo" src={app.logoUrl} alt="" loading="lazy" />
+              <span><strong>{app.label}</strong><small>{active ? "Connected" : waiting ? "Waiting for browser sign-in" : "Not connected"} · {tools.length} read action{tools.length === 1 ? "" : "s"}</small></span>
               <button type="button" className="fable-button" disabled={busy !== null} onClick={() => active || waiting ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>{active ? "Check" : waiting ? "I finished" : "Connect"}</button>
             </div>
           );
         })}
+        <p className="fable-hint">Calendar, Canvas, Outlook, Sheets, Dropbox, Slack, Discord, and Todoist are in Settings.</p>
       </div>
     );
   }
@@ -303,15 +307,4 @@ function stepCopy(
 
 function onboardingStepFor(step: SchoolOnboardingScanPresentation["step"]): OnboardingStep {
   return step === 1 ? 1 : (step + 2) as OnboardingStep;
-}
-
-function connectedAppLabel(toolkit: string): string {
-  const labels: Record<string, string> = {
-    github: "GitHub",
-    gmail: "Gmail",
-    googledrive: "Google Drive",
-    googledocs: "Google Docs",
-    notion: "Notion",
-  };
-  return labels[toolkit] ?? toolkit.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

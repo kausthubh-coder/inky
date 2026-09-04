@@ -288,6 +288,16 @@ export function DeskDrawer({
             <p className="eyebrow">Your turn</p>
             <h3>The answers are still on the page.</h3>
             <p>{execution.reviewDeadline ? `Look before ${formatDateTime(execution.reviewDeadline)}.` : "Look over the page before you submit."}</p>
+            {execution.completionChecklist && (
+              <div className="completion-checklist" data-completion-checklist="true">
+                {execution.completionChecklist.map((item, index) => (
+                  <div key={`${item.requirement}-${index}`}>
+                    <strong>{item.requirement}</strong>
+                    <small>{item.evidence}</small>
+                  </div>
+                ))}
+              </div>
+            )}
             <form onSubmit={(event) => { event.preventDefault(); if (confirmation.trim()) onVerifySubmission(execution.taskId, confirmation.trim()); }}>
               <Field label="Words you see after you submit"><input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Submitted" /></Field>
               <button className="button button--mint" disabled={!confirmation.trim() || busy !== null}>I submitted it</button>

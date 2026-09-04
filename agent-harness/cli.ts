@@ -8,6 +8,7 @@ import { runFilesSuite } from "./files-suite.js";
 import { runRoutingSuite } from "./routing-suite.js";
 import { runTraceSuite } from "./trace-suite.js";
 import { runStdioSession } from "./stdio-session.js";
+import { startSchoolFixture } from "./school-fixture.js";
 
 const cwd = process.cwd();
 const args = process.argv.slice(2);
@@ -17,10 +18,12 @@ const runsRoot = resolve(cwd, process.env.STUDI_HARNESS_RUNS_DIR ?? ".studi-harn
 if (mode === "run") {
   const suite = flag("--suite") ?? "foundation";
   const driver = flag("--driver") ?? "scripted";
+  const fixture = flag("--fixture") ?? "assignment-basic";
+  const fixturePath = resolve(cwd, "agent-harness", "fixtures", "school", `${safeName(fixture)}.yaml`);
   if (suite !== "foundation" && suite !== "routing" && suite !== "trace" && suite !== "files") fail(`Unknown suite: ${suite}`);
   if (driver !== "scripted") fail(`Driver ${driver} is not available yet`);
   const result = suite === "foundation"
-    ? await runFoundationSuite({ cwd, runsRoot })
+    ? await runFoundationSuite({ cwd, runsRoot, fixturePath })
     : suite === "routing"
       ? await runRoutingSuite({ cwd, runsRoot })
       : suite === "trace"
@@ -34,9 +37,12 @@ if (mode === "run") {
   if (driver !== "scripted") fail(`Driver ${driver} is not available yet`);
   const store = new FileAgentJobStore(resolve(runsRoot, `interactive-${safeName(fixture)}.json`));
   const host = await AgentJobHost.create({ driver: new ScriptedAgentDriver(), store });
-  await runStdioSession(host);
+  const school = await startSchoolFixture({ fixturePath: resolve(cwd, "agent-harness", "fixtures", "school", `${safeName(fixture)}.yaml`) });
+  process.stdout.write(`${JSON.stringify({ schemaVersion: 1, type: "ready", fixture, schoolUrl: school.url, state: host.snapshot() })}\n`);
+  try { await runStdioSession(host); }
+  finally { await school.close(); }
 } else {
-  fail("Usage: bun run agent:harness -- run --suite foundation|routing|trace|files --driver scripted --json | interact --fixture assignment-basic --driver scripted --jsonl");
+  fail("Usage: bun run agent:harness -- run --suite foundation|routing|trace|files --fixture assignment-basic --driver scripted --json | interact --fixture assignment-basic --driver scripted --jsonl");
 }
 
 function flag(name: string): string | undefined {

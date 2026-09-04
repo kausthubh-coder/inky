@@ -1,4 +1,5 @@
 import { Composio } from "@composio/core";
+import { readFile } from "node:fs/promises";
 
 import { readComposioPolicy } from "../convex/composioPolicy.js";
 
@@ -67,7 +68,9 @@ if (mode === "discover") {
   process.exit(0);
 }
 
-const policy = readComposioPolicy();
+const policySource = process.env.STUDI_COMPOSIO_TOOL_POLICY_JSON
+  ?? await readFile(new URL("../config/composio-tool-policy.json", import.meta.url), "utf8");
+const policy = readComposioPolicy(policySource);
 if (Object.keys(policy).length === 0) {
   throw new Error("STUDI_COMPOSIO_TOOL_POLICY_JSON has no pinned toolkit allowlist");
 }

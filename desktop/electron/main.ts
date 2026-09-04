@@ -1387,7 +1387,21 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
     requireBrowserController(),
     {
       browserWork: requireVisibleBrowserWork(),
-      connectedAppTools: () => isSelfTest ? Promise.resolve([]) : createConnectedAppTools(requireAuthCoordinator()),
+      connectedAppTools: () => isSelfTest ? Promise.resolve([]) : createConnectedAppTools(requireAuthCoordinator(), {
+        observeExecution: (observation) => {
+          requireTelemetryService().capture("studi_composio_tool", {
+            toolkit: observation.toolkit,
+            tool: observation.tool,
+            status: observation.status,
+            duration_ms: observation.durationMs,
+            original_bytes: observation.originalBytes,
+            retained_bytes: observation.retainedBytes,
+            truncated: observation.truncated,
+            log_id: observation.logId,
+            error: observation.error,
+          });
+        },
+      }),
       reviewWindowMs: productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
       notify: async (intent) => {

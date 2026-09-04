@@ -18,6 +18,7 @@ export const TelemetryEventNameSchema = z.enum([
   "studi_setting_changed",
   "studi_feedback_sent",
   "studi_connected_app",
+  "studi_composio_tool",
   "studi_error",
   "studi_agent_trace",
 ]);

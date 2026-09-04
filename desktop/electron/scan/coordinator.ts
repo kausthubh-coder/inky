@@ -255,7 +255,7 @@ export class SchoolScanCoordinator {
       : "";
     return this.#run(
       scan,
-      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
+      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing. Navigation hints become a Markdown note. Write them as plain text or Markdown, never HTML.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
     );
   }
 
@@ -513,7 +513,7 @@ export class SchoolScanCoordinator {
     const finish = defineTool({
       name: "scan_finish",
       label: "Finish school scan",
-      description: "Finish with explicit coverage. At least one course must have been verified in this scan.",
+      description: "Finish with explicit coverage. At least one course must have been verified in this scan. Navigation hints must be plain text or Markdown, never HTML.",
       parameters: Type.Object({
         coverage: Type.Array(Type.Object({
           target: Type.String({ minLength: 1, maxLength: 200 }),

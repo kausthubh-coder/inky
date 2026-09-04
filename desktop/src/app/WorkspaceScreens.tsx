@@ -2,6 +2,7 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   classifyAgentRuntimeAttention,
+  connectedAppCatalogEntry,
   type AgentReasoningEffort,
   connectedAppIsActive,
   type ConnectedAppConnection,
@@ -479,15 +480,18 @@ export function SettingsScreen({
               <p>Connections happen in your browser. Studi never receives the app password or provider token.</p>
               {!connectedApps && <small>Connected apps need an online Studi account.</small>}
               {connectedApps && !connectedApps.configured && <small>Connected apps are not configured on this Studi server.</small>}
-              <div className="rules-list">
+              <div className="connected-app-grid">
                 {connectedApps?.toolkits.map(({ toolkit, tools }) => {
                   const connection = appConnections[toolkit] ?? null;
                   const active = connectedAppIsActive(connection);
+                  const app = connectedAppCatalogEntry(toolkit);
                   return (
-                    <div key={toolkit} data-connected-app={toolkit}>
+                    <div className="connected-app-row" key={toolkit} data-connected-app={toolkit}>
+                      <img className="connected-app-logo" src={app.logoUrl} alt="" loading="lazy" />
                       <span>
-                        <strong>{connectedAppLabel(toolkit)}</strong>
-                        <small>{active ? "Connected" : connection?.status === "INITIATED" ? "Waiting for browser sign-in" : "Not connected"} · {tools.length} approved action{tools.length === 1 ? "" : "s"}</small>
+                        <strong>{app.label}</strong>
+                        <small>{app.description}</small>
+                        <small>{active ? "Connected" : connection?.status === "INITIATED" ? "Waiting for browser sign-in" : "Not connected"} · {tools.length} read action{tools.length === 1 ? "" : "s"}</small>
                       </span>
                       <button className="quiet-button" type="button" disabled={busy !== null} onClick={() => active ? onRefreshConnectedApp(toolkit) : connection?.status === "INITIATED" ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>
                         {active ? "Check" : connection?.status === "INITIATED" ? "I finished" : "Connect"}
@@ -590,5 +594,4 @@ export function SettingsScreen({
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
 function courseTone(course: string): number { return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6; }
 function localDateKey(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
-function connectedAppLabel(toolkit: string): string { const labels: Record<string, string> = { github: "GitHub", gmail: "Gmail", notion: "Notion", googledrive: "Google Drive", googledocs: "Google Docs" }; return labels[toolkit] ?? toolkit.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function fiveDays(): Array<{ key: string; label: string; date: string }> { const formatter = new Intl.DateTimeFormat(undefined, { weekday: "long" }); const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }); const start = new Date(); start.setHours(0, 0, 0, 0); return Array.from({ length: 5 }, (_, offset) => { const date = new Date(start); date.setDate(start.getDate() + offset); return { key: localDateKey(date), label: offset === 0 ? "Today" : formatter.format(date), date: dateFormatter.format(date) }; }); }

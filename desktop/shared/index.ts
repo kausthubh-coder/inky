@@ -4,6 +4,7 @@ export * from "./agent-job.js";
 export * from "./auth.js";
 export * from "./browser-agent.js";
 export * from "./composio.js";
+export * from "./connected-app-catalog.js";
 export * from "./inky.js";
 export * from "./diagnostics.js";
 export * from "./artifact.js";
