@@ -55,7 +55,10 @@ try {
   assert.ok(onboarding.observation.ui.interactiveCount >= 2);
   assert.equal(onboarding.observation.ui.focusMoved, true);
   assert.equal(onboarding.observation.connectedApps.configured, true);
-  assert.deepEqual(onboarding.observation.connectedApps.toolkits, ["github"]);
+  assert.equal(onboarding.observation.connectedApps.toolkits.length, 13);
+  assert.ok(onboarding.observation.connectedApps.toolkits.includes("github"));
+  assert.ok(onboarding.observation.connectedApps.toolkits.includes("gmail"));
+  assert.ok(onboarding.observation.connectedApps.toolkits.includes("canvas"));
   assertComposition(onboarding.composition);
   emitReceipt(onboarding);
 

@@ -37,6 +37,7 @@ export interface ConversationRuntime {
 export interface ConversationCoordinatorOptions {
   readonly now?: () => string;
   readonly trace?: AgentTrace;
+  readonly connectedAppTools?: () => Promise<readonly ToolDefinition[]>;
 }
 
 export type AssignmentWorkRunner = (
@@ -51,6 +52,7 @@ export class ConversationCoordinator {
   readonly #runtime: ConversationRuntime;
   readonly #manager: ManagerCoordinator;
   readonly #now: () => string;
+  readonly #connectedAppTools: () => Promise<readonly ToolDefinition[]>;
   readonly #sessions = new Map<string, AgentSession>();
   readonly #running = new Set<string>();
   #cumulativeUsage = emptyUsage();
@@ -67,6 +69,7 @@ export class ConversationCoordinator {
     this.#runtime = runtime;
     this.#manager = manager;
     this.#now = options.now ?? (() => new Date().toISOString());
+    this.#connectedAppTools = options.connectedAppTools ?? (async () => []);
     this.trace = options.trace ?? new AgentTrace({ now: this.#now });
     this.#manager.setBeforeAssignmentWork(async (assignmentId) => {
       const persisted = this.#store.agentJobs.getByTarget({ kind: "assignment", assignmentId });
@@ -125,7 +128,11 @@ export class ConversationCoordinator {
       if (job.claim && !activeTaskId) {
         throw new Error("This assignment's browser claim is stale; reopen Studi so it can recover safely");
       }
-      const tools = activeTaskId ? [] : this.#tools(target);
+      let connectedTools: readonly ToolDefinition[] = [];
+      if (!activeTaskId) {
+        try { connectedTools = await this.#connectedAppTools(); } catch { /* Connected apps cannot disable local conversation tools. */ }
+      }
+      const tools = activeTaskId ? [] : [...this.#tools(target), ...connectedTools];
       const actualToolNames = activeTaskId
         ? [...this.#manager.workerToolNames()]
         : tools.map((tool) => tool.name);
@@ -137,7 +144,7 @@ export class ConversationCoordinator {
       };
       const turn = activeTaskId
         ? await buildAgentTurnForTools(target, actualToolNames, text, brief)
-        : await buildAgentTurn({ target, phase: job.phase, hasBrowserClaim: false }, text, brief);
+        : await buildAgentTurn({ target, phase: job.phase, hasBrowserClaim: false, composioTools: connectedTools.map((tool) => tool.name) }, text, brief);
       if (!activeTaskId && JSON.stringify(turn.toolNames) !== JSON.stringify(actualToolNames)) {
         throw new Error("The conversation tools do not match the selected capability packs");
       }

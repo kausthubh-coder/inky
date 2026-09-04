@@ -63,7 +63,7 @@ const toolsByCapability = Object.freeze({
 
 export function selectCapabilities(context: CapabilityContext): readonly CapabilityName[] {
   if (context.target.kind === "tutor") return [];
-  if (context.target.kind === "home") return ["home", "queue", "notes-search"];
+  if (context.target.kind === "home") return ["home", "queue", "notes-search", ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : [])];
 
   if (context.target.kind === "scan") {
     return context.phase === "working" && context.hasBrowserClaim
@@ -72,12 +72,12 @@ export function selectCapabilities(context: CapabilityContext): readonly Capabil
   }
 
   const selected: CapabilityName[] = ["assignment", "notes-search", "notes-read"];
+  if ((context.composioTools?.length ?? 0) > 0) selected.push("composio");
   if (context.phase !== "working" || !context.hasBrowserClaim) return selected;
 
   selected.push("browser", "assignment-effects");
   if (context.filesAvailable) selected.push("files");
   if (context.shellAvailable) selected.push("shell");
-  if ((context.composioTools?.length ?? 0) > 0) selected.push("composio");
   if (context.submissionAuthorized) selected.push("submit");
   return selected;
 }
@@ -110,7 +110,7 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
     if (normalized.startsWith("note_read")) selected.add("notes-read");
     if (normalized.startsWith("file_")) selected.add("files");
     if (normalized.startsWith("shell_")) selected.add("shell");
-    if (normalized.startsWith("composio_") || normalized.startsWith("composio:")) selected.add("composio");
+    if (normalized.startsWith("composio_") || normalized.startsWith("composio:") || normalized.startsWith("connected_apps_")) selected.add("composio");
     if (normalized === "browser_submit") selected.add("submit");
   }
   return [...selected].sort();

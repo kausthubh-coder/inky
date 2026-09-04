@@ -26,6 +26,7 @@ import {
 } from "../../shared/index.js";
 import { DeskDrawer, deskInkyState, type DeskPanel } from "./DeskScreen.js";
 import { Inky } from "./Inky.js";
+import { readDevPreviewConfig } from "./devPreview.js";
 import { AppChrome, type AppScreen, Field, PaperCard, RuntimeAttentionBanner, StatusPill, TelemetryControls, formatDateTime } from "./Ui.js";
 
 type SaveRuleInput =
@@ -353,6 +354,7 @@ function NotificationSettings({
 
 export function SettingsScreen({
   chrome,
+  initialSection = "inky",
   settings,
   onboarding,
   workspace,
@@ -381,6 +383,7 @@ export function SettingsScreen({
   onFeedback,
 }: {
   chrome: ChromeProps;
+  initialSection?: "inky" | "school" | "privacy" | "account";
   settings: ProductSettingsState | null;
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
@@ -410,7 +413,7 @@ export function SettingsScreen({
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
-  const [section, setSection] = useState<"inky" | "school" | "privacy" | "account">("inky");
+  const [section, setSection] = useState<"inky" | "school" | "privacy" | "account">(() => readDevPreviewConfig()?.settingsSection ?? initialSection);
   const [review, setReview] = useState(15);
   const [handoff, setHandoff] = useState(30);
   const [memory, setMemory] = useState<"none" | "selected" | "all">("selected");
@@ -481,7 +484,7 @@ export function SettingsScreen({
               {!connectedApps && <small>Connected apps need an online Studi account.</small>}
               {connectedApps && !connectedApps.configured && <small>Connected apps are not configured on this Studi server.</small>}
               <div className="connected-app-grid">
-                {connectedApps?.toolkits.map(({ toolkit, tools }) => {
+                {connectedApps?.toolkits.map(({ toolkit, access, tools }) => {
                   const connection = appConnections[toolkit] ?? null;
                   const active = connectedAppIsActive(connection);
                   const app = connectedAppCatalogEntry(toolkit);
@@ -491,7 +494,7 @@ export function SettingsScreen({
                       <span>
                         <strong>{app.label}</strong>
                         <small>{app.description}</small>
-                        <small>{active ? "Connected" : connection?.status === "INITIATED" ? "Waiting for browser sign-in" : "Not connected"} · {tools.length} read action{tools.length === 1 ? "" : "s"}</small>
+                        <small>{active ? "Connected" : connection?.status === "INITIATED" ? "Waiting for browser sign-in" : "Not connected"} · {access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}</small>
                       </span>
                       <button className="quiet-button" type="button" disabled={busy !== null} onClick={() => active ? onRefreshConnectedApp(toolkit) : connection?.status === "INITIATED" ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>
                         {active ? "Check" : connection?.status === "INITIATED" ? "I finished" : "Connect"}

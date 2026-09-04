@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { z } from "zod";
 
-import type { AuthState, AuthUser, ConnectedAppConnection, ConnectedAppExecution, ConnectedAppsState, ConnectedAppTool, FeedbackReceipt } from "../../shared/index.js";
+import type { AuthState, AuthUser, ConnectedAppConnection, ConnectedAppExecution, ConnectedAppsState, ConnectedAppToolSearch, FeedbackReceipt } from "../../shared/index.js";
 import { CloudAccountClient, type CloudAccountResult } from "./cloud.js";
 import { studiCloudConfig } from "./config.js";
 import { openLoopbackCallback } from "./loopback.js";
@@ -158,11 +158,11 @@ export class AuthCoordinator {
     return this.#cloud.connectedAppConnection(toolkit);
   }
 
-  async connectedAppTools(toolkit: string): Promise<readonly ConnectedAppTool[]> {
+  async searchConnectedAppTools(toolkit: string, query: string): Promise<ConnectedAppToolSearch> {
     this.#requireOnlineApproval();
     const connection = await this.#cloud.connectedAppConnection(toolkit);
-    if (connection.status.toLocaleUpperCase() !== "ACTIVE") return [];
-    return this.#cloud.connectedAppTools(toolkit);
+    if (connection.status.toLocaleUpperCase() !== "ACTIVE") throw new Error(`${toolkit} is not connected`);
+    return this.#cloud.searchConnectedAppTools(toolkit, query);
   }
 
   async executeConnectedAppTool(toolkit: string, toolSlug: string, arguments_: Record<string, unknown>): Promise<ConnectedAppExecution> {

@@ -78,6 +78,12 @@ const trayIconPath = app.isPackaged
   : resolve(moduleDirectory, "..", "..", "assets", "studi-inky.ico");
 const isSelfTest = !app.isPackaged && process.env.STUDI_SELF_TEST === "1";
 const uiScenario = isSelfTest ? process.env.STUDI_UI_SCENARIO : undefined;
+const selfTestConnectedApps = [
+  ["gmail", "20260902_00"], ["googledrive", "20260902_00"], ["googledocs", "20260826_00"],
+  ["notion", "20260819_00"], ["github", "20260902_00"], ["canvas", "20260729_00"],
+  ["googlecalendar", "20260902_00"], ["googlesheets", "20260902_00"], ["outlook", "20260903_00"],
+  ["dropbox", "20260903_00"], ["slack", "20260826_00"], ["discord", "20260826_00"], ["todoist", "20260731_00"],
+] as const;
 const selfTestDirectory = resolve(
   process.env.STUDI_SELF_TEST_USER_DATA ?? join(tmpdir(), `studi-wp00-self-test-${process.pid}`),
 );
@@ -204,11 +210,7 @@ const ipcHandlers: StudiIpcHandlers = {
     if (isSelfTest) {
       return {
         configured: true,
-        toolkits: [{
-          toolkit: "github",
-          version: "20260902_00",
-          tools: ["GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER"],
-        }],
+        toolkits: selfTestConnectedApps.map(([toolkit, version]) => ({ toolkit, version, access: "all" as const })),
       };
     }
     return requireAuthCoordinator().connectedApps();
@@ -1327,6 +1329,7 @@ async function initializeDesktopAgent(): Promise<void> {
     requireLocalStore(),
     agentRuntime,
     managerCoordinator,
+    { connectedAppTools: loadConnectedAppTools },
   );
   unsubscribeConversationTrace = requireTelemetryService().subscribeToTrace(conversationCoordinator.trace);
   visibleBrowserWork = new VisibleBrowserWork(requireLocalStore());
@@ -1379,6 +1382,25 @@ function disposeProtectedRuntime(): void {
   browserController = null;
 }
 
+function loadConnectedAppTools() {
+  if (isSelfTest) return Promise.resolve([]);
+  return createConnectedAppTools(requireAuthCoordinator(), {
+    observeExecution: (observation) => {
+      requireTelemetryService().capture("studi_composio_tool", {
+        toolkit: observation.toolkit,
+        tool: observation.tool,
+        status: observation.status,
+        duration_ms: observation.durationMs,
+        original_bytes: observation.originalBytes,
+        retained_bytes: observation.retainedBytes,
+        truncated: observation.truncated,
+        log_id: observation.logId,
+        error: observation.error,
+      });
+    },
+  });
+}
+
 async function initializeAppKernel(window: BrowserWindow): Promise<void> {
   const productPreferences = await requireLocalStore().productPreferences.get();
   assignmentExecutionCoordinator = await AssignmentExecutionCoordinator.create(
@@ -1387,21 +1409,7 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
     requireBrowserController(),
     {
       browserWork: requireVisibleBrowserWork(),
-      connectedAppTools: () => isSelfTest ? Promise.resolve([]) : createConnectedAppTools(requireAuthCoordinator(), {
-        observeExecution: (observation) => {
-          requireTelemetryService().capture("studi_composio_tool", {
-            toolkit: observation.toolkit,
-            tool: observation.tool,
-            status: observation.status,
-            duration_ms: observation.durationMs,
-            original_bytes: observation.originalBytes,
-            retained_bytes: observation.retainedBytes,
-            truncated: observation.truncated,
-            log_id: observation.logId,
-            error: observation.error,
-          });
-        },
-      }),
+      connectedAppTools: loadConnectedAppTools,
       reviewWindowMs: productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
       notify: async (intent) => {

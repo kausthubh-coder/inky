@@ -14,6 +14,7 @@
   "main": "dist/electron/main.js",
   "scripts": {
     "dev": "vite",
+    "preview:ui": "vite --host 127.0.0.1 --port 4174 --strictPort --open /?preview=gallery",
     "dev:electron": "bun run build:electron && concurrently -k \"vite --host 127.0.0.1 --port 5173 --strictPort\" \"wait-on http://127.0.0.1:5173 && electron . --studi-development-url=http://127.0.0.1:5173\"",
     "dev:landing": "bun run --filter landing dev",
     "start": "bun run build && electron .",

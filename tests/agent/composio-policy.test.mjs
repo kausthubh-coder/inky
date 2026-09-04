@@ -8,17 +8,18 @@ import {
   boundedComposioContent,
 } from "../../convex/composioPolicy.ts";
 
-test("Composio policy requires pinned versions and explicit tools", () => {
+test("Composio policy supports full toolkit access and legacy selected actions", () => {
   const policy = readComposioPolicy(JSON.stringify({
-    github: {
-      version: "20260901_00",
-      tools: ["GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER"],
-    },
+    github: { version: "20260901_00", access: "all" },
+    notion: { version: "20260901_00", tools: ["NOTION_SEARCH"] },
   }));
   assert.equal(policy.github.version, "20260901_00");
+  assert.equal(policy.github.access, "all");
   assert.equal(requireAllowedComposioTool(policy, "github", "GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER"), policy.github);
-  assert.throws(() => requireAllowedComposioTool(policy, "github", "GITHUB_DELETE_REPOSITORY"), /not enabled/);
+  assert.equal(requireAllowedComposioTool(policy, "github", "GITHUB_DELETE_REPOSITORY"), policy.github);
+  assert.throws(() => requireAllowedComposioTool(policy, "notion", "NOTION_DELETE_PAGE"), /not enabled/);
   assert.throws(() => readComposioPolicy('{"github":{"version":"latest","tools":["GITHUB_LIST"]}}'), /pinned/);
+  assert.throws(() => readComposioPolicy('{"github":{"version":"20260901_00","access":"all","tools":["GITHUB_LIST"]}}'), /cannot combine/);
 });
 
 test("Composio payloads retain ordinary content and remove credentials", () => {

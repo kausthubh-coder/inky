@@ -12,6 +12,8 @@ import {
   type TaskSummary,
 } from "../../shared/index.js";
 import { Inky, type InkyState } from "./Inky.js";
+import { readDevPreviewConfig } from "./devPreview.js";
+import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { Field, PaperCard, RuntimeAttentionBanner, StatusPill, executionLabel, formatDateTime, formatDue } from "./Ui.js";
 
 export type DeskPanel =
@@ -244,7 +246,7 @@ export function DeskDrawer({
             <strong>{currentTool ? `Using ${currentTool}` : executionLabel(execution?.phase ?? "working")}</strong>
             <small>Same school page Inky is on</small>
           </div>
-          <div ref={slotRef} className="drawer-school-slot" data-school-slot="true" aria-label="Live school page" />
+          <div ref={slotRef} className="drawer-school-slot" data-school-slot="true" aria-label="Live school page">{readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}</div>
         </div>
       )}
 

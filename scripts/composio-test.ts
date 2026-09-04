@@ -90,16 +90,37 @@ const composio = new Composio({
 const toolkits = [];
 for (const [toolkitSlug, item] of Object.entries(policy)) {
   const toolkit = await composio.toolkits.get(toolkitSlug, { signal: AbortSignal.timeout(10_000) });
-  const tools = [];
-  for (const toolSlug of item.tools) {
-    const tool = await composio.tools.getRawComposioToolBySlug(
-      toolSlug,
-      { version: item.version },
-      { signal: AbortSignal.timeout(10_000) },
-    );
-    tools.push({ slug: tool.slug, name: tool.name, version: item.version });
+  const available = await composio.tools.getRawComposioTools(
+    { toolkits: [toolkitSlug], limit: 999, important: false },
+    undefined,
+    { signal: AbortSignal.timeout(20_000) },
+  );
+  const tools = item.access === "all" ? available : available.filter((tool) => item.tools.includes(tool.slug));
+  const writePattern = /(?:CREATE|ADD|APPEND|UPDATE|EDIT|SEND|UPLOAD|MOVE|COPY|DELETE|REMOVE|ARCHIVE|REPLY|COMMENT|PUBLISH|SUBMIT|COMPLETE|INVITE|SHARE|LABEL|STAR|TRASH|MERGE)/;
+  const writeTools = tools.filter((tool) => writePattern.test(tool.slug));
+  if (item.access === "all" && writeTools.length === 0) {
+    throw new Error(`${toolkitSlug} exposes no discoverable write actions`);
   }
-  toolkits.push({ slug: toolkit.slug, name: toolkit.name, version: item.version, tools });
+  toolkits.push({
+    slug: toolkit.slug,
+    name: toolkit.name,
+    version: item.version,
+    access: item.access,
+    actionCount: tools.length,
+    writeActionCount: writeTools.length,
+    writeExamples: writeTools.slice(0, 5).map((tool) => ({ slug: tool.slug, name: tool.name })),
+  });
 }
 
-process.stdout.write(`${JSON.stringify({ ok: true, toolkits }, null, 2)}\n`);
+const searchSession = await composio.sessions.create("studi-catalog-probe", {
+  toolkits: ["gmail"],
+  manageConnections: false,
+  sandbox: { enable: false },
+});
+const search = await searchSession.search({ query: "create an email draft", toolkits: ["gmail"] });
+const searchTools = Object.values(search.toolSchemas).map((schema) => schema.toolSlug);
+if (!search.success || !searchTools.some((slug) => /DRAFT|SEND/.test(slug))) {
+  throw new Error("Full-access session search did not discover a Gmail write action");
+}
+
+process.stdout.write(`${JSON.stringify({ ok: true, toolkits, lazySearch: { toolkit: "gmail", query: "create an email draft", tools: searchTools } }, null, 2)}\n`);

@@ -5,10 +5,12 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { installDevPreview } from "./app/devPreview";
+import { PreviewGallery } from "./app/PreviewGallery";
 import { StudiApp } from "./app/StudiApp";
 import "./app/app.css";
 
-installDevPreview();
+const previewGallery = new URLSearchParams(window.location.search).get("preview") === "gallery";
+if (!previewGallery) installDevPreview();
 
 const rootElement = document.getElementById("root");
 
@@ -18,6 +20,6 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <StudiApp />
+    {previewGallery ? <PreviewGallery /> : <StudiApp />}
   </StrictMode>,
 );

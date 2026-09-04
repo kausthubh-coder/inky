@@ -12,6 +12,8 @@ import {
   type StudiWorkspaceState,
 } from "../../shared/index.js";
 import { Inky, type InkyState } from "./Inky.js";
+import { readDevPreviewConfig } from "./devPreview.js";
+import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 
 type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
@@ -45,6 +47,7 @@ const CADENCES: Array<{ value: "manual" | "daily" | "weekly"; title: string }> =
 
 export function OnboardingScreen({
   workspace, onboarding, connectedApps, appConnections, studentName, schoolUrl, homeworkRoot, scanCadence, defaultPermission, busy, error,
+  initialStep,
   onSchoolUrl, onCadence, onDefaultPermission, onConnectRuntime, onCancelRuntimeLogin,
   onConnectApp, onRefreshConnectedApp, onSelectHomeworkRoot, onSaveProfile, onStartScan, onResumeScan, onFinish,
 }: {
@@ -59,6 +62,7 @@ export function OnboardingScreen({
   defaultPermission: PermissionMode;
   busy: string | null;
   error: string | null;
+  initialStep?: OnboardingStep;
   onStudentName: (value: string) => void;
   onSchoolUrl: (value: string) => void;
   onCadence: (value: "manual" | "daily" | "weekly") => void;
@@ -81,7 +85,7 @@ export function OnboardingScreen({
   const providerLoginActive = providerLogin?.phase === "starting" || providerLogin?.phase === "waiting";
   const profile = onboarding?.profile;
   const presentation = presentSchoolOnboardingScan(onboarding, workspace?.provider);
-  const [step, setStep] = useState<OnboardingStep>(() => profile ? onboardingStepFor(presentation.step) : 0);
+  const [step, setStep] = useState<OnboardingStep>(() => initialStep ?? readDevPreviewConfig()?.onboardingStep ?? (profile ? onboardingStepFor(presentation.step) : 0));
   const runtimeLoginRequested = useRef(false);
 
   useEffect(() => {
@@ -165,7 +169,7 @@ export function OnboardingScreen({
           </section>
 
           <aside className="fable-school" aria-label="School browser">
-            <div className="fable-browser-frame" aria-hidden="true" />
+            <div className="fable-browser-frame" aria-hidden="true">{readDevPreviewConfig() && <PreviewSchoolPage mode="classes" />}</div>
           </aside>
         </div>
       </section>
@@ -219,7 +223,7 @@ function StepExtra({ step, workspace, connectedApps, appConnections, providerRea
     if (!connectedApps.configured) return <p className="fable-hint">Connected apps are not available on this Studi server yet.</p>;
     return (
       <div className="fable-picks" data-onboarding-connected-apps="true">
-        {connectedApps.toolkits.filter(({ toolkit }) => connectedAppCatalogEntry(toolkit).onboarding).map(({ toolkit, tools }) => {
+        {connectedApps.toolkits.filter(({ toolkit }) => connectedAppCatalogEntry(toolkit).onboarding).map(({ toolkit, access, tools }) => {
           const connection = appConnections[toolkit] ?? null;
           const active = connectedAppIsActive(connection);
           const waiting = connection?.status === "INITIATED";
@@ -227,7 +231,7 @@ function StepExtra({ step, workspace, connectedApps, appConnections, providerRea
           return (
             <div className="fable-pick fable-connected-app" data-connected-app={toolkit} key={toolkit}>
               <img className="connected-app-logo" src={app.logoUrl} alt="" loading="lazy" />
-              <span><strong>{app.label}</strong><small>{active ? "Connected" : waiting ? "Waiting for browser sign-in" : "Not connected"} · {tools.length} read action{tools.length === 1 ? "" : "s"}</small></span>
+              <span><strong>{app.label}</strong><small>{active ? "Connected" : waiting ? "Waiting for browser sign-in" : "Not connected"} · {access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}</small></span>
               <button type="button" className="fable-button" disabled={busy !== null} onClick={() => active || waiting ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>{active ? "Check" : waiting ? "I finished" : "Connect"}</button>
             </div>
           );

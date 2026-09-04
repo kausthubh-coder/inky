@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
 
 import { hasCompletedSchoolOnboarding, isLivePhase, nextSchoolScanAction, type AgentReasoningEffort, type AuthState, type ConnectedAppConnection, type ConnectedAppsState, type DiagnosticsExportReceipt, type LibraryState, type LifecycleState, type NotificationKind, type NotificationPreferences, type NotificationTestReceipt, type PermissionMode, type ProductSettingsState, type RuntimeInfo, type SchoolOnboardingState, type SchoolPageBounds, type StudiWorkspaceState, type TaskDetail, type TelemetryState } from "../../shared/index.js";import { rendererTelemetry } from "../telemetry/renderer.js";
 import { openAssignmentId, talkKeyForPanel, viewingLiveDesk, type DeskPanel } from "./DeskScreen.js";
+import { readDevPreviewConfig } from "./devPreview.js";
 import { Inky, type InkyState } from "./Inky.js";
 import { OnboardingScreen } from "./OnboardingScreen.js";
 import { DashboardScreen, SettingsScreen } from "./WorkspaceScreens.js";
@@ -10,6 +11,7 @@ import { type AppScreen } from "./Ui.js";
 type BusyAction = "loading" | "auth" | "auth-retry" | "sign-out" | "model" | "profile" | "navigate" | "scan" | "resume" | "replay" | "manager" | "assignment" | "takeover" | "cancel" | "artifact" | "settings" | "feedback" | "telemetry" | "diagnostics" | "connected-app" | null;
 
 export function StudiApp() {
+  const preview = readDevPreviewConfig();
   const [auth, setAuth] = useState<AuthState>(window.studi ? { status: "checking" } : { status: "signed_out" });
   const [workspace, setWorkspace] = useState<StudiWorkspaceState | null>(null);
   const [onboarding, setOnboarding] = useState<SchoolOnboardingState | null>(null);
@@ -17,8 +19,8 @@ export function StudiApp() {
   const [settings, setSettings] = useState<ProductSettingsState | null>(null);
   const [library, setLibrary] = useState<LibraryState | null>(null);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
-  const [screen, setScreen] = useState<AppScreen>("week");
-  const [panel, setPanel] = useState<DeskPanel>({ kind: "closed" });
+  const [screen, setScreen] = useState<AppScreen>(() => preview?.screen ?? "week");
+  const [panel, setPanel] = useState<DeskPanel>(() => preview?.panel ?? { kind: "closed" });
   const [talk, setTalk] = useState<Record<string, { who: "you" | "inky"; text: string }[]>>({});
   const [schoolSlot, setSchoolSlot] = useState<SchoolPageBounds | null>(null);
   const panelRef = useRef<DeskPanel>(panel);
@@ -39,7 +41,7 @@ export function StudiApp() {
   const [appConnections, setAppConnections] = useState<Record<string, ConnectedAppConnection | null>>({});
   const [busy, setBusy] = useState<BusyAction>(null);
   const [error, setError] = useState<string | null>(null);
-  const [showOnboardingCompletion, setShowOnboardingCompletion] = useState(false);
+  const [showOnboardingCompletion, setShowOnboardingCompletion] = useState(preview?.id === "onboarding-ready");
   const telemetryView = useRef<string | null>(null);
 
   const authorized = auth.status === "approved" || auth.status === "offline";

@@ -1,6 +1,6 @@
 import { ConvexHttpClient } from "convex/browser";
 import { makeFunctionReference } from "convex/server";
-import type { ConnectedAppConnection, ConnectedAppExecution, ConnectedAppsState, ConnectedAppTool, FeedbackReceipt } from "../../shared/index.js";
+import type { ConnectedAppConnection, ConnectedAppExecution, ConnectedAppsState, ConnectedAppToolSearch, FeedbackReceipt } from "../../shared/index.js";
 
 export interface CloudAccountResult {
   readonly subject: string;
@@ -19,7 +19,7 @@ const submitAccountFeedback = makeFunctionReference<"mutation", { deviceId: stri
 const getConnectedApps = makeFunctionReference<"action", Record<string, never>, ConnectedAppsState>("composio:status");
 const authorizeConnectedApp = makeFunctionReference<"action", { toolkit: string }, ConnectedAppConnection>("composio:authorize");
 const getConnectedAppConnection = makeFunctionReference<"action", { toolkit: string }, ConnectedAppConnection>("composio:connection");
-const getConnectedAppTools = makeFunctionReference<"action", { toolkit: string }, ConnectedAppTool[]>("composio:tools");
+const searchConnectedAppTools = makeFunctionReference<"action", { toolkit: string; query: string }, ConnectedAppToolSearch>("composio:search");
 const executeConnectedAppTool = makeFunctionReference<"action", { toolkit: string; toolSlug: string; arguments: Record<string, unknown> }, ConnectedAppExecution>("composio:execute");
 
 export class CloudAccountClient {
@@ -61,9 +61,9 @@ export class CloudAccountClient {
     return this.#client.action(getConnectedAppConnection, { toolkit });
   }
 
-  async connectedAppTools(toolkit: string): Promise<readonly ConnectedAppTool[]> {
+  async searchConnectedAppTools(toolkit: string, query: string): Promise<ConnectedAppToolSearch> {
     await this.#authenticate();
-    return this.#client.action(getConnectedAppTools, { toolkit });
+    return this.#client.action(searchConnectedAppTools, { toolkit, query });
   }
 
   async executeConnectedAppTool(toolkit: string, toolSlug: string, arguments_: Record<string, unknown>): Promise<ConnectedAppExecution> {

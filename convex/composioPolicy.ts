@@ -1,5 +1,6 @@
 export interface ComposioToolkitPolicy {
   readonly version: string;
+  readonly access: "all" | "selected";
   readonly tools: readonly string[];
 }
 
@@ -22,23 +23,27 @@ export function readComposioPolicy(raw = process.env.STUDI_COMPOSIO_TOOL_POLICY_
       throw new Error(`Composio policy for ${toolkit} must be an object`);
     }
     const record = input as Record<string, unknown>;
-    if (Object.keys(record).some((key) => key !== "version" && key !== "tools")) {
+    if (Object.keys(record).some((key) => key !== "version" && key !== "access" && key !== "tools")) {
       throw new Error(`Composio policy for ${toolkit} has an unknown field`);
     }
     if (typeof record.version !== "string" || !version.test(record.version)) {
       throw new Error(`Composio toolkit ${toolkit} requires a pinned YYYYMMDD_NN version`);
     }
-    if (!Array.isArray(record.tools) || record.tools.length === 0 || record.tools.length > 100) {
-      throw new Error(`Composio toolkit ${toolkit} requires 1 to 100 allowed tools`);
+    const access = record.access === "all" ? "all" : "selected";
+    if (access === "all" && record.tools !== undefined) {
+      throw new Error(`Composio toolkit ${toolkit} cannot combine access all with selected tools`);
     }
-    const tools = record.tools.map((name) => {
+    if (access === "selected" && (!Array.isArray(record.tools) || record.tools.length === 0 || record.tools.length > 100)) {
+      throw new Error(`Composio toolkit ${toolkit} requires access all or 1 to 100 selected tools`);
+    }
+    const tools = (Array.isArray(record.tools) ? record.tools : []).map((name) => {
       if (typeof name !== "string" || !tool.test(name)) {
         throw new Error(`Invalid Composio tool slug for ${toolkit}`);
       }
       return name;
     });
     if (new Set(tools).size !== tools.length) throw new Error(`Composio toolkit ${toolkit} repeats a tool`);
-    policy[toolkit] = Object.freeze({ version: record.version, tools: Object.freeze(tools) });
+    policy[toolkit] = Object.freeze({ version: record.version, access, tools: Object.freeze(tools) });
   }
   return Object.freeze(policy);
 }
@@ -50,7 +55,7 @@ export function requireAllowedComposioTool(
 ): ComposioToolkitPolicy {
   const toolkitPolicy = policy[toolkit];
   if (!toolkitPolicy) throw new Error(`Composio toolkit ${toolkit} is not enabled for Studi`);
-  if (toolSlug && !toolkitPolicy.tools.includes(toolSlug)) {
+  if (toolSlug && toolkitPolicy.access !== "all" && !toolkitPolicy.tools.includes(toolSlug)) {
     throw new Error(`Composio tool ${toolSlug} is not enabled for Studi`);
   }
   return toolkitPolicy;

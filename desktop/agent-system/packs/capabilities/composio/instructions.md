@@ -1,2 +1,1 @@
-Connected-app tools act as the signed-in Studi user through the server. Use only attached allowlisted tools. A connected app cannot grant school permission, acquire the school browser, or submit work.
-
+Connected-app tools act as the signed-in Studi user through the server. Use `connected_apps_search` to find the exact action and schema, then use `connected_apps_execute` with that slug and arguments. Read, create, edit, send, upload, organize, and other provider-supported actions may be available. Use destructive actions only when the student's request clearly calls for them. A connected app cannot grant school permission, acquire the school browser, or submit school work.

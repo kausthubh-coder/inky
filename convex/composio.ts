@@ -2,7 +2,7 @@
 
 import { createHash } from "node:crypto";
 
-import { Composio, SessionPreset } from "@composio/core";
+import { Composio } from "@composio/core";
 import { v } from "convex/values";
 
 import { internal } from "./_generated/api.js";
@@ -11,7 +11,12 @@ import { boundedComposioContent, readComposioPolicy, requireAllowedComposioTool,
 
 const statusResult = v.object({
   configured: v.boolean(),
-  toolkits: v.array(v.object({ toolkit: v.string(), version: v.string(), tools: v.array(v.string()) })),
+  toolkits: v.array(v.object({
+    toolkit: v.string(),
+    version: v.string(),
+    access: v.optional(v.literal("all")),
+    tools: v.optional(v.array(v.string())),
+  })),
 });
 
 const connectionResult = v.object({
@@ -30,34 +35,47 @@ const contentResult = v.object({
   truncated: v.boolean(),
 });
 
-export const tools = action({
-  args: { toolkit: v.string() },
-  returns: v.array(v.object({
+export const search = action({
+  args: { toolkit: v.string(), query: v.string() },
+  returns: v.object({
     toolkit: v.string(),
-    slug: v.string(),
-    name: v.string(),
-    description: v.union(v.string(), v.null()),
-    version: v.string(),
-    inputParameters: v.any(),
-  })),
+    query: v.string(),
+    tools: v.array(v.object({
+      toolkit: v.string(),
+      slug: v.string(),
+      name: v.string(),
+      description: v.union(v.string(), v.null()),
+      version: v.string(),
+      inputParameters: v.any(),
+    })),
+    guidance: v.array(v.string()),
+  }),
   handler: async (ctx, args) => {
     const identity = await requireApprovedIdentity(ctx);
-    void identity;
     const toolkit = normalizeToolkit(args.toolkit);
+    const query = normalizeSearchQuery(args.query);
     const policy = readComposioPolicy();
     const toolkitPolicy = requireAllowedComposioTool(policy, toolkit);
-    const composio = createComposio(toolkit, toolkitPolicy.version);
-    const definitions = await Promise.all(toolkitPolicy.tools.map((slug) =>
-      composio.tools.getRawComposioToolBySlug(slug, { version: toolkitPolicy.version }),
-    ));
-    return definitions.map((definition) => ({
-      toolkit,
-      slug: definition.slug,
-      name: definition.name,
-      description: definition.description ?? null,
-      version: toolkitPolicy.version,
-      inputParameters: sanitizeComposioValue(definition.inputParameters ?? { type: "object", properties: {} }),
-    }));
+    const session = await createSession(identity.subject, toolkit, toolkitPolicy);
+    const result = await session.search({ query, toolkits: [toolkit] });
+    if (!result.success) throw new Error(result.error ?? `Could not find a ${toolkit} action`);
+    const tools = Object.values(result.toolSchemas)
+      .filter((schema) => schema.toolkit === toolkit)
+      .filter((schema) => toolkitPolicy.access === "all" || toolkitPolicy.tools.includes(schema.toolSlug))
+      .slice(0, 24)
+      .map((schema) => ({
+        toolkit,
+        slug: schema.toolSlug,
+        name: readableToolName(schema.toolSlug),
+        description: schema.description ?? null,
+        version: toolkitPolicy.version,
+        inputParameters: sanitizeComposioValue(schema.inputSchema ?? { type: "object", properties: {} }),
+      }));
+    const guidance = [
+      ...result.results.flatMap((item) => [item.executionGuidance, ...(item.knownPitfalls ?? [])]),
+      ...result.nextStepsGuidance,
+    ].filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 24);
+    return { toolkit, query, tools, guidance };
   },
 });
 
@@ -70,7 +88,9 @@ export const status = action({
     const policy = readComposioPolicy();
     return {
       configured: Boolean(process.env.COMPOSIO_API_KEY?.trim()) && Object.keys(policy).length > 0,
-      toolkits: Object.entries(policy).map(([toolkit, item]) => ({ toolkit, version: item.version, tools: [...item.tools] })),
+      toolkits: Object.entries(policy).map(([toolkit, item]) => item.access === "all"
+        ? { toolkit, version: item.version, access: "all" as const }
+        : { toolkit, version: item.version, tools: [...item.tools] }),
     };
   },
 });
@@ -151,7 +171,7 @@ export const execute = action({
     }
     const session = await createSession(identity.subject, toolkit, toolkitPolicy);
     const started = Date.now();
-    const result = await session.execute(toolSlug, sanitizeComposioValue(args.arguments) as Record<string, unknown>);
+    const result = await session.execute(toolSlug, args.arguments as Record<string, unknown>);
     const sanitizedResult = sanitizeComposioValue(result.data);
     return {
       toolkit,
@@ -183,16 +203,14 @@ function requireApiKey(): string {
 async function createSession(
   userId: string,
   toolkit: string,
-  policy: { readonly version: string; readonly tools: readonly string[] },
+  policy: { readonly version: string; readonly access: "all" | "selected"; readonly tools: readonly string[] },
 ) {
   const composio = createComposio(toolkit, policy.version);
   return composio.sessions.create(userId, {
-    sessionPreset: SessionPreset.DIRECT_TOOLS,
     toolkits: [toolkit],
-    tools: { [toolkit]: [...policy.tools] },
+    ...(policy.access === "selected" ? { tools: { [toolkit]: [...policy.tools] } } : {}),
     manageConnections: false,
     sandbox: { enable: false },
-    preload: { tools: [...policy.tools] },
   });
 }
 
@@ -218,4 +236,14 @@ function normalizeTool(value: string): string {
   const normalized = value.trim().toLocaleUpperCase();
   if (!/^[A-Z0-9][A-Z0-9_]{0,255}$/.test(normalized)) throw new Error("Invalid Composio tool");
   return normalized;
+}
+
+function normalizeSearchQuery(value: string): string {
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 500) throw new Error("Connected app search must be 1 to 500 characters");
+  return normalized;
+}
+
+function readableToolName(slug: string): string {
+  return slug.split("_").slice(1).map((word) => word.charAt(0) + word.slice(1).toLocaleLowerCase()).join(" ");
 }

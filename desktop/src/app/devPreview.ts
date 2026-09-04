@@ -15,8 +15,70 @@ import {
   type StudiWorkspaceState,
   type TaskDetail,
 } from "../../shared/index.js";
+import type { DeskPanel } from "./DeskScreen.js";
+import type { AppScreen } from "./Ui.js";
 
 const now = "2026-09-03T16:00:00.000Z";
+
+export type DevPreviewScenarioId =
+  | "auth"
+  | "onboarding-welcome" | "onboarding-chatgpt" | "onboarding-connections" | "onboarding-folder"
+  | "onboarding-school" | "onboarding-permission" | "onboarding-schedule" | "onboarding-signin"
+  | "onboarding-scan" | "onboarding-handoff" | "onboarding-ready"
+  | "week" | "assignment" | "desk-working" | "desk-needs-user" | "desk-review" | "desk-submitted"
+  | "settings-inky" | "settings-school" | "settings-privacy" | "settings-account";
+
+export interface DevPreviewConfig {
+  readonly id: DevPreviewScenarioId;
+  readonly screen: AppScreen;
+  readonly panel: DeskPanel;
+  readonly onboardingStep?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  readonly settingsSection?: "inky" | "school" | "privacy" | "account";
+}
+
+export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId; readonly group: string; readonly title: string; readonly note: string }[] = [
+  { id: "auth", group: "Entry", title: "Private beta gate", note: "Signed-out entry and feedback" },
+  { id: "onboarding-welcome", group: "Onboarding", title: "Meet Inky", note: "Welcome" },
+  { id: "onboarding-chatgpt", group: "Onboarding", title: "Connect ChatGPT", note: "Agent runtime" },
+  { id: "onboarding-connections", group: "Onboarding", title: "Connected apps", note: "Gmail, Drive, Docs, Notion, GitHub" },
+  { id: "onboarding-folder", group: "Onboarding", title: "Homework folder", note: "Bounded file access" },
+  { id: "onboarding-school", group: "Onboarding", title: "School link", note: "Class site" },
+  { id: "onboarding-permission", group: "Onboarding", title: "Work permission", note: "Attempt and submission default" },
+  { id: "onboarding-schedule", group: "Onboarding", title: "Scan schedule", note: "Automatic checks" },
+  { id: "onboarding-signin", group: "Onboarding", title: "School sign-in", note: "Browser handoff" },
+  { id: "onboarding-scan", group: "Onboarding", title: "Scanning school", note: "Live progress" },
+  { id: "onboarding-handoff", group: "Onboarding", title: "Needs student", note: "Linked-site sign-in" },
+  { id: "onboarding-ready", group: "Onboarding", title: "Week ready", note: "Partial but truthful completion" },
+  { id: "week", group: "Workspace", title: "This week", note: "Dashboard and assignments" },
+  { id: "assignment", group: "Workspace", title: "Assignment details", note: "Peek drawer" },
+  { id: "desk-working", group: "Workspace", title: "Inky working", note: "Visible school work" },
+  { id: "desk-needs-user", group: "Workspace", title: "Inky needs you", note: "Resume handoff" },
+  { id: "desk-review", group: "Workspace", title: "Ready for review", note: "Completion checklist" },
+  { id: "desk-submitted", group: "Workspace", title: "Submitted", note: "Verified receipt" },
+  { id: "settings-inky", group: "Settings", title: "Inky & apps", note: "Models, connected apps, files" },
+  { id: "settings-school", group: "Settings", title: "School", note: "Schedule and permissions" },
+  { id: "settings-privacy", group: "Settings", title: "Privacy", note: "Telemetry and diagnostics" },
+  { id: "settings-account", group: "Settings", title: "Account", note: "Runtime and sign-out" },
+];
+
+export function readDevPreviewConfig(): DevPreviewConfig | null {
+  const id = new URLSearchParams(window.location.search).get("preview") as DevPreviewScenarioId | null;
+  if (!id || !DEV_PREVIEW_SCENARIOS.some((scenario) => scenario.id === id)) return null;
+  const settingsSection = id.startsWith("settings-") ? id.slice("settings-".length) as DevPreviewConfig["settingsSection"] : undefined;
+  const onboardingStep = ({
+    "onboarding-welcome": 0,
+    "onboarding-chatgpt": 1,
+    "onboarding-connections": 2,
+    "onboarding-folder": 3,
+    "onboarding-school": 4,
+    "onboarding-permission": 5,
+    "onboarding-schedule": 6,
+  } as Partial<Record<DevPreviewScenarioId, DevPreviewConfig["onboardingStep"]>>)[id];
+  const panel: DeskPanel = id === "assignment"
+    ? { kind: "assignment", assignmentId: "assignment-sort" }
+    : id.startsWith("desk-") ? { kind: "desk" } : { kind: "closed" };
+  return { id, screen: settingsSection ? "settings" : "week", panel, ...(onboardingStep === undefined ? {} : { onboardingStep }), ...(settingsSection ? { settingsSection } : {}) };
+}
 const evidence = {
   schemaVersion: 1 as const,
   evidenceId: "preview-evidence",
@@ -50,7 +112,8 @@ const assignments = [
 const permission = { mode: "attempt" as const, mayAttempt: true, maySubmit: false, matchedRuleId: "preview-global", rationale: "A saved rule lets Inky try this and stop before submit." };
 
 export function installDevPreview(): void {
-  if (window.studi || !new URLSearchParams(window.location.search).has("preview")) return;
+  const preview = readDevPreviewConfig();
+  if (window.studi || !preview) return;
 
   let onboarding: SchoolOnboardingState = {
     profile: {
@@ -97,6 +160,27 @@ export function installDevPreview(): void {
     submissionReceipt: null,
     activity: [],
   }));
+
+  if (preview.onboardingStep !== undefined) {
+    onboarding = { profile: null, scan: null, courses: [], assignments: [], linkedSystems: [], workflowRevision: null };
+  } else if (preview.id === "onboarding-signin") {
+    onboarding = { ...onboarding, scan: null, workflowRevision: null };
+  } else if (preview.id === "onboarding-scan") {
+    onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "running", completedAt: undefined, currentStep: "Checking linked homework pages…", failures: [], handoff: null }, workflowRevision: null };
+  } else if (preview.id === "onboarding-handoff") {
+    onboarding = {
+      ...onboarding,
+      scan: {
+        ...onboarding.scan!,
+        state: "needs_user",
+        completedAt: undefined,
+        currentStep: "Waiting for a linked homework sign-in.",
+        failures: [],
+        handoff: { kind: "linked_system_sign_in", reason: "WebAssign needs you to sign in before I can keep checking.", requestedAt: now, evidence },
+      },
+      workflowRevision: null,
+    };
+  }
 
   let lifecycle: LifecycleState = {
     windowVisible: true,
@@ -153,15 +237,49 @@ export function installDevPreview(): void {
     return job;
   };
 
+  if (preview.id.startsWith("desk-")) {
+    const item = tasks[0]!;
+    const phase = preview.id === "desk-needs-user" ? "needs_user" : preview.id === "desk-review" ? "ready_review" : preview.id === "desk-submitted" ? "submitted" : "working";
+    const checkpoint = { revision: 4, url: item.assignment.sourceTarget, title: item.assignment.title, capturedAt: now, summary: "All six written answers are visible on the assignment page." };
+    item.task = { ...item.task, state: phase, revision: 4 };
+    item.execution = {
+      schemaVersion: 1,
+      taskId: item.task.taskId,
+      assignmentId: item.assignment.assignmentId,
+      phase,
+      taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
+      turnCount: 8,
+      attemptCount: 1,
+      ...(phase === "needs_user" ? { returnPredicate: "Attach the three JPG graphs in Show My Work, then tell me to keep going.", lastError: "The assignment requires graph files that are not in the homework folder." } : {}),
+      ...(phase === "ready_review" ? { reviewDeadline: "2026-09-03T16:15:00.000Z", reviewCheckpoint: checkpoint, answerSnapshot: "Six written responses filled; three graphs attached.", completionChecklist: [{ requirement: "Six written answers", evidence: "All six response boxes contain an answer." }, { requirement: "Three JPG graphs", evidence: "Three attachments are listed in Show My Work." }] } : {}),
+      ...(phase === "submitted" ? { submissionReceiptId: "preview-receipt" } : {}),
+      updatedAt: now,
+    };
+    item.activity = phase === "working" ? [
+      { schemaVersion: 1, type: "tool_started", toolCallId: "preview-read", toolName: "browser_read" },
+      { schemaVersion: 1, type: "tool_finished", toolCallId: "preview-read", toolName: "browser_read", outcome: "succeeded" },
+      { schemaVersion: 1, type: "tool_started", toolCallId: "preview-fill", toolName: "browser_fill" },
+    ] : [];
+    if (phase === "submitted") {
+      const receipt = { schemaVersion: 1 as const, receiptId: "preview-receipt", taskId: item.task.taskId, preSubmit: checkpoint, postSubmit: { ...checkpoint, revision: 5, summary: "The school page shows Submitted." }, verifiedStatus: "Submitted", submittedAt: now };
+      item.submissionReceipt = receipt;
+      lifecycle = { ...lifecycle, execution: item.execution, submissionReceipt: receipt };
+    } else {
+      lifecycle = { ...lifecycle, execution: item.execution };
+    }
+  }
+
   const api: StudiRendererApi = {
     getRuntimeInfo: async () => ({ app: "0.1.0-preview", electron: "37.10.3", chrome: "138", node: "22" }),
     getContractManifest: async () => CONTRACT_MANIFEST,
-    getAuthState: async () => ({ status: "approved", user: { subject: "preview", email: "preview@studi.local", name: "kausthubh" }, entitlement: { plan: "beta", credits: 0 }, deviceId: "00000000-0000-4000-8000-000000000001", secureStorage: false }),
+    getAuthState: async () => preview.id === "auth" ? { status: "signed_out" } : ({ status: "approved", user: { subject: "preview", email: "preview@studi.local", name: "kausthubh" }, entitlement: { plan: "beta", credits: 0 }, deviceId: "00000000-0000-4000-8000-000000000001", secureStorage: false }),
     signIn: async () => api.getAuthState(),
     signOut: async () => ({ status: "signed_out" }),
     retryEntitlement: async () => api.getAuthState(),
     submitFeedback: async () => ({ accepted: true as const, feedbackId: "00000000-0000-4000-8000-000000000002" }),
-    getConnectedApps: async () => ({ configured: true, toolkits: [{ toolkit: "github", version: "20260902_00", tools: ["GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER"] }] }),
+    getConnectedApps: async () => ({ configured: true, toolkits: [
+      ["gmail", "20260902_00"], ["googledrive", "20260902_00"], ["googledocs", "20260826_00"], ["notion", "20260819_00"], ["github", "20260902_00"], ["canvas", "20260729_00"], ["googlecalendar", "20260902_00"], ["googlesheets", "20260902_00"], ["outlook", "20260903_00"], ["dropbox", "20260903_00"], ["slack", "20260826_00"], ["discord", "20260826_00"], ["todoist", "20260731_00"],
+    ].map(([toolkit, version]) => ({ toolkit: toolkit!, version: version!, access: "all" as const })) }),
     connectApp: async ({ toolkit }) => ({ toolkit, sessionId: "preview-composio", connectedAccountId: null, status: "INITIATED", redirectUrl: "https://example.com/connect" }),
     refreshConnectedApp: async ({ toolkit }) => ({ toolkit, sessionId: "preview-composio", connectedAccountId: "preview-account", status: "ACTIVE", redirectUrl: null }),
     getWorkspaceState: async () => workspace(),
