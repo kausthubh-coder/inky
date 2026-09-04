@@ -2,7 +2,7 @@ export default {
   packagerConfig: {
     name: "Studi",
     executableName: "Studi",
-    asar: false,
+    asar: true,
     icon: "assets/studi-inky",
     extraResource: ["assets/studi-inky.png", "assets/studi-inky.ico", "THIRD_PARTY_NOTICES.md"],
     ignore: [
@@ -19,12 +19,18 @@ export default {
   makers: [
     {
       name: "@electron-forge/maker-squirrel",
+      platforms: ["win32"],
       config: {
         name: "studi",
         setupExe: "Studi-Setup.exe",
         setupIcon: "assets/studi-inky.ico",
         noMsi: true,
       },
+    },
+    {
+      name: "@electron-forge/maker-zip",
+      platforms: ["darwin"],
+      config: {},
     },
   ],
 };

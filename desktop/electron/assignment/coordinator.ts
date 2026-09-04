@@ -19,9 +19,12 @@ import { retrieveNoteIndex, type NoteRetrievalContext } from "../../agent-system
 import type { BrowserController } from "../browser/controller.js";
 import { formatSnapshot } from "../browser/controller.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
-import type { ManagerCoordinator } from "../manager/coordinator.js";
+import type { AssignmentSessionPlan, ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
 import { HomeworkFiles } from "../files/homework-files.js";
+import { createWorkspaceCodingTools } from "../files/workspace-tools.js";
+import { openAssignmentWorkspace } from "../files/workspace.js";
+import { createBrowserUploadTool } from "../browser/tools.js";
 
 export type ExecutionNotification = Omit<NotificationIntent, "schemaVersion" | "notificationId" | "createdAt">;
 export type ExecutionNotificationSink = (intent: ExecutionNotification) => void | Promise<void>;
@@ -102,11 +105,11 @@ export class AssignmentExecutionCoordinator {
   }
 
   async startNext(): Promise<AssignmentExecution | null> {
-    return this.#start(async () => this.#manager.startNext(await this.#assignmentTools()));
+    return this.#start(async () => this.#manager.startNext((assignmentId) => this.#assignmentSessionPlan(assignmentId)));
   }
 
   async start(taskId: string): Promise<AssignmentExecution> {
-    const execution = await this.#start(async () => this.#manager.startTask(taskId, await this.#assignmentTools()));
+    const execution = await this.#start(async () => this.#manager.startTask(taskId, (assignmentId) => this.#assignmentSessionPlan(assignmentId)));
     if (!execution) throw new Error(`Task ${taskId} could not be started`);
     return execution;
   }
@@ -268,7 +271,7 @@ export class AssignmentExecutionCoordinator {
     const noteEntries = retrieveNoteIndex(this.#store.notes.list(), this.#noteContext(assignment.assignmentId, assignment.courseId), "automatic");
     const notes = await Promise.all(noteEntries.map(async (entry) => ({ entry, content: (await this.#store.notes.read(entry.noteId))?.content ?? null })));
     const receipt = this.#store.lifecycle.getSubmissionReceipt(execution.taskId);
-    const homeworkFiles = await this.#homeworkFiles();
+    const homeworkFiles = await this.#homeworkFiles(execution.assignmentId);
     const folderListing = homeworkFiles ? await homeworkFiles.list() : [];
     const prompt = [
       "# Assignment",
@@ -559,7 +562,7 @@ export class AssignmentExecutionCoordinator {
       this.#manager.completeActive(execution.taskId, execution.phase, "Recovered durable terminal execution state");
       return;
     }
-    await this.#manager.restoreAssignmentWorker(await this.#assignmentTools());
+    await this.#manager.restoreAssignmentWorker((assignmentId) => this.#assignmentSessionPlan(assignmentId));
     if (execution.phase === "ready_review") {
       const releaseAt = execution.handoffDeadline ?? execution.reviewDeadline;
       if (releaseAt && releaseAt <= this.#now()) {
@@ -598,58 +601,40 @@ export class AssignmentExecutionCoordinator {
     return lease ? this.#store.lifecycle.getExecution(lease.taskId) : this.#store.lifecycle.getActiveExecution();
   }
 
-  async #assignmentTools(): Promise<readonly ToolDefinition[]> {
-    const homeworkFiles = await this.#homeworkFiles();
-    const files = homeworkFiles ? this.#createFileTools(homeworkFiles) : [];
+  async #assignmentSessionPlan(assignmentId: string): Promise<AssignmentSessionPlan> {
+    const { workspace, files: homeworkFiles } = await this.#assignmentWorkspace(assignmentId);
+    const files = createWorkspaceCodingTools(workspace.assignmentDirectory);
+    const upload = createBrowserUploadTool(this.#browser, (paths) => homeworkFiles.resolveUploads(paths));
     let connected: readonly ToolDefinition[] = [];
     try { connected = await this.#connectedAppTools(); } catch { /* Connected apps cannot disable local tools. */ }
-    return [...this.#tools, ...files, ...connected];
+    return {
+      cwd: workspace.assignmentDirectory,
+      tools: [...this.#tools, ...files, upload, ...connected],
+    };
   }
 
-  async #homeworkFiles(): Promise<HomeworkFiles | null> {
+  async #homeworkFiles(assignmentId: string): Promise<HomeworkFiles | null> {
     try {
-      const preferences = await this.#store.productPreferences.get();
-      return preferences.homeworkRoot ? await HomeworkFiles.open(preferences.homeworkRoot) : null;
+      return (await this.#assignmentWorkspace(assignmentId)).files;
     } catch {
       return null;
     }
   }
 
-  #createFileTools(files: HomeworkFiles): ToolDefinition[] {
-    const list = defineTool({
-      name: "file_list",
-      label: "List homework files",
-      description: "List bounded file metadata below the student-selected homework folder. Symlinks and escapes are rejected.",
-      parameters: Type.Object({ path: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })) }, { additionalProperties: false }),
-      execute: async (_id, input) => {
-        this.#requiredWorkingExecution();
-        return toolResult(await files.list(input.path ?? "."));
-      },
+  async #assignmentWorkspace(assignmentId: string) {
+    const preferences = await this.#store.productPreferences.get();
+    if (!preferences.homeworkRoot) {
+      throw new Error("Choose a new empty homework folder for Studi before starting this assignment");
+    }
+    const assignment = this.#requiredAssignment(assignmentId);
+    const course = this.#store.school.listCourses().find((candidate) => candidate.courseId === assignment.courseId);
+    const workspace = await openAssignmentWorkspace(preferences.homeworkRoot, {
+      courseId: assignment.courseId,
+      courseLabel: course?.label ?? assignment.courseId,
+      assignmentId: assignment.assignmentId,
+      assignmentTitle: assignment.title,
     });
-    const read = defineTool({
-      name: "file_read",
-      label: "Read homework file",
-      description: "Read one bounded UTF-8 text file below the selected homework folder.",
-      parameters: Type.Object({ path: Type.String({ minLength: 1, maxLength: 1_024 }) }, { additionalProperties: false }),
-      execute: async (_id, input) => {
-        this.#requiredWorkingExecution();
-        return toolResult(await files.read(input.path));
-      },
-    });
-    const write = defineTool({
-      name: "file_write",
-      label: "Write homework file",
-      description: "Atomically write one bounded UTF-8 file below the selected homework folder. Absolute paths, traversal, and symlinks fail closed.",
-      parameters: Type.Object({
-        path: Type.String({ minLength: 1, maxLength: 1_024 }),
-        content: Type.String({ maxLength: 1_000_000 }),
-      }, { additionalProperties: false }),
-      execute: async (_id, input) => {
-        this.#requiredWorkingExecution();
-        return toolResult(await files.write(input.path, input.content));
-      },
-    });
-    return [list, read, write];
+    return { workspace, files: await HomeworkFiles.open(workspace.assignmentDirectory) };
   }
 
   #requiredWorkingExecution(): AssignmentExecution {

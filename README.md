@@ -16,7 +16,8 @@ This is a Bun workspace:
 - General browser tools for inspecting and operating supported school sites
 - Local SQLite task state, Markdown artifacts, queues, permissions, and scheduling
 - Clerk authentication, Convex beta entitlement, landing waitlist emails, and privacy-controlled PostHog telemetry
-- Close-to-tray lifecycle and Windows packaging through Electron Forge
+- Close-to-tray lifecycle and Windows/macOS packaging through Electron Forge
+- A dedicated homework workspace with one class folder per course, one durable folder per assignment, and an app-owned `.studi-sandbox`
 
 ## Develop
 
@@ -53,6 +54,19 @@ Build the Windows package:
 ```bash
 bun run make:win
 ```
+
+Build the universal macOS package on a Mac:
+
+```bash
+bun run make:mac
+```
+
+Studi asks for a new empty folder during onboarding. It places class and assignment folders there, runs assignment file/shell tools from the active assignment only, and limits browser uploads to files produced in that folder. Do not select Documents, Desktop, a source repository, or any folder that already contains personal files.
+
+Pushing a `v*` tag runs [the desktop release workflow](.github/workflows/release-desktop.yml), tests on Windows and macOS, and publishes `Studi-Setup.exe`, `Studi-macOS.zip`, and checksums to GitHub Releases. The stable download URLs used by the account portal and beta invitation are:
+
+- `https://github.com/kausthubh-coder/inky/releases/latest/download/Studi-Setup.exe`
+- `https://github.com/kausthubh-coder/inky/releases/latest/download/Studi-macOS.zip`
 
 Cloud and remote agents should use the same commands. Do not expect `.agents/studi-qa/` on a fresh machine. Hydrate Codex with:
 

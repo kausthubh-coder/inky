@@ -24,7 +24,6 @@ const worktreeDirty = Boolean(spawnSync("git", ["status", "--porcelain"], {
   encoding: "utf8",
   windowsHide: true,
 }).stdout.trim());
-
 async function main() {
 try {
   const onboardingWelcome = await runControlledScenario("onboarding-welcome", {}, advanceToConnectedApps);
@@ -70,6 +69,12 @@ try {
   assert.equal(weekBoard.observation.onboarding.passwordFieldCount, 0);
   assertComposition(weekBoard.composition);
   emitReceipt(weekBoard);
+
+  const expandedBrowser = await runControlledScenario("desk-handoff", {}, exerciseExpandedBrowser);
+  assert.equal(expandedBrowser.observation.deskBrowser.activityCardRemoved, true);
+  assert.equal(expandedBrowser.observation.deskBrowser.expanded, true);
+  assert.equal(expandedBrowser.observation.deskBrowser.closedCleanly, true);
+  emitReceipt(expandedBrowser);
 
   if (!positiveOnly) {
     await testInvalidProfile();
@@ -181,7 +186,34 @@ async function inspectPublicApp(client) {
         hasCourse: library.tasks.some((item) => item.assignment.courseId === 'course-calculus'),
         hasAssignment: library.tasks.some((item) => item.assignment.title === 'Problem set 4'),
       },
+      deskBrowser: {
+        activityCardRemoved: document.body.dataset.activityCardRemoved === 'true',
+        expanded: document.body.dataset.browserExpanded === 'true',
+        closedCleanly: document.body.dataset.browserClosedCleanly === 'true',
+      },
     };
+  })()`);
+}
+
+async function exerciseExpandedBrowser(client) {
+  await client.evaluate(`(async () => {
+    const deskButton = document.querySelector('[aria-label="Open Inky’s desk"]');
+    if (!(deskButton instanceof HTMLButtonElement)) throw new Error('Missing Inky desk button');
+    deskButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    document.body.dataset.activityCardRemoved = String(!document.body.innerText.includes("What I’ve done"));
+    const expandButton = [...document.querySelectorAll('button')].find((item) => item.textContent?.includes('Expand'));
+    if (!(expandButton instanceof HTMLButtonElement)) throw new Error('Missing browser expand button');
+    expandButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    const modal = document.querySelector('[role="dialog"][aria-label="School browser"]');
+    const expandedSlot = document.querySelector('[aria-label="Expanded live school page"]');
+    document.body.dataset.browserExpanded = String(Boolean(modal && expandedSlot));
+    const closeButton = [...document.querySelectorAll('button')].find((item) => item.textContent?.trim() === 'Back to Inky');
+    if (!(closeButton instanceof HTMLButtonElement)) throw new Error('Missing browser close button');
+    closeButton.click();
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    document.body.dataset.browserClosedCleanly = String(!document.querySelector('[role="dialog"][aria-label="School browser"]') && Boolean(document.querySelector('[data-school-slot="true"]')));
   })()`);
 }
 

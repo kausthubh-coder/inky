@@ -1,4 +1,5 @@
-import { type FormEvent, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import {
   classifyAgentRuntimeAttention,
@@ -41,7 +42,6 @@ export function openAssignmentId(
   if (panel.kind === "desk") return execution?.assignmentId ?? null;
   return null;
 }
-
 export function talkKeyForPanel(
   panel: DeskPanel,
   execution: LifecycleState["execution"] | null | undefined,
@@ -121,6 +121,7 @@ export function DeskDrawer({
 }) {
   const [prompt, setPrompt] = useState("");
   const [confirmation, setConfirmation] = useState("");
+  const [browserExpanded, setBrowserExpanded] = useState(false);
   const slotRef = useRef<HTMLDivElement>(null);
   const execution = lifecycle.execution && (
     panel.kind === "desk" || lifecycle.execution.assignmentId === assignment?.assignmentId
@@ -178,7 +179,25 @@ export function DeskDrawer({
       window.removeEventListener("resize", report);
       onSchoolSlot(null);
     };
-  }, [showingLiveDesk, onSchoolSlot]);
+  }, [showingLiveDesk, browserExpanded, onSchoolSlot]);
+
+  useEffect(() => {
+    if (!showingLiveDesk) setBrowserExpanded(false);
+  }, [showingLiveDesk]);
+
+  useEffect(() => {
+    if (!browserExpanded) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setBrowserExpanded(false);
+    };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [browserExpanded]);
 
   const sendTalk = (event: FormEvent) => {
     event.preventDefault();
@@ -250,15 +269,44 @@ export function DeskDrawer({
         <div className="truth-banner truth-banner--partial"><strong>I need you here.</strong><span>{execution.lastError ?? execution.returnPredicate}</span></div>
       )}
 
-      {showingLiveDesk && (
+      {showingLiveDesk && !browserExpanded && (
         <div className="drawer-school-pane">
-          <div className="live-chip">
+          <button
+            className="live-chip live-chip--browser"
+            type="button"
+            aria-expanded="false"
+            onClick={() => {
+              setBrowserExpanded(true);
+              if (execution?.phase === "working" && busy === null) onTakeover(execution.taskId);
+            }}
+          >
             <span className={execution?.phase === "working" ? "live-dot" : "live-dot is-paused"} />
-            <strong>{liveChipLine(execution?.phase ?? "working", currentTool)}</strong>
-            <small>The page I’m on</small>
-          </div>
+            <span><strong>{liveChipLine(execution?.phase ?? "working", currentTool)}</strong><small>The page I’m on</small></span>
+            <span className="live-chip__action">Expand ↗</span>
+          </button>
           <div ref={slotRef} className="drawer-school-slot" data-school-slot="true" aria-label="Live school page">{readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}</div>
         </div>
+      )}
+
+      {showingLiveDesk && browserExpanded && createPortal(
+        <div className="browser-modal-backdrop">
+          <section className="browser-modal" role="dialog" aria-modal="true" aria-label="School browser">
+            <header className="browser-modal__head">
+              <div>
+                <span className={execution?.phase === "working" || execution?.phase === "submitting" ? "live-dot" : "live-dot is-paused"} />
+                <span>
+                  <strong>{execution?.phase === "working" ? "Pausing Inky…" : "The browser is yours"}</strong>
+                  <small>{assignment?.title ?? "School page"}</small>
+                </span>
+              </div>
+              <button className="button button--paper" type="button" autoFocus onClick={() => setBrowserExpanded(false)}>Back to Inky</button>
+            </header>
+            <div ref={slotRef} className="browser-modal__slot" data-school-slot="true" aria-label="Expanded live school page">
+              {readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}
+            </div>
+          </section>
+        </div>,
+        document.body,
       )}
 
       <div className="drawer-scroll">
@@ -271,16 +319,6 @@ export function DeskDrawer({
               <p key={attempt.ordinal}><strong>{attempt.plan}</strong> {attempt.result}</p>
             ))}
             {visibleDetail.execution?.answerArtifactId && <button className="button button--mint" type="button" onClick={() => onOpenArtifact(visibleDetail.task.taskId)}>Open saved answers</button>}
-          </PaperCard>
-        )}
-
-        {live && visibleDetail && (
-          <PaperCard className="drawer-card">
-            <p className="eyebrow">What I’ve done</p>
-            <div className="activity-feed">
-              {(visibleDetail.activity.length === 0) && <p>Just sitting down with the page.</p>}
-              {visibleDetail.activity.map((event, index) => <ActivityRow key={`${event.type}-${index}`} event={event} />)}
-            </div>
           </PaperCard>
         )}
 
@@ -412,12 +450,4 @@ function currentToolName(detail: TaskDetail | null): string | null {
     if (event?.type === "tool_started" && event.toolCallId === id) return event.toolName;
   }
   return null;
-}
-
-function ActivityRow({ event }: { event: TaskDetail["activity"][number] }) {
-  if (event.type === "text") return <div className="activity-row"><span>Inky</span><p>{event.delta}</p></div>;
-  if (event.type === "tool_started") return <div className="activity-row activity-row--tool"><span>Inky</span><p>Opened {event.toolName}</p></div>;
-  if (event.type === "tool_finished") return <div className="activity-row activity-row--tool"><span>Inky</span><p>{event.toolName} {event.outcome}</p></div>;
-  if (event.type === "terminal") return <div className="activity-row activity-row--state"><span>Inky</span><p>{event.outcome}{event.reason ? ` · ${event.reason}` : ""}</p></div>;
-  return <div className="activity-row activity-row--state"><span>Inky</span><p>{event.type.replace("_", " ")}</p></div>;
 }

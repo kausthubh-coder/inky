@@ -23,7 +23,7 @@ const STEP_COPY: Record<OnboardingStep, { inky: InkyState; pill: string; title: 
   0: { inky: "hello", pill: "saying hi", title: "Hey", body: "Nice. Now I need ChatGPT so I can do the work." },
   1: { inky: "working", pill: "chatgpt", title: "I need ChatGPT.", body: "Type this code on the page that opened." },
   2: { inky: "idle", pill: "connected apps", title: "Bring your school apps?", body: "Connect the places where notes, files, and messages live. You can add more later." },
-  3: { inky: "idle", pill: "homework folder", title: "Where should I keep your work?", body: "Pick one folder. I can only use files inside it." },
+  3: { inky: "idle", pill: "homework folder", title: "Give me one empty folder.", body: "Make a new folder just for Studi. I’ll create a folder for every class and keep each assignment safely inside it." },
   4: { inky: "idle", pill: "class link", title: "Where's class?", body: "Paste the link you open for homework. Moodle, Canvas, Classroom, or whatever yours is." },
   5: { inky: "thinking", pill: "the default", title: "When I find homework…", body: "What should I do? You can change this later." },
   6: { inky: "idle", pill: "how often", title: "How often should I check?", body: "I'll look even if you close Studi." },
@@ -153,7 +153,7 @@ export function OnboardingScreen({
                 {step === 0 && <button className="fable-button primary" onClick={() => setStep(1)}>Let's do it</button>}
                 {step === 1 && <><button className="fable-button primary" onClick={advanceFromRuntime} disabled={busy !== null || (providerLoginActive && !providerReady)}>{providerReady ? "Let's go" : providerLoginActive ? "Waiting…" : presentation.kind === "runtime_login" ? "Try again" : "Get a code"}</button>{presentation.kind !== "runtime_login" && <button className="fable-button" onClick={() => setStep(0)}>Back</button>}</>}
                 {step === 2 && <><button className="fable-button primary" onClick={() => setStep(3)}>Continue</button><button className="fable-button" onClick={() => setStep(1)}>Back</button></>}
-                {step === 3 && <><button className="fable-button primary" onClick={() => setStep(4)}>{homeworkRoot ? "Use this folder" : "Skip for now"}</button><button className="fable-button" onClick={() => setStep(2)}>Back</button></>}
+                {step === 3 && <><button className="fable-button primary" onClick={() => setStep(4)} disabled={!homeworkRoot}>{homeworkRoot ? "Use this Studi folder" : "Choose an empty folder first"}</button><button className="fable-button" onClick={() => setStep(2)}>Back</button></>}
                 {step === 4 && <><button className="fable-button primary" onClick={() => setStep(5)} disabled={!schoolUrl.trim()}>That's the one</button><button className="fable-button" onClick={() => setStep(3)}>Back</button></>}
                 {step === 5 && <><button className="fable-button primary" onClick={() => setStep(6)}>Use this</button><button className="fable-button" onClick={() => setStep(4)}>Back</button></>}
                 {step === 6 && <><button className="fable-button primary" onClick={onSaveProfile} disabled={busy !== null || !schoolUrl.trim() || !studentName.trim()}>{busy === "profile" ? "Opening school…" : "Sounds good. Open school."}</button><button className="fable-button" onClick={() => setStep(5)}>Back</button></>}
@@ -243,8 +243,8 @@ function StepExtra({ step, workspace, connectedApps, appConnections, providerRea
   if (step === 3) {
     return (
       <div className="fable-folder" data-onboarding-homework-folder="true">
-        <button type="button" className="fable-button" onClick={onSelectHomeworkRoot} disabled={busy !== null}>{homeworkRoot ? "Choose another folder" : "Choose folder"}</button>
-        <small>{homeworkRoot ?? "No folder selected. You can still continue."}</small>
+        <button type="button" className="fable-button" onClick={onSelectHomeworkRoot} disabled={busy !== null}>{homeworkRoot ? "Choose another empty folder" : "Choose an empty folder"}</button>
+        <small>{homeworkRoot ?? "It must be empty and used only for Studi."}</small>
       </div>
     );
   }

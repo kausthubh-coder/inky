@@ -69,6 +69,7 @@ import { type LocalStore, openLocalStore } from "./storage/index.js";
 import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
 import { usageProperties, type AgentUsageSnapshot } from "./telemetry/usage.js";
+import { initializeHomeworkWorkspace, syncHomeworkClassFolders } from "./files/workspace.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(moduleDirectory, "preload.cjs");
@@ -414,12 +415,14 @@ const ipcHandlers: StudiIpcHandlers = {
     const current = await requireLocalStore().productPreferences.get();
     const owner = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
     const result = owner
-      ? await dialog.showOpenDialog(owner, { title: "Choose your homework folder", properties: ["openDirectory", "createDirectory"] })
-      : await dialog.showOpenDialog({ title: "Choose your homework folder", properties: ["openDirectory", "createDirectory"] });
+      ? await dialog.showOpenDialog(owner, { title: "Choose an empty folder just for Studi", buttonLabel: "Use this empty folder", properties: ["openDirectory", "createDirectory"] })
+      : await dialog.showOpenDialog({ title: "Choose an empty folder just for Studi", buttonLabel: "Use this empty folder", properties: ["openDirectory", "createDirectory"] });
     if (result.canceled || !result.filePaths[0]) return current;
+    const homeworkRoot = await initializeHomeworkWorkspace(result.filePaths[0]);
+    await syncHomeworkClassFolders(homeworkRoot, requireLocalStore().school.listCourses());
     return requireLocalStore().productPreferences.put({
       ...current,
-      homeworkRoot: resolve(result.filePaths[0]),
+      homeworkRoot,
       updatedAt: new Date().toISOString(),
     });
   },
@@ -1495,6 +1498,7 @@ async function runScanWithTelemetry(
   service.capture("studi_scan_started", { mode, ...currentAgentSelection(), ...currentSchoolContext() });
   try {
     const state = await run();
+    await syncSelectedHomeworkClasses();
     captureScanFinished(mode, state, startedAt);
     if (state.scan?.state === "needs_user") service.capture("studi_handoff", { kind: "scan", state: "needs_user" });
     return state;
@@ -1586,6 +1590,13 @@ function captureAssignmentFinished(
     cacheWriteTokens: 0,
     toolCalls: 0,
   }).catch(() => undefined);
+}
+
+async function syncSelectedHomeworkClasses(): Promise<void> {
+  const store = requireLocalStore();
+  const preferences = await store.productPreferences.get();
+  if (!preferences.homeworkRoot) return;
+  await syncHomeworkClassFolders(preferences.homeworkRoot, store.school.listCourses());
 }
 
 function recordAgentUsage(

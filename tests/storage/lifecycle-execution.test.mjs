@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -10,6 +10,7 @@ import { nextScheduleRun } from "../../dist/electron/lifecycle/schedule.js";
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
 import { SchoolScanCoordinator } from "../../dist/electron/scan/coordinator.js";
 import { openLocalStore } from "../../dist/electron/storage/index.js";
+import { initializeHomeworkWorkspace } from "../../dist/electron/files/workspace.js";
 
 const initialNow = "2026-09-01T12:00:00.000Z";
 
@@ -78,6 +79,11 @@ test("attempt-only work retains its browser lease through review and saves Markd
 
     const ready = await execution.startNext();
     assert.equal(ready.phase, "ready_review");
+    const workerTools = new Set(manager.workerToolNames());
+    for (const toolName of ["read", "write", "edit", "grep", "find", "ls", "browser_upload", process.platform === "win32" ? "powershell" : "bash"]) {
+      assert.ok(workerTools.has(toolName), `assignment worker is missing ${toolName}`);
+    }
+    assert.match(runtime.lastTarget.cwd, /Assignment review \[[a-f0-9]{6}\]$/, "the Pi session runs from its assignment workspace");
     assert.equal(ready.completionChecklist.length, 2);
     assert.equal(store.tasks.get("task-review").state, "ready_review");
     assert.equal(manager.state().lease.taskId, "task-review", "the completed page remains leased during review");
@@ -291,6 +297,7 @@ test("restart during submission pauses without repeating the destructive effect"
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp09-restart-")));
   try {
     let store = await openLocalStore(root);
+    await configureHomework(store, root);
     seedTask(store, "restart", "2026-09-02T12:00:00.000Z");
     store.permissionRules.put(rule("auto", "auto_submit", initialNow));
     let runtime = new ScriptedRuntime([]);
@@ -334,6 +341,7 @@ test("restart during review preserves answers and hands off without claiming the
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp09-review-restart-")));
   try {
     let store = await openLocalStore(root);
+    await configureHomework(store, root);
     seedTask(store, "review-restart", "2026-09-02T12:00:00.000Z");
     store.permissionRules.put(rule("attempt", "attempt", initialNow));
     let runtime = new ScriptedRuntime([
@@ -420,6 +428,7 @@ class ScriptedRuntime {
 
   session(kind, tools, target) {
     this.sessionNumber += 1;
+    this.lastTarget = target;
     const listeners = new Set();
     return {
       sessionId: `${kind}-${this.sessionNumber}`,
@@ -484,9 +493,20 @@ function rule(ruleId, mode, updatedAt) {
 async function withStore(run) {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp09-execution-")));
   const store = await openLocalStore(root);
-  try { await run(store); }
+  try {
+    await configureHomework(store, root);
+    await run(store);
+  }
   finally {
     try { store.close(); } catch {}
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+}
+
+async function configureHomework(store, root) {
+  const homeworkRoot = join(root, "homework");
+  await mkdir(homeworkRoot, { recursive: true });
+  await initializeHomeworkWorkspace(homeworkRoot);
+  const current = await store.productPreferences.get();
+  await store.productPreferences.put({ ...current, homeworkRoot, updatedAt: initialNow });
 }

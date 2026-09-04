@@ -48,9 +48,8 @@ type PageState = "solving" | "ready" | "submitted";
 type Decision = "auto" | "manual";
 
 type DemoBeat = {
-  view: "is-hello" | "is-week" | "is-desk";
+  view: "is-hello" | "is-scan" | "is-week" | "is-desk";
   inky: InkyState;
-  hold: number;
   page?: PageState;
   driving?: boolean;
   say: string;
@@ -68,36 +67,39 @@ const DEMO_BEATS: readonly DemoBeat[] = [
   {
     view: "is-hello",
     inky: "hello",
-    hold: 7000,
     say: "Hi, I’m Inky.",
-    text: "I finish all your homework before you know it even exists.",
+    text: "I do your homework before you even know it exists.",
     replies: [{ label: "Okay, show me", beat: 1 }],
+  },
+  {
+    view: "is-scan",
+    inky: "idle",
+    say: "I scan all your schoolwork in the background.",
+    text: "Every day, or whenever you want me to. I find what’s due before it can surprise you.",
+    replies: [{ label: "Show me what you found", beat: 2 }],
   },
   {
     view: "is-week",
     inky: "idle",
-    hold: 6800,
-    say: "I scan all your schoolwork every day.",
-    text: "Or whenever you ask. Then I can finish every assignment and save the answers for you to submit. Tell me to, and I can submit them too.",
-    replies: [{ label: "Do this one", beat: 2 }],
+    say: "Then I put the work in a queue.",
+    text: "I do each assignment, save the answers, and let you know when everything is ready to submit.",
+    replies: [{ label: "Watch you work", beat: 3 }],
   },
   {
     view: "is-desk",
     inky: "working",
-    hold: 9600,
     page: "solving",
     driving: true,
-    say: "Don’t mind me.",
-    text: "Working the problems right on the page. Take it back whenever you like.",
-    replies: [{ label: "skip ahead", beat: 3, secondary: true }],
+    say: "I’m working on it now.",
+    text: "I solve the assignment on the real school page while you watch. Take it back whenever you like.",
+    replies: [{ label: "Show me when it’s ready", beat: 4 }],
   },
   {
     view: "is-desk",
     inky: "waiting",
-    hold: 0,
     page: "ready",
-    say: "Solved all three.",
-    text: "Checked them twice. Your call: I can hit Submit, or leave it sitting there for you.",
+    say: "Ready to submit.",
+    text: "I filled every answer and checked them twice. You can submit it, or tell me to.",
     replies: [
       { label: "I’ll submit", decide: "manual" },
       { label: "Submit it for me", decide: "auto", secondary: true },
@@ -106,13 +108,12 @@ const DEMO_BEATS: readonly DemoBeat[] = [
   {
     view: "is-desk",
     inky: "done",
-    hold: 0,
     page: "ready",
     say: "",
     text: "",
     replies: [
-      { label: "Save my seat", focus: "hero-email" },
-      { label: "play again", beat: 0, secondary: true },
+      { label: "Join the waitlist", focus: "wait-email" },
+      { label: "Play again", beat: 0, secondary: true },
     ],
   },
 ] as const;
@@ -130,7 +131,7 @@ const OUTCOME: Record<Decision, { say: string; text: string; page: PageState }> 
   },
 };
 
-const RAIL = ["Hi", "The scan", "The work", "Your call"] as const;
+const RAIL = ["Hi", "Scan", "Queue", "Work", "Ready"] as const;
 
 const TRUST = [
   {
@@ -212,13 +213,6 @@ const SITES = [
   "zyBooks",
 ] as const;
 
-const FINE_PRINT = (
-  <>
-    Private beta, small batches. I’ll confirm your place, then email when your
-    seat opens. No newsletter. <a href="/sign-in">Already have a seat? Sign in.</a>
-  </>
-);
-
 export function LandingPage() {
   const [joined, setJoined] = useState(false);
   useDesktopShrink();
@@ -234,17 +228,10 @@ export function LandingPage() {
               <h1 id="hero-title">Hi. I’m Inky. I do your homework.</h1>
               <div className="lede-row">
                 <p className="lead">
-                  Studi is the desktop app. I’m the one inside it. I put your
-                  whole week on one board, then take the assignment you’ve been
-                  avoiding, right where it lives, while you watch.{" "}
-                  <strong>I do the work. You keep the final say.</strong>
+                  Studi is the desktop app. I scan your classes, queue the work,
+                  and fill the answers on the real school page while you watch.{" "}
+                  <strong>You keep the final say.</strong>
                 </p>
-                <WaitlistForm
-                  emailId="hero-email"
-                  joined={joined}
-                  onJoined={() => setJoined(true)}
-                  finePrint={FINE_PRINT}
-                />
               </div>
             </section>
             <Demo />
@@ -457,7 +444,6 @@ export function LandingPage() {
   );
 }
 
-// Scroll to the end of the desktop shrink, where the hero form is fully visible.
 function settleDesktop() {
   const pin = document.getElementById("pin");
   if (!pin) return 0;
@@ -467,11 +453,13 @@ function settleDesktop() {
 }
 
 function focusField(id: string) {
+  const field = document.getElementById(id);
+  if (!field) return;
   const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const wasBelow = window.scrollY < settleDesktop();
+  field.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
   window.setTimeout(
-    () => document.getElementById(id)?.focus({ preventScroll: true }),
-    wasBelow && !reduce ? 500 : 0,
+    () => field.focus({ preventScroll: true }),
+    reduce ? 0 : 650,
   );
 }
 
@@ -516,22 +504,20 @@ function Demo() {
   const [decision, setDecision] = useState<Decision | null>(null);
   const [paused, setPaused] = useState(false);
   const [asking, setAsking] = useState(false);
-  const [autoplay, setAutoplay] = useState(true);
   const [visible, setVisible] = useState(true);
   const [typedCount, setTypedCount] = useState(0);
   const [toast, setToast] = useState("");
   const sceneRef = useRef<HTMLDivElement>(null);
   const typedRef = useRef(0);
   const beat = DEMO_BEATS[beatIndex] ?? DEMO_BEATS[0];
-  const outcome = beatIndex === 4 && decision ? OUTCOME[decision] : null;
+  const outcome = beatIndex === 5 && decision ? OUTCOME[decision] : null;
 
   useEffect(() => {
     const requested = Number(
       new URLSearchParams(window.location.search).get("beat"),
     );
-    if (Number.isInteger(requested) && requested > 0 && requested < 4) {
+    if (Number.isInteger(requested) && requested > 0 && requested < 5) {
       setBeatIndex(requested);
-      setAutoplay(false);
     }
   }, []);
 
@@ -545,19 +531,6 @@ function Demo() {
     observer.observe(node);
     return () => observer.disconnect();
   }, []);
-
-  useEffect(() => {
-    if (!beat.hold || paused || !visible) return;
-    if (!autoplay && !beat.driving) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    const timer = window.setTimeout(() => {
-      setBeatIndex((current) => Math.min(current + 1, 3));
-      setPaused(false);
-      setAsking(false);
-    }, beat.hold);
-    return () => window.clearTimeout(timer);
-  }, [autoplay, beat.driving, beat.hold, paused, visible]);
 
   // Typing progress lives in a ref so Takeover pauses mid-line and resumes there.
   useEffect(() => {
@@ -589,7 +562,6 @@ function Demo() {
 
   function go(next: number) {
     if (next < 0 || next >= DEMO_BEATS.length) return;
-    setAutoplay(false);
     setBeatIndex(next);
     setDecision(null);
     setPaused(false);
@@ -597,16 +569,14 @@ function Demo() {
   }
 
   function decide(choice: Decision) {
-    setAutoplay(false);
     setDecision(choice);
-    setBeatIndex(4);
+    setBeatIndex(5);
   }
 
   function takeOver() {
     if (!beat.driving) return;
     setPaused(true);
     setAsking(false);
-    setAutoplay(false);
   }
 
   function keepGoing() {
@@ -626,7 +596,6 @@ function Demo() {
       className="scene"
       ref={sceneRef}
       style={{ backgroundImage: `url(${wallpaper.src})` }}
-      onPointerDown={() => setAutoplay(false)}
     >
       <div className="stage-area">
         <div className="window" role="application" aria-label="Studi demo">
@@ -636,15 +605,12 @@ function Demo() {
               <span className="tl min" />
               <span className="tl max" />
             </div>
-            <span className="titlebar-icon" aria-hidden="true">
-              <InkyMascot state="idle" size={30} />
-            </span>
             <span className="logo">studi</span>
             <div className="spacer" />
             <button
               type="button"
               className={`desk-toggle${beat.view === "is-desk" ? " on" : ""}`}
-              onClick={() => go(beatIndex >= 2 ? 1 : 2)}
+              onClick={() => go(beat.view === "is-desk" ? 2 : 3)}
             >
               <span
                 className={`desk-dot${beat.driving && !paused ? " working" : beat.view === "is-desk" && beatIndex < 4 ? " needs" : ""}`}
@@ -703,47 +669,42 @@ function Demo() {
             </section>
 
             <section className="app-main">
-              <div className="app-hero">
-                <InkyMascot state="idle" size={64} />
-                <div className="hi">
-                  <h3>Hey Maya — 2 things due tonight.</h3>
-                  <div className="sync-bar">
-                    <span>
-                      <strong>✓ Classes checked</strong> · 2h ago
-                    </span>
-                    <span>every morning</span>
+              {beat.view === "is-scan" ? (
+                <ScanBoard onContinue={() => go(2)} />
+              ) : (
+                <>
+                  <div className="app-hero">
+                    <InkyMascot state="idle" size={64} />
+                    <div className="hi">
+                      <h3>Inky’s work queue</h3>
+                      <div className="sync-bar">
+                        <span>
+                          <strong>✓ 5 classes checked</strong> · just now
+                        </span>
+                        <span>3 assignments queued</span>
+                      </div>
+                    </div>
+                    <div className={`week-say${toast ? " quiz-nudge" : ""}`}>
+                      <div className="speech" key={`${beatIndex}-${toast}`} role={toast ? "status" : undefined}>
+                        <span className="tail" aria-hidden="true" />
+                        <div className="line">{toast ? toast : beat.say}</div>
+                        <div>{toast ? "Quizzes and tests stay yours. I’ll sit here looking helpful." : beat.text}</div>
+                      </div>
+                      <div className="replies">
+                        <button type="button" className="btn primary" onClick={() => go(3)}>
+                          Watch you work
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className={`week-say${toast ? " quiz-nudge" : ""}`}>
-                  <div className="speech" key={`${beatIndex}-${toast}`} role={toast ? "status" : undefined}>
-                    <span className="tail" aria-hidden="true" />
-                    <div className="line">{toast ? toast : beat.say}</div>
-                    <div>{toast ? "Quizzes and tests stay yours. I’ll sit here looking helpful." : beat.text}</div>
+                  <div className="queue-strip" aria-label="Inky's queue status">
+                    <span><i className="desk-dot working" /> Next: Related rates</span>
+                    <span>2 more waiting</span>
+                    <strong>I’ll tell you when each one is ready.</strong>
                   </div>
-                  <div className="replies">
-                    <button type="button" className="btn primary" onClick={() => go(2)}>
-                      Do this one
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="command app-command">
-                <input
-                  type="text"
-                  aria-label="Tell Inky what to do"
-                  placeholder="Type “start the problem set” and press enter…"
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      go(2);
-                    }
-                  }}
-                />
-                <button type="button" className="send" onClick={() => go(2)}>
-                  enter ↵
-                </button>
-              </div>
-              <WeekBoard onStart={() => go(2)} onRefuse={setToast} />
+                  <WeekBoard onStart={() => go(3)} onRefuse={setToast} />
+                </>
+              )}
             </section>
 
             <aside className="school" aria-label="School page">
@@ -822,6 +783,52 @@ function Demo() {
   );
 }
 
+function ScanBoard({ onContinue }: { onContinue: () => void }) {
+  const sources = [
+    ["Canvas", "3 assignments found", "done"],
+    ["Google Classroom", "1 assignment found", "done"],
+    ["Pearson", "checking CALC 1…", "active"],
+    ["Moodle", "up next", "waiting"],
+  ] as const;
+
+  return (
+    <div className="scan-board">
+      <div className="scan-heading">
+        <InkyMascot state="working" size={88} />
+        <div>
+          <p className="scan-kicker">Background school scan</p>
+          <h3>Looking through Maya’s classes…</h3>
+          <p>Every morning · or whenever Maya asks</p>
+        </div>
+      </div>
+      <div className="scan-layout">
+        <div className="scan-list" aria-label="School sites being scanned">
+          {sources.map(([name, result, state]) => (
+            <div className={`scan-row ${state}`} key={name}>
+              <span className="scan-check" aria-hidden="true">
+                {state === "done" ? "✓" : state === "active" ? "•••" : ""}
+              </span>
+              <strong>{name}</strong>
+              <small>{result}</small>
+            </div>
+          ))}
+          <div className="scan-progress" aria-hidden="true"><span /></div>
+        </div>
+        <div className="scan-message">
+          <div className="speech">
+            <span className="tail" aria-hidden="true" />
+            <div className="line">I scan in the background.</div>
+            <div>Every day, or whenever you want me to. Nothing due gets to sneak up on you.</div>
+          </div>
+          <button type="button" className="btn primary" onClick={onContinue}>
+            Show me what you found
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WeekBoard({
   onStart,
   onRefuse,
@@ -840,19 +847,20 @@ function WeekBoard({
         <button type="button" className="app-assignment card selected" onClick={onStart}>
           <div className="assignment-top">
             <span className="dot calc" /> CALC 1
-            <span className="badge due">tonight</span>
+            <span className="badge working">next</span>
           </div>
           <strong>Problem set 4: Related rates</strong>
           <small>
-            due 11:59 <span className="chip">Make Inky do this</span>
+            due 11:59 <span className="chip">Watch Inky work</span>
           </small>
         </button>
         <div className="app-assignment card">
           <div className="assignment-top">
             <span className="dot hist" /> HIST 210
+            <span className="badge queued">queued 2</span>
           </div>
           <strong>Essay: Causes of the Cold War</strong>
-          <small>after the problem set</small>
+          <small>after related rates</small>
         </div>
       </div>
       <div className="app-day">

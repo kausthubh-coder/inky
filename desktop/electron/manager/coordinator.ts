@@ -27,6 +27,15 @@ export interface AssignmentWorkerRuntime {
     target?: AgentSessionTarget,
   ): Promise<AgentSession>;
 }
+
+export type AssignmentSessionPlan = Readonly<{
+  tools: readonly ToolDefinition[];
+  cwd?: string;
+}>;
+
+type AssignmentSessionPlanInput =
+  | readonly ToolDefinition[]
+  | ((assignmentId: string) => Promise<AssignmentSessionPlan>);
 export interface EnqueueAssignmentInput {
   readonly taskId: string;
   readonly priority?: number;
@@ -174,7 +183,7 @@ export class ManagerCoordinator {
   }
 
   async startNext(
-    assignmentTools: readonly ToolDefinition[] = [],
+    assignmentTools: AssignmentSessionPlanInput = [],
     resumeSessionPath?: string,
   ): Promise<BrowserWorkerLease | null> {
     this.#assertUsable();
@@ -192,7 +201,7 @@ export class ManagerCoordinator {
 
   async startTask(
     taskId: string,
-    assignmentTools: readonly ToolDefinition[] = [],
+    assignmentTools: AssignmentSessionPlanInput = [],
     resumeSessionPath?: string,
   ): Promise<BrowserWorkerLease> {
     this.#assertUsable();
@@ -277,13 +286,17 @@ export class ManagerCoordinator {
     }
   }
 
-  async restoreAssignmentWorker(tools: readonly ToolDefinition[]): Promise<void> {
+  async restoreAssignmentWorker(tools: AssignmentSessionPlanInput): Promise<void> {
     this.#assertUsable();
     const lease = this.#store.manager.getLease();
     if (!lease || lease.state !== "active" || !lease.workerSessionPath) return;
     const runtime = this.#requiredAssignmentRuntime();
     this.#workerSession?.dispose();
-    this.#workerSession = await runtime.createAssignmentSession!(tools, { resumeSessionPath: lease.workerSessionPath });
+    const plan = await resolveAssignmentSessionPlan(tools, this.#requiredTask(lease.taskId).assignmentId);
+    this.#workerSession = await runtime.createAssignmentSession!(plan.tools, {
+      resumeSessionPath: lease.workerSessionPath,
+      ...(plan.cwd ? { cwd: plan.cwd } : {}),
+    });
   }
 
   dispose(): void {
@@ -384,7 +397,7 @@ export class ManagerCoordinator {
 
   async #startEntry(
     entry: ManagerQueueEntry,
-    assignmentTools: readonly ToolDefinition[],
+    assignmentTools: AssignmentSessionPlanInput,
     resumeSessionPath?: string,
   ): Promise<BrowserWorkerLease> {
     const acquiring = this.#store.manager.acquireLease(entry.taskId, this.#now());
@@ -400,8 +413,10 @@ export class ManagerCoordinator {
         : agentJob.sessionPath
           ? { resumeSessionPath: agentJob.sessionPath }
           : {};
-      worker = assignmentTools.length > 0
-        ? await this.#requiredAssignmentRuntime().createAssignmentSession!(assignmentTools, target)
+      const plan = await resolveAssignmentSessionPlan(assignmentTools, entry.assignmentId);
+      const sessionTarget = { ...target, ...(plan.cwd ? { cwd: plan.cwd } : {}) };
+      worker = plan.tools.length > 0
+        ? await this.#requiredAssignmentRuntime().createAssignmentSession!(plan.tools, sessionTarget)
         : await this.#runtime.createWorkerSession(target);
       if (!worker.sessionPath) {
         throw new Error("Pi did not persist the assignment worker session");
@@ -536,4 +551,11 @@ export class ManagerCoordinator {
     }
     return this.#runtime as AssignmentWorkerRuntime & Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">>;
   }
+}
+
+async function resolveAssignmentSessionPlan(
+  input: AssignmentSessionPlanInput,
+  assignmentId: string,
+): Promise<AssignmentSessionPlan> {
+  return typeof input === "function" ? input(assignmentId) : { tools: input };
 }

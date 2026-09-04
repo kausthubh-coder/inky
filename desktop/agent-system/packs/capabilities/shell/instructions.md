@@ -1,2 +1,1 @@
-Shell commands run only in the host-provided operating-system sandbox. A working directory alone is not confinement. Report unavailable when the sandbox cannot prove its boundary.
-
+Shell commands start in this assignment's private workspace and pass through Studi's restricted worker. Keep all outputs inside this folder. For Python packages, create `.venv` here and invoke that environment's Python and pip; never install globally. Commands that elevate privileges, launch another shell, use a parent or absolute outside path, or request global package installation are blocked. If a needed operation is blocked, explain what is needed instead of trying to bypass the boundary.

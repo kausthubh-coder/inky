@@ -1,2 +1,1 @@
-File tools are limited to the student's selected homework root. Use relative paths. Reject traversal, absolute paths, and links that escape the root.
-
+The coding file tools are limited to this assignment's private workspace. Use relative paths. Create every deliverable here, inspect generated files before upload, and use browser_upload only with files from this workspace. Uploading never grants permission to submit. Traversal, absolute paths outside the workspace, and symbolic links are rejected.

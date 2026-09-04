@@ -24,6 +24,8 @@
     "build:landing": "bun run --filter landing build",
     "package:win": "bun run build && electron-forge package --platform=win32 --arch=x64",
     "make:win": "bun run build && electron-forge make --platform=win32 --arch=x64",
+    "package:mac": "bun run build && electron-forge package --platform=darwin --arch=universal",
+    "make:mac": "bun run build && electron-forge make --platform=darwin --arch=universal",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p desktop/electron/tsconfig.json --noEmit",
     "test": "bun run typecheck && bun run build && bun run test:contracts && bun run test:packaging && bun run test:foundation",
     "test:contracts": "bun run build:electron && node --test \"tests/contracts/*.test.mjs\"",
@@ -56,6 +58,8 @@
   "devDependencies": {
     "@electron-forge/cli": "^7.11.2",
     "@electron-forge/maker-squirrel": "^7.11.2",
+    "@electron-forge/maker-zip": "^7.11.2",
+    "@electron/universal": "^3.0.6",
     "@fontsource/nunito-sans": "^5.2.8",
     "@fontsource/shantell-sans": "^5.2.8",
     "@types/electron-squirrel-startup": "^1.0.2",

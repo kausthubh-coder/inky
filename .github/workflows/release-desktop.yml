@@ -1,0 +1,89 @@
+name: Release desktop apps
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    name: Windows installer
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - run: bun run test
+      - run: bun run make:win
+      - name: Stage Windows installer
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release | Out-Null
+          Copy-Item -LiteralPath "out/make/squirrel.windows/x64/Studi-Setup.exe" -Destination "release/Studi-Setup.exe"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studi-windows
+          path: release/Studi-Setup.exe
+          if-no-files-found: error
+
+  macos:
+    name: macOS universal app
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - run: bun install --frozen-lockfile
+      - name: Build macOS icon
+        run: |
+          mkdir -p assets/studi-inky.iconset
+          sips -z 16 16 assets/studi-inky.png --out assets/studi-inky.iconset/icon_16x16.png >/dev/null
+          sips -z 32 32 assets/studi-inky.png --out assets/studi-inky.iconset/icon_16x16@2x.png >/dev/null
+          sips -z 32 32 assets/studi-inky.png --out assets/studi-inky.iconset/icon_32x32.png >/dev/null
+          sips -z 64 64 assets/studi-inky.png --out assets/studi-inky.iconset/icon_32x32@2x.png >/dev/null
+          sips -z 128 128 assets/studi-inky.png --out assets/studi-inky.iconset/icon_128x128.png >/dev/null
+          sips -z 256 256 assets/studi-inky.png --out assets/studi-inky.iconset/icon_128x128@2x.png >/dev/null
+          sips -z 256 256 assets/studi-inky.png --out assets/studi-inky.iconset/icon_256x256.png >/dev/null
+          sips -z 512 512 assets/studi-inky.png --out assets/studi-inky.iconset/icon_256x256@2x.png >/dev/null
+          sips -z 512 512 assets/studi-inky.png --out assets/studi-inky.iconset/icon_512x512.png >/dev/null
+          cp assets/studi-inky.png assets/studi-inky.iconset/icon_512x512@2x.png
+          iconutil -c icns assets/studi-inky.iconset -o assets/studi-inky.icns
+      - run: bun run test
+      - run: bun run make:mac
+      - name: Stage macOS app
+        run: |
+          mkdir -p release
+          artifact="$(find out/make -type f -name '*.zip' -print -quit)"
+          test -n "$artifact"
+          cp "$artifact" release/Studi-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: studi-macos
+          path: release/Studi-macOS.zip
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    needs: [windows, macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: studi-*
+          path: release
+          merge-multiple: true
+      - name: Add checksums
+        run: cd release && sha256sum * > SHA256SUMS.txt
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          gh release create "$tag" release/* --title "Studi ${tag}" --generate-notes --latest

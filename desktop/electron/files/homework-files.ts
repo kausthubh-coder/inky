@@ -5,6 +5,8 @@ import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 const READ_LIMIT = 250_000;
 const WRITE_LIMIT = 1_000_000;
 const LIST_LIMIT = 500;
+const UPLOAD_LIMIT = 12;
+const UPLOAD_FILE_LIMIT = 50_000_000;
 
 export type HomeworkFileEntry = Readonly<{
   path: string;
@@ -76,6 +78,23 @@ export class HomeworkFiles {
     return { path: this.#relative(target), size: metadata.size, modifiedAt: metadata.mtime.toISOString() };
   }
 
+  async resolveUploads(rawPaths: readonly string[]): Promise<string[]> {
+    if (rawPaths.length < 1 || rawPaths.length > UPLOAD_LIMIT) {
+      throw new TypeError(`Choose between 1 and ${UPLOAD_LIMIT} workspace files to upload`);
+    }
+    const resolved: string[] = [];
+    for (const rawPath of rawPaths) {
+      const path = await this.#existing(rawPath);
+      const metadata = await stat(path);
+      if (!metadata.isFile()) throw new TypeError("Only regular workspace files can be uploaded");
+      if (metadata.size > UPLOAD_FILE_LIMIT) {
+        throw new TypeError(`Workspace uploads are limited to ${UPLOAD_FILE_LIMIT} bytes per file`);
+      }
+      resolved.push(path);
+    }
+    return resolved;
+  }
+
   async #walk(directory: string, output: HomeworkFileEntry[]): Promise<void> {
     for (const child of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
       if (output.length >= LIST_LIMIT) return;
@@ -124,8 +143,9 @@ export class HomeworkFiles {
   }
 
   #assertInside(target: string): void {
-    const normalizedRoot = this.root.toLocaleLowerCase();
-    const normalized = resolve(target).toLocaleLowerCase();
+    const normalizedRoot = process.platform === "win32" ? this.root.toLocaleLowerCase() : this.root;
+    const absolute = resolve(target);
+    const normalized = process.platform === "win32" ? absolute.toLocaleLowerCase() : absolute;
     if (normalized !== normalizedRoot && !normalized.startsWith(`${normalizedRoot}${sep}`)) {
       throw new TypeError("Homework path escaped the selected root");
     }

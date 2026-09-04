@@ -5,7 +5,8 @@ import { useEffect, useState } from "react";
 export default function ConnectDesktopPage() {
   const [opening, setOpening] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
-  const downloadUrl = process.env.NEXT_PUBLIC_STUDI_WINDOWS_DOWNLOAD_URL;
+  const windowsDownloadUrl = process.env.NEXT_PUBLIC_STUDI_WINDOWS_DOWNLOAD_URL;
+  const macDownloadUrl = process.env.NEXT_PUBLIC_STUDI_MAC_DOWNLOAD_URL;
 
   useEffect(() => {
     if (!opening) return;
@@ -34,10 +35,20 @@ export default function ConnectDesktopPage() {
           </a>
           <a className="btn" href="/dashboard">Back to dashboard</a>
         </div>
+        {windowsDownloadUrl || macDownloadUrl ? (
+          <div className="connect-note">
+            <strong>Need the app first?</strong>
+            <div className="download-links">
+              {windowsDownloadUrl ? <a className="btn" href={windowsDownloadUrl}>Download for Windows</a> : null}
+              {macDownloadUrl ? <a className="btn" href={macDownloadUrl}>Download for Mac</a> : null}
+            </div>
+          </div>
+        ) : null}
         {showHelp ? (
-          <p className="connect-note" role="status">
-            Nothing opened? {downloadUrl ? <a href={downloadUrl}>Install Studi for Windows</a> : "Install the Studi desktop app, then press Open Studi again."}
-          </p>
+          <div className="connect-note" role="status">
+            <strong>Nothing opened?</strong>
+            <span>{windowsDownloadUrl || macDownloadUrl ? "Download Studi above, install it, then press Open Studi again." : "Install Studi, then press Open Studi again."}</span>
+          </div>
         ) : null}
       </section>
     </>

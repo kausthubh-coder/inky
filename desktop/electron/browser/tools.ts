@@ -94,6 +94,28 @@ export function createBrowserTools(
     : [snapshot, navigate, click, type, select, press, wait, submit];
 }
 
+export function createBrowserUploadTool(
+  controller: BrowserController,
+  resolveWorkspaceFiles: (paths: readonly string[]) => Promise<readonly string[]>,
+): ToolDefinition {
+  return defineTool({
+    name: "browser_upload",
+    label: "Upload workspace files",
+    description: "Attach files from this assignment's private workspace to a visible school-page file input. Paths must be relative to the active assignment folder. This never submits the assignment.",
+    parameters: Type.Object(
+      {
+        ref: Type.String({ minLength: 1, maxLength: 64 }),
+        paths: Type.Array(Type.String({ minLength: 1, maxLength: 1_024 }), { minItems: 1, maxItems: 12 }),
+      },
+      { additionalProperties: false },
+    ),
+    execute: async (_toolCallId, input) => {
+      const files = await resolveWorkspaceFiles(input.paths);
+      return result(await controller.upload(input.ref, files));
+    },
+  });
+}
+
 function result(snapshot: Awaited<ReturnType<BrowserController["snapshot"]>>) {
   return {
     content: [{ type: "text" as const, text: formatSnapshot(snapshot) }],

@@ -109,7 +109,8 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
     if (normalized.startsWith("note_search")) selected.add("notes-search");
     if (normalized.startsWith("note_read")) selected.add("notes-read");
     if (normalized.startsWith("file_")) selected.add("files");
-    if (normalized.startsWith("shell_")) selected.add("shell");
+    if (["read", "write", "edit", "grep", "find", "ls", "browser_upload"].includes(normalized)) selected.add("files");
+    if (normalized.startsWith("shell_") || normalized === "bash" || normalized === "powershell") selected.add("shell");
     if (normalized.startsWith("composio_") || normalized.startsWith("composio:") || normalized.startsWith("connected_apps_")) selected.add("composio");
     if (normalized === "browser_submit") selected.add("submit");
   }

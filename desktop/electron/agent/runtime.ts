@@ -45,6 +45,7 @@ type PiModel = NonNullable<PiSessionOptions["model"]>;
 
 export interface AgentSessionTarget {
   readonly resumeSessionPath?: string;
+  readonly cwd?: string;
 }
 
 export type AgentRunEventListener = (event: AgentRunEvent) => void;
@@ -363,9 +364,10 @@ export class PiAgentRuntime implements AgentRuntime {
     tools: readonly ToolDefinition[],
     systemPrompt: string,
   ): Promise<PiAgentSession> {
+    const sessionCwd = target.cwd ?? this.#cwd;
     const settingsManager = SettingsManager.inMemory();
     const resourceLoader = new DefaultResourceLoader({
-      cwd: this.#cwd,
+      cwd: sessionCwd,
       agentDir: this.#agentDir,
       settingsManager,
       noExtensions: true,
@@ -378,10 +380,10 @@ export class PiAgentRuntime implements AgentRuntime {
     await resourceLoader.reload();
 
     const sessionManager = target.resumeSessionPath
-      ? SessionManager.open(target.resumeSessionPath, this.#sessionDirectory, this.#cwd)
-      : SessionManager.create(this.#cwd, this.#sessionDirectory);
+      ? SessionManager.open(target.resumeSessionPath, this.#sessionDirectory, sessionCwd)
+      : SessionManager.create(sessionCwd, this.#sessionDirectory);
     const options: PiSessionOptions = {
-      cwd: this.#cwd,
+      cwd: sessionCwd,
       agentDir: this.#agentDir,
       modelRuntime: this.#modelRuntime,
       sessionManager,

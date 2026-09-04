@@ -616,9 +616,9 @@ export function SettingsScreen({
             <PaperCard className="settings-card">
               <p className="eyebrow">Homework folder</p>
               <h2>The folder I may use</h2>
-              <p>I can list, read, and write only inside the folder you choose. Shell commands stay unavailable because Studi does not yet have a proven Windows sandbox.</p>
+              <p>Choose an empty folder used only for Studi. I create one folder per class, then keep coding tools, private Python environments, and uploads inside the active assignment.</p>
               <small data-homework-root>{preferences?.homeworkRoot ?? "No folder selected"}</small>
-              <button className="button button--mint" type="button" disabled={busy !== null} onClick={onSelectHomeworkRoot}>Choose folder</button>
+              <button className="button button--mint" type="button" disabled={busy !== null} onClick={onSelectHomeworkRoot}>Choose an empty folder</button>
             </PaperCard>
           </div>
         )}

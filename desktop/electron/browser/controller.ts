@@ -231,6 +231,31 @@ export class BrowserController {
     return this.#afterAction();
   }
 
+  async upload(ref: string, files: readonly string[]): Promise<BrowserSnapshot> {
+    if (files.length < 1 || files.length > 12) {
+      throw new TypeError("Browser upload requires between 1 and 12 workspace files");
+    }
+    const { objectId, target } = await this.#resolve(ref);
+    const inspection = asRecord(
+      await this.#callOn(objectId, `function () {
+        return {
+          connected: Boolean(this.isConnected),
+          disabled: Boolean(this.disabled || this.getAttribute?.("aria-disabled") === "true"),
+          fileInput: String(this.tagName || "").toLowerCase() === "input" && String(this.type || "").toLowerCase() === "file"
+        };
+      }`),
+    );
+    const value = asRecord(inspection.value);
+    if (value.connected !== true || value.disabled === true || value.fileInput !== true) {
+      throw new Error("The referenced element is not an available file input");
+    }
+    await this.#send("DOM.setFileInputFiles", {
+      files: [...files],
+      backendNodeId: target.backendNodeId,
+    });
+    return this.#afterAction();
+  }
+
   async press(key: BrowserKey): Promise<BrowserSnapshot> {
     if (key === "Enter" && (await this.#enterWouldSubmit())) {
       throw new Error("Enter could submit the current form. Use browser_submit only after the student explicitly asks to submit.");

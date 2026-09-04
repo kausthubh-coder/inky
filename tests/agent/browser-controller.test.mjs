@@ -86,6 +86,18 @@ test("browser tools expose only named safe operations and URL validation rejects
   assert.equal(snapshot.url, "https://school.example.edu/course");
 });
 
+test("browser upload accepts only a current file-input ref", async () => {
+  const target = fakeTarget([axNode(7, "button", "Choose files")], {
+    uploadInspection: { connected: true, disabled: false, fileInput: true },
+  });
+  const controller = new BrowserController(target);
+  const snapshot = await controller.snapshot();
+  await controller.upload(snapshot.elements[0].ref, [resolve("answer.jpg")]);
+  assert.deepEqual(target.uploadedFiles, [resolve("answer.jpg")]);
+  assert.equal(target.uploadBackendNodeId, 7);
+  await assert.rejects(controller.upload(snapshot.elements[0].ref, []), /between 1 and 12/);
+});
+
 test("real Pi session registers the Studi browser tools and no built-in coding tools", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp04-agent-tools-")));
   try {
@@ -139,6 +151,8 @@ function fakeTarget(nodes, options = {}) {
   const target = {
     clicks: 0,
     keyEvents: 0,
+    uploadedFiles: [],
+    uploadBackendNodeId: null,
     debugger: {
       isAttached: () => attached,
       attach: () => { attached = true; },
@@ -151,11 +165,19 @@ function fakeTarget(nodes, options = {}) {
           target.keyEvents += 1;
           return {};
         }
+        if (method === "DOM.setFileInputFiles") {
+          target.uploadedFiles = params.files;
+          target.uploadBackendNodeId = params.backendNodeId;
+          return {};
+        }
         if (method === "Runtime.callFunctionOn") {
           if (String(params.functionDeclaration).includes("submission:")) {
             return { result: { value: options.inspection ?? { connected: true, disabled: false, submission: false, label: "" } } };
           }
           if (String(params.functionDeclaration).includes("this.click()")) target.clicks += 1;
+          if (String(params.functionDeclaration).includes("fileInput:")) {
+            return { result: { value: options.uploadInspection ?? { connected: true, disabled: false, fileInput: false } } };
+          }
           return { result: { value: true } };
         }
         return {};
