@@ -87,6 +87,7 @@ export function SiteNav({ current = "", flat = false }: SiteNavProps) {
                 <UserButton.MenuItems>
                   <UserButton.Link label="Dashboard" labelIcon={<span aria-hidden="true">⌂</span>} href="/dashboard" />
                   <UserButton.Link label="Settings" labelIcon={<span aria-hidden="true">⚙</span>} href="/settings" />
+                  <UserButton.Link label="Feedback" labelIcon={<span aria-hidden="true">✎</span>} href="/feedback" />
                 </UserButton.MenuItems>
               </UserButton>
             </SignedIn>

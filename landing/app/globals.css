@@ -908,6 +908,13 @@ button.app-assignment:hover { box-shadow: 5px 5px 0 rgba(28,22,18,0.22); transla
 .metric strong { display: block; font-family: var(--font-shantell), cursive; font-size: 23px; }
 .metric span { color: var(--ink-soft); font-size: 11px; font-weight: 800; }
 .account-loading { min-height: 260px; display: grid; place-items: center; color: var(--ink-soft); font-weight: 800; }
+.feedback-card { max-width: 760px; margin: 0 auto; }
+.feedback-card h1 { margin: 8px 0; }
+.account-feedback-form { display: grid; gap: 10px; margin-top: 24px; }
+.account-feedback-form label { font-weight: 900; }
+.account-feedback-form textarea { width: 100%; min-height: 150px; padding: 14px; resize: vertical; border: 2px solid var(--ink); border-radius: 14px 11px 16px 10px; background: #fffef9; color: var(--ink); font: inherit; box-shadow: 3px 3px 0 var(--ink); }
+.account-feedback-form textarea:focus { outline: 3px solid var(--yellow); outline-offset: 2px; }
+.feedback-sent { align-self: center; color: #2c7055; font-weight: 900; }
 .clerk-frame { display: grid; min-height: 520px; place-items: start center; }
 .clerk-frame .cl-rootBox { width: min(100%, 820px); }
 .clerk-frame .cl-cardBox, .clerk-frame .cl-userProfile-root { width: 100%; }

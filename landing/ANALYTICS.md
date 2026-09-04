@@ -1,15 +1,15 @@
 # Inky launch analytics
 
-Use a dedicated PostHog project named `Inky`. Do not reuse the older Studi project.
+Use a dedicated PostHog project named `Inky`. Do not send Inky events to the existing `Default project` (`138887`). The landing and desktop apps can share the new Inky project because their events have separate, explicit names and neither SDK autocaptures arbitrary product activity.
 
-The landing app stays fully functional when analytics is not configured. To enable it, turn on **Cookieless server hash mode** in the PostHog project, then set these Vercel variables:
+The landing app stays fully functional when analytics is not configured. Set these Vercel variables to enable it:
 
 ```text
 NEXT_PUBLIC_POSTHOG_KEY=phc_...
 NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
-The integration is deliberately anonymous: no identify calls, form values, email addresses, autocaptured clicks, session recordings, cookies, local storage, or URL query strings are sent.
+The integration is deliberately anonymous: no identify calls, form values, email addresses, autocaptured clicks, session recordings, cookies, persistent browser storage, or URL query strings are sent. Its anonymous identifier lives only in memory, which is enough for the landing-page conversion funnel without a consent banner.
 
 ## Events
 
@@ -22,6 +22,7 @@ The integration is deliberately anonymous: no identify calls, form values, email
 | `waitlist_joined` | Clerk accepted the waitlist entry | `placement` |
 | `sign_in_started` | A visitor opened sign-in from the navigation | `placement` |
 | `dashboard_viewed` | A signed-in visitor reached the account dashboard | None |
+| `feedback_sent` | A tester successfully sent a web feedback note | `placement` |
 
 ## First dashboard
 

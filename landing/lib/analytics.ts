@@ -5,6 +5,7 @@ import posthog from "posthog-js";
 export type AnalyticsEvent =
   | "dashboard_viewed"
   | "demo_started"
+  | "feedback_sent"
   | "sign_in_started"
   | "waitlist_cta_clicked"
   | "waitlist_form_started"

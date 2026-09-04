@@ -19,6 +19,32 @@ export const submit = mutation({
         clerkSubject: identity.subject,
         feedbackId: args.feedbackId,
         message,
+        source: "desktop",
+        createdAt: Date.now(),
+      });
+    }
+    return { accepted: true as const, feedbackId: args.feedbackId };
+  },
+});
+
+export const submitWeb = mutation({
+  args: { feedbackId: v.string(), message: v.string() },
+  returns: v.object({ accepted: v.literal(true), feedbackId: v.string() }),
+  handler: async (ctx, args) => {
+    if (!isUuid(args.feedbackId)) throw new Error("Invalid feedback input");
+    const message = args.message.trim();
+    if (!message || message.length > 1_000) throw new Error("Feedback must be 1 to 1000 characters");
+    const identity = await requireIdentity(ctx);
+    const duplicate = await ctx.db
+      .query("feedback")
+      .withIndex("by_feedback_id", (query) => query.eq("feedbackId", args.feedbackId))
+      .unique();
+    if (!duplicate) {
+      await ctx.db.insert("feedback", {
+        clerkSubject: identity.subject,
+        feedbackId: args.feedbackId,
+        message,
+        source: "web",
         createdAt: Date.now(),
       });
     }

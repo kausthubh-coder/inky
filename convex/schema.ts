@@ -58,6 +58,7 @@ export default defineSchema({
     clerkSubject: v.string(),
     feedbackId: v.string(),
     message: v.string(),
+    source: v.optional(v.union(v.literal("desktop"), v.literal("web"))),
     createdAt: v.number(),
   })
     .index("by_clerk_subject_and_created_at", ["clerkSubject", "createdAt"])

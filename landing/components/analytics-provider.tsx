@@ -31,11 +31,11 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
       ui_host: "https://us.posthog.com",
       defaults: "2026-05-30",
       capture_pageview: "history_change",
+      persistence: "memory",
       autocapture: false,
       capture_exceptions: false,
       disable_session_recording: true,
       person_profiles: "never",
-      cookieless_mode: "always",
       advanced_disable_flags: true,
       before_send: sanitize,
     });

@@ -9,6 +9,7 @@ const ACCOUNT_LINKS = [
   ["/settings", "Account settings"],
   ["/billing", "Billing"],
   ["/connect/desktop", "Open Studi"],
+  ["/feedback", "Feedback"],
 ] as const;
 
 export function AccountShell({ children }: { children: ReactNode }) {
