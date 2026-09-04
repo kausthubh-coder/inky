@@ -459,6 +459,8 @@ html.desk-open .site-nav { pointer-events: none; }
 html:not(.desk-open) .scroll-hint { pointer-events: none; }
 @keyframes hint-bob { from { transform: translateY(0); } to { transform: translateY(4px); } }
 
+.mobile-exit-hint { display: none; }
+
 .rail { display: flex; gap: 6px; opacity: var(--p); flex-wrap: wrap; justify-content: center; }
 html.desk-open .rail { pointer-events: none; }
 .rail button {
@@ -999,6 +1001,39 @@ button.app-assignment:hover { box-shadow: 5px 5px 0 rgba(28,22,18,0.22); transla
   .join-row { flex-direction: column; }
   .join .btn { width: 100%; }
   .scene { height: 790px; flex: none; grid-template-rows: minmax(0, 1fr) 56px; border: 2.5px solid var(--ink); border-radius: 18px; box-shadow: 4px 4px 0 var(--ink); }
+  .scene.mobile-immersive {
+    position: fixed;
+    z-index: 80;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    grid-template-rows: minmax(0, 1fr) calc(56px + env(safe-area-inset-bottom));
+    touch-action: pan-y;
+  }
+  .scene.mobile-immersive .stage-area { padding: 0; }
+  .scene.mobile-immersive .window { width: 100%; height: 100%; max-width: none; border: 0; border-radius: 0; box-shadow: none; }
+  .scene.mobile-immersive .titlebar { padding-top: calc(7px + env(safe-area-inset-top)); }
+  .scene.mobile-immersive .desk-foot { padding-bottom: env(safe-area-inset-bottom); background: rgba(251, 247, 238, 0.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+  .scene.mobile-immersive .mobile-exit-hint {
+    position: absolute;
+    right: max(10px, env(safe-area-inset-right));
+    bottom: calc(64px + env(safe-area-inset-bottom));
+    display: inline-flex;
+    padding: 6px 10px;
+    border: 2px solid var(--ink);
+    border-radius: var(--wobble-pill);
+    background: rgba(255, 250, 240, 0.94);
+    box-shadow: 2px 2px 0 var(--ink);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 10.5px;
+    font-weight: 900;
+    animation: hint-bob 1.6s ease-in-out infinite alternate;
+  }
   .stage-area { padding: 10px 10px 0; }
   .window { width: 100%; height: 100%; border-radius: 10px; }
   .dock, .scroll-hint { display: none; }

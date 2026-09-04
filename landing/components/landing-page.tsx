@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import wallpaper from "../designs/wallpaper.png";
 import { track } from "../lib/analytics";
 import type { InkyState } from "../lib/inky";
@@ -504,11 +504,14 @@ function Demo() {
   const [decision, setDecision] = useState<Decision | null>(null);
   const [paused, setPaused] = useState(false);
   const [asking, setAsking] = useState(false);
+  const [mobileImmersive, setMobileImmersive] = useState(false);
   const [visible, setVisible] = useState(true);
   const [typedCount, setTypedCount] = useState(0);
   const [toast, setToast] = useState("");
   const sceneRef = useRef<HTMLDivElement>(null);
   const typedRef = useRef(0);
+  const lastTouchAtRef = useRef(0);
+  const mobileImmersiveDismissedRef = useRef(false);
   const beat = DEMO_BEATS[beatIndex] ?? DEMO_BEATS[0];
   const outcome = beatIndex === 5 && decision ? OUTCOME[decision] : null;
 
@@ -520,6 +523,33 @@ function Demo() {
       setBeatIndex(requested);
     }
   }, []);
+
+  useEffect(() => {
+    const mobile = window.matchMedia("(max-width: 860px)");
+    const sync = () => {
+      if (!mobile.matches) {
+        setMobileImmersive(false);
+        return;
+      }
+      if (!mobileImmersiveDismissedRef.current && window.scrollY < 4) {
+        setMobileImmersive(true);
+      }
+    };
+
+    sync();
+    mobile.addEventListener("change", sync);
+    return () => mobile.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileImmersive) return;
+    const startY = window.scrollY;
+    const onScroll = () => {
+      if (Math.abs(window.scrollY - startY) > 2) dismissMobileImmersive();
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, [mobileImmersive]);
 
   useEffect(() => {
     const node = sceneRef.current;
@@ -585,6 +615,21 @@ function Demo() {
     setAsking(false);
   }
 
+  function dismissMobileImmersive() {
+    mobileImmersiveDismissedRef.current = true;
+    setMobileImmersive(false);
+  }
+
+  function handleScenePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!mobileImmersive || event.pointerType !== "touch") return;
+    const now = performance.now();
+    if (now - lastTouchAtRef.current < 360) {
+      event.preventDefault();
+      dismissMobileImmersive();
+    }
+    lastTouchAtRef.current = now;
+  }
+
   const speech = paused
     ? { say: "All yours.", text: "I’ll hover. Tap “keep going” when you want me back in the box." }
     : outcome ?? beat;
@@ -593,9 +638,15 @@ function Demo() {
 
   return (
     <div
-      className="scene"
+      className={`scene${mobileImmersive ? " mobile-immersive" : ""}`}
       ref={sceneRef}
       style={{ backgroundImage: `url(${wallpaper.src})` }}
+      onPointerUp={handleScenePointerUp}
+      onDoubleClick={(event) => {
+        if (!mobileImmersive) return;
+        event.preventDefault();
+        dismissMobileImmersive();
+      }}
     >
       <div className="stage-area">
         <div className="window" role="application" aria-label="Studi demo">
@@ -779,6 +830,14 @@ function Demo() {
           ))}
         </div>
       </div>
+      <button
+        type="button"
+        className="mobile-exit-hint"
+        onClick={dismissMobileImmersive}
+        aria-label="Exit the full-screen Studi demo"
+      >
+        Scroll ↓ or double-tap to exit
+      </button>
     </div>
   );
 }
