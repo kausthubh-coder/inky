@@ -25,6 +25,7 @@ test("product preferences default safely and survive a validated atomic save", a
       reviewMinutes: 15,
       handoffMinutes: 30,
       memoryVisibility: "selected",
+      homeworkRoot: null,
       agentModelId: "gpt-5.6-sol",
       agentReasoningEffort: "high",
       notifications: defaultNotifications,
@@ -36,6 +37,7 @@ test("product preferences default safely and survive a validated atomic save", a
       reviewMinutes: 25,
       handoffMinutes: 45,
       memoryVisibility: "all",
+      homeworkRoot: null,
       agentModelId: "gpt-5.6-sol",
       agentReasoningEffort: "high",
       notifications: {
@@ -64,6 +66,7 @@ test("product preferences default safely and survive a validated atomic save", a
       reviewMinutes: 20,
       handoffMinutes: 30,
       memoryVisibility: "selected",
+      homeworkRoot: null,
       agentModelId: "gpt-5.6-sol",
       agentReasoningEffort: "high",
       notifications: defaultNotifications,

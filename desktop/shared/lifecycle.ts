@@ -60,9 +60,10 @@ export const AssignmentExecutionSchema = z.strictObject({
     "failed",
   ]),
   taskBudget: z.strictObject({
-    maxAgentTurns: z.literal(1),
+    maxAgentTurns: z.number().int().min(2).max(24),
     maxRecoveryAttempts: z.literal(2),
   }),
+  turnCount: z.number().int().min(0).max(24).default(0),
   attemptCount: z.number().int().min(0).max(2),
   returnPredicate: z.string().trim().min(1).max(1_000).optional(),
   reviewDeadline: IsoTimestampSchema.optional(),

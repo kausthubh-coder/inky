@@ -66,6 +66,8 @@ export function usageProperties(usage: AgentUsageSnapshot): Record<string, numbe
   if (usage.outputTokens > 0) properties.output_tokens = usage.outputTokens;
   if (usage.cacheReadTokens > 0) properties.cache_read_tokens = usage.cacheReadTokens;
   if (usage.cacheWriteTokens > 0) properties.cache_write_tokens = usage.cacheWriteTokens;
+  const totalTokens = usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens;
+  if (totalTokens > 0) properties.total_tokens = totalTokens;
   if (usage.costUsd > 0) properties.cost_usd = Number(usage.costUsd.toFixed(6));
   if (usage.toolCalls > 0) properties.tool_calls = usage.toolCalls;
   return properties;

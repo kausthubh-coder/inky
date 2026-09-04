@@ -16,14 +16,14 @@ import {
   type SchoolOnboardingState,
   type SchoolProfile,
   type SchoolScan,
+  type SchoolScanWorkflow,
 } from "../../shared/index.js";
+import { retrieveNoteIndex } from "../../agent-system/retrieve.js";
 import type { AgentSession, AgentSessionTarget } from "../agent/runtime.js";
 import type { BrowserController } from "../browser/controller.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
-
-const WORKFLOW_ARTIFACT_ID = "school-scan-workflow";
 
 export interface ScanSessionRuntime {
   createScanSession(
@@ -63,10 +63,11 @@ export class SchoolScanCoordinator {
 
   async state(): Promise<SchoolOnboardingState> {
     this.#assertUsable();
+    await this.#repairReplayArtifact();
     const profile = this.#store.school.getProfile();
     const courses = this.#store.school.listCourses();
     const assignments = courses.flatMap((course) => this.#store.assignments.listByCourse(course.courseId));
-    const workflow = await this.#store.artifacts.read("workflow", WORKFLOW_ARTIFACT_ID);
+    const workflow = this.#store.school.getWorkflow();
     return SchoolOnboardingStateSchema.parse({
       profile,
       scan: this.#store.school.latestScan(),
@@ -74,7 +75,7 @@ export class SchoolScanCoordinator {
       assignments,
       linkedSystems: this.#store.school.listLinkedSystems(),
       workflowRevision:
-        workflow?.frontmatter.kind === "workflow" ? workflow.frontmatter.revision ?? 1 : null,
+        workflow?.revision ?? null,
     });
   }
 
@@ -112,9 +113,9 @@ export class SchoolScanCoordinator {
 
   async replay(): Promise<SchoolOnboardingState> {
     return this.#browserWork.startScan(async () => {
-      const workflow = await this.#store.artifacts.read("workflow", WORKFLOW_ARTIFACT_ID);
+      const workflow = this.#store.school.getWorkflow();
       if (!workflow) throw new Error("A successful school scan is required before replay");
-      return this.#start("replay", workflow.content);
+      return this.#start("replay", workflow);
     });
   }
 
@@ -126,8 +127,8 @@ export class SchoolScanCoordinator {
       const claim = claimOccurrence();
       if (claim === null) return null;
       await prepare();
-      const workflow = await this.#store.artifacts.read("workflow", WORKFLOW_ARTIFACT_ID);
-      const state = await (workflow ? this.#start("replay", workflow.content) : this.#start("first_scan"));
+      const workflow = this.#store.school.getWorkflow();
+      const state = await (workflow ? this.#start("replay", workflow) : this.#start("first_scan"));
       return { claim, state };
     });
   }
@@ -181,22 +182,15 @@ export class SchoolScanCoordinator {
     const nextFeedback = [...new Set([...profile.missedCourseFeedback, feedback])].slice(-20);
     this.#store.school.putProfile({ ...profile, missedCourseFeedback: nextFeedback, updatedAt: this.#now() });
 
-    const workflow = await this.#store.artifacts.read("workflow", WORKFLOW_ARTIFACT_ID);
-    if (workflow) {
-      const revision = workflow.frontmatter.kind === "workflow"
-        ? (workflow.frontmatter.revision ?? 1) + 1
-        : 1;
-      await this.#store.artifacts.write({
-        frontmatter: {
-          schemaVersion: STUDI_SCHEMA_VERSION,
-          kind: "workflow",
-          artifactId: WORKFLOW_ARTIFACT_ID,
-          revision,
-          updatedAt: this.#now(),
-        },
-        content: `${workflow.content.trim()}\n\n## Student correction\n- ${feedback}\n`,
-      });
-    }
+    await this.#store.notes.upsert({
+      scope: "school",
+      subjectId: profile.profileId,
+      about: "scan",
+      key: "student-corrections",
+      title: "Student scan corrections",
+      content: nextFeedback.map((item) => `- ${item}`).join("\n"),
+      updatedAt: this.#now(),
+    });
     return this.state();
   }
 
@@ -208,7 +202,7 @@ export class SchoolScanCoordinator {
     this.#sessionScanId = null;
   }
 
-  async #start(kind: SchoolScan["kind"], workflow = ""): Promise<SchoolOnboardingState> {
+  async #start(kind: SchoolScan["kind"], workflow: SchoolScanWorkflow | null = null): Promise<SchoolOnboardingState> {
     this.#assertUsable();
     const profile = this.#requiredProfile();
     const latest = this.#store.school.latestScan();
@@ -244,15 +238,24 @@ export class SchoolScanCoordinator {
       return this.state();
     }
 
-    const feedback = profile.missedCourseFeedback.length === 0
-      ? "No missed-course corrections are stored."
-      : profile.missedCourseFeedback.map((item) => `- ${item}`).join("\n");
-    const priorWorkflow = kind === "replay"
-      ? `\n\n# Prior workflow hints\n${workflow.trim()}\n\nTreat these as navigation hints only. Re-observe every current claim.`
+    const noteEntries = retrieveNoteIndex(this.#store.notes.list(), { kind: "scan", schoolId: profile.profileId });
+    const noteBodies = await Promise.all(noteEntries.map(async (entry) => ({ entry, document: await this.#store.notes.read(entry.noteId) })));
+    const notes = noteBodies.flatMap(({ entry, document }) => document
+      ? [`## ${entry.title}\n${document.content}`]
+      : []).join("\n\n") || "No school scan notes are stored.";
+    const gaps = latest?.failures.length
+      ? latest.failures.map((failure) => `- ${failure}`).join("\n")
+      : "- No unresolved prior scan gaps.";
+    const linkedSystems = this.#store.school.listLinkedSystems();
+    const linked = linkedSystems.length
+      ? linkedSystems.map((system) => `- ${system.label}: ${system.state}; ${system.sourceTarget}`).join("\n")
+      : "- None discovered yet.";
+    const priorWorkflow = kind === "replay" && workflow
+      ? `\n\n# Structured replay hints\n${JSON.stringify({ revision: workflow.revision, root: workflow.root, steps: workflow.steps, coverageTargets: workflow.coverageTargets })}\n\nThese typed locations are navigation hints only. Re-observe every target and use record tools for every current claim; prior completion is never evidence.`
       : "";
     return this.#run(
       scan,
-      `Scan the visible school from its root. Verify school sign-in through the page, then discover courses and assignments. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing.\n\n# Student corrections\n${feedback}${priorWorkflow}`,
+      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
     );
   }
 
@@ -331,24 +334,28 @@ export class SchoolScanCoordinator {
       },
     });
 
-    const recordAssignment = defineTool({
-      name: "scan_record_assignment",
-      label: "Record verified assignment",
-      description: "Record one assignment from a fresh snapshot. The course must already be verified in this scan.",
-      parameters: Type.Object({
-        courseId: Type.String({ minLength: 1, maxLength: 256 }),
-        title: Type.String({ minLength: 1, maxLength: 500 }),
-        assignmentKey: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
-        dueAt: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
-        dueText: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
-        observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
-      }, { additionalProperties: false }),
-      execute: async (_toolCallId, input) => {
-        const scan = this.#requiredRunningScan(scanId);
+    const assignmentParameters = Type.Object({
+      courseId: Type.String({ minLength: 1, maxLength: 256 }),
+      title: Type.String({ minLength: 1, maxLength: 500 }),
+      assignmentKey: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+      dueAt: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+      dueText: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+      observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+    }, { additionalProperties: false });
+    const persistAssignments = async (inputs: readonly {
+      readonly courseId: string;
+      readonly title: string;
+      readonly assignmentKey?: string;
+      readonly dueAt?: string;
+      readonly dueText?: string;
+      readonly observationRef?: string;
+    }[]) => {
+      const scan = this.#requiredRunningScan(scanId);
+      const snapshot = await this.#browser.snapshot();
+      const assignments = inputs.map((input) => {
         if (!scan.observedCourseIds.includes(input.courseId)) {
           throw new Error("The assignment's course has not been verified in this scan");
         }
-        const snapshot = await this.#browser.snapshot();
         const observation = requireSnapshotFact(snapshot, input.title, input.observationRef, "assignment title");
         const dueAt = input.dueAt === undefined
           ? undefined
@@ -370,14 +377,41 @@ export class SchoolScanCoordinator {
           evidence: [evidence],
         });
         this.#ensureTaskOrigin(assignment, scanId);
-        this.#store.school.putScan({
-          ...scan,
-          updatedAt: this.#now(),
-          currentStep: `Verified assignment: ${assignment.title}`,
-          observedAssignmentIds: addUnique(scan.observedAssignmentIds, assignment.assignmentId),
-        });
+        return assignment;
+      });
+      this.#store.school.putScan({
+        ...scan,
+        updatedAt: this.#now(),
+        currentStep: assignments.length === 1
+          ? `Verified assignment: ${assignments[0]!.title}`
+          : `Verified ${assignments.length} assignments on the current page`,
+        observedAssignmentIds: assignments.reduce(
+          (ids, assignment) => addUnique(ids, assignment.assignmentId),
+          scan.observedAssignmentIds,
+        ),
+      });
+      return assignments;
+    };
+
+    const recordAssignment = defineTool({
+      name: "scan_record_assignment",
+      label: "Record verified assignment",
+      description: "Record one assignment from a fresh snapshot. Prefer scan_record_assignments whenever this page lists more than one. The course must already be verified in this scan.",
+      parameters: assignmentParameters,
+      execute: async (_toolCallId, input) => {
+        const [assignment] = await persistAssignments([input]);
         return toolResult(assignment);
       },
+    });
+
+    const recordAssignments = defineTool({
+      name: "scan_record_assignments",
+      label: "Record assignments on this page",
+      description: "Record every assignment visible in one fresh snapshot with one call. Each course must already be verified in this scan.",
+      parameters: Type.Object({
+        assignments: Type.Array(assignmentParameters, { minItems: 1, maxItems: 100 }),
+      }, { additionalProperties: false }),
+      execute: async (_toolCallId, input) => toolResult(await persistAssignments(input.assignments)),
     });
 
     const recordLinkedSystem = defineTool({
@@ -547,7 +581,7 @@ export class SchoolScanCoordinator {
       },
     });
 
-    return [recordCourse, recordAssignment, recordLinkedSystem, requestHandoff, finish];
+    return [recordCourse, recordAssignment, recordAssignments, recordLinkedSystem, requestHandoff, finish];
   }
 
   #ensureTaskOrigin(assignment: Assignment, scanId: string): void {
@@ -688,25 +722,74 @@ export class SchoolScanCoordinator {
     const scan = this.#store.school.getScan(scanId);
     if (!scan || scan.state !== "succeeded") return;
     const profile = this.#requiredProfile();
-    const existing = await this.#store.artifacts.read("workflow", WORKFLOW_ARTIFACT_ID);
-    const revision = existing?.frontmatter.kind === "workflow"
-      ? (existing.frontmatter.revision ?? 1) + 1
-      : 1;
-    const coverageGoals = scan.coverage.map((item) => `- ${item.target}`).join("\n");
-    const navigationHints = hints.length === 0 ? "- Start from the school root." : hints.map((item) => `- ${item.replace(/\s+/g, " ").trim()}`).join("\n");
-    const corrections = profile.missedCourseFeedback.length === 0
-      ? "- None recorded."
-      : profile.missedCourseFeedback.map((item) => `- ${item}`).join("\n");
-    await this.#store.artifacts.write({
-      frontmatter: {
-        schemaVersion: STUDI_SCHEMA_VERSION,
-        kind: "workflow",
-        artifactId: WORKFLOW_ARTIFACT_ID,
-        revision,
-        updatedAt: this.#now(),
-      },
-      content: `# School scan workflow\n\nStart at ${profile.schoolRoot}\n\n## Coverage goals\n${coverageGoals}\n\n## Navigation hints\n${navigationHints}\n\n## Student corrections\n${corrections}\n`,
+    const normalizedHints = [...new Set(hints.map((item) => item.replace(/\s+/g, " ").trim()).filter(Boolean))].slice(0, 50);
+    await this.#store.notes.upsert({
+      scope: "school",
+      subjectId: profile.profileId,
+      about: "scan",
+      key: "navigation",
+      title: "Observed school navigation hints",
+      content: (normalizedHints.length ? normalizedHints : ["Start from the school root."]).map((item) => `- ${item}`).join("\n"),
+      updatedAt: this.#now(),
     });
+    const existing = this.#store.school.getWorkflow();
+    const observedTargets = [
+      { target: profile.schoolRoot, purpose: "Open the school root" },
+      ...scan.observedCourseIds.flatMap((courseId) => {
+        const course = this.#store.school.listCourses().find((candidate) => candidate.courseId === courseId);
+        return course ? [{ target: course.sourceTarget, purpose: `Re-observe course: ${course.label}` }] : [];
+      }),
+      ...scan.observedLinkedSystemIds.flatMap((linkedSystemId) => {
+        const system = this.#store.school.getLinkedSystem(linkedSystemId);
+        return system ? [{ target: system.sourceTarget, purpose: `Re-observe linked system: ${system.label}` }] : [];
+      }),
+    ];
+    const seenTargets = new Set<string>();
+    const steps = observedTargets.filter(({ target }) => {
+      if (seenTargets.has(target)) return false;
+      seenTargets.add(target);
+      return true;
+    }).map(({ target, purpose }) => ({ kind: "navigate" as const, target, purpose }));
+    this.#store.school.putWorkflow({
+      schemaVersion: STUDI_SCHEMA_VERSION,
+      workflowId: "school-scan",
+      schoolId: profile.profileId,
+      revision: (existing?.revision ?? 0) + 1,
+      root: profile.schoolRoot,
+      steps,
+      coverageTargets: scan.coverage.map((item) => item.target),
+      compiledFromScanId: scan.scanId,
+      updatedAt: this.#now(),
+    });
+  }
+
+  async #repairReplayArtifact(): Promise<void> {
+    const scan = this.#store.school.latestScan();
+    const replayFailurePrefix = "The scan results were saved, but the replay workflow could not be written:";
+    if (!scan || scan.state !== "partial" || !scan.failures.some((failure) => failure.startsWith(replayFailurePrefix))) return;
+    const remainingFailures = scan.failures.filter((failure) => !failure.startsWith(replayFailurePrefix));
+    if (remainingFailures.length > 0 || scan.coverage.some((item) => item.status !== "verified")) return;
+    if (this.#store.school.listLinkedSystems().some((system) => system.state === "needs_user")) return;
+    const repairedAt = this.#now();
+    this.#store.school.putScan({
+      ...scan,
+      state: "succeeded",
+      updatedAt: repairedAt,
+      currentStep: "School scan completed with current browser evidence",
+      failures: [],
+    });
+    try {
+      await this.#writeWorkflowHints(scan.scanId, []);
+      this.#updateProfileState("ready");
+    } catch (error) {
+      const reason = `${replayFailurePrefix} ${errorMessage(error)}`;
+      this.#store.school.putScan({
+        ...scan,
+        updatedAt: repairedAt,
+        currentStep: reason,
+        failures: [reason],
+      });
+    }
   }
 
   #assertUsable(): void {

@@ -4,12 +4,13 @@ import { DatabaseSync } from "node:sqlite";
 
 import { StorageError, errorMessage, isStorageError } from "./errors.js";
 
-export const STORAGE_SCHEMA_VERSION = 4 as const;
+export const STORAGE_SCHEMA_VERSION = 6 as const;
 
 export type StorageFailurePoint =
   | "migration_before_version"
   | "task_before_projection"
   | "artifact_before_rename"
+  | "note_after_rename_before_index"
   | "restore_after_journal_publish"
   | "restore_during_staging_population"
   | "restore_after_staging_population"
@@ -209,11 +210,74 @@ const migrationFour = `
   );
 `;
 
+const migrationFive = `
+  CREATE TABLE agent_jobs (
+    job_id TEXT PRIMARY KEY,
+    target_key TEXT NOT NULL UNIQUE,
+    target_kind TEXT NOT NULL,
+    subject_id TEXT,
+    phase TEXT NOT NULL,
+    turn_index INTEGER NOT NULL CHECK (turn_index >= 0),
+    run_id TEXT NOT NULL,
+    session_id TEXT,
+    session_path TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    record_json TEXT NOT NULL CHECK (json_valid(record_json))
+  );
+  CREATE INDEX agent_jobs_phase_updated ON agent_jobs(phase, updated_at);
+
+  CREATE TABLE agent_messages (
+    message_id TEXT PRIMARY KEY,
+    job_id TEXT NOT NULL,
+    turn_index INTEGER NOT NULL CHECK (turn_index >= 0),
+    role TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    record_json TEXT NOT NULL CHECK (json_valid(record_json)),
+    FOREIGN KEY (job_id) REFERENCES agent_jobs(job_id) ON DELETE CASCADE
+  );
+  CREATE INDEX agent_messages_job_turn ON agent_messages(job_id, turn_index, created_at, message_id);
+`;
+
+const migrationSix = `
+  CREATE TABLE note_index (
+    note_id TEXT PRIMARY KEY,
+    scope TEXT NOT NULL,
+    subject_id TEXT NOT NULL,
+    about TEXT NOT NULL,
+    note_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    markdown_path TEXT NOT NULL UNIQUE,
+    revision INTEGER NOT NULL CHECK (revision > 0),
+    content_hash TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    record_json TEXT NOT NULL CHECK (json_valid(record_json)),
+    UNIQUE(scope, subject_id, about, note_key)
+  );
+  CREATE INDEX note_index_scope_subject_updated
+    ON note_index(scope, subject_id, about, updated_at, note_id);
+
+  CREATE TABLE school_scan_workflow (
+    workflow_id TEXT PRIMARY KEY CHECK (workflow_id = 'school-scan'),
+    school_id TEXT NOT NULL,
+    revision INTEGER NOT NULL CHECK (revision > 0),
+    updated_at TEXT NOT NULL,
+    record_json TEXT NOT NULL CHECK (json_valid(record_json))
+  );
+
+  UPDATE assignment_executions
+  SET record_json = json_set(record_json, '$.taskBudget.maxAgentTurns', 24, '$.turnCount', COALESCE(json_extract(record_json, '$.turnCount'), 0))
+  WHERE json_extract(record_json, '$.taskBudget.maxAgentTurns') = 1
+     OR json_extract(record_json, '$.turnCount') IS NULL;
+`;
+
 const storageMigrations = [
   { version: 1, sql: migrationOne },
   { version: 2, sql: migrationTwo },
   { version: 3, sql: migrationThree },
   { version: 4, sql: migrationFour },
+  { version: 5, sql: migrationFive },
+  { version: 6, sql: migrationSix },
 ] as const;
 
 type RequiredColumn = readonly [
@@ -361,6 +425,48 @@ const requiredTables = {
     ["submitted_at", "TEXT", 1, 0],
     ["record_json", "TEXT", 1, 0],
   ],
+  agent_jobs: [
+    ["job_id", "TEXT", 0, 1],
+    ["target_key", "TEXT", 1, 0],
+    ["target_kind", "TEXT", 1, 0],
+    ["subject_id", "TEXT", 0, 0],
+    ["phase", "TEXT", 1, 0],
+    ["turn_index", "INTEGER", 1, 0],
+    ["run_id", "TEXT", 1, 0],
+    ["session_id", "TEXT", 0, 0],
+    ["session_path", "TEXT", 0, 0],
+    ["created_at", "TEXT", 1, 0],
+    ["updated_at", "TEXT", 1, 0],
+    ["record_json", "TEXT", 1, 0],
+  ],
+  agent_messages: [
+    ["message_id", "TEXT", 0, 1],
+    ["job_id", "TEXT", 1, 0],
+    ["turn_index", "INTEGER", 1, 0],
+    ["role", "TEXT", 1, 0],
+    ["created_at", "TEXT", 1, 0],
+    ["record_json", "TEXT", 1, 0],
+  ],
+  note_index: [
+    ["note_id", "TEXT", 0, 1],
+    ["scope", "TEXT", 1, 0],
+    ["subject_id", "TEXT", 1, 0],
+    ["about", "TEXT", 1, 0],
+    ["note_key", "TEXT", 1, 0],
+    ["title", "TEXT", 1, 0],
+    ["markdown_path", "TEXT", 1, 0],
+    ["revision", "INTEGER", 1, 0],
+    ["content_hash", "TEXT", 1, 0],
+    ["updated_at", "TEXT", 1, 0],
+    ["record_json", "TEXT", 1, 0],
+  ],
+  school_scan_workflow: [
+    ["workflow_id", "TEXT", 0, 1],
+    ["school_id", "TEXT", 1, 0],
+    ["revision", "INTEGER", 1, 0],
+    ["updated_at", "TEXT", 1, 0],
+    ["record_json", "TEXT", 1, 0],
+  ],
 } as const satisfies Readonly<Record<string, readonly RequiredColumn[]>>;
 
 const requiredIndexes = [
@@ -459,6 +565,45 @@ const requiredIndexes = [
     unique: 1,
     origin: "u",
     columns: ["task_id"],
+  },
+  {
+    table: "agent_jobs",
+    unique: 1,
+    origin: "u",
+    columns: ["target_key"],
+  },
+  {
+    table: "agent_jobs",
+    name: "agent_jobs_phase_updated",
+    unique: 0,
+    origin: "c",
+    columns: ["phase", "updated_at"],
+  },
+  {
+    table: "agent_messages",
+    name: "agent_messages_job_turn",
+    unique: 0,
+    origin: "c",
+    columns: ["job_id", "turn_index", "created_at", "message_id"],
+  },
+  {
+    table: "note_index",
+    unique: 1,
+    origin: "u",
+    columns: ["markdown_path"],
+  },
+  {
+    table: "note_index",
+    unique: 1,
+    origin: "u",
+    columns: ["scope", "subject_id", "about", "note_key"],
+  },
+  {
+    table: "note_index",
+    name: "note_index_scope_subject_updated",
+    unique: 0,
+    origin: "c",
+    columns: ["scope", "subject_id", "about", "updated_at", "note_id"],
   },
 ] as const;
 

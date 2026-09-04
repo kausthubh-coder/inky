@@ -17,20 +17,18 @@ export const TelemetryEventNameSchema = z.enum([
   "studi_fallback",
   "studi_setting_changed",
   "studi_feedback_sent",
+  "studi_connected_app",
   "studi_error",
+  "studi_agent_trace",
 ]);
 
-export const TelemetryPropertyValueSchema = z.union([
-  z.string().max(2_000),
-  z.number().finite(),
-  z.boolean(),
-]);
+export const TelemetryPropertyValueSchema = z.json();
 
 export const TelemetryInspectorEnvelopeSchema = z.strictObject({
   capturedAt: z.string().datetime(),
   event: TelemetryEventNameSchema,
   distinctId: z.string().min(1).max(256),
-  properties: z.record(z.string().min(1).max(64), TelemetryPropertyValueSchema),
+  properties: z.record(z.string().min(1).max(128), TelemetryPropertyValueSchema),
 });
 
 export const TelemetryStateSchema = z.strictObject({
@@ -71,8 +69,14 @@ export const TelemetryAgentFactsSchema = z.strictObject({
   output_tokens: z.number().int().nonnegative().optional(),
   cache_read_tokens: z.number().int().nonnegative().optional(),
   cache_write_tokens: z.number().int().nonnegative().optional(),
+  total_tokens: z.number().int().nonnegative().optional(),
   cost_usd: z.number().finite().nonnegative().optional(),
   tool_calls: z.number().int().nonnegative().optional(),
+  first_token_ms: z.number().int().nonnegative().nullable().optional(),
+  model_duration_ms: z.number().int().nonnegative().optional(),
+  tool_duration_ms: z.number().int().nonnegative().optional(),
+  total_duration_ms: z.number().int().nonnegative().optional(),
+  error_count: z.number().int().nonnegative().optional(),
 });
 
 export type TelemetryEventName = z.infer<typeof TelemetryEventNameSchema>;

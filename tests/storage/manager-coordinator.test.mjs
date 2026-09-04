@@ -45,7 +45,7 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
       steeredPriority,
       "re-enqueue without an explicit priority keeps manual steering",
     );
-    await invokeManagerTool(runtime, "manager_assignment_start", { taskId: "task-b" });
+    await coordinator.startFromConversation("task-b");
     assert.deepEqual(delegatedStarts, ["task-b"], "the manager delegates a verified queued task to the configured execution owner");
 
     store.permissionRules.put({
@@ -56,6 +56,16 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
     assert.equal(store.tasks.get("task-b").state, "cancelled", "permission is resolved again at start");
     assert.equal(lease.taskId, "task-a");
     assert.equal(coordinator.state().lease.taskId, "task-a");
+    const claimedJob = store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" });
+    assert.equal(claimedJob.job.phase, "working");
+    assert.equal(claimedJob.job.claim.jobId, claimedJob.job.jobId);
+    assert.equal(claimedJob.sessionPath, lease.workerSessionPath);
+    assert.equal(coordinator.activeTaskForAssignment("assignment-a"), "task-a");
+    assert.equal(coordinator.activeTaskForAssignment("assignment-b"), null);
+    coordinator.pause("task-a", "needs_user", "Student action required");
+    assert.equal(store.agentJobs.get(claimedJob.job.jobId).job.phase, "needs_user");
+    coordinator.resumePaused("task-a", "Student returned");
+    assert.equal(store.agentJobs.get(claimedJob.job.jobId).job.phase, "working");
     await assert.rejects(coordinator.startNext(), /already has an active worker lease/);
 
     store.permissionRules.put(rule("global-deny", "global", "do_not_attempt", "2026-09-01T12:03:00.000Z"));
@@ -76,26 +86,8 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
       "pattern-attempt",
     );
 
-    await store.artifacts.write(artifact("preference", "global", "Prefer work due soon."));
-    await store.artifacts.write(artifact("memory", "calculus", "The student uses radians."));
     const beforeTurn = coordinator.state();
-    await coordinator.runManagerTurn("Explain the next item.", ["calculus"]);
-    assert.match(runtime.managerPrompts.at(-1), /# Global preferences[\s\S]*Prefer work due soon\./);
-    assert.match(runtime.managerPrompts.at(-1), /# Scoped memories[\s\S]*The student uses radians\./);
-    assert.match(runtime.managerPrompts.at(-1), /# Student request[\s\S]*Explain the next item\./);
-
-    await store.productPreferences.put({ schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "none", updatedAt: now });
-    await coordinator.runManagerTurn("Do not use memory.", ["calculus"]);
-    assert.doesNotMatch(runtime.managerPrompts.at(-1), /The student uses radians\./);
-    assert.match(runtime.managerPrompts.at(-1), /No scoped memories were requested/);
-
-    await store.artifacts.write(artifact("memory", "algebra", "The student prefers factoring first."));
-    await store.productPreferences.put({ schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "all", updatedAt: now });
-    await coordinator.runManagerTurn("Use all visible memory.", []);
-    assert.match(runtime.managerPrompts.at(-1), /The student uses radians\./);
-    assert.match(runtime.managerPrompts.at(-1), /The student prefers factoring first\./);
-    await coordinator.replaceManagerSession();
-    assert.deepEqual(coordinator.state(), beforeTurn, "session replacement does not own queue state");
+    assert.deepEqual(coordinator.state(), beforeTurn, "assignment worker state remains repository-backed");
 
     const persistedState = coordinator.state();
     coordinator.dispose();
@@ -106,12 +98,13 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
     coordinator = await ManagerCoordinator.create(store, reopenedRuntime, { now: () => now });
     assert.deepEqual(coordinator.state(), persistedState);
     assert.deepEqual(reopenedRuntime.workerResumePaths, [lease.workerSessionPath]);
-    assert.equal(reopenedRuntime.managerResumePaths.length, 1);
     await assert.rejects(coordinator.startNext(), /already has an active worker lease/);
 
     coordinator.finish("task-a", "ready_review");
     assert.equal(coordinator.state().lease, null);
     assert.equal(store.tasks.get("task-a").state, "ready_review");
+    assert.equal(store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" }).job.claim, null);
+    assert.equal(store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" }).job.phase, "review");
     assert.equal(coordinator.state().entries[0].taskId, "task-pattern");
     coordinator.dispose();
     store.close();
@@ -166,7 +159,7 @@ test("a selected manager start cannot fall through when its permission is revoke
     });
 
     await assert.rejects(
-      invokeManagerTool(runtime, "manager_assignment_start", { taskId: "task-selected" }),
+      coordinator.startFromConversation("task-selected"),
       /Task task-selected is blocked by stored permission rules/,
     );
     assert.equal(store.tasks.get("task-selected").state, "cancelled");
@@ -181,17 +174,8 @@ test("a selected manager start cannot fall through when its permission is revoke
 });
 
 class RecordingRuntime {
-  managerPrompts = [];
-  managerResumePaths = [];
   workerResumePaths = [];
   sessionNumber = 0;
-  managerTools = [];
-
-  async createManagerSession(tools, target = {}) {
-    this.managerTools = tools;
-    this.managerResumePaths.push(target.resumeSessionPath ?? null);
-    return this.session("manager", target.resumeSessionPath, tools.map((tool) => tool.name));
-  }
 
   async createWorkerSession(target = {}) {
     if (target.resumeSessionPath) this.workerResumePaths.push(target.resumeSessionPath);
@@ -209,7 +193,6 @@ class RecordingRuntime {
       toolNames,
       subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
       prompt: async (prompt) => {
-        if (kind === "manager") this.managerPrompts.push(prompt);
         for (const listener of listeners) listener({ schemaVersion: 1, type: "text", delta: "Done." });
         for (const listener of listeners) listener({ schemaVersion: 1, type: "terminal", outcome: "completed" });
       },
@@ -281,19 +264,6 @@ function seedTask(store, suffix, dueAt) {
   });
 }
 
-async function invokeManagerTool(runtime, name, input) {
-  const tool = runtime.managerTools.find((candidate) => candidate.name === name);
-  assert.ok(tool, `missing manager tool ${name}`);
-  return tool.execute(`call-${name}`, input, undefined, undefined, {});
-}
-
 function rule(ruleId, scope, mode, updatedAt) {
   return { schemaVersion: 1, ruleId, scope, mode, updatedAt };
-}
-
-function artifact(kind, artifactId, content) {
-  return {
-    frontmatter: { schemaVersion: 1, kind, artifactId, updatedAt: now },
-    content,
-  };
 }

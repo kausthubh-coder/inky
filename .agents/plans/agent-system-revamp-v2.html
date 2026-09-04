@@ -1,0 +1,1096 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Studi: Repo-grounded agent-system revamp and verification plan</title>
+  <style>
+    :root {
+      --paper: #fbf7ec;
+      --paper-2: #fffdf7;
+      --ink: #29251f;
+      --muted: #726b61;
+      --line: #39342e;
+      --yellow: #f6c945;
+      --coral: #ef8b70;
+      --mint: #8fcfb2;
+      --sky: #8ebde9;
+      --lavender: #aaa0d5;
+      --danger: #c95945;
+      --shadow: 4px 4px 0 var(--line);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 1px 1px, #d8cfbd 1px, transparent 1.2px) 0 0 / 24px 24px,
+        var(--paper);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.55;
+    }
+    a { color: inherit; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+    code, pre { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+    code { background: #efe8d9; padding: .1rem .35rem; border-radius: 5px; }
+    pre { overflow: auto; background: #24211d; color: #fff9e9; border-radius: 12px; padding: 16px; font-size: 12.5px; line-height: 1.45; }
+    h1, h2, h3 { line-height: 1.12; letter-spacing: -.02em; }
+    h1 { font-size: clamp(2.3rem, 6vw, 4.5rem); margin: 12px 0 16px; max-width: 1030px; }
+    h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); margin: 0 0 12px; }
+    h3 { font-size: 1.12rem; margin: 22px 0 8px; }
+    p { margin: 0 0 12px; max-width: 900px; }
+    ul, ol { margin: 8px 0 14px; padding-left: 22px; max-width: 900px; }
+    .hero {
+      padding: 48px max(24px, calc((100vw - 1440px) / 2));
+      border-bottom: 3px solid var(--line);
+      background: rgba(255, 253, 247, .82);
+    }
+    .eyebrow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-weight: 850; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+    .badge { display: inline-flex; padding: 6px 9px; border: 1.5px solid var(--line); border-radius: 999px; background: var(--yellow); }
+    .hero p { font-size: 1.08rem; color: #4f4941; max-width: 940px; }
+    .path {
+      margin-top: 18px; padding: 12px 14px; border: 2px solid var(--line); border-radius: 10px;
+      background: #fff2b5; font-size: 13px; font-weight: 750; max-width: 980px; word-break: break-all;
+    }
+    .layout { display: grid; grid-template-columns: 255px minmax(0, 1fr); max-width: 1440px; margin: auto; }
+    aside { position: sticky; top: 0; align-self: start; height: 100vh; overflow: auto; padding: 24px 14px; border-right: 2px solid var(--line); background: rgba(251,247,236,.93); }
+    aside strong { display: block; margin: 0 8px 10px; }
+    aside a { display: block; padding: 7px 9px; border-radius: 8px; color: #5c554d; text-decoration: none; font-size: 13px; font-weight: 700; }
+    aside a:hover { background: #efe6cf; color: var(--ink); }
+    main { min-width: 0; padding: 28px 36px 110px; }
+    section { scroll-margin-top: 20px; margin: 0 0 60px; }
+    .section-lead { color: var(--muted); margin-bottom: 18px; max-width: 900px; }
+    .kicker { display: block; color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; letter-spacing: .09em; margin-bottom: 7px; }
+    .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; }
+    .card { grid-column: span 4; border: 2px solid var(--line); border-radius: var(--radius); padding: 16px; background: var(--paper-2); box-shadow: var(--shadow); }
+    .card.wide { grid-column: span 6; }
+    .card.full { grid-column: 1 / -1; }
+    .card.yellow { background: #fff2b5; }
+    .card.mint { background: #dff4e9; }
+    .card.sky { background: #e0f0ff; }
+    .card.coral { background: #ffe1d8; }
+    .card.lavender { background: #ede9fb; }
+    .card p, .card ul { max-width: none; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--paper-2); border: 2px solid var(--line); border-radius: 14px; overflow: hidden; font-size: 13px; }
+    th, td { padding: 10px 12px; text-align: left; vertical-align: top; border-bottom: 1px solid #cfc5b3; }
+    th { background: #efe6cf; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
+    tr:last-child td { border-bottom: 0; }
+    .callout { border: 2px solid var(--line); border-radius: 14px; padding: 16px; background: #fff2b5; box-shadow: 3px 3px 0 var(--line); max-width: 900px; margin: 14px 0; }
+    .callout.mint { background: #dff4e9; }
+    .callout.coral { background: #ffe1d8; }
+    .callout.sky { background: #e0f0ff; }
+    details.package { margin: 0 0 14px; border: 2px solid var(--line); border-radius: 14px; background: var(--paper-2); overflow: hidden; }
+    details.package summary { cursor: pointer; list-style: none; display: grid; grid-template-columns: 72px 1fr auto; gap: 12px; align-items: center; padding: 14px 16px; font-weight: 900; }
+    details.package summary::-webkit-details-marker { display: none; }
+    details.package[open] summary { border-bottom: 1px solid #cfc5b3; background: #fff7d8; }
+    .wp { display: inline-flex; width: max-content; padding: 5px 7px; border: 1px solid var(--line); border-radius: 6px; background: var(--yellow); font-size: 10px; }
+    .meta { color: var(--muted); font-size: 11px; font-weight: 750; text-align: right; }
+    .package-body { padding: 16px 18px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    .package-body .full { grid-column: 1 / -1; }
+    .gate { border: 1.5px solid var(--line); border-radius: 10px; padding: 12px; background: #f8f4e8; margin: 10px 0; }
+    .gate.pass { border-left: 7px solid #59aa7f; }
+    .gate.fail { border-left: 7px solid var(--danger); }
+    .status { display: inline-flex; width: max-content; padding: 4px 7px; border: 1px solid var(--line); border-radius: 999px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: .05em; background: #fff; }
+    .status.exists { background: #dff4e9; }
+    .status.replace { background: #fff2b5; }
+    .status.missing { background: #ffe1d8; }
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 12px 0 18px; }
+    .flow span { padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 9px; background: #fff; font-size: 12px; font-weight: 800; }
+    .footer { padding: 22px; border-top: 2px solid var(--line); text-align: center; color: var(--muted); background: var(--paper-2); }
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { display: none; }
+      .card, .card.wide { grid-column: 1 / -1; }
+      .package-body { grid-template-columns: 1fr; }
+      .package-body .full { grid-column: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="eyebrow">
+      <span class="badge">Repo-grounded replacement architecture</span>
+      <span>3 Sep 2026 · revision 4 · implemented from <code>330ddf6</code></span>
+    </div>
+    <h1>One Inky, one agent host, and a test loop we can drive without opening Electron.</h1>
+    <p>
+      This plan starts from the current Studi 2 repository. It replaces manager / worker / scan identity with a small job host while
+      keeping the browser controller, storage, Clerk, Convex, Pi, lifecycle, and telemetry work that already exists. Every package is
+      exercised through a headless agent harness. We open the built desktop app when a change reaches IPC, UI, onboarding, the visible
+      school page, restart recovery, or another native boundary.
+    </p>
+    <div class="path"><code>.agents/plans/agent-system-revamp-v2.html</code> · repo-grounded replacement for the initial revamp draft</div>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <strong>Plan</strong>
+      <a href="#answer">First-principles answer</a>
+      <a href="#implementation">Implementation status</a>
+      <a href="#current">Current repository</a>
+      <a href="#boundary">Product boundary</a>
+      <a href="#model">Domain model</a>
+      <a href="#routing">Conversation routing</a>
+      <a href="#packs">Capabilities and packs</a>
+      <a href="#notes">Notes and retrieve</a>
+      <a href="#browser">Work and browser ownership</a>
+      <a href="#composio">Composio connected apps</a>
+      <a href="#providers">Production vs harness</a>
+      <a href="#harness">Harness</a>
+      <a href="#verification">Build and test rhythm</a>
+      <a href="#trace">Trace and telemetry</a>
+      <a href="#migration">Replacement map</a>
+      <a href="#packages">Packages and proof</a>
+      <a href="#final">Final safe verification</a>
+      <a href="#stop">Exclusions and stop point</a>
+    </aside>
+
+    <main>
+      <section id="implementation">
+        <span class="kicker">00 · Implementation status</span>
+        <h2>The replacement path is running; one live execution gate remains.</h2>
+        <p class="section-lead">The core paths from AR-01 through AR-09 and the AR-12 deterministic gate are implemented on top of <code>330ddf6</code>. The repository now has the shared job host, addressed conversations, capability packs, durable jobs and notes, typed scan workflows, bounded homework files, the Clerk-scoped Composio broker, unified traces, and four terminal-driven harness suites.</p>
+        <div class="grid">
+          <article class="card mint wide">
+            <span class="status exists">Passing now</span>
+            <h3>Automated and packaged proof</h3>
+            <ul>
+              <li><code>bun run test:all</code> passes typecheck, production build, contracts, agent, storage, auth, telemetry, packaging, clean-room, all scripted harness suites, and Electron.</li>
+              <li>The persistent <code>test-studi</code> profile completed the loopback onboarding scan, found its course and assignment, rendered Settings, and retained the homework root across restart.</li>
+              <li>The live Composio metadata probe passes with the server-only development secret. The development broker now exposes pinned read-only actions for GitHub, Gmail, Notion, Google Drive, and Google Docs.</li>
+              <li>First-run onboarding now includes connected apps and the bounded homework folder before the class link. The external Electron harness clicks through Hello and ChatGPT, observes both setup steps, and confirms no password field enters the renderer.</li>
+              <li>The dedicated QA Clerk identity completed its GitHub Connect Link; the built app reports the user-scoped connection as active after restart.</li>
+              <li>Assignment messages sent during a <code>needs_user</code> handoff now resume the retained worker with the student's message as context. A regression test proves the worker may continue or truthfully hand the page back again without surfacing a raw Electron IPC error.</li>
+              <li>The production-shaped QA renderer shows all five connected-app choices and the selected homework folder. At the former 900px failure width, Inky's live workspace remains a 400px side drawer instead of replacing the whole app.</li>
+            </ul>
+          </article>
+          <article class="card yellow wide">
+            <span class="status replace">Still open</span>
+            <h3>External and cleanup gates</h3>
+            <ul>
+              <li>The remaining Composio gate is one real execution of the pinned repository-list action through a running fixture assignment. The connection itself is active; the first attempt stopped honestly because its old loopback school fixture was offline.</li>
+              <li>The AR-10 runner now drives onboarding and week-board fixtures through loopback CDP, validates public preload state, owns timeouts, and cleans up its processes/profiles. A dead legacy assertion block and the AR-11 compatibility artifact/session APIs still need the subtraction pass.</li>
+              <li>The Windows chooser opens from the packaged app; automation verified persistence through the same store and preload contract because the native modal was not exposed to the Windows controller.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="answer">
+        <span class="kicker">01 · The design test</span>
+        <h2>What survives if none of today's code existed?</h2>
+        <p class="section-lead">The architecture is based on product facts, not today's classes: one student-facing character, several kinds of work, one visible school page, local memory, explicit submit authority, and expensive model calls.</p>
+        <div class="grid">
+          <article class="card mint wide">
+            <h3>Keep</h3>
+            <ul>
+              <li>One conversation surface that can show home or one assignment conversation.</li>
+              <li>One transcript per durable subject, seeded by a brief rather than another transcript.</li>
+              <li>Capabilities composed from the job state and policy.</li>
+              <li>One note shape queried by scope and purpose.</li>
+              <li>A deterministic harness that loads the exact product packs.</li>
+              <li>Permissions and browser evidence outside model-written prose.</li>
+            </ul>
+          </article>
+          <article class="card coral wide">
+            <h3>Change from the prior draft</h3>
+            <ul>
+              <li>Sends are addressed; main does not infer their target from "foreground" flags.</li>
+              <li>Assignment conversation exists before assignment work.</li>
+              <li>Only explicit start acquires the browser and adds action tools.</li>
+              <li>Scan is a run controlled by typed taps, never a free-chat target.</li>
+              <li>Capability packs are reusable units; job packs compose them.</li>
+              <li>Home knowledge survives as notes, not by relying on an infinite transcript.</li>
+            </ul>
+          </article>
+        </div>
+        <div class="callout"><strong>Language:</strong> "job," "capability," "claim," "pack," and "session" are implementation terms only. The UI says Inky, this week, the assignment, the page, and your work.</div>
+      </section>
+
+      <section id="current">
+        <span class="kicker">02 · Current repository</span>
+        <h2>Build on the working boundaries. Replace the role machine.</h2>
+        <p class="section-lead">The implementation started from commit <code>330ddf6</code>. The working tree now uses schema version <code>6</code> and IPC contract version <code>14</code>. The repository is not a blank slate.</p>
+        <div class="grid">
+          <article class="card mint wide">
+            <span class="status exists">Keep and adapt</span>
+            <h3>Working product boundaries</h3>
+            <ul>
+              <li><code>desktop/electron/browser/</code> owns the visible <code>WebContentsView</code>, safe snapshots, stale refs, and the separate submit action.</li>
+              <li><code>desktop/electron/storage/</code> owns node:sqlite, versioned migration, backup, task projection, school records, lifecycle records, and Markdown artifacts.</li>
+              <li><code>desktop/electron/auth/</code>, Convex, Pi Codex login, telemetry, lifecycle, tray, schedule, and notification boundaries already exist.</li>
+              <li>The React renderer already has onboarding, the week board, assignment drawer, desk, library, and settings.</li>
+              <li>Typed preload IPC, focused contract/agent/storage/auth/telemetry tests, an Electron self-test runner, and the persistent <code>test-studi</code> QA profile already exist.</li>
+            </ul>
+          </article>
+          <article class="card yellow wide">
+            <span class="status replace">Replace cleanly</span>
+            <h3>Current role-shaped ownership</h3>
+            <ul>
+              <li><code>desktop/electron/agent/runtime.ts</code> has separate manager, worker, assignment, and scan session factories with prompt constants in TypeScript.</li>
+              <li><code>manager/coordinator.ts</code> owns manager chat, child session paths, queue steering, and the browser-worker lease.</li>
+              <li><code>assignment/coordinator.ts</code> and <code>scan/coordinator.ts</code> each build their own tools and agent flow.</li>
+              <li><code>browser/work-ownership.ts</code> adds an in-memory reservation over persisted lease and scan state instead of one durable claimant.</li>
+              <li>Renderer IPC still exposes <code>runManager</code>, artifact selection, role-specific scan calls, and assignment lifecycle calls.</li>
+            </ul>
+          </article>
+          <article class="card coral full">
+            <span class="status missing">Missing today</span>
+            <h3>The verification gap this plan closes</h3>
+            <p>There is no headless Studi agent host that I can converse with from a terminal. The current Electron self-test runs a large block of assertions inside <code>main.ts</code>, and <code>test-studi</code> can drive the real app but is too slow and stateful for every agent edit. There is also no local school site for a safe first-run scan. AR-01 creates the headless path first. Later packages add real-app controls only when their UI exists.</p>
+          </article>
+        </div>
+        <div class="callout sky"><strong>Current baseline commands:</strong> <code>bun run typecheck</code>, <code>bun run test:contracts</code>, <code>bun run test:agent</code>, <code>bun run test:storage</code>, <code>bun run test:auth</code>, <code>bun run test:telemetry</code>, <code>bun run test:packaging</code>, and <code>bun run test:electron</code>. The current <code>bun run test</code> does not run every one of these suites, so this revamp adds <code>bun run test:all</code> instead of assuming it does.</div>
+      </section>
+
+      <section id="boundary">
+        <span class="kicker">03 · Product boundary</span>
+        <h2>Revamp the whole agent path, not the whole app.</h2>
+        <table>
+          <thead><tr><th>Inside this revamp</th><th>Kept but rewired</th><th>Not created</th></tr></thead>
+          <tbody>
+            <tr>
+              <td>Jobs, addressed inbox, transcripts, briefs, capability packs, notes, retrieval, assignment multi-turn work, scan learning, folder/shell/apps capabilities, trace events, a headless harness, a narrow local school fixture, migrations.</td>
+              <td>Pi and Codex login, browser controller, evidence, permission resolver, assignment lifecycle, schedule/tray, Clerk/Convex, PostHog, renderer, focused tests, and the <code>test-studi</code> QA launcher.</td>
+              <td>Tutor UI, embeddings, a knowledge graph, a second production school browser, new submission policy, managed model gateway, provider picker, alternate CLI framework, or an MCP bridge.</td>
+            </tr>
+          </tbody>
+        </table>
+        <h3>Trust boundaries remain fixed</h3>
+        <ul>
+          <li>Inside the desktop app, Electron main owns jobs, claims, notes, gates, traces, and all model/tool execution.</li>
+          <li><code>desktop/agent-system/</code> contains pure contracts, turn building, packs, capability selection, and trace shapes. It imports no Electron, React, Clerk, Convex, PostHog, or provider code.</li>
+          <li>React sends typed intent and projects state. It cannot choose note ids, tool names, gates, providers, filesystem paths, or session paths.</li>
+          <li>The school <code>WebContentsView</code> has no Node or preload access. Tools operate through the existing browser controller.</li>
+          <li>Credential and session material never enters notes, Convex, PostHog, diagnostics, or harness logs: passwords, cookies, auth headers, access and refresh tokens, OAuth or device codes, Codex auth data, Composio keys, and provider credentials. When analytics is enabled, ordinary product content such as messages, answers, note content, page context, and non-secret tool input/output may enter PostHog under the telemetry contract in section 13.</li>
+          <li>The student's chosen homework root is the only filesystem area assignment file/shell tools may touch.</li>
+          <li><code>agent-harness/</code> runs in its own process with temporary storage and fixture adapters. It cannot open the everyday Studi profile or import the production composition root.</li>
+        </ul>
+      </section>
+
+      <section id="model">
+        <span class="kicker">04 · Domain shape</span>
+        <h2>Conversation, job, run, and browser claim are different facts.</h2>
+        <pre>ConversationTarget =
+  | { kind: "home" }
+  | { kind: "assignment", assignmentId }
+
+JobKind = "home" | "scan" | "assignment" | "tutor"
+
+Job = {
+  jobId, kind, subjectId,
+  phase: "idle" | "running" | "waiting" | "finished" | "cancelled" | "failed",
+  sessionPath, turnIndex, createdAt, updatedAt
+}
+
+AssignmentExecution = {
+  assignmentId, jobId,
+  phase: "queued" | "working" | "needs_user" | "ready_review"
+       | "submitting" | "submitted" | "preserved" | "cancelled" | "failed",
+  reviewDeadline, submissionAttemptedAt, answerArtifactId, submissionReceiptId
+}
+
+Run = {
+  runId, jobId, turnIndex, assignmentId?,
+  trigger: "send" | "start" | "resume" | "scan_tap" | "scheduled",
+  state: "running" | "waiting" | "completed" | "failed" | "aborted",
+  startedAt, endedAt?
+}
+
+BrowserClaim = {
+  jobId,
+  purpose: "scan" | "assignment",
+  state: "acquiring" | "active" | "yielded",
+  acquiredAt
+} | null</pre>
+        <p><strong>Conversation is where text goes.</strong> Home and assignments have conversations. <strong>Job is durable agent/session identity.</strong> <strong>Assignment execution retains the detailed safety lifecycle.</strong> <strong>Run is one persisted model/tool loop triggered by a send, start, resume, scan tap, or schedule.</strong> Effects and authorization bind to its id and turn index so restart cannot reuse them across runs. <strong>Browser claim is exclusive authority over the visible page.</strong> These are related aggregates, not aliases. Submission, failure, and preservation facts do not collapse into a generic job status.</p>
+        <table>
+          <thead><tr><th>Kind</th><th>Lifetime</th><th>Text entry</th><th>May claim page?</th><th>Transcript rule</th></tr></thead>
+          <tbody>
+            <tr><td>Home</td><td>One current logical home job</td><td>Addressed home send</td><td>No</td><td>Resume and compact. Durable knowledge goes to notes.</td></tr>
+            <tr><td>Assignment</td><td>One current job per assignment work thread; resumable</td><td>Addressed assignment send</td><td>Only after explicit start</td><td>Never fork from home. Brief is first context.</td></tr>
+            <tr><td>Scan</td><td>One job per scan id</td><td>No free chat; typed start/resume/continue taps</td><td>Yes</td><td>Ends with scan. Next scan receives notes + gaps, not transcript inheritance.</td></tr>
+            <tr><td>Tutor</td><td>Reserved</td><td>None</td><td>No</td><td><code>createJob("tutor")</code> throws a typed not-supported result this release.</td></tr>
+          </tbody>
+        </table>
+        <div class="callout coral"><strong>One state owner:</strong> a job repository owns phase/session/turn state; one browser-claim repository owns exclusivity. The renderer never mirrors these as independent mutable booleans.</div>
+      </section>
+
+      <section id="routing">
+        <span class="kicker">05 · One inbox without guessing</span>
+        <h2>The visible thread supplies the address.</h2>
+        <pre>send({
+  target: { kind: "home" }
+        | { kind: "assignment", assignmentId },
+  text
+})
+
+startAssignment({ assignmentId })
+startScan({ mode })
+resumeScan({ scanId, intent: "signed_in" | "continue" })
+selectAssignment({ assignmentId | null }) // display only</pre>
+        <ol>
+          <li>The week command bar sends to <code>home</code>.</li>
+          <li>Opening a card selects and displays its assignment conversation. It does not claim the browser or start work.</li>
+          <li>The assignment composer sends to that assignment id. A question such as "when is this due?" can answer from verified details and notes without browser action.</li>
+          <li>"Make Inky do this" calls <code>startAssignment</code>. An unambiguous "start statistics" home command may invoke the same typed start operation through the home start tool. Main resolves fresh permission, rejects any live conflicting job, acquires the page claim, and upgrades that same assignment job's active capabilities. Opening, selecting, asking about, or casually mentioning an assignment never starts it.</li>
+          <li>A scheduled scan can be visibly active while the student still sends home messages. The scan is not a possible <code>send</code> target.</li>
+          <li>Closing the sidebar changes selection only. A running assignment keeps its claim and session. Clicking desk/Inky reselects that assignment.</li>
+        </ol>
+        <div class="callout mint"><strong>No <code>surface</code> field and no assignment prose wrapper.</strong> Addressing is a typed product fact. Main validates that an assignment exists and the account may see it, then resolves the job.</div>
+      </section>
+
+      <section id="packs">
+        <span class="kicker">06 · Agent composition</span>
+        <h2>Capabilities are the reusable unit.</h2>
+        <pre>desktop/agent-system/packs/
+  voice/instructions.md
+  home/instructions.md
+  scan/instructions.md
+  assignment/instructions.md
+  capabilities/
+    notes/instructions.md
+    queue/instructions.md
+    browser/instructions.md
+    scan-record/instructions.md
+    files/instructions.md
+    shell/instructions.md
+    composio/instructions.md
+    submit/instructions.md</pre>
+        <p>The Electron job host and headless harness call one <code>buildJobTurn({ job, policy, brief, text })</code>. It loads the same files, chooses the same registered capabilities, and records pack hashes. Instructions are not duplicated in <code>runtime.ts</code>, coordinators, tests, or harness cases.</p>
+        <table>
+          <thead><tr><th>State</th><th>Capabilities</th><th>Explicitly absent</th></tr></thead>
+          <tbody>
+            <tr><td>Home</td><td>voice, home, notes-search, queue inspect/start/cancel; start delegates to the same typed explicit-start operation as the button</td><td>browser, files, shell, Composio, submit</td></tr>
+            <tr><td>Assignment conversation, no claim</td><td>voice, assignment, notes-search/read, verified assignment details</td><td>browser actions, files, shell, Composio, submit</td></tr>
+            <tr><td>Assignment running with claim</td><td>assignment base + browser + files + shell + explicitly connected Composio tools; submit only from fresh gate</td><td>scan-record, queue control</td></tr>
+            <tr><td>Scan with claim</td><td>scan + browser + scan-record + school-note upsert</td><td>student free-chat, files, shell, Composio, submit</td></tr>
+          </tbody>
+        </table>
+        <h3>Tool attachment rule</h3>
+        <pre>toolsFor(job, policy, claim) {
+  if (job.kind === "home") return HOME
+  if (job.kind === "scan" && claim.jobId === job.jobId) return SCAN
+  if (job.kind === "assignment" && claim.jobId !== job.jobId) return ASSIGNMENT_TALK
+  if (job.kind === "assignment") return policy.maySubmit ? ASSIGNMENT_WORK_SUBMIT : ASSIGNMENT_WORK
+  throw TutorNotAvailable
+}</pre>
+        <p>This is a registry over concrete current capabilities, not an extension framework. Each capability owns its instructions, tool definitions, and the boundary it is allowed to call. A send never starts work merely because its target is an assignment. Only the typed start operation, direct from the button or invoked by the home start tool for an explicit command, can acquire the claim.</p>
+      </section>
+
+      <section id="notes">
+        <span class="kicker">07 · Memory</span>
+        <h2>One note shape, bounded identities, deterministic retrieval.</h2>
+        <pre>Note = {
+  noteId,
+  scope: "student" | "school" | "course" | "pattern" | "assignment",
+  subjectId,
+  about: "preference" | "scan" | "how-to" | "knowledge" | "work",
+  key,                 // stable within scope + subject + about
+  title,
+  markdownPath,
+  updatedAt
+}
+
+unique(scope, subjectId, about, key)</pre>
+        <p>The unique key makes "upsert the current CSC 316 project" a real operation instead of appending a new course note every week. Examples: <code>course/csc-316/work/current-project</code>, <code>pattern/webassign-weekly/how-to/execution</code>, <code>assignment/a-42/work/leftover</code>.</p>
+        <table>
+          <thead><tr><th>Job</th><th>Automatic brief</th><th>Searchable, not dumped</th></tr></thead>
+          <tbody>
+            <tr><td>Home</td><td>Small student preferences, queue summary, active jobs</td><td>Allowed school/course/assignment notes when the student asks</td></tr>
+            <tr><td>Assignment</td><td>Student preferences; all bounded current course notes; notes for confirmed pattern matches; this assignment note; fresh gate; folder listing; last browser receipt; linked systems</td><td>Older assignment notes in this course and allowed pattern notes</td></tr>
+            <tr><td>Scan</td><td>School scan notes; last evidence-backed gaps/failures; corrections; known linked systems; typed scan instruction</td><td>No free-chat note search</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><code>note_search</code> and <code>note_read</code> are jailed to the job's allowed note scopes.</li>
+          <li>Pattern notes load from the same repository-confirmed pattern matches used by permission resolution. A title/URL similarity may propose a match later; it cannot silently become one.</li>
+          <li>Notes are model-written hints. They cannot change permission, claim the browser, create verified school rows, or satisfy evidence.</li>
+          <li>Markdown bodies stay in app data; SQLite stores the validated index. No HTML, cookies, auth headers, tokens, page dumps, or answer payloads.</li>
+          <li>No embeddings in this release. Exact indexed scopes plus bounded keyword search are enough.</li>
+        </ul>
+        <h3>Migration</h3>
+        <p>One versioned migration converts preferences, memories, and answer metadata to notes where meaning is recoverable. The existing scan workflow is split: prose navigation hints become a school scan note, while replayable structured steps become a versioned school-scan workflow owned by the scan service. Answer fallback files remain student-facing files and gain assignment-note metadata. Unknown legacy artifacts are backed up and reported, never guessed into a scope. After verified migration, the four-kind artifact API and raw memory picker are deleted; the workflow remains a domain object, not a drawer kind.</p>
+        <p><strong>Crash consistency:</strong> validated Markdown is authoritative and written by atomic rename. The SQLite note index is a rebuildable cache containing revision and content hash. Startup and failed-write recovery rescan the notes tree, remove orphaned index rows, and index valid files that committed before a crash. The index is never treated as proof that a missing body exists.</p>
+      </section>
+
+      <section id="browser">
+        <span class="kicker">08 · Work</span>
+        <h2>One visible page, one claimant, explicit start.</h2>
+        <div class="flow">
+          <span>student starts assignment or scan</span><b>→</b>
+          <span>main checks conflict</span><b>→</b>
+          <span>fresh policy</span><b>→</b>
+          <span>claim persisted</span><b>→</b>
+          <span>capabilities attached</span><b>→</b>
+          <span>Pi turn</span><b>→</b>
+          <span>receipt + job phase</span>
+        </div>
+        <ul>
+          <li>A scan start fails or queues while an assignment is working, waiting, in review, or submitting. An assignment start fails while a scan owns the page. This retains the current single-browser law.</li>
+          <li>Takeover yields automation but does not transfer the claim to another job. Resume re-observes and restores action tools only after the return predicate is verified.</li>
+          <li>Assignment messages are multi-turn on the same job. A new turn rebuilds a fresh brief and policy, reuses the transcript, and reattaches current capabilities.</li>
+          <li>Pi compaction controls transcript size. Durable facts are written as notes; no product behavior depends on old transcript text surviving compaction.</li>
+          <li><code>browser_submit</code> is attached only when the fresh SQLite resolver returns <code>auto_submit</code>, and the existing current-conversation confirmation/evidence gate still applies.</li>
+        </ul>
+        <h3>Mutating-tool effects</h3>
+        <p>Every browser/file/shell/app mutation gets an effect id bound to <code>runId + turnIndex + toolCallId</code>. Main persists intent plus expected page/file revision before invoking the tool, then persists its receipt. If the process stops between effect and receipt, recovery re-observes the real page or file. It records success when the expected postcondition is visible, retries only when non-application is proven, and hands off when ambiguous. Interrupted shell commands are never automatically replayed: after process cleanup and file re-observation they enter <code>needs_user</code> unless a narrow tool-specific postcondition proves completion. A browser claim prevents concurrency; the effect journal prevents blind replay and cross-run receipt reuse.</p>
+        <h3>Submission authorization is a host fact</h3>
+        <p>Typing "submit it" makes Inky present the existing explicit confirmation control; it does not itself attach or invoke <code>browser_submit</code>. The student's confirmation action creates a one-use <code>SubmissionAuthorization</code> bound to assignment id, job id, run id, turn index, fresh gate revision, and fresh browser control revision. Main consumes it atomically when starting submission. Missing, stale, mismatched, or already-consumed authorization is rejected before any page action. Model text and model-supplied tool arguments cannot create this fact.</p>
+        <h3>Files, shell, and connected apps</h3>
+        <p>The full revamp includes these assignment-only capabilities. File tools are resolved below the student-selected homework root; absolute incoming paths, traversal, and symlink escape fail closed. The course note may point to the living project. A generic subprocess is not "jailed" merely because its cwd is inside that root. Shell execution ships only after a Windows OS-enforced sandbox proves the homework root is its sole writable mount and the required build tools work. If that spike fails, this release keeps bounded file tools and marks shell unavailable rather than claiming confinement it does not have. Connected-app tools come from a user-scoped Composio session and appear only after the student connects that toolkit. None of these capabilities appears in home, scan, or assignment conversation before start.</p>
+      </section>
+
+      <section id="composio">
+        <span class="kicker">09 · Composio connected apps</span>
+        <h2>The Composio project key stays on the server.</h2>
+        <p class="section-lead">Composio is installed and its project key is configured only in the untracked local environment and Convex development environment. Exact tool metadata now passes for GitHub repository listing, Gmail thread/message reads, Notion search/page reads, Google Drive find/download, and Google Docs structured/plain-text reads. The dedicated QA identity has an active GitHub connection; the other providers still require their own student OAuth handoffs.</p>
+        <div class="grid">
+          <article class="card coral wide">
+            <h3>Secret and identity ownership</h3>
+            <ul>
+              <li>Use <code>@composio/core</code> in a Convex action or Vercel server function. Never bundle the Composio project key into Electron, preload, renderer, the headless harness, diagnostics, or telemetry.</li>
+              <li>Development reads <code>COMPOSIO_API_KEY</code> from the untracked local/server environment. Production reads the same name from the server's encrypted environment.</li>
+              <li>Use the stable Clerk subject as Composio <code>userID</code>. The server derives it from the authenticated request; Electron cannot supply another user's id.</li>
+              <li>A connected account belongs to that user and toolkit. Composio stores and refreshes the provider token.</li>
+            </ul>
+          </article>
+          <article class="card mint wide">
+            <h3>Assignment tool boundary</h3>
+            <ul>
+              <li>Create a Composio session scoped to the current user and an explicit toolkit/action allowlist.</li>
+              <li>Pin toolkit versions. A catalog update cannot silently change a production tool schema.</li>
+              <li>Map allowed Composio schemas into Studi tools. Execute calls through the server session and return the typed result to the local job trace.</li>
+              <li>Connection setup uses a Composio Connect Link in the system browser. The callback server verifies the signed-in Clerk user before activating the one-time <code>session_uri</code>.</li>
+              <li>Connected apps never create permission, claim the school browser, submit schoolwork, or become available to home and scan jobs.</li>
+            </ul>
+          </article>
+        </div>
+        <h3>How we test Composio</h3>
+        <ol>
+          <li>With no key, fixture and contract tests prove the app reports Composio as unavailable and exposes zero connected-app tools.</li>
+          <li>Before AR-08 live work, the user adds <code>COMPOSIO_API_KEY</code> to <code>.env.local</code> and the Convex development secret. The value never goes into chat or a tracked file.</li>
+          <li><code>bun run test:composio -- probe</code> calls the server boundary and reads project/toolkit metadata without connecting a user account or executing a tool.</li>
+          <li>A dedicated test account completes one Connect Link. The callback must reject a mismatched Clerk subject and a reused or expired <code>session_uri</code>.</li>
+          <li>The headless agent harness runs one read-only tool through the real server broker, records its full non-secret arguments/result and usage, then proves a tool outside the allowlist is absent.</li>
+          <li><code>test-studi</code> opens Settings, connects the same dedicated toolkit through the system browser, starts a fixture assignment, and observes one harmless read-only tool result in the desk trace.</li>
+          <li>Expired/revoked connection, provider failure, timeout, and cancellation return a useful job state and telemetry event. They never expose the project key or provider token.</li>
+        </ol>
+        <p>Current Composio sessions scope tools and connections by stable user id, and session execution keeps the tool router context. Direct tool execution requires an explicit toolkit version. See <a href="https://docs.composio.dev/docs/authentication">Composio authentication</a>, <a href="https://docs.composio.dev/docs/how-composio-works">sessions</a>, and <a href="https://docs.composio.dev/reference/sdk-reference/typescript/tools">TypeScript tool execution</a>.</p>
+      </section>
+
+      <section id="providers">
+        <span class="kicker">10 · Runtime boundary</span>
+        <h2>Production and tests use the same host, with different adapters.</h2>
+        <div class="grid">
+          <article class="card yellow">
+            <h3>Production Electron</h3>
+            <p>The shipped runtime remains Pi <code>AgentSession</code> with the <code>openai-codex</code> ChatGPT provider. Electron supplies SQLite, the visible school browser, secure auth, notifications, and telemetry adapters.</p>
+          </article>
+          <article class="card mint">
+            <h3>Headless default</h3>
+            <p>A scripted driver and fixture adapters exercise jobs, turns, tools, persistence, restarts, and traces without Electron, a model call, or a real school account.</p>
+          </article>
+          <article class="card sky">
+            <h3>Headless live check</h3>
+            <p>An opt-in <code>pi-codex</code> driver creates the real Pi session against the same packs and fixture tools. It proves Inky can reason through one safe case without opening the app.</p>
+          </article>
+        </div>
+        <pre>JobModelDriver = {
+  id: "scripted" | "capture" | "pi-codex"
+  probe(): { available, authenticated, reason }
+  createSession(turn, tools, signal): AgentSession
+}</pre>
+        <p>This is the only driver seam. It already exists in spirit as <code>AgentSession</code> and the Pi model runtime. The revamp makes it job-shaped and moves it behind the pure host. There is no Cursor, Claude, OpenCode, MCP, or generic provider framework in this plan.</p>
+        <h3>Credential checkpoint</h3>
+        <ol>
+          <li><code>scripted</code> and <code>capture</code> never need auth and are the normal package gates.</li>
+          <li><code>pi-codex</code> is opt-in. It probes the isolated QA Codex cache before creating a session or spending usage.</li>
+          <li>The harness may read the gitignored <code>.agents/studi-qa/codex-auth/auth.json</code> only through the existing QA import helper. It never reads everyday Studi <code>userData</code>.</li>
+          <li>If the provider reports <code>needs_login</code> or usage exhaustion, the live check is pending. The deterministic gates continue, and no fake <code>ready</code> state replaces the missing proof.</li>
+          <li>Auth bytes, device codes, cookies, tokens, provider credentials, and real student profile paths never enter terminal output or run records. Fixture note bodies, page content, assignment answers, and non-secret tool payloads are retained so the harness can prove exact behavior.</li>
+        </ol>
+      </section>
+
+      <section id="harness">
+        <span class="kicker">11 · Headless agent harness</span>
+        <h2>I can drive the agent system from a terminal.</h2>
+        <pre>desktop/agent-system/
+  contracts.ts
+  job-host.ts
+  turn-builder.ts
+  capability-registry.ts
+  trace.ts
+  packs/
+
+agent-harness/
+  cli.ts
+  stdio-session.ts
+  drivers/{capture,scripted,pi-codex}.ts
+  cases/{routing,notes,assignment,scan,policy}/*.yaml
+  fixtures/school/*.yaml
+  school-site/server.ts
+
+.studi-harness/runs/       # gitignored
+  &lt;run-id&gt;/run.json</pre>
+        <p><code>desktop/agent-system</code> is production code with no Electron dependency. The Electron composition root and <code>agent-harness</code> both provide ports for storage, clock, ids, browser, files, connected apps, model sessions, and trace sinks. Harness fixture adapters stay outside the production import graph.</p>
+        <h3>Two useful commands</h3>
+        <pre>bun run agent:harness -- run --suite routing --driver scripted --json
+bun run agent:harness -- interact --fixture assignment-basic --driver scripted --jsonl</pre>
+        <p>The first command is a repeatable gate. The second stays open and reads one JSON command per line. I can start it in a terminal, send commands, inspect the reply, and continue the same job across several turns.</p>
+        <pre>{"command":"send","target":{"kind":"assignment","assignmentId":"assignment-1"},"text":"When is this due?"}
+{"command":"start_assignment","assignmentId":"assignment-1"}
+{"command":"inspect"}
+{"command":"restart"}
+{"command":"abort"}
+{"command":"quit"}</pre>
+        <p>Every reply is one validated JSON object with the public job state, selected pack hashes, exact tool names, safe trace events, and an error or terminal result. The protocol never accepts a session path, tool list, claim id, permission result, or filesystem path from the caller.</p>
+        <h3>What each driver proves</h3>
+        <table>
+          <thead><tr><th>Driver</th><th>Proof</th><th>What it cannot claim</th></tr></thead>
+          <tbody>
+            <tr><td><code>capture</code></td><td>The production Pi factory receives exact instructions, message shape, tool schemas, and hashes.</td><td>No model judgment or tool call.</td></tr>
+            <tr><td><code>scripted</code></td><td>Jobs, state transitions, permission, effects, recovery, persistence, and tool boundaries behave deterministically.</td><td>No claim about Inky choosing the right action.</td></tr>
+            <tr><td><code>pi-codex</code></td><td>A real Pi/Codex session reads the pack, chooses among fixture tools, and returns the normalized trace.</td><td>No claim about Electron, Clerk, the real school page, or submission.</td></tr>
+          </tbody>
+        </table>
+        <h3>The local school fixture</h3>
+        <p>One narrow loopback site renders a signed-out page, course list, assignment index, assignment detail, linked-system handoff, and empty/partial states from YAML. The headless harness uses the same fixture model through a browser port. Full-app tests serve the HTML and make the real visible <code>WebContentsView</code> discover it. The app receives no seeded course or assignment rows. A scan still has to observe and record them.</p>
+        <div class="callout coral"><strong>Test-only boundary:</strong> the school fixture, scripted driver, harness CLI, and run writer cannot enter <code>dist/electron</code>, the packaged app, preload IPC, or production settings. A packaging test fails on any import or bundled string from <code>agent-harness/</code>.</div>
+        <h3>Run record</h3>
+        <p><code>run.json</code> contains schema version, git SHA, case ids, driver id/version, pack and tool-schema hashes, duration, the full fixture trace, outcome, and usage when exposed. It retains fixture messages, notes, page/file content, prompts, replies, and non-secret tool arguments/results. It contains no auth values, provider secrets, real student profile paths, or remotely sent PostHog events.</p>
+      </section>
+
+      <section id="verification">
+        <span class="kicker">12 · Build and test rhythm</span>
+        <h2>Use the cheapest real boundary, then open the app at product milestones.</h2>
+        <table>
+          <thead><tr><th>When</th><th>Required proof</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Every code change</td><td><code>bun run typecheck</code> plus the touched suite such as <code>test:contracts</code>, <code>test:agent</code>, <code>test:storage</code>, <code>test:auth</code>, or <code>test:telemetry</code>.</td><td>Fast feedback at the changed boundary.</td></tr>
+            <tr><td>Every agent-system package</td><td>The relevant scripted harness suite and one interactive JSONL transcript that exercises the package's value path.</td><td>Proves the same job host can be driven outside Electron.</td></tr>
+            <tr><td>Pack, tool, or Pi adapter changes</td><td>Capture-driver parity. Run one safe <code>pi-codex</code> fixture case when model behavior is part of the package outcome.</td><td>Separates composition proof from model judgment.</td></tr>
+            <tr><td>IPC, preload, renderer, or Electron composition changes</td><td><code>bun run test:electron</code>, then the matching package-scoped <code>test-studi</code> pass through the built renderer with Playwright Electron.</td><td>Unit tests cannot prove the real bridge or visible interaction.</td></tr>
+            <tr><td>Onboarding, auth copy, school-pane, scan, desk, folder picker, notification, or restart changes</td><td>Run the matching <code>test-studi</code> journey immediately after that package. Do not wait for release.</td><td>These behaviors cross native or persistent boundaries.</td></tr>
+            <tr><td>Before package acceptance</td><td>Subtraction pass, rerun affected gates, one user-like tester for a real boundary, and one read-only quality review.</td><td>Passing tests do not excuse tangled ownership.</td></tr>
+          </tbody>
+        </table>
+        <h3>Real-app checkpoints</h3>
+        <ol>
+          <li><strong>Addressed conversations and explicit start.</strong> Run the skip-to-app feature pass. Open a card, talk without starting, start through the explicit control, close and reopen the drawer, and restart the same isolated profile.</li>
+          <li><strong>New or changed onboarding.</strong> Run full onboarding with a fresh owned QA profile, the Clerk development identity, imported QA Codex auth, and the loopback school fixture. Stop if Codex is not ready. Never reset the persistent onboarded profile.</li>
+          <li><strong>Scan changes.</strong> First prove empty, partial, handoff, resume, and replay in the harness. Then run one live Pi scan through the visible Electron school pane against the loopback fixture. The scan must discover its rows.</li>
+          <li><strong>Assignment work changes.</strong> First finish the scripted and optional live Pi fixture cases. Then use the real desk and visible fixture assignment in Electron. Keep submit disabled unless a dedicated safe submit fixture and host authorization are both in scope.</li>
+          <li><strong>Migration and restart changes.</strong> Copy the persistent QA profile to a new owned test directory, migrate the copy, restart it, and compare the public projection. Never experiment on the only QA profile.</li>
+          <li><strong>Release.</strong> Run <code>bun run test:all</code>, all scripted harness suites, one capture parity check, one safe live Pi fixture case, <code>test-studi</code> full onboarding, and the skip-to-app restart pass.</li>
+        </ol>
+        <div class="callout mint"><strong>Evidence stays purposeful:</strong> retain command and exit code, build SHA, fixture id, the full non-secret JSONL fixture trace, public renderer observations, provider state, and one screenshot only when layout matters. Never retain credentials, cookies, auth headers, access or refresh tokens, OAuth or device codes, Codex or Composio secrets, or real student profile paths.</div>
+      </section>
+
+      <section id="trace">
+        <span class="kicker">13 · Product and agent telemetry</span>
+        <h2>Track the full Inky loop, not a handful of finish events.</h2>
+        <p class="section-lead">Analytics and replay default on for the private beta. The shared trace now records ordinary product content, Clerk/user/device context, model and reasoning, token and cost totals, turn and tool timing, tool arguments/results, queue transitions, errors, and connected-app activity while credentials remain excluded. Renderer autocapture covers named clicks, changes, and submits, and Web Vitals are enabled. A PostHog personal read key or signed-in analytics browser is still required to audit the remote project from outside the app; the capture token cannot query events.</p>
+        <pre>TelemetryEnvelope = {
+  eventId, traceId, sequence, capturedAt,
+  user: { clerkSubject, email, name, studentName, plan, credits },
+  device: { deviceId, appVersion, platform, osVersion, locale, timezone },
+  job: { jobId, kind, subjectId, phase, runId, turnIndex, trigger },
+  agent: { provider, model, reasoning, packIds, packHashes, toolNames },
+  timing: { queuedMs, modelMs, firstTokenMs, toolMs, totalMs },
+  usage: { input, output, cacheRead, cacheWrite, total, costUsd },
+  content?, result?, error?
+}</pre>
+        <h3>Events</h3>
+        <table>
+          <thead><tr><th>Area</th><th>What is recorded</th></tr></thead>
+          <tbody>
+            <tr><td>User and device</td><td>Clerk subject, email, name, student name, entitlement, credits, device id, app/build version, platform, OS version, locale, timezone, school root, selected model/reasoning, onboarding state, connected Composio toolkits, and telemetry/replay settings.</td></tr>
+            <tr><td>UI and onboarding</td><td>Screen views, clicks on named product controls, form completion, step entry/exit, validation errors, handoffs, time per step, school-pane open/close, drawer/desk state, settings changes, notifications, and session replay for the Studi renderer.</td></tr>
+            <tr><td>Jobs and turns</td><td>Send target, full user message, resolved job, queue/claim decisions, built prompt and brief, selected notes, capability list, pack ids/hashes, full Inky reply, phase changes, retries, compaction, abort, restart recovery, and terminal outcome.</td></tr>
+            <tr><td>Model and cost</td><td>Provider, exact model, reasoning effort, request start, time to first token, generation time, input/output/cache-read/cache-write/total tokens, estimated cost, stop reason, context size, retry count, and usage-limit failures for every turn.</td></tr>
+            <tr><td>Tools and effects</td><td>Tool name, full non-secret arguments, full non-secret result, start/end/duration, effect id, page/file revision, retry, failure, and receipt. Browser events include URL, title, selected refs, snapshot summary, and action result.</td></tr>
+            <tr><td>Storage and notes</td><td>Migration version, reopen/recovery result, note ids/scopes/titles/bodies used in a brief, reads/writes, task transitions, scan coverage, workflow versions, fallback artifacts, and persistence failures.</td></tr>
+            <tr><td>Composio</td><td>Toolkit, pinned version, connected-account id, connection state, requested scopes, tool slug, arguments/result, server latency, provider status, retries, cancellation, and errors. Never the Composio key or provider token.</td></tr>
+            <tr><td>Errors and performance</td><td>Error name, message, stack, boundary, operation, causal event ids, startup/IPC/database/model/tool timings, memory use, queue delay, handoff time, review time, and shutdown result.</td></tr>
+          </tbody>
+        </table>
+        <h3>Content policy</h3>
+        <p>When analytics is enabled, Studi does not run a general-purpose redactor over product content. User messages, Inky replies, assignment titles and answer text, note bodies, URLs, prompts, tool arguments/results, and error details are recorded so we can reconstruct what happened. Field size limits are explicit: if PostHog cannot accept a complete value, the event records original byte count, retained byte count, content hash, and <code>truncated=true</code>. It never silently clips a value.</p>
+        <div class="callout coral"><strong>Credentials are not product telemetry.</strong> Password fields, cookies, auth headers, access/refresh tokens, OAuth codes, device codes, Clerk tokens, the Codex auth cache, the Composio project key, provider credentials, and secure-storage bytes never enter a telemetry event. Code excludes these values at the boundary where they are created or typed. A final secret-canary guard remains as defense in depth, but it does not remove ordinary messages, answers, notes, URLs, tool payloads, or user metadata.</div>
+        <ul>
+          <li>Every job event has <code>traceId</code>, monotonic <code>sequence</code>, <code>jobId</code>, <code>runId</code>, and <code>turnIndex</code>. PostHog can rebuild one turn without guessing across coordinator events.</li>
+          <li>The job host emits events once. The PostHog sink, local inspector, diagnostics exporter, and headless harness subscribe to the same typed stream.</li>
+          <li>The harness uses an in-memory telemetry sink and writes the full fixture trace to <code>run.json</code>. It never sends test events to PostHog.</li>
+          <li>Analytics remains enabled by default for the private beta. Turning it off stops new remote events. Replay remains a separate setting.</li>
+          <li>Production sends every private-beta event at 100 percent sampling until volume forces an explicit change.</li>
+        </ul>
+        <h3>Telemetry proof</h3>
+        <ol>
+          <li>A fake PostHog client asserts exact events and person properties for app start, onboarding, addressed sends, job/claim changes, model turns, every tool call, notes, Composio, errors, and finish.</li>
+          <li>A harness session runs two turns with tools and restart. The recorded sequence must join user text, prompt, reply, tool input/result, token usage, cost, model, reasoning, and timings under one trace id.</li>
+          <li>Ordinary content canaries survive byte-for-byte. Credential canaries from password, cookie, token, device-code, and Composio-key boundaries produce zero matches in the PostHog client, inspector, diagnostics, and harness record.</li>
+          <li>Missing usage is stored as <code>null</code> with <code>usage_available=false</code>, never as zero. Cumulative totals must equal the sum of turn events.</li>
+          <li><code>test-studi</code> runs onboarding and one fixture assignment, then checks the local inspector and PostHog test project for the same ordered events without exposing any credential value.</li>
+        </ol>
+      </section>
+
+      <section id="migration">
+        <span class="kicker">14 · Replace, do not layer</span>
+        <h2>The old role machine leaves in the same packages that replace it.</h2>
+        <table>
+          <thead><tr><th>Delete or replace</th><th>New owner</th></tr></thead>
+          <tbody>
+            <tr><td><code>createManagerSession</code>, <code>createScanSession</code>, <code>createAssignmentSession</code>, <code>createWorkerSession</code> in <code>desktop/electron/agent/runtime.ts</code></td><td><code>createJobSession({ job, turn, tools, resumePath })</code> in the production Pi/Codex adapter</td></tr>
+            <tr><td><code>parentSessionPath</code> assignment fork</td><td>New assignment session seeded with <code>buildJobTurn</code> brief</td></tr>
+            <tr><td><code>runManager({ memoryArtifactIds })</code> and desk prose wrapper</td><td><code>send({ target, text })</code>; main resolves notes and job</td></tr>
+            <tr><td>Manager-owned "chat" plus worker-session lease fields</td><td>Job repository + exclusive browser claim keyed by job id</td></tr>
+            <tr><td>Four artifact kinds and raw memory visibility picker</td><td>Note store/index + deterministic retrieve/search</td></tr>
+            <tr><td>Single workflow blob used as prompt memory</td><td>School scan note + versioned structured replay workflow + evidence-backed coverage/gaps</td></tr>
+            <tr><td>Role prompt constants in <code>desktop/electron/agent/runtime.ts</code></td><td>Product pack files loaded by app and harness through <code>desktop/agent-system</code></td></tr>
+            <tr><td>Large self-test assertion block inside <code>desktop/electron/main.ts</code></td><td>External Electron runner and package-scoped <code>test-studi</code> controls; main keeps only the isolated test composition switch</td></tr>
+            <tr><td>Coordinator-specific telemetry assembly</td><td>Typed job trace with app/harness sinks</td></tr>
+          </tbody>
+        </table>
+        <p>Schema migrations use the existing backup/restore boundary and bump persisted schema versions. No permanent compatibility adapter survives a completed package. Temporary package-local migration code is removed after the migrated format becomes authoritative unless it is required to open an already-released beta profile.</p>
+      </section>
+
+      <section id="packages">
+        <span class="kicker">15 · Build order and verification</span>
+        <h2>Each package works headlessly before its real-app checkpoint.</h2>
+        <p class="section-lead">The manager expands only the next approved package into a dossier. Each package gets focused Bun checks, a headless harness transcript, a user-like tester when it reaches a real boundary, one read-only reviewer, a subtraction pass, and a concise HTML conclusion. Stop for user review after each verified package.</p>
+
+        <details class="package" open>
+          <summary><span class="wp">AR-01</span><span>Pure agent host and terminal-driven harness</span><span class="meta">first package · foundation</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>I can start a Studi agent session from the terminal, send typed messages and actions, inspect exact state/tools/traces, restart it, and close it without launching Electron or calling a model.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Create <code>desktop/agent-system/</code> for job/target/claim/trace contracts, turn building, pack loading, and concrete capability selection. Keep it free of Electron and provider imports.</li>
+                <li>Adapt the existing <code>AgentSession</code> event shape and current browser/manager/scan/assignment tools behind narrow ports. Do not rewrite their behavior yet.</li>
+                <li>Move the role prompt constants from <code>runtime.ts</code> into product pack files and make the production Pi factory consume the built turn.</li>
+                <li>Add <code>agent-harness</code> with <code>capture</code> and <code>scripted</code> drivers, batch cases, the JSONL interaction loop, safe run records, and <code>bun run agent:harness</code>.</li>
+                <li>Add the smallest loopback school fixture model needed by later scan and onboarding packages. It is test code, never seeded product state.</li>
+                <li>Reserve tutor and return a typed not-supported result.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li><code>bun run typecheck</code>, <code>bun run test:contracts</code>, and <code>bun run test:agent</code> pass.</li>
+                <li><code>bun run agent:harness -- run --suite foundation --driver scripted --json</code> selects exact tools for all four current states.</li>
+                <li>A JSONL session accepts send, start, inspect, restart, abort, and quit in order and returns valid state after each command.</li>
+                <li>Assignment talk has no action tools; submit appears only with claim + gate.</li>
+                <li>Editing one pack changes its run hash; no harness prompt copy exists.</li>
+                <li>Harness run creates no PostHog inspector entry and no Electron process.</li>
+                <li>Production dependency graph cannot import <code>agent-harness/</code>.</li>
+                <li>A capture-session implementation invokes the production Pi session factory and proves it receives the exact built pack text, tool schemas, and hashes without contacting a provider.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> I can drive a multi-command session from the terminal; dropping a required capability fails the suite; tutor is refused; the default run costs zero model calls.</div>
+              <div class="gate fail"><strong>Fail:</strong> job selection depends on React booleans, prompts remain duplicated, or a provider abstraction enters the app.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-02</span><span>Persistent jobs, addressed send, and renderer integration</span><span class="meta">depends AR-01</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>The week composer addresses home; an open assignment addresses that assignment. Talking does not start work. The correct transcript resumes after app restart.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Add versioned job records and migrate active manager/worker session linkage.</li>
+                <li>Implement <code>send({ target, text })</code> and <code>selectAssignment</code>.</li>
+                <li>Create Pi job sessions with resume only; remove parent fork.</li>
+                <li>Wire both composers; delete <code>runManager</code>, memory ids, <code>surface</code>, and assignment prose wrapper.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>IPC rejects scan targets, unknown assignments, empty text, session paths, and tool lists.</li>
+                <li>Two sends to one assignment use one job/session; home remains separate.</li>
+                <li>Restart reopens both logical threads without parent linkage.</li>
+                <li>The routing harness suite passes before Electron opens.</li>
+                <li><code>bun run test:electron</code> proves the typed bridge. Then <code>test-studi</code> opens the built renderer, sends home, opens a card, sends assignment talk, closes/reopens the drawer, and restarts an owned profile.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> no production reference to <code>parentSessionPath</code>, <code>runManager</code>, or <code>memoryArtifactIds</code>.</div>
+              <div class="gate fail"><strong>Fail:</strong> opening or typing on a card acquires the browser, or a scheduled scan steals text sends.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-03</span><span>Explicit work start and job-owned browser claim</span><span class="meta">depends AR-02</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>"Make Inky do this" upgrades the existing assignment job into work only after fresh permission and an exclusive page claim. Scan and assignment can never drive together.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Migrate the worker lease to a job-id browser claim.</li>
+                <li>Centralize claim acquire/yield/release/reconcile in one owner.</li>
+                <li>Make every scan/start/resume/scheduled entry use it.</li>
+                <li>Attach work capabilities only after claim and remove them on terminal release.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>The claim harness suite proves attempt-before-claim exposes no browser/file/shell tools.</li>
+                <li>Live scan blocks assignment before enqueue or steering; live/review/submitting assignment blocks scan.</li>
+                <li>Takeover yields actions; resume requires a fresh snapshot/return predicate.</li>
+                <li>Failure injection stops after a harmless fixture mutation but before receipt persistence; restart re-observes the postcondition and does not replay. An ambiguous postcondition hands off.</li>
+                <li><code>bun run test:storage</code>, <code>bun run test:agent</code>, and <code>bun run test:electron</code> pass. <code>test-studi</code> proves talk does not start work and the explicit start control acquires the visible fixture page.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> one persisted claimant at every observed point; UI start is disabled while any conflicting job is live.</div>
+              <div class="gate fail"><strong>Fail:</strong> a second lock/lease source remains, or conversation state implies browser ownership.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-04</span><span>Scoped notes, migration, retrieve, and note tools</span><span class="meta">depends AR-01</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>Every job gets a small deterministic brief. Week-two course work sees the living project; an old leftover is searchable; unrelated courses and gates do not leak.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Add validated note index + atomic Markdown bodies and bounded unique keys.</li>
+                <li>Migrate four artifact kinds with backup and an honest unknown-artifact report.</li>
+                <li>Implement pure <code>retrieve(job)</code>, <code>note_search</code>, <code>note_read</code>, and scoped <code>note_upsert</code>.</li>
+                <li>Delete artifact-kind APIs, React note selection, and raw pattern memory editor.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>CSC 316 week two gets <code>current-project</code>; not week-one leftover text.</li>
+                <li>Search for "huffman" finds the allowed old assignment note.</li>
+                <li>WebAssign note loads only from a repository-confirmed pattern in that course.</li>
+                <li>Writing <code>auto_submit</code> in a note leaves permission unchanged.</li>
+                <li>Traversal, foreign-course reads, malformed frontmatter, HTML/token canaries, reopen, and legacy migration fail safely.</li>
+                <li>Crash after Markdown rename but before index update is repaired by startup rescan; stale/orphaned index rows cannot produce note content.</li>
+                <li>The notes harness suite and <code>bun run test:storage</code> pass. A copied QA profile migrates and reopens with the same public queue and conversation projection.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> same seed produces byte-stable brief ordering and bounded note count after repeat upserts.</div>
+              <div class="gate fail"><strong>Fail:</strong> all historical notes are dumped, or a heuristic pattern changes note/gate behavior.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-05</span><span>Assignment multi-turn work with receipts</span><span class="meta">depends AR-03, AR-04</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>An assignment job can take multiple student messages, re-brief each turn, operate the visible page through existing tools, and reach a truthful wait/review/finish state without inheriting home.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Replace the one-turn budget with the existing bounded recovery/terminal rules across multiple sends.</li>
+                <li>Rebuild fresh policy, notes, folder listing, and last receipt each turn.</li>
+                <li>Retain page, takeover, handoff, review, preserve, and submit evidence behavior.</li>
+                <li>Write useful course/pattern/assignment notes only after a verified outcome and explicit scope choice.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>A scripted interactive session drives talk, start, tool, handoff, resume, and review across one assignment job.</li>
+                <li>Two messages use one assignment job and two Pi prompts.</li>
+                <li>Second prompt sees a fresh receipt/gate and not the home transcript.</li>
+                <li>Stale ref forces re-observation; zero evidence never marks complete.</li>
+                <li>Attempt-only cannot submit. Auto-submit with no, stale, cross-run, mismatched, or reused host authorization produces zero clicks. One fresh confirmation authorization plus fresh control evidence permits exactly one guarded attempt.</li>
+                <li>One opt-in <code>pi-codex</code> fixture case proves Inky chooses and invokes a safe assignment tool. Then <code>test-studi</code> proves the desk, handoff, and resume path in the built app without submission.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> fixtures exercise talk → start → tool → handoff → resume → review without real submission.</div>
+              <div class="gate fail"><strong>Fail:</strong> another coordinator owns assignment phase, or completion is inferred from model prose.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-06</span><span>Scan jobs learn from notes while evidence stays authoritative</span><span class="meta">depends AR-03, AR-04</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>A later scan knows where to look and what it missed, but the week board changes only from current browser evidence.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Build scan turns from school scan notes, prior gaps, corrections, linked systems, and typed tap intent.</li>
+                <li>Write bounded navigation hints after observed navigation.</li>
+                <li>Compile the successful scan's observed navigation into a local versioned structured workflow; replay starts a new scan job with fresh notes/gaps and that workflow's steps as hints.</li>
+                <li>Keep coverage/failure facts in SQLite and preserve partial-scan semantics.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>Second scan brief contains "labs are a second tab."</li>
+                <li>Before a record tool, course/assignment coverage remains empty.</li>
+                <li>"You missed lab" alters next search intent but creates no course row.</li>
+                <li>Workflow v2 replays learned navigation, re-observes every target, and retains no cookie, HTML, password, or stale completion result.</li>
+                <li>Zero-result and linked-system handoff remain visibly incomplete.</li>
+                <li>Scheduled overlap defers through the same browser claim.</li>
+                <li>The scripted scan suite covers empty, partial, handoff, resume, correction, and replay. One opt-in live Pi case scans the loopback site headlessly.</li>
+                <li><code>test-studi</code> full onboarding runs on a fresh owned profile with the Clerk development identity, imported QA Codex auth, and the loopback school site. The real visible school pane must discover the fixture courses and assignments.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> hints improve the next brief; only record tools change verified rows.</div>
+              <div class="gate fail"><strong>Fail:</strong> raw prose is replayed as an executable workflow, the structured workflow is deleted, or any note/workflow hint becomes evidence.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-07</span><span>Homework-root files and jailed shell</span><span class="meta">depends AR-05</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>A running assignment can inspect and edit work in the student's selected folder. It can run build/test commands only if a real Windows sandbox proves the root is the sole writable mount; otherwise shell stays visibly unavailable.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Add the existing approved empty-folder onboarding/setting and per-course/project references.</li>
+                <li>Add minimal list/read/write with one path policy. Spike one OS-enforced Windows subprocess sandbox; do not substitute cwd validation.</li>
+                <li>Attach only to an assignment holding the claim.</li>
+                <li>Include paths/mtimes in briefs, never bulk file bodies.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>Temporary-root fixture lists, writes, and reopens through file tools.</li>
+                <li>Traversal, symlink escape, absolute outside path, no-root, home, scan, and idle-assignment cases fail closed.</li>
+                <li>On Windows, a sandboxed command attempts direct, subprocess, script, and symlink writes outside the mounted root plus a network connection; every escape is blocked while one representative class build works. If not, no shell tool is attached.</li>
+                <li>Failure injection stops a harmless sandboxed command after intent but before receipt; restart never reruns it and projects an honest needs-user result.</li>
+                <li>Course note points week two to the same living project.</li>
+                <li>Electron opens the chosen folder through the OS boundary; no path is sent to telemetry.</li>
+                <li>The files harness suite runs against an owned temporary root. <code>test-studi</code> handles the real Windows folder picker and confirms the selected root survives restart in a copied QA profile.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> produced files stay inside the selected root; shell is either OS-confined with retained evidence or absent.</div>
+              <div class="gate fail"><strong>Fail:</strong> app-data becomes the homework workspace or a generic unrestricted shell ships.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-08</span><span>Composio connected-app capability</span><span class="meta">depends AR-05 · needs COMPOSIO_API_KEY</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>A running assignment can discover and use an allowlisted Composio tool for the signed-in Clerk user. The Composio project key and provider tokens stay off the desktop.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Add <code>@composio/core</code> to the server boundary and load <code>COMPOSIO_API_KEY</code> only in local server development and the Convex/Vercel secret environment.</li>
+                <li>Derive Composio <code>userID</code> from the authenticated Clerk subject. Add Connect Link creation and callback identity verification.</li>
+                <li>Create one user-scoped Composio session with explicit toolkit/tool allowlists and pinned toolkit versions.</li>
+                <li>Map its tool schemas into the assignment capability and execute through the server session. Attach them only to a claimed assignment job.</li>
+                <li>Emit connection, tool, timing, argument/result, and error telemetry without emitting either key or provider token.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>Fixture adapter proves exact tool schemas, full non-secret arguments/results, user scoping, connection state, cancellation, and telemetry without network calls.</li>
+                <li>No-key, wrong-user, home, scan, idle assignment, disconnected app, expired/revoked auth, refresh failure, callback mismatch, reused callback, and secret-canary cases fail closed.</li>
+                <li><code>bun run test:composio -- probe</code> succeeds only after <code>COMPOSIO_API_KEY</code> is present in the development server environment.</li>
+                <li>Before completion, ask the user to connect one dedicated test account through a real system-browser Connect Link. One harmless read-only tool must pass through the headless agent harness.</li>
+                <li><code>test-studi</code> repeats the connection and read-only tool path through the built app. Electron and its diagnostics contain no Composio or provider secret.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> a Clerk-scoped Composio session executes one pinned read-only tool through the server; the full non-secret call reaches the assignment trace and telemetry; no secret reaches the desktop.</div>
+              <div class="gate fail"><strong>Fail:</strong> connected apps can raise permission or become globally available.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-09</span><span>Unified trace and production telemetry</span><span class="meta">depends AR-05, AR-06</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>Every user action, job turn, model call, tool call, state change, Composio operation, error, and timing fact reaches one typed trace and the enabled PostHog project with enough content to reconstruct the run.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Expand the job trace with identity, device, job/run/turn correlation, full content, model/reasoning, token/cost, timings, tool effects, storage, Composio, and error fields.</li>
+                <li>Remove general product-content redaction and tiny silent clips. Keep credential-bearing values out at their source boundary and retain a final credential-canary guard.</li>
+                <li>Replace coordinator-specific PostHog assembly with one trace subscriber. Keep renderer replay and named UI autocapture.</li>
+                <li>Expand Clerk person properties and cumulative usage/cost counters.</li>
+                <li>Use the same event schema for the inspector, diagnostics, and harness <code>run.json</code>; only production initializes PostHog.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>Two harness turns with tools and restart produce one ordered trace containing full messages, replies, prompts, selected notes, tool arguments/results, state changes, and errors.</li>
+                <li>Pi usage preserves per-turn and cumulative input/output/cache/total tokens, cost, model, reasoning, first-token time, model time, tool time, and total time. Absent usage is null.</li>
+                <li>Clerk/user/device/school/model/Composio metadata appears in person properties and the relevant events.</li>
+                <li>Ordinary content canaries remain byte-for-byte. Password, cookie, auth token, OAuth/device code, Codex-cache, and Composio-key canaries produce zero matches.</li>
+                <li>Opt-out sends nothing remotely. Scripted/live harness runs initialize no PostHog client but write the same full fixture trace locally.</li>
+                <li><code>bun run test:telemetry</code>, the trace harness suite, and diagnostics export pass before <code>test-studi</code> checks the inspector and PostHog test project.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> one job trace drives every sink and reconstructs a run with its content, model, reasoning, tokens, cost, timing, tools, Composio work, user metadata, and failures.</div>
+              <div class="gate fail"><strong>Fail:</strong> coordinators emit parallel schemas, useful product content is broadly redacted, usage is aggregated without turn ids, or a credential reaches any sink.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-10</span><span>External Electron control and self-test cleanup</span><span class="meta">grows with AR-02 through AR-09</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>The Electron app no longer tests itself with a large assertion routine inside <code>main.ts</code>. External runners can launch an owned profile, drive current UI controls, read public state, restart, and produce a small receipt.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Move DOM assertions and test orchestration out of <code>desktop/electron/main.ts</code> into the external Electron runner.</li>
+                <li>Keep only a narrow isolated test-composition switch in main for owned temporary profiles and scripted adapters. Packaged production rejects it.</li>
+                <li>Use Playwright Electron accessibility snapshots for visible controls and preload methods for public state. Add controls only for UI that now exists.</li>
+                <li>Give the runner start, inspect, click/type, restart, timeout, cleanup, and receipt behavior. Reuse it from <code>test-studi</code> rather than adding a second controller.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li><code>bun run test:electron</code> drives the onboarding fixture and week-board fixture without in-main DOM assertions.</li>
+                <li>Malformed preload replies, renderer load failure, invalid profile paths, timeout, and restart fail outside the app with useful errors.</li>
+                <li>Abort leaves no Electron process, server, or temporary profile.</li>
+                <li>The runner receipt has build SHA, scenario, public observations, duration, and cleanup result. It has no token, auth URL, page body, or profile secret.</li>
+                <li>Packaged Electron contains no scripted driver, school fixture, headless harness, test case, or test-only provider label.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> package tests and <code>test-studi</code> use one external control path; production main owns composition, not test assertions.</div>
+              <div class="gate fail"><strong>Fail:</strong> test logic keeps growing inside <code>main.ts</code>, the runner reaches the school guest pane with Playwright, or test modules enter the package.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-11</span><span>Full renderer cleanup, migrations, and package boundary</span><span class="meta">depends AR-02 through AR-10</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>The real Fable-aligned week board and sidebar expose one Inky conversation model, explicit work start, live desk state, notes-backed continuity, and no old role/artifact controls.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>Remove manager/worker/session/memory language and obsolete Settings/Library controls.</li>
+                <li>Project home vs assignment transcript and current run states from jobs.</li>
+                <li>Keep onboarding scan tap-only and assignment sidebar measured before showing school page.</li>
+                <li>Run profile migration, package build, and production-graph checks.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li><code>test-studi</code> semantic pass: home send target, card selection, assignment talk, explicit start state, sidebar close/reopen, desk route, and scan progress.</li>
+                <li>Restart retains selected work and active job state without guessing page bounds.</li>
+                <li>Existing notification click opens this week + matching sidebar.</li>
+                <li>Build leaves required Electron/preload/client artifacts.</li>
+                <li>Repository search finds no old IPC/session/artifact runtime names; package search finds no harness fixture or scripted-driver code.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> visible behavior matches one Inky; implementation has one job owner and one browser claimant.</div>
+              <div class="gate fail"><strong>Fail:</strong> compatibility UI or old coordinators remain authoritative, or test-only provider support leaks into beta.</div>
+            </div>
+          </div>
+        </details>
+
+        <details class="package">
+          <summary><span class="wp">AR-12</span><span>Safe integrated smoke and release conclusion</span><span class="meta">depends AR-11</span></summary>
+          <div class="package-body">
+            <div>
+              <h3>Outcome</h3>
+              <p>The headless agent system and both real-app journeys pass on the same revision. The release proof distinguishes deterministic behavior, live model behavior, Electron behavior, and the safe local school journey.</p>
+              <h3>Build</h3>
+              <ol>
+                <li>No new product feature. Run the final checks below.</li>
+                <li>Write one flow-based release conclusion: visible target → main validation → job → brief/capabilities → trace → projection.</li>
+                <li>Report external boundaries honestly rather than forcing auth or spend.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Proof</h3>
+              <ul>
+                <li>Add <code>bun run test:all</code> to run typecheck, build, contracts, agent, storage, auth, telemetry, packaging, foundation, and Electron gates.</li>
+                <li>Run every scripted harness suite with hashes and exact tool assertions.</li>
+                <li>The capture-session production Pi adapter check confirms the same built pack/tool hashes without making a Codex call.</li>
+                <li>One already-authorized <code>pi-codex</code> harness session calls harmless fixture tools and completes a multi-turn case. If the QA cache is not ready, report the live-model gate as pending instead of substituting scripted output.</li>
+                <li><code>test-studi</code> full onboarding passes on a fresh owned profile against the loopback school fixture. Clerk uses the development identity and Codex uses the imported QA cache.</li>
+                <li><code>test-studi</code> skip-to-app passes on <code>.agents/studi-qa/profile</code>, then passes after restart without changing identity or signing out.</li>
+                <li>No live school account, everyday Studi profile, real submission, enrollment change, message, upload, or unrestricted shell command is touched.</li>
+              </ul>
+              <div class="gate pass"><strong>Pass:</strong> scripted and capture gates are green, one safe live Pi case is honestly recorded, fresh onboarding completes against the local school, and the persistent app survives restart.</div>
+              <div class="gate fail"><strong>Fail:</strong> the conclusion claims model quality, LMS completion, or a full user journey that was not exercised.</div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <section id="final">
+        <span class="kicker">16 · Final test-studi protocol</span>
+        <h2>Prove first-run and returning use without touching a real school account.</h2>
+        <ol>
+          <li>Use Windows Local or a Windows worktree that can launch the repository's Electron binary. A cloud build may run headless gates but cannot claim a desktop pass.</li>
+          <li>Build the current revision with <code>bun run build</code>. Start the loopback school fixture and keep its state isolated to this run.</li>
+          <li>Run full onboarding in a fresh owned temporary profile. Complete Clerk with the documented development identity through isolated Playwright. Import the existing QA Codex cache; if the provider is not ready, stop at that boundary.</li>
+          <li>Drive hello, ChatGPT, class link, permission, schedule, school handoff, scan, and board arrival with Playwright Electron. The real school <code>WebContentsView</code> must discover fixture rows through agent tools. Never seed the app database.</li>
+          <li>Quit the fresh profile and remove it only after its receipt is retained. Do not delete or reset <code>.agents/studi-qa/profile</code>.</li>
+          <li>Launch the persistent QA profile for the skip-to-app pass. Open home, an assignment conversation, explicit work start, the drawer, desk, settings, and return. Restart and confirm the same identity and public job projection.</li>
+          <li>Run all scripted harness cases against the exact build revision, then run capture parity. Run one safe live <code>pi-codex</code> fixture case only when the provider already probes ready.</li>
+          <li>Retain build SHA, profile mode, semantic observations, fixture id, harness run id/hashes, provider state, full non-secret fixture tool events, cleanup result, and exit codes. Keep one screenshot only when it proves layout. Exclude all credential and session secrets.</li>
+        </ol>
+        <div class="callout mint"><strong>The claims remain separate.</strong> Scripted cases prove deterministic control flow. The live Pi fixture proves one model path. Full onboarding proves Clerk, Codex, the visible school browser, scan persistence, and board projection against a local school. Skip-to-app proves returning use and restart. None of them proves a real LMS or a real submission.</div>
+      </section>
+
+      <section id="stop">
+        <span class="kicker">17 · Stop point and quality bar</span>
+        <h2>Finish the revamp; do not use it to prebuild the next product.</h2>
+        <div class="grid">
+          <article class="card coral">
+            <h3>Not in this release</h3>
+            <ul>
+              <li>Tutor creation or UI</li>
+              <li>Topic/knowledge inference</li>
+              <li>Embeddings or vector storage</li>
+              <li>Provider picker in Studi</li>
+              <li>Cursor, Claude, OpenCode, or MCP harness drivers</li>
+              <li>Harness benchmark or compare UI</li>
+              <li>A production demo LMS or seeded success path</li>
+            </ul>
+          </article>
+          <article class="card yellow">
+            <h3>Blocking invariants</h3>
+            <ul>
+              <li>Addressed send, never inferred chat target</li>
+              <li>Talking about work never starts it; explicit start intent does</li>
+              <li>One visible-page claimant</li>
+              <li>Brief never forks transcript</li>
+              <li>Notes never grant authority or evidence</li>
+              <li>Harness never enters production</li>
+              <li>Production remains Pi + Codex only</li>
+            </ul>
+          </article>
+          <article class="card mint">
+            <h3>Subtraction test</h3>
+            <ul>
+              <li>One job owner</li>
+              <li>One claim owner</li>
+              <li>One capability registry</li>
+              <li>One note shape</li>
+              <li>One turn builder</li>
+              <li>One trace stream</li>
+              <li>No compatibility machine left behind</li>
+            </ul>
+          </article>
+        </div>
+        <p>Implementation is in progress and every package retains the earlier deterministic harness gates. The status section above is authoritative for completed and external gates. Concrete failures or costly reader-load problems trigger repair; hypothetical hardening and provider permutations do not.</p>
+      </section>
+    </main>
+  </div>
+
+  <footer class="footer">
+    One Inky · addressed conversation · explicit work · scoped notes · one claimant · terminal-driven harness · milestone app tests · Codex-only beta
+  </footer>
+</body>
+</html>

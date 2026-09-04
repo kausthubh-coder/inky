@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { PostHog } from "posthog-node";
 import { z } from "zod";
 
+import { AgentTraceEventSchema, type AgentTrace, type AgentTraceEvent } from "../../agent-system/index.js";
 import {
   AgentReasoningEffortSchema,
   TelemetryAgentFactsSchema,
@@ -25,6 +26,14 @@ const PersonPropertiesSchema = z.object({
   school_root: z.string().max(2_000).optional(),
   selected_model: z.string().max(128).optional(),
   selected_reasoning: AgentReasoningEffortSchema.optional(),
+  plan: z.string().max(128).optional(),
+  credits: z.number().finite().nonnegative().optional(),
+  device_id: z.string().max(256).optional(),
+  os_version: z.string().max(256).optional(),
+  locale: z.string().max(64).optional(),
+  timezone: z.string().max(128).optional(),
+  onboarding_state: z.string().max(128).optional(),
+  connected_toolkits: z.string().max(20_000).optional(),
 }).strict();
 
 export const telemetryEventSchemas = {
@@ -39,7 +48,7 @@ export const telemetryEventSchemas = {
     step: z.enum(["profile_saved", "school_browser_opened", "feedback_recorded"]),
     cadence: z.enum(["manual", "daily", "weekly"]).optional(),
     student_name: z.string().max(100).optional(),
-    school_root: z.string().max(2_000).optional(),
+    school_root: z.string().max(100_000).optional(),
   }),
   studi_scan_started: z.strictObject({
     mode: z.enum(["start", "resume", "replay", "scheduled"]),
@@ -61,14 +70,20 @@ export const telemetryEventSchemas = {
     output_tokens: agentFacts.output_tokens,
     cache_read_tokens: agentFacts.cache_read_tokens,
     cache_write_tokens: agentFacts.cache_write_tokens,
+    total_tokens: agentFacts.total_tokens,
     cost_usd: agentFacts.cost_usd,
     tool_calls: agentFacts.tool_calls,
+    first_token_ms: agentFacts.first_token_ms,
+    model_duration_ms: agentFacts.model_duration_ms,
+    tool_duration_ms: agentFacts.tool_duration_ms,
+    total_duration_ms: agentFacts.total_duration_ms,
+    error_count: agentFacts.error_count,
     student_name: z.string().max(100).optional(),
-    school_root: z.string().max(2_000).optional(),
-    course_titles: z.string().max(2_000).optional(),
+    school_root: z.string().max(100_000).optional(),
+    course_titles: z.string().max(100_000).optional(),
     scan_id: OpaqueIdSchema.optional(),
     failure_count: z.number().int().nonnegative().optional(),
-    current_step: z.string().max(500).optional(),
+    current_step: z.string().max(100_000).optional(),
   }),
   studi_dashboard_viewed: z.strictObject({ section: z.enum(["auth_gate", "workspace"]) }),
   studi_queue_transition: z.strictObject({
@@ -92,8 +107,14 @@ export const telemetryEventSchemas = {
     output_tokens: agentFacts.output_tokens,
     cache_read_tokens: agentFacts.cache_read_tokens,
     cache_write_tokens: agentFacts.cache_write_tokens,
+    total_tokens: agentFacts.total_tokens,
     cost_usd: agentFacts.cost_usd,
     tool_calls: agentFacts.tool_calls,
+    first_token_ms: agentFacts.first_token_ms,
+    model_duration_ms: agentFacts.model_duration_ms,
+    tool_duration_ms: agentFacts.tool_duration_ms,
+    total_duration_ms: agentFacts.total_duration_ms,
+    error_count: agentFacts.error_count,
   }),
   studi_model_selected: z.strictObject({
     model: z.string().min(1).max(128),
@@ -107,6 +128,13 @@ export const telemetryEventSchemas = {
     enabled: z.boolean(),
   }),
   studi_feedback_sent: z.strictObject({ channel: z.enum(["beta_gate", "school_scan"]) }),
+  studi_connected_app: z.strictObject({
+    toolkit: z.string().min(1).max(128),
+    operation: z.enum(["connect", "refresh"]),
+    status: z.string().min(1).max(128),
+    connected_account_id: z.string().min(1).max(256).optional(),
+    duration_ms: z.number().int().nonnegative(),
+  }),
   studi_error: z.strictObject({
     boundary: z.enum(["startup", "auth", "ipc", "scan", "queue", "renderer"]),
     operation: z.enum([
@@ -128,11 +156,12 @@ export const telemetryEventSchemas = {
       "network_unavailable",
       "operation_failed",
     ]),
-    message: z.string().max(500).optional(),
-    debug_summary: z.string().max(120).optional(),
+    message: z.string().max(100_000).optional(),
+    debug_summary: z.string().max(1_000).optional(),
     model: agentFacts.model,
     reasoning_effort: agentFacts.reasoning_effort,
   }),
+  studi_agent_trace: AgentTraceEventSchema,
 } satisfies Record<TelemetryEventName, z.ZodType>;
 
 type EventProperties<Name extends TelemetryEventName> = z.input<(typeof telemetryEventSchemas)[Name]>;
@@ -150,7 +179,7 @@ interface TelemetryClient {
   capture(message: {
     distinctId: string;
     event: string;
-    properties: Record<string, string | number | boolean>;
+    properties: Record<string, unknown>;
     disableGeoip?: boolean;
   }): void;
   identify?(message: {
@@ -226,7 +255,7 @@ export class TelemetryService {
     try {
       const eventName = TelemetryEventNameSchema.parse(event);
       const properties = stripSecretProperties(
-        telemetryEventSchemas[eventName].parse(clipEventProperties(input)) as Record<string, string | number | boolean>,
+        telemetryEventSchemas[eventName].parse(input) as Record<string, unknown>,
       );
       this.#expireDebug();
       if (!this.#settings.enabled || !this.#client) return false;
@@ -259,6 +288,16 @@ export class TelemetryService {
     }
   }
 
+  captureTrace(event: AgentTraceEvent): boolean {
+    return this.capture("studi_agent_trace", AgentTraceEventSchema.parse(event));
+  }
+
+  subscribeToTrace(trace: AgentTrace): () => void {
+    return trace.subscribe((event) => {
+      this.captureTrace(event);
+    });
+  }
+
   captureError(
     error: unknown,
     boundary: EventProperties<"studi_error">["boundary"],
@@ -270,7 +309,7 @@ export class TelemetryService {
       boundary,
       operation,
       code: classifyError(error),
-      message: stripSecrets(errorMessage(error)).slice(0, 500),
+      message: stripSecrets(errorMessage(error)).slice(0, 100_000),
       ...(debugSummary ? { debug_summary: debugSummary } : {}),
       ...extras,
     });
@@ -390,40 +429,31 @@ function errorMessage(error: unknown): string {
   return "Unknown error";
 }
 
-const CLIPPED_TEXT_FIELDS = {
-  current_step: 500,
-  student_name: 100,
-  school_root: 2_000,
-  course_titles: 2_000,
-  assignment_title: 500,
-  course_label: 200,
-  message: 500,
-  debug_summary: 500,
-} as const;
-
-function clipEventProperties<T extends object>(input: T): T {
-  const next = { ...input } as Record<string, unknown>;
-  for (const [key, max] of Object.entries(CLIPPED_TEXT_FIELDS)) {
-    const value = next[key];
-    if (typeof value === "string" && value.length > max) next[key] = value.slice(0, max);
-  }
-  return next as T;
-}
-
 export function stripSecrets(value: string): string {
   return value
-    .replace(/\b(?:bearer|token|password|cookie|client_secret|authorization)\b(?:\s*[:=]?\s*\S+)?/gi, "[secret]")
-    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[secret]")
-    .replace(/\b(?:api[_-]?key|access[_-]?token)\s*[:=]\s*\S+/gi, "[secret]");
+    .replace(/\bAuthorization\s*:\s*(?:Bearer|Basic)\s+\S+/gi, "Authorization: [secret]")
+    .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, "[secret]")
+    .replace(/\b(?:password|cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code)\s*[:=]\s*\S+/gi, "[secret]")
+    .replace(/\b(?:sk|ak|pk)_[A-Za-z0-9_-]{8,}\b/g, "[secret]")
+    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[secret]");
 }
 
 function stripSecretProperties<T extends Record<string, unknown>>(properties: T): T {
+  return sanitizeTelemetryValue(properties) as T;
+}
+
+const secretPropertyName = /^(?:authorization|password|cookie|set-cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code|clerk[_-]?token|provider[_-]?credential)$/i;
+
+function sanitizeTelemetryValue(value: unknown): unknown {
+  if (typeof value === "string") return stripSecrets(value);
+  if (Array.isArray(value)) return value.map(sanitizeTelemetryValue);
+  if (!value || typeof value !== "object") return value;
   return Object.fromEntries(
-    Object.entries(properties).map(([key, value]) => [
+    Object.entries(value as Record<string, unknown>).map(([key, item]) => [
       key,
-      typeof value === "string" ? stripSecrets(value) : value,
+      secretPropertyName.test(key) ? "[secret]" : sanitizeTelemetryValue(item),
     ]),
-  ) as T;
+  );
 }
 
 function sanitizeSdkMessage(message: unknown) {
@@ -473,6 +503,14 @@ function sanitizeIdentifyMessage(distinctId: string, properties: unknown) {
     school_root: setSource.school_root,
     selected_model: setSource.selected_model,
     selected_reasoning: setSource.selected_reasoning,
+    plan: setSource.plan,
+    credits: setSource.credits,
+    device_id: setSource.device_id,
+    os_version: setSource.os_version,
+    locale: setSource.locale,
+    timezone: setSource.timezone,
+    onboarding_state: setSource.onboarding_state,
+    connected_toolkits: setSource.connected_toolkits,
   }));
   if (!parsed.success) return null;
   const anon = z.string().min(1).max(256).safeParse(record.$anon_distinct_id);

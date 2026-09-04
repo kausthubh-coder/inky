@@ -80,13 +80,13 @@ export function buildDiagnosticsSnapshot(input: DiagnosticsSnapshotInput) {
       format: "studi-diagnostics",
       formatVersion: 1,
       exportedAt,
-      policy: "main-process-allowlist-v1",
-      includes: ["runtime versions", "storage health", "recent diagnostic events"],
+      policy: "typed-agent-trace-v2",
+      includes: ["runtime versions", "storage health", "recent non-secret product and agent events"],
       excludes: [
         "credentials and tokens",
-        "school page HTML",
-        "assignment answers",
-        "cookies and OAuth state",
+        "cookies and authorization headers",
+        "OAuth and device codes",
+        "provider credentials and secure-storage bytes",
       ],
     },
     runtime: {
@@ -124,11 +124,13 @@ export async function writeDiagnosticsSnapshot(
 
 function sanitizeDiagnostic(rawEnvelope: TelemetryInspectorEnvelope) {
   const envelope = TelemetryInspectorEnvelopeSchema.parse(rawEnvelope);
-  const properties = Object.fromEntries(
-    Object.entries(envelope.properties)
-      .filter(([key]) => safePropertyKeys.has(key))
-      .map(([key, value]) => [key, typeof value === "string" ? stripSecrets(value).slice(0, 500) : value]),
-  );
+  const properties = envelope.event === "studi_agent_trace"
+    ? JSON.parse(stripSecrets(JSON.stringify(envelope.properties)))
+    : Object.fromEntries(
+        Object.entries(envelope.properties)
+          .filter(([key]) => safePropertyKeys.has(key))
+          .map(([key, value]) => [key, typeof value === "string" ? stripSecrets(value) : value]),
+      );
   return {
     capturedAt: envelope.capturedAt,
     event: envelope.event,

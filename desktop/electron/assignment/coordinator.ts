@@ -15,14 +15,17 @@ import {
   type NotificationIntent,
   type AgentRunEvent,
 } from "../../shared/index.js";
+import { retrieveNoteIndex, type NoteRetrievalContext } from "../../agent-system/retrieve.js";
 import type { BrowserController } from "../browser/controller.js";
 import { formatSnapshot } from "../browser/controller.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
+import { HomeworkFiles } from "../files/homework-files.js";
 
 export type ExecutionNotification = Omit<NotificationIntent, "schemaVersion" | "notificationId" | "createdAt">;
 export type ExecutionNotificationSink = (intent: ExecutionNotification) => void | Promise<void>;
+export type ConnectedAppToolProvider = () => Promise<readonly ToolDefinition[]>;
 
 export class AssignmentExecutionCoordinator {
   readonly #store: LocalStore;
@@ -34,6 +37,7 @@ export class AssignmentExecutionCoordinator {
   #reviewWindowMs: number;
   #handoffWindowMs: number;
   readonly #tools: ToolDefinition[];
+  readonly #connectedAppTools: ConnectedAppToolProvider;
   readonly #activity = new Map<string, AgentRunEvent[]>();
   #disposed = false;
 
@@ -47,6 +51,7 @@ export class AssignmentExecutionCoordinator {
       readonly reviewWindowMs?: number;
       readonly handoffWindowMs?: number;
       readonly browserWork?: VisibleBrowserWork;
+      readonly connectedAppTools?: ConnectedAppToolProvider;
     },
   ) {
     this.#store = store;
@@ -58,6 +63,7 @@ export class AssignmentExecutionCoordinator {
     this.#reviewWindowMs = options.reviewWindowMs ?? 15 * 60_000;
     this.#handoffWindowMs = options.handoffWindowMs ?? this.#reviewWindowMs;
     this.#tools = this.#createTools();
+    this.#connectedAppTools = options.connectedAppTools ?? (async () => []);
   }
 
   static async create(
@@ -70,6 +76,7 @@ export class AssignmentExecutionCoordinator {
       readonly reviewWindowMs?: number;
       readonly handoffWindowMs?: number;
       readonly browserWork?: VisibleBrowserWork;
+      readonly connectedAppTools?: ConnectedAppToolProvider;
     } = {},
   ): Promise<AssignmentExecutionCoordinator> {
     const coordinator = new AssignmentExecutionCoordinator(store, manager, browser, options);
@@ -95,11 +102,11 @@ export class AssignmentExecutionCoordinator {
   }
 
   async startNext(): Promise<AssignmentExecution | null> {
-    return this.#start(() => this.#manager.startNext(this.#tools));
+    return this.#start(async () => this.#manager.startNext(await this.#assignmentTools()));
   }
 
   async start(taskId: string): Promise<AssignmentExecution> {
-    const execution = await this.#start(() => this.#manager.startTask(taskId, this.#tools));
+    const execution = await this.#start(async () => this.#manager.startTask(taskId, await this.#assignmentTools()));
     if (!execution) throw new Error(`Task ${taskId} could not be started`);
     return execution;
   }
@@ -117,7 +124,8 @@ export class AssignmentExecutionCoordinator {
         taskId: task.taskId,
         assignmentId: assignment.assignmentId,
         phase: "working",
-        taskBudget: { maxAgentTurns: 1, maxRecoveryAttempts: 2 },
+        taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
+        turnCount: 0,
         attemptCount: 0,
         workerSessionPath: lease.workerSessionPath,
         updatedAt: this.#now(),
@@ -218,6 +226,30 @@ export class AssignmentExecutionCoordinator {
     return submitted;
   }
 
+  async continueTurn(
+    taskId: string,
+    prompt: string,
+    observe?: (event: AgentRunEvent) => void,
+  ): Promise<{ readonly outcome: "completed" | "failed" | "aborted"; readonly text: string }> {
+    this.#assertUsable();
+    let execution = this.#requiredExecution(taskId);
+    if (execution.phase === "needs_user") {
+      this.#manager.resumePaused(taskId, "Student replied to the assignment handoff");
+      execution = this.#store.lifecycle.putExecution({
+        ...execution,
+        phase: "working",
+        lastError: undefined,
+        updatedAt: this.#now(),
+      });
+    }
+    if (execution.phase !== "working") throw new Error(`Task ${taskId} cannot take another work turn from ${execution.phase}`);
+    if (execution.turnCount >= execution.taskBudget.maxAgentTurns) {
+      throw new Error(`Task ${taskId} reached its ${execution.taskBudget.maxAgentTurns}-turn safety limit`);
+    }
+    this.#store.lifecycle.putExecution({ ...execution, turnCount: execution.turnCount + 1, updatedAt: this.#now() });
+    return this.#manager.runWorkerTurn(prompt, observe);
+  }
+
   async reconcileDeadlines(): Promise<void> {
     this.#assertUsable();
     for (const execution of this.#store.lifecycle.listExpiredReviewHandoffs(this.#now())) {
@@ -233,23 +265,33 @@ export class AssignmentExecutionCoordinator {
     const assignment = this.#requiredAssignment(execution.assignmentId);
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
     const snapshot = await this.#browser.snapshot();
-    const preferences = await this.#store.artifacts.list("preference");
+    const noteEntries = retrieveNoteIndex(this.#store.notes.list(), this.#noteContext(assignment.assignmentId, assignment.courseId), "automatic");
+    const notes = await Promise.all(noteEntries.map(async (entry) => ({ entry, content: (await this.#store.notes.read(entry.noteId))?.content ?? null })));
+    const receipt = this.#store.lifecycle.getSubmissionReceipt(execution.taskId);
+    const homeworkFiles = await this.#homeworkFiles();
+    const folderListing = homeworkFiles ? await homeworkFiles.list() : [];
     const prompt = [
       "# Assignment",
       JSON.stringify({ taskId: execution.taskId, title: assignment.title, sourceTarget: assignment.sourceTarget, dueAt: assignment.dueAt ?? null }, null, 2),
       "# Fresh stored permission",
       JSON.stringify(permission, null, 2),
       "# Task budget",
-      "One agent turn and at most two meaningfully different recovery plans.",
-      "# Preferences",
-      preferences.length ? preferences.map((item) => item.content).join("\n\n") : "No preferences are stored.",
+      `Up to ${execution.taskBudget.maxAgentTurns} student-directed turns; ${execution.turnCount} already used. At most two meaningfully different recovery plans.`,
+      "# Relevant notes",
+      notes.length ? JSON.stringify(notes, null, 2) : "No relevant notes are stored.",
+      "# Last submission receipt",
+      receipt ? JSON.stringify(receipt, null, 2) : "No submission receipt exists for this task.",
+      "# Homework folder",
+      homeworkFiles
+        ? JSON.stringify({ available: true, entries: folderListing.map(({ path, kind, size, modifiedAt }) => ({ path, kind, size, modifiedAt })) }, null, 2)
+        : "No homework folder is selected. File tools and shell are unavailable.",
       "# Visible browser snapshot",
       formatSnapshot(snapshot),
       "# Instruction",
       instruction,
     ].join("\n\n");
     try {
-      const result = await this.#manager.runWorkerTurn(prompt, (event) => this.#recordActivity(execution.taskId, event));
+      const result = await this.continueTurn(execution.taskId, prompt, (event) => this.#recordActivity(execution.taskId, event));
       const current = this.#store.lifecycle.getExecution(execution.taskId);
       if (current?.phase === "working") {
         await this.#handoff(current, result.outcome === "completed"
@@ -364,6 +406,44 @@ export class AssignmentExecutionCoordinator {
         return toolResult(ready);
       },
     });
+    const noteUpsert = defineTool({
+      name: "note_upsert",
+      label: "Save a scoped assignment note",
+      description: "After review evidence exists, save one bounded course, confirmed-pattern, or assignment note. Notes never alter permission or count as evidence.",
+      parameters: Type.Object({
+        scope: Type.Union([Type.Literal("course"), Type.Literal("pattern"), Type.Literal("assignment")]),
+        patternId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+        about: Type.Union([Type.Literal("how-to"), Type.Literal("knowledge"), Type.Literal("work")]),
+        key: Type.String({ minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }),
+        title: Type.String({ minLength: 1, maxLength: 200 }),
+        content: Type.String({ minLength: 1, maxLength: 100_000 }),
+      }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        const execution = this.#activeExecution();
+        if (!execution || execution.phase !== "ready_review" || !execution.reviewCheckpoint) {
+          throw new Error("A note can be saved only after current browser evidence starts review");
+        }
+        const assignment = this.#requiredAssignment(execution.assignmentId);
+        let subjectId = assignment.assignmentId;
+        if (input.scope === "course") subjectId = assignment.courseId;
+        if (input.scope === "pattern") {
+          if (!input.patternId) throw new Error("A confirmed pattern id is required for a pattern note");
+          const confirmed = this.#store.manager.listConfirmedPatterns(assignment.assignmentId, assignment.courseId).some((match) => match.patternId === input.patternId);
+          if (!confirmed) throw new Error(`Pattern ${input.patternId} is not confirmed for this assignment`);
+          subjectId = input.patternId;
+        }
+        const note = await this.#store.notes.upsert({
+          scope: input.scope,
+          subjectId,
+          about: input.about,
+          key: input.key,
+          title: input.title,
+          content: input.content,
+          updatedAt: this.#now(),
+        });
+        return toolResult(note);
+      },
+    });
     const submit = defineTool({
       name: "browser_submit",
       label: "Submit school work",
@@ -375,7 +455,7 @@ export class AssignmentExecutionCoordinator {
       }, { additionalProperties: false }),
       execute: async (_id, input) => toolResult(await this.#submit(input.ref, input.expectedConfirmationText)),
     });
-    return [recordAnswer, recovery, takeover, unsupported, review, submit];
+    return [recordAnswer, recovery, takeover, unsupported, review, noteUpsert, submit];
   }
 
   async #submit(ref: string, expectedConfirmationText: string): Promise<AssignmentExecution> {
@@ -471,7 +551,7 @@ export class AssignmentExecutionCoordinator {
       this.#manager.completeActive(execution.taskId, execution.phase, "Recovered durable terminal execution state");
       return;
     }
-    await this.#manager.restoreAssignmentWorker(this.#tools);
+    await this.#manager.restoreAssignmentWorker(await this.#assignmentTools());
     if (execution.phase === "ready_review") {
       const releaseAt = execution.handoffDeadline ?? execution.reviewDeadline;
       if (releaseAt && releaseAt <= this.#now()) {
@@ -510,6 +590,60 @@ export class AssignmentExecutionCoordinator {
     return lease ? this.#store.lifecycle.getExecution(lease.taskId) : this.#store.lifecycle.getActiveExecution();
   }
 
+  async #assignmentTools(): Promise<readonly ToolDefinition[]> {
+    const homeworkFiles = await this.#homeworkFiles();
+    const files = homeworkFiles ? this.#createFileTools(homeworkFiles) : [];
+    let connected: readonly ToolDefinition[] = [];
+    try { connected = await this.#connectedAppTools(); } catch { /* Connected apps cannot disable local tools. */ }
+    return [...this.#tools, ...files, ...connected];
+  }
+
+  async #homeworkFiles(): Promise<HomeworkFiles | null> {
+    try {
+      const preferences = await this.#store.productPreferences.get();
+      return preferences.homeworkRoot ? await HomeworkFiles.open(preferences.homeworkRoot) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  #createFileTools(files: HomeworkFiles): ToolDefinition[] {
+    const list = defineTool({
+      name: "file_list",
+      label: "List homework files",
+      description: "List bounded file metadata below the student-selected homework folder. Symlinks and escapes are rejected.",
+      parameters: Type.Object({ path: Type.Optional(Type.String({ minLength: 1, maxLength: 1_024 })) }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        this.#requiredWorkingExecution();
+        return toolResult(await files.list(input.path ?? "."));
+      },
+    });
+    const read = defineTool({
+      name: "file_read",
+      label: "Read homework file",
+      description: "Read one bounded UTF-8 text file below the selected homework folder.",
+      parameters: Type.Object({ path: Type.String({ minLength: 1, maxLength: 1_024 }) }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        this.#requiredWorkingExecution();
+        return toolResult(await files.read(input.path));
+      },
+    });
+    const write = defineTool({
+      name: "file_write",
+      label: "Write homework file",
+      description: "Atomically write one bounded UTF-8 file below the selected homework folder. Absolute paths, traversal, and symlinks fail closed.",
+      parameters: Type.Object({
+        path: Type.String({ minLength: 1, maxLength: 1_024 }),
+        content: Type.String({ maxLength: 1_000_000 }),
+      }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        this.#requiredWorkingExecution();
+        return toolResult(await files.write(input.path, input.content));
+      },
+    });
+    return [list, read, write];
+  }
+
   #requiredWorkingExecution(): AssignmentExecution {
     const execution = this.#activeExecution();
     if (!execution || execution.phase !== "working") throw new Error("No working assignment execution owns the browser");
@@ -532,6 +666,16 @@ export class AssignmentExecutionCoordinator {
     const assignment = this.#store.assignments.get(assignmentId);
     if (!assignment) throw new Error(`Assignment ${assignmentId} does not exist`);
     return assignment;
+  }
+
+  #noteContext(assignmentId: string, courseId: string): NoteRetrievalContext {
+    return {
+      kind: "assignment",
+      assignmentId,
+      courseId,
+      confirmedPatternIds: this.#store.manager.listConfirmedPatterns(assignmentId, courseId).map((match) => match.patternId),
+      courseAssignmentIds: this.#store.assignments.listByCourse(courseId).map((assignment) => assignment.assignmentId),
+    };
   }
 
   #checkpoint(snapshot: BrowserSnapshot, summary: string): BrowserCheckpoint {

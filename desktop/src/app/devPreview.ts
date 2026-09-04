@@ -5,11 +5,13 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   isLivePhase,
   type Assignment,
+  type AgentJob,
+  type ConversationTarget,
   type LifecycleState,
   type LibraryState,
   type ProductSettingsState,
   type SchoolOnboardingState,
-  type StudiApi,
+  type StudiRendererApi,
   type StudiWorkspaceState,
   type TaskDetail,
 } from "../../shared/index.js";
@@ -87,7 +89,7 @@ export function installDevPreview(): void {
   const tasks: TaskDetail[] = assignments.map((item, index) => ({
     task: { schemaVersion: 1, taskId: `task-${item.assignmentId}`, assignmentId: item.assignmentId, state: index === 2 ? "preserved" : "discovered", revision: index === 2 ? 2 : 0, createdAt: now, updatedAt: now },
     assignment: item,
-    execution: index === 2 ? { schemaVersion: 1, taskId: `task-${item.assignmentId}`, assignmentId: item.assignmentId, phase: "preserved", taskBudget: { maxAgentTurns: 1, maxRecoveryAttempts: 2 }, attemptCount: 1, answerArtifactId: "preview-answer", updatedAt: now } : null,
+    execution: index === 2 ? { schemaVersion: 1, taskId: `task-${item.assignmentId}`, assignmentId: item.assignmentId, phase: "preserved", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 1, attemptCount: 1, answerArtifactId: "preview-answer", updatedAt: now } : null,
     permission,
     events: [],
     runs: [],
@@ -107,7 +109,7 @@ export function installDevPreview(): void {
   };
 
   let settings: ProductSettingsState = {
-    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "selected", agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
+    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "selected", homeworkRoot: null, agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
     permissionRules: [{ schemaVersion: 1, ruleId: "preview-global", scope: "global", mode: "attempt", updatedAt: now }],
     schedule: lifecycle.schedule,
   };
@@ -127,8 +129,31 @@ export function installDevPreview(): void {
   });
 
   const detail = (taskId: string) => tasks.find((item) => item.task.taskId === taskId) ?? null;
+  const conversations = new Map<string, AgentJob>();
+  let conversationSequence = 0;
+  const conversation = (target: ConversationTarget): AgentJob => {
+    const key = target.kind === "home" ? "home" : `assignment:${target.assignmentId}`;
+    const existing = conversations.get(key);
+    if (existing) return existing;
+    conversationSequence += 1;
+    const job: AgentJob = {
+      schemaVersion: 1,
+      jobId: `preview-job-${conversationSequence}`,
+      target,
+      phase: "idle",
+      turnIndex: 0,
+      runId: `preview-run-${conversationSequence}-0`,
+      sessionId: null,
+      claim: null,
+      messages: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+    conversations.set(key, job);
+    return job;
+  };
 
-  const api: StudiApi = {
+  const api: StudiRendererApi = {
     getRuntimeInfo: async () => ({ app: "0.1.0-preview", electron: "37.10.3", chrome: "138", node: "22" }),
     getContractManifest: async () => CONTRACT_MANIFEST,
     getAuthState: async () => ({ status: "approved", user: { subject: "preview", email: "preview@studi.local", name: "kausthubh" }, entitlement: { plan: "beta", credits: 0 }, deviceId: "00000000-0000-4000-8000-000000000001", secureStorage: false }),
@@ -136,13 +161,41 @@ export function installDevPreview(): void {
     signOut: async () => ({ status: "signed_out" }),
     retryEntitlement: async () => api.getAuthState(),
     submitFeedback: async () => ({ accepted: true as const, feedbackId: "00000000-0000-4000-8000-000000000002" }),
+    getConnectedApps: async () => ({ configured: true, toolkits: [{ toolkit: "github", version: "20260902_00", tools: ["GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER"] }] }),
+    connectApp: async ({ toolkit }) => ({ toolkit, sessionId: "preview-composio", connectedAccountId: null, status: "INITIATED", redirectUrl: "https://example.com/connect" }),
+    refreshConnectedApp: async ({ toolkit }) => ({ toolkit, sessionId: "preview-composio", connectedAccountId: "preview-account", status: "ACTIVE", redirectUrl: null }),
     getWorkspaceState: async () => workspace(),
     navigateBrowser: async () => workspace(),
     loginOpenAiCodex: async () => workspace(),
     cancelOpenAiCodexLogin: async () => workspace(),
     selectAgentModel: async ({ modelId, reasoningEffort }) => { settings = { ...settings, preferences: { ...settings.preferences, agentModelId: modelId, agentReasoningEffort: reasoningEffort, updatedAt: new Date().toISOString() } }; return workspace(); },
     getManagerState: async () => lifecycle.manager,
-    runManager: async ({ prompt }) => ({ outcome: "completed" as const, text: `Okay — I’ll keep that in mind: ${prompt.slice(0, 140)}`, state: lifecycle.manager }),
+    send: async ({ target, text }) => {
+      const current = conversation(target);
+      const turnIndex = current.turnIndex + 1;
+      const reply = target.kind === "home"
+        ? `Okay, I will keep that in mind: ${text.slice(0, 140)}`
+        : `I checked this assignment: ${text.slice(0, 140)}`;
+      const job: AgentJob = {
+        ...current,
+        phase: "conversing",
+        turnIndex,
+        runId: `preview-run-${current.jobId}-${turnIndex}`,
+        sessionId: current.sessionId ?? `preview-session-${current.jobId}`,
+        messages: [
+          ...current.messages,
+          { messageId: `preview-user-${current.jobId}-${turnIndex}`, role: "user", text, createdAt: now, turnIndex },
+          { messageId: `preview-inky-${current.jobId}-${turnIndex}`, role: "assistant", text: reply, createdAt: now, turnIndex },
+        ],
+        updatedAt: now,
+      };
+      conversations.set(target.kind === "home" ? "home" : `assignment:${target.assignmentId}`, job);
+      return { outcome: "completed", text: reply, job };
+    },
+    selectAssignment: async ({ assignmentId }) => {
+      const target: ConversationTarget = assignmentId ? { kind: "assignment", assignmentId } : { kind: "home" };
+      return { target, job: conversation(target) };
+    },
     getSchoolOnboardingState: async () => onboarding,
     saveSchoolProfile: async (input) => { onboarding = { ...onboarding, profile: onboarding.profile ? { ...onboarding.profile, ...input, updatedAt: new Date().toISOString() } : onboarding.profile }; return onboarding; },
     startSchoolScan: async () => onboarding,
@@ -159,7 +212,7 @@ export function installDevPreview(): void {
       const item = tasks.find((task) => task.task.taskId === taskId);
       if (!item) throw new Error("That assignment is not in the preview.");
       item.task = { ...item.task, state: "working", revision: item.task.revision + 1, updatedAt: new Date().toISOString() };
-      item.execution = { schemaVersion: 1, taskId, assignmentId: item.assignment.assignmentId, phase: "working", taskBudget: { maxAgentTurns: 1, maxRecoveryAttempts: 2 }, attemptCount: 0, updatedAt: new Date().toISOString() };
+      item.execution = { schemaVersion: 1, taskId, assignmentId: item.assignment.assignmentId, phase: "working", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 0, attemptCount: 0, updatedAt: new Date().toISOString() };
       item.activity = [{ schemaVersion: 1, type: "tool_started", toolCallId: "preview-click", toolName: "click" }];
       lifecycle = { ...lifecycle, execution: item.execution, attempts: item.attempts };
       return lifecycle;
@@ -169,6 +222,7 @@ export function installDevPreview(): void {
     openAnswerArtifact: async () => true,
     getProductSettings: async () => settings,
     saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    selectHomeworkRoot: async () => { settings = { ...settings, preferences: { ...settings.preferences, homeworkRoot: "C:\\Studi Preview Homework", updatedAt: new Date().toISOString() } }; return settings.preferences; },
     saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     testNotification: async ({ kind }) => ({
       notification: {
@@ -203,6 +257,8 @@ export function installDevPreview(): void {
     setTelemetryDebug: async () => api.getTelemetryState(),
     captureUiTelemetry: async () => true,
     exportDiagnostics: async () => ({ status: "cancelled" as const }),
+    onLifecycleActivated: () => () => undefined,
+    onNotificationSound: () => () => undefined,
   };
 
   Object.defineProperty(window, "studi", { configurable: true, value: api });

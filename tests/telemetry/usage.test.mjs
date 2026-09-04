@@ -28,6 +28,7 @@ test("Pi usage is summed from assistant messages and tool calls", () => {
     output_tokens: 450,
     cache_read_tokens: 80,
     cache_write_tokens: 20,
+    total_tokens: 1850,
     cost_usd: 0.037,
     tool_calls: 3,
   });
@@ -49,6 +50,7 @@ test("Pi usage is summed from assistant messages and tool calls", () => {
   assert.deepEqual(usageProperties(normalizer.takeUsage()), {
     input_tokens: 10,
     output_tokens: 5,
+    total_tokens: 15,
     cost_usd: 0.002,
     tool_calls: 1,
   });

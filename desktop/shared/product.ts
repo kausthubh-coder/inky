@@ -93,6 +93,7 @@ export const ProductPreferencesSchema = z.strictObject({
   reviewMinutes: z.number().int().min(1).max(120),
   handoffMinutes: z.number().int().min(1).max(240),
   memoryVisibility: z.enum(["none", "selected", "all"]),
+  homeworkRoot: z.string().trim().min(1).max(1_024).nullable().default(null),
   agentModelId: z.string().min(1).max(128).default(DEFAULT_AGENT_MODEL_ID),
   agentReasoningEffort: AgentReasoningEffortSchema.default(DEFAULT_AGENT_REASONING_EFFORT),
   notifications: NotificationPreferencesSchema.default(DEFAULT_NOTIFICATION_PREFERENCES),

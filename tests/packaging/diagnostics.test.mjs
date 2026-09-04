@@ -30,7 +30,7 @@ test("diagnostic export keeps consented school facts and strips only secrets", a
     packaged: true,
     storage: {
       status: "ok",
-      schemaVersion: 4,
+      schemaVersion: 6,
       databasePath: join(canaries.path, "studi.sqlite3"),
       integrity: "ok",
     },
@@ -59,7 +59,7 @@ test("diagnostic export keeps consented school facts and strips only secrets", a
   const document = JSON.parse(await readFile(destination, "utf8"));
   const serialized = JSON.stringify(document);
 
-  assert.deepEqual(document.storage, { status: "ok", schemaVersion: 4, integrity: "ok" });
+  assert.deepEqual(document.storage, { status: "ok", schemaVersion: 6, integrity: "ok" });
   assert.equal(document.diagnostics[0].properties.task_id, canaries.task);
   assert.equal(document.diagnostics[0].properties.email, canaries.account);
   assert.equal(document.diagnostics[0].properties.school_root, canaries.school);

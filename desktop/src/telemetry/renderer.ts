@@ -33,10 +33,13 @@ export const filterRendererTelemetryEvent: BeforeSendFn = (event) => {
     };
   }
   if (event.event !== "$autocapture") return null;
+  const eventType = typeof properties.$event_type === "string" && ["click", "change", "submit"].includes(properties.$event_type)
+    ? properties.$event_type
+    : "click";
   return {
     ...event,
     properties: {
-      $event_type: "click",
+      $event_type: eventType,
       ...(typeof properties.$session_id === "string" ? { $session_id: properties.$session_id } : {}),
       ...(typeof properties.$window_id === "string" ? { $window_id: properties.$window_id } : {}),
       ...(typeof properties.$el_text === "string" ? { $el_text: properties.$el_text } : {}),
@@ -98,7 +101,7 @@ class RendererTelemetry {
         capture_pageleave: false,
         capture_dead_clicks: false,
         capture_heatmaps: false,
-        capture_performance: false,
+        capture_performance: true,
         enable_recording_console_log: false,
         disable_surveys: true,
         disable_web_experiments: true,
@@ -106,9 +109,8 @@ class RendererTelemetry {
         advanced_disable_feature_flags: true,
         advanced_disable_feature_flags_on_first_load: true,
         autocapture: {
-          dom_event_allowlist: ["click"],
-          element_allowlist: ["button"],
-          css_selector_allowlist: ["[data-telemetry-click]"],
+          dom_event_allowlist: ["click", "change", "submit"],
+          element_allowlist: ["button", "input", "select", "textarea", "a", "form"],
           element_attribute_ignorelist: ["aria-label", "title", "value", "placeholder"],
         },
         mask_all_text: false,

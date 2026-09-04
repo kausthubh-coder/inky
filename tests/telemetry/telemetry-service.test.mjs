@@ -143,11 +143,65 @@ test("scan and assignment envelopes keep model, cost, and consented school facts
       }),
       true,
     );
-    const clipped = client.captures.at(-1);
-    assert.equal(clipped.event, "studi_scan_finished");
-    assert.equal(clipped.properties.current_step.length, 500);
-    assert.equal(clipped.properties.current_step, longStep.slice(0, 500));
-    assert.equal(clipped.properties.state, "succeeded");
+    const complete = client.captures.at(-1);
+    assert.equal(complete.event, "studi_scan_finished");
+    assert.equal(complete.properties.current_step, longStep);
+    assert.equal(complete.properties.state, "succeeded");
+  });
+});
+
+test("agent traces retain ordinary content and remove nested credentials", async () => {
+  const { AgentTrace } = await import("../../dist/agent-system/index.js");
+  await withService(async ({ client, service }) => {
+    const trace = new AgentTrace({ now: () => "2026-09-01T12:00:00.000Z" });
+    const stop = service.subscribeToTrace(trace);
+    await trace.emit({
+      jobId: "job-1",
+      runId: "run-1",
+      turnIndex: 2,
+      type: "tool_finished",
+      payload: {
+        userMessage: "Explain token limits and keep this exact answer: 42",
+        prompt: "Use the student's CSC 316 notes.",
+        reply: "The answer is 42.",
+        tool: {
+          name: "composio_github_list_issues",
+          arguments: { owner: "student", api_key: "CANARY_NESTED_KEY" },
+          result: { title: "Fix token limit display", authorization: "Bearer CANARY_BEARER" },
+        },
+        usage: { model: "gpt-5.6-sol", reasoning: "high", inputTokens: 120, outputTokens: 40 },
+      },
+    });
+    stop();
+
+    const outbound = client.captures.at(-1);
+    assert.equal(outbound.event, "studi_agent_trace");
+    assert.equal(outbound.properties.payload.userMessage, "Explain token limits and keep this exact answer: 42");
+    assert.equal(outbound.properties.payload.prompt, "Use the student's CSC 316 notes.");
+    assert.equal(outbound.properties.payload.reply, "The answer is 42.");
+    assert.equal(outbound.properties.payload.tool.arguments.api_key, "[secret]");
+    assert.equal(outbound.properties.payload.tool.result.authorization, "[secret]");
+    assert.equal(JSON.stringify(outbound).includes("CANARY_NESTED_KEY"), false);
+    assert.equal(JSON.stringify(outbound).includes("CANARY_BEARER"), false);
+  });
+});
+
+test("connected-app telemetry keeps scoped account state and timing without credentials", async () => {
+  await withService(async ({ client, service }) => {
+    assert.equal(service.capture("studi_connected_app", {
+      toolkit: "github",
+      operation: "refresh",
+      status: "ACTIVE",
+      connected_account_id: "ca_test_account",
+      duration_ms: 318,
+    }), true);
+    const outbound = client.captures.at(-1);
+    assert.equal(outbound.event, "studi_connected_app");
+    assert.equal(outbound.properties.toolkit, "github");
+    assert.equal(outbound.properties.operation, "refresh");
+    assert.equal(outbound.properties.status, "ACTIVE");
+    assert.equal(outbound.properties.connected_account_id, "ca_test_account");
+    assert.equal(outbound.properties.duration_ms, 318);
   });
 });
 
@@ -204,7 +258,7 @@ test("renderer replay records Studi text, still masks passwords, and never enter
     /recordHeaders:\s*false/,
     /recordBody:\s*false/,
     /recordCrossOriginIframes:\s*false/,
-    /capture_performance:\s*false/,
+    /capture_performance:\s*true/,
     /enable_recording_console_log:\s*false/,
     /bootstrap:\s*\{\s*distinctID:\s*state\.distinctId,\s*isIdentifiedID:/,
   ]) assert.match(renderer, policy);

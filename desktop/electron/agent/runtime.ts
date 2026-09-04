@@ -16,6 +16,7 @@ import {
 import type { AuthEvent, AuthPrompt } from "@earendil-works/pi-ai";
 import { Type } from "typebox";
 
+import { buildRuntimeInstructions } from "../../agent-system/turn-builder.js";
 import {
   AgentRunEventSchema,
   DEFAULT_AGENT_MODEL_ID,
@@ -25,6 +26,7 @@ import {
   type AgentReasoningEffort,
   type AgentRunEvent,
   type AgentModel,
+  type ConversationTarget,
   type ProviderLoginMethod,
   type ProviderStatus,
 } from "../../shared/index.js";
@@ -42,7 +44,6 @@ type PiModel = NonNullable<PiSessionOptions["model"]>;
 
 export interface AgentSessionTarget {
   readonly resumeSessionPath?: string;
-  readonly parentSessionPath?: string;
 }
 
 export type AgentRunEventListener = (event: AgentRunEvent) => void;
@@ -61,10 +62,6 @@ export interface AgentSession {
 
 export interface AgentRuntime {
   createSession(target?: AgentSessionTarget): Promise<AgentSession>;
-  createManagerSession(
-    tools: readonly ToolDefinition[],
-    target?: AgentSessionTarget,
-  ): Promise<AgentSession>;
   createWorkerSession(target?: AgentSessionTarget): Promise<AgentSession>;
   createAssignmentSession(
     tools: readonly ToolDefinition[],
@@ -73,6 +70,11 @@ export interface AgentRuntime {
   createScanSession(
     recordingTools: readonly ToolDefinition[],
     target?: AgentSessionTarget,
+  ): Promise<AgentSession>;
+  createJobSession(
+    target: ConversationTarget,
+    tools: readonly ToolDefinition[],
+    sessionTarget?: AgentSessionTarget,
   ): Promise<AgentSession>;
   getProviderStatus(providerId: string): Promise<ProviderStatus>;
 }
@@ -155,8 +157,12 @@ export class PiAgentRuntime implements AgentRuntime {
   }
 
   async createWorkerSession(target: AgentSessionTarget = {}): Promise<AgentSession> {
-    const createPiSession = (nextTarget: AgentSessionTarget) =>
-      this.#createPiSession(nextTarget, this.#workerTools, workerSystemPrompt);
+    const createPiSession = async (nextTarget: AgentSessionTarget) =>
+      this.#createPiSession(
+        nextTarget,
+        this.#workerTools,
+        (await buildRuntimeInstructions("assignment", this.#workerTools.map((tool) => tool.name))).text,
+      );
     return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
   }
 
@@ -171,8 +177,12 @@ export class PiAgentRuntime implements AgentRuntime {
     if (new Set(tools.map((tool) => tool.name)).size !== tools.length) {
       throw new Error("The Studi assignment session received a duplicate tool name");
     }
-    const createPiSession = (nextTarget: AgentSessionTarget) =>
-      this.#createPiSession(nextTarget, tools, assignmentSystemPrompt);
+    const createPiSession = async (nextTarget: AgentSessionTarget) =>
+      this.#createPiSession(
+        nextTarget,
+        tools,
+        (await buildRuntimeInstructions("assignment", tools.map((tool) => tool.name))).text,
+      );
     return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
   }
 
@@ -187,22 +197,38 @@ export class PiAgentRuntime implements AgentRuntime {
     if (new Set(tools.map((tool) => tool.name)).size !== tools.length) {
       throw new Error("The Studi scan session received a duplicate tool name");
     }
-    const createPiSession = (nextTarget: AgentSessionTarget) =>
-      this.#createPiSession(nextTarget, tools, scanSystemPrompt);
+    const createPiSession = async (nextTarget: AgentSessionTarget) =>
+      this.#createPiSession(
+        nextTarget,
+        tools,
+        (await buildRuntimeInstructions("scan", tools.map((tool) => tool.name))).text,
+      );
     return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
   }
 
-  async createManagerSession(
+  async createJobSession(
+    target: ConversationTarget,
     tools: readonly ToolDefinition[],
-    target: AgentSessionTarget = {},
+    sessionTarget: AgentSessionTarget = {},
   ): Promise<AgentSession> {
-    if (tools.length === 0) {
-      throw new Error("The Studi manager session requires at least one queue tool");
+    if (target.kind === "home" && tools.length === 0) {
+      throw new Error("The Studi home job requires at least one safe tool");
     }
-    const managerTools = [...tools];
-    const createPiSession = (nextTarget: AgentSessionTarget) =>
-      this.#createPiSession(nextTarget, managerTools, managerSystemPrompt);
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage));
+    if (new Set(tools.map((tool) => tool.name)).size !== tools.length) {
+      throw new Error("The Studi job session received a duplicate tool name");
+    }
+    const role = target.kind === "home" ? "home" : "assignment";
+    const createPiSession = async (nextTarget: AgentSessionTarget) =>
+      this.#createPiSession(
+        nextTarget,
+        tools,
+        (await buildRuntimeInstructions(role, tools.map((tool) => tool.name))).text,
+      );
+    return new PiBackedAgentSession(
+      await createPiSession(sessionTarget),
+      createPiSession,
+      (usage) => this.addUsage(usage),
+    );
   }
 
   async getProviderStatus(providerId: string): Promise<ProviderStatus> {
@@ -348,11 +374,7 @@ export class PiAgentRuntime implements AgentRuntime {
 
     const sessionManager = target.resumeSessionPath
       ? SessionManager.open(target.resumeSessionPath, this.#sessionDirectory, this.#cwd)
-      : SessionManager.create(
-          this.#cwd,
-          this.#sessionDirectory,
-          target.parentSessionPath ? { parentSession: target.parentSessionPath } : undefined,
-        );
+      : SessionManager.create(this.#cwd, this.#sessionDirectory);
     const options: PiSessionOptions = {
       cwd: this.#cwd,
       agentDir: this.#agentDir,
@@ -381,18 +403,6 @@ export class PiAgentRuntime implements AgentRuntime {
     return session;
   }
 }
-
-const workerSystemPrompt =
-  "You are Studi's local assignment worker. Use only the tools supplied by Studi. The visible browser is the source of truth. Take a snapshot before acting and after any stale-ref error. Never claim a course, assignment, sign-in, or action succeeded without browser evidence. Never submit work unless the student explicitly asks in the current conversation; ordinary browser_click cannot submit.";
-
-const assignmentSystemPrompt =
-  "You are Studi's local assignment worker. Use only the supplied browser and assignment tools. The visible page and durable assignment tools are the sources of truth. Ordinary browser_click cannot submit. Finish by recording review-ready work, requesting a truthful handoff, marking unsupported work, or using the gated browser_submit tool. Record at most two meaningfully different recovery plans. Never claim completion or submission without fresh browser evidence.";
-
-const managerSystemPrompt =
-  "You are Studi's local work manager. Use only the queue tools supplied by Studi. Durable queue state is the source of truth. Inspect it before steering or starting work. Never claim a task moved, started, or stopped unless a Studi tool confirms it. You cannot supply pattern permission provenance or control the school browser directly; the start tool delegates only a verified queued task to Studi's existing assignment execution owner.";
-
-const scanSystemPrompt =
-  "You are Studi's school onboarding scanner. Use only the supplied general browser and scan-recording tools. The visible browser is the source of truth. Record a course, assignment, linked system, coverage result, or sign-in handoff only after observing the current page. A linked system is a place teachers put assignments and deadlines. Record one only when this scan can list the student's homework there, including an empty assignment index. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Never ask for a password in chat. Request a sign-in handoff only when login blocks that assignment list, then stop. Do not request a handoff while the same school site already shows the student signed in. Do not mark linked systems incomplete merely because none appeared. Re-observe all items on replay. Finish only after recording explicit coverage; old stored rows are hints, never current evidence.";
 
 async function answerCodexPrompt(
   prompt: AuthPrompt,
@@ -563,6 +573,7 @@ export class PiEventNormalizer {
   #hasTerminalEvent = false;
   #hasAbortEvent = false;
   #usage = emptyUsage();
+  readonly #toolStartedAt = new Map<string, number>();
 
   get hasTerminalEvent(): boolean {
     return this.#hasTerminalEvent;
@@ -578,6 +589,7 @@ export class PiEventNormalizer {
     this.#lastStopReason = null;
     this.#hasTerminalEvent = false;
     this.#hasAbortEvent = false;
+    this.#toolStartedAt.clear();
   }
 
   reset(): void {
@@ -618,16 +630,20 @@ export class PiEventNormalizer {
         return [];
       }
       case "tool_execution_start":
+        this.#toolStartedAt.set(event.toolCallId, Date.now());
         return [
           this.#parse({
             schemaVersion: STUDI_SCHEMA_VERSION,
             type: "tool_started",
             toolCallId: event.toolCallId,
             toolName: event.toolName,
+            arguments: event.args,
           }),
         ];
       case "tool_execution_end":
         this.#usage = addUsage(this.#usage, { ...emptyUsage(), toolCalls: 1 });
+        const startedAt = this.#toolStartedAt.get(event.toolCallId);
+        this.#toolStartedAt.delete(event.toolCallId);
         return [
           this.#parse({
             schemaVersion: STUDI_SCHEMA_VERSION,
@@ -635,6 +651,8 @@ export class PiEventNormalizer {
             toolCallId: event.toolCallId,
             toolName: event.toolName,
             outcome: event.isError ? "failed" : "succeeded",
+            result: event.result,
+            ...(startedAt === undefined ? {} : { durationMs: Math.max(0, Date.now() - startedAt) }),
           }),
         ];
       case "auto_retry_start":
@@ -741,6 +759,7 @@ const DEFAULT_FAKE_TURN: readonly AgentRunEvent[] = Object.freeze([
     type: "tool_started",
     toolCallId: "studi-probe-call",
     toolName: "studi_probe",
+    arguments: {},
   },
   {
     schemaVersion: STUDI_SCHEMA_VERSION,
@@ -748,6 +767,11 @@ const DEFAULT_FAKE_TURN: readonly AgentRunEvent[] = Object.freeze([
     toolCallId: "studi-probe-call",
     toolName: "studi_probe",
     outcome: "succeeded",
+    result: {
+      content: [{ type: "text", text: "Studi probe ready." }],
+      details: { ready: true },
+    },
+    durationMs: 0,
   },
   { schemaVersion: STUDI_SCHEMA_VERSION, type: "text", delta: "Prob" },
   { schemaVersion: STUDI_SCHEMA_VERSION, type: "text", delta: "e co" },
@@ -790,14 +814,15 @@ export class FakeAgentRuntime implements AgentRuntime {
     );
   }
 
-  async createManagerSession(
+  async createJobSession(
+    target: ConversationTarget,
     tools: readonly ToolDefinition[],
-    target: AgentSessionTarget = {},
+    sessionTarget: AgentSessionTarget = {},
   ): Promise<AgentSession> {
     this.#sessionNumber += 1;
     return new FakeAgentSession(
-      `fake-manager-session-${this.#sessionNumber}`,
-      target.resumeSessionPath ?? `fake-manager-session-${this.#sessionNumber}.jsonl`,
+      `fake-${target.kind}-job-session-${this.#sessionNumber}`,
+      sessionTarget.resumeSessionPath ?? `fake-${target.kind}-job-session-${this.#sessionNumber}.jsonl`,
       this.#turns,
       tools.map((tool) => tool.name),
     );

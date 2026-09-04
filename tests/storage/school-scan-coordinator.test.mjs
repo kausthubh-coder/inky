@@ -38,14 +38,17 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
           }),
           /does not contain the claimed assignment title/,
         );
-        await invoke(tools, "scan_record_assignment", {
-          courseId: course.courseId,
-          title: "Limits practice",
-          assignmentKey: "limits-1",
-          dueAt: "2026-09-03T15:00:00.000Z",
-          dueText: "2026-09-03T15:00:00.000Z",
-          observationRef: "assignment-limits",
+        const recorded = await invoke(tools, "scan_record_assignments", {
+          assignments: [{
+            courseId: course.courseId,
+            title: "Limits practice",
+            assignmentKey: "limits-1",
+            dueAt: "2026-09-03T15:00:00.000Z",
+            dueText: "2026-09-03T15:00:00.000Z",
+            observationRef: "assignment-limits",
+          }],
         });
+        assert.equal(recorded.length, 1);
         const linked = await invoke(tools, "scan_record_linked_system", {
           label: "WebAssign",
           systemKey: "webassign",
@@ -127,7 +130,7 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
         browser.showAutograder();
         await invoke(tools, "scan_finish", {
           coverage: [{ target: "Course: Calculus", status: "verified" }],
-          navigationHints: ["Open the Courses link, then each current course."],
+          navigationHints: ["Open the <strong>Courses</strong> link, then each current course."],
         });
       },
       async (tools) => {
@@ -195,11 +198,13 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
     assert.equal(manager.state().entries.length, 2, "each permitted assignment enters the existing manager queue once");
     assert.equal(manager.state().entries[0].taskId, assignmentTasks[0].taskId);
 
-    const workflowPath = join(root, "artifacts", "workflows", "school-scan-workflow.md");
-    const workflow = await readFile(workflowPath, "utf8");
-    assert.match(workflow, /Start at https:\/\/school\.example\.edu\//);
-    assert.match(workflow, /Open the Courses link/);
-    assert.doesNotMatch(workflow, /SECRET_PAGE_HTML/);
+    const workflow = store.school.getWorkflow();
+    assert.equal(workflow.root, rootUrl);
+    assert.equal(workflow.steps[0].target, rootUrl);
+    assert.ok(workflow.steps.every((step) => step.kind === "navigate"));
+    assert.doesNotMatch(JSON.stringify(workflow), /SECRET_PAGE_HTML/);
+    const navigationNote = await store.notes.read(store.notes.list({ scope: "school", about: "scan" })[0].noteId);
+    assert.match(navigationNote.content, /Open the &lt;strong&gt;Courses&lt;\/strong&gt; link/);
 
     const successfulRows = { courses: state.courses.length, assignments: state.assignments.length };
     manager.steerNext(assignmentTasks[0].taskId);
@@ -213,7 +218,8 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
       "partial replay keeps prior verified rows",
     );
     assert.equal(browser.navigations.at(-1), rootUrl, "replay returns to the school root");
-    assert.match(runtime.prompts.at(-1), /Prior workflow hints/);
+    assert.match(runtime.prompts.at(-1), /Structured replay hints/);
+    assert.match(runtime.prompts.at(-1), /Re-observe every target/);
     assert.equal(state.courses[0].lastVerifiedScanId, state.scan.scanId, "replay re-observed the course");
     assert.equal(state.assignments[0].lastVerifiedScanId, state.scan.scanId, "replay refreshed the assignment from a current fact");
     assert.equal(store.tasks.listAll().filter((task) => task.assignmentId === assignment.assignmentId).length, 1, "replay does not duplicate the task origin");
@@ -227,8 +233,12 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
     assert.deepEqual({ courses: state.courses.length, assignments: state.assignments.length }, successfulRows);
 
     state = await coordinator.recordMissedCourseFeedback("Also look for the honors seminar.");
-    assert.equal(state.workflowRevision, 2);
+    assert.equal(state.workflowRevision, 1, "a correction is a note and does not mutate the executable workflow");
     assert.deepEqual(state.profile.missedCourseFeedback, ["Also look for the honors seminar."]);
+    const correction = store.notes.list({ scope: "school", subjectId: "primary-school", about: "scan" })
+      .find((entry) => entry.key === "student-corrections");
+    assert.ok(correction);
+    assert.match((await store.notes.read(correction.noteId)).content, /honors seminar/);
 
     const databaseBytes = await readFile(join(root, "studi.sqlite3"));
     assert.equal(databaseBytes.includes(Buffer.from("SECRET_PAGE_HTML")), false, "page text never enters SQLite");
@@ -316,19 +326,6 @@ test("student takeover pauses a running scan without failing it", async () => {
           },
           compact: async () => {},
           abort: async () => { resolvePrompt(); },
-          replace: async () => {},
-          dispose() {},
-        };
-      },
-      async createManagerSession() {
-        return {
-          sessionId: "scripted-manager",
-          sessionPath: "scripted-manager.jsonl",
-          toolNames: [],
-          subscribe() { return () => {}; },
-          prompt: async () => {},
-          compact: async () => {},
-          abort: async () => {},
           replace: async () => {},
           dispose() {},
         };
@@ -469,19 +466,6 @@ class ScriptedScanRuntime {
     };
   }
 
-  async createManagerSession(tools) {
-    return {
-      sessionId: "scripted-manager",
-      sessionPath: "scripted-manager.jsonl",
-      toolNames: tools.map((tool) => tool.name),
-      subscribe() { return () => {}; },
-      prompt: async () => {},
-      compact: async () => {},
-      abort: async () => {},
-      replace: async () => {},
-      dispose() {},
-    };
-  }
 }
 
 function courseId(courseKey) {

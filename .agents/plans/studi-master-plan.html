@@ -169,7 +169,6 @@
     <div class="hero-actions">
       <a class="button primary" href="#packages">Open implementation graph →</a>
       <a class="button" href="studi-interview.html">Read all 85 questions and answers</a>
-      <a class="button" href="../skills/verified-build-loop/SKILL.md">Open build-loop skill</a>
     </div>
   </header>
 
@@ -222,7 +221,7 @@
         <h2>Discard the current app. Keep only decisions and protected infrastructure.</h2>
         <p class="section-lead">P1 is a clean-room implementation inside this repository. The current React dashboard, Electron shell, embedded-browser code, onboarding, Moodle scanner, scheduler, persistence, and scripted task loop are not production foundations. New code must not import, wrap, refactor, or copy those modules.</p>
         <div class="audit">
-          <article class="keep"><h3>What survives</h3><ul><li>The approved product decisions and Q1–Q85 record.</li><li>The approved visual direction: cream paper, hand-drawn dark borders, Shantell Sans headings, Nunito Sans body, and the course-color palette.</li><li>The master plan, implementation dossiers, evidence ledger, and verified-build-loop skill.</li><li>The repository itself, package history, and source-control history.</li><li><code>.openai/hosting.json</code>, <code>worker/index.js</code>, <code>scripts/prepare-sites-build.mjs</code>, and <code>tests/sites-worker.test.mjs</code> stay untouched.</li></ul></article>
+          <article class="keep"><h3>What survives</h3><ul><li>The approved product decisions and Q1–Q85 record.</li><li>The approved visual direction: cream paper, hand-drawn dark borders, Shantell Sans headings, Nunito Sans body, and the course-color palette.</li><li>The master plan, implementation dossiers, and evidence ledger.</li><li>The repository itself, package history, and source-control history.</li><li><code>.openai/hosting.json</code>, <code>worker/index.js</code>, <code>scripts/prepare-sites-build.mjs</code>, and <code>tests/sites-worker.test.mjs</code> stay untouched.</li></ul></article>
           <article class="replace"><h3>What is rebuilt from zero</h3><ul><li>React UI and state projection in <code>desktop/src/</code>.</li><li>Electron main process, preload bridge, window/browser lifecycle, tray, scheduler, and notifications.</li><li>Real Pi session runtime, manager and worker agents, event-sourced task engine, and permission resolver.</li><li>General CDP browser controller and every agent-visible browser tool.</li><li>SQLite and Markdown persistence, Clerk, Convex, PostHog, packaging, recovery, and all test fakes.</li><li>No Moodle-specific production path and no migration of prototype JSON state.</li></ul></article>
         </div>
         <div class="callout" style="margin-top:18px"><strong>Clean-room guardrail:</strong> old app files may be inspected only to identify protected repository constraints or confirm that the new build no longer imports them. They are not behavioral specifications. The approved plan, interview record, and visual direction are the specifications.</div>
@@ -244,7 +243,7 @@
             <div class="node core"><strong>Pi runtime</strong><small>Real AgentSession, custom Studi tools, compaction, events, provider adapter.</small></div>
             <div class="node core"><strong>Browser controller</strong><small>CDP transport over the visible school WebContentsView; snapshots, actions, evidence.</small></div>
             <div class="node core"><strong>Local repository</strong><small>SQLite entities/events; Markdown preferences, memory, workflows, fallback answers.</small></div>
-            <div class="node core"><strong>Local services</strong><small>Scheduler, native notifications, telemetry redactor, encrypted auth token store.</small></div>
+            <div class="node core"><strong>Local services</strong><small>Scheduler, native notifications, typed telemetry collector, encrypted auth token store.</small></div>
           </div>
           <div class="arrow"><span>narrow adapters ↔</span></div>
           <div class="arch-col">
@@ -254,14 +253,14 @@
             <div class="node external"><strong>Model provider</strong><small>Beta provider auth through Pi. Future paid traffic goes through a thin Studi gateway.</small></div>
           </div>
         </div>
-        <div class="boundary">Prohibited boundary crossing: cookies, passwords, auth headers, page HTML, school-browser screenshots/replay, assignment answers, local rules, queues, memory files, and agent session transcripts must not be written to Convex or PostHog. Consented names, emails, school URLs, and course titles may leave the device through PostHog during private beta.</div>
+        <div class="boundary">Prohibited boundary crossing: credentials and session secrets must not be written to Convex, PostHog, diagnostics, or test records. When analytics is enabled, PostHog may receive the user metadata and ordinary product/agent content needed to reconstruct a run, including messages, answers, page context, notes, tool payloads, errors, model usage, and timings. Convex remains limited to its typed product contracts.</div>
         <table>
           <thead><tr><th>Boundary</th><th>Allowed</th><th>Rejected</th><th>Enforcement</th></tr></thead>
           <tbody>
             <tr><td>Renderer → main</td><td>Typed commands with IDs and user intent</td><td>Arbitrary IPC channels, filesystem paths, executable code</td><td>Context isolation, allowlisted preload API, schema validation</td></tr>
             <tr><td>Agent → browser</td><td>Named tools with task/session/tab IDs</td><td>Raw CDP socket, unrestricted OS or shell access</td><td>Custom Pi tools and policy middleware</td></tr>
             <tr><td>School page → app</td><td>Normalized snapshot/evidence</td><td>Node APIs, preload bridge, direct IPC</td><td><code>nodeIntegration:false</code>, sandbox, no preload</td></tr>
-            <tr><td>Local → cloud</td><td>Account ID, entitlement, counters, consented school context, model/cost/duration</td><td>Secrets, answers, page HTML, school-browser replay</td><td>Explicit DTOs + secret-strip tests + outbound allowlist</td></tr>
+            <tr><td>Local → cloud</td><td>Typed product and agent telemetry, user/device context, model/cost/timing, messages, answers, notes, page context, non-secret tool payloads, errors</td><td>Passwords, cookies, auth headers, tokens, OAuth/device codes, provider credentials, secure-storage bytes</td><td>Typed envelopes + credential-canary tests + source-boundary exclusions</td></tr>
           </tbody>
         </table>
       </section>
@@ -281,7 +280,7 @@
             <tr><td>browser profile</td><td>Electron session</td><td><code>persist:studi-school</code></td><td>One profile; passwords/cookies remain Chromium-owned.</td></tr>
             <tr><td>answer fallbacks</td><td>Artifact service</td><td>Markdown per task</td><td>Atomic write; linked from the task after review timeout.</td></tr>
             <tr><td>identity / beta access / credits</td><td>Convex</td><td>Convex tables</td><td>No school references beyond opaque aggregate usage categories.</td></tr>
-            <tr><td>product telemetry</td><td>PostHog</td><td>PostHog</td><td>Clerk identity plus consented personal and school facts; secrets stripped; opt-out capable.</td></tr>
+            <tr><td>product telemetry</td><td>PostHog</td><td>PostHog</td><td>Full typed product and agent events when enabled; credentials excluded at source; opt-out capable.</td></tr>
           </tbody>
         </table>
         <h3 style="margin-top:22px">Initial local schema</h3>
@@ -296,7 +295,7 @@ runs(id, kind, state, started_at, ended_at, failure_code, attempt)
 scan_coverage(id, run_id, target, status, evidence_ref, failure_code)
 schedules(id, kind, expression_json, timezone, next_run_at, enabled)
 agent_links(id, role, pi_session_id, task_id, compacted_at)
-outbox(id, destination, event_type, redacted_payload_json, state, attempts)</pre>
+outbox(id, destination, event_type, payload_json, state, attempts)</pre>
       </section>
 
       <section id="contracts">
@@ -398,7 +397,7 @@ requestTakeover(taskId, reason)</pre><p>Every mutation includes <code>taskId</co
       <section id="packages">
         <span class="kicker">10 · Procedural work-package registry</span>
         <h2>Each package ends in observable evidence.</h2>
-        <p class="section-lead">Open a package for its procedural steps and gates. Before implementation, the verified-build-loop skill expands the next package into a separate dossier and returns it for approval.</p>
+        <p class="section-lead">Open a package for its procedural steps and gates. Before implementation, expand the next package into a separate dossier and return it for approval.</p>
         <div class="filters"><button class="active" data-filter="all">All packages</button><button data-filter="critical">Critical path</button><button data-filter="parallel">Parallel frontier</button><input id="package-search" type="search" placeholder="Search packages, tests, or systems…" /></div>
 
         <details class="package" open data-tags="critical integration baseline">
@@ -517,11 +516,11 @@ requestTakeover(taskId, reason)</pre><p>Every mutation includes <code>taskId</co
 
       <section id="privacy">
         <span class="kicker">12 · Security, privacy, and telemetry</span>
-        <h2>Observe the product, keep secrets and the school page local.</h2>
+        <h2>Observe the full product and agent loop while keeping credentials out.</h2>
         <div class="grid">
-          <article class="card wide coral"><h3>Never leave the device</h3><p>Passwords, cookies, refresh tokens, authorization headers, school page HTML, school-browser replay/screenshots, assignment answers, local rules, memories, workflows, queues, and Pi session transcripts.</p></article>
-          <article class="card wide mint"><h3>Allowed in private beta</h3><p>Clerk user ID, name, email, student name, school URL, course and assignment titles, model, reasoning effort, durations, token counts, estimated cost, error messages after secret stripping, Studi renderer replay, and feedback the user explicitly sends.</p></article>
-          <article class="card full"><h3>Outbound architecture</h3><p>All telemetry and Convex writes pass through typed DTO builders. Builders use field allowlists rather than object spreading. Secrets are stripped; consented personal and school facts are stored. The school <code>WebContentsView</code> never loads PostHog code. Pi prompts and answers remain local.</p></article>
+          <article class="card wide coral"><h3>Never enters telemetry</h3><p>Passwords, cookies, authorization headers, access or refresh tokens, OAuth and device codes, Clerk/Codex/Composio secrets, provider credentials, and secure-storage bytes.</p></article>
+          <article class="card wide mint"><h3>Recorded when analytics is enabled</h3><p>Clerk user metadata, device and school context, messages, prompts, replies, assignment answers, notes used by the agent, page context, non-secret tool arguments/results, UI events, errors and stacks, model, reasoning effort, durations, token counts, estimated cost, and Studi renderer replay.</p></article>
+          <article class="card full"><h3>Outbound architecture</h3><p>One typed agent trace feeds PostHog, the local inspector, diagnostics, and the test harness. Credential-bearing fields are excluded at their source boundary and guarded with secret-canary tests. The school <code>WebContentsView</code> never loads PostHog code; Electron main emits the relevant typed context. Turning analytics off stops new remote events.</p></article>
         </div>
       </section>
 

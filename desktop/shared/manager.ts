@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { AgentTurnResultSchema } from "./browser-agent.js";
 import {
   AssignmentIdSchema,
   CourseIdSchema,
@@ -64,13 +63,8 @@ export const ManagerStateSchema = z.strictObject({
   lease: BrowserWorkerLeaseSchema.nullable(),
 });
 
-export const ManagerTurnResultSchema = AgentTurnResultSchema.extend({
-  state: ManagerStateSchema,
-});
-
 export type ConfirmedPatternMatch = z.infer<typeof ConfirmedPatternMatchSchema>;
 export type ManagerQueueEntry = z.infer<typeof ManagerQueueEntrySchema>;
 export type BrowserWorkerLease = z.infer<typeof BrowserWorkerLeaseSchema>;
 export type ManagerSessionLink = z.infer<typeof ManagerSessionLinkSchema>;
 export type ManagerState = z.infer<typeof ManagerStateSchema>;
-export type ManagerTurnResult = z.infer<typeof ManagerTurnResultSchema>;

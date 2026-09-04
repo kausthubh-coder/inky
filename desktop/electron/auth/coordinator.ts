@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { z } from "zod";
 
-import type { AuthState, AuthUser, FeedbackReceipt } from "../../shared/index.js";
+import type { AuthState, AuthUser, ConnectedAppConnection, ConnectedAppExecution, ConnectedAppsState, ConnectedAppTool, FeedbackReceipt } from "../../shared/index.js";
 import { CloudAccountClient, type CloudAccountResult } from "./cloud.js";
 import { studiCloudConfig } from "./config.js";
 import { openLoopbackCallback } from "./loopback.js";
@@ -141,6 +141,39 @@ export class AuthCoordinator {
   async submitFeedback(message: string): Promise<FeedbackReceipt> {
     if (!this.#tokens || this.#state.status === "offline") throw new Error("Feedback needs an online signed account");
     return this.#cloud.submitFeedback(this.#deviceId, randomUUID(), message);
+  }
+
+  async connectedApps(): Promise<ConnectedAppsState> {
+    this.#requireOnlineApproval();
+    return this.#cloud.connectedApps();
+  }
+
+  async authorizeConnectedApp(toolkit: string): Promise<ConnectedAppConnection> {
+    this.#requireOnlineApproval();
+    return this.#cloud.authorizeConnectedApp(toolkit);
+  }
+
+  async connectedAppConnection(toolkit: string): Promise<ConnectedAppConnection> {
+    this.#requireOnlineApproval();
+    return this.#cloud.connectedAppConnection(toolkit);
+  }
+
+  async connectedAppTools(toolkit: string): Promise<readonly ConnectedAppTool[]> {
+    this.#requireOnlineApproval();
+    const connection = await this.#cloud.connectedAppConnection(toolkit);
+    if (connection.status.toLocaleUpperCase() !== "ACTIVE") return [];
+    return this.#cloud.connectedAppTools(toolkit);
+  }
+
+  async executeConnectedAppTool(toolkit: string, toolSlug: string, arguments_: Record<string, unknown>): Promise<ConnectedAppExecution> {
+    this.#requireOnlineApproval();
+    return this.#cloud.executeConnectedAppTool(toolkit, toolSlug, arguments_);
+  }
+
+  #requireOnlineApproval(): void {
+    if (!this.#tokens || this.#state.status !== "approved") {
+      throw new Error("Connected apps need an online approved Studi account");
+    }
   }
 
   async #performSignIn(): Promise<AuthState> {

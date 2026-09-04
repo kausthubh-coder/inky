@@ -3,6 +3,9 @@ import { type FormEvent, useEffect, useMemo, useState } from "react";
 import {
   classifyAgentRuntimeAttention,
   type AgentReasoningEffort,
+  connectedAppIsActive,
+  type ConnectedAppConnection,
+  type ConnectedAppsState,
   type DiagnosticsExportReceipt,
   type LibraryState,
   type LifecycleState,
@@ -352,12 +355,15 @@ export function SettingsScreen({
   settings,
   onboarding,
   workspace,
+  connectedApps,
+  appConnections,
   telemetry,
   runtime,
   diagnosticsReceipt,
   busy,
   error,
   onSavePreferences,
+  onSelectHomeworkRoot,
   onSaveNotifications,
   onTestNotification,
   onSaveRule,
@@ -365,6 +371,8 @@ export function SettingsScreen({
   onSchedule,
   onSelectAgentRuntime,
   onConnectRuntime,
+  onConnectApp,
+  onRefreshConnectedApp,
   onTelemetry,
   onTelemetryDebug,
   onExportDiagnostics,
@@ -375,12 +383,15 @@ export function SettingsScreen({
   settings: ProductSettingsState | null;
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
+  connectedApps: ConnectedAppsState | null;
+  appConnections: Readonly<Record<string, ConnectedAppConnection | null>>;
   telemetry: TelemetryState | null;
   runtime: RuntimeInfo | null;
   diagnosticsReceipt: DiagnosticsExportReceipt | null;
   busy: string | null;
   error: string | null;
   onSavePreferences: (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all") => void;
+  onSelectHomeworkRoot: () => void;
   onSaveNotifications: (notifications: NotificationPreferences) => void;
   onTestNotification: (kind: NotificationKind) => Promise<NotificationTestReceipt | undefined>;
   onSaveRule: (input: SaveRuleInput) => void;
@@ -388,6 +399,8 @@ export function SettingsScreen({
   onSchedule: (cadence: "manual" | "daily" | "weekly", localTime: string, weekday?: number) => void;
   onSelectAgentRuntime: (modelId: string, reasoningEffort: AgentReasoningEffort) => void;
   onConnectRuntime: () => void;
+  onConnectApp: (toolkit: string) => void;
+  onRefreshConnectedApp: (toolkit: string) => void;
   onTelemetry: (enabled: boolean, replayEnabled: boolean) => void;
   onTelemetryDebug: (minutes: 0 | 30) => void;
   onExportDiagnostics: () => void;
@@ -459,6 +472,37 @@ export function SettingsScreen({
                 <Field label="What Inky may remember"><select value={memory} onChange={(event) => setMemory(event.target.value as typeof memory)}><option value="none">Nothing</option><option value="selected">Things you pick</option><option value="all">Everything saved</option></select></Field>
               </div>
               <button className="button button--yellow" disabled={busy !== null} onClick={() => onSavePreferences(review, handoff, memory)}>Save</button>
+            </PaperCard>
+            <PaperCard tone="mint" className="settings-card">
+              <p className="eyebrow">Connected apps</p>
+              <h2>Tools Inky can use</h2>
+              <p>Connections happen in your browser. Studi never receives the app password or provider token.</p>
+              {!connectedApps && <small>Connected apps need an online Studi account.</small>}
+              {connectedApps && !connectedApps.configured && <small>Connected apps are not configured on this Studi server.</small>}
+              <div className="rules-list">
+                {connectedApps?.toolkits.map(({ toolkit, tools }) => {
+                  const connection = appConnections[toolkit] ?? null;
+                  const active = connectedAppIsActive(connection);
+                  return (
+                    <div key={toolkit} data-connected-app={toolkit}>
+                      <span>
+                        <strong>{connectedAppLabel(toolkit)}</strong>
+                        <small>{active ? "Connected" : connection?.status === "INITIATED" ? "Waiting for browser sign-in" : "Not connected"} · {tools.length} approved action{tools.length === 1 ? "" : "s"}</small>
+                      </span>
+                      <button className="quiet-button" type="button" disabled={busy !== null} onClick={() => active ? onRefreshConnectedApp(toolkit) : connection?.status === "INITIATED" ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>
+                        {active ? "Check" : connection?.status === "INITIATED" ? "I finished" : "Connect"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </PaperCard>
+            <PaperCard tone="sky" className="settings-card">
+              <p className="eyebrow">Homework folder</p>
+              <h2>Files Inky may use</h2>
+              <p>Inky can list, read, and write only inside the folder you choose. Shell commands stay unavailable because Studi does not yet have a proven Windows sandbox.</p>
+              <small data-homework-root>{preferences?.homeworkRoot ?? "No folder selected"}</small>
+              <button className="button button--mint" type="button" disabled={busy !== null} onClick={onSelectHomeworkRoot}>Choose folder</button>
             </PaperCard>
             <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />
           </div>
@@ -546,4 +590,5 @@ export function SettingsScreen({
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
 function courseTone(course: string): number { return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6; }
 function localDateKey(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
+function connectedAppLabel(toolkit: string): string { const labels: Record<string, string> = { github: "GitHub", gmail: "Gmail", notion: "Notion", googledrive: "Google Drive", googledocs: "Google Docs" }; return labels[toolkit] ?? toolkit.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()); }
 function fiveDays(): Array<{ key: string; label: string; date: string }> { const formatter = new Intl.DateTimeFormat(undefined, { weekday: "long" }); const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }); const start = new Date(); start.setHours(0, 0, 0, 0); return Array.from({ length: 5 }, (_, offset) => { const date = new Date(start); date.setDate(start.getDate() + offset); return { key: localDateKey(date), label: offset === 0 ? "Today" : formatter.format(date), date: dateFormatter.format(date) }; }); }

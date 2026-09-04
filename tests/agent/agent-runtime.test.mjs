@@ -26,6 +26,7 @@ const expectedProbeEvents = [
     type: "tool_started",
     toolCallId: "studi-probe-call",
     toolName: "studi_probe",
+    arguments: {},
   },
   {
     schemaVersion: 1,
@@ -33,6 +34,10 @@ const expectedProbeEvents = [
     toolCallId: "studi-probe-call",
     toolName: "studi_probe",
     outcome: "succeeded",
+    result: {
+      content: [{ type: "text", text: "Studi probe ready." }],
+      details: { ready: true },
+    },
   },
   { schemaVersion: 1, type: "text", delta: "Prob" },
   { schemaVersion: 1, type: "text", delta: "e co" },
@@ -84,13 +89,13 @@ test("real Pi session exposes only studi_probe, resumes, and matches the determi
         allEvents.push(event);
       });
       await session.prompt("Run the Studi probe.");
-      assert.deepEqual(firstTurn, expectedProbeEvents);
+      assert.deepEqual(withoutDurations(firstTurn), expectedProbeEvents);
 
       const fake = await new FakeAgentRuntime().createSession();
       const fakeEvents = [];
       fake.subscribe((event) => fakeEvents.push(event));
       await fake.prompt("Run the Studi probe.");
-      assert.deepEqual(fakeEvents, firstTurn);
+      assert.deepEqual(withoutDurations(fakeEvents), withoutDurations(firstTurn));
       fake.dispose();
 
       const sessionPath = session.sessionPath;
@@ -132,6 +137,10 @@ test("real Pi session exposes only studi_probe, resumes, and matches the determi
     assert.equal(existsSync(join(root, "agent", "sessions")), true);
   });
 });
+
+function withoutDurations(events) {
+  return events.map(({ durationMs: _durationMs, ...event }) => event);
+}
 
 test("real Pi abort produces one abort event followed by an aborted terminal event", async () => {
   await withRuntime(
@@ -272,7 +281,7 @@ test("provider failures and every fake operation stay inside the public contract
       { schemaVersion: 1, type: "aborted" },
       { schemaVersion: 1, type: "terminal", outcome: "aborted" },
     ]);
-    assert.deepEqual(events.slice(beforeReplacementPrompt), expectedProbeEvents);
+    assert.deepEqual(withoutDurations(events.slice(beforeReplacementPrompt)), expectedProbeEvents);
     fake.dispose();
   } finally {
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

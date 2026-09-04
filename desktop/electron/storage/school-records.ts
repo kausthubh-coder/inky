@@ -5,10 +5,12 @@ import {
   LinkedSystemSchema,
   SchoolProfileSchema,
   SchoolScanSchema,
+  SchoolScanWorkflowSchema,
   type Course,
   type LinkedSystem,
   type SchoolProfile,
   type SchoolScan,
+  type SchoolScanWorkflow,
 } from "../../shared/index.js";
 import type { StudiSqliteDatabase } from "./database.js";
 import { StorageError, errorMessage } from "./errors.js";
@@ -84,6 +86,41 @@ export class SchoolRepository {
     const profile = parseRow(SchoolProfileSchema, row, "school profile");
     assertColumns("school profile", profile.profileId, { updated_at: row.updated_at }, { updated_at: profile.updatedAt });
     return profile;
+  }
+
+  putWorkflow(value: unknown): SchoolScanWorkflow {
+    const workflow = parseValue(SchoolScanWorkflowSchema, value, "school scan workflow");
+    this.database.handle.prepare(`
+      INSERT INTO school_scan_workflow(workflow_id, school_id, revision, updated_at, record_json)
+      VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(workflow_id) DO UPDATE SET
+        school_id = excluded.school_id,
+        revision = excluded.revision,
+        updated_at = excluded.updated_at,
+        record_json = excluded.record_json
+    `).run(workflow.workflowId, workflow.schoolId, workflow.revision, workflow.updatedAt, recordJson(SchoolScanWorkflowSchema, workflow));
+    return workflow;
+  }
+
+  getWorkflow(): SchoolScanWorkflow | null {
+    const row = this.database.handle.prepare(`
+      SELECT workflow_id, school_id, revision, updated_at, record_json
+      FROM school_scan_workflow WHERE workflow_id = 'school-scan'
+    `).get() as (JsonRow & { workflow_id: string; school_id: string; revision: number; updated_at: string }) | undefined;
+    if (!row) return null;
+    const workflow = parseRow(SchoolScanWorkflowSchema, row, "school scan workflow");
+    assertColumns("school scan workflow", workflow.workflowId, {
+      workflow_id: row.workflow_id,
+      school_id: row.school_id,
+      revision: String(row.revision),
+      updated_at: row.updated_at,
+    }, {
+      workflow_id: workflow.workflowId,
+      school_id: workflow.schoolId,
+      revision: String(workflow.revision),
+      updated_at: workflow.updatedAt,
+    });
+    return workflow;
   }
 
   putScan(value: unknown): SchoolScan {
@@ -282,6 +319,7 @@ function parseScanRow(
 export function validateSchoolRecords(database: StudiSqliteDatabase): void {
   const repository = new SchoolRepository(database);
   repository.getProfile();
+  repository.getWorkflow();
   repository.latestScan();
   const scanRows = database.handle.prepare("SELECT scan_id FROM school_scans").all() as unknown as Array<{ scan_id: string }>;
   for (const row of scanRows) repository.getScan(row.scan_id);

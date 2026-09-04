@@ -23,12 +23,9 @@ test("a pending migration first creates one validated and normally restorable ba
   const database = new DatabaseSync(join(dataRoot, "studi.sqlite3"));
   try {
     database.exec(`
-      DROP TABLE submission_receipts;
-      DROP TABLE notification_intents;
-      DROP TABLE execution_attempts;
-      DROP TABLE assignment_executions;
-      DROP TABLE automation_schedules;
-      DELETE FROM schema_migrations WHERE version = 4;
+      DROP TABLE note_index;
+      DROP TABLE school_scan_workflow;
+      DELETE FROM schema_migrations WHERE version = 6;
     `);
   } finally {
     database.close();
@@ -38,17 +35,17 @@ test("a pending migration first creates one validated and normally restorable ba
     migrationBackup: { directory: backupRoot, appVersion: "0.1.0" },
   });
   assert.deepEqual(migrated.assignments.get(assignment.assignmentId), assignment);
-  assert.equal(migrated.health().schemaVersion, 4);
+  assert.equal(migrated.health().schemaVersion, 6);
   migrated.close();
 
   const backupNames = await readdir(backupRoot);
-  assert.deepEqual(backupNames, ["pre-migration-v3-to-v4-app-0.1.0"]);
+  assert.deepEqual(backupNames, ["pre-migration-v5-to-v6-app-0.1.0"]);
   const backup = join(backupRoot, backupNames[0]);
-  assert.equal((await validateLocalStoreBackup(backup)).schemaVersion, 4);
+  assert.equal((await validateLocalStoreBackup(backup)).schemaVersion, 6);
   assert.deepEqual(JSON.parse(await readFile(join(backup, "backup.json"), "utf8")).migration, {
     appVersion: "0.1.0",
-    fromSchemaVersion: 3,
-    toSchemaVersion: 4,
+    fromSchemaVersion: 5,
+    toSchemaVersion: 6,
   });
 
   const restoredRoot = join(workspace, "restored-data");

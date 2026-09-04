@@ -19,7 +19,7 @@
     "start": "bun run build && electron .",
     "start:fresh": "bun run build && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Start-StudiFresh.ps1",
     "build": "bun run build:electron && vite build",
-    "build:electron": "tsc -p desktop/electron/tsconfig.json && esbuild ./desktop/electron/preload.cts --bundle --platform=node --format=cjs --external:electron --outfile=dist/electron/preload.cjs --sourcemap",
+    "build:electron": "tsc -p desktop/electron/tsconfig.json && bun scripts/copy-agent-packs.mjs && esbuild ./desktop/electron/preload.cts --bundle --platform=node --format=cjs --external:electron --outfile=dist/electron/preload.cjs --sourcemap",
     "build:landing": "bun run --filter landing build",
     "package:win": "bun run build && electron-forge package --platform=win32 --arch=x64",
     "make:win": "bun run build && electron-forge make --platform=win32 --arch=x64",
@@ -33,9 +33,14 @@
     "test:storage": "bun run build:electron && node --test \"tests/storage/*.test.mjs\"",
     "test:foundation": "node --test tests/clean-room-boundary.test.mjs tests/build-shape.test.mjs",
     "preview": "vite preview",
-    "test:electron": "bun run build && node tests/electron-self-test-runner.mjs"
+    "test:electron": "bun run build && node tests/electron-self-test-runner.mjs",
+    "agent:harness": "bun agent-harness/cli.ts",
+    "test:harness": "bun run agent:harness -- run --suite foundation --driver scripted --json && bun run agent:harness -- run --suite routing --driver scripted --json && bun run agent:harness -- run --suite trace --driver scripted --json && bun run agent:harness -- run --suite files --driver scripted --json",
+    "test:composio": "bun scripts/composio-test.ts",
+    "test:all": "bun run typecheck && bun run build && bun run test:contracts && bun run test:agent && bun run test:storage && bun run test:auth && bun run test:telemetry && bun run test:packaging && bun run test:foundation && bun run test:harness && bun run test:electron"
   },
   "dependencies": {
+    "@composio/core": "^0.18.0",
     "@earendil-works/pi-ai": "0.84.4",
     "@earendil-works/pi-coding-agent": "0.84.4",
     "convex": "^1.45.0",
@@ -65,7 +70,8 @@
     "react-dom": "19.2.0",
     "typescript": "^5.9.3",
     "vite": "6.4.2",
-    "wait-on": "^8.0.4"
+    "wait-on": "^8.0.4",
+    "ws": "^8.21.3"
   },
   "allowScripts": {
     "electron@37.10.3": true,

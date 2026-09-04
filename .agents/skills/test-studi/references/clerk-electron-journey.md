@@ -8,12 +8,12 @@ Configure two separate instances of Microsoft's official Playwright MCP:
 
 ```toml
 [mcp_servers.playwright]
-command = "npx"
-args = ["-y", "@playwright/mcp@latest", "--headless", "--isolated"]
+command = "bunx"
+args = ["@playwright/mcp@latest", "--headless", "--isolated"]
 
 [mcp_servers.playwright-electron]
-command = "npx"
-args = ["-y", "@playwright/mcp@latest", "--cdp-endpoint", "http://127.0.0.1:9222"]
+command = "bunx"
+args = ["@playwright/mcp@latest", "--cdp-endpoint", "http://127.0.0.1:9222"]
 ```
 
 The generic `playwright` instance owns an isolated Chromium profile and completes Clerk. `playwright-electron` attaches to Studi's renderer. Keep their pages and observations separate. The local Codex configuration may add an explicit Chromium executable or `--caps vision`; those do not change this ownership model.

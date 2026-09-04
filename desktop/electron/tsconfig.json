@@ -14,5 +14,5 @@
     "skipLibCheck": true,
     "sourceMap": true
   },
-  "include": ["main.ts", "development-url.ts", "diagnostics.ts", "agent/**/*.ts", "auth/**/*.ts", "assignment/**/*.ts", "browser/**/*.ts", "lifecycle/**/*.ts", "manager/**/*.ts", "scan/**/*.ts", "storage/**/*.ts", "telemetry/**/*.ts", "../shared/**/*.ts"]
+  "include": ["main.ts", "development-url.ts", "diagnostics.ts", "agent/**/*.ts", "auth/**/*.ts", "assignment/**/*.ts", "browser/**/*.ts", "lifecycle/**/*.ts", "manager/**/*.ts", "scan/**/*.ts", "storage/**/*.ts", "telemetry/**/*.ts", "../shared/**/*.ts", "../agent-system/**/*.ts"]
 }

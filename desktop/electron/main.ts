@@ -51,6 +51,8 @@ import { buildDiagnosticsSnapshot, writeDiagnosticsSnapshot } from "./diagnostic
 import { AuthCoordinator } from "./auth/coordinator.js";
 import { AuthVault } from "./auth/vault.js";
 import { PiAgentRuntime } from "./agent/runtime.js";
+import { createConnectedAppTools } from "./agent/composio-tools.js";
+import { ConversationCoordinator } from "./agent/conversation-coordinator.js";
 import { OpenAiCodexLoginAttemptOwner } from "./agent/provider-login.js";
 import { AssignmentExecutionCoordinator, type ExecutionNotification } from "./assignment/coordinator.js";
 import { startSelectedAssignment } from "./assignment/start-selected.js";
@@ -74,7 +76,7 @@ const appIconPath = app.isPackaged
 const trayIconPath = app.isPackaged
   ? join(process.resourcesPath, "studi-inky.ico")
   : resolve(moduleDirectory, "..", "..", "assets", "studi-inky.ico");
-const isSelfTest = process.env.STUDI_SELF_TEST === "1";
+const isSelfTest = !app.isPackaged && process.env.STUDI_SELF_TEST === "1";
 const uiScenario = isSelfTest ? process.env.STUDI_UI_SCENARIO : undefined;
 const selfTestDirectory = resolve(
   process.env.STUDI_SELF_TEST_USER_DATA ?? join(tmpdir(), `studi-wp00-self-test-${process.pid}`),
@@ -94,6 +96,8 @@ let deskSlotBounds: SchoolPageBounds | null = null;
 let agentRuntime: PiAgentRuntime | null = null;
 let runtimeLoginAttempt: OpenAiCodexLoginAttemptOwner | null = null;
 let managerCoordinator: ManagerCoordinator | null = null;
+let conversationCoordinator: ConversationCoordinator | null = null;
+let unsubscribeConversationTrace: (() => void) | null = null;
 let visibleBrowserWork: VisibleBrowserWork | null = null;
 let schoolScanCoordinator: SchoolScanCoordinator | null = null;
 let assignmentExecutionCoordinator: AssignmentExecutionCoordinator | null = null;
@@ -118,7 +122,7 @@ const selfTestAuthState: AuthState = {
 interface StorageSelfTestObservation {
   readonly driver: "node:sqlite";
   readonly node: string;
-  readonly schemaVersion: 4;
+  readonly schemaVersion: 6;
   readonly fileBacked: boolean;
   readonly reopened: boolean;
   readonly artifactRoundTrip: boolean;
@@ -141,43 +145,6 @@ interface AgentSelfTestObservation {
     readonly loginMethods: readonly ("api_key" | "oauth")[];
     readonly reason: string;
   };
-}
-
-interface BrowserSelfTestObservation {
-  readonly view: "web-contents-view";
-  readonly source: "visible-school-browser";
-  readonly url: "about:blank";
-  readonly bounded: boolean;
-  readonly revision: number;
-  readonly telemetryIsolated: boolean;
-}
-
-interface OnboardingUiSelfTestObservation {
-  readonly fableConversation: boolean;
-  readonly browserHandoff: boolean;
-  readonly scanAction: boolean;
-  readonly passwordFieldCount: number;
-}
-
-interface UiQualitySelfTestObservation {
-  readonly mainLandmarkCount: number;
-  readonly interactiveCount: number;
-  readonly focusMoved: true;
-}
-
-interface LifecycleSelfTestObservation {
-  readonly singleInstanceLock: true;
-  readonly closeHides: true;
-  readonly trayOpenHandled: true;
-}
-
-interface NotificationSelfTestObservation {
-  readonly persistedWhenMuted: true;
-  readonly mutedShown: false;
-  readonly mutedDelivered: false;
-  readonly enabledShown: boolean;
-  readonly enabledDelivered: boolean;
-  readonly sound: "inky_nudge";
 }
 
 const ipcHandlers: StudiIpcHandlers = {
@@ -233,6 +200,53 @@ const ipcHandlers: StudiIpcHandlers = {
     requireTelemetryService().capture("studi_feedback_sent", { channel: "beta_gate" });
     return receipt;
   },
+  getConnectedApps: async () => {
+    if (isSelfTest) {
+      return {
+        configured: true,
+        toolkits: [{
+          toolkit: "github",
+          version: "20260902_00",
+          tools: ["GITHUB_LIST_REPOSITORIES_FOR_THE_AUTHENTICATED_USER"],
+        }],
+      };
+    }
+    return requireAuthCoordinator().connectedApps();
+  },
+  connectApp: async ({ toolkit }) => {
+    if (isSelfTest) {
+      return { toolkit, sessionId: "self-test", connectedAccountId: null, status: "INITIATED", redirectUrl: null };
+    }
+    const startedAt = Date.now();
+    const connection = await requireAuthCoordinator().authorizeConnectedApp(toolkit);
+    if (!connection.redirectUrl) throw new Error(`${toolkit} did not return a connection link`);
+    const redirect = new URL(connection.redirectUrl);
+    if (redirect.protocol !== "https:") throw new Error(`${toolkit} returned an unsafe connection link`);
+    await shell.openExternal(redirect.href);
+    requireTelemetryService().capture("studi_connected_app", {
+      toolkit,
+      operation: "connect",
+      status: connection.status,
+      ...(connection.connectedAccountId ? { connected_account_id: connection.connectedAccountId } : {}),
+      duration_ms: Date.now() - startedAt,
+    });
+    return connection;
+  },
+  refreshConnectedApp: async ({ toolkit }) => {
+    if (isSelfTest) {
+      return { toolkit, sessionId: "self-test", connectedAccountId: null, status: "DISCONNECTED", redirectUrl: null };
+    }
+    const startedAt = Date.now();
+    const connection = await requireAuthCoordinator().connectedAppConnection(toolkit);
+    requireTelemetryService().capture("studi_connected_app", {
+      toolkit,
+      operation: "refresh",
+      status: connection.status,
+      ...(connection.connectedAccountId ? { connected_account_id: connection.connectedAccountId } : {}),
+      duration_ms: Date.now() - startedAt,
+    });
+    return connection;
+  },
   getWorkspaceState: () => readWorkspaceState(),
   navigateBrowser: async ({ url }) => {
     await requireBrowserController().navigate(url);
@@ -254,26 +268,26 @@ const ipcHandlers: StudiIpcHandlers = {
     await persistAgentRuntimeChoice(modelId, reasoningEffort);
     requireTelemetryService().capture("studi_model_selected", { model: modelId, reasoning_effort: reasoningEffort });
     requireTelemetryService().setPerson({ selected_model: modelId, selected_reasoning: reasoningEffort });
-    await requireManagerCoordinator().replaceManagerSession();
+    await requireConversationCoordinator().replaceSessions();
     return readWorkspaceState();
   },
   getManagerState: () => requireManagerCoordinator().state(),
-  runManager: async ({ prompt, memoryArtifactIds }) => {
+  send: async ({ target, text }) => {
     const provider = await requireAgentRuntime().getProviderStatus("openai-codex");
     const attention = classifyAgentRuntimeAttention(provider);
     if (attention === "usage") {
       throw new Error("ChatGPT usage ran out. Wait for more usage or connect another ChatGPT, then try again.");
     }
     if (attention === "needs_login") {
-      throw new Error("Codex needs another ChatGPT login before the work manager can run.");
+      throw new Error("Codex needs another ChatGPT login before Inky can answer.");
     }
     if (provider.state !== "ready") {
-      throw new Error("Connect the Codex subscription before starting the work manager");
+      throw new Error("Connect the Codex subscription before asking Inky");
     }
-    const result = await requireManagerCoordinator().runManagerTurn(prompt, memoryArtifactIds);
-    captureQueueTransition("manager_turn", requireAppKernel().state());
+    const result = await requireConversationCoordinator().send(target, text);
     return result;
   },
+  selectAssignment: ({ assignmentId }) => requireConversationCoordinator().selectAssignment(assignmentId),
   getSchoolOnboardingState: () => requireSchoolScanCoordinator().state(),
   saveSchoolProfile: async (input) => {
     const state = await requireSchoolScanCoordinator().saveProfile(input);
@@ -367,6 +381,19 @@ const ipcHandlers: StudiIpcHandlers = {
     });
     requireAssignmentExecutionCoordinator().configureReviewHandoff(preferences.reviewMinutes, preferences.handoffMinutes);
     return preferences;
+  },
+  selectHomeworkRoot: async () => {
+    const current = await requireLocalStore().productPreferences.get();
+    const owner = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+    const result = owner
+      ? await dialog.showOpenDialog(owner, { title: "Choose your homework folder", properties: ["openDirectory", "createDirectory"] })
+      : await dialog.showOpenDialog({ title: "Choose your homework folder", properties: ["openDirectory", "createDirectory"] });
+    if (result.canceled || !result.filePaths[0]) return current;
+    return requireLocalStore().productPreferences.put({
+      ...current,
+      homeworkRoot: resolve(result.filePaths[0]),
+      updatedAt: new Date().toISOString(),
+    });
   },
   saveNotificationPreferences: async (input) => {
     const current = await requireLocalStore().productPreferences.get();
@@ -522,7 +549,11 @@ function createWindow(): BrowserWindow {
 
   if (isSelfTest) {
     window.webContents.once("did-finish-load", () => {
-      void runSelfTest(window);
+      window.show();
+      process.stdout.write(`STUDI_SELF_TEST_READY ${JSON.stringify({
+        storage: storageSelfTestObservation,
+        agent: agentSelfTestObservation,
+      })}\n`);
     });
     window.webContents.on(
       "did-fail-load",
@@ -1076,7 +1107,7 @@ function seedProductUiScenario(store: LocalStore, scenario: "partial-dashboard" 
   if (scenario === "desk-handoff") {
     transition("working", 2, "Visible browser worker started");
     transition("needs_user", 3, "The linked homework system needs the student to sign in");
-    store.lifecycle.putExecution({ schemaVersion: STUDI_SCHEMA_VERSION, taskId, assignmentId: "assignment-problems", phase: "needs_user", taskBudget: { maxAgentTurns: 1, maxRecoveryAttempts: 2 }, attemptCount: 1, returnPredicate: "The linked homework page shows the signed-in student account.", lastError: "Please sign in to the linked homework system in the visible browser.", updatedAt: "2026-09-01T14:00:03.000Z" });
+    store.lifecycle.putExecution({ schemaVersion: STUDI_SCHEMA_VERSION, taskId, assignmentId: "assignment-problems", phase: "needs_user", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 1, attemptCount: 1, returnPredicate: "The linked homework page shows the signed-in student account.", lastError: "Please sign in to the linked homework system in the visible browser.", updatedAt: "2026-09-01T14:00:03.000Z" });
     store.lifecycle.addAttempt({ schemaVersion: STUDI_SCHEMA_VERSION, taskId, ordinal: 1, plan: "Open the linked homework page from the verified assignment.", result: "The page required a separate student sign-in.", evidence: { revision: 3, url: `${source}/assignment-problems`, title: "Linked homework sign-in", capturedAt: "2026-09-01T14:00:02.000Z", summary: "Sign-in page visible; no school credentials were read." }, recordedAt: "2026-09-01T14:00:02.000Z" });
   }
 }
@@ -1127,7 +1158,7 @@ function isSuccessfulStorageObservation(value: unknown): value is StorageSelfTes
   return (
     record.driver === "node:sqlite" &&
     record.node === process.versions.node &&
-    record.schemaVersion === 4 &&
+    record.schemaVersion === 6 &&
     record.fileBacked === true &&
     record.reopened === true &&
     record.artifactRoundTrip === true &&
@@ -1198,7 +1229,7 @@ async function initializeStorage(): Promise<void> {
     fileBacked: localStore.databasePath !== ":memory:" && existsSync(localStore.databasePath),
     reopened: reopened?.assignmentId === assignment.assignmentId,
     artifactRoundTrip: reopenedArtifact?.content === artifact.content,
-    backupValidated: backup.schemaVersion === 4,
+    backupValidated: backup.schemaVersion === 6,
     backupArtifactCount: backup.artifactCount,
   };
 }
@@ -1292,6 +1323,12 @@ async function initializeDesktopAgent(): Promise<void> {
       },
     },
   );
+  conversationCoordinator = new ConversationCoordinator(
+    requireLocalStore(),
+    agentRuntime,
+    managerCoordinator,
+  );
+  unsubscribeConversationTrace = requireTelemetryService().subscribeToTrace(conversationCoordinator.trace);
   visibleBrowserWork = new VisibleBrowserWork(requireLocalStore());
   schoolScanCoordinator = new SchoolScanCoordinator(
     requireLocalStore(),
@@ -1325,6 +1362,10 @@ function disposeProtectedRuntime(): void {
   assignmentExecutionCoordinator = null;
   schoolScanCoordinator?.dispose();
   schoolScanCoordinator = null;
+  unsubscribeConversationTrace?.();
+  unsubscribeConversationTrace = null;
+  conversationCoordinator?.dispose();
+  conversationCoordinator = null;
   managerCoordinator?.dispose();
   managerCoordinator = null;
   visibleBrowserWork = null;
@@ -1346,6 +1387,7 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
     requireBrowserController(),
     {
       browserWork: requireVisibleBrowserWork(),
+      connectedAppTools: () => isSelfTest ? Promise.resolve([]) : createConnectedAppTools(requireAuthCoordinator()),
       reviewWindowMs: productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
       notify: async (intent) => {
@@ -1357,6 +1399,9 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
         pendingNotifications.push(intent);
       },
     },
+  );
+  requireConversationCoordinator().setAssignmentWorkRunner((taskId, prompt, observe) =>
+    requireAssignmentExecutionCoordinator().continueTurn(taskId, prompt, observe),
   );
   appKernel = new AppKernel(
     requireLocalStore(),
@@ -1622,6 +1667,50 @@ function requireManagerCoordinator(): ManagerCoordinator {
     throw new Error("The Studi manager is not ready");
   }
   return managerCoordinator;
+}
+
+interface BrowserSelfTestObservation {
+  readonly view: "web-contents-view";
+  readonly source: "visible-school-browser";
+  readonly url: "about:blank";
+  readonly bounded: boolean;
+  readonly revision: number;
+  readonly telemetryIsolated: boolean;
+}
+
+interface OnboardingUiSelfTestObservation {
+  readonly fableConversation: boolean;
+  readonly browserHandoff: boolean;
+  readonly scanAction: boolean;
+  readonly passwordFieldCount: number;
+}
+
+interface UiQualitySelfTestObservation {
+  readonly mainLandmarkCount: number;
+  readonly interactiveCount: number;
+  readonly focusMoved: true;
+}
+
+interface LifecycleSelfTestObservation {
+  readonly singleInstanceLock: true;
+  readonly closeHides: true;
+  readonly trayOpenHandled: true;
+}
+
+interface NotificationSelfTestObservation {
+  readonly persistedWhenMuted: true;
+  readonly mutedShown: false;
+  readonly mutedDelivered: false;
+  readonly enabledShown: boolean;
+  readonly enabledDelivered: boolean;
+  readonly sound: "inky_nudge";
+}
+
+function requireConversationCoordinator(): ConversationCoordinator {
+  if (!conversationCoordinator) {
+    throw new Error("Inky conversations are not ready");
+  }
+  return conversationCoordinator;
 }
 
 function requireVisibleBrowserWork(): VisibleBrowserWork {

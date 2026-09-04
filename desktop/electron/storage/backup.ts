@@ -14,6 +14,7 @@ import { backup, DatabaseSync } from "node:sqlite";
 import { z } from "zod";
 
 import { ArtifactStore, assertPlainArtifactTree } from "./artifacts.js";
+import { NoteStore } from "./notes.js";
 import {
   STORAGE_SCHEMA_VERSION,
   StudiSqliteDatabase,
@@ -28,12 +29,14 @@ import { validateLifecycleRecords } from "./lifecycle-records.js";
 const BACKUP_MANIFEST = "backup.json";
 const DATABASE_FILE = "studi.sqlite3";
 const ARTIFACT_DIRECTORY = "artifacts";
+const NOTE_DIRECTORY = "notes";
 
 const BackupManifestSchema = z.strictObject({
   format: z.literal("studi-local-backup"),
   schemaVersion: z.literal(STORAGE_SCHEMA_VERSION),
   createdAt: z.iso.datetime({ offset: false, local: false }),
   artifactCount: z.number().int().nonnegative(),
+  noteCount: z.number().int().nonnegative(),
   migration: z.strictObject({
     appVersion: z.string().min(1).max(64),
     fromSchemaVersion: z.number().int().min(1).max(STORAGE_SCHEMA_VERSION - 1),
@@ -53,12 +56,14 @@ export interface BackupValidation {
   readonly databasePath: string;
   readonly schemaVersion: typeof STORAGE_SCHEMA_VERSION;
   readonly artifactCount: number;
+  readonly noteCount: number;
 }
 
 interface BackupSource {
   readonly rootDirectory: string;
   readonly database: StudiSqliteDatabase;
   readonly artifacts: ArtifactStore;
+  readonly notes: NoteStore;
 }
 
 export interface MigrationBackupOptions {
@@ -121,6 +126,7 @@ export async function createMigrationBackupIfNeeded(
       source.close();
     }
     await copyArtifacts(join(sourceRoot, ARTIFACT_DIRECTORY), join(stage, ARTIFACT_DIRECTORY));
+    await copyOwnedTree(join(sourceRoot, NOTE_DIRECTORY), join(stage, NOTE_DIRECTORY), "Note");
     const migrated = new StudiSqliteDatabase(join(stage, DATABASE_FILE));
     migrated.close();
     const stagedData = await validateDataRoot(stage);
@@ -129,6 +135,7 @@ export async function createMigrationBackupIfNeeded(
       schemaVersion: STORAGE_SCHEMA_VERSION,
       createdAt: new Date().toISOString(),
       artifactCount: stagedData.artifactCount,
+      noteCount: stagedData.noteCount,
       migration: {
         appVersion: options.appVersion,
         fromSchemaVersion,
@@ -171,12 +178,14 @@ export async function createLocalStoreBackup(
   try {
     await backup(source.database.handle, join(stage, DATABASE_FILE));
     await copyArtifacts(source.artifacts.rootDirectory, join(stage, ARTIFACT_DIRECTORY));
+    await copyOwnedTree(source.notes.rootDirectory, join(stage, NOTE_DIRECTORY), "Note");
     const stagedData = await validateDataRoot(stage);
     const manifest = BackupManifestSchema.parse({
       format: "studi-local-backup",
       schemaVersion: STORAGE_SCHEMA_VERSION,
       createdAt: new Date().toISOString(),
       artifactCount: stagedData.artifactCount,
+      noteCount: stagedData.noteCount,
     });
     await writeSyncedFile(join(stage, BACKUP_MANIFEST), `${JSON.stringify(manifest, null, 2)}\n`);
     const validation = await validateLocalStoreBackup(stage);
@@ -209,6 +218,11 @@ export async function validateLocalStoreBackup(
       throw new Error(
         `Artifact count mismatch: manifest ${manifest.artifactCount}, actual ${validation.artifactCount}`,
       );
+    }
+    if (manifest.noteCount !== validation.noteCount) {
+      throw new StorageError("backup_invalid", `Note count mismatch: manifest ${manifest.noteCount}, actual ${validation.noteCount}`, {
+        backupDirectory,
+      });
     }
     return validation;
   } catch (error) {
@@ -270,6 +284,7 @@ export async function restoreLocalStoreBackup(
       join(backupDirectory, ARTIFACT_DIRECTORY),
       join(paths.next, ARTIFACT_DIRECTORY),
     );
+    await copyOwnedTree(join(backupDirectory, NOTE_DIRECTORY), join(paths.next, NOTE_DIRECTORY), "Note");
     await validateDataRoot(paths.next);
     options.failureInjector?.("restore_after_staging_population");
 
@@ -433,10 +448,13 @@ async function validateDataRoot(root: string): Promise<BackupValidation> {
     validateLifecycleRecords(database);
     const artifacts = new ArtifactStore(join(root, ARTIFACT_DIRECTORY), database);
     const artifactCount = await artifacts.validateAll();
+    const notes = new NoteStore(join(root, NOTE_DIRECTORY), database, { reconcile: false });
+    const noteCount = notes.validateAll();
     return {
       databasePath,
       schemaVersion: health.schemaVersion,
       artifactCount,
+      noteCount,
     };
   } finally {
     database.close();
@@ -456,6 +474,25 @@ async function copyArtifacts(source: string, destination: string): Promise<void>
           throw new StorageError("backup_invalid", "Artifact copy refused a symbolic link", {
             source: sourcePath,
           });
+        }
+        return true;
+      },
+    });
+  } else {
+    await mkdir(destination, { recursive: true });
+  }
+}
+
+async function copyOwnedTree(source: string, destination: string, label: string): Promise<void> {
+  if (await pathExists(source)) {
+    await cp(source, destination, {
+      recursive: true,
+      errorOnExist: true,
+      force: false,
+      filter: async (sourcePath) => {
+        const metadata = await lstat(sourcePath);
+        if (metadata.isSymbolicLink()) {
+          throw new StorageError("backup_invalid", `${label} copy refused a symbolic link`, { source: sourcePath });
         }
         return true;
       },

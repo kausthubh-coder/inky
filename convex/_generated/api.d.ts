@@ -9,6 +9,9 @@
  */
 
 import type * as account from "../account.js";
+import type * as composio from "../composio.js";
+import type * as composioAccess from "../composioAccess.js";
+import type * as composioPolicy from "../composioPolicy.js";
 import type * as feedback from "../feedback.js";
 import type * as identity from "../identity.js";
 import type * as usage from "../usage.js";
@@ -22,6 +25,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   account: typeof account;
+  composio: typeof composio;
+  composioAccess: typeof composioAccess;
+  composioPolicy: typeof composioPolicy;
   feedback: typeof feedback;
   identity: typeof identity;
   usage: typeof usage;

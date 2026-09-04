@@ -29,7 +29,7 @@ test("fresh migration, known repository queries, and reopen keep validated recor
     const store = await openLocalStore(root);
     assert.deepEqual(store.health(), {
       status: "ok",
-      schemaVersion: 4,
+      schemaVersion: 6,
       databasePath: join(root, "studi.sqlite3"),
       integrity: "ok",
     });
@@ -61,7 +61,7 @@ test("fresh migration, known repository queries, and reopen keep validated recor
     try {
       assert.deepEqual(
         raw.prepare("SELECT version FROM schema_migrations").all().map((row) => ({ ...row })),
-        [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }],
+        [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }],
       );
       raw.prepare("UPDATE assignments SET record_json = ? WHERE assignment_id = ?").run(
         JSON.stringify({ schemaVersion: 1 }),
@@ -111,7 +111,7 @@ test("migration rollback, too-new schema, and corruption fail closed", async () 
     const databasePath = join(root, "studi.sqlite3");
     const tooNew = new DatabaseSync(databasePath);
     tooNew.exec("CREATE TABLE schema_migrations(version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL)");
-    tooNew.prepare("INSERT INTO schema_migrations VALUES (?, ?)").run(5, timestamp);
+    tooNew.prepare("INSERT INTO schema_migrations VALUES (?, ?)").run(7, timestamp);
     tooNew.close();
     const before = await readFile(databasePath);
     await assert.rejects(openLocalStore(root), (error) => error.code === "schema_too_new");
@@ -251,7 +251,7 @@ test("backup validates before restore and a hard interruption recovers on the ne
     store.assignments.put(assignment);
     await store.artifacts.write(preferenceArtifact("Backed up preference"));
     const backupResult = await store.backup(backupDirectory);
-    assert.equal(backupResult.schemaVersion, 4);
+    assert.equal(backupResult.schemaVersion, 6);
     assert.equal(backupResult.artifactCount, 1);
     assert.deepEqual(await validateLocalStoreBackup(backupDirectory), backupResult);
 

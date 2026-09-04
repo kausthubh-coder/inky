@@ -1,0 +1,12 @@
+school:
+  label: Studi fixture school
+  entryUrl: http://127.0.0.1:43119/
+courses:
+  - id: course-1
+    title: CSC 316
+assignments:
+  - id: assignment-1
+    courseId: course-1
+    title: Huffman coding project
+    dueAt: 2026-09-10T21:00:00.000Z
+

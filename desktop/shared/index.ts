@@ -1,7 +1,9 @@
 export * from "./assignment.js";
 export * from "./agent-runtime.js";
+export * from "./agent-job.js";
 export * from "./auth.js";
 export * from "./browser-agent.js";
+export * from "./composio.js";
 export * from "./inky.js";
 export * from "./diagnostics.js";
 export * from "./artifact.js";
@@ -11,6 +13,7 @@ export * from "./ids.js";
 export * from "./ipc.js";
 export * from "./lifecycle.js";
 export * from "./manager.js";
+export * from "./note.js";
 export * from "./permission.js";
 export * from "./product.js";
 export * from "./run.js";

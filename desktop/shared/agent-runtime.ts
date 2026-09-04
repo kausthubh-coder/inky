@@ -13,6 +13,7 @@ const AgentToolStartedEventSchema = z.strictObject({
   type: z.literal("tool_started"),
   toolCallId: z.string().min(1),
   toolName: z.string().min(1),
+  arguments: z.unknown().optional(),
 });
 
 const AgentToolFinishedEventSchema = z.strictObject({
@@ -21,6 +22,8 @@ const AgentToolFinishedEventSchema = z.strictObject({
   toolCallId: z.string().min(1),
   toolName: z.string().min(1),
   outcome: z.enum(["succeeded", "failed"]),
+  result: z.unknown().optional(),
+  durationMs: z.number().int().nonnegative().optional(),
 });
 
 const AgentRetryStartedEventSchema = z.strictObject({

@@ -16,6 +16,7 @@ const defaults: ProductPreferences = ProductPreferencesSchema.parse({
   reviewMinutes: 15,
   handoffMinutes: 30,
   memoryVisibility: "selected",
+  homeworkRoot: null,
   agentModelId: DEFAULT_AGENT_MODEL_ID,
   agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT,
   notifications: DEFAULT_NOTIFICATION_PREFERENCES,

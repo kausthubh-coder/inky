@@ -5,7 +5,13 @@ import { SchemaVersionSchema, STUDI_SCHEMA_VERSION } from "./schema-version.js";
 import { AuthStateSchema, FeedbackReceiptSchema } from "./auth.js";
 import { DiagnosticsExportReceiptSchema } from "./diagnostics.js";
 import { StudiWorkspaceStateSchema } from "./browser-agent.js";
-import { ManagerStateSchema, ManagerTurnResultSchema } from "./manager.js";
+import { ConnectedAppConnectionSchema, ConnectedAppsStateSchema } from "./composio.js";
+import { ManagerStateSchema } from "./manager.js";
+import {
+  AddressedSendResultSchema,
+  ConversationTargetSchema,
+  SelectedConversationSchema,
+} from "./agent-job.js";
 import { LifecycleStateSchema, type NotificationIntent } from "./lifecycle.js";
 import { ArtifactDocumentSchema } from "./artifact.js";
 import {
@@ -47,6 +53,12 @@ const retryEntitlementMethod = "retryEntitlement" as const;
 const retryEntitlementChannel = "studi:retry-entitlement" as const;
 const submitFeedbackMethod = "submitFeedback" as const;
 const submitFeedbackChannel = "studi:submit-feedback" as const;
+const getConnectedAppsMethod = "getConnectedApps" as const;
+const getConnectedAppsChannel = "studi:connected-apps" as const;
+const connectAppMethod = "connectApp" as const;
+const connectAppChannel = "studi:connect-app" as const;
+const refreshConnectedAppMethod = "refreshConnectedApp" as const;
+const refreshConnectedAppChannel = "studi:refresh-connected-app" as const;
 const workspaceStateMethod = "getWorkspaceState" as const;
 const workspaceStateChannel = "studi:workspace-state" as const;
 const navigateBrowserMethod = "navigateBrowser" as const;
@@ -59,8 +71,10 @@ const selectAgentModelMethod = "selectAgentModel" as const;
 const selectAgentModelChannel = "studi:select-agent-model" as const;
 const getManagerStateMethod = "getManagerState" as const;
 const getManagerStateChannel = "studi:manager-state" as const;
-const runManagerMethod = "runManager" as const;
-const runManagerChannel = "studi:run-manager" as const;
+const sendMethod = "send" as const;
+const sendChannel = "studi:send" as const;
+const selectAssignmentMethod = "selectAssignment" as const;
+const selectAssignmentChannel = "studi:select-assignment" as const;
 const getSchoolOnboardingStateMethod = "getSchoolOnboardingState" as const;
 const getSchoolOnboardingStateChannel = "studi:school-onboarding-state" as const;
 const saveSchoolProfileMethod = "saveSchoolProfile" as const;
@@ -91,6 +105,8 @@ const getProductSettingsMethod = "getProductSettings" as const;
 const getProductSettingsChannel = "studi:product-settings" as const;
 const saveProductPreferencesMethod = "saveProductPreferences" as const;
 const saveProductPreferencesChannel = "studi:save-product-preferences" as const;
+const selectHomeworkRootMethod = "selectHomeworkRoot" as const;
+const selectHomeworkRootChannel = "studi:select-homework-root" as const;
 const saveNotificationPreferencesMethod = "saveNotificationPreferences" as const;
 const saveNotificationPreferencesChannel = "studi:save-notification-preferences" as const;
 const testNotificationMethod = "testNotification" as const;
@@ -146,6 +162,9 @@ const SignInManifestEntrySchema = z.strictObject({ method: z.literal(signInMetho
 const SignOutManifestEntrySchema = z.strictObject({ method: z.literal(signOutMethod), channel: z.literal(signOutChannel) });
 const RetryEntitlementManifestEntrySchema = z.strictObject({ method: z.literal(retryEntitlementMethod), channel: z.literal(retryEntitlementChannel) });
 const SubmitFeedbackManifestEntrySchema = z.strictObject({ method: z.literal(submitFeedbackMethod), channel: z.literal(submitFeedbackChannel) });
+const GetConnectedAppsManifestEntrySchema = z.strictObject({ method: z.literal(getConnectedAppsMethod), channel: z.literal(getConnectedAppsChannel) });
+const ConnectAppManifestEntrySchema = z.strictObject({ method: z.literal(connectAppMethod), channel: z.literal(connectAppChannel) });
+const RefreshConnectedAppManifestEntrySchema = z.strictObject({ method: z.literal(refreshConnectedAppMethod), channel: z.literal(refreshConnectedAppChannel) });
 const WorkspaceStateManifestEntrySchema = z.strictObject({
   method: z.literal(workspaceStateMethod),
   channel: z.literal(workspaceStateChannel),
@@ -170,9 +189,13 @@ const GetManagerStateManifestEntrySchema = z.strictObject({
   method: z.literal(getManagerStateMethod),
   channel: z.literal(getManagerStateChannel),
 });
-const RunManagerManifestEntrySchema = z.strictObject({
-  method: z.literal(runManagerMethod),
-  channel: z.literal(runManagerChannel),
+const SendManifestEntrySchema = z.strictObject({
+  method: z.literal(sendMethod),
+  channel: z.literal(sendChannel),
+});
+const SelectAssignmentManifestEntrySchema = z.strictObject({
+  method: z.literal(selectAssignmentMethod),
+  channel: z.literal(selectAssignmentChannel),
 });
 const GetSchoolOnboardingStateManifestEntrySchema = z.strictObject({
   method: z.literal(getSchoolOnboardingStateMethod),
@@ -207,6 +230,7 @@ const VerifyStudentSubmissionManifestEntrySchema = z.strictObject({ method: z.li
 const OpenAnswerArtifactManifestEntrySchema = z.strictObject({ method: z.literal(openAnswerArtifactMethod), channel: z.literal(openAnswerArtifactChannel) });
 const GetProductSettingsManifestEntrySchema = z.strictObject({ method: z.literal(getProductSettingsMethod), channel: z.literal(getProductSettingsChannel) });
 const SaveProductPreferencesManifestEntrySchema = z.strictObject({ method: z.literal(saveProductPreferencesMethod), channel: z.literal(saveProductPreferencesChannel) });
+const SelectHomeworkRootManifestEntrySchema = z.strictObject({ method: z.literal(selectHomeworkRootMethod), channel: z.literal(selectHomeworkRootChannel) });
 const SaveNotificationPreferencesManifestEntrySchema = z.strictObject({ method: z.literal(saveNotificationPreferencesMethod), channel: z.literal(saveNotificationPreferencesChannel) });
 const TestNotificationManifestEntrySchema = z.strictObject({ method: z.literal(testNotificationMethod), channel: z.literal(testNotificationChannel) });
 const SavePermissionRuleManifestEntrySchema = z.strictObject({ method: z.literal(savePermissionRuleMethod), channel: z.literal(savePermissionRuleChannel) });
@@ -226,7 +250,7 @@ const ExportDiagnosticsManifestEntrySchema = z.strictObject({ method: z.literal(
 
 export const ContractManifestSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
-  contractVersion: z.literal("11"),
+  contractVersion: z.literal("14"),
   ipcMethods: z.tuple([
     RuntimeInfoManifestEntrySchema,
     ContractManifestEntrySchema,
@@ -235,13 +259,17 @@ export const ContractManifestSchema = z.strictObject({
     SignOutManifestEntrySchema,
     RetryEntitlementManifestEntrySchema,
     SubmitFeedbackManifestEntrySchema,
+    GetConnectedAppsManifestEntrySchema,
+    ConnectAppManifestEntrySchema,
+    RefreshConnectedAppManifestEntrySchema,
     WorkspaceStateManifestEntrySchema,
     NavigateBrowserManifestEntrySchema,
     LoginOpenAiCodexManifestEntrySchema,
     CancelOpenAiCodexLoginManifestEntrySchema,
     SelectAgentModelManifestEntrySchema,
     GetManagerStateManifestEntrySchema,
-    RunManagerManifestEntrySchema,
+    SendManifestEntrySchema,
+    SelectAssignmentManifestEntrySchema,
     GetSchoolOnboardingStateManifestEntrySchema,
     SaveSchoolProfileManifestEntrySchema,
     StartSchoolScanManifestEntrySchema,
@@ -257,6 +285,7 @@ export const ContractManifestSchema = z.strictObject({
     OpenAnswerArtifactManifestEntrySchema,
     GetProductSettingsManifestEntrySchema,
     SaveProductPreferencesManifestEntrySchema,
+    SelectHomeworkRootManifestEntrySchema,
     SaveNotificationPreferencesManifestEntrySchema,
     TestNotificationManifestEntrySchema,
     SavePermissionRuleManifestEntrySchema,
@@ -352,6 +381,21 @@ export const studiIpcRegistry = Object.freeze({
     requestSchema: z.strictObject({ message: z.string().trim().min(1).max(1_000) }),
     resultSchema: FeedbackReceiptSchema,
   }),
+  [getConnectedAppsMethod]: Object.freeze({
+    channel: getConnectedAppsChannel,
+    requestSchema: z.undefined(),
+    resultSchema: ConnectedAppsStateSchema,
+  }),
+  [connectAppMethod]: Object.freeze({
+    channel: connectAppChannel,
+    requestSchema: z.strictObject({ toolkit: z.string().trim().min(1).max(128) }),
+    resultSchema: ConnectedAppConnectionSchema,
+  }),
+  [refreshConnectedAppMethod]: Object.freeze({
+    channel: refreshConnectedAppChannel,
+    requestSchema: z.strictObject({ toolkit: z.string().trim().min(1).max(128) }),
+    resultSchema: ConnectedAppConnectionSchema,
+  }),
   [workspaceStateMethod]: Object.freeze({
     channel: workspaceStateChannel,
     requestSchema: z.undefined(),
@@ -385,13 +429,18 @@ export const studiIpcRegistry = Object.freeze({
     requestSchema: z.undefined(),
     resultSchema: ManagerStateSchema,
   }),
-  [runManagerMethod]: Object.freeze({
-    channel: runManagerChannel,
+  [sendMethod]: Object.freeze({
+    channel: sendChannel,
     requestSchema: z.strictObject({
-      prompt: z.string().trim().min(1).max(20_000),
-      memoryArtifactIds: z.array(z.string().min(1).max(128)).max(20),
+      target: ConversationTargetSchema,
+      text: z.string().trim().min(1).max(100_000),
     }),
-    resultSchema: ManagerTurnResultSchema,
+    resultSchema: AddressedSendResultSchema,
+  }),
+  [selectAssignmentMethod]: Object.freeze({
+    channel: selectAssignmentChannel,
+    requestSchema: z.strictObject({ assignmentId: z.string().trim().min(1).max(256).nullable() }),
+    resultSchema: SelectedConversationSchema,
   }),
   [getSchoolOnboardingStateMethod]: Object.freeze({
     channel: getSchoolOnboardingStateChannel,
@@ -466,6 +515,11 @@ export const studiIpcRegistry = Object.freeze({
   [saveProductPreferencesMethod]: Object.freeze({
     channel: saveProductPreferencesChannel,
     requestSchema: SaveProductPreferencesInputSchema,
+    resultSchema: ProductPreferencesSchema,
+  }),
+  [selectHomeworkRootMethod]: Object.freeze({
+    channel: selectHomeworkRootChannel,
+    requestSchema: z.undefined(),
     resultSchema: ProductPreferencesSchema,
   }),
   [saveNotificationPreferencesMethod]: Object.freeze({
@@ -647,7 +701,7 @@ export function createIpcHandlerRegistrations<Registry extends IpcRegistryDefini
 
 const contractManifest = ContractManifestSchema.parse({
   schemaVersion: STUDI_SCHEMA_VERSION,
-  contractVersion: "11",
+  contractVersion: "14",
   ipcMethods: studiIpcMethods.map((method) => ({
     method,
     channel: studiIpcRegistry[method].channel,

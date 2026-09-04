@@ -1,4 +1,0 @@
-interface:
-  display_name: "Quality Build Loop"
-  short_description: "Ship restrained code with risk-based proof"
-  default_prompt: "Use $verified-build-loop to plan and implement this work as the smallest coherent product slice, verify the real risks, and remove code that did not earn its place."

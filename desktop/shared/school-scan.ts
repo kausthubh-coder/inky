@@ -84,6 +84,24 @@ export const LinkedSystemSchema = z.strictObject({
   evidence: EvidenceReferenceSchema,
 });
 
+export const SchoolScanWorkflowStepSchema = z.strictObject({
+  kind: z.literal("navigate"),
+  target: SafeSourceTargetSchema,
+  purpose: z.string().trim().min(1).max(200),
+});
+
+export const SchoolScanWorkflowSchema = z.strictObject({
+  schemaVersion: SchemaVersionSchema,
+  workflowId: z.literal("school-scan"),
+  schoolId: z.string().min(1).max(256),
+  revision: z.number().int().positive(),
+  root: SafeSourceTargetSchema,
+  steps: z.array(SchoolScanWorkflowStepSchema).min(1).max(1_000),
+  coverageTargets: z.array(z.string().trim().min(1).max(200)).min(1).max(500),
+  compiledFromScanId: z.string().min(1).max(256),
+  updatedAt: IsoTimestampSchema,
+});
+
 export const SchoolOnboardingStateSchema = z.strictObject({
   profile: SchoolProfileSchema.nullable(),
   scan: SchoolScanSchema.nullable(),
@@ -105,6 +123,8 @@ export type SchoolScan = z.infer<typeof SchoolScanSchema>;
 export type SchoolScanCoverage = z.infer<typeof SchoolScanCoverageSchema>;
 export type Course = z.infer<typeof CourseSchema>;
 export type LinkedSystem = z.infer<typeof LinkedSystemSchema>;
+export type SchoolScanWorkflow = z.infer<typeof SchoolScanWorkflowSchema>;
+export type SchoolScanWorkflowStep = z.infer<typeof SchoolScanWorkflowStepSchema>;
 export type SchoolOnboardingState = z.infer<typeof SchoolOnboardingStateSchema>;
 export type SaveSchoolProfileInput = z.infer<typeof SaveSchoolProfileInputSchema>;
 

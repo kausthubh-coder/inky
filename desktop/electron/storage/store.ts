@@ -23,6 +23,8 @@ import { ManagerStateRepository } from "./manager-records.js";
 import { LifecycleRepository } from "./lifecycle-records.js";
 import { SchoolRepository } from "./school-records.js";
 import { ProductPreferencesStore } from "./product-preferences.js";
+import { AgentJobRepository } from "./agent-job-records.js";
+import { NoteStore } from "./notes.js";
 
 export interface OpenLocalStoreOptions {
   readonly failureInjector?: StorageFailureInjector;
@@ -42,6 +44,8 @@ export class LocalStore {
   readonly lifecycle: LifecycleRepository;
   readonly school: SchoolRepository;
   readonly productPreferences: ProductPreferencesStore;
+  readonly agentJobs: AgentJobRepository;
+  readonly notes: NoteStore;
 
   constructor(rootDirectory: string, options: OpenLocalStoreOptions = {}) {
     this.rootDirectory = resolve(rootDirectory);
@@ -51,15 +55,22 @@ export class LocalStore {
         ? {}
         : { failureInjector: options.failureInjector }),
     });
-    this.assignments = new AssignmentRepository(this.database);
-    this.permissionRules = new PermissionRuleRepository(this.database);
-    this.runs = new RunRepository(this.database);
-    this.tasks = new TaskRepository(this.database);
-    this.manager = new ManagerStateRepository(this.database);
-    this.lifecycle = new LifecycleRepository(this.database);
-    this.school = new SchoolRepository(this.database);
-    this.artifacts = new ArtifactStore(join(this.rootDirectory, "artifacts"), this.database);
-    this.productPreferences = new ProductPreferencesStore(join(this.rootDirectory, "product-preferences.json"));
+    try {
+      this.assignments = new AssignmentRepository(this.database);
+      this.permissionRules = new PermissionRuleRepository(this.database);
+      this.runs = new RunRepository(this.database);
+      this.tasks = new TaskRepository(this.database);
+      this.manager = new ManagerStateRepository(this.database);
+      this.lifecycle = new LifecycleRepository(this.database);
+      this.school = new SchoolRepository(this.database);
+      this.artifacts = new ArtifactStore(join(this.rootDirectory, "artifacts"), this.database);
+      this.productPreferences = new ProductPreferencesStore(join(this.rootDirectory, "product-preferences.json"));
+      this.agentJobs = new AgentJobRepository(this.database);
+      this.notes = new NoteStore(join(this.rootDirectory, "notes"), this.database);
+    } catch (error) {
+      this.database.close();
+      throw error;
+    }
   }
 
   health(): StorageHealth {

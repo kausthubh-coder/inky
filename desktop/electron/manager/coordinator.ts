@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
-import { Type } from "typebox";
+import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 
 import {
   ManagerStateSchema,
+  AgentJobSchema,
   STUDI_SCHEMA_VERSION,
   resolvePermission,
   transitionTask,
@@ -12,7 +12,6 @@ import {
   type BrowserWorkerLease,
   type ManagerQueueEntry,
   type ManagerState,
-  type ManagerTurnResult,
   type TaskState,
 } from "../../shared/index.js";
 import type {
@@ -21,18 +20,13 @@ import type {
 } from "../agent/runtime.js";
 import type { LocalStore } from "../storage/index.js";
 
-export interface ManagerSessionRuntime {
-  createManagerSession(
-    tools: readonly ToolDefinition[],
-    target?: AgentSessionTarget,
-  ): Promise<AgentSession>;
+export interface AssignmentWorkerRuntime {
   createWorkerSession(target?: AgentSessionTarget): Promise<AgentSession>;
   createAssignmentSession?(
     tools: readonly ToolDefinition[],
     target?: AgentSessionTarget,
   ): Promise<AgentSession>;
 }
-
 export interface EnqueueAssignmentInput {
   readonly taskId: string;
   readonly priority?: number;
@@ -45,16 +39,17 @@ export interface ManagerCoordinatorOptions {
 
 export class ManagerCoordinator {
   readonly #store: LocalStore;
-  readonly #runtime: ManagerSessionRuntime;
+  readonly #runtime: AssignmentWorkerRuntime;
   readonly #now: () => string;
   readonly #startAssignment: ((taskId: string) => Promise<unknown>) | null;
-  #managerSession: AgentSession | null = null;
   #workerSession: AgentSession | null = null;
+  #workerRunning = false;
   #disposed = false;
+  #beforeAssignmentWork: ((assignmentId: string) => Promise<void>) | null = null;
 
   private constructor(
     store: LocalStore,
-    runtime: ManagerSessionRuntime,
+    runtime: AssignmentWorkerRuntime,
     now: () => string,
     startAssignment: ((taskId: string) => Promise<unknown>) | null,
   ) {
@@ -66,7 +61,7 @@ export class ManagerCoordinator {
 
   static async create(
     store: LocalStore,
-    runtime: ManagerSessionRuntime,
+    runtime: AssignmentWorkerRuntime,
     options: ManagerCoordinatorOptions = {},
   ): Promise<ManagerCoordinator> {
     const coordinator = new ManagerCoordinator(
@@ -76,7 +71,6 @@ export class ManagerCoordinator {
       options.startAssignment ?? null,
     );
     await coordinator.#recover();
-    await coordinator.#openManagerSession();
     return coordinator;
   }
 
@@ -86,6 +80,35 @@ export class ManagerCoordinator {
       entries: this.#store.manager.listQueue(),
       lease: this.#store.manager.getLease(),
     });
+  }
+
+  setBeforeAssignmentWork(handler: ((assignmentId: string) => Promise<void>) | null): void {
+    this.#beforeAssignmentWork = handler;
+  }
+
+  workerToolNames(): readonly string[] {
+    return this.#workerSession?.toolNames ?? [];
+  }
+
+  activeTaskForAssignment(assignmentId: string): string | null {
+    const lease = this.#store.manager.getLease();
+    if (!lease || lease.state !== "active") return null;
+    return this.#store.tasks.get(lease.taskId)?.assignmentId === assignmentId ? lease.taskId : null;
+  }
+
+  async startFromConversation(taskId: string): Promise<unknown> {
+    this.#assertUsable();
+    if (!this.#startAssignment) throw new Error("Assignment execution is not ready");
+    const entry = this.#store.manager.getQueueEntry(taskId);
+    if (!entry) throw new Error(`Task ${taskId} is not in the manager queue`);
+    const permittedEntry = this.#refreshStartPermission(entry);
+    if (!permittedEntry) throw new Error(`Task ${taskId} is blocked by stored permission rules`);
+    const assignment = this.#store.assignments.get(entry.assignmentId);
+    if (!assignment?.lastVerifiedScanId || assignment.evidence.length === 0) {
+      throw new Error(`Task ${taskId} is not backed by a verified scanned assignment`);
+    }
+    this.steerNext(taskId);
+    return this.#startAssignment(taskId);
   }
 
   enqueue(input: EnqueueAssignmentInput): ManagerQueueEntry {
@@ -137,6 +160,7 @@ export class ManagerCoordinator {
       this.#workerSession?.dispose();
       this.#workerSession = null;
       this.#store.manager.releaseLease(taskId);
+      this.#releaseAgentClaim(taskId, "aborted");
     }
     this.#store.manager.removeQueueEntry(taskId);
   }
@@ -194,12 +218,14 @@ export class ManagerCoordinator {
     this.#workerSession?.dispose();
     this.#workerSession = null;
     this.#store.manager.releaseLease(taskId);
+    this.#releaseAgentClaim(taskId, outcome === "failed" ? "failed" : "review");
     this.#store.manager.removeQueueEntry(taskId);
   }
 
   pause(taskId: string, outcome: "needs_user" | "ready_review", reason: string): void {
     this.#assertActiveLease(taskId);
     this.#transition(taskId, outcome, reason, this.#store.manager.getLease()!.workerSessionId!);
+    this.#setAgentPhase(taskId, outcome === "needs_user" ? "needs_user" : "review");
   }
 
   resumePaused(taskId: string, reason: string): void {
@@ -209,6 +235,7 @@ export class ManagerCoordinator {
       throw new Error(`Task ${taskId} cannot resume from ${task.state}`);
     }
     this.#transition(taskId, "working", reason, this.#store.manager.getLease()!.workerSessionId!);
+    this.#setAgentPhase(taskId, "working");
   }
 
   beginSubmission(taskId: string): void {
@@ -232,6 +259,8 @@ export class ManagerCoordinator {
   ): Promise<{ readonly outcome: "completed" | "failed" | "aborted"; readonly text: string }> {
     this.#assertUsable();
     if (!this.#workerSession) throw new Error("No assignment worker session owns the browser");
+    if (this.#workerRunning) throw new Error("The assignment worker is already handling a turn");
+    this.#workerRunning = true;
     let text = "";
     let outcome: "completed" | "failed" | "aborted" = "failed";
     const unsubscribe = this.#workerSession.subscribe((event) => {
@@ -244,6 +273,7 @@ export class ManagerCoordinator {
       return { outcome, text };
     } finally {
       unsubscribe();
+      this.#workerRunning = false;
     }
   }
 
@@ -256,45 +286,9 @@ export class ManagerCoordinator {
     this.#workerSession = await runtime.createAssignmentSession!(tools, { resumeSessionPath: lease.workerSessionPath });
   }
 
-  async runManagerTurn(
-    prompt: string,
-    memoryArtifactIds: readonly string[] = [],
-  ): Promise<ManagerTurnResult> {
-    this.#assertUsable();
-    if (!prompt.trim()) {
-      throw new TypeError("Manager prompt cannot be empty");
-    }
-    const session = await this.#requiredManagerSession();
-    const managerPrompt = await this.#buildManagerPrompt(prompt, memoryArtifactIds);
-    let text = "";
-    let outcome: "completed" | "failed" | "aborted" = "failed";
-    const unsubscribe = session.subscribe((event: AgentRunEvent) => {
-      if (event.type === "text") {
-        text += event.delta;
-      } else if (event.type === "terminal") {
-        outcome = event.outcome;
-      }
-    });
-    try {
-      await session.prompt(managerPrompt);
-      return { outcome, text, state: this.state() };
-    } finally {
-      unsubscribe();
-    }
-  }
-
-  async replaceManagerSession(): Promise<void> {
-    this.#assertUsable();
-    const session = await this.#requiredManagerSession();
-    await session.replace();
-    this.#saveManagerSession(session);
-  }
-
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
-    this.#managerSession?.dispose();
-    this.#managerSession = null;
     this.#workerSession?.dispose();
     this.#workerSession = null;
   }
@@ -356,77 +350,6 @@ export class ManagerCoordinator {
     }
   }
 
-  async #openManagerSession(): Promise<void> {
-    const tools = this.#createManagerTools();
-    const stored = this.#store.manager.getManagerSession();
-    try {
-      this.#managerSession = await this.#runtime.createManagerSession(
-        tools,
-        stored ? { resumeSessionPath: stored.sessionPath } : {},
-      );
-    } catch (error) {
-      if (!stored) throw error;
-      this.#managerSession = await this.#runtime.createManagerSession(tools);
-    }
-    this.#saveManagerSession(this.#managerSession);
-  }
-
-  #createManagerTools(): ToolDefinition[] {
-    const inspect = defineTool({
-      name: "manager_queue_inspect",
-      label: "Inspect Studi queue",
-      description: "Read the durable Studi queue and current browser-worker lease.",
-      parameters: Type.Object({}, { additionalProperties: false }),
-      execute: async () => toolResult(this.state()),
-    });
-    const steer = defineTool({
-      name: "manager_queue_steer_next",
-      label: "Steer queued task next",
-      description: "Move one already queued task ahead of other queued tasks. Pattern provenance cannot be supplied here.",
-      parameters: Type.Object(
-        { taskId: Type.String({ minLength: 1, maxLength: 256 }) },
-        { additionalProperties: false },
-      ),
-      execute: async (_toolCallId, input) => toolResult(this.steerNext(input.taskId)),
-    });
-    const cancel = defineTool({
-      name: "manager_queue_cancel",
-      label: "Cancel queued task",
-      description: "Cancel one queued or working task and release its lease if it owns the browser.",
-      parameters: Type.Object(
-        { taskId: Type.String({ minLength: 1, maxLength: 256 }) },
-        { additionalProperties: false },
-      ),
-      execute: async (_toolCallId, input) => {
-        this.cancel(input.taskId);
-        return toolResult(this.state());
-      },
-    });
-    const start = this.#startAssignment
-      ? defineTool({
-          name: "manager_assignment_start",
-          label: "Start verified queued assignment",
-          description: "Select one verified task already in the durable queue and ask Studi's existing assignment execution owner to start it.",
-          parameters: Type.Object(
-            { taskId: Type.String({ minLength: 1, maxLength: 256 }) },
-            { additionalProperties: false },
-          ),
-          execute: async (_toolCallId, input) => {
-            const entry = this.#store.manager.getQueueEntry(input.taskId);
-            if (!entry) throw new Error(`Task ${input.taskId} is not in the manager queue`);
-            const assignment = this.#store.assignments.get(entry.assignmentId);
-            if (!assignment?.lastVerifiedScanId || assignment.evidence.length === 0) {
-              throw new Error(`Task ${input.taskId} is not backed by a verified scanned assignment`);
-            }
-            this.steerNext(input.taskId);
-            const execution = await this.#startAssignment!(input.taskId);
-            return toolResult({ taskId: input.taskId, execution, state: this.state() });
-          },
-        })
-      : null;
-    return start ? [inspect, steer, cancel, start] : [inspect, steer, cancel];
-  }
-
   #resolvePermission(assignmentId: string, courseId: string) {
     const matchedPatternIds = this.#store.manager
       .listConfirmedPatterns(assignmentId, courseId)
@@ -470,13 +393,13 @@ export class ManagerCoordinator {
     }
     let worker: AgentSession | null = null;
     try {
-      const managerSession = await this.#requiredManagerSession();
-      if (!managerSession.sessionPath) {
-        throw new Error("Pi did not persist the manager session");
-      }
+      await this.#beforeAssignmentWork?.(entry.assignmentId);
+      const agentJob = this.#requiredAssignmentJob(entry.assignmentId);
       const target = resumeSessionPath
         ? { resumeSessionPath }
-        : { parentSessionPath: managerSession.sessionPath };
+        : agentJob.sessionPath
+          ? { resumeSessionPath: agentJob.sessionPath }
+          : {};
       worker = assignmentTools.length > 0
         ? await this.#requiredAssignmentRuntime().createAssignmentSession!(assignmentTools, target)
         : await this.#runtime.createWorkerSession(target);
@@ -489,6 +412,22 @@ export class ManagerCoordinator {
         worker.sessionPath,
       );
       this.#transition(entry.taskId, "working", "Browser worker lease acquired", worker.sessionId);
+      const claim = {
+        claimId: randomUUID(),
+        jobId: agentJob.job.jobId,
+        target: agentJob.job.target,
+        acquiredAt: this.#now(),
+        revision: (agentJob.job.claim?.revision ?? 0) + 1,
+      };
+      this.#store.agentJobs.put(AgentJobSchema.parse({
+        ...agentJob.job,
+        phase: "working",
+        turnIndex: agentJob.job.turnIndex + 1,
+        runId: randomUUID(),
+        sessionId: worker.sessionId,
+        claim,
+        updatedAt: this.#now(),
+      }), worker.sessionPath);
       this.#workerSession = worker;
       return lease;
     } catch (error) {
@@ -526,49 +465,6 @@ export class ManagerCoordinator {
     return task;
   }
 
-  async #buildManagerPrompt(prompt: string, memoryArtifactIds: readonly string[]): Promise<string> {
-    const preferences = await this.#store.artifacts.list("preference");
-    const memoryVisibility = (await this.#store.productPreferences.get()).memoryVisibility;
-    const visibleMemoryIds = memoryVisibility === "none"
-      ? []
-      : memoryVisibility === "all"
-        ? (await this.#store.artifacts.list("memory")).map((memory) => memory.frontmatter.artifactId)
-        : [...new Set(memoryArtifactIds)];
-    const memories = [];
-    for (const artifactId of visibleMemoryIds) {
-      const memory = await this.#store.artifacts.read("memory", artifactId);
-      if (!memory) throw new Error(`Scoped memory ${artifactId} does not exist`);
-      memories.push(memory);
-    }
-    return [
-      "# Global preferences",
-      preferences.length === 0
-        ? "No global preferences are stored."
-        : preferences.map((item) => `## ${item.frontmatter.artifactId}\n${item.content}`).join("\n\n"),
-      "# Scoped memories",
-      memories.length === 0
-        ? "No scoped memories were requested for this turn."
-        : memories.map((item) => `## ${item.frontmatter.artifactId}\n${item.content}`).join("\n\n"),
-      "# Student request",
-      prompt.trim(),
-    ].join("\n\n");
-  }
-
-  async #requiredManagerSession(): Promise<AgentSession> {
-    if (!this.#managerSession) await this.#openManagerSession();
-    return this.#managerSession!;
-  }
-
-  #saveManagerSession(session: AgentSession): void {
-    if (!session.sessionPath) throw new Error("Pi did not persist the manager session");
-    this.#store.manager.saveManagerSession({
-      schemaVersion: STUDI_SCHEMA_VERSION,
-      sessionId: session.sessionId,
-      sessionPath: session.sessionPath,
-      updatedAt: this.#now(),
-    });
-  }
-
   #assertUsable(): void {
     if (this.#disposed) throw new Error("Manager coordinator is disposed");
   }
@@ -585,20 +481,59 @@ export class ManagerCoordinator {
     this.#workerSession?.dispose();
     this.#workerSession = null;
     this.#store.manager.releaseLease(taskId);
+    this.#releaseAgentClaim(taskId, "completed");
     this.#store.manager.removeQueueEntry(taskId);
   }
 
-  #requiredAssignmentRuntime(): ManagerSessionRuntime & Required<Pick<ManagerSessionRuntime, "createAssignmentSession">> {
+  #requiredAssignmentJob(assignmentId: string) {
+    const target = { kind: "assignment" as const, assignmentId };
+    const existing = this.#store.agentJobs.getByTarget(target);
+    if (existing) return existing;
+    const now = this.#now();
+    return this.#store.agentJobs.put(AgentJobSchema.parse({
+      schemaVersion: 1,
+      jobId: randomUUID(),
+      target,
+      phase: "idle",
+      turnIndex: 0,
+      runId: randomUUID(),
+      sessionId: null,
+      claim: null,
+      messages: [],
+      createdAt: now,
+      updatedAt: now,
+    }));
+  }
+
+  #releaseAgentClaim(taskId: string, phase: "review" | "completed" | "failed" | "aborted"): void {
+    const task = this.#store.tasks.get(taskId);
+    if (!task) return;
+    const persisted = this.#store.agentJobs.getByTarget({ kind: "assignment", assignmentId: task.assignmentId });
+    if (!persisted) return;
+    this.#store.agentJobs.put(AgentJobSchema.parse({
+      ...persisted.job,
+      phase,
+      claim: null,
+      updatedAt: this.#now(),
+    }), persisted.sessionPath);
+  }
+
+  #setAgentPhase(taskId: string, phase: "working" | "needs_user" | "review"): void {
+    const task = this.#store.tasks.get(taskId);
+    if (!task) return;
+    const persisted = this.#store.agentJobs.getByTarget({ kind: "assignment", assignmentId: task.assignmentId });
+    if (!persisted?.job.claim) return;
+    this.#store.agentJobs.put(AgentJobSchema.parse({
+      ...persisted.job,
+      phase,
+      updatedAt: this.#now(),
+    }), persisted.sessionPath);
+  }
+
+  #requiredAssignmentRuntime(): AssignmentWorkerRuntime & Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">> {
     if (!this.#runtime.createAssignmentSession) {
       throw new Error("The agent runtime cannot create an assignment session");
     }
-    return this.#runtime as ManagerSessionRuntime & Required<Pick<ManagerSessionRuntime, "createAssignmentSession">>;
+    return this.#runtime as AssignmentWorkerRuntime & Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">>;
   }
-}
-
-function toolResult(value: unknown) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(value, null, 2) }],
-    details: value,
-  };
 }

@@ -59,6 +59,18 @@ export default defineSchema({
     .index("by_clerk_subject", ["clerkSubject"])
     .index("by_device_id", ["deviceId"]),
 
+  composioConnections: defineTable({
+    clerkSubject: v.string(),
+    toolkit: v.string(),
+    sessionId: v.string(),
+    connectedAccountId: v.union(v.string(), v.null()),
+    status: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_clerk_subject_and_toolkit", ["clerkSubject", "toolkit"])
+    .index("by_connected_account_id", ["connectedAccountId"]),
+
   waitlistEmails: defineTable({
     email: v.string(),
     createdAt: v.number(),

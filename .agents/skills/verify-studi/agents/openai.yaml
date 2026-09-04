@@ -1,4 +1,0 @@
-interface:
-  display_name: "Verify Studi"
-  short_description: "Drive and prove the running Studi desktop app"
-  default_prompt: "Use $verify-studi to verify this Studi behavior through the closest real runtime boundary and retain concise evidence."

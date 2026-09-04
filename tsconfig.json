@@ -18,5 +18,5 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true
   },
-  "include": ["desktop/src", "desktop/shared", "desktop/electron/preload.cts"]
+  "include": ["desktop/src", "desktop/shared", "desktop/agent-system", "desktop/electron/preload.cts"]
 }

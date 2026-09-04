@@ -1,11 +1,11 @@
 ---
 name: test-studi
-description: Run Studi's isolated end-to-end desktop journey through the real Electron, Clerk, and Convex boundaries. Supports a full first-run onboarding pass and a skip-to-app feature pass. Codex login cannot be completed in isolated Playwright; reuse the dedicated QA auth cache or ask the user to finish the device code. Use verify-studi for faster package-scoped proof.
+description: Test Studi whenever work reaches Electron or visible UI. Supports package-scoped checks, a full first-run onboarding pass, and a skip-to-app feature pass through the real Electron, Clerk, and Convex boundaries. Codex login cannot be completed in isolated Playwright; reuse the dedicated QA auth cache or ask the user to finish the device code.
 ---
 
 # Test Studi
 
-Exercise the built desktop app as a student would, without touching the everyday Studi profile or inventing success. This is the integrated journey layer; use `$verify-studi` for the cheapest focused boundary check during implementation.
+Exercise the built desktop app as a student would, without touching the everyday Studi profile or inventing success. Use the smallest relevant part of a journey while building, then run the complete matching journey at its package or release checkpoint.
 
 There are two jobs. Pick one:
 

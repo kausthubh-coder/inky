@@ -226,6 +226,37 @@ test("a permission change before submit blocks the effect and hands the retained
   });
 });
 
+test("an assignment message resumes a needs-user handoff with the message as work context", async () => {
+  await withStore(async (store) => {
+    seedTask(store, "message-resume", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    const runtime = new ScriptedRuntime([
+      async (tools) => invoke(tools, "assignment_request_takeover", {
+        reason: "Attach the required graph before I continue.",
+        returnPredicate: "The graph is attached, or the student supplies different instructions.",
+      }),
+      async (tools) => invoke(tools, "assignment_request_takeover", {
+        reason: "The graph is still missing after checking the student's reply.",
+        returnPredicate: "The graph is visibly attached.",
+      }),
+    ]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    manager.enqueue({ taskId: "task-message-resume" });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => initialNow });
+
+    assert.equal((await execution.startNext()).phase, "needs_user");
+    await execution.continueTurn("task-message-resume", "I attached it; fill out the rest.");
+
+    const resumed = store.lifecycle.getExecution("task-message-resume");
+    assert.equal(resumed.phase, "needs_user", "the worker may truthfully hand back again after inspecting the reply");
+    assert.equal(resumed.turnCount, 2);
+    const transitions = store.tasks.listEvents("task-message-resume").filter((event) => event.type === "task_state_changed");
+    assert.deepEqual(transitions.slice(-2).map((event) => event.payload.to), ["working", "needs_user"]);
+    execution.dispose();
+    manager.dispose();
+  });
+});
+
 test("two distinct failed recovery plans stop in a truthful handoff", async () => {
   await withStore(async (store) => {
     seedTask(store, "recovery", "2026-09-02T12:00:00.000Z");
@@ -267,7 +298,8 @@ test("restart during submission pauses without repeating the destructive effect"
       taskId: "task-restart",
       assignmentId: "assignment-restart",
       phase: "submitting",
-      taskBudget: { maxAgentTurns: 1, maxRecoveryAttempts: 2 },
+      taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
+      turnCount: 0,
       attemptCount: 0,
       submissionAttemptedAt: initialNow,
       workerSessionPath: lease.workerSessionPath,
@@ -375,7 +407,6 @@ class ScriptedRuntime {
 
   constructor(scripts) { this.scripts = scripts; }
 
-  async createManagerSession(tools, target = {}) { return this.session("manager", tools, target); }
   async createWorkerSession(target = {}) { return this.session("worker", [], target); }
   async createAssignmentSession(tools, target = {}) { return this.session("assignment", tools, target); }
 

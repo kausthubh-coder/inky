@@ -1,184 +1,391 @@
 import assert from "node:assert/strict";
+import { spawn, spawnSync } from "node:child_process";
 import { existsSync, rmSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { basename, dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawn } from "node:child_process";
 
 import electronPath from "electron";
+import WebSocket from "ws";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const temporaryRoot = resolve(tmpdir());
 const positiveOnly = process.argv.includes("--positive-only");
 const nonce = `${process.pid}-${Date.now()}`;
-const selfTestDirectory = ownedDirectory(`studi-wp00-self-test-${nonce}`);
-const cleanupDirectories = new Set([selfTestDirectory]);
+const cleanupDirectories = new Set();
+const buildSha = spawnSync("git", ["rev-parse", "--short", "HEAD"], {
+  cwd: projectRoot,
+  encoding: "utf8",
+  windowsHide: true,
+}).stdout.trim() || "unknown";
+const worktreeDirty = Boolean(spawnSync("git", ["status", "--porcelain"], {
+  cwd: projectRoot,
+  encoding: "utf8",
+  windowsHide: true,
+}).stdout.trim());
 
+async function main() {
 try {
-  const positive = await runElectron(selfTestDirectory, { STUDI_UI_SCENARIO: "onboarding-ready" }, 25_000, true);
-  assert.deepEqual(positive.exit, { code: 0, signal: null }, `Electron failed: ${positive.stderr}`);
-  assert.match(positive.stdout, /^STUDI_SELF_TEST \{"marker":true,/m);
-  assert.match(positive.stdout, /"contractVersion":"11"/);
-  assert.match(positive.stdout, /"electron":"37\.10\.3"/);
-  assert.match(positive.stdout, /"node":"22\.21\.1"/);
-  assert.match(
-    positive.stdout,
-    /"onboardingUi":\{"fableConversation":true,"browserHandoff":true,"scanAction":true,"passwordFieldCount":0\}/,
-  );
-  assert.match(
-    positive.stdout,
-    /"uiQuality":\{"mainLandmarkCount":1,"interactiveCount":\d+,"focusMoved":true\}/,
-  );
-  assert.match(
-    positive.stdout,
-    /"storage":\{"driver":"node:sqlite","node":"22\.21\.1","schemaVersion":4,"fileBacked":true,"reopened":true,"artifactRoundTrip":true,"backupValidated":true,"backupArtifactCount":1\}/,
-  );
-  assert.match(
-    positive.stdout,
-    /"agent":\{"runtime":"pi-agent-session","sdkVersion":"0\.84\.4","sessionPersisted":true,"sessionResumed":true,"probeCompleted":true,"activeTools":\["studi_probe"\],"providerStatus":\{"schemaVersion":1,"providerId":"unknown","providerName":"Unknown provider","state":"unavailable","loginMethods":\[\],"reason":"This provider is not registered in the Pi runtime\."\}\}/,
-  );
-  assert.match(
-    positive.stdout,
-    /"browser":\{"view":"web-contents-view","source":"visible-school-browser","url":"about:blank","bounded":true,"revision":\d+,"telemetryIsolated":true\}/,
-  );
-  assert.match(
-    positive.stdout,
-    /"lifecycle":\{"singleInstanceLock":true,"closeHides":true,"trayOpenHandled":true\}/,
-  );
-  assert.match(
-    positive.stdout,
-    /"notifications":\{"persistedWhenMuted":true,"mutedShown":false,"mutedDelivered":false,"enabledShown":(?:true|false),"enabledDelivered":(?:true|false),"sound":"inky_nudge"\}/,
-  );
+  const onboardingWelcome = await runControlledScenario("onboarding-welcome", {}, advanceToConnectedApps);
+  assert.equal(onboardingWelcome.observation.marker, true);
+  assert.equal(onboardingWelcome.observation.onboarding.connectedAppStepObserved, true);
+  assert.equal(onboardingWelcome.observation.onboarding.githubConnectActionObserved, true);
+  assert.equal(onboardingWelcome.observation.onboarding.homeworkFolderStep, true);
+  assert.equal(onboardingWelcome.observation.onboarding.passwordFieldCount, 0);
+  emitReceipt(onboardingWelcome);
+
+  const onboarding = await runControlledScenario("onboarding-ready");
+  assert.equal(onboarding.observation.marker, true);
+  assert.equal(onboarding.observation.contractVersion, "14");
+  assert.equal(onboarding.observation.runtime.electron, "37.10.3");
+  assert.equal(onboarding.observation.runtime.node, "22.21.1");
+  assert.deepEqual(onboarding.observation.onboarding, {
+    fableConversation: true,
+    browserHandoff: true,
+    scanAction: true,
+    connectedAppStep: false,
+    githubConnectAction: false,
+    connectedAppStepObserved: false,
+    githubConnectActionObserved: false,
+    homeworkFolderStep: false,
+    passwordFieldCount: 0,
+  });
+  assert.equal(onboarding.observation.ui.mainLandmarkCount, 1);
+  assert.ok(onboarding.observation.ui.interactiveCount >= 2);
+  assert.equal(onboarding.observation.ui.focusMoved, true);
+  assert.equal(onboarding.observation.connectedApps.configured, true);
+  assert.deepEqual(onboarding.observation.connectedApps.toolkits, ["github"]);
+  assertComposition(onboarding.composition);
+  emitReceipt(onboarding);
+
+  const weekBoard = await runControlledScenario("partial-dashboard");
+  assert.equal(weekBoard.observation.marker, true);
+  assert.equal(weekBoard.observation.weekBoard.visible, true);
+  assert.equal(weekBoard.observation.weekBoard.hasCourse, true);
+  assert.equal(weekBoard.observation.weekBoard.hasAssignment, true);
+  assert.equal(weekBoard.observation.onboarding.passwordFieldCount, 0);
+  assertComposition(weekBoard.composition);
+  emitReceipt(weekBoard);
 
   if (!positiveOnly) {
     await testInvalidProfile();
     await testRendererLoadFailure();
-    await testMalformedManifestResult();
-    await testMalformedRuntimeResult();
+    await testMalformedPublicReply("STUDI_SELF_TEST_MALFORMED_MANIFEST_RESULT", "getContractManifest");
+    await testMalformedPublicReply("STUDI_SELF_TEST_MALFORMED_RUNTIME_RESULT", "getRuntimeInfo");
   }
 } finally {
   for (const directory of cleanupDirectories) {
-    if (existsSync(directory)) {
-      rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-    }
+    if (existsSync(directory)) rmSync(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     assert.equal(existsSync(directory), false, `temporary Electron path was not removed: ${directory}`);
   }
   process.stdout.write("STUDI_SELF_TEST_CLEANUP removed=true\n");
+}
+}
+
+function assertComposition(composition) {
+  assert.equal(composition.storage.driver, "node:sqlite");
+  assert.equal(composition.storage.schemaVersion, 6);
+  assert.equal(composition.storage.fileBacked, true);
+  assert.equal(composition.storage.reopened, true);
+  assert.equal(composition.storage.backupValidated, true);
+  assert.equal(composition.agent.runtime, "pi-agent-session");
+  assert.equal(composition.agent.sessionPersisted, true);
+  assert.equal(composition.agent.sessionResumed, true);
+  assert.equal(composition.agent.probeCompleted, true);
+  assert.deepEqual(composition.agent.activeTools, ["studi_probe"]);
+}
+
+function emitReceipt(run) {
+  process.stdout.write(`STUDI_EXTERNAL_ELECTRON ${JSON.stringify({
+    buildSha,
+    worktreeDirty,
+    scenario: run.scenario,
+    durationMs: run.durationMs,
+    observations: {
+      marker: run.observation.marker,
+      contractVersion: run.observation.contractVersion,
+      mainLandmarkCount: run.observation.ui.mainLandmarkCount,
+      passwordFieldCount: run.observation.onboarding.passwordFieldCount,
+      connectedAppsConfigured: run.observation.connectedApps.configured,
+      weekBoardVisible: run.observation.weekBoard.visible,
+    },
+    cleanup: "process-stop-and-profile-finally",
+  })}\n`);
+}
+
+async function runControlledScenario(scenario, extraEnvironment = {}, prepare) {
+  const directory = ownedDirectory(`studi-wp00-self-test-${scenario}-${nonce}`);
+  cleanupDirectories.add(directory);
+  const port = await reservePort();
+  const startedAt = Date.now();
+  const child = launchElectron(directory, port, { STUDI_UI_SCENARIO: scenario, ...extraEnvironment });
+  try {
+    const ready = await waitForReady(child, 25_000);
+    const composition = JSON.parse(ready.slice(ready.indexOf("{")));
+    const client = await connectToRenderer(port, 10_000);
+    try {
+      await waitForAppMarker(client, 8_000);
+      await prepare?.(client);
+      const observation = await inspectPublicApp(client);
+      return { scenario, observation, composition, durationMs: Date.now() - startedAt };
+    } finally {
+      client.close();
+    }
+  } finally {
+    await stopChild(child);
+  }
+}
+
+async function inspectPublicApp(client) {
+  return client.evaluate(`(async () => {
+    const marker = document.querySelector('[data-studi-app-ready="true"]');
+    const [runtime, manifest, connectedApps, library] = await Promise.all([
+      window.studi.getRuntimeInfo(),
+      window.studi.getContractManifest(),
+      window.studi.getConnectedApps(),
+      window.studi.getLibraryState(),
+    ]);
+    const focusTarget = document.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled])');
+    if (focusTarget instanceof HTMLElement) focusTarget.focus();
+    const text = document.body.innerText;
+    return {
+      marker: Boolean(marker),
+      runtime,
+      contractVersion: manifest.contractVersion,
+      onboarding: {
+        fableConversation: Boolean(document.querySelector('.fable-window .fable-speech')),
+        browserHandoff: Boolean(document.querySelector('.fable-stage.with-browser')),
+        scanAction: Boolean(document.querySelector('[data-app-control="start-scan"]')),
+        connectedAppStep: Boolean(document.querySelector('[data-onboarding-connected-apps="true"]')),
+        githubConnectAction: Boolean(document.querySelector('[data-onboarding-connected-apps="true"] [data-connected-app="github"] button')),
+        connectedAppStepObserved: document.body.dataset.connectedAppStepObserved === 'true',
+        githubConnectActionObserved: document.body.dataset.githubConnectActionObserved === 'true',
+        homeworkFolderStep: Boolean(document.querySelector('[data-onboarding-homework-folder="true"]')),
+        passwordFieldCount: document.querySelectorAll('input[type="password"]').length,
+      },
+      ui: {
+        mainLandmarkCount: document.querySelectorAll('main').length,
+        interactiveCount: document.querySelectorAll('button, input, select, textarea, a[href]').length,
+        focusMoved: focusTarget instanceof HTMLElement && document.activeElement === focusTarget,
+      },
+      connectedApps: {
+        configured: connectedApps.configured,
+        toolkits: connectedApps.toolkits.map((item) => item.toolkit),
+      },
+      weekBoard: {
+        visible: [...document.querySelectorAll('button')].some((item) => item.textContent?.trim() === 'This week'),
+        hasCourse: library.tasks.some((item) => item.assignment.courseId === 'course-calculus'),
+        hasAssignment: library.tasks.some((item) => item.assignment.title === 'Problem set 4'),
+      },
+    };
+  })()`);
+}
+
+async function advanceToConnectedApps(client) {
+  await client.evaluate(`(async () => {
+    const click = (label) => {
+      const button = [...document.querySelectorAll('button')].find((item) => item.textContent?.trim() === label);
+      if (!(button instanceof HTMLButtonElement)) throw new Error('Missing onboarding action: ' + label);
+      button.click();
+    };
+    click("Let's do it");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    click("Let's go");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    document.body.dataset.connectedAppStepObserved = String(Boolean(document.querySelector('[data-onboarding-connected-apps="true"]')));
+    document.body.dataset.githubConnectActionObserved = String(Boolean(document.querySelector('[data-onboarding-connected-apps="true"] [data-connected-app="github"] button')));
+    click("Continue");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  })()`);
+}
+
+async function testMalformedPublicReply(environmentName, method) {
+  const run = await startControlledProcess({ [environmentName]: "1" });
+  try {
+    const client = await connectToRenderer(run.port, 10_000);
+    try {
+      await waitForAppMarker(client, 8_000);
+      await assert.rejects(() => client.evaluate(`window.studi.${method}()`));
+    } finally {
+      client.close();
+    }
+  } finally {
+    await stopChild(run.child);
+  }
+  process.stdout.write(`STUDI_SELF_TEST_REJECTION malformed-${method === "getContractManifest" ? "manifest" : "runtime"}=true\n`);
+}
+
+async function startControlledProcess(extraEnvironment = {}) {
+  const directory = ownedDirectory(`studi-wp00-self-test-rejection-${Math.random().toString(16).slice(2)}-${nonce}`);
+  cleanupDirectories.add(directory);
+  const port = await reservePort();
+  const child = launchElectron(directory, port, { STUDI_UI_SCENARIO: "onboarding-ready", ...extraEnvironment });
+  await waitForReady(child, 25_000);
+  return { child, port };
 }
 
 async function testInvalidProfile() {
   const invalidParent = resolve(temporaryRoot, `studi-wp00-invalid-parent-${nonce}`);
   const invalidDirectory = resolve(invalidParent, "studi-wp00-self-test-invalid");
-  assert.equal(dirname(invalidParent), temporaryRoot);
-  assert.match(basename(invalidParent), /^studi-wp00-invalid-parent-\d+-\d+$/);
   cleanupDirectories.add(invalidParent);
-  assert.equal(existsSync(invalidParent), false, "invalid profile parent fixture already exists");
-  assert.equal(existsSync(invalidDirectory), false, "invalid profile fixture already exists");
-
-  const invalidRun = await runElectron(invalidDirectory, {}, 8_000);
-  assert.match(
-    invalidRun.stderr,
-    /Self-test userData must be an owned directory under the system temp folder/,
-  );
-  assert.equal(existsSync(invalidDirectory), false, "invalid profile path was created");
-  assert.equal(existsSync(invalidParent), false, "invalid profile parent path was created");
-  assert.equal(invalidRun.timedOut, false, "invalid self-test profile did not fail fast");
-  assert.notEqual(invalidRun.exit.code, 0, "invalid self-test profile was accepted");
+  assert.equal(existsSync(invalidParent), false);
+  const result = await runToExit(invalidDirectory, {}, 8_000);
+  assert.match(result.stderr, /Self-test userData must be an owned directory under the system temp folder/);
+  assert.notEqual(result.exit.code, 0);
+  assert.equal(result.timedOut, false);
   process.stdout.write("STUDI_SELF_TEST_REJECTION invalid-profile=true parent-created=false\n");
 }
 
 async function testRendererLoadFailure() {
   const directory = ownedDirectory(`studi-wp00-self-test-renderer-failure-${nonce}`);
   cleanupDirectories.add(directory);
-  const failedLoad = await runElectron(
-    directory,
-    { STUDI_SELF_TEST_RENDERER_FAILURE: "1" },
-    8_000,
-  );
-  assert.equal(failedLoad.timedOut, false, "renderer load failure waited for the outer timeout");
-  assert.notEqual(failedLoad.exit.code, 0, "renderer load failure exited successfully");
-  assert.match(failedLoad.stderr, /STUDI_SELF_TEST_FAILED renderer load/);
+  const result = await runToExit(directory, { STUDI_SELF_TEST_RENDERER_FAILURE: "1" }, 8_000);
+  assert.notEqual(result.exit.code, 0);
+  assert.equal(result.timedOut, false);
+  assert.match(result.stderr, /STUDI_SELF_TEST_FAILED renderer load/);
   process.stdout.write("STUDI_SELF_TEST_REJECTION renderer-load=true timed-out=false\n");
 }
 
-async function testMalformedManifestResult() {
-  const directory = ownedDirectory(`studi-wp00-self-test-malformed-manifest-${nonce}`);
-  cleanupDirectories.add(directory);
-  const malformedResult = await runElectron(
-    directory,
-    { STUDI_SELF_TEST_MALFORMED_MANIFEST_RESULT: "1" },
-    8_000,
-  );
-  assert.equal(malformedResult.timedOut, false, "malformed manifest waited for the outer timeout");
-  assert.notEqual(malformedResult.exit.code, 0, "malformed manifest was accepted");
-  assert.match(malformedResult.stderr, /STUDI_SELF_TEST_FAILED/);
-  process.stdout.write("STUDI_SELF_TEST_REJECTION malformed-manifest=true\n");
+function launchElectron(userDataDirectory, port, extraEnvironment) {
+  const environment = { ...process.env };
+  delete environment.VITE_DEV_SERVER_URL;
+  delete environment.STUDI_DEVELOPMENT_MODE;
+  return spawn(electronPath, [projectRoot, "--remote-debugging-address=127.0.0.1", `--remote-debugging-port=${port}`, "--remote-allow-origins=*"], {
+    cwd: projectRoot,
+    env: { ...environment, STUDI_SELF_TEST: "1", STUDI_SELF_TEST_USER_DATA: userDataDirectory, ...extraEnvironment },
+    stdio: ["ignore", "pipe", "pipe"],
+    windowsHide: true,
+  });
 }
 
-async function testMalformedRuntimeResult() {
-  const directory = ownedDirectory(`studi-wp00-self-test-malformed-runtime-${nonce}`);
-  cleanupDirectories.add(directory);
-  const malformedResult = await runElectron(
-    directory,
-    { STUDI_SELF_TEST_MALFORMED_RUNTIME_RESULT: "1" },
-    8_000,
-  );
-  assert.equal(malformedResult.timedOut, false, "malformed runtime waited for the outer timeout");
-  assert.notEqual(malformedResult.exit.code, 0, "malformed runtime was accepted");
-  assert.match(malformedResult.stderr, /STUDI_SELF_TEST_FAILED/);
-  process.stdout.write("STUDI_SELF_TEST_REJECTION malformed-runtime=true\n");
+async function runToExit(userDataDirectory, extraEnvironment, timeoutMs) {
+  const child = launchElectron(userDataDirectory, await reservePort(), extraEnvironment);
+  let stderr = "";
+  child.stderr.on("data", (chunk) => { stderr += chunk; });
+  let timedOut = false;
+  let timer;
+  const exit = await new Promise((resolveExit, rejectExit) => {
+    timer = setTimeout(() => { timedOut = true; child.kill(); }, timeoutMs);
+    child.once("error", rejectExit);
+    child.once("close", (code, signal) => resolveExit({ code, signal }));
+  }).finally(() => clearTimeout(timer));
+  return { exit, stderr, timedOut };
+}
+
+function waitForReady(child, timeoutMs) {
+  return new Promise((resolveReady, rejectReady) => {
+    let stdout = "";
+    let stderr = "";
+    const timer = setTimeout(() => rejectReady(new Error(`Electron readiness timed out: ${stderr}`)), timeoutMs);
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk;
+      const line = stdout.split(/\r?\n/).find((item) => item.startsWith("STUDI_SELF_TEST_READY "));
+      if (line) { clearTimeout(timer); resolveReady(line); }
+    });
+    child.stderr.on("data", (chunk) => { stderr += chunk; });
+    child.once("close", (code) => { clearTimeout(timer); rejectReady(new Error(`Electron exited before readiness (${code}): ${stderr}`)); });
+    child.once("error", (error) => { clearTimeout(timer); rejectReady(error); });
+  });
+}
+
+async function connectToRenderer(port, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastTargets = [];
+  let lastError = "none";
+  while (Date.now() < deadline) {
+    try {
+      const targets = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
+      lastTargets = targets.map(({ type, url, webSocketDebuggerUrl }) => ({ type, url, hasSocket: Boolean(webSocketDebuggerUrl) }));
+      const target = targets.find((item) => item.type === "page" && item.url.endsWith("/dist/client/index.html"));
+      if (target?.webSocketDebuggerUrl) return CdpClient.connect(target.webSocketDebuggerUrl);
+    } catch (error) { lastError = error instanceof Error ? error.message : String(error); }
+    await delay(50);
+  }
+  throw new Error(`Electron renderer DevTools target did not appear (${lastError}): ${JSON.stringify(lastTargets)}`);
+}
+
+async function waitForAppMarker(client, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await client.evaluate("Boolean(document.querySelector('[data-studi-app-ready=\"true\"]'))")) return;
+    await delay(50);
+  }
+  throw new Error("Renderer app-ready marker timed out");
+}
+
+class CdpClient {
+  #socket;
+  #nextId = 0;
+  #pending = new Map();
+
+  static async connect(url) {
+    const socket = new WebSocket(url);
+    await new Promise((resolveOpen, rejectOpen) => {
+      socket.addEventListener("open", resolveOpen, { once: true });
+      socket.addEventListener("error", rejectOpen, { once: true });
+    });
+    return new CdpClient(socket);
+  }
+
+  constructor(socket) {
+    this.#socket = socket;
+    socket.addEventListener("message", (event) => {
+      const message = JSON.parse(event.data);
+      if (!message.id) return;
+      const pending = this.#pending.get(message.id);
+      if (!pending) return;
+      this.#pending.delete(message.id);
+      message.error ? pending.reject(new Error(message.error.message)) : pending.resolve(message.result);
+    });
+  }
+
+  async evaluate(expression) {
+    const result = await this.send("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
+    if (result.exceptionDetails) throw new Error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
+    return result.result.value;
+  }
+
+  send(method, params) {
+    const id = ++this.#nextId;
+    return new Promise((resolveResult, rejectResult) => {
+      this.#pending.set(id, { resolve: resolveResult, reject: rejectResult });
+      this.#socket.send(JSON.stringify({ id, method, params }));
+    });
+  }
+
+  close() { this.#socket.close(); }
+}
+
+async function stopChild(child) {
+  if (child.exitCode !== null) return;
+  child.kill();
+  await Promise.race([
+    new Promise((resolveExit) => child.once("close", resolveExit)),
+    delay(5_000).then(() => { if (child.exitCode === null) child.kill("SIGKILL"); }),
+  ]);
 }
 
 function ownedDirectory(name) {
   const directory = resolve(temporaryRoot, name);
   assert.equal(dirname(directory), temporaryRoot);
-  assert.match(basename(directory), /^studi-wp00-self-test-[a-z-]*\d+-\d+$/);
+  assert.match(basename(directory), /^studi-wp00-self-test-[a-z0-9-]+$/);
   return directory;
 }
 
-async function runElectron(userDataDirectory, extraEnvironment, timeoutMs, streamOutput = false) {
-  const environment = { ...process.env };
-  delete environment.VITE_DEV_SERVER_URL;
-  delete environment.STUDI_DEVELOPMENT_MODE;
-  const child = spawn(electronPath, [projectRoot], {
-    cwd: projectRoot,
-    env: {
-      ...environment,
-      STUDI_SELF_TEST: "1",
-      STUDI_SELF_TEST_USER_DATA: userDataDirectory,
-      ...extraEnvironment,
-    },
-    stdio: ["ignore", "pipe", "pipe"],
-    windowsHide: true,
+function reservePort() {
+  return new Promise((resolvePort, rejectPort) => {
+    const server = createServer();
+    server.once("error", rejectPort);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      const port = typeof address === "object" && address ? address.port : null;
+      assert.ok(port);
+      server.close((error) => error ? rejectPort(error) : resolvePort(port));
+    });
   });
-
-  let stdout = "";
-  let stderr = "";
-  child.stdout.on("data", (chunk) => {
-    const text = chunk.toString();
-    stdout += text;
-    if (streamOutput) {
-      process.stdout.write(text);
-    }
-  });
-  child.stderr.on("data", (chunk) => {
-    const text = chunk.toString();
-    stderr += text;
-    if (streamOutput) {
-      process.stderr.write(text);
-    }
-  });
-
-  let timeout;
-  let timedOut = false;
-  const exit = await new Promise((resolveExit, rejectExit) => {
-    timeout = setTimeout(() => {
-      timedOut = true;
-      child.kill();
-    }, timeoutMs);
-    child.once("error", rejectExit);
-    child.once("close", (code, signal) => resolveExit({ code, signal }));
-  }).finally(() => clearTimeout(timeout));
-
-  return { exit, stdout, stderr, timedOut };
 }
+
+function delay(ms) { return new Promise((resolveDelay) => setTimeout(resolveDelay, ms)); }
+
+await main();

@@ -10,6 +10,7 @@ coverage/
 .agents/playwright-mcp/
 .studi-qa/
 .studi-fresh/
+.studi-harness/
 .agents/studi-qa/
 .agents/studi-fresh/
 landing/.next/
