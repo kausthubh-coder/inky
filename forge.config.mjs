@@ -6,7 +6,7 @@ export default {
     icon: "assets/studi-inky",
     extraResource: ["assets/studi-inky.png", "assets/studi-inky.ico", "THIRD_PARTY_NOTICES.md"],
     ignore: [
-      /^\/(?:\.agents|\.openai|\.playwright-mcp|convex|desktop|landing|scripts|tests|worker)(?:\/|$)/,
+      /^\/(?:\.agent|\.agents|\.openai|\.playwright-mcp|\.vercel|convex|desktop|landing|out|release|scripts|tests|worker)(?:\/|$)/,
       /^\/\.env(?:\.|$)/,
       /^\/node_modules\/\.vite(?:\/|$)/,
       /^\/dist\/(?:\.openai|server)(?:\/|$)/,
@@ -28,9 +28,11 @@ export default {
       },
     },
     {
-      name: "@electron-forge/maker-zip",
+      name: "@electron-forge/maker-dmg",
       platforms: ["darwin"],
-      config: {},
+      config: {
+        format: "ULFO",
+      },
     },
   ],
 };

@@ -234,7 +234,7 @@ export function LandingPage() {
                 </p>
               </div>
             </section>
-            <Demo />
+            <Demo joined={joined} onJoined={() => setJoined(true)} />
           </div>
         </div>
 
@@ -499,12 +499,14 @@ function useDesktopShrink() {
   }, []);
 }
 
-function Demo() {
+function Demo({ joined, onJoined }: { joined: boolean; onJoined: () => void }) {
   const [beatIndex, setBeatIndex] = useState(0);
   const [decision, setDecision] = useState<Decision | null>(null);
   const [paused, setPaused] = useState(false);
   const [asking, setAsking] = useState(false);
   const [mobileImmersive, setMobileImmersive] = useState(false);
+  const [mobileExiting, setMobileExiting] = useState(false);
+  const [mobileSettling, setMobileSettling] = useState(false);
   const [visible, setVisible] = useState(true);
   const [typedCount, setTypedCount] = useState(0);
   const [toast, setToast] = useState("");
@@ -512,6 +514,8 @@ function Demo() {
   const typedRef = useRef(0);
   const lastTouchAtRef = useRef(0);
   const mobileImmersiveDismissedRef = useRef(false);
+  const mobileExitTimerRef = useRef<number | null>(null);
+  const mobileSettleTimerRef = useRef<number | null>(null);
   const beat = DEMO_BEATS[beatIndex] ?? DEMO_BEATS[0];
   const outcome = beatIndex === 5 && decision ? OUTCOME[decision] : null;
 
@@ -539,6 +543,11 @@ function Demo() {
     sync();
     mobile.addEventListener("change", sync);
     return () => mobile.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => () => {
+    if (mobileExitTimerRef.current !== null) window.clearTimeout(mobileExitTimerRef.current);
+    if (mobileSettleTimerRef.current !== null) window.clearTimeout(mobileSettleTimerRef.current);
   }, []);
 
   useEffect(() => {
@@ -616,8 +625,24 @@ function Demo() {
   }
 
   function dismissMobileImmersive() {
+    if (!mobileImmersive || mobileExitTimerRef.current !== null) return;
     mobileImmersiveDismissedRef.current = true;
-    setMobileImmersive(false);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setMobileImmersive(false);
+      return;
+    }
+
+    setMobileExiting(true);
+    mobileExitTimerRef.current = window.setTimeout(() => {
+      mobileExitTimerRef.current = null;
+      setMobileImmersive(false);
+      setMobileExiting(false);
+      setMobileSettling(true);
+      mobileSettleTimerRef.current = window.setTimeout(() => {
+        mobileSettleTimerRef.current = null;
+        setMobileSettling(false);
+      }, 360);
+    }, 440);
   }
 
   function handleScenePointerUp(event: ReactPointerEvent<HTMLDivElement>) {
@@ -638,7 +663,7 @@ function Demo() {
 
   return (
     <div
-      className={`scene${mobileImmersive ? " mobile-immersive" : ""}`}
+      className={`scene${mobileImmersive ? " mobile-immersive" : ""}${mobileExiting ? " mobile-minimizing" : ""}${mobileSettling ? " mobile-settling" : ""}`}
       ref={sceneRef}
       style={{ backgroundImage: `url(${wallpaper.src})` }}
       onPointerUp={handleScenePointerUp}
@@ -692,8 +717,24 @@ function Demo() {
                     </div>
                   ) : null}
                 </div>
-                <div className="replies">
-                  {paused ? (
+                <div className={`replies${outcome ? " has-waitlist" : ""}`}>
+                  {outcome ? (
+                    <div className="demo-waitlist">
+                      <div className="demo-waitlist-heading">
+                        <strong>Want me in your week?</strong>
+                        <span>The private beta is free.</span>
+                      </div>
+                      <WaitlistForm
+                        emailId="demo-email"
+                        joined={joined}
+                        onJoined={onJoined}
+                        finePrint="One confirmation now. Your download arrives when your seat opens."
+                      />
+                      <button type="button" className="demo-replay" onClick={() => go(0)}>
+                        Play again
+                      </button>
+                    </div>
+                  ) : paused ? (
                     <button type="button" className="btn primary" onClick={keepGoing}>
                       keep going
                     </button>
@@ -836,7 +877,7 @@ function Demo() {
         onClick={dismissMobileImmersive}
         aria-label="Exit the full-screen Studi demo"
       >
-        Scroll ↓ or double-tap to exit
+        {mobileExiting ? "Back to the page…" : "Scroll ↓ or double-tap to exit"}
       </button>
     </div>
   );
@@ -856,8 +897,8 @@ function ScanBoard({ onContinue }: { onContinue: () => void }) {
         <InkyMascot state="working" size={88} />
         <div>
           <p className="scan-kicker">Background school scan</p>
-          <h3>Looking through Maya’s classes…</h3>
-          <p>Every morning · or whenever Maya asks</p>
+          <h3>Looking through your classes…</h3>
+          <p>Every morning · or whenever you ask</p>
         </div>
       </div>
       <div className="scan-layout">
@@ -897,7 +938,8 @@ function WeekBoard({
 }) {
   const refuse = () => onRefuse("Cute. That one’s a you problem.");
   return (
-    <div className="app-week">
+    <>
+      <div className="app-week">
       <div className="app-day today">
         <div className="day-heading">
           <span>Mon</span>
@@ -980,7 +1022,60 @@ function WeekBoard({
           <small>that’s you</small>
         </button>
       </div>
-    </div>
+      </div>
+      <div className="mobile-week" aria-label="Your week in Inky's queue">
+        <section className="mobile-day-block today">
+          <header className="mobile-day-heading">
+            <span>Today</span>
+            <small>2 in Inky’s queue</small>
+          </header>
+          <button type="button" className="mobile-task active" onClick={onStart}>
+            <span className="mobile-task-state">working next</span>
+            <span className="mobile-task-course"><i className="dot calc" /> CALC 1 · due 11:59</span>
+            <strong>Problem set 4: Related rates</strong>
+            <span className="mobile-task-action">Watch Inky work →</span>
+          </button>
+          <div className="mobile-task queued">
+            <span className="mobile-task-state">queued #2</span>
+            <span className="mobile-task-course"><i className="dot hist" /> HIST 210</span>
+            <strong>Essay: Causes of the Cold War</strong>
+            <span className="mobile-task-action muted">after related rates</span>
+          </div>
+        </section>
+
+        <section className="mobile-day-block">
+          <header className="mobile-day-heading">
+            <span>Tomorrow</span>
+            <small>Tuesday, Oct 7</small>
+          </header>
+          <div className="mobile-task needs-you">
+            <span className="mobile-task-state">needs you</span>
+            <span className="mobile-task-course"><i className="dot bio" /> BIO 150</span>
+            <strong>Lab report: Osmosis</strong>
+            <span className="mobile-task-action muted">attach your lab file</span>
+          </div>
+        </section>
+
+        <section className="mobile-day-block">
+          <header className="mobile-day-heading">
+            <span>Wednesday</span>
+            <small>Oct 8</small>
+          </header>
+          <button type="button" className="mobile-task yours" onClick={refuse}>
+            <span className="mobile-task-state">yours</span>
+            <span className="mobile-task-course"><i className="dot psy" /> PSY 101</span>
+            <strong>Reading quiz: Chapter 6</strong>
+            <span className="mobile-task-action muted">Inky won’t take quizzes</span>
+          </button>
+          <div className="mobile-task">
+            <span className="mobile-task-state">due 11:59</span>
+            <span className="mobile-task-course"><i className="dot eng" /> ENG 102</span>
+            <strong>Peer review draft</strong>
+            <span className="mobile-task-action muted">waiting behind your queue</span>
+          </div>
+        </section>
+      </div>
+    </>
   );
 }
 

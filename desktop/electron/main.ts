@@ -91,8 +91,11 @@ const selfTestConnectedApps = [
 const selfTestDirectory = resolve(
   process.env.STUDI_SELF_TEST_USER_DATA ?? join(tmpdir(), `studi-wp00-self-test-${process.pid}`),
 );
-const selfTestConfigured = configureSelfTest();
-const canStart = selfTestConfigured && !squirrelStartup && app.requestSingleInstanceLock();
+const startupProfileConfigured = configureStartupProfile();
+// The installed app owns a single-instance lock. Unpackaged development and QA
+// runs use isolated profiles and must be able to coexist with that installation.
+const ownsSingleInstance = !app.isPackaged || app.requestSingleInstanceLock();
+const canStart = startupProfileConfigured && !squirrelStartup && ownsSingleInstance;
 let selfTestFinished = false;
 let localStore: LocalStore | null = null;
 let storageSelfTestObservation: StorageSelfTestObservation | null = null;
@@ -557,6 +560,7 @@ function createWindow(): BrowserWindow {
     minWidth: 720,
     minHeight: 520,
     show: false,
+    autoHideMenuBar: true,
     backgroundColor: "#fbf7ec",
     icon: loadAppIcon(),
     webPreferences: {
@@ -566,6 +570,9 @@ function createWindow(): BrowserWindow {
       sandbox: true,
     },
   });
+
+  window.setMenu(null);
+  window.setMenuBarVisibility(false);
 
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event) => {
@@ -581,9 +588,13 @@ function createWindow(): BrowserWindow {
   if (isSelfTest) {
     window.webContents.once("did-finish-load", () => {
       window.show();
+      window.focus();
       process.stdout.write(`STUDI_SELF_TEST_READY ${JSON.stringify({
         storage: storageSelfTestObservation,
         agent: agentSelfTestObservation,
+        window: {
+          menuBarVisible: window.isMenuBarVisible(),
+        },
       })}\n`);
     });
     window.webContents.on(
@@ -598,6 +609,9 @@ function createWindow(): BrowserWindow {
     );
   } else {
     window.once("ready-to-show", () => {
+      if (window.isDestroyed()) return;
+      window.show();
+      window.focus();
     });
   }
   mainWindow = window;
@@ -947,7 +961,7 @@ async function runSelfTest(window: BrowserWindow): Promise<void> {
     requireAppKernel().open();
     const trayOpenHandled = requireAppKernel().lifecycleReceipt().openRequests === openCount + 1 && !window.isDestroyed();
     const lifecycle: LifecycleSelfTestObservation = {
-      singleInstanceLock: app.hasSingleInstanceLock() as true,
+      unpackagedCoexistsWithInstalled: (!app.isPackaged && !app.hasSingleInstanceLock()) as true,
       closeHides: closeHides as true,
       trayOpenHandled: trayOpenHandled as true,
     };
@@ -1010,7 +1024,7 @@ function isSuccessfulUiQualityObservation(value: unknown): value is UiQualitySel
 function isSuccessfulLifecycleObservation(value: unknown): value is LifecycleSelfTestObservation {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
-  return record.singleInstanceLock === true && record.closeHides === true && record.trayOpenHandled === true;
+  return record.unpackagedCoexistsWithInstalled === true && record.closeHides === true && record.trayOpenHandled === true;
 }
 
 function isSuccessfulNotificationObservation(value: unknown): value is NotificationSelfTestObservation {
@@ -1780,7 +1794,7 @@ interface UiQualitySelfTestObservation {
 }
 
 interface LifecycleSelfTestObservation {
-  readonly singleInstanceLock: true;
+  readonly unpackagedCoexistsWithInstalled: true;
   readonly closeHides: true;
   readonly trayOpenHandled: true;
 }
@@ -1933,18 +1947,25 @@ function assertOwnedSelfTestDirectory(directory: string): void {
   }
 }
 
-function configureSelfTest(): boolean {
-  if (!isSelfTest) {
-    return true;
-  }
-
+function configureStartupProfile(): boolean {
   try {
-    assertOwnedSelfTestDirectory(selfTestDirectory);
-    app.disableHardwareAcceleration();
-    app.setPath("userData", selfTestDirectory);
+    if (isSelfTest) {
+      assertOwnedSelfTestDirectory(selfTestDirectory);
+      app.disableHardwareAcceleration();
+      app.setPath("userData", selfTestDirectory);
+    } else if (
+      !app.isPackaged
+      && app.commandLine.hasSwitch("studi-development-url")
+      && !app.commandLine.hasSwitch("user-data-dir")
+    ) {
+      app.setPath("userData", join(app.getPath("appData"), "Studi Development"));
+    }
     return true;
   } catch (error) {
-    process.stderr.write(`STUDI_SELF_TEST_CONFIGURATION_FAILED ${formatError(error)}\n`);
+    const failurePrefix = isSelfTest
+      ? "STUDI_SELF_TEST_CONFIGURATION_FAILED"
+      : "STUDI_STARTUP_PROFILE_FAILED";
+    process.stderr.write(`${failurePrefix} ${formatError(error)}\n`);
     app.exit(1);
     return false;
   }
@@ -1954,6 +1975,7 @@ if (canStart) {
   void app.whenReady().then(async () => {
     try {
       app.setAppUserModelId("com.squirrel.studi.Studi");
+      Menu.setApplicationMenu(null);
       registerDesktopConnectProtocol();
       initializeTelemetry();
       await initializeStorage();
@@ -1986,7 +2008,7 @@ if (canStart) {
   });
 }
 
-if (selfTestConfigured && !canStart) app.quit();
+if (startupProfileConfigured && !canStart) app.quit();
 
 app.on("second-instance", (_event, argv) => {
   if (findDesktopConnectUrl(argv)) {

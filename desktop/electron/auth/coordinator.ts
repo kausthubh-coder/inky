@@ -31,6 +31,9 @@ const TokenResponseSchema = z.object({
   expires_in: z.number().positive(),
 }).passthrough();
 
+const AUTH_REQUEST_TIMEOUT_MS = 20_000;
+const ENTITLEMENT_TIMEOUT_MS = 20_000;
+
 interface TokenSet {
   readonly refreshToken: string;
   readonly identityToken: string;
@@ -191,6 +194,7 @@ export class AuthCoordinator {
     this.#state = { status: "signing_in" };
     const transaction = createOAuthTransaction();
     const callback = await openLoopbackCallback(transaction.state);
+    let credentialsPersisted = false;
     try {
       const metadata = await this.#getMetadata();
       const authorizationUrl = new URL(metadata.authorization_endpoint);
@@ -209,7 +213,7 @@ export class AuthCoordinator {
       const tokenResponse = await this.#requestToken(metadata.token_endpoint, {
         grant_type: "authorization_code",
         client_id: studiCloudConfig.clerkClientId,
-        redirect_uri: callback.redirectUri,
+        redirect_uri: callback.tokenRedirectUri,
         code: authorizationCode,
         code_verifier: transaction.verifier,
       });
@@ -217,9 +221,19 @@ export class AuthCoordinator {
       const verified = await this.#verifyIdentityToken(tokenResponse.id_token, transaction.nonce);
       this.#tokens = tokenSet(tokenResponse, tokenResponse.refresh_token, verified);
       this.#stored = { schemaVersion: 1, refreshToken: tokenResponse.refresh_token };
+      await this.#vault.save(this.#stored);
+      credentialsPersisted = true;
       return await this.#evaluateEntitlement();
     } catch (error) {
+      if (credentialsPersisted && this.#tokens) {
+        return this.#setState({
+          status: "error",
+          message: "You're signed in, but Studi could not check beta access. Check your connection and try again.",
+          recoverable: true,
+        });
+      }
       this.#tokens = null;
+      this.#stored = null;
       const message = isProtocolFailure(error)
         ? "Studi rejected an unverifiable sign-in response. Please try again."
         : "Studi could not finish sign-in. Check your connection and try again.";
@@ -231,7 +245,11 @@ export class AuthCoordinator {
 
   async #evaluateEntitlement(): Promise<AuthState> {
     if (!this.#tokens) throw new Error("Authentication is no longer valid");
-    const result = await this.#cloud.evaluate(this.#deviceId);
+    const result = await withTimeout(
+      this.#cloud.evaluate(this.#deviceId),
+      ENTITLEMENT_TIMEOUT_MS,
+      "Studi beta access check timed out",
+    );
     if (!result.approved || !result.plan || result.credits === null) {
       this.#stored = { schemaVersion: 1, refreshToken: this.#tokens.refreshToken };
       await this.#vault.save(this.#stored);
@@ -302,6 +320,7 @@ export class AuthCoordinator {
         method: "POST",
         headers: { "content-type": "application/x-www-form-urlencoded" },
         body: new URLSearchParams(parameters),
+        signal: AbortSignal.timeout(AUTH_REQUEST_TIMEOUT_MS),
       });
     } catch (error) {
       throw new AuthUnavailableError("Clerk token endpoint is unavailable", { cause: error });
@@ -403,4 +422,12 @@ function isCredentialRejection(error: unknown): boolean {
 
 function isProtocolFailure(error: unknown): boolean {
   return error instanceof AuthProtocolError || /callback validation|nonce|authorization was not completed/i.test(error instanceof Error ? error.message : String(error));
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new AuthUnavailableError(message)), timeoutMs);
+    timer.unref();
+    promise.then(resolve, reject).finally(() => clearTimeout(timer));
+  });
 }

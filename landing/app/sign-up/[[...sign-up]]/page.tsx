@@ -13,7 +13,12 @@ export default function SignUpPage() {
       <SiteNav flat />
       <main className="auth-page">
         {configured ? (
-          <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" fallbackRedirectUrl="/dashboard" />
+          <SignUp
+            routing="path"
+            path="/sign-up"
+            signInUrl="/sign-in"
+            forceRedirectUrl="/connect/desktop"
+          />
         ) : (
           <section className="config-card">
             <p className="kicker">Private beta</p>

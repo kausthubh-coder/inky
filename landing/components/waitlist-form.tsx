@@ -34,7 +34,7 @@ function ClerkWaitlistForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
-  const placement = emailId === "hero-email" ? "hero" : "waitlist_section";
+  const placement = emailId === "hero-email" ? "hero" : emailId === "demo-email" ? "demo" : "waitlist_section";
 
   function onStart() {
     if (started.current) return;

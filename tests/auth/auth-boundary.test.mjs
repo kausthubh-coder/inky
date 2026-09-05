@@ -56,6 +56,19 @@ test("loopback callback binds an ephemeral 127.0.0.1 port and consumes one valid
   await callback.close();
 });
 
+test("token exchange reuses Clerk's exact trusted loopback hostname", async () => {
+  const callback = await openLoopbackCallback("expected-state", 3_000);
+  const port = new URL(callback.redirectUri).port;
+  const response = await requestLocalWithHost(
+    `${callback.redirectUri}?code=first-code&state=expected-state`,
+    `localhost:${port}`,
+  );
+  assert.equal(response.statusCode, 200);
+  assert.equal(await callback.code, "first-code");
+  assert.equal(callback.tokenRedirectUri, `http://localhost:${port}/callback`);
+  await callback.close();
+});
+
 test("loopback callback rejects a wrong state without yielding an authorization code", async () => {
   const callback = await openLoopbackCallback("expected-state", 3_000);
   const response = await fetch(`${callback.redirectUri}?code=stolen-code&state=wrong-state`);
@@ -118,13 +131,19 @@ test("OIDC nonce mismatch is rejected before any Convex account call", async () 
         const callback = new URL(url.searchParams.get("redirect_uri"));
         callback.searchParams.set("code", "one-shot-code");
         callback.searchParams.set("state", url.searchParams.get("state"));
-        setImmediate(() => requestLocal(callback.toString()));
+        setImmediate(() => {
+          void requestLocalWithHost(callback.toString(), `localhost:${callback.port}`).catch(() => undefined);
+        });
       },
-      fetch: async (input) => {
+      fetch: async (input, init) => {
         const url = String(input);
         if (url.endsWith("/.well-known/openid-configuration")) return jsonResponse(metadata());
         if (url.endsWith("/oauth/token")) {
           tokenExchanges += 1;
+          assert.match(
+            new URLSearchParams(init.body).get("redirect_uri"),
+            /^http:\/\/localhost:\d+\/callback$/,
+          );
           const idToken = await new SignJWT({ nonce: "wrong-nonce", email: "student@example.com", name: "Student" })
             .setProtectedHeader({ alg: "RS256", kid: jwk.kid })
             .setIssuer(issuer)
@@ -177,4 +196,14 @@ function jsonResponse(value, status = 200) {
 function requestLocal(url) {
   const request = get(url, (response) => response.resume());
   request.on("error", () => undefined);
+}
+
+function requestLocalWithHost(url, host) {
+  return new Promise((resolve, reject) => {
+    const request = get(url, { headers: { host } }, (response) => {
+      response.resume();
+      response.once("end", () => resolve(response));
+    });
+    request.once("error", reject);
+  });
 }

@@ -21,3 +21,4 @@ landing/.vercel/
 .convex/
 .DS_Store
 Thumbs.db
+/.vercel/

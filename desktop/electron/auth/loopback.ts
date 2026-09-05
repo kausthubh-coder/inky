@@ -3,6 +3,7 @@ import type { AddressInfo } from "node:net";
 
 export interface LoopbackCallback {
   readonly redirectUri: string;
+  readonly tokenRedirectUri: string;
   readonly code: Promise<string>;
   close(): Promise<void>;
 }
@@ -13,6 +14,8 @@ export async function openLoopbackCallback(
 ): Promise<LoopbackCallback> {
   let consumed = false;
   let settled = false;
+  let callbackPort = 0;
+  let tokenRedirectUri = "";
   let resolveCode!: (code: string) => void;
   let rejectCode!: (error: Error) => void;
   const code = new Promise<string>((resolve, reject) => {
@@ -21,7 +24,14 @@ export async function openLoopbackCallback(
   });
   void code.catch(() => undefined);
   const server = createServer((request, response) => {
-    const requestUrl = new URL(request.url ?? "/", "http://127.0.0.1");
+    const callbackOrigin = trustedCallbackOrigin(request.headers.host, callbackPort);
+    if (!callbackOrigin) {
+      respond(response, 400, "Studi could not verify this sign-in address. Return to the app and try again.", () => {
+        settleReject(new Error("OAuth callback host validation failed"));
+      });
+      return;
+    }
+    const requestUrl = new URL(request.url ?? "/", callbackOrigin);
     if (requestUrl.pathname !== "/callback") {
       respond(response, 404, "This address is only for Studi sign-in.");
       return;
@@ -40,7 +50,8 @@ export async function openLoopbackCallback(
       });
       return;
     }
-    respond(response, 200, "Signed in to Studi. You can close this tab and return to the app.", () => {
+    tokenRedirectUri = `${callbackOrigin}/callback`;
+    respond(response, 200, "Got it. Return to Studi while I finish signing you in.", () => {
       settleResolve(authorizationCode);
     });
   });
@@ -53,6 +64,8 @@ export async function openLoopbackCallback(
     });
   });
   const address = server.address() as AddressInfo;
+  callbackPort = address.port;
+  tokenRedirectUri = `http://127.0.0.1:${callbackPort}/callback`;
   const timer = setTimeout(() => {
     settleReject(new Error("Studi sign-in timed out"));
     void closeServer(server);
@@ -75,7 +88,10 @@ export async function openLoopbackCallback(
   };
 
   return {
-    redirectUri: `http://127.0.0.1:${address.port}/callback`,
+    redirectUri: `http://127.0.0.1:${callbackPort}/callback`,
+    get tokenRedirectUri() {
+      return tokenRedirectUri;
+    },
     code,
     close: async () => {
       clearTimeout(timer);
@@ -86,6 +102,13 @@ export async function openLoopbackCallback(
       await closeServer(server);
     },
   };
+}
+
+function trustedCallbackOrigin(hostHeader: string | undefined, expectedPort: number): string | null {
+  const match = /^(127\.0\.0\.1|localhost):(\d{1,5})$/i.exec(hostHeader ?? "");
+  if (!match || Number(match[2]) !== expectedPort) return null;
+  const hostname = match[1]!.toLowerCase();
+  return `http://${hostname}:${expectedPort}`;
 }
 
 function respond(
