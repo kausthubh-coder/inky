@@ -6,7 +6,7 @@ import { track } from "../lib/analytics";
 import { InkyMascot } from "./inky-mascot";
 
 const NAV_LINKS = [
-  ["#what", "Inky"],
+  ["#what", "How it works"],
   ["#trust", "Trust"],
   ["#faq", "FAQ"],
   ["/mission", "Mission"],
@@ -24,7 +24,7 @@ export function SiteNav({ current = "", flat = false }: SiteNavProps) {
   useEffect(() => {
     if (flat) return;
     // Observe every section so the highlight clears on sections without a nav link.
-    const ids = ["what", "compare", "trust", "sites", "wait", "faq"];
+    const ids = ["what", "trust", "wait", "faq"];
     const linked = new Set<string>(NAV_LINKS.map(([href]) => href));
     const observer = new IntersectionObserver(
       (entries) => {

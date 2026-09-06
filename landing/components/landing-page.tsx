@@ -133,37 +133,16 @@ const OUTCOME: Record<Decision, { say: string; text: string; page: PageState }> 
 
 const RAIL = ["Hi", "Scan", "Queue", "Work", "Ready"] as const;
 
+const PROMISES = [
+  ["1", "I find it", "I scan your classes and put every due date in one week."],
+  ["2", "I do it", "I work in the real assignment while you watch."],
+  ["3", "You approve it", "I stop before Submit. Quizzes and tests stay yours."],
+] as const;
+
 const TRUST = [
-  {
-    label: "submit",
-    title: "Submit is your call.",
-    copy: "By default I stop at the Submit button and wait for you. Turn auto-submit on for a class or one assignment and I’ll finish the job. I never do it for quizzes or tests.",
-  },
-  {
-    label: "tests",
-    title: "Not mine to take.",
-    copy: "Quizzes, midterms, anything with a timer. I sit there looking helpful and refuse. That part is yours, and it should be.",
-  },
-  {
-    label: "passwords",
-    title: "I’ve never seen one.",
-    copy: "You sign in to your school yourself. I look away, and I don’t keep anything you type there. I’d be a terrible vault and I know that about myself.",
-  },
-  {
-    label: "the page",
-    title: "You can take it back any time.",
-    copy: "I work on the real assignment page while you watch. Click Takeover and I stop mid-sentence. Click keep going and I pick up where I left off.",
-  },
-  {
-    label: "your stuff",
-    title: "It stays with you.",
-    copy: "Your classes, drafts, and school pages live on your computer. The cloud gets your account and this email address. That’s it.",
-  },
-  {
-    label: "honesty",
-    title: "I’m new. I’ll say so.",
-    copy: "This is a small private beta. Sometimes I’ll get stuck, and when I do I’ll stop and tell you instead of pretending I finished.",
-  },
+  ["You’re in control", "Take over at any moment. Nothing submits unless you allow it."],
+  ["Your login stays yours", "You sign in yourself. I never see or save your password."],
+  ["No pretend success", "If I get stuck, I stop and tell you exactly where."],
 ] as const;
 
 const FAQ = [
@@ -187,30 +166,7 @@ const FAQ = [
     "What if you get something wrong?",
     "Then you’ll see it, because it’s right there on the page before anything is submitted. Fix it, or tell me what to fix. I check my work, but you get the final look.",
   ],
-  [
-    "Can my professor tell?",
-    "I don’t have a stealth mode and I won’t pretend I do. Typed answers are typed answers. Use me where you’re allowed, and read what I did before you send it.",
-  ],
-  [
-    "Do I need a school email?",
-    "No. Any email works. I only use it to tell you your seat is ready.",
-  ],
-  [
-    "When do I get in?",
-    "Seats open in small batches so I can keep up. I’ll confirm your place, then email you again when yours is ready.",
-  ],
-] as const;
-
-const SITES = [
-  "Canvas",
-  "Moodle",
-  "Google Classroom",
-  "Blackboard",
-  "WebAssign",
-  "Pearson",
-  "Gradescope",
-  "McGraw Hill",
-  "zyBooks",
+  ["When do I get in?", "Seats open in small batches, in waitlist order. I’ll confirm your place now, then email you when yours is ready."],
 ] as const;
 
 export function LandingPage() {
@@ -239,146 +195,37 @@ export function LandingPage() {
         </div>
 
         <div className="wrap">
-          <section className="block" id="what">
-            <p className="kicker">Meet Inky</p>
-            <h2>Three things. I’m good at them.</h2>
-            <p className="lead">
-              No dashboards to learn. No prompts to write. Your classes show up,
-              you click a card, and I get to work where you can see me.
-            </p>
-            <div className="features">
-              <article className="feature card">
-                <div className="n">your week</div>
-                <h3>Never get blindsided by a due date again.</h3>
-                <p>
-                  I check every class each morning and lay the week out on one
-                  board. Problem sets, essays, labs, the quiz you forgot existed.
-                </p>
-                <div className="feature-visual mini-stack" aria-hidden="true">
-                  <div className="mini-assignment card">
-                    <div className="assignment-top">
-                      <span className="dot calc" /> CALC 1
-                      <span className="badge due">tonight</span>
-                    </div>
-                    <strong>Problem set 4: Related rates</strong>
-                    <small>due 11:59</small>
-                  </div>
-                  <div className="mini-assignment card">
-                    <div className="assignment-top">
-                      <span className="dot bio" /> BIO 150
-                      <span className="badge needs">needs you</span>
-                    </div>
-                    <strong>Lab report: Osmosis</strong>
-                    <small>you attach the file</small>
-                  </div>
-                </div>
-              </article>
-
-              <article className="feature card">
-                <div className="n">the assignment</div>
-                <h3>The hard part gets done while you watch.</h3>
-                <p>
-                  Click a card, say “Make Inky do this,” and I work right on
-                  the assignment page: the math, the writing, the answer boxes.
-                  Take it back whenever you like.
-                </p>
-                <div className="feature-visual" aria-hidden="true">
-                  <div className="mini-page">
-                    <div className="bar" />
-                    <div className="line" />
-                    <div className="line short" />
-                    <div className="line" />
-                    <div className="line short" />
-                    <div className="mini-fade" />
-                    <div className="mini-driver">
-                      <span>Takeover</span>
-                      <InkyMascot state="steering" size={54} />
-                    </div>
-                  </div>
-                </div>
-              </article>
-
-              <article className="feature card">
-                <div className="n">you</div>
-                <h3>You decide what gets submitted.</h3>
-                <p>
-                  I finish and stop at Submit. Read it, fix what you’d fix, click
-                  it yourself, or tell me to submit for you. Quizzes and tests
-                  stay yours either way.
-                </p>
-                <div className="feature-visual" aria-hidden="true">
-                  <div className="mini-submit">
-                    <span>Submit answers</span>
-                    <strong>← your call</strong>
-                  </div>
-                </div>
-              </article>
+          <section className="product-recap" id="what" aria-labelledby="recap-title">
+            <div className="recap-heading">
+              <p className="kicker">That’s the whole app</p>
+              <h2 id="recap-title">From due date to done.</h2>
             </div>
+            <ol className="promise-list">
+              {PROMISES.map(([number, title, copy]) => (
+                <li key={number}>
+                  <span className="promise-number" aria-hidden="true">{number}</span>
+                  <div>
+                    <h3>{title}</h3>
+                    <p>{copy}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </section>
 
-          <section className="block compare" id="compare">
-            <p className="kicker">Not another chat box</p>
-            <h2>You already tried pasting it into a chatbot.</h2>
-            <p className="lead">
-              That works right up until it doesn’t know what’s due, where the
-              assignment lives, or what you already turned in. I do.
-            </p>
-            <div className="compare-grid">
-              <article className="compare-card card them">
-                <h3>Copy, paste, pray</h3>
-                <ul>
-                  <li>You copy the problem over. Every time.</li>
-                  <li>It has no idea what’s due or when.</li>
-                  <li>You retype the answers into the school page and hope you didn’t mistype one.</li>
-                  <li>Six assignments a week, six little rituals.</li>
-                </ul>
-              </article>
-              <article className="compare-card card me">
-                <h3>Inky, in Studi</h3>
-                <ul>
-                  <li>I already see your week, every class, every due date.</li>
-                  <li>I work on the assignment page itself, while you watch.</li>
-                  <li>The answers land in the right boxes. You check them there.</li>
-                  <li>You submit, or tell me to. Then go do literally anything else.</li>
-                </ul>
-              </article>
+          <section className="trust-quiet" id="trust" aria-labelledby="trust-title">
+            <div className="trust-intro">
+              <p className="kicker">Built to be watched</p>
+              <h2 id="trust-title">Trust what you can see.</h2>
+              <p>Inky works on your computer, in front of you—not in a mystery tab.</p>
             </div>
-          </section>
-
-          <section className="block trust" id="trust">
-            <p className="kicker">Why you can trust me with it</p>
-            <h2>You can see me. That’s the point.</h2>
-            <p className="lead">
-              No hidden tab. No stealth mode. No “trust me.” Everything I do
-              happens in front of you, on your own computer, and nothing gets
-              submitted unless you want it to. Use me where your syllabus
-              allows it. That part is on you, and I’ll say so plainly.
-            </p>
-            <div className="trust-grid">
-              {TRUST.map((item) => (
-                <article className="trust-card card" key={item.label}>
-                  <div className="n">✓ {item.label}</div>
-                  <h3>{item.title}</h3>
-                  <p>{item.copy}</p>
+            <div className="trust-list">
+              {TRUST.map(([title, copy]) => (
+                <article key={title}>
+                  <span aria-hidden="true">✓</span>
+                  <div><h3>{title}</h3><p>{copy}</p></div>
                 </article>
               ))}
-            </div>
-          </section>
-
-          <section className="block" id="sites">
-            <p className="kicker">Your classes</p>
-            <h2>Canvas. Moodle. The weird one.</h2>
-            <p className="lead">
-              If you can open it, I can try it. Including the extra login your
-              TA forgot to mention.
-            </p>
-            <div className="sites">
-              {SITES.map((site) => (
-                <span className="site-chip" key={site}>
-                  {site}
-                </span>
-              ))}
-              <span className="site-chip muted">the weird one</span>
             </div>
           </section>
 
@@ -386,38 +233,24 @@ export function LandingPage() {
             <div className="wait-inky" aria-hidden="true">
               <InkyMascot state="hello" size={120} />
             </div>
-            <p className="kicker">Seats</p>
-            <h2>Get a seat.</h2>
+            <p className="kicker">Private beta · invites go in order</p>
+            <h2>Be early. Skip the next problem set.</h2>
             <p className="sub">
-              Leave your email. I’ll confirm your place, then write again when
-              it opens. Then go do something that isn’t a problem set.
+              I open a small batch of seats at a time so every student gets a
+              reliable Inky. Join now and keep your place in line.
             </p>
             <WaitlistForm
               emailId="wait-email"
               joined={joined}
               onJoined={() => setJoined(true)}
               darkButton
-              finePrint={<>No newsletter. No sharing. Just the invite.</>}
+              finePrint={<>One confirmation. Then only your invite. No newsletter.</>}
             />
-            <div className="steps" aria-label="What happens next">
-              <div className="step">
-                <div className="k">1 · now</div>
-                <p>You leave your email here.</p>
-              </div>
-              <div className="step">
-                <div className="k">2 · soon</div>
-                <p>I email you again when a seat opens.</p>
-              </div>
-              <div className="step">
-                <div className="k">3 · then</div>
-                <p>You open Studi. I read your week and get to work.</p>
-              </div>
-            </div>
+            <p className="wait-proof"><span aria-hidden="true">✓</span> Free private beta <span aria-hidden="true">·</span> Any email works <span aria-hidden="true">·</span> Leave anytime</p>
           </section>
 
           <section className="faq" id="faq">
-            <h2>The obvious questions</h2>
-            <p className="lead">Short answers. Honest ones.</p>
+            <h2>A few honest answers.</h2>
             {FAQ.map(([question, answer]) => (
               <details key={question}>
                 <summary>{question}</summary>
@@ -426,13 +259,6 @@ export function LandingPage() {
             ))}
           </section>
 
-          <section className="end-band block">
-            <h2>Get a seat before the week starts.</h2>
-            <p>Your homework isn’t going anywhere. I could be.</p>
-            <a className="btn primary" href="#wait">
-              Get a seat
-            </a>
-          </section>
         </div>
 
         <footer className="foot">
@@ -722,7 +548,7 @@ function Demo({ joined, onJoined }: { joined: boolean; onJoined: () => void }) {
                     <div className="demo-waitlist">
                       <div className="demo-waitlist-heading">
                         <strong>Want me in your week?</strong>
-                        <span>The private beta is free.</span>
+                        <span>Small batches open in waitlist order.</span>
                       </div>
                       <WaitlistForm
                         emailId="demo-email"
