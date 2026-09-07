@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studi — week navigation</title>
+<style>body{max-width:1000px;margin:60px auto;padding:24px;background:#fffaf0;color:#302a24;font:18px/1.6 system-ui}h1{line-height:1.15}li{margin:12px 0}img{width:100%;border:1px solid #c9bdab;border-radius:12px}code{overflow-wrap:anywhere}</style>
+<h1>Browse your school weeks</h1>
+<p>Based on GitHub main <code>c947820</code>, in the isolated <code>codex/week-navigation</code> checkout. The original checkout remains on <code>c5ec295</code> with its unfinished edits preserved.</p>
+<h2>Plan</h2>
+<ol><li>Replace the rolling five-day window with complete Monday–Sunday weeks.</li><li>Add previous / next buttons, a date range, and a return to This week.</li><li>Filter the board and its count to the selected week. Keep the greeting and Today marker tied to the actual local date.</li><li>Check calendar boundaries, typecheck and build, exercise navigation in the UI, and capture a preview image.</li><li>Attempt the test-studi persistent Electron feature pass; report any onboarding or auth boundary honestly.</li></ol>
+<h2>Preview</h2>
+<p>Actual production renderer at 1440 × 760, using the existing preview fixture and a fixed September 3, 2026 clock. This image is sample data, not a live school scan.</p>
+<img src="week-navigation-preview.png" alt="Studi week board showing Monday through Sunday, dates, previous and next arrows, and a This week button">
+<h2>Verification — September 6, 2026</h2>
+<ul>
+<li><code>bun run typecheck</code>: passed.</li>
+<li><code>bun run build</code>: passed; existing dependency annotation and chunk-size warnings.</li>
+<li><code>node --experimental-strip-types --test tests/ui/week-calendar.test.mjs</code>: three tests passed in America/New_York and UTC. Covers Sunday, leap days, both DST changes, adjacent weeks, year boundaries, and distant navigation.</li>
+<li>Playwright against the production renderer: repeated next/previous, return to current week, correct assignment filtering/restoration, week count, unchanged today greeting, no false Today highlight, Enter/Tab/Space controls, and visible 2px keyboard focus all passed.</li>
+<li>At 1000 × 760, the board scrolls to the weekend within its container without overflowing the page. Assignment details still open after navigation.</li>
+<li>Cross-year UI label verified: “Dec 29, 2025 – Jan 4, 2026”.</li>
+<li>Browser console: only the existing missing favicon request; no application exceptions.</li>
+<li>Live Electron check stopped before the feature pass: the existing dedicated QA instance at loopback port 9222 returned <code>auth.status = signed_out</code>, no week board, and “School onboarding is not ready.” Its runtime was the original checkout. The new feature has browser-renderer coverage, not signed-in Electron coverage. No profile, identity, or school data was changed.</li>
+</ul>
+</html>

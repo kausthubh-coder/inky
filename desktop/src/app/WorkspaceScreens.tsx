@@ -1,4 +1,4 @@
-import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useState } from "react";
 
 import {
   classifyAgentRuntimeAttention,
@@ -29,6 +29,7 @@ import {
 } from "../../shared/index.js";
 import { DeskDrawer, deskInkyState, taskStatusCopy, type DeskPanel } from "./DeskScreen.js";
 import { Inky } from "./Inky.js";
+import { calendarWeek, localDateKey } from "./weekCalendar.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { AppChrome, type AppScreen, type SettingsLanding, Field, PaperCard, RuntimeAttentionBanner, StatusPill, TelemetryControls, formatDateTime } from "./Ui.js";
 
@@ -117,11 +118,22 @@ export function DashboardScreen({
   const [prompt, setPrompt] = useState("");
   const [feedback, setFeedback] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [today, setToday] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setToday((previous) => {
+      const now = new Date();
+      return localDateKey(previous) === localDateKey(now) ? previous : now;
+    }), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const verified = onboarding.assignments.filter((assignment) => assignment.lastVerifiedScanId && assignment.evidence.length > 0);
   const taskByAssignment = new Map((library?.tasks ?? []).map((item) => [item.assignment.assignmentId, item]));
-  const days = useMemo(() => fiveDays(), []);
+  const week = calendarWeek(today, weekOffset);
+  const visibleDateKeys = new Set(week.days.map((day) => day.key));
+  const weekAssignments = verified.filter((assignment) => assignment.dueAt && visibleDateKeys.has(localDateKey(new Date(assignment.dueAt))));
   const scan = onboarding.scan;
-  const dueToday = verified.filter((assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === days[0]?.key).length;
+  const dueToday = verified.filter((assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === localDateKey(today)).length;
   const runtimeAttention = classifyAgentRuntimeAttention(workspace?.provider, scan?.state === "failed" ? scan.failures[0] ?? scan.currentStep : null);
   const inkyState = deskInkyState({
     ...(lifecycle.execution ? { execution: lifecycle.execution } : {}),
@@ -180,9 +192,19 @@ export function DashboardScreen({
 
         <section className="week-section" data-studi-week-board="true">
           <div className="section-title">
-            <div><h2>This week</h2></div>
+            <div className="week-heading" aria-live="polite" aria-atomic="true">
+              <h2 id="week-heading">{week.title}</h2>
+              <span className="week-range">{week.range}</span>
+            </div>
+            <nav className="week-navigation" aria-label="Week navigation">
+              <button className="week-arrow" type="button" aria-label="Previous week" title="Previous week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset - 1)}><span aria-hidden="true">←</span></button>
+              <button className="week-current" type="button" disabled={weekOffset === 0} aria-controls="week-grid" onClick={() => setWeekOffset(0)}>This week</button>
+              <button className="week-arrow" type="button" aria-label="Next week" title="Next week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset + 1)}><span aria-hidden="true">→</span></button>
+            </nav>
+          </div>
+          <div className="week-meta">
             <div className="week-tools">
-              <span>{verified.length === 0 ? "Nothing from school yet" : `${verified.length} from school`}</span>
+              <span>{verified.length === 0 ? "Nothing from school yet" : `${weekAssignments.length} due this week`}</span>
               <button className="quiet-button" type="button" onClick={() => setNoteOpen((open) => !open)}>{noteOpen ? "Hide note" : "Something look wrong?"}</button>
             </div>
           </div>
@@ -192,12 +214,12 @@ export function DashboardScreen({
               <button className="button button--yellow" disabled={!feedback.trim() || busy !== null}>Send note</button>
             </form>
           )}
-          <div className="week-grid">
-            {days.map((day, index) => {
-              const items = verified.filter((assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === day.key);
+          <div className="week-grid" id="week-grid" role="region" aria-labelledby="week-heading" tabIndex={0}>
+            {week.days.map((day) => {
+              const items = weekAssignments.filter((assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === day.key);
               return (
-                <section className={`day-column ${index === 0 ? "is-today" : ""}`} key={day.key}>
-                  <header><strong>{day.label}</strong><small>{index === 0 ? "today" : day.date}</small></header>
+                <section className={`day-column ${day.isToday ? "is-today" : ""}`} key={day.key} aria-label={`${day.label}, ${day.date}${day.isToday ? ", today" : ""}`}>
+                  <header><strong>{day.isToday ? "Today" : day.label}</strong><small>{day.date}</small></header>
                   <div className="day-stack">
                     {items.length === 0 ? <p className="empty-day"><span aria-hidden="true">〰</span>Nothing due</p> : items.map((assignment) => {
                       const task = taskByAssignment.get(assignment.assignmentId);
@@ -714,5 +736,3 @@ function ruleScopeLabel(rule: PermissionRule, onboarding: SchoolOnboardingState)
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
 function courseTone(course: string): number { return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6; }
-function localDateKey(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
-function fiveDays(): Array<{ key: string; label: string; date: string }> { const formatter = new Intl.DateTimeFormat(undefined, { weekday: "long" }); const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }); const start = new Date(); start.setHours(0, 0, 0, 0); return Array.from({ length: 5 }, (_, offset) => { const date = new Date(start); date.setDate(start.getDate() + offset); return { key: localDateKey(date), label: offset === 0 ? "Today" : formatter.format(date), date: dateFormatter.format(date) }; }); }
