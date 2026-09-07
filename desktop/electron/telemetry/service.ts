@@ -397,10 +397,16 @@ export class TelemetryService {
     operation: EventProperties<"studi_error">["operation"],
     extras: Pick<EventProperties<"studi_error">, "model" | "reasoning_effort" | "ipc_channel" | "scan_id" | "task_id" | "run_id" | "job_id" | "tool_name" | "toolkit"> = {},
   ): boolean {
-    if(this.#settings.enabled&&this.#client?.captureException){
-      const safe=new Error(stripSecrets(errorMessage(error)));safe.name=errorName(error);
-      if(error instanceof Error&&error.stack)safe.stack=stripSecrets(error.stack);
-      try{this.#client.captureException(safe,this.#distinctId,{boundary,operation,...this.#replayContext,...extras});}catch{/* Diagnostics cannot interrupt the student. */}
+    if (this.#settings.enabled && this.#client?.captureException) {
+      const safe = new Error(stripSecrets(errorMessage(error)));
+      safe.name = errorName(error);
+      if (error instanceof Error && error.stack) safe.stack = stripSecrets(error.stack);
+      try {
+        this.#client.captureException(safe, this.#distinctId, {
+          app_version: this.#appVersion.slice(0, 64), platform: this.#platform,
+          boundary, operation, ...this.#replayContext, ...extras,
+        });
+      } catch { /* Diagnostics cannot interrupt the student. */ }
     }
     const debugSummary = this.#isDebugActive() ? `${errorName(error)} stopped at ${boundary}` : undefined;
     return this.capture("studi_error", {

@@ -267,3 +267,27 @@ function seedTask(store, suffix, dueAt) {
 function rule(ruleId, scope, mode, updatedAt) {
   return { schemaVersion: 1, ruleId, scope, mode, updatedAt };
 }
+
+
+test("cancelled work retries only after an explicit request and a fresh permission check", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-retry-")));
+  const store = await openLocalStore(root);
+  const manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+  try {
+    seedTask(store, "retry", due);
+    store.permissionRules.put(rule("global-attempt", "global", "attempt", now));
+    manager.enqueue({ taskId: "task-retry" });
+    manager.cancel("task-retry");
+    assert.throws(() => manager.enqueue({ taskId: "task-retry" }), /cannot be queued from cancelled/);
+    store.permissionRules.put(rule("global-attempt", "global", "do_not_attempt", now));
+    assert.throws(() => manager.enqueue({ taskId: "task-retry", retry: true }), /blocked by stored permission/);
+    assert.equal(store.tasks.get("task-retry").state, "cancelled");
+    store.permissionRules.put(rule("global-attempt", "global", "attempt", now));
+    manager.enqueue({ taskId: "task-retry", retry: true });
+    assert.equal(store.tasks.get("task-retry").state, "queued");
+    assert.equal((await manager.startNext()).taskId, "task-retry");
+  } finally {
+    manager.dispose(); store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});

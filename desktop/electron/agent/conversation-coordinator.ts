@@ -567,10 +567,12 @@ export class ConversationCoordinator {
       return {
         queue: this.#manager.state(),
         assignments: this.#store.assignments.listAll(),
+        execution: this.#store.lifecycle.latestExecution(),
       };
     const assignment = this.#store.assignments.get(target.assignmentId);
     return {
       assignment,
+      executions: this.#store.tasks.listAll().filter(task => task.assignmentId === target.assignmentId).map(task => this.#store.lifecycle.getExecution(task.taskId)).filter(Boolean),
       tasks: this.#store.tasks
         .listAll()
         .filter((task) => task.assignmentId === target.assignmentId),
@@ -590,7 +592,7 @@ export class ConversationCoordinator {
       description:
         "Read the current Studi queue and visible browser work state.",
       parameters: Type.Object({}, { additionalProperties: false }),
-      execute: async () => toolResult(this.#manager.state()),
+      execute: async () => toolResult(this.#brief({ kind: "home" })),
     });
     const inspect = defineTool({
       name: "queue_inspect",

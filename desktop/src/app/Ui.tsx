@@ -1,4 +1,5 @@
 import { UpdateControls } from "./UpdateControls.js";
+import { Icon } from "./Icon.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { agentRuntimeAttentionCopy, type AgentRuntimeAttention, type NotificationIntent, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
@@ -71,11 +72,13 @@ export function AppChrome({
       <button className="brand-lockup brand-home" type="button" onClick={() => onNavigate("week")} aria-label="Open dashboard"><strong>studi</strong></button>
       {chatName&&<div className="chat-breadcrumb"><span>/</span>{chatName}</div>}
       <div className="chrome-end">
+        {new URLSearchParams(window.location.search).has("preview") && <span className="preview-mode-label">Design preview</span>}
         <UpdateControls onNotification={onNotification}/>
+        <button className="chrome-settings" type="button" aria-label="Settings" title="Settings" aria-current={screen === "settings" ? "page" : undefined} onClick={() => openSettings("settings")}><Icon name="settings" size={19} /></button>
         <div className="account-menu-wrap" ref={accountMenuRef}>
-          <button ref={accountButtonRef} className="account-chip" type="button" aria-haspopup="menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => { if (!open) setAccountNotice(null); return !open; })}>
+          <button ref={accountButtonRef} className="account-chip" type="button" aria-label={`Account for ${displayName}`} title={displayName} aria-haspopup="menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => { if (!open) setAccountNotice(null); return !open; })}>
             <span aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</span>
-            {displayName}
+            <Icon name="down" size={14} />
           </button>
           {accountOpen ? (
             <div className="account-menu" role="menu" aria-label="Profile menu">
@@ -106,6 +109,7 @@ function ProfileMenuItem({ icon, label, active = false, danger = false, onClick 
 }
 
 function ProfileMenuIcon({ name }: { name: ProfileMenuIconName }) {
+  if (name === "settings") return <Icon name="settings" size={16} />;
   const paths = {
     usage: <><path d="M4 12V8" /><path d="M8 12V4" /><path d="M12 12V6" /></>,
     invite: <><circle cx="6" cy="6" r="2.25" /><path d="M2.75 13c.45-2.2 1.55-3.25 3.25-3.25S8.8 10.8 9.25 13" /><path d="M12 4v4M10 6h4" /></>,

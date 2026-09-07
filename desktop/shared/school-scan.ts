@@ -172,6 +172,7 @@ export function presentSchoolOnboardingScan(
   return { step: 5, kind: "sign_in" };
 }
 
-export function nextSchoolScanAction(state: Pick<SchoolOnboardingState, "workflowRevision">): "scan" | "replay" {
+export function nextSchoolScanAction(state: Pick<SchoolOnboardingState, "scan" | "workflowRevision">): "scan" | "resume" | "replay" {
+  if (state.scan?.state === "needs_user") return "resume";
   return state.workflowRevision === null ? "scan" : "replay";
 }

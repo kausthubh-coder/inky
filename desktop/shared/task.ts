@@ -28,8 +28,6 @@ export const TERMINAL_TASK_STATES = Object.freeze([
   "ignored",
   "submitted",
   "preserved",
-  "failed",
-  "cancelled",
 ] as const satisfies readonly TaskState[]);
 
 export const TASK_TRANSITIONS = Object.freeze({
@@ -42,8 +40,8 @@ export const TASK_TRANSITIONS = Object.freeze({
   submitting: Object.freeze(["submitted", "needs_user", "working", "failed"]),
   submitted: Object.freeze([]),
   preserved: Object.freeze([]),
-  failed: Object.freeze([]),
-  cancelled: Object.freeze([]),
+  failed: Object.freeze(["queued"]),
+  cancelled: Object.freeze(["queued"]),
 } as const satisfies Readonly<Record<TaskState, readonly TaskState[]>>);
 
 export const TaskSchema = z.strictObject({

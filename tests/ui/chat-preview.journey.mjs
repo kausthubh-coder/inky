@@ -21,16 +21,16 @@ export async function verifyChatPreview(page, base = "http://127.0.0.1:4174") {
     await page.waitForSelector(".composer-mascot");
     assert.equal(await page.locator(".composer-mascot").count(), 1);
     const range = await page
-      .locator(".section-title>div:first-child")
+      .locator(".week-range")
       .innerText();
     await page.getByRole("button", { name: "Next week", exact: true }).click();
     assert.notEqual(
-      await page.locator(".section-title>div:first-child").innerText(),
+      await page.locator(".week-range").innerText(),
       range,
     );
     await page.getByRole("button", { name: "This week", exact: true }).click();
     assert.equal(
-      await page.locator(".section-title>div:first-child").innerText(),
+      await page.locator(".week-range").innerText(),
       range,
     );
     await box().fill("Help with @");

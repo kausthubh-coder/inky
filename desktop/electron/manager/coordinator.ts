@@ -39,6 +39,7 @@ type AssignmentSessionPlanInput =
 export interface EnqueueAssignmentInput {
   readonly taskId: string;
   readonly priority?: number;
+  readonly retry?: boolean;
 }
 
 export interface ManagerCoordinatorOptions {
@@ -108,14 +109,17 @@ export class ManagerCoordinator {
   async startFromConversation(taskId: string): Promise<unknown> {
     this.#assertUsable();
     if (!this.#startAssignment) throw new Error("Assignment execution is not ready");
-    const entry = this.#store.manager.getQueueEntry(taskId);
-    if (!entry) throw new Error(`Task ${taskId} is not in the manager queue`);
-    const permittedEntry = this.#refreshStartPermission(entry);
-    if (!permittedEntry) throw new Error(`Task ${taskId} is blocked by stored permission rules`);
-    const assignment = this.#store.assignments.get(entry.assignmentId);
+    if (this.#store.manager.getLease()) throw new Error("Inky is already on another page.");
+    const task = this.#requiredTask(taskId);
+    const assignment = this.#store.assignments.get(task.assignmentId);
     if (!assignment?.lastVerifiedScanId || assignment.evidence.length === 0) {
       throw new Error(`Task ${taskId} is not backed by a verified scanned assignment`);
     }
+    const existing = this.#store.manager.getQueueEntry(taskId);
+    if (existing && !this.#refreshStartPermission(existing)) {
+      throw new Error(`Task ${taskId} is blocked by stored permission rules`);
+    }
+    this.enqueue({ taskId, retry: true });
     this.steerNext(taskId);
     return this.#startAssignment(taskId);
   }
@@ -130,15 +134,16 @@ export class ManagerCoordinator {
     if (!assignment) {
       throw new Error(`Assignment ${task.assignmentId} does not exist`);
     }
-    if (task.state !== "discovered" && task.state !== "queued") {
+    const retrying = input.retry === true && (task.state === "failed" || task.state === "cancelled");
+    if (task.state !== "discovered" && task.state !== "queued" && !retrying) {
       throw new Error(`Task ${task.taskId} cannot be queued from ${task.state}`);
     }
     const permission = this.#resolvePermission(assignment.assignmentId, assignment.courseId);
     if (!permission.mayAttempt) {
       throw new Error(`Task ${task.taskId} is blocked by stored permission rules`);
     }
-    if (task.state === "discovered") {
-      this.#transition(task.taskId, "queued", "Queued by the Studi manager", `manager-${randomUUID()}`);
+    if (task.state === "discovered" || retrying) {
+      this.#transition(task.taskId, "queued", retrying ? "Retried at the student’s request" : "Queued by the Studi manager", `manager-${randomUUID()}`);
     }
     const existing = this.#store.manager.getQueueEntry(task.taskId);
     return this.#store.manager.putQueueEntry({
@@ -165,6 +170,11 @@ export class ManagerCoordinator {
       throw new Error(`Task ${taskId} cannot be cancelled from ${task.state}`);
     }
     this.#transition(taskId, "cancelled", "Cancelled by the Studi manager", `manager-${randomUUID()}`);
+    const execution = this.#store.lifecycle.getExecution(taskId);
+    if (execution) this.#store.lifecycle.putExecution({
+      ...execution, phase: "failed", lastError: "Cancelled by the student.",
+      reviewDeadline: undefined, handoffDeadline: undefined, updatedAt: this.#now(),
+    });
     if (this.#store.manager.getLease()?.taskId === taskId) {
       this.#workerSession?.dispose();
       this.#workerSession = null;

@@ -139,7 +139,7 @@ export function DeskDrawer({
   });
   const currentTool = useMemo(() => currentToolName(detail), [detail]);
   const done = task && ["submitted", "preserved"].includes(task.task.state);
-  const canStart = Boolean(task && ["discovered", "queued"].includes(task.task.state) && task.permission.mayAttempt && !anyLive);
+  const canStart = Boolean(task && ["discovered", "queued", "failed", "cancelled"].includes(task.task.state) && task.permission.mayAttempt && !anyLive);
   const title = assignment?.title ?? (desk ? "Inky’s desk" : "Assignment");
   const visibleDetail = detail && assignment && detail.assignment.assignmentId === assignment.assignmentId
     ? detail
@@ -224,7 +224,7 @@ export function DeskDrawer({
 
       {assignment && (
         <div className="drawer-facts">
-          <p>{dueSentence(assignment.dueAt)}</p>
+          <p>{assignment.dueAt ? dueSentence(assignment.dueAt) : assignment.dueText ?? "No due date."}</p>
           {task && <p>{permissionLine(task)}</p>}
           {!live && assignment.evidence.length > 0 && <p>I already looked at the page.</p>}
         </div>
@@ -251,7 +251,7 @@ export function DeskDrawer({
           {busy === "assignment" ? "Inky is starting…" : "Make Inky do this"}
         </button>
       )}
-      {!live && task && ["discovered", "queued"].includes(task.task.state) && task.permission.mayAttempt && anyLive && (
+      {!live && task && ["discovered", "queued", "failed", "cancelled"].includes(task.task.state) && task.permission.mayAttempt && anyLive && (
         <p className="drawer-note">I’m already on another page.</p>
       )}
       {!live && task && !task.permission.mayAttempt && (

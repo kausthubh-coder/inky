@@ -14,10 +14,23 @@ if (!args.import && !args.export) {
 }
 
 const profilePath = resolve(args.profile ?? join(qaRoot, "profile"));
-const cachePath = resolve(args.cache ?? join(qaRoot, "codex-auth", "auth.json"));
+let cachePath = resolve(args.cache ?? join(qaRoot, "codex-auth", "auth.json"));
+if (args.import && !args.cache && !process.env[ENV_NAME] && !(await fileInfo(cachePath)).usable) {
+  const common = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: workspaceRoot, encoding: "utf8", windowsHide: true });
+  if (common.status === 0) {
+    const sharedCache = join(dirname(common.stdout.trim()), ".agents", "studi-qa", "codex-auth", "auth.json");
+    if ((await fileInfo(sharedCache)).usable) cachePath = sharedCache;
+  }
+}
 const profileAuthPath = join(profilePath, "studi-data", "pi", "auth.json");
 
 if (args.import) {
+  // Never replace an independently refreshed worktree credential on each launch.
+  // Force is only for deliberately recovering a profile that needs login.
+  if (!args.force && (await fileInfo(profileAuthPath)).usable) {
+    writeReceipt({ schemaVersion: 1, action: "import", ok: true, source: "profile", destinationPath: profileAuthPath, preserved: true });
+    process.exit(0);
+  }
   const hydrated = await hydrateCacheFromEnv(cachePath);
   const source = await fileInfo(cachePath);
   if (!source.usable) {
@@ -78,12 +91,13 @@ writeReceipt({
 process.exit(destination.usable ? 0 : 2);
 
 function parseArgs(argv) {
-  const parsed = { import: false, export: false, copySecret: false, profile: null, cache: null };
+  const parsed = { import: false, export: false, copySecret: false, force: false, profile: null, cache: null };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
     if (value === "--import") parsed.import = true;
     else if (value === "--export") parsed.export = true;
     else if (value === "--copy-secret") parsed.copySecret = true;
+    else if (value === "--force") parsed.force = true;
     else if (value === "--profile") parsed.profile = argv[++index] ?? null;
     else if (value === "--cache") parsed.cache = argv[++index] ?? null;
     else fail(`unknown argument: ${value}`);
