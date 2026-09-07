@@ -12,6 +12,14 @@ There are two jobs. Pick one:
 - **Skip to app (default):** reuse `.agents/studi-qa/profile` and drive the week board. Use this when onboarding is already done, or when the job is chrome, Settings, assignment-sidebar, or desk layout. Codex is required only if the job starts a manager, scan, or desk agent turn.
 - **Full onboarding:** walk first-run from the signed-out gate through Clerk and Codex. Stop before a live LMS sign-in until a local school fixture exists.
 
+## Visual previews and worktrees
+
+Run `bun run preview:ui` for the browser gallery or `bun run preview:desktop` for a visible Electron fixture window with native controls. Both print their actual free loopback URL. The desktop preview uses the production window-chrome configuration and real React screens, without the production preload or backend. These fixtures do not prove a completed real scan. Run the matching real QA journey as well; report any auth gate separately.
+
+`-Persistent` prefers this worktree's dedicated profile, then an existing dedicated profile in the main Git checkout. Read `profilePath` in the receipt; never substitute the everyday AppData profile. Use `-ProfilePath` to explicitly select another dedicated QA profile. A shared profile cannot be reset through the worktree launcher.
+
+Use the official Playwright MCP for both previews and Electron. Current MCP exposes code execution as `browser_run_code_unsafe` with `--caps devtools`; older versions use `browser_run_code`. The executable journeys are `tests/ui/chat-preview.journey.mjs` and `tests/ui/workspace-preview.journey.mjs`. Run their exported functions against the actual printed preview base URL. See `docs/ui-previews.md`.
+
 ## Before the run
 
 | Job | Read |
@@ -34,7 +42,7 @@ node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --export --c
 node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --import
 ```
 
-That binds CDP to `127.0.0.1` only, starts a short-lived loopback Clerk handoff, and reuses `<repo>\.agents\studi-qa\profile`. `-ImportCodexAuth` hydrates Codex from `STUDI_QA_CODEX_AUTH` or `.agents\studi-qa\codex-auth\auth.json`, then copies it into the profile. The launcher receipt exposes a safe `clerkClaimUrl`; use it with isolated Playwright after activating **Sign in to Studi**. First time both Codex sources are empty, the user completes only the ChatGPT device code, then the agent exports the refreshed secret to the clipboard. After that, do not ask them to log in again unless auth is actually gone.
+That binds CDP to `127.0.0.1` only, starts a short-lived loopback Clerk handoff, and reuses the dedicated `profilePath` in its receipt. `-ImportCodexAuth` hydrates Codex from `STUDI_QA_CODEX_AUTH` or `.agents\studi-qa\codex-auth\auth.json`, then copies it into the profile. The launcher receipt exposes a safe `clerkClaimUrl`; use it with isolated Playwright after activating **Sign in to Studi**. First time both Codex sources are empty, the user completes only the ChatGPT device code, then the agent exports the refreshed secret to the clipboard. After that, do not ask them to log in again unless auth is actually gone.
 
 Do not pass `-ResetPersistent` unless the user asked to wipe the onboarded QA profile.
 

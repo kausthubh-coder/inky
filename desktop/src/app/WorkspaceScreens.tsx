@@ -1,4 +1,6 @@
 import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
+import { Icon } from "./Icon.js";
+import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
 import {
   type CSSProperties,
@@ -55,16 +57,6 @@ import {
   TelemetryControls,
   formatDateTime,
 } from "./Ui.js";
-
-type SettingsGroup = "inky" | "school" | "you";
-
-function settingsGroup(
-  section?: "inky" | "school" | "privacy" | "account",
-): SettingsGroup {
-  if (section === "privacy" || section === "account") return "you";
-  if (section === "school") return "school";
-  return "inky";
-}
 
 type SaveRuleInput =
   | { ruleId?: string; scope: "global"; mode: PermissionMode }
@@ -158,6 +150,7 @@ export function DashboardScreen({
   );
   const [clock, setClock] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
+  const [boardView, setBoardView] = useState<"week" | "undated">(() => readDevPreviewConfig()?.id === "week-undated" ? "undated" : "week");
   useEffect(() => {
     const tick = () => setClock(new Date());
     const timer = setInterval(tick, 30_000);
@@ -248,7 +241,7 @@ export function DashboardScreen({
           >
             <Inky state={inkyState} size={90} label={`Inky is ${inkyState}`} />
           </button>
-          <h1>Hey {chrome.studentName}.</h1>
+          <h1>Hey {chrome.studentName.trim().split(/\s+/)[0]}.</h1>
           <p role="status">
             {error
               ? error
@@ -265,8 +258,8 @@ export function DashboardScreen({
                         : "Nothing due today. A little room to breathe."}
           </p>
           {["failed", "partial"].includes(scan?.state ?? "") && (
-            <button className="quiet-button" onClick={onScanAgain}>
-              Try again ↻
+            <button className="scan-retry" onClick={onScanAgain} disabled={busy !== null}>
+              <Icon name="refresh" size={14} />Try again
             </button>
           )}
         </header>
@@ -281,49 +274,25 @@ export function DashboardScreen({
         <section className="week-section" data-studi-week-board="true">
           <div className="section-title">
             <div>
-              <h2>{week.title}</h2>
-              <small>{week.range}</small>
+              <div className="board-views" aria-label="Assignment views">
+                <button aria-pressed={boardView === "week"} onClick={() => setBoardView("week")}>Your week</button>
+                <button aria-pressed={boardView === "undated"} onClick={() => setBoardView("undated")}>Without dates <span>{verified.filter(a => !a.dueAt).length}</span></button>
+              </div>
             </div>
             <div className="week-tools">
-              <span role="status">{scanStatusCopy(scan?.state)}</span>
-              <button
-                className="quiet-button"
-                onClick={onScanAgain}
-                disabled={scan?.state === "running" || busy !== null}
-                aria-label="Refresh assignments"
-              >
-                ↻
-              </button>
-              <span className="week-divider" />
-              {weekOffset !== 0 && (
+              {boardView === "week" && <div className="week-navigation" aria-label="Week navigation">
+              <button className="week-arrow" onClick={() => setWeekOffset(n => n - 1)} aria-label="Previous week"><Icon name="left" /></button>
+              <div className="week-range" aria-live="polite"><strong>{week.title}</strong><small>{week.range}</small></div>
+              <button className="week-arrow" onClick={() => setWeekOffset(n => n + 1)} aria-label="Next week"><Icon name="right" /></button>
+              </div>}
+              {boardView === "week" && weekOffset !== 0 && (
                 <button
-                  className="quiet-button"
+                  className="week-today"
                   onClick={() => setWeekOffset(0)}
                 >
                   This week
                 </button>
               )}
-              <button
-                className="week-arrow"
-                onClick={() => setWeekOffset((n) => n - 1)}
-                aria-label="Previous week"
-              >
-                ←
-              </button>
-              <button
-                className="week-arrow"
-                onClick={() => setWeekOffset((n) => n + 1)}
-                aria-label="Next week"
-              >
-                →
-              </button>
-              <button
-                className="quiet-button"
-                type="button"
-                onClick={() => setNoteOpen((open) => !open)}
-              >
-                {noteOpen ? "Hide note" : "Something look wrong?"}
-              </button>
             </div>
           </div>
           {noteOpen && (
@@ -338,6 +307,8 @@ export function DashboardScreen({
               }}
             >
               <input
+                aria-label="Note about your assignments"
+                autoFocus
                 value={feedback}
                 onChange={(event) => setFeedback(event.target.value)}
                 placeholder="Tell Studi what this view missed"
@@ -351,7 +322,7 @@ export function DashboardScreen({
               </button>
             </form>
           )}
-          <div className="week-grid">
+          {boardView === "week" && <div className="week-grid-scroll"><div className="week-grid">
             {days.map((day, index) => {
               const items = verified.filter(
                 (assignment) =>
@@ -408,18 +379,21 @@ export function DashboardScreen({
                 </section>
               );
             })}
-          </div>
-          {verified.some((a) => !a.dueAt) && (
+          </div></div>}
+          {boardView === "undated" && (
             <div className="undated-assignments">
-              <h3>No due date yet</h3>
-              <div>
+              <p>School hasn’t listed a due date for these yet.</p>
+              {!verified.some(a => !a.dueAt) && <p className="undated-empty">All caught up — everything has a place in your week.</p>}
+              {[...new Set(verified.filter(a => !a.dueAt).map(a => a.courseId))].map(courseId => <section className="undated-course" key={courseId}>
+              <h3>{courseLabel(onboarding, courseId)}</h3><div>
                 {verified
-                  .filter((a) => !a.dueAt)
+                  .filter((a) => !a.dueAt && a.courseId === courseId)
                   .map((assignment) => (
                     <AssignmentCard
                       key={assignment.assignmentId}
                       assignmentId={assignment.assignmentId}
                       title={assignment.title}
+                      {...(taskByAssignment.get(assignment.assignmentId) ? { item: taskByAssignment.get(assignment.assignmentId)! } : {})}
                       course={courseLabel(onboarding, assignment.courseId)}
                       tone={courseTone(
                         courseLabel(onboarding, assignment.courseId),
@@ -431,7 +405,7 @@ export function DashboardScreen({
                       onAssignment={onAssignment}
                     />
                   ))}
-              </div>
+              </div></section>)}
             </div>
           )}
           {verified.length === 0 && (
@@ -445,6 +419,10 @@ export function DashboardScreen({
               </p>
             </PaperCard>
           )}
+          <footer className="week-footer">
+            <button className="scan-refresh" onClick={onScanAgain} disabled={scan?.state === "running" || busy !== null} aria-label="Refresh assignments"><Icon name="refresh" size={15} /><span role="status">{scanStatusCopy(scan?.state)}</span></button>
+            <button className="week-correction" onClick={() => setNoteOpen(open => !open)} aria-expanded={noteOpen}><Icon name="note" size={15} />{noteOpen ? "Close note" : "Something missing?"}</button>
+          </footer>
         </section>
         {error && panel.kind === "closed" && (
           <p className="error-note" role="alert">
@@ -484,7 +462,7 @@ function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, select
     <button className={`assignment-card course-accent-${tone} ${selected ? "is-selected" : ""}`} onClick={() => onAssignment(assignmentId)}>
       <small>{course}</small>
       <strong>{title}</strong>
-      <span>{dueAt ? new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(dueAt)) : "No time"}</span>
+      {dueAt && <span>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(dueAt))}</span>}
       {status && <StatusPill tone={status.tone}>{status.label}</StatusPill>}
     </button>
   );
@@ -748,7 +726,11 @@ export function SettingsScreen({
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
-  const [section, setSection] = useState<SettingsGroup>(() => chrome.settingsLanding === "settings" ? settingsGroup(readDevPreviewConfig()?.settingsSection ?? initialSection) : "you");
+  const [section, setSection] = useState<SettingsSectionId>(() => chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : readDevPreviewConfig()?.settingsSection ?? initialSection);
+  const [query, setQuery] = useState("");
+  const matches = matchingSettings(query);
+  const visible = (id: SettingsSectionId) => query.trim() ? matches.includes(id) : section === id;
+  const currentSection = SETTINGS_SECTIONS.find(item => item.id === section)!;
   const [review, setReview] = useState(15);
   const [handoff, setHandoff] = useState(30);
   const [memory, setMemory] = useState<"none" | "selected" | "all">("selected");
@@ -781,23 +763,14 @@ export function SettingsScreen({
     <main className="app-shell" data-studi-app-ready="true">
       <AppChrome {...chrome} />
       <div className="page settings-page">
-        <header className="page-hero compact settings-hero">
-          <div className="settings-greeting">
-            <Inky state="idle" size={64} label="Inky" />
-            <div>
-              <p className="eyebrow">Settings</p>
-              <h1>This is how I work for you.</h1>
-            </div>
-          </div>
-        </header>
-        <nav className="settings-tabs" aria-label="Settings sections">
-          {([["inky", "Inky"], ["school", "School"], ["you", "You"]] as const).map(([id, label]) => (
-            <button className={section === id ? "is-active" : ""} type="button" key={id} onClick={() => setSection(id)}>{label}</button>
-          ))}
-        </nav>
-
-        {section === "inky" && (
-          <div className="settings-stack">
+        <SettingsNavigation section={section} query={query} onQuery={setQuery} onSection={setSection} />
+        <div className="settings-content">
+          <header className="settings-heading">
+            <div><p className="eyebrow">{query.trim() ? "Find your setting" : currentSection.group}</p><h2>{query.trim() ? "Search results" : currentSection.label}</h2><p>{query.trim() ? `${matches.length} ${matches.length === 1 ? "section" : "sections"} matching “${query.trim()}”` : currentSection.hint}</p></div>
+            <Inky state="idle" size={58} label="Inky" />
+          </header>
+          {query.trim() && matches.length === 0 && <div className="settings-no-results"><h3>No settings found.</h3><p>Try “sound”, “model”, or “school”.</p><button className="button" onClick={() => setQuery("")}>Clear search</button></div>}
+            {visible("inky") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">How I think</p>
               <h2>{workspace?.provider.providerName ?? "ChatGPT"}</h2>
@@ -810,6 +783,8 @@ export function SettingsScreen({
               </div>
               <small>New chats use the pair you save here.</small>
             </PaperCard>
+            )}
+            {visible("preferences") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">When I finish</p>
               <h2>Your look, then I wait</h2>
@@ -820,6 +795,8 @@ export function SettingsScreen({
               </div>
               <button className="button button--yellow" disabled={busy !== null} onClick={() => onSavePreferences(review, handoff, memory)}>Save</button>
             </PaperCard>
+            )}
+            {visible("apps") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Connected apps</p>
               <h2>Tools I can use</h2>
@@ -847,6 +824,8 @@ export function SettingsScreen({
                 })}
               </div>
             </PaperCard>
+            )}
+            {visible("folder") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Homework folder</p>
               <h2>The folder I may use</h2>
@@ -854,11 +833,9 @@ export function SettingsScreen({
               <small data-homework-root>{preferences?.homeworkRoot ?? "No folder selected"}</small>
               <button className="button button--mint" type="button" disabled={busy !== null} onClick={onSelectHomeworkRoot}>Choose an empty folder</button>
             </PaperCard>
-          </div>
-        )}
+            )}
 
-        {section === "school" && (
-          <div className="settings-stack">
+            {visible("school") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Look schedule</p>
               <h2>When I check school</h2>
@@ -870,6 +847,8 @@ export function SettingsScreen({
               <button className="button button--mint" disabled={busy !== null} onClick={() => onSchedule(cadence, localTime, cadence === "weekly" ? weekday : undefined)}>Save schedule</button>
               {schedule && <small>Next look: {schedule.nextRunAt ? formatDateTime(schedule.nextRunAt) : "only when you ask"}</small>}
             </PaperCard>
+            )}
+            {visible("rules") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">What I may try</p>
               <h2>Homework rules</h2>
@@ -894,14 +873,12 @@ export function SettingsScreen({
                 {(settings?.permissionRules.length ?? 0) === 0 && <small>No rules yet. I won’t start homework without one.</small>}
               </div>
             </PaperCard>
-          </div>
-        )}
+            )}
 
-        {section === "you" && (
-          <div className="settings-stack">
-            <UsageCard entitlement={entitlement} usage={usage} />
-            <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />
-            <TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onTelemetryDebug} />
+            {visible("usage") && <UsageCard entitlement={entitlement} usage={usage} />}
+            {visible("notifications") && <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />}
+            {visible("privacy") && <TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onTelemetryDebug} />}
+            {visible("support") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">If something broke</p>
               <h2>Safe diagnostics</h2>
@@ -911,6 +888,8 @@ export function SettingsScreen({
               {diagnosticsReceipt?.status === "cancelled" && <small>Nothing was written.</small>}
               <small>Studi {runtime?.app ?? "—"}</small>
             </PaperCard>
+            )}
+            {visible("support") && (
             <PaperCard className="settings-card" id="feedback-settings">
               <p className="eyebrow">A note for us</p>
               <h2>Something look wrong?</h2>
@@ -919,14 +898,16 @@ export function SettingsScreen({
                 <button className="button button--yellow" disabled={!note.trim() || busy !== null}>Send note</button>
               </form>
             </PaperCard>
+            )}
+            {visible("account") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Signed in</p>
               <h2>{chrome.studentName}</h2>
               <p>Signing out leaves your school pages and saved work on this laptop.</p>
               <button className="button button--coral" onClick={onSignOut} disabled={busy !== null}>Sign out</button>
             </PaperCard>
-          </div>
-        )}
+            )}
+        </div>
         {error && <p className="error-note">{error}</p>}
       </div>
     </main>

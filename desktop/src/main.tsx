@@ -9,6 +9,10 @@ import { PreviewGallery } from "./app/PreviewGallery";
 import { StudiApp } from "./app/StudiApp";
 import "./app/app.css";
 
+if (navigator.userAgent.includes("Electron/")) {
+  document.documentElement.dataset.desktop = navigator.userAgent.includes("Macintosh") ? "darwin" : "win32";
+}
+
 const previewGallery = new URLSearchParams(window.location.search).get("preview") === "gallery";
 if (!previewGallery) installDevPreview();
 
@@ -25,3 +29,4 @@ createRoot(rootElement).render(
 );
 
 import "./app/chat.css";
+import "./app/workspace.css";

@@ -1,3 +1,4 @@
+import { windowChromeOptions } from "./window-chrome.js";
 import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -622,6 +623,7 @@ function createWindow(): BrowserWindow {
     minHeight: 520,
     show: false,
     autoHideMenuBar: true,
+    ...windowChromeOptions,
     backgroundColor: "#fbf7ec",
     icon: loadAppIcon(),
     webPreferences: {

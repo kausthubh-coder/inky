@@ -7,11 +7,11 @@ $ErrorActionPreference = "Stop"
 $workspaceRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot "..\..\..\.."))
 Set-Location -LiteralPath $workspaceRoot
 
-& bun install
+& bun install --frozen-lockfile
 if ($LASTEXITCODE -ne 0) { throw "bun install failed" }
 
 $authPath = Join-Path $workspaceRoot ".agents\studi-qa\codex-auth\auth.json"
-if (Test-Path -LiteralPath $authPath -PathType Leaf) {
+if ((Test-Path -LiteralPath $authPath -PathType Leaf) -or $env:STUDI_QA_CODEX_AUTH) {
   & node ".agents\skills\test-studi\scripts\sync-studi-qa-codex-auth.mjs" --import | Out-Null
   if ($LASTEXITCODE -ne 0) { throw "The Studi QA Codex cache could not be hydrated" }
 }

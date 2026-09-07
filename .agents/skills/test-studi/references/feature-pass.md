@@ -16,7 +16,7 @@ This pass skips onboarding. It cannot manufacture a completed scan. If the week 
    .\.agents\skills\test-studi\scripts\Start-StudiQa.ps1 -Persistent -ImportCodexAuth
    ```
 
-4. The receipt path is always `<repo>\.agents\studi-qa\profile`. `profileReused=true` means this is not a first-run folder. Do not pass `-ResetPersistent` unless the user asked to wipe onboarded state.
+4. Read `profilePath` from the receipt. A fresh worktree may reuse the existing dedicated QA profile from the main Git checkout. `profileReused=true` means this is not a first-run folder. Do not pass `-ResetPersistent` unless the user asked to wipe onboarded state.
 5. Attach `playwright-electron` to `http://127.0.0.1:9222`.
 
 ## Admit the run or stop
@@ -42,10 +42,10 @@ Codex:
 
 Stay in Studi chrome. Use accessibility snapshots.
 
-1. **This week** — greeting, scan pill, five-day board, desk strip. Open one visible task if any exist.
-2. **Command bar** — send a read-only manager prompt such as “What is queued? Do not start an assignment.” Confirm a manager reply or an honest failure. Do not click **Start next** on a live school assignment unless the user explicitly asked and stored permission is `do_not_attempt`.
-3. **Library** — open one task detail if the library has one; open one artifact if one exists.
-4. **Settings** — confirm preferences, schedule, model, and permission rules render. Do not change the school URL, do not sign out, do not toggle telemetry off as part of a default pass.
+1. **This week** — greeting, scan pill, seven-day board, separate Without dates view. Open one visible task if any exist.
+2. **Chat input** — send a read-only manager prompt such as “What is queued? Do not start an assignment.” Confirm a manager reply or an honest failure. Do not click **Start next** on a live school assignment unless the user explicitly asked and stored permission is `do_not_attempt`.
+3. **Without dates** — confirm only undated assignments appear; open one if present, then return to Your week.
+4. **Settings** — search for “sound”, clear search, and confirm preferences, schedule, model, and permission rules render. Do not change the school URL, do not sign out, do not toggle telemetry off as part of a default pass.
 5. **Scan again** — only when the user asked, or when proving replay. A zero-result or partial scan stays incomplete.
 6. **Desk** — only if an execution is already live. Takeover / cancel only if the user asked. Never `browser_submit` and never verify a real submission.
 
@@ -53,7 +53,7 @@ If school login expired mid-pass, stop. Ask the user to sign in on the guest pan
 
 ## Restart
 
-To prove persistence, quit Electron and launch `-Persistent` again. The same `.agents\studi-qa\profile` must still be approved and onboarded. A throwaway temp profile is the wrong tool for this.
+To prove persistence, quit Electron and launch `-Persistent` again. The same receipt `profilePath` must still be approved and onboarded. A throwaway temp profile is the wrong tool for this.
 
 ## Never
 

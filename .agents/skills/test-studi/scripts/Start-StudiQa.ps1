@@ -13,6 +13,8 @@ param(
 
   [switch]$Persistent,
 
+  [string]$ProfilePath = "",
+
   [switch]$ResetPersistent,
 
   [switch]$ImportCodexAuth,
@@ -64,8 +66,22 @@ if ($ClerkHandoffPort -eq $Port -or -not (Test-PortAvailable -CandidatePort $Cle
   throw "Clerk handoff port $ClerkHandoffPort is unavailable. Choose a different loopback port."
 }
 
+if ($ProfilePath -and -not $Persistent) { throw "-ProfilePath requires -Persistent." }
+
 if ($Persistent) {
-  $profilePath = Join-Path $workspaceRoot ".agents\studi-qa\profile"
+  if ($ProfilePath) {
+    $profilePath = [System.IO.Path]::GetFullPath($ProfilePath)
+  } else {
+    $profilePath = Join-Path $workspaceRoot ".agents\studi-qa\profile"
+    # An existing dedicated QA profile survives worktree creation. Never use AppData.
+    $commonGitDir = & git -C $workspaceRoot rev-parse --path-format=absolute --git-common-dir
+    if ($LASTEXITCODE -eq 0) {
+      $sharedProfile = Join-Path (Split-Path -Parent $commonGitDir) ".agents\studi-qa\profile"
+      if (-not (Test-Path -LiteralPath (Join-Path $profilePath "Local State")) -and (Test-Path -LiteralPath $sharedProfile -PathType Container)) {
+        $profilePath = [System.IO.Path]::GetFullPath($sharedProfile)
+      }
+    }
+  }
 } else {
   $profileParentPath = [System.IO.Path]::GetFullPath($ProfileParent)
   if ($profileParentPath.Contains('"')) {
@@ -84,10 +100,14 @@ $profileHadData = $profileExisted -and @(Get-ChildItem -LiteralPath $profilePath
 $profileReset = $false
 
 if ($Persistent -and $ResetPersistent -and $profileExisted) {
-  Remove-Item -LiteralPath $profilePath -Recurse -Force
-  $profileExisted = $false
-  $profileHadData = $false
-  $profileReset = $true
+  $expectedResetPath = [System.IO.Path]::GetFullPath((Join-Path $workspaceRoot ".agents\studi-qa\profile"))
+  if ($profilePath -ne $expectedResetPath) { throw "Reset is limited to this worktree's QA profile. The shared or explicit profile will not be removed." }
+  if (-not $DryRun) {
+    Remove-Item -LiteralPath $profilePath -Recurse -Force
+    $profileExisted = $false
+    $profileHadData = $false
+    $profileReset = $true
+  }
 }
 
 $cdpEndpoint = "http://127.0.0.1:$Port"
