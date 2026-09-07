@@ -8,9 +8,52 @@ import test from "node:test";
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
 import { SchoolScanCoordinator } from "../../dist/electron/scan/coordinator.js";
 import { openLocalStore } from "../../dist/electron/storage/index.js";
+import { nextSchoolScanAction } from "../../dist/shared/index.js";
 
 const now = "2026-09-01T12:00:00.000Z";
 const rootUrl = "https://school.example.edu/";
+
+test("dashboard handoff resumes the same replay without navigating away from the student's page", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-replay-handoff-")));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const finish = async (tools) => {
+    browser.showAssignments();
+    await invoke(tools, "scan_record_course", { label: "Calculus", courseKey: "calc-101" });
+    await invoke(tools, "scan_finish", {
+      coverage: [{ target: "Course: Calculus", status: "verified" }],
+      navigationHints: [],
+    });
+  };
+  const runtime = new ScriptedScanRuntime([
+    finish,
+    async (tools) => {
+      await invoke(tools, "scan_request_handoff", { kind: "school_sign_in", reason: "Please sign in." });
+    },
+    finish,
+  ]);
+  const coordinator = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await coordinator.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    assert.equal((await coordinator.startScan()).scan.state, "succeeded");
+    const paused = await coordinator.replay();
+    assert.equal(paused.scan.state, "needs_user");
+    assert.equal(paused.workflowRevision, 1);
+    const navigationCount = browser.navigations.length;
+    await assert.rejects(coordinator.replay(), /already owns the visible school browser/);
+    const actions = { scan: () => coordinator.startScan(), replay: () => coordinator.replay(), resume: () => coordinator.resume() };
+    const resumed = await actions[nextSchoolScanAction(paused)]();
+    assert.equal(resumed.scan.state, "succeeded");
+    assert.equal(resumed.scan.scanId, paused.scan.scanId);
+    assert.equal(resumed.scan.kind, "replay");
+    assert.equal(browser.navigations.length, navigationCount, "resume preserves the student's current page");
+    assert.match(runtime.prompts.at(-1), /continue the same scan/);
+  } finally {
+    coordinator.dispose();
+    store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
 
 test("school scan pauses for sign-ins, records evidence, replays from root, and preserves prior rows on partial and zero results", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp07-scan-")));

@@ -473,6 +473,7 @@ export function DashboardScreen({
         onVerifySubmission={onVerifySubmission}
         onSchoolSlot={onSchoolSlot}
         onResumeScan={onScanAgain}
+        scanBusy={busy !== null}
       />
     </main>
   );

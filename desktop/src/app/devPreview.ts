@@ -25,7 +25,7 @@ export type DevPreviewScenarioId =
   | "onboarding-welcome" | "onboarding-chatgpt" | "onboarding-connections" | "onboarding-folder"
   | "onboarding-school" | "onboarding-permission" | "onboarding-schedule" | "onboarding-signin"
   | "onboarding-scan" | "onboarding-handoff" | "onboarding-ready"
-  | "chat-expanded" | "chat-thinking" | "chat-error" | "week-error" | "week-updating" | "updates-ready" | "updates-mac" | "updates-error"
+  | "chat-expanded" | "chat-thinking" | "chat-error" | "chat-handoff" | "week-error" | "week-updating" | "updates-ready" | "updates-mac" | "updates-error"
   | "week" | "assignment" | "desk-working" | "desk-needs-user" | "desk-review" | "desk-submitted"
   | "settings-inky" | "settings-school" | "settings-privacy" | "settings-account";
 
@@ -53,6 +53,7 @@ export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId
   {id:'chat-expanded',group:'Chat & updates',title:'chat expanded',note:'Interactive real component fixture'},
   {id:'chat-thinking',group:'Chat & updates',title:'chat thinking',note:'Interactive real component fixture'},
   {id:'chat-error',group:'Chat & updates',title:'chat error',note:'Interactive real component fixture'},
+  {id:'chat-handoff',group:'Chat & updates',title:'School sign-in handoff',note:'Resume a scan from the conversation'},
   {id:'week-error',group:'Chat & updates',title:'week error',note:'Interactive real component fixture'},
   {id:'week-updating',group:'Chat & updates',title:'week updating',note:'Interactive real component fixture'},
   {id:'updates-ready',group:'Chat & updates',title:'updates ready',note:'Interactive real component fixture'},
@@ -176,7 +177,7 @@ export function installDevPreview(): void {
     onboarding = { ...onboarding, scan: null, workflowRevision: null };
   } else if (preview.id === "onboarding-scan") {
     onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "running", completedAt: undefined, currentStep: "Checking linked homework pages…", failures: [], handoff: null }, workflowRevision: null };
-  } else if (preview.id === "onboarding-handoff") {
+  } else if (preview.id === "onboarding-handoff" || preview.id === "chat-handoff") {
     onboarding = {
       ...onboarding,
       scan: {
@@ -187,7 +188,7 @@ export function installDevPreview(): void {
         failures: [],
         handoff: { kind: "linked_system_sign_in", reason: "WebAssign needs you to sign in before I can keep checking.", requestedAt: now, evidence },
       },
-      workflowRevision: null,
+      workflowRevision: preview.id === "chat-handoff" ? 1 : null,
     };
   }
 
@@ -345,8 +346,8 @@ export function installDevPreview(): void {
         sessionId: current.sessionId ?? `preview-session-${current.jobId}`,
         messages: [
           ...current.messages,
-          { messageId: `preview-user-${current.jobId}-${turnIndex}`, role: "user", text, createdAt: now, turnIndex, ...(assignmentRefs?{assignmentRefs}:{}), ...(clientMessageId?{clientMessageId}:{}) },
-          { messageId: `preview-inky-${current.jobId}-${turnIndex}`, role: "assistant", text: reply, createdAt: now, turnIndex },
+          { messageId: `preview-user-${current.jobId}-${turnIndex}`, role: "user", text, createdAt: new Date().toISOString(), turnIndex, ...(assignmentRefs?{assignmentRefs}:{}), ...(clientMessageId?{clientMessageId}:{}) },
+          { messageId: `preview-inky-${current.jobId}-${turnIndex}`, role: "assistant", text: reply, createdAt: new Date().toISOString(), turnIndex },
         ],
         updatedAt: now,
       };

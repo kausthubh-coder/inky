@@ -12,6 +12,7 @@ import type {
 import { Inky, type InkyState } from "./Inky.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { readDevPreviewConfig } from "./devPreview.js";
+import { chatTimeline, type ChatCardEntry } from "./chatTimeline.js";
 
 export type ChatView = "home" | "compact" | "expanded";
 interface ChatProps {
@@ -25,6 +26,7 @@ interface ChatProps {
   task: TaskSummary | null;
   mood: InkyState;
   actionError: string | null;
+  scanBusy: boolean;
   onStart: (id: string) => void;
   onOpenWork: () => void;
   onTakeover: (id: string) => void;
@@ -97,6 +99,25 @@ export function ChatWorkspace(props: ChatProps) {
     ["working", "needs_user", "ready_review", "submitting"].includes(
       execution.phase,
     );
+  const cards: ChatCardEntry[] = [];
+  if (assignment || execution) {
+    cards.push({
+      kind: "assignment",
+      key: `assignment:${assignment?.assignmentId ?? execution!.assignmentId}`,
+      createdAt: execution?.updatedAt ?? assignment!.discoveredAt,
+    });
+  }
+  if (execution?.phase === "ready_review") {
+    cards.push({ kind: "review", key: `review:${execution.taskId}`, createdAt: execution.updatedAt });
+  }
+  if (onboarding.scan?.state === "needs_user") {
+    cards.push({
+      kind: "scan_handoff",
+      key: `handoff:${onboarding.scan.scanId}`,
+      createdAt: onboarding.scan.handoff?.requestedAt ?? onboarding.scan.updatedAt,
+    });
+  }
+  const timeline = chatTimeline(chat?.job.messages ?? [], cards);
   const mood: InkyState =
     chat?.activity === "typing"
       ? "thinking"
@@ -182,7 +203,7 @@ export function ChatWorkspace(props: ChatProps) {
   }, [draft.text, view]);
   useEffect(() => {
     if (log.current) log.current.scrollTop = log.current.scrollHeight;
-  }, [chat?.job.messages.length, active, view]);
+  }, [chat?.job.messages.length, timeline.length, active, view]);
   useEffect(() => {
     const persist = (event: Event) => {
       try {
@@ -365,166 +386,173 @@ export function ChatWorkspace(props: ChatProps) {
                 </p>
               </article>
             )}
-            {chat?.job.messages.map((message, index) => (
-              <article
-                key={message.messageId}
-                className={`chat-bubble ${message.role === "user" ? "student-bubble" : "inky-bubble"}`}
-              >
-                <small>{message.role === "user" ? "You" : "Inky"}</small>
-                {message.assignmentRefs?.length && (
-                  <div className="chat-refs">
-                    {message.assignmentRefs.map((ref) => (
-                      <span key={ref.assignmentId}>@ {ref.title}</span>
-                    ))}
-                  </div>
-                )}
-                <p>{message.text}</p>
-                {message.recovery === "failed" && (
-                  <button
-                    className="button button--yellow"
-                    disabled={Boolean(active)}
-                    onClick={() => {
-                      const original = chat.job.messages
-                        .slice(0, index)
-                        .reverse()
-                        .find((m) => m.role === "user");
-                      if (original)
-                        void send(original.text, original.assignmentRefs ?? []);
-                    }}
+            {timeline.map((entry) => {
+              if (entry.kind === "message") {
+                const { message, index } = entry;
+                return (
+                  <article
+                    key={message.messageId}
+                    className={`chat-bubble ${message.role === "user" ? "student-bubble" : "inky-bubble"}`}
                   >
-                    Try again
-                  </button>
-                )}
-              </article>
-            ))}
-            {(assignment || execution) && (
-              <article className="chat-task-card">
-                <small>
-                  {assignment
-                    ? onboarding.courses.find(
-                        (c) => c.courseId === assignment.courseId,
-                      )?.label
-                    : "Your work"}
-                </small>
-                <h3>
-                  {assignment?.title ??
-                    onboarding.assignments.find(
-                      (a) => a.assignmentId === execution?.assignmentId,
-                    )?.title ??
-                    "Current assignment"}
-                </h3>
-                <p>
-                  {execution?.returnPredicate ??
-                    (task?.task.state === "discovered"
-                      ? "Ready when you want to start."
-                      : execution?.phase === "ready_review"
-                        ? "Your work is ready. Review it before you hand it in."
-                        : execution?.phase === "needs_user"
-                          ? "Your school page needs you. I’ve kept your place."
-                          : "Ask me about this assignment, or open its school page.")}
-                </p>
-                <div className="chat-card-actions">
-                  {task &&
-                    !work &&
-                    ["discovered", "ready", "failed", "cancelled"].includes(
-                      task.task.state,
-                    ) && (
+                    <small>{message.role === "user" ? "You" : "Inky"}</small>
+                    {Boolean(message.assignmentRefs?.length) && (
+                      <div className="chat-refs">
+                        {message.assignmentRefs?.map((ref) => (
+                          <span key={ref.assignmentId}>@ {ref.title}</span>
+                        ))}
+                      </div>
+                    )}
+                    <p>{message.text}</p>
+                    {message.recovery === "failed" && (
                       <button
                         className="button button--yellow"
-                        onClick={() => props.onStart(task.task.taskId)}
+                        disabled={Boolean(active)}
+                        onClick={() => {
+                          const original = chat?.job.messages
+                            .slice(0, index)
+                            .reverse()
+                            .find((m) => m.role === "user");
+                          if (original)
+                            void send(original.text, original.assignmentRefs ?? []);
+                        }}
                       >
-                        Start assignment
+                        Try again
                       </button>
                     )}
-                  <button
-                    className="button button--paper"
-                    onClick={openBrowser}
-                  >
-                    Open school page ↗
-                  </button>
-                  {execution?.answerArtifactId && (
+                  </article>
+                );
+              }
+              if (entry.kind === "assignment") return (
+                <article key={entry.key} className="chat-task-card">
+                  <small>
+                    {assignment
+                      ? onboarding.courses.find(
+                          (c) => c.courseId === assignment.courseId,
+                        )?.label
+                      : "Your work"}
+                  </small>
+                  <h3>
+                    {assignment?.title ??
+                      onboarding.assignments.find(
+                        (a) => a.assignmentId === execution?.assignmentId,
+                      )?.title ??
+                      "Current assignment"}
+                  </h3>
+                  <p>
+                    {execution?.returnPredicate ??
+                      (task?.task.state === "discovered"
+                        ? "Ready when you want to start."
+                        : execution?.phase === "ready_review"
+                          ? "Your work is ready. Review it before you hand it in."
+                          : execution?.phase === "needs_user"
+                            ? "Your school page needs you. I’ve kept your place."
+                            : "Ask me about this assignment, or open its school page.")}
+                  </p>
+                  <div className="chat-card-actions">
+                    {task &&
+                      !work &&
+                      ["discovered", "ready", "failed", "cancelled"].includes(
+                        task.task.state,
+                      ) && (
+                        <button
+                          className="button button--yellow"
+                          onClick={() => props.onStart(task.task.taskId)}
+                        >
+                          Start assignment
+                        </button>
+                      )}
                     <button
                       className="button button--paper"
-                      onClick={() => props.onOpenArtifact(execution.taskId)}
+                      onClick={openBrowser}
                     >
-                      Open saved answer ↗
+                      Open school page ↗
                     </button>
-                  )}
-                  {execution &&
-                    ["working", "submitting"].includes(execution.phase) && (
+                    {execution?.answerArtifactId && (
                       <button
-                        className="quiet-button"
-                        disabled={execution.phase === "submitting"}
-                        onClick={() => props.onTakeover(execution.taskId)}
+                        className="button button--paper"
+                        onClick={() => props.onOpenArtifact(execution.taskId)}
                       >
-                        Pause & take over
+                        Open saved answer ↗
                       </button>
                     )}
-                  {execution?.phase === "needs_user" && (
-                    <button
-                      className="button button--yellow"
-                      onClick={() => props.onResume(execution.taskId)}
-                    >
-                      I’m done — check
-                    </button>
-                  )}
-                  {execution && work && (
-                    <button
-                      className="quiet-button"
-                      onClick={() => props.onCancel(execution.taskId)}
-                    >
-                      Cancel work
-                    </button>
-                  )}
-                </div>
-              </article>
-            )}
-            {execution?.phase === "ready_review" && (
-              <form
-                className="chat-task-card"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (confirmation.trim())
-                    props.onVerifySubmission(
-                      execution.taskId,
-                      confirmation.trim(),
-                    );
-                }}
-              >
-                <h3>Take a look before you hand it in.</h3>
-                <p>
-                  Open the school page and review your answer. After you submit
-                  it yourself, tell me the confirmation you see.
-                </p>
-                <label>
-                  Words shown after submission
-                  <input
-                    value={confirmation}
-                    onChange={(e) => setConfirmation(e.target.value)}
-                    placeholder="For example: Submitted successfully"
-                    maxLength={1000}
-                  />
-                </label>
-                <button
-                  className="button button--yellow"
-                  disabled={!confirmation.trim()}
+                    {execution &&
+                      ["working", "submitting"].includes(execution.phase) && (
+                        <button
+                          className="quiet-button"
+                          disabled={execution.phase === "submitting"}
+                          onClick={() => props.onTakeover(execution.taskId)}
+                        >
+                          Pause & take over
+                        </button>
+                      )}
+                    {execution?.phase === "needs_user" && (
+                      <button
+                        className="button button--yellow"
+                        onClick={() => props.onResume(execution.taskId)}
+                      >
+                        I’m done — check
+                      </button>
+                    )}
+                    {execution && work && (
+                      <button
+                        className="quiet-button"
+                        onClick={() => props.onCancel(execution.taskId)}
+                      >
+                        Cancel work
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+              if (entry.kind === "review" && execution) return (
+                <form
+                  key={entry.key}
+                  className="chat-task-card"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (confirmation.trim())
+                      props.onVerifySubmission(
+                        execution.taskId,
+                        confirmation.trim(),
+                      );
+                  }}
                 >
-                  I submitted it — check
-                </button>
-              </form>
-            )}
-            {onboarding.scan?.state === "needs_user" && (
-              <article className="chat-task-card">
-                <h3>Could you sign in for me?</h3>
-                <p>{onboarding.scan.currentStep}</p>
-                <button className="button button--yellow" onClick={openBrowser}>
-                  Open school page ↗
-                </button>
-                <button className="quiet-button" onClick={props.onResumeScan}>
-                  I’m done — check
-                </button>
-              </article>
-            )}
+                  <h3>Take a look before you hand it in.</h3>
+                  <p>
+                    Open the school page and review your answer. After you submit
+                    it yourself, tell me the confirmation you see.
+                  </p>
+                  <label>
+                    Words shown after submission
+                    <input
+                      value={confirmation}
+                      onChange={(e) => setConfirmation(e.target.value)}
+                      placeholder="For example: Submitted successfully"
+                      maxLength={1000}
+                    />
+                  </label>
+                  <button
+                    className="button button--yellow"
+                    disabled={!confirmation.trim()}
+                  >
+                    I submitted it — check
+                  </button>
+                </form>
+              );
+              if (entry.kind === "scan_handoff" && onboarding.scan) return (
+                <article key={entry.key} className="chat-task-card">
+                  <h3>Could you sign in for me?</h3>
+                  <p>{onboarding.scan.currentStep}</p>
+                  <button className="button button--yellow" onClick={openBrowser}>
+                    Open school page ↗
+                  </button>
+                  <button className="quiet-button" onClick={props.onResumeScan} disabled={props.scanBusy}>
+                    {props.scanBusy ? "Checking…" : "I’m done — check"}
+                  </button>
+                </article>
+              );
+              return null;
+            })}
             {(error || props.actionError) && (
               <p className="chat-error" role="alert">
                 {error || props.actionError}

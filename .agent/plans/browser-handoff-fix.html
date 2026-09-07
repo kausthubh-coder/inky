@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><title>School browser handoff fix</title>
+<body><h1>Resume the paused school scan</h1>
+<p>The dashboard's “I’m done — check” action chooses replay whenever a saved workflow exists. A paused scan still owns the browser, so replay is rejected.</p>
+<ol><li>Confirm the paused scan in local records and PostHog.</li><li>Choose resume before considering a fresh scan or replay.</li><li>Verify both first-scan and replay handoffs, retained browser ownership, typechecking, and the build.</li></ol>
+<p>Follow-up: hide empty assignment references without rendering their zero count. Merge messages and action cards by their recorded timestamps so replies appear after the card they respond to.</p>
+<p>Verified: the local paused scan matches the four PostHog ownership exceptions. Typecheck, build, 21 scan/projection/lifecycle tests, five UI unit tests, and the isolated Playwright handoff journey pass. The journey checks empty references, card ordering, resume routing, and the disabled checking button. The installed application has not been replaced or retested against a live school sign-in.</p>
+</body></html>
