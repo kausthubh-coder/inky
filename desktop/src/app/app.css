@@ -330,75 +330,119 @@ body{background:radial-gradient(circle at 1px 1px,#e9e0cd 1.1px,transparent 1.2p
 .assignment-card.is-selected{background:#fff2b5;box-shadow:4px 5px 0 rgb(59 52 44 / 18%)}
 .week-tools{display:flex;align-items:center;gap:12px}
 .week-tools>span{color:var(--muted);font-size:.67rem;font-weight:800}
-/* The week reads as one planner sheet; deadlines carry the visual weight. */
+/* One paper planner. Flip weeks like a notebook. Homework is louder than empty days. */
 .week-section {
-  --planner-rule: color-mix(in srgb, var(--ink) 14%, var(--panel));
-  --planner-quiet: color-mix(in srgb, var(--muted) 80%, var(--panel));
+  position:relative;
   margin-top:28px;
-  border:1px solid var(--planner-rule);
-  border-radius:16px;
-  background:var(--panel);
-  box-shadow:0 4px 16px rgb(41 37 31 / 4%);
+  padding:16px 14px 14px 28px;
+  border:2.5px solid var(--ink);
+  border-radius:18px 14px 20px 12px;
+  background:
+    linear-gradient(90deg,#edd8b0 0 18px,transparent 18px),
+    var(--panel);
+  box-shadow:5px 6px 0 rgb(59 52 44 / 16%);
+  rotate:-.35deg;
   container-type:inline-size;
 }
-.week-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:24px;padding:24px;border-bottom:1px solid var(--planner-rule)}
-.week-heading{display:grid;gap:4px}
-.week-caption{margin:0;color:var(--muted);font-size:.75rem;font-weight:700}
-.week-range{margin:0;color:var(--ink);font:600 1.65rem/1.25 "Shantell Sans",cursive;letter-spacing:-.035em;font-variant-numeric:tabular-nums}
-.week-navigation{display:flex;align-items:center;gap:12px}
-.week-stepper{display:flex;border:1px solid var(--planner-rule);border-radius:8px;overflow:hidden}
-.week-navigation button{display:grid;place-items:center;min-height:40px;border:0;background:transparent;color:var(--ink);font:700 .8rem/1 "Nunito Sans",sans-serif}
-.week-navigation .week-arrow{width:40px}
-.week-arrow+.week-arrow{border-left:1px solid var(--planner-rule)}
-.week-navigation .week-current{padding:0 12px;border:1px solid var(--planner-rule);border-radius:8px}
-.week-navigation button:disabled{opacity:1;color:var(--planner-quiet);border-color:transparent;cursor:default}
-.week-navigation button:active:not(:disabled){background:var(--yellow)}
-.week-count{display:flex;align-items:center;gap:8px;margin-left:auto;color:var(--muted);font-size:.8rem}
-.week-count strong{display:grid;place-items:center;min-width:28px;height:28px;border-radius:50%;background:var(--paper);color:var(--ink);font-size:.85rem;font-variant-numeric:tabular-nums}
-.week-section .week-grid{grid-template-columns:repeat(7,minmax(164px,1fr));gap:0;padding:0;scrollbar-width:thin;scrollbar-color:var(--planner-rule) transparent;overscroll-behavior-x:contain}
-.week-section .day-column{min-height:332px;border-radius:0}
-.week-section .day-column+.day-column{border-left:1px solid var(--planner-rule)}
-.week-section .day-column:nth-last-child(-n+2){background:color-mix(in srgb,var(--paper) 60%,var(--panel))}
-.week-section .day-column.is-today{background:color-mix(in srgb,var(--yellow) 8%,var(--panel))}
-.week-section .day-column>header{display:grid;gap:8px;padding:20px 16px 16px}
-.day-name{color:var(--muted);font-size:.75rem;font-weight:700}
-.day-date{display:flex;align-items:center;gap:8px;min-height:40px}
-.day-date time{display:grid;place-items:center;min-width:40px;height:40px;font:600 1.6rem/1 "Shantell Sans",cursive;font-variant-numeric:tabular-nums}
-.is-today .day-date time{border-radius:48% 44% 50% 42%;background:var(--yellow)}
-.day-today{font-size:.69rem;font-weight:700;color:var(--muted)}
-.week-section .day-stack{padding:0 12px 20px;gap:12px}
-.week-section .empty-day{display:block;margin:0;padding:16px 4px;border:0;border-radius:0;color:var(--planner-quiet);font-size:.75rem;font-weight:400;text-align:left}
-.week-section .assignment-card{gap:8px;padding:14px 12px;border:1px solid color-mix(in srgb,var(--ink) 14%,var(--assignment-paper));border-radius:10px;background:var(--assignment-paper);box-shadow:0 2px 3px rgb(41 37 31 / 5%);transform:none;overflow-wrap:anywhere}
-.week-section .course-accent-0{--assignment-paper:color-mix(in srgb,var(--yellow) 20%,var(--panel))}
-.week-section .course-accent-1{--assignment-paper:color-mix(in srgb,var(--coral) 65%,var(--panel))}
-.week-section .course-accent-2{--assignment-paper:color-mix(in srgb,var(--mint) 65%,var(--panel))}
-.week-section .course-accent-3{--assignment-paper:color-mix(in srgb,var(--sky) 65%,var(--panel))}
-.week-section .course-accent-4{--assignment-paper:color-mix(in srgb,var(--pink) 65%,var(--panel))}
-.week-section .course-accent-5{--assignment-paper:color-mix(in srgb,var(--lavender) 65%,var(--panel))}
-.week-section .assignment-card::before{display:none}
-.week-section .assignment-card>small{padding:0;color:var(--muted);font-size:.65rem;line-height:1.4;letter-spacing:.025em}
-.week-section .assignment-card>strong{font-size:.875rem;line-height:1.4}
-.week-section .assignment-card>span:not(.status-pill){color:var(--muted);font-size:.72rem;font-weight:400}
-.week-section .assignment-card .status-pill{justify-self:start;margin-top:4px;padding:3px 7px;border-color:color-mix(in srgb,var(--ink) 25%,transparent);font-size:.6rem}
-.week-section .assignment-card.is-selected{outline:2px solid var(--ink);outline-offset:2px}
-.week-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;padding:12px 24px;border-top:1px solid var(--planner-rule);color:var(--planner-quiet);font-size:.72rem}
-.week-footer .quiet-button{min-height:32px;color:var(--muted);font-size:.72rem;font-weight:400;text-decoration:none}
-.week-section .week-note{margin:0 24px 20px}
-.week-section .empty-state{margin:20px auto}
+.week-section::before,.week-section::after{
+  content:"";
+  position:absolute;
+  left:7px;
+  width:8px;
+  height:8px;
+  border:1.5px solid var(--ink);
+  border-radius:50%;
+  background:#c9b184;
+  box-shadow:inset 1px 1px 0 #fff6;
+}
+.week-section::before{top:28px}
+.week-section::after{bottom:28px}
+.week-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px 16px;padding:4px 6px 14px}
+.week-heading{display:grid;gap:2px;min-width:0}
+.week-caption{margin:0;color:var(--muted);font-size:.72rem;font-weight:800}
+.week-range{margin:0;color:var(--ink);font:700 1.55rem/1.15 "Shantell Sans",cursive;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.week-navigation{display:flex;align-items:center;gap:8px}
+.week-navigation .week-arrow{
+  display:grid;place-items:center;width:40px;min-width:40px;height:40px;padding:0;
+  border:2px solid var(--ink);border-radius:10px 8px 12px 7px;background:var(--panel);
+  box-shadow:2px 2px 0 var(--ink);color:var(--ink);
+}
+.week-navigation .week-arrow:active{transform:translate(2px,2px);box-shadow:none}
+.week-navigation .week-current{
+  min-height:40px;padding:0 12px;border:2px solid var(--ink);
+  border-radius:255px 15px 225px 15px/15px 225px 15px 255px;
+  background:var(--yellow);box-shadow:2px 2px 0 var(--ink);
+  font:800 .78rem/1 "Nunito Sans",sans-serif;color:var(--ink);
+}
+.week-navigation .week-current:active{transform:translate(2px,2px);box-shadow:none}
+.week-count{
+  margin-left:auto;padding:4px 10px;border:2px solid var(--ink);border-radius:4px;
+  background:#dff4e9;color:var(--ink);font:800 .82rem/1.2 "Shantell Sans",cursive;
+  rotate:3deg;box-shadow:2px 2px 0 rgb(59 52 44 / 12%);white-space:nowrap;
+}
+.week-section .week-grid{
+  display:grid;grid-template-columns:repeat(7,minmax(148px,1fr));gap:0;padding:0;
+  min-height:360px;border:2.5px solid var(--ink);border-radius:6px 8px 7px 5px;
+  background:#fffef8;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#c9b184 transparent;
+  overscroll-behavior-x:contain;
+}
+.week-section .day-column{
+  min-height:360px;border:0;border-radius:0;background:transparent;box-shadow:none;overflow:visible;
+}
+.week-section .day-column+.day-column{border-left:1.5px solid var(--ink)}
+.week-section .day-column.is-weekend{background:#f7f0de}
+.week-section .day-column.is-today{background:#fffaf0}
+.week-section .day-column>header{
+  display:grid;gap:2px;justify-content:flex-start;padding:12px 10px 10px;
+  border:0;border-bottom:1.5px solid var(--ink);background:#f7f0de;
+}
+.week-section .day-column.is-today>header{background:#fff2b5}
+.week-section .day-column.is-today>header strong,
+.week-section .day-column.is-today>header .day-name{padding:0;border:0;border-radius:0;background:transparent;box-shadow:none}
+.day-name{color:var(--muted);font-size:.68rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.day-date{display:flex;align-items:center;gap:8px;min-height:36px}
+.day-date time{font:700 1.45rem/1 "Shantell Sans",cursive;font-variant-numeric:tabular-nums}
+.is-today .day-date time{
+  padding:2px 10px;border:2px solid var(--ink);
+  border-radius:255px 15px 225px 15px/15px 225px 15px 255px;
+  background:var(--yellow);box-shadow:1.5px 1.5px 0 var(--ink);
+}
+.day-today{font:800 .62rem/1 "Nunito Sans",sans-serif;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.week-section .day-stack{padding:12px 10px 14px;gap:10px}
+.week-section .empty-day{
+  display:block;margin:18px 4px 0;padding:0;border:0;border-radius:0;background:transparent;
+  color:#a09689;font:600 .82rem/1.25 "Shantell Sans",cursive;font-style:italic;text-align:left;
+}
+.week-section .assignment-card{overflow-wrap:anywhere}
+.week-section .assignment-card>small{font-size:.65rem}
+.week-section .assignment-card>strong{font-size:.875rem;line-height:1.3}
+.week-section .assignment-card.is-selected{background:#fff2b5;outline:0}
+.week-footer{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
+  padding:12px 6px 2px;border:0;color:#a09689;font-size:.72rem;font-weight:800;
+}
+.week-footer .quiet-button{min-height:32px;color:var(--muted);font-size:.72rem}
+.week-section .week-note{margin:8px 6px 4px}
+.week-section .empty-state{margin:16px auto}
 @media(hover:hover){
-  .week-navigation button:hover:not(:disabled){background:var(--paper)}
-  .week-section .assignment-card:hover{border-color:var(--muted);box-shadow:0 3px 8px rgb(41 37 31 / 10%);transform:none}
+  .week-navigation .week-arrow:hover,.week-navigation .week-current:hover{background:#fdf0b8}
   .week-footer .quiet-button:hover{text-decoration:underline;text-underline-offset:3px}
 }
-.week-navigation button:focus-visible{outline:2px solid var(--ink);outline-offset:-3px}
-.week-section .week-grid:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
-@container(max-width:680px){
-  .week-toolbar{gap:16px;padding:20px}
-  .week-heading{flex-basis:100%}
-  .week-range{font-size:1.4rem}
-  .week-section .week-grid{grid-template-columns:repeat(7,176px)}
-  .week-footer{padding-inline:20px}
+.week-navigation button:focus-visible,.week-section .week-grid:focus-visible{
+  outline:2px solid var(--ink);outline-offset:2px;
 }
+@container(max-width:680px){
+  .week-toolbar{gap:10px}
+  .week-heading{flex-basis:100%}
+  .week-range{font-size:1.28rem}
+  .week-section .week-grid{grid-template-columns:repeat(7,160px)}
+}
+@media(prefers-reduced-motion:reduce){
+  .week-section,.week-count{rotate:0}
+  .week-section .assignment-card:nth-child(odd),
+  .week-section .assignment-card:nth-child(even){transform:none}
+}
+.app-shell.is-drawer-open .week-section{rotate:0}
 .week-note{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 10px;border:2px dashed #b3a99c;border-radius:14px;background:var(--panel)}
 .week-note input{height:36px;border:0;background:transparent;font-weight:800}
 .week-note .button{min-height:32px;padding:4px 10px;font-size:.72rem}

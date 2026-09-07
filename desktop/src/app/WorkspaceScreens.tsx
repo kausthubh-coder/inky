@@ -1,4 +1,4 @@
-import { type CSSProperties, type FormEvent, useEffect, useState } from "react";
+import { type CSSProperties, type FormEvent, useEffect, useRef, useState } from "react";
 
 import {
   classifyAgentRuntimeAttention,
@@ -120,6 +120,8 @@ export function DashboardScreen({
   const [noteOpen, setNoteOpen] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
   const [today, setToday] = useState(() => new Date());
+  const weekGridRef = useRef<HTMLDivElement>(null);
+  const todayColumnRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const timer = window.setInterval(() => setToday((previous) => {
       const now = new Date();
@@ -127,6 +129,15 @@ export function DashboardScreen({
     }), 60_000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const behavior: ScrollBehavior = reduce ? "auto" : "smooth";
+    if (weekOffset === 0) {
+      todayColumnRef.current?.scrollIntoView({ inline: "center", block: "nearest", behavior });
+      return;
+    }
+    weekGridRef.current?.scrollTo({ left: 0, behavior });
+  }, [weekOffset]);
   const verified = onboarding.assignments.filter((assignment) => assignment.lastVerifiedScanId && assignment.evidence.length > 0);
   const taskByAssignment = new Map((library?.tasks ?? []).map((item) => [item.assignment.assignmentId, item]));
   const week = calendarWeek(today, weekOffset);
@@ -190,32 +201,56 @@ export function DashboardScreen({
         </form>
         {managerReply && panel.kind === "closed" && <PaperCard tone="lavender" className="manager-reply"><p className="eyebrow">Inky</p><p>{managerReply}</p></PaperCard>}
 
-        <section className="week-section" data-studi-week-board="true">
+        <section className="week-section" data-studi-week-board="true" data-week-offset={weekOffset}>
           <div className="week-toolbar">
             <div className="week-heading" aria-live="polite" aria-atomic="true">
               <p className="week-caption">{week.title}</p>
               <h2 id="week-heading" className="week-range">{week.range}</h2>
             </div>
-            <nav className="week-navigation" aria-label="Week navigation">
-              <div className="week-stepper">
-                <button className="week-arrow" type="button" aria-label="Previous week" title="Previous week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset - 1)}><svg viewBox="0 0 20 20" width="20" height="20" fill="none" aria-hidden="true"><path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
-                <button className="week-arrow" type="button" aria-label="Next week" title="Next week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset + 1)}><svg viewBox="0 0 20 20" width="20" height="20" fill="none" aria-hidden="true"><path d="m8 5 5 5-5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
-              </div>
-              <button className="week-current" type="button" disabled={weekOffset === 0} aria-controls="week-grid" onClick={() => setWeekOffset(0)}>This week</button>
+            <nav className="week-navigation" aria-label="Week">
+              <button className="week-arrow" type="button" aria-label="Previous week" title="Previous week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset - 1)}>
+                <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+              <button className="week-arrow" type="button" aria-label="Next week" title="Next week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset + 1)}>
+                <svg viewBox="0 0 20 20" width="18" height="18" fill="none" aria-hidden="true"><path d="m8 5 5 5-5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+              </button>
+              {weekOffset !== 0 && <button className="week-current" type="button" aria-controls="week-grid" onClick={() => setWeekOffset(0)}>This week</button>}
             </nav>
-            <span className="week-count"><strong>{weekAssignments.length}</strong> {weekAssignments.length === 1 ? "assignment" : "assignments"}</span>
+            <span className="week-count">{weekAssignments.length} due</span>
           </div>
-          <div className="week-grid" id="week-grid" role="region" aria-labelledby="week-heading" tabIndex={0}>
+          <div
+            className="week-grid"
+            id="week-grid"
+            ref={weekGridRef}
+            role="region"
+            aria-labelledby="week-heading"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.target !== event.currentTarget) return;
+              if (event.key === "ArrowLeft") { event.preventDefault(); setWeekOffset((offset) => offset - 1); }
+              if (event.key === "ArrowRight") { event.preventDefault(); setWeekOffset((offset) => offset + 1); }
+              if (event.key === "Home") { event.preventDefault(); setWeekOffset(0); }
+            }}
+          >
             {week.days.map((day) => {
               const items = weekAssignments.filter((assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === day.key);
+              const note = day.isToday ? "today" : day.isWeekend ? "weekend" : null;
               return (
-                <section className={`day-column ${day.isToday ? "is-today" : ""}`} key={day.key} aria-label={`${day.label}, ${day.date}${day.isToday ? ", today" : ""}`}>
+                <section
+                  className={`day-column ${day.isToday ? "is-today" : ""} ${day.isWeekend ? "is-weekend" : ""}`}
+                  key={day.key}
+                  ref={day.isToday ? todayColumnRef : undefined}
+                  aria-label={`${day.label}, ${day.date}${note ? `, ${note}` : ""}`}
+                >
                   <header>
-                    <span className="day-name">{day.label}</span>
-                    <div className="day-date"><time dateTime={day.key}>{day.dayNumber}</time>{day.isToday && <span className="day-today">Today</span>}</div>
+                    <span className="day-name">{day.shortLabel}</span>
+                    <div className="day-date">
+                      <time dateTime={day.key}>{day.dayNumber}</time>
+                      {note && <span className="day-today">{note}</span>}
+                    </div>
                   </header>
                   <div className="day-stack">
-                    {items.length === 0 ? <p className="empty-day">Nothing due</p> : items.map((assignment) => {
+                    {items.length === 0 ? <p className="empty-day">Nothing due.</p> : items.map((assignment) => {
                       const task = taskByAssignment.get(assignment.assignmentId);
                       const course = courseLabel(onboarding, assignment.courseId);
                       const selected = (panel.kind === "assignment" && panel.assignmentId === assignment.assignmentId)

@@ -2,6 +2,13 @@ export function localDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+export function weekTitle(offset: number): string {
+  if (offset === 0) return "This week";
+  if (offset === -1) return "Last week";
+  if (offset === 1) return "Next week";
+  return offset < 0 ? `${-offset} weeks ago` : `${offset} weeks ahead`;
+}
+
 /** Use calendar arithmetic so a week stays Monday–Sunday across DST changes. */
 export function calendarWeek(today: Date, offset: number) {
   const start = new Date(today);
@@ -10,6 +17,7 @@ export function calendarWeek(today: Date, offset: number) {
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
   const weekday = new Intl.DateTimeFormat(undefined, { weekday: "long" });
+  const weekdayShort = new Intl.DateTimeFormat(undefined, { weekday: "short" });
   const dateLabel = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
   const rangeLabel = new Intl.DateTimeFormat(undefined, {
     month: "short", day: "numeric",
@@ -17,13 +25,21 @@ export function calendarWeek(today: Date, offset: number) {
   });
   const todayKey = localDateKey(today);
   return {
-    title: offset === 0 ? "This week" : offset === -1 ? "Last week" : offset === 1 ? "Next week" : "Your week",
+    title: weekTitle(offset),
     range: rangeLabel.formatRange(start, end),
     days: Array.from({ length: 7 }, (_, index) => {
       const date = new Date(start);
       date.setDate(start.getDate() + index);
       const key = localDateKey(date);
-      return { key, label: weekday.format(date), date: dateLabel.format(date), dayNumber: date.getDate(), isToday: key === todayKey };
+      return {
+        key,
+        label: weekday.format(date),
+        shortLabel: weekdayShort.format(date),
+        date: dateLabel.format(date),
+        dayNumber: date.getDate(),
+        isToday: key === todayKey,
+        isWeekend: index >= 5,
+      };
     }),
   };
 }

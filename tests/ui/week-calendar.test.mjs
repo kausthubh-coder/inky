@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { calendarWeek, localDateKey } from "../../desktop/src/app/weekCalendar.ts";
+import { calendarWeek, localDateKey, weekTitle } from "../../desktop/src/app/weekCalendar.ts";
 
 test("Sunday belongs to the full Monday–Sunday week, including both weekend days", () => {
   const week = calendarWeek(new Date(2026, 8, 6, 23, 30), 0);
@@ -8,6 +8,8 @@ test("Sunday belongs to the full Monday–Sunday week, including both weekend da
     "2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03", "2026-09-04", "2026-09-05", "2026-09-06",
   ]);
   assert.deepEqual(week.days.filter((day) => day.isToday).map((day) => day.key), ["2026-09-06"]);
+  assert.deepEqual(week.days.filter((day) => day.isWeekend).map((day) => day.key), ["2026-09-05", "2026-09-06"]);
+  assert.equal(week.title, "This week");
 });
 
 test("navigation crosses year boundaries and never marks another week as today", () => {
@@ -24,6 +26,10 @@ test("navigation crosses year boundaries and never marks another week as today",
   assert.match(current.range, /2026/);
   assert.equal(calendarWeek(today, 52).days[0].key, "2026-12-28");
   assert.equal(calendarWeek(today, -52).days[0].key, "2024-12-30");
+  assert.equal(weekTitle(-2), "2 weeks ago");
+  assert.equal(weekTitle(3), "3 weeks ahead");
+  assert.equal(weekTitle(-1), "Last week");
+  assert.equal(weekTitle(1), "Next week");
 });
 
 test("weeks remain consecutive local dates through leap days and both daylight-saving changes", () => {
