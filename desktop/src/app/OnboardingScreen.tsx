@@ -28,7 +28,7 @@ const STEP_COPY: Record<OnboardingStep, { inky: InkyState; pill: string; title: 
   5: { inky: "thinking", pill: "the default", title: "When I find homework…", body: "What should I do? You can change this later." },
   6: { inky: "idle", pill: "how often", title: "How often should I check?", body: "I'll look even if you close Studi." },
   7: { inky: "waiting", pill: "your turn", title: "Your turn.", body: "Sign in on the right. I can't see your password.", me: "Opening school." },
-  8: { inky: "scanning", pill: "looking around", title: "Looking around.", body: "Classes and homework. I only count what I can see.", me: "I'm signed in. Look around." },
+  8: { inky: "scanning", pill: "looking around", title: "Looking around.", body: "I’m checking your classes, instructions, and due dates. This may take a few minutes. You can watch me on the right.", me: "I'm signed in. Look around." },
   9: { inky: "needs", pill: "needs you", title: "Another site wants you to sign in.", body: "Do that on the right, then tell me." },
   10: { inky: "done", pill: "ready", title: "Your week is ready.", body: "If you told me to try assignments, I'll start the first one when you open your week. You still submit it." },
 };
@@ -143,6 +143,7 @@ export function OnboardingScreen({
                       <span className="fable-tail" aria-hidden="true" />
                       <h1>{message.id === step || !browserStage ? title : message.title}</h1>
                       <p>{message.body}</p>
+                      {message.id === 8 && step === 8 && onboarding?.scan?.currentStep && <p className="fable-scan-progress" role="status">{onboarding.scan.currentStep}</p>}
                       {(!browserStage || message.id === step) && <StepExtra step={step} workspace={workspace} connectedApps={connectedApps} appConnections={appConnections} providerReady={providerReady} schoolUrl={schoolUrl} homeworkRoot={homeworkRoot} cadence={scanCadence} permission={defaultPermission} busy={busy} onSchoolUrl={onSchoolUrl} onCadence={onCadence} onPermission={onDefaultPermission} onConnect={onConnectRuntime} onCancelConnect={onCancelRuntimeLogin} onConnectApp={onConnectApp} onRefreshConnectedApp={onRefreshConnectedApp} onSelectHomeworkRoot={onSelectHomeworkRoot} />}
                     </article>
                   </div>

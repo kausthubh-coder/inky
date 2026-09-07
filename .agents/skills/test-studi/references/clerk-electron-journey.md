@@ -1,64 +1,58 @@
-# Clerk + Electron user journey
+# Development accounts, invitations, and Electron login
 
-Use this procedure for a real development Clerk handoff into the built Electron app. It deliberately keeps the user's personal browser session outside the automation boundary.
+Use isolated Playwright browser contexts for Clerk. Never use the user's system-browser cookies. Use the Clerk CLI for account lookup/management; the helper captures raw responses internally and prints safe summaries.
 
-## Two Playwright MCP surfaces
+## Prepare a dedicated identity
 
-Configure two separate instances of Microsoft's official Playwright MCP:
+For a fresh profile use `testEmail` from the launcher receipt. For an existing dedicated profile, reuse its observed identity. The historical fixture is `studi.wp12+clerk_test@example.com`; it is not guaranteed to exist or be approved. Concurrent worktrees must not share that subject.
 
-```toml
-[mcp_servers.playwright]
-command = "bunx"
-args = ["@playwright/mcp@latest", "--headless", "--isolated"]
+The helper reads development keys from environment or configured local env files, including the primary checkout of this Git repository. It verifies the key's domain against the checkout's Clerk issuer, restricts email to `studi.*+clerk_test@example.com`, paginates lookups, and never prints the key.
 
-[mcp_servers.playwright-electron]
-command = "bunx"
-args = ["@playwright/mcp@latest", "--cdp-endpoint", "http://127.0.0.1:9222"]
+```powershell
+node .agents/skills/test-studi/scripts/qa-account.mjs --email <test-email> --dry-run
+node .agents/skills/test-studi/scripts/qa-account.mjs --email <test-email> --prepare --create-user
 ```
 
-The generic `playwright` instance owns an isolated Chromium profile and completes Clerk. `playwright-electron` attaches to Studi's renderer. Keep their pages and observations separate. The local Codex configuration may add an explicit Chromium executable or `--caps vision`; those do not change this ownership model.
+The second command performs another lookup, creates a waitlist entry if missing, invites that entry, then creates a passwordless test user only if missing. It never deletes or recreates an existing user. The order matters: **invite before creating the user** preserves the linked invitation used by admission sync. Existing pending/accepted linked invitations are reused. Rejected or revoked admission is not overridden.
 
-## Launch and claim
+When specifically proving UI signup, omit `--create-user` and complete signup through the invitation page. Provisioning with the Backend API is legitimate QA setup, but is not proof the website signup UI works.
 
-1. Build when needed with `bun run build`.
-2. Run `scripts/Start-StudiQa.ps1` from this skill. For a throwaway Clerk proof, omit `-Persistent`. For the onboarded feature profile, pass `-Persistent` so the receipt path is `<repo>\.agents\studi-qa\profile`. Do not add `--studi-development-url`; the test target is `dist/client/index.html`.
-3. Attach `playwright-electron`. On a fresh profile, confirm the file URL and signed-out gate. On a reused persistent profile, read `window.studi.getAuthState()` first — if it is already approved, skip this Clerk capture unless the user asked to re-prove sign-in.
-4. Activate **Sign in to Studi** through `playwright-electron`. In QA mode Electron publishes the authorize URL to the launcher's short-lived in-memory loopback handoff instead of opening the system browser.
-5. Navigate isolated generic Playwright to the receipt's `clerkClaimUrl`. The relay validates Clerk's host, S256 PKCE fields, and the loopback callback before issuing a one-time redirect. It never prints or writes the authorize URL.
+This request's authorization to create/reuse dedicated test accounts and accept their invitations covers those operations. Lookup first; do not ask again for each step. Creating waitlist entries suppresses notification; Clerk's waitlist invite endpoint may send its invitation to the dedicated reserved test email. Do not use it for other recipients.
 
-If the claim returns `425`, wait briefly for Electron to publish and retry once. If it still fails, stop. A stale tab, browser history, or the user's active browser profile is not an acceptable substitute.
+## Accept an invitation
 
-## Dedicated development identity
+First read the helper's status. A linked invitation may already become accepted during account creation. Do not reopen accepted invitations just to generate a screenshot.
 
-The existing reusable Clerk development identity is `studi.wp12+clerk_test@example.com`. Clerk's development email-code flow accepts the documented development code `424242`. These values are test fixtures, not production credentials; do not put them into app code or helper scripts. The agent completes this Clerk flow in isolated Playwright. Do not ask the user to sign in to Studi or use their own Clerk identity. Human help is reserved for the separate ChatGPT device-code handoff.
+For a pending invitation:
 
-In the isolated browser:
+```powershell
+node .agents/skills/test-studi/scripts/qa-account.mjs --email <test-email> --serve-invite
+```
 
-1. Navigate to the launch receipt's `clerkClaimUrl` and follow its redirect.
-2. Enter the dedicated email, choose email-code verification, and enter the development code.
-3. Before consent, verify Clerk says the request is on behalf of that dedicated identity. If it shows the user's personal identity or any other account, stop without consenting or signing it out.
-4. Allow access and follow the redirect to the existing `http://127.0.0.1:<ephemeral>/callback` listener. A Clerk redirect alone is not proof of completion; wait for Electron's public auth state to settle.
+Keep that terminal session alive. Open the returned `invitationClaimUrl` in a **new isolated browser context**, not an already signed-in tab. It redirects once to the invitation without logging or persisting the ticket; it expires after five minutes. Follow Clerk's sign-up or sign-in screen. A preexisting session can silently skip acceptance.
 
-## Truth checks
+Prefer email-code verification. Clerk documents the test address suffix `+clerk_test` with code `424242`. Do not request a real inbox or password. If the website gets stuck on a waitlist-only signup screen, record that website failure; provision the missing dedicated test user with the helper when the task is desktop QA, then verify invitation status again. Do not call arbitrary frontend authentication internals to fabricate UI success.
 
-Read `window.studi.getAuthState()` through the Electron renderer. For the currently approved fixture, the proven result is `status=approved`, `plan=beta`, `credits=100`, and `secureStorage=true`. Record the live subject returned by Clerk and compare it across auth and telemetry when relevant, but do not encode a fixed subject into source or scripts.
+Afterward rerun lookup. Require invitation status `accepted` for an acceptance test. Inspect whether the waitlist entry retains a linked invitation. A dashboard redirect alone proves neither.
 
-Then exercise only the journey in scope. Feature tests after onboarding use `-Persistent` and [feature-pass.md](feature-pass.md). Restart of an onboarded profile must use `-Persistent`. A new clean Clerk journey omits `-Persistent`.
+## Sign into Electron
 
-Convex approval or credit changes go only through the repository's authenticated development admin mutation. Before any authorized change, look up current state and state the intended delta. Retain a separate unauthenticated call to `account:setBetaAccess` that fails with `Unauthenticated`; never treat renderer state or a direct database edit as approval evidence.
+1. Read `window.studi.getAuthState()`. If the dedicated profile is already approved, continue without another login.
+2. Activate the current greeting/sign-in control in Electron. In QA mode it publishes an OAuth authorize URL to the loopback relay, instead of opening the system browser.
+3. Open the receipt's `clerkClaimUrl` in a fresh isolated Chromium context. If it returns 425, allow the publish to finish and retry once. The relay validates the development host, S256 PKCE, and a loopback callback.
+4. Enter the exact test email and continue; use code `424242` when prompted. Before consent verify the displayed identity. Never consent for a different account.
+5. Finish the callback and wait for Electron's public auth state. Check `status=approved`, expected email/subject when exposed, and secure storage. Do not hard-code a subject, balance, or device ID.
+6. Restart the same profile and check approval again. Do not share the profile or its device ID with another running worktree.
 
-For school/LMS work, use controlled local fixtures or explicitly safe read-only real pages. Stop before any real submit, enrollment change, message, upload, or answer mutation. Leave zero-result and partial scans visibly incomplete.
+## Diagnose the right boundary
 
-## Evidence hygiene
+- CLI authentication/configuration failure is not “user missing.” The helper withholds raw CLI output because it can contain tickets. Check CLI installation, development key availability, and issuer matching.
+- Missing user: provision it after invitation, within the dedicated test scope.
+- Pending invite: accept in a fresh context, then verify with Clerk.
+- Accepted standalone invite + completed waitlist entry with no linked invitation: admission-sync mismatch. PR 21 encountered this on the historical fixture. Read the current deployed behavior; a historical note is not proof of today's state.
+- Clerk approved/accepted but Electron waitlisted: use **Check again**, allow reconciliation, and compare live Convex state after restart. Do not write beta credits or temporarily make the test user an admin.
+- Device conflict: identify the other QA run. Use that run's profile/receipt or a separate named identity; do not revoke another task's lease.
 
-Record the launcher receipt, timestamps, semantic UI observations, final public auth projection, and controlled Convex boundary result. Do not record the authorize URL, state, nonce, code challenge, authorization code, tokens, cookies, full browser command line, or Clerk page storage. Delete no browser data and terminate no browser process as part of this flow.
+If an access-sync regression remains, report Clerk status, linked-invitation status, renderer reason, deployment, and reproduction. Continue independent tests; do not mark the full journey passed.
 
-## Restoring a missing QA identity
-
-Use the clerk-cli skill and the development Backend API through the CLI. Resolve keys from the configured environment without printing them; never assume an expired CLI OAuth session means the user is absent. Look up the exact QA email before creating anything, and use the user's explicit account-creation authorization.
-
-Check the admission implementation currently deployed as well as the checkout. If Clerk waitlist reconciliation is enabled, a temporary Convex beta approval can be overwritten on the next bootstrap. Restore admission through its supported Clerk flow, with notifications disabled where supported, and verify access again after a persistent restart. An existing user can produce a completed waitlist entry with no linked invitation; a backend requiring that invitation will still deny access. Report that mismatch rather than repeatedly granting temporary access, deleting the account again, changing identity, or disabling reconciliation.
-
-On 2026-09-07 the restored QA email authenticated successfully and Codex cache import worked, but the development admission sync reverted access on restart because its completed Clerk entry had no linked invitation. This is a blocked live feature pass until the admission owner resolves that state. The native controlled fixture tests do not substitute for it.
-
-An invitation can be accepted in a fresh isolated Playwright browser context without signing out of Electron. A signed-in context may skip straight to the dashboard and leave the invitation pending. Verify the invitation status through Clerk afterward; acceptance alone does not prove the Convex admission sync approved the account.
+Official references: [test emails](https://clerk.com/docs/guides/development/testing/test-emails-and-phones), [waitlist creation](https://clerk.com/docs/reference/backend/waitlist-entries/create), [linked invitations](https://clerk.com/docs/reference/backend/waitlist-entries/invite), [application invitations](https://clerk.com/docs/guides/users/inviting).

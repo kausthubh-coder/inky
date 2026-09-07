@@ -1,51 +1,21 @@
-# Full onboarding pass
+# Onboarding through a real first scan
 
-Use this when the job is to walk first-run onboarding as a student. LMS sign-in and the first school scan are out of scope until a local LMS fixture exists. This pass owns Clerk (if needed) and Codex.
+Use a new named persistent profile for a fresh journey. Preserve it for restart checks. Build and launch as described in the skill, then attach using the receipt.
 
-## Launch
-
-1. Quit the everyday Studi window.
-2. `bun run build` if source changed.
-3. Prefer the persistent QA profile so Clerk and Codex can stick:
+1. **Studi login.** Look up/create the dedicated development test account and accept its linked invitation using [clerk-electron-journey.md](clerk-electron-journey.md). Click the current greeting/sign-in control, claim the OAuth handoff in isolated Chromium, and use the email-code flow. Check live `getAuthState()` for approved access.
+2. **ChatGPT.** Import the QA Codex cache before launch. Read `getWorkspaceState()`; when provider is ready, continue the connected step. Otherwise follow [codex-login.md](codex-login.md). Never report a provider turn as tested while disconnected.
+3. **Connected apps.** Optional integrations may be skipped for the local school journey. Do not authorize personal third-party accounts as routine QA setup.
+4. **Homework folder.** Create an empty directory under this worktree's `.agents/studi-qa/`, separate from the Electron profile. Use the real chooser; if native dialog automation is unavailable, [worktrees.md](worktrees.md) documents a one-shot chooser simulation through the QA main inspector. Record that simulation; do not seed the database or overwrite app state.
+5. **School URL.** Start the fixture in a retained terminal session:
 
    ```powershell
-   .\.agents\skills\test-studi\scripts\Start-StudiQa.ps1 -Persistent -ImportCodexAuth
+   node .agents/skills/test-studi/scripts/school-fixture.mjs
    ```
 
-   Omit `-ImportCodexAuth` only when proving a fresh Codex handoff. Omit `-Persistent` only when proving a throwaway Clerk journey.
+   Use its returned `schoolUrl`. The server binds a free loopback port; each server owns its own draft state. Keep it running across the app restart. To restart the server for an existing profile, use `--port <previous-port>`. Fixture draft state resets when its server stops.
+6. **Preferences.** Explicitly choose manual scanning and **Do it, I'll submit** (`attempt`) when proving assignment work. For a scan-only run, **Don't try it** (`do_not_attempt`) is sufficient. Verify the selected value; a “default” label is not proof of selection. Save the school profile through the UI.
+7. **First scan.** Let Pi inspect the fixture's dashboard, course, and assignment. Wait for a completed scan with coverage and the actual **Observation paragraph** assignment. Compare title, course, due date, and instructions against the fixture: a green scan status alone can hide missing fields. An empty or partial scan is a failure; capture its error instead of inserting tasks.
+8. **Work.** Follow [feature-pass.md](feature-pass.md) to prove a real reply, assignment reference, browser handoff, and saved draft. The fixture's `/health` reports `answerSaved` and `submitted` without returning answer content.
+9. **Restart.** Stop and relaunch the same profile. Verify approved admission, provider readiness, and the scanned assignment are retained.
 
-4. Attach `playwright-electron` to `http://127.0.0.1:9222`.
-
-## Admit the run
-
-Read `window.studi.getAuthState()` and `window.studi.getWorkspaceState()`.
-
-- Signed out → Clerk first. Read [clerk-electron-journey.md](clerk-electron-journey.md).
-- Approved or offline, and the week board is already up → this is not a first-run. Switch to [feature-pass.md](feature-pass.md) unless the user asked to re-prove onboarding.
-- Approved or offline, still on onboarding → continue here.
-
-## Steps the agent drives
-
-Stay in Studi chrome. Use accessibility snapshots.
-
-1. **Hello.** Click through the greeting.
-2. **ChatGPT / Codex.** This step auto-starts a device code. Follow [codex-login.md](codex-login.md):
-   - Hydrate first (`-ImportCodexAuth` / `STUDI_QA_CODEX_AUTH`). If the UI says **Already connected**, click **Let's go**.
-   - If a code appears, send that code to the user and wait. Do not open OpenAI in Playwright. After `provider.state === "ready"`, click **Let's go**, then export (`-Export -CopySecret` on Windows) so the Cursor secret can be refreshed.
-3. **Class link.** One paste field. Use a local fixture URL when one exists. If none exists yet, stop after Codex and say the LMS step is waiting on the fixture. Do not paste a live school URL unless the user asked.
-4. **Permission and schedule.** Use the product defaults (`Do it, I'll submit` and `Every morning`) unless the user asked otherwise.
-5. **Open school / scan.** Stop before a live LMS sign-in or a real scan. A later fixture will own those steps.
-
-Do not finish onboarding by seeding assignments, a workflow revision, or a fake scan.
-
-## After Codex
-
-If the user only needed the ChatGPT step proved, export the cache and stop:
-
-```powershell
-node .agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs --export --copy-secret
-```
-
-Ask the user to paste the clipboard into the Cursor Runtime Secret `STUDI_QA_CODEX_AUTH` if this is the first seed or the token was refreshed. Do not print the value.
-
-If they also asked to skip ahead to the app, the persistent profile must already have a completed first scan. Codex ready alone does not open the week board.
+The fixture is deliberately small, with one course and one assignment. It enables the minimum real browser/scan/work journey; it is not the broad LMS benchmark, third-party LMS compatibility proof, or a replacement for multi-page/multi-course tests.

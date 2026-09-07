@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studi — integrated QA and polish</title>
+<style>body{max-width:960px;margin:48px auto;padding:0 24px;font:17px/1.65 system-ui;background:#faf8f2;color:#292720}h1{font-size:36px;line-height:1.2}h2{margin-top:36px}a{color:#245b48}li{margin:10px 0}td,th{text-align:left;padding:12px;border-bottom:1px solid #dcd6c9;vertical-align:top}table{width:100%;border-collapse:collapse}code{overflow-wrap:anywhere}img{max-width:100%;border:1px solid #dcd6c9;border-radius:12px}.result{background:#e6eee6;padding:18px;border-radius:12px}.note{border-left:3px solid #b69858;padding-left:18px}</style>
+<body><small>7 September 2026 · Studi 0.1.4 · local integration</small>
+<h1>Studi, tested through the real app</h1>
+<p class="result">Integrated PRs 23 and 24 on <code>codex/integrated-app-polish</code>. Final local-school journey passes: approved account → scan → draft → cancel/retry → pause/resume → saved answer and review. No real schoolwork was submitted.</p>
+<p>Worktree: <code>C:\Users\kaust\.codex\worktrees\qa-polish\studi-2</code>. Original checkout preserved. PRs 21 and 22 were already merged; the prior PR 21 task informed chat checks. No remote push, GitHub merge or deployment.</p>
+<h2>Changes</h2><ul>
+<li><strong>Test-studi:</strong> independent profiles, ports and test identities; new/existing account workflows; linked invitations; one-shot OAuth handoffs; protected Codex credential reuse; graceful stop/exit receipts; local school fixture; whole-build fingerprints.</li>
+<li><strong>Discovery:</strong> stale references revalidated against fresh page facts; assignment details, instructions and deadlines captured; records reused by observed page and identity when model-proposed keys change.</li>
+<li><strong>Assignments:</strong> Save draft works without final submission permission. Review immediately saves an answer artifact and homework Markdown. Cancel clears execution and ownership; explicit retry checks current permission. Resume tells Inky that the student already asked it to continue. Home chat can read the saved answer and report submission status.</li>
+<li><strong>UI:</strong> onboarding explains scans may take a few minutes and shows progress. PR 24 paper settings have readable controls, validated durations and rule targets, labelled feedback and error announcements. Manual schedules hide time controls.</li>
+<li><strong>PostHog:</strong> enabled the disabled project recording setting; verified actual delivery and playback. Added requested/active replay diagnostics, SDK-load recovery and app version/platform on exceptions.</li>
+</ul>
+<h2>Verification</h2><table>
+<tr><th>Area</th><th>Result</th></tr>
+<tr><td>Core tests</td><td>191 passed: agent/browser, auth, storage/lifecycle, contracts, packaging and foundation. Covers stale references, repeat-scan identity, draft controls, revoked permission, retry and cancellation.</td></tr>
+<tr><td>UI and telemetry</td><td>24 passed, including real PostHog SDK delivery. Typecheck and builds pass.</td></tr>
+<tr><td>Native Electron</td><td>Four positive scenarios; invalid-profile, renderer-load, malformed-manifest and malformed-runtime rejections; clean profile cleanup.</td></tr>
+<tr><td>Agent harness</td><td>Foundation, routing, trace and files pass: 27 assertions.</td></tr>
+<tr><td>Real renderer</td><td>Settings search, empty state, save and all 11 sections at 1280×850, 1024×768 and 720×520; undated navigation; assignment opening; account Escape; chronological handoff cards and disabled checking controls.</td></tr>
+<tr><td>Live account</td><td>Dedicated development Clerk user created, linked invite accepted, consent completed, approved Convex admission. Same approved identity reused after multiple restarts. Actual Codex provider ready with gpt-6-astra.</td></tr>
+<tr><td>Live agent</td><td>Pi scanned Writing 101, captured instructions and Wednesday 11:59 PM deadline, then wrote and saved a three-sentence answer. Fixture confirmed draft saved and not submitted. Home chat quoted the answer accurately. Final repeat scan reused the same ID. Final cancel/retry/pause/resume returned to ready_review in two turns.</td></tr>
+<tr><td>Persistence</td><td>Access, onboarding, conversations, assignments and saved Markdown survive graceful restart. Interrupted review truthfully asks the student to inspect the reopened page.</td></tr>
+<tr><td>Live build</td><td>Profile <code>integrated</code>, tree SHA <code>148a4579aac4c382545585219a2e6055b1c5ab49ae314e7b30e06e94d74677e4</code>. Subsequent renderer-only edit removes an unreachable Saving label; tested agent modules are unchanged.</td></tr>
+</table>
+<h2>Recording and limits</h2>
+<p><a href="https://us.posthog.com/project/593320/replay/01a07ac8-63d4-7037-a5df-3c357df0848b">Verified PostHog replay</a>: snapshot requests returned HTTP 200 and playback worked after ingestion. Configuration checked against <a href="https://posthog.com/docs/session-replay/troubleshooting">PostHog replay troubleshooting</a>.</p>
+<p class="note">Replay captures Studi's renderer. The separate native school browser is not included as video in that DOM recording; browser observations remain diagnostics. Passwords, tokens and marked secrets remain protected. Real-school credentials/submissions, installed auto-updating and every connected-app provider were not exercised. The existing Squirrel updater error needs an installed-package test. Historical duplicate QA rows were retained; the final repeat adds none.</p>
+<h2>Actual settings UI</h2><p>Existing React components and paper styling, with readable controls.</p>
+<img src="integrated-settings.png" alt="Actual Studi settings with paper styling and readable preferences controls">
+</body></html>

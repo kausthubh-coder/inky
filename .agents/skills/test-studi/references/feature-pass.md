@@ -1,64 +1,22 @@
-# Skip-to-app feature pass
+# Feature pass
 
-Use this after the persistent QA profile already has Studi signed in and onboarding finished. The agent then drives only the Studi React chrome with `playwright-electron`.
+Use the current build and a named persistent profile. Follow [worktrees.md](worktrees.md) to attach to its actual endpoint. Read `getAuthState()`, `getWorkspaceState()`, `getSchoolOnboardingState()`, `getLifecycleState()`, and `getLibraryState()` through `window.studi`.
 
-Pi owns the school guest pane. Do not attach Playwright to that guest. Do not type school passwords. Do not sign out of the persistent profile.
+If signed out, restore the dedicated identity via [clerk-electron-journey.md](clerk-electron-journey.md). If onboarding is incomplete, finish [onboarding-pass.md](onboarding-pass.md); do not seed assignments or mark a scan successful.
 
-This pass skips onboarding. It cannot manufacture a completed scan. If the week board is not up, stop and say the profile still needs a first scan; a later local LMS fixture will own that step.
+Online end-to-end proof requires `auth.status=approved`; an offline session proves only cached UI behavior. Agent turns require provider `ready`.
 
-## Launch
+## Relevant feature checks
 
-1. Quit the everyday Studi window first. One Electron instance can hold the single-instance lock.
-2. `bun run build` if source changed.
-3. Launch with persistence and the Codex cache when a real agent turn is in scope:
+Use current accessible controls rather than stale screen names. For chat/PR 21 changes:
 
-   ```powershell
-   .\.agents\skills\test-studi\scripts\Start-StudiQa.ps1 -Persistent -ImportCodexAuth
-   ```
+1. Send a short read-only message and wait for a real response. Check error surfaces and draft retention, not just whether the input cleared.
+2. Attach a scanned fixture assignment with `@`; verify the selected reference, send it, and confirm the reply uses that assignment.
+3. While a reply is pending, type another draft. Stop the current reply and verify the new draft survives. Exercise retry after a real or explicitly controlled failure.
+4. Open expanded chat and collapse it. Check history, references, scroll position, and draft. Switch weeks, return to this week, and open the discovered assignment.
+5. On the local fixture only, verify the stored permission allows `attempt`, then ask Inky to complete the observation paragraph and save a draft without submitting. If the scan-only profile used `do_not_attempt`, use **Settings → School → Homework rules** to add **Try it, don’t submit** for the fixture's course or assignment. Observe task transitions and browser activity, take over and hand back if relevant, then verify the saved draft and completion state. Do not type the answer into the guest yourself as proof that Pi succeeded.
+6. Open Settings, Library, and the relevant work/artifact view. Verify required files actually exist within the dedicated homework folder.
+7. For update changes, verify busy/restart rules and error recovery separately. An extracted app smoke test does not prove installed auto-updating.
+8. Restart the same profile using the stop/start helpers. Recheck approved access, provider readiness, onboarding, chat history, draft, and assignment state.
 
-4. Read `profilePath` from the receipt. A fresh worktree may reuse the existing dedicated QA profile from the main Git checkout. `profileReused=true` means this is not a first-run folder. Do not pass `-ResetPersistent` unless the user asked to wipe onboarded state.
-5. Attach `playwright-electron` to `http://127.0.0.1:9222`.
-
-## Admit the run or stop
-
-Read these through the renderer before clicking around:
-
-- `window.studi.getAuthState()`
-- `window.studi.getSchoolOnboardingState()`
-- `window.studi.getWorkspaceState()`
-- `window.studi.getLifecycleState()`
-- `window.studi.getLibraryState()`
-
-Continue only when auth is `approved` or `offline`, onboarding has a completed school profile, and the week board (or desk) is the live screen.
-
-If onboarding is still up, this is the wrong pass. Switch to [onboarding-pass.md](onboarding-pass.md) or stop. Do not seed assignments to skip ahead.
-
-Codex:
-
-- Chrome-only (greeting, board, Settings, Library, desk layout): continue even if `provider.state` is `needs_login`.
-- Manager prompt, scan, or desk agent turn: provider must be `ready`. If not, follow [codex-login.md](codex-login.md). Do not open OpenAI in isolated Playwright.
-
-## What the agent should click
-
-Stay in Studi chrome. Use accessibility snapshots.
-
-1. **This week** — greeting, scan pill, seven-day board, separate Without dates view. Open one visible task if any exist.
-2. **Chat input** — send a read-only manager prompt such as “What is queued? Do not start an assignment.” Confirm a manager reply or an honest failure. Do not click **Start next** on a live school assignment unless the user explicitly asked and stored permission is `do_not_attempt`.
-3. **Without dates** — confirm only undated assignments appear; open one if present, then return to Your week.
-4. **Settings** — search for “sound”, clear search, and confirm preferences, schedule, model, and permission rules render. Do not change the school URL, do not sign out, do not toggle telemetry off as part of a default pass.
-5. **Scan again** — only when the user asked, or when proving replay. A zero-result or partial scan stays incomplete.
-6. **Desk** — only if an execution is already live. Takeover / cancel only if the user asked. Never `browser_submit` and never verify a real submission.
-
-If school login expired mid-pass, stop. Ask the user to sign in on the guest pane, then continue from the same profile.
-
-## Restart
-
-To prove persistence, quit Electron and launch `-Persistent` again. The same receipt `profilePath` must still be approved and onboarded. A throwaway temp profile is the wrong tool for this.
-
-## Never
-
-- Use the user's everyday Electron `userData`
-- Sign out of the persistent profile
-- Submit, enroll, message, upload, or change live schoolwork
-- Seed demo assignments when a scan is empty
-- Record Clerk or school secrets
+For unrelated changes choose the relevant subset, then the full matching journey at its checkpoint. A successful preview or mocked Electron self-test does not prove a live chat, scan, browser handoff, or provider request.

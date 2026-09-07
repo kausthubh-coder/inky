@@ -17,6 +17,7 @@ function mockSdk() {
     identify(next) { id = next; },
     get_distinct_id() { return id; },
     get_session_id() { return "session-1"; },
+    sessionRecordingStarted() { return false; },
     reset() { id = "anonymous-new"; },
     startSessionRecording() { calls.push("record"); },
     stopSessionRecording() { calls.push("stop"); },
@@ -68,4 +69,23 @@ test("opting out while the SDK loads cannot start recording or capturing", async
   assert.equal(sdk.options.disable_session_recording, true);
   assert.equal(sdk.calls.includes("opt-in"), false);
   assert.equal(sdk.calls.includes("record"), false);
+});
+
+
+test("renderer reports requested but unavailable replay once and retries a failed SDK load", async () => {
+  const previousWindow = globalThis.window;
+  globalThis.window = {};
+  const sdk = mockSdk();
+  let attempts = 0;
+  const renderer = new RendererTelemetry(async () => {
+    if (++attempts === 1) throw new Error("SDK chunk unavailable");
+    return { default: sdk.client };
+  });
+  try {
+  await assert.rejects(renderer.sync(state), /SDK chunk unavailable/);
+  await renderer.sync(state);
+  await renderer.sync(state);
+  const status = sdk.calls.filter(call => call.event === "studi_replay_status");
+  assert.deepEqual(status, [{ event: "studi_replay_status", props: { requested: true, recording: false } }]);
+  } finally { globalThis.window = previousWindow; }
 });

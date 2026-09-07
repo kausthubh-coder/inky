@@ -105,3 +105,27 @@ test('account home histories stay separate and interrupted acceptance recovers o
  chat=new ConversationCoordinator(store,runtime,manager,{ownerSubject:'qa-one'});assert.deepEqual(chat.state().job.messages,one.job.messages);
  }finally{chat?.dispose();manager?.dispose();store?.close();await rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
 });
+
+
+test("home status includes the current saved answer and actual review phase", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-home-review-"));
+  const store = await openLocalStore(root);
+  const base = new FakeAgentRuntime();
+  const manager = await ManagerCoordinator.create(store, base);
+  let homeTools;
+  const runtime = { createJobSession: async (target, tools, sessionTarget) => {
+    homeTools = tools;
+    return base.createJobSession(target, tools, sessionTarget);
+  } };
+  const chat = new ConversationCoordinator(store, runtime, manager);
+  try {
+    store.lifecycle.putExecution({ schemaVersion: 1, taskId: "task-review", assignmentId: "assignment-review", phase: "ready_review", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 1, attemptCount: 0, answerSnapshot: "Rain tapped on the yellow umbrella.", reviewDeadline: "2026-09-07T12:15:00.000Z", reviewCheckpoint: { revision: 1, url: "https://school.example.edu/assignment", title: "Assignment", capturedAt: "2026-09-07T12:00:00.000Z", summary: "Draft complete" }, updatedAt: "2026-09-07T12:00:00.000Z" });
+    await chat.send({ kind: "home" }, "What did you write?");
+    const status = await homeTools.find(tool => tool.name === "home_status").execute("status", {}, undefined, undefined, {});
+    assert.equal(status.details.execution.phase, "ready_review");
+    assert.equal(status.details.execution.answerSnapshot, "Rain tapped on the yellow umbrella.");
+  } finally {
+    chat.dispose(); manager.dispose(); store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});

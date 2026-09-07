@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
@@ -79,6 +79,9 @@ test("attempt-only work retains its browser lease through review and saves Markd
 
     const ready = await execution.startNext();
     assert.equal(ready.phase, "ready_review");
+    assert.ok(ready.answerArtifactId, "review creates a durable answer immediately");
+    assert.match((await store.artifacts.read("answer", ready.answerArtifactId)).content, /x = 4/);
+    assert.match(await readFile(join(runtime.lastTarget.cwd, "studi-answer.md"), "utf8"), /x = 4/);
     const workerTools = new Set(manager.workerToolNames());
     for (const toolName of ["read", "write", "edit", "grep", "find", "ls", "browser_upload", process.platform === "win32" ? "powershell" : "bash"]) {
       assert.ok(workerTools.has(toolName), `assignment worker is missing ${toolName}`);
@@ -122,6 +125,38 @@ test("attempt-only work retains its browser lease through review and saves Markd
     assert.equal(manager.state().entries[0].taskId, "task-next", "the durable queue can continue");
     execution.dispose();
     manager.dispose();
+  });
+});
+
+test("cancelling review keeps the saved answer and clears both deadlines and browser ownership", async () => {
+  await withStore(async (store) => {
+    seedTask(store, "cancel-review", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    const runtime = new ScriptedRuntime([
+      async (tools) => invoke(tools, "assignment_start_review", {
+        answers: "A saved answer",
+        completedRequirements: [{ requirement: "Answer the question", evidence: "The answer is visible." }],
+        summary: "Ready for review.",
+      }),
+    ]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    manager.enqueue({ taskId: "task-cancel-review" });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => initialNow });
+    try {
+      const ready = await execution.startNext();
+      const cancelled = execution.cancel("task-cancel-review");
+      assert.equal(cancelled.phase, "failed");
+      assert.equal(cancelled.reviewDeadline, undefined);
+      assert.equal(cancelled.handoffDeadline, undefined);
+      assert.equal(cancelled.answerArtifactId, ready.answerArtifactId);
+      assert.match((await store.artifacts.read("answer", cancelled.answerArtifactId)).content, /A saved answer/);
+      assert.equal(store.tasks.get("task-cancel-review").state, "cancelled");
+      assert.equal(manager.state().lease, null);
+      assert.equal(manager.state().entries.length, 0);
+    } finally {
+      execution.dispose();
+      manager.dispose();
+    }
   });
 });
 

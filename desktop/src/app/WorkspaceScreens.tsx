@@ -752,6 +752,8 @@ export function SettingsScreen({
     const frame = window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ block: "start" }));
     return () => window.cancelAnimationFrame(frame);
   }, [chrome.settingsLanding]);
+  const validPreferences = Number.isInteger(review) && review >= 1 && review <= 120 && Number.isInteger(handoff) && handoff >= 1 && handoff <= 240;
+  const validRule = scope === "global" || (scope === "assignment" ? Boolean(assignmentId) : Boolean(courseId) && (scope !== "pattern" || Boolean(patternId.trim())));
   const saveRule = (event: FormEvent) => {
     event.preventDefault();
     if (scope === "global") onSaveRule({ scope, mode });
@@ -794,7 +796,8 @@ export function SettingsScreen({
                 <Field label="Minutes I wait on the page"><input type="number" min={1} max={240} value={handoff} onChange={(event) => setHandoff(Number(event.target.value))} /></Field>
                 <Field label="What I may remember"><select value={memory} onChange={(event) => setMemory(event.target.value as typeof memory)}><option value="none">Nothing</option><option value="selected">Things you pick</option><option value="all">Everything saved</option></select></Field>
               </div>
-              <button className="button button--yellow" disabled={busy !== null} onClick={() => onSavePreferences(review, handoff, memory)}>Save</button>
+              <button className="button button--yellow" disabled={busy !== null || !validPreferences} onClick={() => onSavePreferences(review, handoff, memory)}>Save</button>
+              {!validPreferences && <small role="status">Choose 1–120 minutes for review and 1–240 minutes to wait.</small>}
             </PaperCard>
             )}
             {visible("apps") && (
@@ -830,7 +833,7 @@ export function SettingsScreen({
             <PaperCard className="settings-card">
               <p className="eyebrow">Homework folder</p>
               <h2>The folder I may use</h2>
-              <p>Choose an empty folder used only for Studi. I create one folder per class, then keep coding tools, private Python environments, and uploads inside the active assignment.</p>
+              <p>Choose a folder just for Studi. I’ll organize your classes and keep each assignment’s files and saved answers together.</p>
               <small data-homework-root>{preferences?.homeworkRoot ?? "No folder selected"}</small>
               <button className="button button--mint" type="button" disabled={busy !== null} onClick={onSelectHomeworkRoot}>Choose an empty folder</button>
             </PaperCard>
@@ -842,10 +845,10 @@ export function SettingsScreen({
               <h2>When I check school</h2>
               <div className="form-grid form-grid--two">
                 <Field label="How often"><select value={cadence} onChange={(event) => setCadence(event.target.value as typeof cadence)}><option value="manual">Only when I ask</option><option value="daily">Every day</option><option value="weekly">Every week</option></select></Field>
-                <Field label="Local time"><input type="time" value={localTime} onChange={(event) => setLocalTime(event.target.value)} /></Field>
+                {cadence !== "manual" && <Field label="Local time"><input type="time" value={localTime} onChange={(event) => setLocalTime(event.target.value)} /></Field>}
                 {cadence === "weekly" && <Field label="Weekday"><select value={weekday} onChange={(event) => setWeekday(Number(event.target.value))}>{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((label, index) => <option value={index} key={label}>{label}</option>)}</select></Field>}
               </div>
-              <button className="button button--mint" disabled={busy !== null} onClick={() => onSchedule(cadence, localTime, cadence === "weekly" ? weekday : undefined)}>Save schedule</button>
+              <button className="button button--mint" disabled={busy !== null || (cadence !== "manual" && !localTime)} onClick={() => onSchedule(cadence, localTime || "09:00", cadence === "weekly" ? weekday : undefined)}>Save schedule</button>
               {schedule && <small>Next look: {schedule.nextRunAt ? formatDateTime(schedule.nextRunAt) : "only when you ask"}</small>}
             </PaperCard>
             )}
@@ -859,7 +862,8 @@ export function SettingsScreen({
                 {scope === "assignment" && <Field label="Assignment"><select value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)}>{onboarding.assignments.map((assignment) => <option key={assignment.assignmentId} value={assignment.assignmentId}>{assignment.title}</option>)}</select></Field>}
                 {scope === "pattern" && <Field label="Pattern"><input value={patternId} onChange={(event) => setPatternId(event.target.value)} placeholder="weekly-problem-set" /></Field>}
                 <Field label="I may"><select value={mode} onChange={(event) => setMode(event.target.value as PermissionMode)}><option value="do_not_attempt">Don’t try it</option><option value="attempt">Try it, don’t submit</option><option value="auto_submit">Submit if that’s allowed</option></select></Field>
-                <button className="button button--coral" disabled={busy !== null}>Add rule</button>
+                <button className="button button--coral" disabled={busy !== null || !validRule}>Add rule</button>
+                {!validRule && <small>Choose a class or assignment from a school scan first.</small>}
               </form>
               <div className="rules-list">
                 {settings?.permissionRules.map((rule) => (
@@ -868,7 +872,7 @@ export function SettingsScreen({
                       <strong>{ruleScopeLabel(rule, onboarding)}</strong>
                       <small>{ruleModeLabel(rule.mode)}</small>
                     </span>
-                    <button className="quiet-button" onClick={() => onDeleteRule(rule.ruleId)}>Remove</button>
+                    <button className="quiet-button" aria-label={`Remove rule for ${ruleScopeLabel(rule, onboarding)}`} disabled={busy !== null} onClick={() => onDeleteRule(rule.ruleId)}>Remove</button>
                   </div>
                 ))}
                 {(settings?.permissionRules.length ?? 0) === 0 && <small>No rules yet. I won’t start homework without one.</small>}
@@ -895,7 +899,7 @@ export function SettingsScreen({
               <p className="eyebrow">A note for us</p>
               <h2>Something look wrong?</h2>
               <form className="settings-note" onSubmit={(event) => { event.preventDefault(); if (!note.trim()) return; onFeedback("settings", note.trim()); setNote(""); }}>
-                <textarea rows={3} value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} placeholder="Tell Studi what to fix" />
+                <textarea aria-label="Feedback for Studi" rows={3} value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} placeholder="Tell Studi what to fix" />
                 <button className="button button--yellow" disabled={!note.trim() || busy !== null}>Send note</button>
               </form>
             </PaperCard>
@@ -909,7 +913,7 @@ export function SettingsScreen({
             </PaperCard>
             )}
         </div>
-        {error && <p className="error-note">{error}</p>}
+        {error && <p className="error-note" role="alert">{error}</p>}
       </div>
     </main>
   );

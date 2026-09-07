@@ -440,7 +440,7 @@ export function ChatWorkspace(props: ChatProps) {
                       "Current assignment"}
                   </h3>
                   <p>
-                    {execution?.returnPredicate ??
+                    {(execution?.phase === "needs_user" ? execution.lastError : undefined) ??
                       (task?.task.state === "discovered"
                         ? "Ready when you want to start."
                         : execution?.phase === "ready_review"
@@ -451,15 +451,15 @@ export function ChatWorkspace(props: ChatProps) {
                   </p>
                   <div className="chat-card-actions">
                     {task &&
-                      !work &&
-                      ["discovered", "ready", "failed", "cancelled"].includes(
+                      !work && task.permission.mayAttempt &&
+                      ["discovered", "queued", "failed", "cancelled"].includes(
                         task.task.state,
                       ) && (
                         <button
                           className="button button--yellow"
                           onClick={() => props.onStart(task.task.taskId)}
                         >
-                          Start assignment
+                          {["failed", "cancelled"].includes(task.task.state) ? "Try assignment again" : "Start assignment"}
                         </button>
                       )}
                     <button
@@ -662,7 +662,7 @@ export function ChatWorkspace(props: ChatProps) {
                       ·{" "}
                       {a.dueAt
                         ? new Date(a.dueAt).toLocaleDateString()
-                        : "No due date"}
+                        : a.dueText ?? "No due date"}
                     </small>
                   </button>
                 ))

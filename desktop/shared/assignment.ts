@@ -11,6 +11,8 @@ export const AssignmentSchema = z.strictObject({
   title: z.string().min(1).max(500),
   sourceTarget: SafeSourceTargetSchema,
   dueAt: IsoTimestampSchema.optional(),
+  dueText: z.string().min(1).max(200).optional(),
+  instructions: z.string().min(1).max(8000).optional(),
   discoveredAt: IsoTimestampSchema,
   lastVerifiedScanId: z.string().min(1).max(256).optional(),
   evidence: z.array(EvidenceReferenceSchema),

@@ -166,3 +166,11 @@ html[data-desktop] .fable-onboarding, html[data-desktop] .loading-screen { min-h
   .settings-nav-group { margin-top: 12px; }
   .settings-nav-group button { padding-block: 5px; }
 }
+
+/* Keep settings readable at normal desktop scale and scan progress easy to find. */
+.settings-nav-group button, .settings-search input { font-size: 14px; }
+.settings-nav-group button { min-height: 38px; }
+.settings-content .field, .settings-content .button,
+.settings-content input:not([type="checkbox"]), .settings-content select,
+.settings-content textarea { font-size: 14px; }
+.fable-scan-progress { padding-top: 10px; border-top: 1px solid #ded4c2; font-size: 13px; color: var(--muted); }

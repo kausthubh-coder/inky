@@ -168,7 +168,9 @@ export class BrowserController {
     );
     const value = asRecord(inspection.value);
     const label = typeof value.label === "string" ? value.label : target.name;
-    const knownSubmission = value.submission === true || SUBMISSION_PATTERN.test(label);
+    // Saving a draft is a form POST on many school sites, but does not hand in work.
+    const draftSave = /^save(?: as)? draft$/i.test(label);
+    const knownSubmission = SUBMISSION_PATTERN.test(label) || (value.submission === true && !draftSave);
     if (knownSubmission && !allowSubmission) {
       throw new Error("Ordinary click cannot activate a submission control. Use browser_submit only after the student explicitly asks to submit.");
     }
