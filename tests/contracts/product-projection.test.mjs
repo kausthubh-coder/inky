@@ -33,8 +33,17 @@ test("retained workflow keeps the dashboard route after a later scan failure", (
 });
 
 test("manual scan retries are fresh until a successful workflow exists", () => {
-  assert.equal(nextSchoolScanAction({ workflowRevision: null }), "scan");
-  assert.equal(nextSchoolScanAction({ workflowRevision: 1 }), "replay");
+  assert.equal(nextSchoolScanAction({ scan: null, workflowRevision: null }), "scan");
+  assert.equal(nextSchoolScanAction({ scan: null, workflowRevision: 1 }), "replay");
+});
+
+test("returning from a browser handoff resumes the scan even when a saved workflow exists", () => {
+  for (const workflowRevision of [null, 1]) {
+    assert.equal(nextSchoolScanAction({ scan: { state: "needs_user" }, workflowRevision }), "resume");
+    for (const state of ["succeeded", "partial", "failed"]) {
+      assert.equal(nextSchoolScanAction({ scan: { state }, workflowRevision }), workflowRevision === null ? "scan" : "replay");
+    }
+  }
 });
 
 test("runtime attention distinguishes usage, Codex reauth, and ordinary scan failure", () => {
