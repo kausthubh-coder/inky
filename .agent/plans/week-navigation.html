@@ -14,6 +14,18 @@
 <li>Filter the board and its count to the selected week. Keep the greeting and Today marker on the real local date.</li>
 <li>Check calendar math, typecheck, browse the preview, then attempt the test-studi feature pass.</li>
 </ol>
-<h2>Interface</h2>
-<p>The date range leads. Arrows sit beside it as paper buttons. Homework slips keep their ink border and tilt. Empty days are quiet handwriting. Weekend columns are cream. Today is a yellow header and a yellow date pill.</p>
+<h2>Preview</h2>
+<p>Production renderer at 1440 × 900 with the preview fixture frozen to September 3, 2026. Sample homework, not a live school scan.</p>
+<img src="week-paper.png" alt="Paper planner for This week, Aug 31 to Sep 6, with a yellow Today marker and three homework slips">
+<p>Next week. Homework leaves the board. The yellow This week sticky appears. Greeting still says one thing is due today.</p>
+<img src="week-paper-next.png" alt="Next week Sep 7 to 13 with empty days and a yellow This week button">
+<details><summary>Smallest supported window</summary><img src="week-paper-small.png" alt="Week planner at 720px with usable arrows and a horizontally scrollable calendar"></details>
+<h2>Verification — September 7, 2026</h2>
+<ul>
+<li><code>bun run typecheck</code>: passed.</li>
+<li><code>bun run build</code>: passed; existing dependency annotation and chunk-size warnings.</li>
+<li><code>node --experimental-strip-types --test tests/ui/week-calendar.test.mjs</code>: three tests passed in America/New_York and UTC.</li>
+<li>Chrome against the Vite renderer at <code>/?preview=week</code>: next/previous, return, 2 weeks ahead, assignment filtering, count, unchanged today greeting, no Today marker on other weeks, no This week sticky on the current week, keyboard arrows and Home on the week grid, assignment drawer, feedback note, 40px arrows, no page overflow at 1440 and 720. Weekend columns reachable by scrolling the board at 720px.</li>
+<li>Live Electron test-studi skip-to-app did not run. This Linux host has no persistent <code>.agents/studi-qa/profile</code>, and the launcher is PowerShell. No profile, identity, or school data was changed.</li>
+</ul>
 </html>
