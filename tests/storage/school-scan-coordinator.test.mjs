@@ -8,9 +8,52 @@ import test from "node:test";
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
 import { SchoolScanCoordinator } from "../../dist/electron/scan/coordinator.js";
 import { openLocalStore } from "../../dist/electron/storage/index.js";
+import { nextSchoolScanAction } from "../../dist/shared/index.js";
 
 const now = "2026-09-01T12:00:00.000Z";
 const rootUrl = "https://school.example.edu/";
+
+test("dashboard handoff resumes the same replay without navigating away from the student's page", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-replay-handoff-")));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const finish = async (tools) => {
+    browser.showAssignments();
+    await invoke(tools, "scan_record_course", { label: "Calculus", courseKey: "calc-101" });
+    await invoke(tools, "scan_finish", {
+      coverage: [{ target: "Course: Calculus", status: "verified" }],
+      navigationHints: [],
+    });
+  };
+  const runtime = new ScriptedScanRuntime([
+    finish,
+    async (tools) => {
+      await invoke(tools, "scan_request_handoff", { kind: "school_sign_in", reason: "Please sign in." });
+    },
+    finish,
+  ]);
+  const coordinator = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await coordinator.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    assert.equal((await coordinator.startScan()).scan.state, "succeeded");
+    const paused = await coordinator.replay();
+    assert.equal(paused.scan.state, "needs_user");
+    assert.equal(paused.workflowRevision, 1);
+    const navigationCount = browser.navigations.length;
+    await assert.rejects(coordinator.replay(), /already owns the visible school browser/);
+    const actions = { scan: () => coordinator.startScan(), replay: () => coordinator.replay(), resume: () => coordinator.resume() };
+    const resumed = await actions[nextSchoolScanAction(paused)]();
+    assert.equal(resumed.scan.state, "succeeded");
+    assert.equal(resumed.scan.scanId, paused.scan.scanId);
+    assert.equal(resumed.scan.kind, "replay");
+    assert.equal(browser.navigations.length, navigationCount, "resume preserves the student's current page");
+    assert.match(runtime.prompts.at(-1), /continue the same scan/);
+  } finally {
+    coordinator.dispose();
+    store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
 
 test("school scan pauses for sign-ins, records evidence, replays from root, and preserves prior rows on partial and zero results", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp07-scan-")));
@@ -500,3 +543,63 @@ async function invoke(tools, name, input) {
   const result = await tool.execute(`call-${name}`, input, undefined, undefined, {});
   return result.details;
 }
+
+
+test("scan refreshes rotated refs and verifies instructions and dates independently of title refs", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-scan-facts-")));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const runtime = new ScriptedScanRuntime([async tools => {
+    browser.showAssignments();
+    const course = await invoke(tools, "scan_record_course", { label: "Calculus", courseKey: "calc", observationRef: "r8:1" });
+    browser.url = rootUrl + "assignments/limits";
+    browser.text += " Write three sentences about limits.";
+    const input = { courseId: course.courseId, title: "Limits practice", assignmentKey: "limits", observationRef: "r8:2", dueAt: "2026-09-03T15:00:00.000Z", dueText: "2026-09-03T15:00:00.000Z", instructions: "Write three sentences about limits." };
+    const assignment = await invoke(tools, "scan_record_assignment", input);
+    assert.equal(assignment.sourceTarget, browser.url);
+    assert.equal(assignment.instructions, input.instructions);
+    assert.equal(assignment.dueAt, input.dueAt);
+    browser.text += " Due 2026-09-09 at 11:59 PM";
+    const dated = await invoke(tools, "scan_record_assignment", { ...input, dueAt: undefined, dueText: "2026-09-09 at 11:59 PM" });
+    assert.equal(dated.dueAt, new Date("2026-09-09 11:59 PM").toISOString());
+    assert.equal(dated.dueText, "2026-09-09 at 11:59 PM");
+    await assert.rejects(invoke(tools, "scan_record_assignment", { ...input, instructions: "Invented instructions" }), /claimed assignment instructions/);
+    await assert.rejects(invoke(tools, "scan_record_course", { label: "Invented course", observationRef: "r1:1" }), /claimed course label/);
+    await invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "verified" }], navigationHints: [] });
+  }]);
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    assert.equal((await scan.startScan()).scan.state, "succeeded");
+  } finally {
+    scan.dispose(); store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+
+test("replay preserves course, assignment and task identities when the model changes suggested keys", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-scan-identity-")));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const runtime = new ScriptedScanRuntime(["first-key", "different-key"].map(key => async tools => {
+    browser.showAssignments();
+    const course = await invoke(tools, "scan_record_course", { label: "Calculus", courseKey: key });
+    browser.url = rootUrl + "assignment/limits";
+    await invoke(tools, "scan_record_assignment", { courseId: course.courseId, title: "Limits practice", assignmentKey: key });
+    await invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "verified" }], navigationHints: [] });
+  }));
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    const first = await scan.startScan();
+    const second = await scan.replay();
+    assert.equal(second.courses.length, 1);
+    assert.equal(second.assignments.length, 1);
+    assert.equal(second.assignments[0].assignmentId, first.assignments[0].assignmentId);
+    assert.equal(store.tasks.listAll().length, 1);
+  } finally {
+    scan.dispose(); store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});

@@ -259,7 +259,7 @@ export class SchoolScanCoordinator {
       : "";
     return this.#run(
       scan,
-      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing. Navigation hints become a Markdown note. Write them as plain text or Markdown, never HTML.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
+      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. Open each assignment detail page before recording it so sourceTarget points to the work, not the dashboard. Capture its visible instructions and due date (dueText must be the exact visible date). Do not omit visible details. Use stable courseKey and assignmentKey values across pages and replays. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing. Navigation hints become a Markdown note. Write them as plain text or Markdown, never HTML.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
     );
   }
 
@@ -321,7 +321,9 @@ export class SchoolScanCoordinator {
         const snapshot = await this.#browser.snapshot();
         const observation = requireSnapshotFact(snapshot, input.label, input.observationRef, "course label");
         const evidence = this.#evidence(scanId, snapshot, `Observed course ${input.label.trim()} in ${observation}.`);
-        const courseId = stableId("course", input.courseKey ?? `${snapshot.url}|${input.label.trim()}`);
+        const priorCourse = this.#store.school.listCourses().find(course =>
+          course.sourceTarget === evidence.sourceTarget && sameFact(course.label, input.label));
+        const courseId = priorCourse?.courseId ?? stableId("course", input.courseKey ?? `${snapshot.url}|${input.label.trim()}`);
         const course = this.#store.school.putCourse({
           schemaVersion: STUDI_SCHEMA_VERSION,
           courseId,
@@ -345,6 +347,7 @@ export class SchoolScanCoordinator {
       courseId: Type.String({ minLength: 1, maxLength: 256 }),
       title: Type.String({ minLength: 1, maxLength: 500 }),
       assignmentKey: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
+      instructions: Type.Optional(Type.String({ minLength: 1, maxLength: 8000 })),
       dueAt: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
       dueText: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
       observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
@@ -353,6 +356,7 @@ export class SchoolScanCoordinator {
       readonly courseId: string;
       readonly title: string;
       readonly assignmentKey?: string;
+      readonly instructions?: string;
       readonly dueAt?: string;
       readonly dueText?: string;
       readonly observationRef?: string;
@@ -364,11 +368,14 @@ export class SchoolScanCoordinator {
           throw new Error("The assignment's course has not been verified in this scan");
         }
         const observation = requireSnapshotFact(snapshot, input.title, input.observationRef, "assignment title");
-        const dueAt = input.dueAt === undefined
+        if (input.instructions) requireSnapshotFact(snapshot, input.instructions, undefined, "assignment instructions");
+        const dueAt = input.dueAt === undefined && input.dueText === undefined
           ? undefined
-          : requireObservedDueAt(snapshot, input.dueAt, input.dueText, input.observationRef);
+          : requireObservedDueAt(snapshot, input.dueAt, input.dueText);
         const evidence = this.#evidence(scanId, snapshot, `Observed assignment ${input.title.trim()} in ${observation}.`);
-        const assignmentId = stableId(
+        const priorAssignment = this.#store.assignments.listByCourse(input.courseId).find(assignment =>
+          assignment.sourceTarget === evidence.sourceTarget && sameFact(assignment.title, input.title));
+        const assignmentId = priorAssignment?.assignmentId ?? stableId(
           "assignment",
           `${input.courseId}|${input.assignmentKey ?? `${snapshot.url}|${input.title.trim()}`}`,
         );
@@ -379,7 +386,9 @@ export class SchoolScanCoordinator {
           title: input.title.trim(),
           sourceTarget: evidence.sourceTarget,
           ...(dueAt === undefined ? {} : { dueAt }),
-          discoveredAt: evidence.capturedAt,
+          ...(input.instructions === undefined ? {} : { instructions: input.instructions.trim() }),
+          ...(input.dueText === undefined ? {} : { dueText: input.dueText.trim() }),
+          discoveredAt: priorAssignment?.discoveredAt ?? evidence.capturedAt,
           lastVerifiedScanId: scanId,
           evidence: [evidence],
         });
@@ -520,7 +529,7 @@ export class SchoolScanCoordinator {
     const finish = defineTool({
       name: "scan_finish",
       label: "Finish school scan",
-      description: "Finish with explicit coverage. At least one course must have been verified in this scan. Navigation hints must be plain text or Markdown, never HTML.",
+      description: "Finish with explicit coverage. Verified targets must use recorded labels, for example Course: Writing 101 or Assignment: Observation paragraph, never URLs. At least one course must have been verified in this scan. Navigation hints must be plain text or Markdown, never HTML.",
       parameters: Type.Object({
         coverage: Type.Array(Type.Object({
           target: Type.String({ minLength: 1, maxLength: 200 }),
@@ -842,7 +851,8 @@ function requireSnapshotFact(
 ): string {
   if (requestedRef) {
     const element = snapshot.elements.find((candidate) => candidate.ref === requestedRef);
-    if (!element) throw new Error(`Current snapshot does not contain ref ${requestedRef} for the ${label}`);
+    // Each snapshot rotates refs. Revalidate stale refs against fresh page facts.
+    if (!element) return requireSnapshotFact(snapshot, fact, undefined, label);
     const observation = `${element.name} ${element.value ?? ""}`;
     if (!includesFact(observation, fact)) {
       throw new Error(`Current snapshot ref ${requestedRef} does not contain the claimed ${label}`);
@@ -857,15 +867,18 @@ function requireSnapshotFact(
 
 function requireObservedDueAt(
   snapshot: BrowserSnapshot,
-  dueAt: string,
+  dueAt: string | undefined,
   dueText: string | undefined,
-  observationRef: string | undefined,
-): string {
+): string | undefined {
   if (!dueText) throw new Error("A due date requires the exact visible due-date text from the current snapshot");
-  requireSnapshotFact(snapshot, dueText, observationRef, "assignment due date");
+  requireSnapshotFact(snapshot, dueText, undefined, "assignment due date");
+  // Keep ambiguous dates as visible text rather than inventing a year or deadline.
+  const parsedText = /\b\d{4}\b/.test(dueText)
+    ? Date.parse(dueText.replace(/\s+at\s+/i, " "))
+    : NaN;
+  if (dueAt === undefined) return Number.isFinite(parsedText) ? new Date(parsedText).toISOString() : undefined;
   const parsedDueAt = Date.parse(dueAt);
-  const parsedDueText = Date.parse(dueText);
-  if (!Number.isFinite(parsedDueAt) || !Number.isFinite(parsedDueText) || parsedDueAt !== parsedDueText) {
+  if (!Number.isFinite(parsedDueAt) || !Number.isFinite(parsedText) || parsedDueAt !== parsedText) {
     throw new Error("The claimed due date does not match the visible due-date text");
   }
   return new Date(parsedDueAt).toISOString();

@@ -7,7 +7,7 @@ let authorizationUrl = null;
 const server = createServer(async (request, response) => {
   const requestUrl = new URL(request.url ?? "/", `http://${host}:${options.port}`);
   if (request.method === "GET" && requestUrl.pathname === "/health") {
-    return json(response, 200, { ready: true, authorizationPending: authorizationUrl !== null });
+    return json(response, 200, { ready: true, processId: process.pid, authorizationPending: authorizationUrl !== null });
   }
   if (request.method === "POST" && requestUrl.pathname === "/publish") {
     try {
@@ -24,14 +24,15 @@ const server = createServer(async (request, response) => {
     authorizationUrl = null;
     response.writeHead(302, { location: claimed, "cache-control": "no-store" });
     response.end();
-    setTimeout(() => server.close(), 1_000).unref();
+    // Keep the relay available for sign-in retries and account switching in this
+    // QA run. Each published authorization URL is still consumed only once.
     return;
   }
   return json(response, 404, { error: "not_found" });
 });
 
 server.listen(options.port, host, () => {
-  process.stdout.write(`${JSON.stringify({ schemaVersion: 1, ready: true, claimUrl: `http://${host}:${options.port}/claim` })}\n`);
+  process.stdout.write(`${JSON.stringify({ schemaVersion: 1, ready: true, claimUrl: `http://${host}:${server.address().port}/claim` })}\n`);
 });
 setTimeout(() => server.close(), 15 * 60_000).unref();
 
@@ -42,18 +43,18 @@ function parseArgs(argv) {
     else if (argv[index] === "--clerk-host") parsed.clerkHost = argv[++index] ?? "";
     else fail(`unknown argument: ${argv[index]}`);
   }
-  if (!Number.isInteger(parsed.port) || parsed.port < 1 || parsed.port > 65535) fail("--port must be 1-65535");
+  if (!Number.isInteger(parsed.port) || parsed.port < 0 || parsed.port > 65535) fail("--port must be 0-65535");
   if (!/^[a-z0-9.-]+$/i.test(parsed.clerkHost)) fail("--clerk-host is invalid");
   return parsed;
 }
 
 function validateAuthorizationUrl(value, expectedHost) {
   const url = new URL(value.trim());
-  if (url.protocol !== "https:" || url.hostname !== expectedHost || url.pathname !== "/oauth/authorize") {
+  if (url.protocol !== "https:" || url.hostname !== expectedHost || url.port || url.username || url.password || url.pathname !== "/oauth/authorize") {
     throw new Error("unexpected Clerk authorization endpoint");
   }
   const callback = new URL(url.searchParams.get("redirect_uri") ?? "");
-  if (callback.protocol !== "http:" || callback.hostname !== "127.0.0.1" || callback.pathname !== "/callback") {
+  if (callback.protocol !== "http:" || callback.hostname !== "127.0.0.1" || !callback.port || callback.username || callback.password || callback.search || callback.hash || callback.pathname !== "/callback") {
     throw new Error("callback must be an ephemeral loopback URL");
   }
   if (url.searchParams.get("code_challenge_method") !== "S256") throw new Error("PKCE S256 is required");

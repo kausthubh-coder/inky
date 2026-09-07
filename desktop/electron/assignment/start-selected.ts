@@ -13,7 +13,7 @@ export async function startSelectedAssignment(
   if (live && isLivePhase(live.phase)) {
     throw new Error("Inky is already on another page.");
   }
-  manager.enqueue({ taskId });
+  manager.enqueue({ taskId, retry: true });
   manager.steerNext(taskId);
   await executions.start(taskId);
 }

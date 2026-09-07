@@ -23,8 +23,8 @@ const expectedTransitions = {
   submitting: ["submitted", "needs_user", "working", "failed"],
   submitted: [],
   preserved: [],
-  failed: [],
-  cancelled: [],
+  failed: ["queued"],
+  cancelled: ["queued"],
 };
 const states = TaskStateSchema.options;
 
@@ -32,9 +32,9 @@ function command(to) {
   return { ...taskTransitionCommand, to };
 }
 
-test("task transition and terminal tables exactly match the dossier", () => {
+test("stopped tasks can be queued again while completed work stays terminal", () => {
   assert.deepEqual(TASK_TRANSITIONS, expectedTransitions);
-  assert.deepEqual([...TERMINAL_TASK_STATES], ["ignored", "submitted", "preserved", "failed", "cancelled"]);
+  assert.deepEqual([...TERMINAL_TASK_STATES], ["ignored", "submitted", "preserved"]);
 });
 
 test("every allowed transition returns a new task and event", () => {

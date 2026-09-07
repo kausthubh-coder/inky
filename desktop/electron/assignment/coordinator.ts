@@ -150,7 +150,11 @@ export class AssignmentExecutionCoordinator {
         lastError: undefined,
         updatedAt: this.#now(),
       });
-      await this.#run(working, `The student returned. Verify this predicate before continuing: ${execution.returnPredicate ?? "the blocking page state has cleared"}.`);
+      await this.#run(working, [
+        "The student clicked 'I’m done — check' and explicitly asked you to resume this assignment now. Do not ask for permission to resume again.",
+        `Inspect the current page to verify the remaining browser condition: ${execution.returnPredicate ?? "the blocking page state has cleared"}.`,
+        "Continue under the fresh stored assignment permission. If the answer is already complete, verify it and call assignment_start_review. Request another handoff only for a concrete unresolved blocker.",
+      ].join("\n"));
       return this.#requiredExecution(taskId);
     });
   }
@@ -178,6 +182,7 @@ export class AssignmentExecutionCoordinator {
     const waiting = this.#store.lifecycle.putExecution({
       ...execution,
       phase: "needs_user",
+      lastError: "The browser is yours. When you’re ready, ask me to continue.",
       returnPredicate: "The student finished the visible browser action and explicitly asked Studi to resume.",
       updatedAt: this.#now(),
     });
@@ -190,12 +195,7 @@ export class AssignmentExecutionCoordinator {
     const execution = this.#requiredExecution(taskId);
     if (!["working", "needs_user", "ready_review"].includes(execution.phase)) throw new Error(`Task ${taskId} cannot be cancelled from ${execution.phase}`);
     this.#manager.cancel(taskId);
-    return this.#store.lifecycle.putExecution({
-      ...execution,
-      phase: "failed",
-      lastError: "Cancelled by the student from Studi's desk.",
-      updatedAt: this.#now(),
-    });
+    return this.#requiredExecution(taskId);
   }
 
   async verifyStudentSubmission(taskId: string, confirmationText: string): Promise<AssignmentExecution> {
@@ -275,7 +275,7 @@ export class AssignmentExecutionCoordinator {
     const folderListing = homeworkFiles ? await homeworkFiles.list() : [];
     const prompt = [
       "# Assignment",
-      JSON.stringify({ taskId: execution.taskId, title: assignment.title, sourceTarget: assignment.sourceTarget, dueAt: assignment.dueAt ?? null }, null, 2),
+      JSON.stringify({ taskId: execution.taskId, title: assignment.title, sourceTarget: assignment.sourceTarget, dueAt: assignment.dueAt ?? null, instructions: assignment.instructions ?? null }, null, 2),
       "# Fresh stored permission",
       JSON.stringify(permission, null, 2),
       "# Task budget",
@@ -399,8 +399,10 @@ export class AssignmentExecutionCoordinator {
         const startedAt = Date.parse(this.#now());
         const handoffDeadline = new Date(startedAt + this.#handoffWindowMs).toISOString();
         const reviewDeadline = new Date(Math.min(startedAt + this.#reviewWindowMs, Date.parse(handoffDeadline))).toISOString();
+        const answerArtifactId = await this.#writeAnswerArtifact({ ...execution, answerSnapshot: answers }, "Saved before starting student review.");
         const ready = this.#store.lifecycle.putExecution({
           ...execution,
+          answerArtifactId,
           phase: "ready_review",
           answerSnapshot: answers,
           completionChecklist: input.completedRequirements.map((item) => ({
@@ -543,10 +545,13 @@ export class AssignmentExecutionCoordinator {
     if (!execution.answerSnapshot) throw new Error("An answer snapshot is required before answers can be preserved");
     const assignment = this.#requiredAssignment(execution.assignmentId);
     const artifactId = `answer-${createHash("sha256").update(execution.taskId).digest("hex").slice(0, 24)}`;
+    const content = `# ${assignment.title}\n\nSource: ${assignment.sourceTarget}\n\n${reason}\n\n## Answers\n\n${execution.answerSnapshot.trim()}\n`;
     await this.#store.artifacts.write({
       frontmatter: { schemaVersion: STUDI_SCHEMA_VERSION, kind: "answer", artifactId, updatedAt: this.#now() },
-      content: `# ${assignment.title}\n\nSource: ${assignment.sourceTarget}\n\n${reason}\n\n## Answers\n\n${execution.answerSnapshot.trim()}\n`,
+      content,
     });
+    const files = await this.#homeworkFiles(execution.assignmentId);
+    if (files) await files.write("studi-answer.md", content);
     return artifactId;
   }
 

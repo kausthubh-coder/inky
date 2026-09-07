@@ -10,11 +10,8 @@ Set-Location -LiteralPath $workspaceRoot
 & bun install
 if ($LASTEXITCODE -ne 0) { throw "bun install failed" }
 
-$authPath = Join-Path $workspaceRoot ".agents\studi-qa\codex-auth\auth.json"
-if (Test-Path -LiteralPath $authPath -PathType Leaf) {
-  & node ".agents\skills\test-studi\scripts\sync-studi-qa-codex-auth.mjs" --import | Out-Null
-  if ($LASTEXITCODE -ne 0) { throw "The Studi QA Codex cache could not be hydrated" }
-}
+& node ".agents\skills\test-studi\scripts\sync-studi-qa-codex-auth.mjs" --import
+if ($LASTEXITCODE -ne 0) { Write-Warning "No usable QA Codex cache. Build and non-agent tests can continue; agent flows need device login." }
 
 & bun run build
 if ($LASTEXITCODE -ne 0) { throw "bun run build failed" }

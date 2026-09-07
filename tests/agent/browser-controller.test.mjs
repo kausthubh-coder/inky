@@ -189,3 +189,21 @@ function fakeTarget(nodes, options = {}) {
   };
   return target;
 }
+
+
+test("explicit draft-save buttons can post a form while final and ambiguous submits stay gated", async () => {
+  for (const label of ["Save draft", "Save as draft", "Submit assignment", "Continue"]) {
+    const target = fakeTarget([axNode(1, "button", label)], {
+      inspection: { connected: true, disabled: false, submission: true, label },
+    });
+    const controller = new BrowserController(target);
+    const snapshot = await controller.snapshot();
+    if (label.startsWith("Save")) {
+      await controller.click(snapshot.elements[0].ref);
+      assert.equal(target.clicks, 1);
+    } else {
+      await assert.rejects(controller.click(snapshot.elements[0].ref), /submission control/);
+      assert.equal(target.clicks, 0);
+    }
+  }
+});

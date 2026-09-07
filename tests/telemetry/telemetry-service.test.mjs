@@ -401,6 +401,8 @@ test('handled chat errors use PostHog exception tracking and retain ordinary con
  await withService(async({client,service})=>{
   const exceptions=[];client.captureException=(error,id,props)=>exceptions.push({error,id,props});
   service.captureError(new Error('Math chat failed password=HIDDEN_CREDENTIAL'),'ipc','ipc_request');
+  assert.equal(exceptions[0].props.app_version, '16.0.0');
+  assert.equal(exceptions[0].props.platform, 'win32');
   assert.equal(exceptions.length,1);assert.match(exceptions[0].error.message,/Math chat/);assert.equal(exceptions[0].error.stack.includes('HIDDEN_CREDENTIAL'),false);assert.equal(exceptions[0].id,service.state().distinctId);
   service.setPreferences(false,false);service.captureError(new Error('Muted'),'ipc','ipc_request');assert.equal(exceptions.length,1);
  });

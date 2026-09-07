@@ -27,6 +27,7 @@ export class RendererTelemetry {
   #enabled = false;
   #session: { sessionId: string; windowId: string } | null = null;
   #revision = 0;
+  #replayStatusKey: string | null = null;
 
   constructor(readonly loadModule: () => Promise<PostHogModule> = () => import("posthog-js/dist/module.full.no-external.js")) {}
 
@@ -55,7 +56,13 @@ export class RendererTelemetry {
     }
     if (state.replayEnabled) client.startSessionRecording({ sampling: true });
     else client.stopSessionRecording();
-    client.get_session_id();
+    const sessionId = client.get_session_id();
+    const recording = state.replayEnabled && client.sessionRecordingStarted();
+    const replayStatusKey = `${sessionId}:${state.replayEnabled}:${recording}`;
+    if (replayStatusKey !== this.#replayStatusKey) {
+      this.#replayStatusKey = replayStatusKey;
+      client.capture("studi_replay_status", { requested: state.replayEnabled, recording });
+    }
     if (this.#session) this.#sendContext(this.#session.sessionId, this.#session.windowId);
   }
 
@@ -144,6 +151,9 @@ export class RendererTelemetry {
         this.#sendContext(sessionId, windowId);
       });
       return client;
+    }).catch(error => {
+      this.#loading = null;
+      throw error;
     });
     return this.#loading;
   }
