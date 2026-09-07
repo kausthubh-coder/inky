@@ -1,3 +1,4 @@
+import { RuntimeDiagnostics, type RuntimeDiagnostic } from "../telemetry/runtime-diagnostics.js";
 import { stripSecrets } from "../telemetry/service.js";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
@@ -97,6 +98,8 @@ export interface PiAgentRuntimeOptions {
   readonly model?: PiModel;
   readonly browserController?: BrowserController;
   readonly onUsage?: (usage: AgentUsageSnapshot, kind: UsageEventKind) => void;
+  readonly onSessionError?: (error: unknown) => void;
+  readonly onDiagnostic?: (event: RuntimeDiagnostic) => void;
 }
 
 const studiProbe = defineTool({
@@ -121,6 +124,8 @@ export class PiAgentRuntime implements AgentRuntime {
   readonly #browserTools: ToolDefinition[] | null;
   readonly #assignmentBrowserTools: ToolDefinition[] | null;
   readonly #onUsage: ((usage: AgentUsageSnapshot, kind: UsageEventKind) => void) | null;
+  readonly #onSessionError: (error: unknown) => void;
+  readonly #onDiagnostic: (event: RuntimeDiagnostic) => void;
   #model?: PiModel;
   #thinkingLevel: AgentReasoningEffort = DEFAULT_AGENT_REASONING_EFFORT;
   #usage = emptyUsage();
@@ -131,6 +136,8 @@ export class PiAgentRuntime implements AgentRuntime {
     this.#sessionDirectory = options.sessionDirectory ?? join(options.agentDir, "sessions");
     this.#modelRuntime = modelRuntime;
     this.#onUsage = options.onUsage ?? null;
+    this.#onSessionError = options.onSessionError ?? (() => undefined);
+    this.#onDiagnostic = options.onDiagnostic ?? (() => undefined);
     this.#browserTools = options.browserController
       ? createBrowserTools(options.browserController)
       : null;
@@ -400,16 +407,27 @@ export class PiAgentRuntime implements AgentRuntime {
     }
     options.model = this.#model;
 
-    const { session } = await createAgentSession(options);
+    const { session } = await createAgentSession(options).catch((error: unknown) => {
+      this.#reportSessionError(error);
+      throw error;
+    });
     // Pi's simple-stream API drops provider-specific options. Set the supported priority tier on the
     // final Codex payload so it survives retries and both supported transports.
+    const diagnostics = new RuntimeDiagnostics(session.sessionId, this.#onDiagnostic);
+    diagnostics.record("session_created", {
+      system_prompt: systemPrompt, model: this.#model.id, provider: this.#model.provider,
+      reasoning_effort: this.#thinkingLevel, tools: tools.map(tool => ({ name: tool.name, description: tool.description, parameters: tool.parameters })),
+      resumed: !!target.resumeSessionPath,
+    });
+    session.subscribe(event => diagnostics.accept(event));
     const onPayload = session.agent.onPayload;
     session.agent.onPayload = async (payload, model) => {
-      const prepared = (await onPayload?.(payload, model)) ?? payload;
+      let prepared = (await onPayload?.(payload, model)) ?? payload;
       if (model.provider === "openai-codex" && model.id === "gpt-6-astra"
         && prepared !== null && typeof prepared === "object") {
-        return { ...prepared, service_tier: "priority" };
+        prepared = { ...prepared, service_tier: "priority" };
       }
+      diagnostics.providerRequest(model.id, model.provider, prepared);
       return prepared;
     };
     const activeTools = session.getActiveToolNames();
@@ -417,9 +435,17 @@ export class PiAgentRuntime implements AgentRuntime {
     const expectedTools = tools.map((tool) => tool.name);
     if (!sameNames(activeTools, expectedTools) || !sameNames(configuredTools, expectedTools)) {
       session.dispose();
-      throw new Error("Pi session did not preserve the Studi-only tool boundary");
+      const error = new Error("Pi session did not preserve the Studi-only tool boundary", {
+        cause: { expectedTools, activeTools, configuredTools, sdkVersion: VERSION },
+      });
+      this.#reportSessionError(error);
+      throw error;
     }
     return session;
+  }
+
+  #reportSessionError(error: unknown): void {
+    try { this.#onSessionError(error); } catch { /* Keep the original runtime error. */ }
   }
 }
 

@@ -24,6 +24,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run test
       - run: bun run test:auth
+      - run: bun run test:telemetry
       - run: bun run make:win
       - name: Stage Windows installer
         shell: pwsh
@@ -68,6 +69,7 @@ jobs:
           iconutil -c icns assets/studi-inky.iconset -o assets/studi-inky.icns
       - run: bun run test
       - run: bun run test:auth
+      - run: bun run test:telemetry
       - run: bun run make:mac
       - name: Stage macOS disk image
         run: |

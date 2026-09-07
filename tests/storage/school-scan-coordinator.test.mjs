@@ -284,6 +284,28 @@ test("scan recording rejects a secret-shaped current URL and cannot create a ver
   }
 });
 
+test("a caught scan failure reports the original cause without letting telemetry break recovery", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-scan-error-")));
+  const store = await openLocalStore(root);
+  const failure = new Error("Provider stopped", { cause: new Error("Upstream timeout") });
+  const reports = [];
+  const coordinator = new SchoolScanCoordinator(store, new ScriptedScanRuntime([async () => { throw failure; }]), new RecordingBrowser(), {
+    now: () => now,
+    onError: (error, scanId) => { reports.push({ error, scanId }); throw new Error("Analytics unavailable"); },
+  });
+  try {
+    await coordinator.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "attempt", scanCadence: "manual" });
+    const state = await coordinator.startScan();
+    assert.equal(state.scan.state, "failed");
+    assert.match(state.scan.failures[0], /Provider stopped/);
+    assert.equal(reports[0].error, failure);
+    assert.equal(reports[0].scanId, state.scan.scanId);
+  } finally {
+    coordinator.dispose(); store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
 test("student takeover pauses a running scan without failing it", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-scan-takeover-")));
   let store;

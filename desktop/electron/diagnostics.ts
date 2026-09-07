@@ -5,7 +5,7 @@ import {
   type TelemetryInspectorEnvelope,
 } from "../shared/index.js";
 import type { StorageHealth } from "./storage/index.js";
-import { stripSecrets } from "./telemetry/service.js";
+import { stripSecrets, sanitizeTelemetryValue } from "../shared/telemetry-content.js";
 
 const safePropertyKeys = new Set([
   "action",
@@ -124,8 +124,8 @@ export async function writeDiagnosticsSnapshot(
 
 function sanitizeDiagnostic(rawEnvelope: TelemetryInspectorEnvelope) {
   const envelope = TelemetryInspectorEnvelopeSchema.parse(rawEnvelope);
-  const properties = envelope.event === "studi_agent_trace"
-    ? JSON.parse(stripSecrets(JSON.stringify(envelope.properties)))
+  const properties = ["studi_agent_trace", "studi_diagnostic", "$ai_generation"].includes(envelope.event)
+    ? sanitizeTelemetryValue(envelope.properties)
     : Object.fromEntries(
         Object.entries(envelope.properties)
           .filter(([key]) => safePropertyKeys.has(key))

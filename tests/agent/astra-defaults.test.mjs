@@ -15,6 +15,7 @@ test("real Pi sessions send Astra medium priority, including after resume, witho
     credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false,
   });
   const requests = [];
+  const diagnostics = [];
   // Fabricated token: enough to exercise the real provider's request builder.
   // Stop inside onPayload before any network request or real authentication.
   const token = `test.${Buffer.from(JSON.stringify({
@@ -34,7 +35,7 @@ test("real Pi sessions send Astra medium priority, including after resume, witho
   });
   let session;
   try {
-    const runtime = await PiAgentRuntime.create({ cwd: root, agentDir: join(root, "agent"), modelRuntime });
+    const runtime = await PiAgentRuntime.create({ cwd: root, agentDir: join(root, "agent"), modelRuntime, onDiagnostic: event => diagnostics.push(event) });
     assert.equal(runtime.selectedModelId, "gpt-6-astra");
     assert.equal(runtime.selectedReasoningEffort, "medium");
     assert.ok(runtime.getProviderModels("openai-codex").some((model) => model.id === "gpt-6-astra"));
@@ -43,6 +44,12 @@ test("real Pi sessions send Astra medium priority, including after resume, witho
     await session.replace({ resumeSessionPath: session.sessionPath });
     await session.prompt("Check resumed request defaults.");
     assert.equal(requests.length, 2);
+    const diagnosticRequests = diagnostics.filter(event => event.kind === "provider_request");
+    assert.equal(diagnosticRequests.length, 2);
+    assert.deepEqual(diagnosticRequests.map(event => event.payload.request), requests);
+    assert.notEqual(diagnosticRequests[0].run_id, diagnosticRequests[1].run_id);
+    assert.ok(diagnostics.some(event => event.kind === "session_created" && event.payload.system_prompt.includes("Studi")));
+    assert.ok(diagnostics.some(event => event.kind === "message_end" && JSON.stringify(event.payload).includes("Check request defaults.")));
     for (const request of requests) {
       assert.equal(request.model, "gpt-6-astra");
       assert.equal(request.reasoning.effort, "medium");

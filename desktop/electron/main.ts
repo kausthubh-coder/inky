@@ -542,6 +542,7 @@ const ipcHandlers: StudiIpcHandlers = {
     return service.state();
   },
   captureUiTelemetry: (input) => {
+    if (input.event === "replay_context") return requireTelemetryService().setReplayContext(input.distinctId, input.sessionId, input.windowId);
     if(input.event==='ui_error'){const error=new Error(input.message);if(input.stack)error.stack=input.stack;return requireTelemetryService().captureError(error,'ipc','ipc_request');}
     return requireTelemetryService().capture("studi_dashboard_viewed",{section:input.section});
   },
@@ -583,11 +584,30 @@ const ipcHandlers: StudiIpcHandlers = {
 function registerIpcHandlers(): void {
   for (const registration of createIpcHandlerRegistrations(studiIpcRegistry, ipcHandlers)) {
     ipcMain.handle(registration.channel, async (_event, rawRequest: unknown) => {
+      const method = Object.entries(studiIpcRegistry).find(([, contract]) => contract.channel === registration.channel)?.[0] ?? registration.channel;
+      const tracked = !/^(get|setBrowserLayout|captureUiTelemetry|setTelemetry|signIn|signOut|loginOpenAi|cancelOpenAi|retryEntitlement)/.test(method);
+      const startedAt = Date.now();
+      const owner = telemetryService?.state().distinctId;
+      const actionId = randomUUID();
+      const recordAction = (phase: string) => {
+        if (!tracked || telemetryService?.state().distinctId !== owner) return;
+        telemetryService?.captureDiagnostic({ source: "action", kind: method, run_id: actionId,
+          at: new Date().toISOString(), payload: { phase, duration_ms: Date.now() - startedAt, ...(phase === "started" ? { request: rawRequest } : {}) } });
+      };
+      recordAction("started");
       try {
         if (updateService?.restarting && !registration.channel.startsWith('studi:update-')) throw new Error('Studi is saving your place for an update.');
-        return await registration.handle(rawRequest);
+        const result = await registration.handle(rawRequest);
+        recordAction("succeeded");
+        return result;
       } catch (error) {
-        telemetryService?.captureError(error, "ipc", "ipc_request");
+        recordAction("failed");
+        const request = rawRequest && typeof rawRequest === "object" ? rawRequest as Record<string, unknown> : {};
+        telemetryService?.captureError(error, "ipc", "ipc_request", {
+          ipc_channel: registration.channel,
+          ...(typeof request.taskId === "string" ? { task_id: request.taskId.slice(0, 256) } : {}),
+          ...(typeof request.toolkit === "string" ? { toolkit: request.toolkit.slice(0, 128) } : {}),
+        });
         throw error;
       }
     });
@@ -781,8 +801,16 @@ function createSchoolBrowser(window: BrowserWindow): void {
   view.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
     if (isMainFrame) {
       browserController?.pageChanged();
+      recordBrowserDiagnostic("navigation_started", { url: _url, in_place: _inPlace });
     }
   });
+  view.webContents.on("did-finish-load", () => recordBrowserDiagnostic("page_loaded", {
+    url: view.webContents.getURL(), title: view.webContents.getTitle(),
+  }));
+  view.webContents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
+    if (isMainFrame) recordBrowserDiagnostic("load_failed", { url, code, description });
+  });
+  view.webContents.on("render-process-gone", (_event, details) => recordBrowserDiagnostic("process_gone", details));
   view.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:/i.test(url)) {
       void view.webContents.loadURL(url);
@@ -790,6 +818,13 @@ function createSchoolBrowser(window: BrowserWindow): void {
     return { action: "deny" };
   });
   void view.webContents.loadURL("about:blank");
+}
+
+function recordBrowserDiagnostic(kind: string, payload: unknown): void {
+  telemetryService?.captureDiagnostic({
+    source: "browser", kind, at: new Date().toISOString(),
+    payload: { driver: currentBrowserDriver(), details: payload },
+  });
 }
 
 function layoutSchoolBrowser(): void {
@@ -1395,6 +1430,13 @@ async function initializeDesktopAgent(): Promise<void> {
     agentDir: join(dataRoot, "pi"),
     browserController: requireBrowserController(),
     onUsage: recordAgentUsage,
+    onSessionError: (error) => requireTelemetryService().captureError(error, "runtime", "session_start", currentAgentSelection()),
+    onDiagnostic: (event) => {
+      const telemetry = requireTelemetryService();
+      if (ownerSubject && telemetry.state().distinctId === ownerSubject) {
+        telemetry.captureDiagnostic({ source: "runtime", ...event });
+      }
+    },
   });
   await applyPersistedAgentRuntime();
   runtimeLoginAttempt = new OpenAiCodexLoginAttemptOwner((signal, notify) =>
@@ -1424,7 +1466,12 @@ async function initializeDesktopAgent(): Promise<void> {
     requireLocalStore(),
     agentRuntime,
     requireBrowserController(),
-    { browserWork: requireVisibleBrowserWork(), manager: requireManagerCoordinator() },
+    {
+      browserWork: requireVisibleBrowserWork(), manager: requireManagerCoordinator(),
+      onError: (error, scanId, toolName) => requireTelemetryService().captureError(error, "scan", "school_scan", {
+        ...currentAgentSelection(), scan_id: scanId, ...(toolName ? { tool_name: toolName } : {}),
+      }),
+    },
   );
 }
 
@@ -1583,6 +1630,9 @@ function captureScanFinished(
       ...schoolContextFrom(state),
       scan_id: state.scan.scanId,
       failure_count: state.scan.failures.length,
+      failures: state.scan.failures,
+      coverage: state.scan.coverage.map(({ target, status, failure }) => ({ target, status, ...(failure ? { failure } : {}) })),
+      handoff: state.scan.handoff ? { kind: state.scan.handoff.kind, reason: state.scan.handoff.reason } : null,
       current_step: state.scan.currentStep,
     });
   } catch {

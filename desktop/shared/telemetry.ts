@@ -21,6 +21,8 @@ export const TelemetryEventNameSchema = z.enum([
   "studi_composio_tool",
   "studi_error",
   "studi_agent_trace",
+  "studi_diagnostic",
+  "$ai_generation",
 ]);
 
 export const TelemetryPropertyValueSchema = z.json();
@@ -56,6 +58,12 @@ export const TelemetryDebugInputSchema = z.strictObject({
 });
 
 export const UiTelemetryInputSchema = z.discriminatedUnion("event", [
+  z.strictObject({
+    event: z.literal("replay_context"),
+    distinctId: z.string().min(1).max(256),
+    sessionId: z.string().min(1).max(256),
+    windowId: z.string().min(1).max(256),
+  }),
   z.strictObject({event:z.literal("ui_error"),message:z.string().min(1).max(100_000),stack:z.string().max(100_000).optional()}),
   z.strictObject({
     event: z.literal("dashboard_viewed"),

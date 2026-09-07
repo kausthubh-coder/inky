@@ -1,3 +1,5 @@
+import { stripSecrets, sanitizeTelemetryValue } from "../../shared/telemetry-content.js";
+export { stripSecrets } from "../../shared/telemetry-content.js";
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -83,6 +85,9 @@ export const telemetryEventSchemas = {
     course_titles: z.string().max(100_000).optional(),
     scan_id: OpaqueIdSchema.optional(),
     failure_count: z.number().int().nonnegative().optional(),
+    failures: z.array(z.string()).optional(),
+    coverage: z.array(z.object({ target: z.string(), status: z.string(), failure: z.string().optional() })).optional(),
+    handoff: z.object({ kind: z.string(), reason: z.string() }).nullable().optional(),
     current_step: z.string().max(100_000).optional(),
   }),
   studi_dashboard_viewed: z.strictObject({ section: z.enum(["auth_gate", "workspace"]) }),
@@ -147,9 +152,10 @@ export const telemetryEventSchemas = {
     error: z.string().max(2_000).optional(),
   }),
   studi_error: z.strictObject({
-    boundary: z.enum(["startup", "auth", "ipc", "scan", "queue", "renderer"]),
+    boundary: z.enum(["startup", "auth", "ipc", "scan", "queue", "renderer", "runtime"]),
     operation: z.enum([
       "app_start",
+      "session_start",
       "sign_in",
       "sign_out",
       "entitlement_retry",
@@ -168,11 +174,41 @@ export const telemetryEventSchemas = {
       "operation_failed",
     ]),
     message: z.string().max(100_000).optional(),
+    error_details: z.unknown().optional(),
+    ipc_channel: z.string().optional(),
+    scan_id: z.string().optional(),
+    task_id: z.string().optional(),
+    run_id: z.string().optional(),
+    job_id: z.string().optional(),
+    tool_name: z.string().optional(),
+    toolkit: z.string().optional(),
     debug_summary: z.string().max(1_000).optional(),
     model: agentFacts.model,
     reasoning_effort: agentFacts.reasoning_effort,
   }),
+  $ai_generation: z.strictObject({
+    $ai_trace_id: z.string(), $ai_span_id: z.string(), $ai_session_id: z.string(),
+    $ai_model: z.string(), $ai_provider: z.string(),
+    $ai_input: z.unknown(), $ai_output_choices: z.unknown(),
+    $ai_input_tokens: z.number(), $ai_output_tokens: z.number(),
+    $ai_cache_read_input_tokens: z.number(), $ai_cache_creation_input_tokens: z.number(),
+    $ai_total_cost_usd: z.number(), $ai_latency: z.number(),
+    $ai_time_to_first_token: z.number().optional(),
+    $ai_is_error: z.boolean(), $ai_error: z.string().optional(), stop_reason: z.string(),
+    content_in_diagnostic_chunks: z.boolean().optional(),
+  }),
   studi_agent_trace: AgentTraceEventSchema,
+  studi_diagnostic: z.strictObject({
+    source: z.enum(["runtime", "browser", "action"]),
+    kind: z.string().max(128),
+    session_id: z.string().max(256).optional(),
+    run_id: z.string().max(256).optional(),
+    at: z.string().datetime(),
+    payload: z.unknown(),
+    diagnostic_id: z.string().uuid().optional(),
+    chunk_index: z.number().int().nonnegative().optional(),
+    chunk_count: z.number().int().positive().optional(),
+  }),
 } satisfies Record<TelemetryEventName, z.ZodType>;
 
 type EventProperties<Name extends TelemetryEventName> = z.input<(typeof telemetryEventSchemas)[Name]>;
@@ -226,6 +262,7 @@ export class TelemetryService {
   #distinctId: string;
   #identity: "anonymous" | "clerk" = "anonymous";
   #shutdown: Promise<void> | null = null;
+  #replayContext: { $session_id: string; $window_id: string } | null = null;
 
   constructor(options: TelemetryServiceOptions) {
     this.#projectToken = options.projectToken?.trim() || null;
@@ -280,6 +317,7 @@ export class TelemetryService {
           app_version: this.#appVersion.slice(0, 64),
           platform: this.#platform,
           beta_debug: this.#settings.debugUntil !== null,
+          ...this.#replayContext,
           ...properties,
         },
       });
@@ -301,10 +339,50 @@ export class TelemetryService {
     }
   }
 
+  setReplayContext(distinctId: string, sessionId: string, windowId: string): boolean {
+    if (distinctId !== this.#distinctId || !this.#settings.enabled) return false;
+    this.#replayContext = { $session_id: sessionId, $window_id: windowId };
+    return true;
+  }
+
+  captureDiagnostic(input: EventProperties<"studi_diagnostic">): boolean {
+    if (!this.#settings.enabled || !this.#client) return false;
+    try {
+      input = { ...input, diagnostic_id: randomUUID() };
+      const payload = sanitizeTelemetryValue(input.payload);
+      const serialized = JSON.stringify(payload);
+      if (input.source === "runtime" && input.kind === "generation") {
+        const generation = telemetryEventSchemas.$ai_generation.safeParse(payload);
+        if (generation.success) {
+          this.capture("$ai_generation", serialized.length <= 100_000 ? generation.data : {
+            ...generation.data, $ai_input: [], $ai_output_choices: [], content_in_diagnostic_chunks: true,
+          });
+        }
+      }
+      // Stay under ingestion limits without silently losing large prompts or tool results.
+      const chunkSize = 100_000;
+      if (serialized.length <= chunkSize) return this.capture("studi_diagnostic", { ...input, payload });
+      const count = Math.ceil(serialized.length / chunkSize);
+      let captured = true;
+      for (let index = 0; index < count; index++) {
+        captured = this.capture("studi_diagnostic", {
+          ...input, payload: serialized.slice(index * chunkSize, (index + 1) * chunkSize),
+          chunk_index: index, chunk_count: count,
+        }) && captured;
+      }
+      return captured;
+    } catch { return false; }
+  }
+
   captureTrace(event: AgentTraceEvent): boolean {
-    const parsed = AgentTraceEventSchema.parse(event);
-    if(parsed.type==='error')this.captureError(new Error(typeof parsed.payload.message==='string'?parsed.payload.message:'Conversation failed'),'ipc','ipc_request');
-    return this.capture("studi_agent_trace", parsed);
+    const captured = this.capture("studi_agent_trace", AgentTraceEventSchema.parse(event));
+    if (event.type === "error" || (event.type === "tool_finished" && event.payload.outcome === "failed")) {
+      this.captureError(event.payload, "queue", "manager", {
+        run_id: event.runId, job_id: event.jobId,
+        ...(typeof event.payload.name === "string" ? { tool_name: event.payload.name } : {}),
+      });
+    }
+    return captured;
   }
 
   subscribeToTrace(trace: AgentTrace): () => void {
@@ -317,12 +395,12 @@ export class TelemetryService {
     error: unknown,
     boundary: EventProperties<"studi_error">["boundary"],
     operation: EventProperties<"studi_error">["operation"],
-    extras: Pick<EventProperties<"studi_error">, "model" | "reasoning_effort"> = {},
+    extras: Pick<EventProperties<"studi_error">, "model" | "reasoning_effort" | "ipc_channel" | "scan_id" | "task_id" | "run_id" | "job_id" | "tool_name" | "toolkit"> = {},
   ): boolean {
     if(this.#settings.enabled&&this.#client?.captureException){
       const safe=new Error(stripSecrets(errorMessage(error)));safe.name=errorName(error);
       if(error instanceof Error&&error.stack)safe.stack=stripSecrets(error.stack);
-      try{this.#client.captureException(safe,this.#distinctId,{boundary,operation,...extras});}catch{/* Diagnostics cannot interrupt the student. */}
+      try{this.#client.captureException(safe,this.#distinctId,{boundary,operation,...this.#replayContext,...extras});}catch{/* Diagnostics cannot interrupt the student. */}
     }
     const debugSummary = this.#isDebugActive() ? `${errorName(error)} stopped at ${boundary}` : undefined;
     return this.capture("studi_error", {
@@ -330,6 +408,7 @@ export class TelemetryService {
       operation,
       code: classifyError(error),
       message: stripSecrets(errorMessage(error)).slice(0, 100_000),
+      error_details: serializeError(error),
       ...(debugSummary ? { debug_summary: debugSummary } : {}),
       ...extras,
     });
@@ -338,6 +417,7 @@ export class TelemetryService {
   identifyClerk(user: { readonly subject: string; readonly email?: string | null; readonly name?: string | null }): void {
     const previousId = this.#distinctId;
     this.#distinctId = z.string().min(1).max(256).regex(/^[A-Za-z0-9._:-]+$/).parse(user.subject);
+    if (previousId !== this.#distinctId) this.#replayContext = null;
     this.#identity = "clerk";
     this.setPerson({
       ...(user.email ? { email: user.email } : {}),
@@ -367,6 +447,7 @@ export class TelemetryService {
   }
 
   resetIdentity(): void {
+    this.#replayContext = null;
     this.#settings = { ...this.#settings, anonymousId: randomUUID() };
     this.#distinctId = `anonymous-${this.#settings.anonymousId}`;
     this.#identity = "anonymous";
@@ -375,6 +456,7 @@ export class TelemetryService {
 
   setPreferences(enabled: boolean, replayEnabled: boolean): TelemetryState {
     this.#settings = { ...this.#settings, enabled, replayEnabled };
+    if (!enabled) this.#replayContext = null;
     this.#persist();
     return this.state();
   }
@@ -448,34 +530,38 @@ function errorName(error: unknown): string {
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error && error.message.trim()) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    if (typeof record.message === "string") return record.message;
+    if (record.result && typeof record.result === "object") {
+      const content = (record.result as { content?: { text?: string }[] }).content;
+      if (Array.isArray(content)) return content.map((item) => item.text ?? "").join("\n");
+    }
+  }
   return "Unknown error";
 }
 
-export function stripSecrets(value: string): string {
-  return value
-    .replace(/\bAuthorization\s*:\s*(?:Bearer|Basic)\s+\S+/gi, "Authorization: [secret]")
-    .replace(/\b(?:Bearer|Basic)\s+[A-Za-z0-9._~+/=-]{8,}/gi, "[secret]")
-    .replace(/\b(?:password|cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code)\s*[:=]\s*\S+/gi, "[secret]")
-    .replace(/\b(?:sk|ak|pk)_[A-Za-z0-9_-]{8,}\b/g, "[secret]")
-    .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[secret]");
+function serializeError(value: unknown, seen = new WeakSet<object>(), depth = 0): unknown {
+  if (depth > 12) return "[depth limit]";
+  if (typeof value === "string") return value.slice(0, 100_000);
+  if (value === null || typeof value === "number" || typeof value === "boolean") return value;
+  if (typeof value !== "object") return String(value);
+  if (seen.has(value)) return "[circular]";
+  seen.add(value);
+  const fields = value instanceof Error
+    ? { ...value, name: value.name, message: value.message, stack: value.stack, cause: value.cause }
+    : value;
+  const result = Array.isArray(fields)
+    ? fields.map((item) => serializeError(item, seen, depth + 1))
+    : Object.fromEntries(Object.entries(fields).filter(([, item]) => item !== undefined)
+      .map(([key, item]) => [key, serializeError(item, seen, depth + 1)]));
+  seen.delete(value);
+  return result;
 }
 
 function stripSecretProperties<T extends Record<string, unknown>>(properties: T): T {
   return sanitizeTelemetryValue(properties) as T;
-}
-
-const secretPropertyName = /^(?:authorization|password|cookie|set-cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code|clerk[_-]?token|provider[_-]?credential)$/i;
-
-function sanitizeTelemetryValue(value: unknown): unknown {
-  if (typeof value === "string") return stripSecrets(value);
-  if (Array.isArray(value)) return value.map(sanitizeTelemetryValue);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, item]) => [
-      key,
-      secretPropertyName.test(key) ? "[secret]" : sanitizeTelemetryValue(item),
-    ]),
-  );
 }
 
 function sanitizeSdkMessage(message: unknown) {
@@ -501,10 +587,14 @@ function sanitizeSdkMessage(message: unknown) {
     app_version: z.string().max(64),
     platform: z.string().max(32),
     beta_debug: z.boolean(),
+    $session_id: z.string().max(256).optional(),
+    $window_id: z.string().max(256).optional(),
   }).safeParse({
     app_version: propertyRecord.app_version,
     platform: propertyRecord.platform,
     beta_debug: propertyRecord.beta_debug,
+    ...(propertyRecord.$session_id ? { $session_id: propertyRecord.$session_id } : {}),
+    ...(propertyRecord.$window_id ? { $window_id: propertyRecord.$window_id } : {}),
   });
   if (!eventProperties.success || !common.success) return null;
   return {

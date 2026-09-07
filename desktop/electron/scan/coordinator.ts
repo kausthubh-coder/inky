@@ -39,6 +39,7 @@ export class SchoolScanCoordinator {
   readonly #browserWork: VisibleBrowserWork;
   readonly #manager: Pick<ManagerCoordinator, "enqueue" | "resolvePermission"> | null;
   readonly #now: () => string;
+  readonly #onError: (error: unknown, scanId: string, toolName?: string) => void;
   #session: AgentSession | null = null;
   #sessionScanId: string | null = null;
   #disposed = false;
@@ -51,6 +52,7 @@ export class SchoolScanCoordinator {
       readonly now?: () => string;
       readonly browserWork?: VisibleBrowserWork;
       readonly manager?: Pick<ManagerCoordinator, "enqueue" | "resolvePermission">;
+      readonly onError?: (error: unknown, scanId: string, toolName?: string) => void;
     } = {},
   ) {
     this.#store = store;
@@ -59,6 +61,7 @@ export class SchoolScanCoordinator {
     this.#browserWork = options.browserWork ?? new VisibleBrowserWork(store);
     this.#manager = options.manager ?? null;
     this.#now = options.now ?? (() => new Date().toISOString());
+    this.#onError = options.onError ?? (() => undefined);
   }
 
   async state(): Promise<SchoolOnboardingState> {
@@ -234,6 +237,7 @@ export class SchoolScanCoordinator {
     try {
       await this.#browser.navigate(profile.schoolRoot);
     } catch (error) {
+      this.#reportError(error, scan.scanId);
       this.#fail(scan.scanId, `The school root could not open: ${errorMessage(error)}`);
       return this.state();
     }
@@ -271,11 +275,14 @@ export class SchoolScanCoordinator {
     let terminalOutcome: "completed" | "failed" | "aborted" | null = null;
     const unsubscribe = session.subscribe((event: AgentRunEvent) => {
       if (event.type === "terminal") terminalOutcome = event.outcome;
+      if (event.type === "tool_finished" && event.outcome === "failed") this.#reportError(event, scan.scanId, event.toolName);
+      if (event.type === "terminal" && event.outcome === "failed") this.#reportError(event.reason ?? "Scan model failed", scan.scanId);
     });
     try {
       await session.prompt(prompt);
     } catch (error) {
       const current = this.#store.school.getScan(scan.scanId);
+      this.#reportError(error, scan.scanId);
       if (current?.state === "running") this.#fail(scan.scanId, `The scan agent stopped: ${errorMessage(error)}`);
     } finally {
       unsubscribe();
@@ -567,6 +574,7 @@ export class SchoolScanCoordinator {
           try {
             await this.#writeWorkflowHints(scanId, input.navigationHints);
           } catch (error) {
+            this.#reportError(error, scanId);
             const reason = `The scan results were saved, but the replay workflow could not be written: ${errorMessage(error)}`;
             next = this.#store.school.putScan({
               ...next,
@@ -695,6 +703,10 @@ export class SchoolScanCoordinator {
       capturedAt: this.#now(),
       summary,
     };
+  }
+
+  #reportError(error: unknown, scanId: string, toolName?: string): void {
+    try { this.#onError(error, scanId, toolName); } catch { /* Reporting must not stop a scan. */ }
   }
 
   #fail(scanId: string, reason: string): void {

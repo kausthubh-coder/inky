@@ -140,7 +140,7 @@ export function StudiApp() {
 
   useEffect(() => {
     const studi = window.studi; if (!studi) return; let cancelled = false;
-    const refresh = async () => { try { const state = await studi.getTelemetryState(); if (cancelled) return; setTelemetry(state); await rendererTelemetry.sync(state); const section = authorized ? "workspace" : "auth_gate"; const key = `${state.distinctId}:${section}:${screen}`; if (telemetryView.current !== key) { telemetryView.current = key; await studi.captureUiTelemetry({ event: "dashboard_viewed", section }); } } catch { /* Telemetry never blocks schoolwork. */ } };
+    const refresh = async () => { try { const state = await studi.getTelemetryState(); if (cancelled) return; setTelemetry(state); await rendererTelemetry.sync(state); const section = authorized ? "workspace" : "auth_gate"; const key = `${state.distinctId}:${section}:${screen}`; if (telemetryView.current !== key) { telemetryView.current = key; rendererTelemetry.page(screen, section); await studi.captureUiTelemetry({ event: "dashboard_viewed", section }); } } catch { /* Telemetry never blocks schoolwork. */ } };
     void refresh(); const timer = window.setInterval(() => void refresh(), 15_000); return () => { cancelled = true; window.clearInterval(timer); };
   }, [authorized, screen]);
 
