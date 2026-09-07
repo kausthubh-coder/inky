@@ -1,18 +1,22 @@
 ---
 name: test-studi
-description: Test Studi whenever work reaches Electron or visible UI. Supports package-scoped checks, a full first-run onboarding pass, and a skip-to-app feature pass through the real Electron, Clerk, and Convex boundaries. Codex login cannot be completed in isolated Playwright; reuse the dedicated QA auth cache or ask the user to finish the device code.
+description: Test Studi whenever work reaches Electron or visible UI. Supports the web account dashboard, package-scoped checks, full first-run onboarding, and skip-to-app feature passes through real Clerk and Convex boundaries. Codex login cannot be completed in isolated Playwright; reuse the dedicated QA auth cache or ask the user to finish the device code.
 ---
 
 # Test Studi
 
 Exercise the built desktop app as a student would, without touching the everyday Studi profile or inventing success. Use the smallest relevant part of a journey while building, then run the complete matching journey at its package or release checkpoint.
 
-There are two jobs. Pick one:
+Pick the journey for the surface being changed:
+
+- **Web account UI:** use [references/web-account-pass.md](references/web-account-pass.md) for the Next.js dashboard, settings, billing, and desktop handoff page. Test this checkout's web server in an isolated browser with the dedicated Clerk development identity. Electron and Codex are not required for a web-only UI pass.
 
 - **Skip to app (default):** reuse `.agents/studi-qa/profile` and drive the week board. Use this when onboarding is already done, or when the job is chrome, Settings, assignment-sidebar, or desk layout. Codex is required only if the job starts a manager, scan, or desk agent turn.
 - **Full onboarding:** walk first-run from the signed-out gate through Clerk and Codex. Stop before a live LMS sign-in until a local school fixture exists.
 
-## Before the run
+## Before the desktop run
+
+For web-only work, follow the web account guide above. The launcher, Codex, and Electron evidence requirements below apply to desktop runs; identity and secret-handling rules apply to both surfaces.
 
 | Job | Read |
 | --- | --- |

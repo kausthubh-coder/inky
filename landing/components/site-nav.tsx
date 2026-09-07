@@ -16,12 +16,14 @@ type SiteNavProps = {
   current?: string;
   flat?: boolean;
   tour?: boolean;
+  account?: boolean;
 };
 
 export function SiteNav({
   current = "",
   flat = false,
   tour = false,
+  account = false,
 }: SiteNavProps) {
   const [active, setActive] = useState(current);
   const [open, setOpen] = useState(false);
@@ -47,26 +49,30 @@ export function SiteNav({
     return () => observer.disconnect();
   }, [flat, tour]);
 
-  const home = flat ? "/" : "#top";
+  const home = account ? "/dashboard" : flat ? "/" : "#top";
   const wait = flat ? "/#wait" : "#wait";
 
   return (
-    <header className={`site-nav${open ? " open" : ""}${flat ? " flat" : ""}`}>
+    <header
+      className={`site-nav${open ? " open" : ""}${flat ? " flat" : ""}${account ? " account-nav" : ""}`}
+    >
       <a className="wordmark" href={home} onClick={() => setOpen(false)}>
         <span className="nav-inky" aria-hidden="true">
           <InkyMascot state="idle" size={44} />
         </span>
         <span>studi</span>
       </a>
-      {!tour && (
+      {!tour && !account && (
         <nav className="links" id="site-links" aria-label="Page">
           {NAV_LINKS.map(([href, label]) => {
             const dest = flat && href.startsWith("#") ? `/${href}` : href;
+            const selected = active === href || current === href;
             return (
               <a
                 href={dest}
                 key={href}
-                className={active === href || current === href ? "on" : ""}
+                className={selected ? "on" : ""}
+                aria-current={selected ? "location" : undefined}
                 onClick={() => setOpen(false)}
               >
                 {label}
@@ -101,13 +107,15 @@ export function SiteNav({
               </a>
             </SignedOut>
             <SignedIn>
-              <a
-                className="dashboard-link"
-                href="/dashboard"
-                onClick={() => setOpen(false)}
-              >
-                Dashboard
-              </a>
+              {!account && (
+                <a
+                  className="dashboard-link"
+                  href="/dashboard"
+                  onClick={() => setOpen(false)}
+                >
+                  Dashboard
+                </a>
+              )}
               <UserButton>
                 <UserButton.MenuItems>
                   <UserButton.Link
@@ -144,7 +152,7 @@ export function SiteNav({
           </>
         )}
       </div>
-      {!tour && (
+      {!tour && !account && (
         <button
           type="button"
           className="menu"

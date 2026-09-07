@@ -1,4 +1,4 @@
-﻿* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
   --paper: #f3ead6;
@@ -933,8 +933,6 @@ button.app-assignment:hover { box-shadow: 5px 5px 0 rgba(28,22,18,0.22); transla
   background: var(--paper-2);
   box-shadow: 5px 5px 0 rgba(28, 22, 18, 0.2);
 }
-.dashboard-grid { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px; }
-.dashboard-primary { grid-row: span 2; display: flex; min-height: 310px; flex-direction: column; justify-content: space-between; background: #fff2b5; }
 .dashboard-card { padding: 22px; border: 2.5px solid var(--ink); border-radius: var(--wobble); background: var(--paper-2); box-shadow: 3px 3px 0 rgba(28,22,18,.18); }
 .dashboard-card h2 { margin: 8px 0 8px; font-size: 27px; }
 .dashboard-card p { color: var(--ink-soft); font-weight: 700; }
@@ -943,10 +941,6 @@ button.app-assignment:hover { box-shadow: 5px 5px 0 rgba(28,22,18,0.22); transla
 .status-pill { display: inline-flex; width: max-content; padding: 5px 10px; border: 2px solid var(--ink); border-radius: var(--wobble-pill); background: var(--mint); font-size: 12px; font-weight: 900; }
 .status-pill.waiting { background: var(--sunny); }
 .status-pill.revoked { background: #fbddd4; }
-.metric-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 16px; }
-.metric { padding: 12px; border: 1.5px solid var(--ink); border-radius: 11px; background: #fff; }
-.metric strong { display: block; font-family: var(--font-shantell), cursive; font-size: 23px; }
-.metric span { color: var(--ink-soft); font-size: 11px; font-weight: 800; }
 .account-loading { min-height: 260px; display: grid; place-items: center; color: var(--ink-soft); font-weight: 800; }
 .feedback-card { max-width: 760px; margin: 0 auto; }
 .feedback-card h1 { margin: 8px 0; }
@@ -1136,8 +1130,6 @@ button.app-assignment:hover { box-shadow: 5px 5px 0 rgba(28,22,18,0.22); transla
   .wait-inky inky-mascot, .wait-inky inky-mascot svg { width: 96px; height: 96px; }
   .steps { grid-template-columns: 1fr; gap: 8px; }
   .faq { margin-bottom: 48px; }
-  .dashboard-grid { grid-template-columns: 1fr; }
-  .dashboard-primary { grid-row: auto; min-height: 260px; }
   .account-heading { align-items: start; flex-direction: column; }
   .connect-steps { grid-template-columns: 1fr; }
 }
@@ -1158,7 +1150,6 @@ button.app-assignment:hover { box-shadow: 5px 5px 0 rgba(28,22,18,0.22); transla
   .site-nav .wordmark { font-size: 20px; }
   .nav-inky { width: 38px; height: 38px; flex-basis: 38px; }
   .nav-inky inky-mascot { width: 38px; height: 38px; }
-  .metric-row { grid-template-columns: 1fr; }
   .account-page { padding-right: 14px; padding-left: 14px; }
   .account-panel, .dashboard-card { padding: 18px; }
 }
@@ -1174,3 +1165,7 @@ button.app-assignment:hover { box-shadow: 5px 5px 0 rgba(28,22,18,0.22); transla
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Account destinations live in the page; the top bar holds identity. */
+.site-nav.account-nav { grid-template-columns: 1fr auto; }
+.site-nav.account-nav .nav-actions { grid-column: 2; grid-row: 1; }
