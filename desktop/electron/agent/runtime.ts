@@ -400,6 +400,17 @@ export class PiAgentRuntime implements AgentRuntime {
     options.model = this.#model;
 
     const { session } = await createAgentSession(options);
+    // Pi's simple-stream API drops provider-specific options. Set Fast on the
+    // final Codex payload so it survives retries and both supported transports.
+    const onPayload = session.agent.onPayload;
+    session.agent.onPayload = async (payload, model) => {
+      const prepared = (await onPayload?.(payload, model)) ?? payload;
+      if (model.provider === "openai-codex" && model.id === "gpt-6-astra"
+        && prepared !== null && typeof prepared === "object") {
+        return { ...prepared, service_tier: "fast" };
+      }
+      return prepared;
+    };
     const activeTools = session.getActiveToolNames();
     const configuredTools = session.getAllTools().map((tool) => tool.name);
     const expectedTools = tools.map((tool) => tool.name);
@@ -440,7 +451,9 @@ async function answerCodexPrompt(
 }
 
 function sameNames(actual: readonly string[], expected: readonly string[]): boolean {
-  return actual.length === expected.length && actual.every((name, index) => name === expected[index]);
+  const names = new Set(actual);
+  return actual.length === expected.length && names.size === actual.length
+    && new Set(expected).size === expected.length && expected.every((name) => names.has(name));
 }
 
 function selectDefaultModel(modelRuntime: ModelRuntime): PiModel | undefined {

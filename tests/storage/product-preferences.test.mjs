@@ -26,8 +26,8 @@ test("product preferences default safely and survive a validated atomic save", a
       handoffMinutes: 30,
       memoryVisibility: "selected",
       homeworkRoot: null,
-      agentModelId: "gpt-5.6-sol",
-      agentReasoningEffort: "high",
+      agentModelId: "gpt-6-astra",
+      agentReasoningEffort: "medium",
       notifications: defaultNotifications,
       updatedAt: "1970-01-01T00:00:00.000Z",
     });
@@ -67,8 +67,8 @@ test("product preferences default safely and survive a validated atomic save", a
       handoffMinutes: 30,
       memoryVisibility: "selected",
       homeworkRoot: null,
-      agentModelId: "gpt-5.6-sol",
-      agentReasoningEffort: "high",
+      agentModelId: "gpt-6-astra",
+      agentReasoningEffort: "medium",
       notifications: defaultNotifications,
       updatedAt: "2026-09-01T12:00:00.000Z",
     });

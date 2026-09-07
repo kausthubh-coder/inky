@@ -64,7 +64,7 @@ export class DriveOverlay {
     if (!this.#ready || this.#view.webContents.isDestroyed()) return;
     const driver = driveOverlayActive({ driver: this.#driver }) ? this.#driver : "none";
     void this.#view.webContents.executeJavaScript(
-      `document.documentElement.dataset.driver = ${JSON.stringify(driver)}; document.documentElement.dataset.prompt = "";`,
+      `document.documentElement.dataset.driver = ${JSON.stringify(driver)}; if (document.documentElement.dataset.driver !== "inky") document.documentElement.dataset.prompt = "";`,
     );
   }
 }

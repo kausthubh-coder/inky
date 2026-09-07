@@ -19,6 +19,7 @@ import {
   PiEventNormalizer,
 } from "../../dist/electron/agent/runtime.js";
 import { AgentRunEventSchema, ProviderStatusSchema } from "../../dist/shared/index.js";
+import { createWorkspaceCodingTools } from "../../dist/electron/files/workspace-tools.js";
 
 const expectedProbeEvents = [
   {
@@ -339,6 +340,39 @@ test("OpenAI Codex login selects Pi device code and forwards only its handoff", 
   }
 });
 
+test("real Pi assignment session accepts workspace tools and preserves their file boundary", async () => {
+  await withRuntime({}, async ({ faux, root, modelRuntime }) => {
+    const workspace = join(root, "assignment");
+    await mkdir(workspace);
+    const runtime = await PiAgentRuntime.create({
+      cwd: workspace, agentDir: join(root, "agent"), modelRuntime, model: faux.getModel(),
+      browserController: {},
+    });
+    const files = createWorkspaceCodingTools(workspace);
+    const session = await runtime.createAssignmentSession(files, { cwd: workspace });
+    try {
+      assert.deepEqual(new Set(session.toolNames), new Set([
+        "browser_snapshot", "browser_navigate", "browser_click", "browser_type",
+        "browser_select", "browser_press", "browser_wait", ...files.map((tool) => tool.name),
+      ]));
+      faux.setResponses([
+        fauxAssistantMessage(fauxToolCall("write", { path: "answer.txt", content: "42" }), { stopReason: "toolUse" }),
+        fauxAssistantMessage(fauxToolCall("write", { path: "../escaped.txt", content: "must not escape" }), { stopReason: "toolUse" }),
+        fauxAssistantMessage("Done."),
+      ]);
+      const events = [];
+      session.subscribe((event) => events.push(event));
+      await session.prompt("Write the fixture answer.");
+      assert.equal(events.find((event) => event.type === "tool_finished")?.outcome, "succeeded", JSON.stringify(events));
+      assert.equal(await readFile(join(workspace, "answer.txt"), "utf8"), "42");
+      assert.equal(existsSync(join(root, "escaped.txt")), false);
+      assert.deepEqual(events.filter((event) => event.type === "tool_finished").map((event) => event.outcome), ["succeeded", "failed"]);
+      await session.replace({ resumeSessionPath: session.sessionPath, cwd: workspace });
+      assert.equal(session.toolNames.includes("browser_submit"), false);
+    } finally { session.dispose(); }
+  });
+});
+
 async function withRuntime(fauxOptions, run) {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp03-agent-")));
   assert.equal(dirname(root), resolve(tmpdir()));
@@ -379,7 +413,7 @@ async function withRuntime(fauxOptions, run) {
       modelRuntime,
       model: faux.getModel(),
     });
-    await run({ faux, runtime, root });
+    await run({ faux, runtime, root, modelRuntime });
   } finally {
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     assert.equal(existsSync(root), false);

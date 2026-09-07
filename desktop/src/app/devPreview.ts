@@ -202,7 +202,7 @@ export function installDevPreview(): void {
     browser: { url: "https://school.example.edu", title: "School", revision: 1, driver: lifecycle.execution?.phase === "working" ? "inky" : "none" },
     provider: { schemaVersion: 1, providerId: "openai-codex", providerName: "Codex", state: "ready", loginMethods: ["oauth"], reason: "ChatGPT is connected." },
     providerLogin: null,
-    models: [{ id: DEFAULT_AGENT_MODEL_ID, name: "gpt-5.6-sol" }],
+    models: [{ id: DEFAULT_AGENT_MODEL_ID, name: "GPT-6 Astra" }],
     selectedModelId: settings.preferences.agentModelId,
     selectedReasoningEffort: settings.preferences.agentReasoningEffort,
   });

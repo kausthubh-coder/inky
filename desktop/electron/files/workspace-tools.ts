@@ -72,7 +72,14 @@ export function createWorkspaceCodingTools(workspaceDirectory: string): ToolDefi
   const shell = process.platform === "win32"
     ? createPowerShellToolDefinition(boundary.root, shellOptions)
     : createBashToolDefinition(boundary.root, shellOptions);
-  return [read, write, edit, grep, find, ls, shell] as unknown as ToolDefinition[];
+  // Pi tools can prefer the session context's cwd over their construction cwd.
+  // Assignment tools always resolve relative paths inside their assigned folder.
+  const tools = [read, write, edit, grep, find, ls, shell] as unknown as ToolDefinition[];
+  return tools.map((tool) => ({
+    ...tool,
+    execute: (toolCallId, params, signal, onUpdate, context) =>
+      tool.execute(toolCallId, params, signal, onUpdate, { ...context, cwd: boundary.root }),
+  }));
 }
 
 class WorkspaceBoundary {
@@ -128,7 +135,7 @@ class WorkspaceBoundary {
 
   async mkdir(path: string): Promise<void> {
     const target = this.inside(path);
-    await this.assertNoLinks(dirname(target));
+    await this.assertNoLinks(target === this.root ? target : dirname(target));
     await mkdir(target, { recursive: true });
     await this.assertNoLinks(target);
   }

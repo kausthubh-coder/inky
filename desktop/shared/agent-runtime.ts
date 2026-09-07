@@ -85,8 +85,8 @@ export const AgentRunEventSchema = z.union([
 ]);
 
 export const AgentReasoningEffortSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]);
-export const DEFAULT_AGENT_MODEL_ID = "gpt-5.6-sol";
-export const DEFAULT_AGENT_REASONING_EFFORT = "high" as const;
+export const DEFAULT_AGENT_MODEL_ID = "gpt-6-astra";
+export const DEFAULT_AGENT_REASONING_EFFORT = "medium" as const;
 
 export const ProviderLoginMethodSchema = z.enum(["api_key", "oauth"]);
 

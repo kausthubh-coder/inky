@@ -45,8 +45,8 @@
   },
   "dependencies": {
     "@composio/core": "^0.18.0",
-    "@earendil-works/pi-ai": "0.84.4",
-    "@earendil-works/pi-coding-agent": "0.84.4",
+    "@earendil-works/pi-ai": "0.85.1",
+    "@earendil-works/pi-coding-agent": "0.85.1",
     "convex": "^1.45.0",
     "electron-squirrel-startup": "^1.0.1",
     "jose": "^6.1.0",
