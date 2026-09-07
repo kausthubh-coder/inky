@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Talk to Inky — composer plan</title>
+  <style>
+    :root {
+      --paper: #f3ead6;
+      --paper-2: #fffaf0;
+      --ink: #1c1612;
+      --soft: #51483f;
+      --faint: #776d62;
+      --yellow: #f7c948;
+      --mint: #8fcbaa;
+      --sky: #8ab8e8;
+      --coral: #f28b6f;
+      --lavender: #b7a3dd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: radial-gradient(#ded2bb 1px, transparent 1px) 0 0 / 24px 24px, var(--paper);
+      font: 15px/1.55 "Nunito Sans", ui-rounded, system-ui, sans-serif;
+    }
+    a { color: inherit; text-underline-offset: 3px; }
+    h1, h2, h3 { margin-top: 0; font-family: "Shantell Sans", "Comic Sans MS", cursive; line-height: 1.08; }
+    h1 { max-width: 18ch; margin-bottom: 14px; font-size: clamp(2.4rem, 6vw, 4.4rem); letter-spacing: -.05em; }
+    h2 { margin-bottom: 10px; font-size: clamp(1.5rem, 3vw, 2.2rem); }
+    p { margin: 0 0 12px; color: var(--soft); }
+    .hero { padding: 56px max(24px, calc((100vw - 1100px) / 2)) 40px; border-bottom: 3px solid var(--ink); background: rgb(255 250 240 / 84%); }
+    .kicker { margin-bottom: 10px; color: var(--faint); font-size: 12px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+    .hero > p { max-width: 62ch; font-size: 1.08rem; font-weight: 700; }
+    main { max-width: 1100px; margin: 0 auto; padding: 36px 24px 80px; }
+    section { margin-bottom: 48px; }
+    .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+    .card {
+      padding: 16px 18px;
+      border: 2px solid var(--ink);
+      border-radius: 16px 13px 18px 14px;
+      background: var(--paper-2);
+      box-shadow: 3px 3px 0 rgb(28 22 18 / 18%);
+    }
+    .card.sky { background: #e1f0ff; }
+    .card.mint { background: #dff4e9; }
+    .card.yellow { background: #fff2b5; }
+    .card.coral { background: #ffe1d8; }
+    .card a { font-weight: 900; }
+    .rules { display: grid; gap: 10px; }
+    .rules article {
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      gap: 12px;
+      padding: 12px 14px;
+      border: 1.5px solid #cfc4b1;
+      border-radius: 12px;
+      background: rgb(255 250 240 / 88%);
+    }
+    .rules strong { font-family: "Shantell Sans", cursive; }
+    .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .flow span {
+      padding: 8px 11px;
+      border: 1.5px solid var(--ink);
+      border-radius: 10px;
+      background: #fff;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .flow b { color: var(--faint); }
+    ul { margin: 8px 0 0; padding-left: 18px; }
+    li { margin-bottom: 6px; }
+    @media (max-width: 800px) {
+      .grid { grid-template-columns: 1fr; }
+      .rules article { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <p class="kicker">Plan · mockups first</p>
+    <h1>Talk to Inky. One chat.</h1>
+    <p>The week is the room. The composer lives at the bottom, like Cursor. Expanding it is how you sit with him. Not a sidebar. Not a chat list. He is a person with a face that changes.</p>
+  </header>
+  <main>
+    <section>
+      <h2>Open the paper</h2>
+      <div class="grid">
+        <article class="card sky">
+          <p class="kicker">A</p>
+          <h3>Docked stack</h3>
+          <p>Greeting + waving Inky on top. Week in the middle. Composer docked. Chip + blue expand square when a chat exists.</p>
+          <p><a href="../.design/chat-dock.html">Open A →</a></p>
+        </article>
+        <article class="card mint">
+          <p class="kicker">B</p>
+          <h3>He sits with you</h3>
+          <p>Inky sits on the composer. Talk balloons out of him. Expand is him standing up into the room.</p>
+          <p><a href="../.design/chat-buddy.html">Open B →</a></p>
+        </article>
+        <article class="card yellow">
+          <p class="kicker">C</p>
+          <h3>One room</h3>
+          <p>Same dock. Expand replaces the week with <code>studi / chat-name</code> and a big Inky. Closest to Cursor’s expanded composer.</p>
+          <p><a href="../.design/chat-room.html">Open C →</a></p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>From scratch</h2>
+      <p>Today the ask bar sits in the middle of the week, the reply is a card, and assignment talk is a different drawer. If we built this now, there is one conversation with Inky. Sending a message is how work starts. Expanding is how you watch him.</p>
+      <div class="rules">
+        <article>
+          <strong>One chat</strong>
+          <p>No history list. No new-chat stack. The title is whatever he’s on. Say something else and the title changes.</p>
+        </article>
+        <article>
+          <strong>He’s a person</strong>
+          <p>Face and state live in the greeting and in the expanded room. Hello, thinking, writing, needs you. Copy is his voice. “That’s enough,” not Stop All.</p>
+        </article>
+        <article>
+          <strong>Composer docks</strong>
+          <p>Always at the bottom. Week stays the page until you expand. Plus is this assignment, not a file picker.</p>
+        </article>
+        <article>
+          <strong>Blue square</strong>
+          <p>That’s expand. Compact chip over the composer. Expanded room with Inky in the middle. Shrink puts the week back.</p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cursor, not Cursor</h2>
+      <div class="flow">
+        <span>composer at the bottom</span>
+        <span>chip while working</span>
+        <span>expand / shrink</span>
+        <span>thoughts + quiet log</span>
+        <b>not</b>
+        <span>dark chrome</span>
+        <span>Auto</span>
+        <span>chat list</span>
+        <span>Thought briefly</span>
+      </div>
+    </section>
+
+    <section>
+      <h2>What we kill</h2>
+      <ul>
+        <li>The mid-page manager bar and the reply card under it.</li>
+        <li>A second “talk” form inside the assignment drawer.</li>
+        <li>Any UI that implies you can run two chats.</li>
+      </ul>
+    </section>
+
+    <section class="card coral">
+      <h3>Next</h3>
+      <p>Sit with A, B, and C. Pick one shape. Then we build that composer into the desktop app and throw out the old ask bar.</p>
+      <p><a href="../.design/index.html">Design board →</a></p>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Talk — one room</title>
+  <link rel="stylesheet" href="theme.css" />
+  <link rel="stylesheet" href="chat.css" />
+  <style>
+    body {
+      min-height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(#d8cbb3 1.15px, transparent 1.15px) 0 0 / 22px 22px,
+        #e8dcc4;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-rows: 52px minmax(0, 1fr) auto;
+      height: 100vh;
+    }
+
+    .bar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      padding: 0 16px 0 18px;
+      border-bottom: 2.5px solid var(--ink);
+      background: rgb(255 250 240 / 96%);
+    }
+    .crumb {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .crumb .back-week {
+      border: 0;
+      background: none;
+      box-shadow: none;
+      font-size: 18px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    .crumb p {
+      font-family: "Shantell Sans", cursive;
+      font-size: 15px;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .crumb p b { color: var(--ink); }
+    .wordmark { font-size: 22px; font-weight: 800; text-decoration: none; }
+    .you {
+      display: grid;
+      width: 30px;
+      height: 30px;
+      place-items: center;
+      border: 2px solid var(--ink);
+      border-radius: 50%;
+      background: var(--pink);
+      font-size: 12px;
+      font-weight: 900;
+      text-decoration: none;
+    }
+
+    .week {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px 22px 8px;
+    }
+    .week h1 { font-size: clamp(1.6rem, 3vw, 2.3rem); margin-bottom: 4px; }
+    .week > p { font-weight: 700; margin-bottom: 16px; }
+    .days {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .day > span {
+      display: flex;
+      justify-content: space-between;
+      margin: 0 2px 8px;
+      font-family: "Shantell Sans", cursive;
+      font-weight: 800;
+    }
+    .day > span small { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; font-family: "Nunito Sans", sans-serif; }
+    .slip {
+      display: grid;
+      gap: 2px;
+      width: 100%;
+      padding: 10px 11px;
+      border: 2px solid var(--ink);
+      border-radius: 12px;
+      background: #fff;
+      box-shadow: 2px 2px 0 rgba(28, 22, 18, 0.1);
+      text-align: left;
+    }
+    .slip.on { background: #fff2b5; box-shadow: 3px 3px 0 var(--ink); }
+    .slip small { color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
+    .empty { color: #b3a794; font-size: 12px; font-weight: 800; }
+
+    .talk {
+      display: none;
+      min-height: 0;
+      grid-template-rows: auto minmax(0, 1fr);
+      padding: 8px 20px 0;
+    }
+    .buddy {
+      display: grid;
+      justify-items: center;
+      gap: 2px;
+    }
+    .buddy svg { width: 112px; height: 112px; filter: drop-shadow(2px 5px 0 rgb(28 22 18 / 12%)); }
+    .buddy em {
+      font-family: "Shantell Sans", cursive;
+      font-style: italic;
+      font-weight: 700;
+      color: var(--ink-soft);
+    }
+    .thread {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-width: 640px;
+      width: 100%;
+      margin: 0 auto;
+      min-height: 0;
+      overflow: auto;
+      padding: 10px 4px 12px;
+    }
+
+    .dock {
+      display: grid;
+      gap: 8px;
+      max-width: 680px;
+      width: calc(100% - 32px);
+      margin: 0 auto;
+      padding: 0 0 16px;
+    }
+    .chip {
+      display: none;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 11px 12px;
+      border: 2.5px solid var(--ink);
+      border-radius: 16px;
+      background: rgb(255 250 240 / 97%);
+      box-shadow: 3px 4px 0 rgba(28, 22, 18, 0.16);
+    }
+    .chip strong { font-family: "Shantell Sans", cursive; }
+    .chip p { font-size: 13px; font-weight: 800; }
+    .chip header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 4px;
+    }
+    .halt {
+      border: 0;
+      background: none;
+      box-shadow: none;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .show-hello, .show-work, .show-think,
+    .only-week, .only-talk, .only-work,
+    .bar-talk, .send.stop { display: none; }
+
+    body:has(#rest:checked) .show-hello,
+    body:has(#rest:checked) .only-week { display: revert; }
+    body:has(#rest:checked) .wordmark { display: inline; }
+
+    body:has(#talk:checked) .show-think,
+    body:has(#open:checked) .show-think { display: block; }
+    body:has(#work:checked) .show-work { display: block; }
+
+    body:has(#talk:checked) .chip,
+    body:has(#work:checked) .chip { display: grid; }
+    body:has(#talk:checked) .only-talk,
+    body:has(#open:checked) .only-talk { display: revert; }
+    body:has(#work:checked) .only-work,
+    body:has(#open:checked) .only-work { display: revert; }
+
+    body:has(#work:checked) .send.go { display: none; }
+    body:has(#work:checked) .send.stop,
+    body:has(#open:checked).wait .send.stop { display: grid; }
+
+    body:has(#open:checked) .week { display: none; }
+    body:has(#open:checked) .talk { display: grid; }
+    body:has(#open:checked) .chip { display: none; }
+    body:has(#open:checked) .bar-talk { display: flex; }
+    body:has(#open:checked) .wordmark { display: none; }
+
+    body:has(#rest:checked) [for="rest"],
+    body:has(#talk:checked) [for="talk"],
+    body:has(#work:checked) [for="work"],
+    body:has(#open:checked) [for="open"] {
+      background: var(--sunny);
+      box-shadow: inset 0 0 0 1.5px var(--ink);
+    }
+
+    @media (max-width: 760px) {
+      .days { grid-template-columns: 1fr 1fr; }
+      .switcher { left: 8px; right: 88px; }
+    }
+  </style>
+</head>
+<body>
+  <a class="back" href="index.html">← All designs</a>
+  <input id="rest" name="view" type="radio" checked />
+  <input id="talk" name="view" type="radio" />
+  <input id="work" name="view" type="radio" />
+  <input id="open" name="view" type="radio" />
+
+  <div class="shell">
+    <header class="bar">
+      <a class="wordmark" href="#">studi</a>
+      <div class="crumb bar-talk">
+        <label class="back-week" for="rest" title="Back to the week">←</label>
+        <p>studi / <b>IBM Sorting Machine</b></p>
+      </div>
+      <a class="you" href="settings-sidebar.html">M</a>
+    </header>
+
+    <div class="week">
+      <h1>Hey Maya. One thing tonight.</h1>
+      <p>Talk lives at the bottom. One chat. That’s it.</p>
+      <div class="days">
+        <article class="day">
+          <span><strong>Thu</strong><small>today</small></span>
+          <button class="slip on" type="button"><small>CSC 316</small>IBM Sorting Machine</button>
+        </article>
+        <article class="day">
+          <span><strong>Fri</strong></span>
+          <button class="slip" type="button"><small>Bio 201</small>Bio lab</button>
+        </article>
+        <article class="day"><span><strong>Sat</strong></span><p class="empty">Nothing due.</p></article>
+        <article class="day"><span><strong>Sun</strong></span><p class="empty">Nothing due.</p></article>
+        <article class="day">
+          <span><strong>Mon</strong></span>
+          <button class="slip" type="button"><small>Calc II</small>Calc</button>
+        </article>
+      </div>
+    </div>
+
+    <section class="talk" aria-label="Talking to Inky">
+      <div class="buddy">
+        <svg class="inky show-think" data-state="thinking" viewBox="0 0 140 120" aria-hidden="true">
+          <ellipse cx="60" cy="111" rx="26" ry="5" fill="#3b342c" opacity="0.1"/>
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <g class="eyes blink"><ellipse cx="46" cy="50" rx="5" ry="6" fill="#3b342c"/><ellipse cx="76" cy="48" rx="5" ry="6" fill="#3b342c"/></g>
+            <path class="mouth" d="M54 76 Q60 72 67 78" stroke="#3b342c" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </g>
+          <g class="extra think">
+            <g class="spark a"><path d="M76 8 l1.4 3.4 3.6 1.4 -3.6 1.4 -1.4 3.4 -1.4 -3.4 -3.6 -1.4 3.6 -1.4 z" fill="#f7c948" stroke="#3b342c" stroke-width="1.2"/></g>
+            <g class="bubble">
+              <path d="M90 32 C88 16 100 6 112 8 C124 10 132 20 128 32 C136 34 138 46 128 50 C124 60 108 60 100 52 C88 56 80 46 84 36 Z" fill="#fff" stroke="#3b342c" stroke-width="2.6" stroke-linejoin="round"/>
+              <text class="q" x="110" y="40" text-anchor="middle" font-family="Shantell Sans, cursive" font-weight="800" font-size="22" fill="#3b342c">?</text>
+            </g>
+          </g>
+        </svg>
+        <svg class="inky show-work" data-state="working" viewBox="0 0 120 120" aria-hidden="true">
+          <ellipse cx="60" cy="111" rx="26" ry="5" fill="#3b342c" opacity="0.1"/>
+          <g class="body">
+            <path d="M60 15 C86 11 105 31 104 58 C103 88 87 107 60 106 C33 105 16 88 16 58 C16 31 34 19 60 15 Z" fill="#8ab8e8" stroke="#3b342c" stroke-width="3.5" stroke-linejoin="round"/>
+            <circle cx="45" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+            <circle cx="75" cy="56" r="11" fill="#fff" stroke="#3b342c" stroke-width="3"/>
+            <line x1="56" y1="56" x2="64" y2="56" stroke="#3b342c" stroke-width="3"/>
+            <circle cx="45" cy="56" r="3.5" fill="#3b342c"/>
+            <circle cx="75" cy="56" r="3.5" fill="#3b342c"/>
+            <g class="extra pen">
+              <g transform="rotate(-48 86 78)">
+                <rect x="83" y="62" width="6" height="22" rx="2" fill="#f7c948" stroke="#3b342c" stroke-width="2.4"/>
+                <path d="M83 84 L89 84 L86 93 Z" fill="#3b342c"/>
+              </g>
+            </g>
+          </g>
+        </svg>
+        <em class="only-talk">hold on, reading the wording</em>
+        <em class="only-work">writing in the box</em>
+      </div>
+      <div class="thread">
+        <p class="said me">Do the runtime question. Leave the rest. Don’t submit.</p>
+        <p class="said">Okay. Just 4. I never submit.</p>
+        <p class="thought">n(n − 1) / 2 if the deck is backwards.</p>
+        <p class="log"><b>opened</b> the homework page</p>
+        <p class="log only-work"><b>typing</b> in box 4</p>
+        <p class="said only-work">I’m putting that in now.</p>
+      </div>
+    </section>
+
+    <div class="dock">
+      <article class="chip">
+        <div>
+          <header>
+            <strong class="only-talk">Inky</strong>
+            <strong class="only-work"><i class="pulse"></i>On it</strong>
+            <button class="halt only-work" type="button">that’s enough</button>
+          </header>
+          <p class="only-talk">You said just question 4.</p>
+          <p class="only-work">IBM Sorting Machine · clicking question 4</p>
+        </div>
+        <label class="expand" for="open" title="Open chat">
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M3 9 V3 H9 M3 3 L7 7 M13 7 V13 H7 M13 13 L9 9" fill="none" stroke="#1c1612" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <span class="visually-hidden">Expand chat</span>
+        </label>
+      </article>
+      <form class="composer" action="#">
+        <button class="plus" type="button" aria-label="Add this assignment">+</button>
+        <label class="visually-hidden" for="ask">Talk to Inky</label>
+        <input id="ask" placeholder="Tell Inky…" />
+        <button class="send go" type="button">say it</button>
+        <button class="send stop" type="button" aria-label="Stop"><i></i></button>
+      </form>
+    </div>
+  </div>
+
+  <nav class="switcher" aria-label="Chat state">
+    <label for="rest">Week</label>
+    <label for="talk">Chip</label>
+    <label for="work">Working</label>
+    <label for="open">In the room</label>
+  </nav>
+  <script>
+    const id = location.hash.slice(1);
+    if (id) document.getElementById(id)?.click();
+  </script>
+</body>
+</html>
