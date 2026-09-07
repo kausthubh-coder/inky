@@ -1,0 +1,138 @@
+.dashboard {
+  padding-top: 22px;
+}
+.welcome {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  align-items: center;
+  gap: 36px;
+  min-height: 310px;
+  padding: 36px 44px;
+  border: 2.5px solid var(--ink);
+  border-radius: 26px 18px 24px 16px;
+  background: #e2ecde;
+  box-shadow: 5px 5px 0 var(--ink);
+}
+.inky {
+  display: grid;
+  place-items: center;
+}
+.message h1 {
+  margin-bottom: 12px;
+  font-size: clamp(32px, 4vw, 46px);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.message p {
+  max-width: 35ch;
+  color: var(--ink-soft);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+.message :global(.btn) {
+  gap: 24px;
+  min-height: 48px;
+  padding: 10px 20px;
+  margin-top: 24px;
+  font-size: 16px;
+  rotate: -1deg;
+}
+.account {
+  display: flex;
+  gap: 24px 56px;
+  flex-wrap: wrap;
+  padding: 28px 12px;
+}
+.account dt {
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 5px;
+}
+.account dd {
+  font-size: 15px;
+  font-weight: 900;
+}
+.activity {
+  margin-top: 20px;
+  padding: 24px 12px;
+  border-top: 1.5px dashed var(--line);
+}
+.activity h2 {
+  font-size: 19px;
+}
+.stats {
+  display: flex;
+  gap: 48px;
+  margin-top: 16px;
+}
+.stats > div {
+  display: flex;
+  flex-direction: column-reverse;
+}
+.stats dd {
+  font:
+    700 32px var(--font-shantell),
+    cursive;
+}
+.stats dt {
+  color: var(--ink-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+.loading {
+  display: flex;
+  min-height: 340px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 20px;
+  font:
+    600 18px var(--font-shantell),
+    cursive;
+}
+@media (max-width: 760px) {
+  .welcome {
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 24px;
+    min-height: 270px;
+    padding: 28px;
+  }
+  .inky :global(inky-mascot) {
+    width: 140px;
+    height: 140px;
+  }
+  .account {
+    gap: 24px 40px;
+  }
+}
+@media (max-width: 480px) {
+  .dashboard {
+    padding-top: 4px;
+  }
+  .welcome {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 24px 22px 32px;
+    text-align: center;
+  }
+  .inky :global(inky-mascot) {
+    width: 130px;
+    height: 130px;
+  }
+  .message h1 {
+    font-size: 32px;
+  }
+  .message p {
+    font-size: 15px;
+  }
+  .account {
+    justify-content: space-between;
+    gap: 18px;
+    padding-inline: 4px;
+  }
+  .account dd {
+    font-size: 13px;
+  }
+}

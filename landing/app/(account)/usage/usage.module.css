@@ -1,0 +1,67 @@
+.sheet {
+  padding: 28px;
+}
+.totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+.totals > div {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: flex-start;
+  gap: 6px;
+}
+.totals dt {
+  color: var(--ink-soft);
+  font-size: 14px;
+  font-weight: 800;
+}
+.totals dd {
+  font:
+    700 clamp(28px, 4vw, 42px) var(--font-shantell),
+    cursive;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.note {
+  margin-top: 24px;
+  color: var(--ink-faint);
+  font-weight: 700;
+}
+.credits {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1.5px dashed var(--line);
+  font-weight: 700;
+}
+.credits strong {
+  background: var(--sticky);
+  padding: 3px 8px;
+}
+@media (max-width: 520px) {
+  .sheet {
+    padding: 22px;
+  }
+  .totals {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .totals > div {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+  }
+  .totals > div + div {
+    border-top: 1px dashed var(--line);
+    padding-top: 18px;
+  }
+  .totals dd {
+    font-size: 28px;
+  }
+}

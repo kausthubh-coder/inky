@@ -1,6 +1,6 @@
 ---
 name: test-studi
-description: Test Studi's real Electron app, including creating or reusing dedicated development accounts, accepting Clerk invitations, onboarding, local school scans, chat, and assignment work. Isolates profiles, ports, and identities for concurrent worktrees; distinguishes live-provider proof from controlled tests.
+description: Test Studi's real Electron app and web account UI, including creating or reusing dedicated development accounts, accepting Clerk invitations, onboarding, local school scans, chat, and assignment work. Isolates profiles, ports, and identities for concurrent worktrees; distinguishes live-provider proof from controlled tests.
 ---
 
 # Test Studi
@@ -9,13 +9,17 @@ Test the checkout the user is changing. Repair routine QA setup yourself; a sign
 
 ## Choose the proof
 
+- **Web account UI:** use [references/web-account-pass.md](references/web-account-pass.md) for the Next.js dashboard, settings, billing, and desktop handoff page. Test this checkout's web server in an isolated browser with the dedicated Clerk development identity. Electron and Codex are not required for a web-only UI pass.
+
 - **Feature pass:** reuse an approved, onboarded profile, then follow [feature-pass.md](references/feature-pass.md).
 - **Fresh or incomplete profile:** follow [onboarding-pass.md](references/onboarding-pass.md), including the local school fixture and real first scan.
 - **Accounts and invitations:** [clerk-electron-journey.md](references/clerk-electron-journey.md) covers lookup, creation, email-code login, acceptance, and admission diagnostics.
 - **Worktrees, attachment, cleanup, native folder chooser:** [worktrees.md](references/worktrees.md).
 - **Codex unavailable:** [codex-login.md](references/codex-login.md). Reuse the QA cache first. Human help may still be needed for OpenAI device authorization.
 
-## Start here
+## Before the desktop run
+
+For web-only work, follow the web account guide above. The launcher, Codex, and Electron evidence requirements below apply to desktop runs; identity and secret-handling rules apply to both surfaces.
 
 Build source changes with `bun run build`. In a new worktree, run `Setup-StudiWorktree.ps1` from this skill first.
 

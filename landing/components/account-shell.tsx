@@ -1,14 +1,15 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { SiteNav } from "./site-nav";
 
 const ACCOUNT_LINKS = [
-  ["/dashboard", "Dashboard"],
-  ["/settings", "Account settings"],
+  ["/dashboard", "Home"],
+  ["/settings", "Settings"],
   ["/billing", "Billing"],
-  ["/connect/desktop", "Open Studi"],
+  ["/usage", "Usage"],
   ["/feedback", "Feedback"],
 ] as const;
 
@@ -17,14 +18,19 @@ export function AccountShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <SiteNav flat />
+      <SiteNav flat account />
       <main className="account-page">
         <div className="account-shell">
           <nav className="account-tabs" aria-label="Your Studi account">
             {ACCOUNT_LINKS.map(([href, label]) => (
-              <a className={pathname.startsWith(href) ? "on" : ""} href={href} key={href}>
+              <Link
+                key={href}
+                href={href}
+                className={pathname.startsWith(href) ? "on" : undefined}
+                aria-current={pathname.startsWith(href) ? "page" : undefined}
+              >
                 {label}
-              </a>
+              </Link>
             ))}
           </nav>
           {children}
