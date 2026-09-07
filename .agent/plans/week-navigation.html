@@ -9,8 +9,16 @@
 <h2>Plan</h2>
 <ol><li>Replace the rolling five-day window with complete Monday–Sunday weeks.</li><li>Add previous / next buttons, a date range, and a return to This week.</li><li>Filter the board and its count to the selected week. Keep the greeting and Today marker tied to the actual local date.</li><li>Check calendar boundaries, typecheck and build, exercise navigation in the UI, and capture a preview image.</li><li>Attempt the test-studi persistent Electron feature pass; report any onboarding or auth boundary honestly.</li></ol>
 <h2>Preview</h2>
-<p>Actual production renderer at 1440 × 760, using the existing preview fixture and a fixed September 3, 2026 clock. This image is sample data, not a live school scan.</p>
-<img src="week-navigation-preview.png" alt="Studi week board showing Monday through Sunday, dates, previous and next arrows, and a This week button">
+<p>Redesigned production renderer at 1440 × 900, using the existing preview fixture and a fixed September 3, 2026 clock. This image is sample data, not a live school scan.</p>
+<img src="week-redesign.png" alt="Studi paper planner with grouped week controls, large date numbers, a yellow today marker, and lavender assignment cards">
+<details><summary>Previous version</summary><img src="week-navigation-preview.png" alt="The previous week navigation design"></details>
+<h2>Redesign brief</h2>
+<p>The student needs to locate a deadline and move between weeks without losing their place. The date range leads, grouped arrows and return action sit beside it, and homework carries more visual weight than empty days.</p>
+<p>Domain: school planner, due dates, class notes, highlighters, homework, and Inky's help. Color world: notebook cream, graphite ink, pencil yellow, lavender class tabs, mint completion marks, and warm paper rules. Signature: a handwritten calendar with a yellow Today marker, class-colored notes, quiet ruled days, and the real Inky mascot.</p>
+<p>Direction: one paper sheet with subtle depth; 4px spacing rhythm, 24px toolbar padding, 40px navigation controls, 26px handwritten date range, 14px assignment titles, and 12px secondary day labels. Preserve the existing Nunito Sans / Shantell Sans fonts and product palette. Replace distant controls with one group, outlined empty cards with quiet text, and small inline dates with prominent day numbers. The toolbar wraps against its own container when an assignment drawer narrows the board.</p>
+<h2>Redesign verification</h2>
+<ul><li>Build and typecheck passed. All three calendar tests passed.</li><li>Browser checks passed for repeated next/previous, return, assignment filtering, counts, Today state, keyboard Enter/Tab/Space, visible focus, feedback disclosure, and cross-year ranges.</li><li>No page overflow at 1440, 1000, 760, and the app's minimum 720px width. Every week button remains at least 40px tall and wide. The 546px board beside an open drawer wraps its toolbar and still navigates.</li><li>Long assignment and course titles wrap within their card. Empty weeks retain the same calendar structure. Screenshots were visually inspected at 1440 and 720px.</li><li>A 540px browser stress check reached the existing 720px app minimum (also enforced by Electron); this is outside the supported desktop window range.</li></ul>
+<details><summary>Smallest supported window</summary><img src="week-redesign-small.png" alt="Week planner at 720px with a horizontally scrollable calendar and usable navigation"></details>
 <h2>Verification — September 6, 2026</h2>
 <ul>
 <li><code>bun run typecheck</code>: passed.</li>

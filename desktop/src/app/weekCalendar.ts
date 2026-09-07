@@ -23,7 +23,7 @@ export function calendarWeek(today: Date, offset: number) {
       const date = new Date(start);
       date.setDate(start.getDate() + index);
       const key = localDateKey(date);
-      return { key, label: weekday.format(date), date: dateLabel.format(date), isToday: key === todayKey };
+      return { key, label: weekday.format(date), date: dateLabel.format(date), dayNumber: date.getDate(), isToday: key === todayKey };
     }),
   };
 }

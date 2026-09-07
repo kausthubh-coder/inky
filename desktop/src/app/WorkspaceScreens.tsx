@@ -191,37 +191,31 @@ export function DashboardScreen({
         {managerReply && panel.kind === "closed" && <PaperCard tone="lavender" className="manager-reply"><p className="eyebrow">Inky</p><p>{managerReply}</p></PaperCard>}
 
         <section className="week-section" data-studi-week-board="true">
-          <div className="section-title">
+          <div className="week-toolbar">
             <div className="week-heading" aria-live="polite" aria-atomic="true">
-              <h2 id="week-heading">{week.title}</h2>
-              <span className="week-range">{week.range}</span>
+              <p className="week-caption">{week.title}</p>
+              <h2 id="week-heading" className="week-range">{week.range}</h2>
             </div>
             <nav className="week-navigation" aria-label="Week navigation">
-              <button className="week-arrow" type="button" aria-label="Previous week" title="Previous week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset - 1)}><span aria-hidden="true">←</span></button>
+              <div className="week-stepper">
+                <button className="week-arrow" type="button" aria-label="Previous week" title="Previous week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset - 1)}><svg viewBox="0 0 20 20" width="20" height="20" fill="none" aria-hidden="true"><path d="m12 5-5 5 5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+                <button className="week-arrow" type="button" aria-label="Next week" title="Next week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset + 1)}><svg viewBox="0 0 20 20" width="20" height="20" fill="none" aria-hidden="true"><path d="m8 5 5 5-5 5" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+              </div>
               <button className="week-current" type="button" disabled={weekOffset === 0} aria-controls="week-grid" onClick={() => setWeekOffset(0)}>This week</button>
-              <button className="week-arrow" type="button" aria-label="Next week" title="Next week" aria-controls="week-grid" onClick={() => setWeekOffset((offset) => offset + 1)}><span aria-hidden="true">→</span></button>
             </nav>
+            <span className="week-count"><strong>{weekAssignments.length}</strong> {weekAssignments.length === 1 ? "assignment" : "assignments"}</span>
           </div>
-          <div className="week-meta">
-            <div className="week-tools">
-              <span>{verified.length === 0 ? "Nothing from school yet" : `${weekAssignments.length} due this week`}</span>
-              <button className="quiet-button" type="button" onClick={() => setNoteOpen((open) => !open)}>{noteOpen ? "Hide note" : "Something look wrong?"}</button>
-            </div>
-          </div>
-          {noteOpen && (
-            <form className="week-note" onSubmit={(event) => { event.preventDefault(); if (!feedback.trim()) return; onFeedback("dashboard", feedback.trim()); setFeedback(""); setNoteOpen(false); }}>
-              <input value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Tell Studi what this view missed" maxLength={1000} />
-              <button className="button button--yellow" disabled={!feedback.trim() || busy !== null}>Send note</button>
-            </form>
-          )}
           <div className="week-grid" id="week-grid" role="region" aria-labelledby="week-heading" tabIndex={0}>
             {week.days.map((day) => {
               const items = weekAssignments.filter((assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === day.key);
               return (
                 <section className={`day-column ${day.isToday ? "is-today" : ""}`} key={day.key} aria-label={`${day.label}, ${day.date}${day.isToday ? ", today" : ""}`}>
-                  <header><strong>{day.isToday ? "Today" : day.label}</strong><small>{day.date}</small></header>
+                  <header>
+                    <span className="day-name">{day.label}</span>
+                    <div className="day-date"><time dateTime={day.key}>{day.dayNumber}</time>{day.isToday && <span className="day-today">Today</span>}</div>
+                  </header>
                   <div className="day-stack">
-                    {items.length === 0 ? <p className="empty-day"><span aria-hidden="true">〰</span>Nothing due</p> : items.map((assignment) => {
+                    {items.length === 0 ? <p className="empty-day">Nothing due</p> : items.map((assignment) => {
                       const task = taskByAssignment.get(assignment.assignmentId);
                       const course = courseLabel(onboarding, assignment.courseId);
                       const selected = (panel.kind === "assignment" && panel.assignmentId === assignment.assignmentId)
@@ -233,6 +227,16 @@ export function DashboardScreen({
               );
             })}
           </div>
+          <footer className="week-footer">
+            <span>{verified.length === 0 ? "Nothing from school yet" : "From your last school check"}</span>
+            <button className="quiet-button" type="button" onClick={() => setNoteOpen((open) => !open)}>{noteOpen ? "Hide note" : "Something look wrong?"}</button>
+          </footer>
+          {noteOpen && (
+            <form className="week-note" onSubmit={(event) => { event.preventDefault(); if (!feedback.trim()) return; onFeedback("dashboard", feedback.trim()); setFeedback(""); setNoteOpen(false); }}>
+              <input aria-label="What did this week miss?" value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Tell Studi what this view missed" maxLength={1000} />
+              <button className="button button--yellow" disabled={!feedback.trim() || busy !== null}>Send note</button>
+            </form>
+          )}
           {verified.length === 0 && <PaperCard className="empty-state"><p className="eyebrow">Nothing here yet</p><h3>I haven’t found homework on the school pages.</h3><p>{scan?.state === "succeeded" ? "I looked, and nothing showed up. Check the school page or tell me what I missed." : "Let me look through school first."}</p></PaperCard>}
         </section>
         {error && panel.kind === "closed" && <p className="error-note" role="alert">{error}</p>}
