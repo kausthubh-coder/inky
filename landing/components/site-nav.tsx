@@ -15,14 +15,19 @@ const NAV_LINKS = [
 type SiteNavProps = {
   current?: string;
   flat?: boolean;
+  tour?: boolean;
 };
 
-export function SiteNav({ current = "", flat = false }: SiteNavProps) {
+export function SiteNav({
+  current = "",
+  flat = false,
+  tour = false,
+}: SiteNavProps) {
   const [active, setActive] = useState(current);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (flat) return;
+    if (flat || tour) return;
     // Observe every section so the highlight clears on sections without a nav link.
     const ids = ["what", "compare", "trust", "sites", "wait", "faq"];
     const linked = new Set<string>(NAV_LINKS.map(([href]) => href));
@@ -40,7 +45,7 @@ export function SiteNav({ current = "", flat = false }: SiteNavProps) {
       if (node) observer.observe(node);
     });
     return () => observer.disconnect();
-  }, [flat]);
+  }, [flat, tour]);
 
   const home = flat ? "/" : "#top";
   const wait = flat ? "/#wait" : "#wait";
@@ -53,67 +58,105 @@ export function SiteNav({ current = "", flat = false }: SiteNavProps) {
         </span>
         <span>studi</span>
       </a>
-      <nav className="links" id="site-links" aria-label="Page">
-        {NAV_LINKS.map(([href, label]) => {
-          const dest = flat && href.startsWith("#") ? `/${href}` : href;
-          return (
-            <a
-              href={dest}
-              key={href}
-              className={active === href || current === href ? "on" : ""}
-              onClick={() => setOpen(false)}
-            >
-              {label}
-            </a>
-          );
-        })}
-      </nav>
+      {!tour && (
+        <nav className="links" id="site-links" aria-label="Page">
+          {NAV_LINKS.map(([href, label]) => {
+            const dest = flat && href.startsWith("#") ? `/${href}` : href;
+            return (
+              <a
+                href={dest}
+                key={href}
+                className={active === href || current === href ? "on" : ""}
+                onClick={() => setOpen(false)}
+              >
+                {label}
+              </a>
+            );
+          })}
+        </nav>
+      )}
       <div className="nav-actions">
         {process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY ? (
           <>
             <SignedOut>
-              <a className="sign-in-link" href="/sign-in" onClick={() => { track("sign_in_started", { placement: "navigation" }); setOpen(false); }}>
+              <a
+                className="sign-in-link"
+                href="/sign-in"
+                onClick={() => {
+                  track("sign_in_started", { placement: "navigation" });
+                  setOpen(false);
+                }}
+              >
                 Sign in
               </a>
-              <a className="cta" href={wait} onClick={() => { track("waitlist_cta_clicked", { placement: "navigation" }); setOpen(false); }}>
-                Save me a seat
+              <a
+                className="cta"
+                href={wait}
+                onClick={() => {
+                  track("waitlist_cta_clicked", { placement: "navigation" });
+                  setOpen(false);
+                }}
+              >
+                Join the waitlist
               </a>
             </SignedOut>
             <SignedIn>
-              <a className="dashboard-link" href="/dashboard" onClick={() => setOpen(false)}>
+              <a
+                className="dashboard-link"
+                href="/dashboard"
+                onClick={() => setOpen(false)}
+              >
                 Dashboard
               </a>
               <UserButton>
                 <UserButton.MenuItems>
-                  <UserButton.Link label="Dashboard" labelIcon={<span aria-hidden="true">⌂</span>} href="/dashboard" />
-                  <UserButton.Link label="Settings" labelIcon={<span aria-hidden="true">⚙</span>} href="/settings" />
-                  <UserButton.Link label="Feedback" labelIcon={<span aria-hidden="true">✎</span>} href="/feedback" />
+                  <UserButton.Link
+                    label="Dashboard"
+                    labelIcon={<span aria-hidden="true">⌂</span>}
+                    href="/dashboard"
+                  />
+                  <UserButton.Link
+                    label="Settings"
+                    labelIcon={<span aria-hidden="true">⚙</span>}
+                    href="/settings"
+                  />
+                  <UserButton.Link
+                    label="Feedback"
+                    labelIcon={<span aria-hidden="true">✎</span>}
+                    href="/feedback"
+                  />
                 </UserButton.MenuItems>
               </UserButton>
             </SignedIn>
           </>
         ) : (
           <>
-            <a className="sign-in-link" href="/sign-in" onClick={() => setOpen(false)}>
+            <a
+              className="sign-in-link"
+              href="/sign-in"
+              onClick={() => setOpen(false)}
+            >
               Sign in
             </a>
             <a className="cta" href={wait} onClick={() => setOpen(false)}>
-              Save me a seat
+              Join the waitlist
             </a>
           </>
         )}
       </div>
-      <button
-        type="button"
-        className="menu"
-        aria-expanded={open}
-        aria-controls="site-links"
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span className="visually-hidden">Menu</span>
-        <i />
-        <i />
-      </button>
+      {!tour && (
+        <button
+          type="button"
+          className="menu"
+          aria-expanded={open}
+          aria-controls="site-links"
+          onClick={() => setOpen((value) => !value)}
+        >
+          <span className="visually-hidden">Menu</span>
+          <i />
+          <i />
+        </button>
+      )}
     </header>
   );
 }

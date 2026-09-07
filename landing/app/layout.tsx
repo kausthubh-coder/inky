@@ -16,18 +16,22 @@ const shantell = Shantell_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Studi — Hi. I’m Inky. I do your homework.",
+  title: "Studi — Your homework. Handled.",
   description:
-    "Your week on one board. The assignment you’re avoiding, done while you watch. The last click stays yours.",
+    "Meet Inky, the homework helper in Studi. See how he finds your assignments and does the work, then join the private beta waitlist.",
   openGraph: {
-    title: "Hi. I’m Inky. I do your homework.",
+    title: "Studi — Your homework. Handled.",
     description:
-      "Your week on one board. The assignment you’re avoiding, done while you watch. The last click stays yours.",
+      "Meet Inky, the homework helper in Studi. See how he finds your assignments and does the work, then join the private beta waitlist.",
     type: "website",
   },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en" className={`${nunito.variable} ${shantell.variable}`}>
       <body>
