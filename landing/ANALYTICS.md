@@ -16,7 +16,9 @@ The integration is deliberately anonymous: no identify calls, form values, email
 | Event | Meaning | Properties |
 | --- | --- | --- |
 | `$pageview` | A page or client-side route was viewed | PostHog's anonymous web properties |
-| `demo_started` | A visitor chose “Okay, show me” | None |
+| `demo_started` | A visitor advanced from “Show me how” (once per page visit) | None |
+| `demo_step_viewed` | A visitor moved forward, back, or replayed the tour | `step` (1–5), `label` |
+| `demo_completed` | A visitor first reached the final waitlist screen | None |
 | `waitlist_cta_clicked` | A visitor moved toward the waitlist form | `placement` |
 | `waitlist_form_started` | A visitor focused an email field | `placement` |
 | `waitlist_joined` | Clerk accepted the waitlist entry | `placement` |
@@ -29,7 +31,7 @@ The integration is deliberately anonymous: no identify calls, form values, email
 Create these funnels in PostHog:
 
 1. `$pageview` where path is `/` → `waitlist_form_started` → `waitlist_joined`
-2. `demo_started` → `waitlist_joined`
+2. `demo_started` → `demo_completed` → `waitlist_joined`
 3. `sign_in_started` → `dashboard_viewed`
 
-Track the first funnel as the launch conversion rate. Break it down by `placement` to compare the hero and lower waitlist section. Use Web Analytics for visitors, page views, referrers, countries, devices, and bounce rate.
+Track the first funnel as the launch conversion rate. Break it down by `placement` to compare the tour’s final form (`demo`) and the lower waitlist section (`waitlist_section`). Use `demo_step_viewed` to locate drop-off in the tour. Use Web Analytics for visitors, page views, referrers, countries, devices, and bounce rate.
