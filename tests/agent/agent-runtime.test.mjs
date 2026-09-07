@@ -419,3 +419,15 @@ async function withRuntime(fauxOptions, run) {
     assert.equal(existsSync(root), false);
   }
 }
+
+test("terminal errors retain provider diagnosis without credentials and reset between turns", () => {
+  const normalizer = new PiEventNormalizer();
+  normalizer.accept({type:"message_end",message:{role:"assistant",stopReason:"error",errorMessage:"Unsupported service_tier: fast; Bearer abcdefghijklm"}});
+  const [failure] = normalizer.accept({type:"agent_settled"});
+  assert.match(failure.reason, /Unsupported service_tier/);
+  assert.doesNotMatch(failure.reason, /abcdefghijklm/);
+  normalizer.beginRun();
+  const [next] = normalizer.accept({type:"agent_settled"});
+  assert.equal(next.outcome, "completed");
+  assert.equal(next.reason, undefined);
+});

@@ -30,10 +30,14 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force release | Out-Null
           Copy-Item -LiteralPath "out/make/squirrel.windows/x64/Studi-Setup.exe" -Destination "release/Studi-Setup.exe"
+          Copy-Item -LiteralPath "out/make/squirrel.windows/x64/RELEASES" -Destination "release/RELEASES"
+          $packages = @(Get-ChildItem "out/make/squirrel.windows/x64/*-full.nupkg")
+          if ($packages.Count -eq 0 -or @($packages | Where-Object Length -eq 0).Count -gt 0) { throw "Missing Squirrel update package" }
+          $packages | Copy-Item -Destination release
       - uses: actions/upload-artifact@v4
         with:
           name: studi-windows
-          path: release/Studi-Setup.exe
+          path: release/*
           if-no-files-found: error
 
   macos:

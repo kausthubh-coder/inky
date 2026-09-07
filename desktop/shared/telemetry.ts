@@ -56,6 +56,7 @@ export const TelemetryDebugInputSchema = z.strictObject({
 });
 
 export const UiTelemetryInputSchema = z.discriminatedUnion("event", [
+  z.strictObject({event:z.literal("ui_error"),message:z.string().min(1).max(100_000),stack:z.string().max(100_000).optional()}),
   z.strictObject({
     event: z.literal("dashboard_viewed"),
     section: z.enum(["auth_gate", "workspace"]),

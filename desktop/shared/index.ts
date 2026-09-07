@@ -24,3 +24,5 @@ export * from "./task.js";
 export * from "./telemetry.js";
 export * from "./tool.js";
 export * from "./usage.js";
+
+export * from "./updates.js";

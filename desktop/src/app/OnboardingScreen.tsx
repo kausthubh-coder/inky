@@ -200,7 +200,7 @@ function StepExtra({ step, workspace, connectedApps, appConnections, providerRea
           <div><strong>Already connected</strong><small>ChatGPT is ready.</small></div>
         ) : login?.phase === "waiting" && code ? (
           <div>
-            <strong>{code}</strong>
+            <strong data-secret>{code}</strong>
             <span className="fable-fallback">If the page didn't open, <a href={link} target="_blank" rel="noreferrer">click this link</a>.</span>
           </div>
         ) : login?.phase === "failed" || login?.phase === "expired" ? (

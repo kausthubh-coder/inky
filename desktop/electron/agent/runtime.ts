@@ -1,3 +1,4 @@
+import { stripSecrets } from "../telemetry/service.js";
 import { mkdir } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -400,14 +401,14 @@ export class PiAgentRuntime implements AgentRuntime {
     options.model = this.#model;
 
     const { session } = await createAgentSession(options);
-    // Pi's simple-stream API drops provider-specific options. Set Fast on the
+    // Pi's simple-stream API drops provider-specific options. Set the supported priority tier on the
     // final Codex payload so it survives retries and both supported transports.
     const onPayload = session.agent.onPayload;
     session.agent.onPayload = async (payload, model) => {
       const prepared = (await onPayload?.(payload, model)) ?? payload;
       if (model.provider === "openai-codex" && model.id === "gpt-6-astra"
         && prepared !== null && typeof prepared === "object") {
-        return { ...prepared, service_tier: "fast" };
+        return { ...prepared, service_tier: "priority" };
       }
       return prepared;
     };
@@ -590,6 +591,7 @@ class PiBackedAgentSession implements AgentSession {
 export class PiEventNormalizer {
   #lastStopReason: "stop" | "length" | "toolUse" | "error" | "aborted" | "deferred" | null =
     null;
+  #lastProviderError: string | null = null;
   #hasTerminalEvent = false;
   #hasAbortEvent = false;
   #usage = emptyUsage();
@@ -607,6 +609,7 @@ export class PiEventNormalizer {
 
   beginRun(): void {
     this.#lastStopReason = null;
+    this.#lastProviderError = null;
     this.#hasTerminalEvent = false;
     this.#hasAbortEvent = false;
     this.#toolStartedAt.clear();
@@ -637,6 +640,7 @@ export class PiEventNormalizer {
         const stopReason = readAssistantStopReason(event.message);
         if (stopReason) {
           this.#lastStopReason = stopReason;
+          this.#lastProviderError = "errorMessage" in event.message && typeof event.message.errorMessage === "string" ? stripSecrets(event.message.errorMessage) : null;
         }
         if (stopReason === "aborted" && !this.#hasAbortEvent) {
           this.#hasAbortEvent = true;
@@ -730,7 +734,7 @@ export class PiEventNormalizer {
             schemaVersion: STUDI_SCHEMA_VERSION,
             type: "terminal",
             outcome,
-            ...(outcome === "failed" ? { reason: "The provider returned an error." } : {}),
+            ...(outcome === "failed" ? { reason: this.#lastProviderError || "The provider returned an error." } : {}),
           }),
         ];
       }

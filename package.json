@@ -41,7 +41,8 @@
     "test:harness": "bun run agent:harness -- run --suite foundation --driver scripted --json && bun run agent:harness -- run --suite routing --driver scripted --json && bun run agent:harness -- run --suite trace --driver scripted --json && bun run agent:harness -- run --suite files --driver scripted --json",
     "test:composio": "bun scripts/composio-test.ts",
     "deploy:composio-policy": "bun scripts/deploy-composio-policy.ts",
-    "test:all": "bun run typecheck && bun run build && bun run test:contracts && bun run test:agent && bun run test:storage && bun run test:auth && bun run test:telemetry && bun run test:packaging && bun run test:foundation && bun run test:harness && bun run test:electron"
+    "test:all": "bun run typecheck && bun run build && bun run test:contracts && bun run test:agent && bun run test:storage && bun run test:auth && bun run test:telemetry && bun run test:packaging && bun run test:foundation && bun run test:ui && bun run test:harness && bun run test:electron",
+    "test:ui": "node --experimental-strip-types --test \"tests/ui/*.test.mjs\""
   },
   "dependencies": {
     "@composio/core": "^0.18.0",

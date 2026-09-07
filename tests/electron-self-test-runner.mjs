@@ -36,7 +36,7 @@ try {
 
   const onboarding = await runControlledScenario("onboarding-ready");
   assert.equal(onboarding.observation.marker, true);
-  assert.equal(onboarding.observation.contractVersion, "15");
+  assert.equal(onboarding.observation.contractVersion, "16");
   assert.equal(onboarding.observation.runtime.electron, "37.10.3");
   assert.equal(onboarding.observation.runtime.node, "22.21.1");
   assert.deepEqual(onboarding.observation.onboarding, {
@@ -198,23 +198,13 @@ async function inspectPublicApp(client) {
 
 async function exerciseExpandedBrowser(client) {
   await client.evaluate(`(async () => {
-    const deskButton = document.querySelector('[aria-label="Open Inky’s desk"]');
-    if (!(deskButton instanceof HTMLButtonElement)) throw new Error('Missing Inky desk button');
-    deskButton.click();
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    document.body.dataset.activityCardRemoved = String(!document.body.innerText.includes("What I’ve done"));
-    const expandButton = [...document.querySelectorAll('button')].find((item) => item.textContent?.includes('Expand'));
-    if (!(expandButton instanceof HTMLButtonElement)) throw new Error('Missing browser expand button');
-    expandButton.click();
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    const modal = document.querySelector('[role="dialog"][aria-label="School browser"]');
-    const expandedSlot = document.querySelector('[aria-label="Expanded live school page"]');
-    document.body.dataset.browserExpanded = String(Boolean(modal && expandedSlot));
-    const closeButton = [...document.querySelectorAll('button')].find((item) => item.textContent?.trim() === 'Back to Inky');
-    if (!(closeButton instanceof HTMLButtonElement)) throw new Error('Missing browser close button');
-    closeButton.click();
-    await new Promise((resolve) => setTimeout(resolve, 80));
-    document.body.dataset.browserClosedCleanly = String(!document.querySelector('[role="dialog"][aria-label="School browser"]') && Boolean(document.querySelector('[data-school-slot="true"]')));
+    const click=(selector)=>{const button=document.querySelector(selector);if(!(button instanceof HTMLButtonElement))throw new Error('Missing '+selector);button.click();};
+    click('.chat-work-slip button');await new Promise(r=>setTimeout(r,100));
+    document.body.dataset.activityCardRemoved=String(!document.querySelector('.chat-work-slip')&&!document.body.innerText.includes("What I’ve done"));
+    click('[aria-label="Open browser"]');await new Promise(r=>setTimeout(r,150));
+    document.body.dataset.browserExpanded=String(Boolean(document.querySelector('.chat-browser-slot')));
+    click('[aria-label="Close browser"]');await new Promise(r=>setTimeout(r,100));
+    document.body.dataset.browserClosedCleanly=String(!document.querySelector('.chat-browser-slot')&&Boolean(document.querySelector('.conversation-paper')));
   })()`);
 }
 

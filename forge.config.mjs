@@ -6,7 +6,7 @@ export default {
     icon: "assets/studi-inky",
     extraResource: ["assets/studi-inky.png", "assets/studi-inky.ico", "THIRD_PARTY_NOTICES.md"],
     ignore: [
-      /^\/(?:\.agent|\.agents|\.openai|\.playwright-mcp|\.vercel|convex|desktop|landing|out|release|scripts|tests|worker)(?:\/|$)/,
+      /^\/(?:\.agent|\.agents|\.studi-harness|\.openai|\.playwright-mcp|\.vercel|convex|desktop|landing|out|release|scripts|tests|worker)(?:\/|$)/,
       /^\/\.env(?:\.|$)/,
       /^\/node_modules\/\.vite(?:\/|$)/,
       /^\/dist\/(?:\.openai|server)(?:\/|$)/,

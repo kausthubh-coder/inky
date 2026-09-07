@@ -9,7 +9,7 @@ import { streamSimple } from "@earendil-works/pi-ai/api/openai-codex-responses";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { PiAgentRuntime } from "../../dist/electron/agent/runtime.js";
 
-test("real Pi sessions send Astra medium Fast, including after resume, without changing other models", async () => {
+test("real Pi sessions send Astra medium priority, including after resume, without changing other models", async () => {
   const root = await mkdtemp(join(tmpdir(), "studi-astra-test-"));
   const modelRuntime = await ModelRuntime.create({
     credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false,
@@ -46,7 +46,7 @@ test("real Pi sessions send Astra medium Fast, including after resume, without c
     for (const request of requests) {
       assert.equal(request.model, "gpt-6-astra");
       assert.equal(request.reasoning.effort, "medium");
-      assert.equal(request.service_tier, "fast");
+      assert.equal(request.service_tier, "priority");
     }
     session.dispose();
     runtime.selectModel("openai-codex", "gpt-5.6-sol");

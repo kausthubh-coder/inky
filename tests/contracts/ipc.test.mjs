@@ -223,6 +223,13 @@ test("IPC caller types use request schema input and result schema output", async
 
 test("IPC registry snapshot contains the fixed desktop workspace channels", () => {
   assert.deepEqual(studiIpcMethods, [
+    "getUpdateState",
+    "checkForUpdates",
+    "installUpdate",
+    "getConversationState",
+    "stopConversation",
+    "getNotifications",
+    "readNotification",
     "getRuntimeInfo",
     "getContractManifest",
     "getAuthState",
@@ -278,6 +285,13 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   assert.deepEqual(
     Object.fromEntries(studiIpcMethods.map((method) => [method, studiIpcRegistry[method].channel])),
     {
+      getUpdateState: "studi:update-state",
+      checkForUpdates: "studi:update-check",
+      installUpdate: "studi:update-install",
+      getConversationState: "studi:conversation-state",
+      stopConversation: "studi:conversation-stop",
+      getNotifications: "studi:notifications",
+      readNotification: "studi:notification-read",
       getRuntimeInfo: "studi:runtime-info",
       getContractManifest: "studi:contract-manifest",
       getAuthState: "studi:auth-state",
@@ -333,8 +347,15 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   );
   assert.deepEqual(CONTRACT_MANIFEST, {
     schemaVersion: 1,
-    contractVersion: "15",
+    contractVersion: "16",
     ipcMethods: [
+      { method: "getUpdateState", channel: "studi:update-state" },
+      { method: "checkForUpdates", channel: "studi:update-check" },
+      { method: "installUpdate", channel: "studi:update-install" },
+      { method: "getConversationState", channel: "studi:conversation-state" },
+      { method: "stopConversation", channel: "studi:conversation-stop" },
+      { method: "getNotifications", channel: "studi:notifications" },
+      { method: "readNotification", channel: "studi:notification-read" },
       { method: "getRuntimeInfo", channel: "studi:runtime-info" },
       { method: "getContractManifest", channel: "studi:contract-manifest" },
       { method: "getAuthState", channel: "studi:auth-state" },
