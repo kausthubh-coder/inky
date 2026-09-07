@@ -119,16 +119,18 @@ export function DashboardScreen({
   const [feedback, setFeedback] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const [weekOffset, setWeekOffset] = useState(0);
-  const [today, setToday] = useState(() => new Date());
+  const previewClock = Boolean(readDevPreviewConfig());
+  const [today, setToday] = useState(() => previewClock ? new Date(2026, 8, 3, 12) : new Date());
   const weekGridRef = useRef<HTMLDivElement>(null);
   const todayColumnRef = useRef<HTMLElement>(null);
   useEffect(() => {
+    if (previewClock) return;
     const timer = window.setInterval(() => setToday((previous) => {
       const now = new Date();
       return localDateKey(previous) === localDateKey(now) ? previous : now;
     }), 60_000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [previewClock]);
   useEffect(() => {
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const behavior: ScrollBehavior = reduce ? "auto" : "smooth";
