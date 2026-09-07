@@ -26,6 +26,7 @@ interface ChatProps {
   mood: InkyState;
   actionError: string | null;
   onStart: (id: string) => void;
+  onOpenWork: () => void;
   onTakeover: (id: string) => void;
   onResume: (id: string) => void;
   onCancel: (id: string) => void;
@@ -101,7 +102,7 @@ export function ChatWorkspace(props: ChatProps) {
       ? "thinking"
       : active
         ? "thinking"
-        : work
+        : workingAnywhere
           ? props.mood
           : "idle";
   const status =
@@ -109,10 +110,10 @@ export function ChatWorkspace(props: ChatProps) {
       ? "Inky is typing…"
       : active
         ? "Thinking it through…"
-        : work
-          ? execution.phase === "needs_user"
+        : workingAnywhere
+          ? activeExecution.phase === "needs_user"
             ? "I could use your help."
-            : execution.phase === "ready_review"
+            : activeExecution.phase === "ready_review"
               ? "Ready for your review."
               : "Working on it…"
           : "I’m here.";
@@ -539,7 +540,7 @@ export function ChatWorkspace(props: ChatProps) {
       )}
       {view === "home" && (workingAnywhere || active) && (
         <div className="chat-work-slip">
-          <button onClick={() => onView("expanded")}>
+          <button onClick={() => { if (workingAnywhere) props.onOpenWork(); onView("expanded"); }}>
             <Inky state={mood} size={42} label={status} />
             <span>
               <strong>

@@ -45,12 +45,9 @@ export function UpdateControls({
     if (!window.studi) return;
     setError("");
     try {
-      setState(
-        await (ready
-          ? window.studi.installUpdate()
-          : window.studi.checkForUpdates()),
-      );
-      if (ready && state?.capability === "manual") setDownloaded(true);
+      const next = await (ready ? window.studi.installUpdate() : window.studi.checkForUpdates());
+      setState(next);
+      if (ready && state?.capability === "manual" && !next.error) setDownloaded(true);
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "The update could not finish.",

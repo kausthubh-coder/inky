@@ -158,6 +158,8 @@ export async function verifyChatPreview(page, base = "http://127.0.0.1:4174") {
         .count(),
       1,
     );
+    await page.getByRole("button", {name:"Download for Mac", exact:true}).click();
+    assert.equal(await page.getByText("Save your work, quit Studi, open the downloaded DMG, replace Studi in Applications, then reopen.", {exact:true}).count(), 0);
     results.push("retained update ready state and unsigned Mac download UI");
     assert.deepEqual(errors, []);
     return { passed: results, pageErrors: errors };

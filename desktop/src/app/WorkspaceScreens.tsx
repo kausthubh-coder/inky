@@ -465,6 +465,7 @@ export function DashboardScreen({
         mood={inkyState}
         actionError={error}
         onStart={onStart}
+        onOpenWork={onOpenDesk}
         onTakeover={onTakeover}
         onResume={onResume}
         onCancel={onCancel}
@@ -947,5 +948,3 @@ function ruleScopeLabel(rule: PermissionRule, onboarding: SchoolOnboardingState)
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
 function courseTone(course: string): number { return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6; }
-function localDateKey(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
-function fiveDays(): Array<{ key: string; label: string; date: string }> { const formatter = new Intl.DateTimeFormat(undefined, { weekday: "long" }); const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }); const start = new Date(); start.setHours(0, 0, 0, 0); return Array.from({ length: 5 }, (_, offset) => { const date = new Date(start); date.setDate(start.getDate() + offset); return { key: localDateKey(date), label: offset === 0 ? "Today" : formatter.format(date), date: dateFormatter.format(date) }; }); }
