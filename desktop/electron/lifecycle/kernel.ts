@@ -55,6 +55,7 @@ export class AppKernel {
   #timer: ReturnType<typeof setTimeout> | null = null;
   #quitting = false;
   #disposed = false;
+  #updating = false;
   #closeInterceptions = 0;
   #openRequests = 0;
 
@@ -198,7 +199,9 @@ export class AppKernel {
 
   async reconcile(): Promise<void> {
     this.#assertUsable();
+    if(this.#updating)return;
     await this.#execution.reconcileDeadlines();
+    if(this.#updating)return;
     const schedule = this.#store.lifecycle.getSchedule();
     const now = this.#now();
     if (schedule?.state === "enabled" && schedule.cadence !== "manual" && schedule.nextRunAt && schedule.nextRunAt <= now) {
@@ -228,6 +231,14 @@ export class AppKernel {
     this.#refreshTray();
     this.#armTimer();
   }
+
+  prepareUpdate(): void {
+    this.#updating=true;
+    this.#quitting=true;
+    if(this.#timer)clearTimeout(this.#timer);
+    this.#timer=null;
+  }
+  cancelUpdate(): void {this.#updating=false;this.#quitting=false;this.#armTimer();}
 
   dispose(): void {
     if (this.#disposed) return;
@@ -289,6 +300,7 @@ export class AppKernel {
   }
 
   #armTimer(): void {
+    if(this.#updating||this.#disposed)return;
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
     const candidates: number[] = [];

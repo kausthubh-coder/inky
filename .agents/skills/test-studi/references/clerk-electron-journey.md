@@ -52,3 +52,13 @@ For school/LMS work, use controlled local fixtures or explicitly safe read-only 
 ## Evidence hygiene
 
 Record the launcher receipt, timestamps, semantic UI observations, final public auth projection, and controlled Convex boundary result. Do not record the authorize URL, state, nonce, code challenge, authorization code, tokens, cookies, full browser command line, or Clerk page storage. Delete no browser data and terminate no browser process as part of this flow.
+
+## Restoring a missing QA identity
+
+Use the clerk-cli skill and the development Backend API through the CLI. Resolve keys from the configured environment without printing them; never assume an expired CLI OAuth session means the user is absent. Look up the exact QA email before creating anything, and use the user's explicit account-creation authorization.
+
+Check the admission implementation currently deployed as well as the checkout. If Clerk waitlist reconciliation is enabled, a temporary Convex beta approval can be overwritten on the next bootstrap. Restore admission through its supported Clerk flow, with notifications disabled where supported, and verify access again after a persistent restart. An existing user can produce a completed waitlist entry with no linked invitation; a backend requiring that invitation will still deny access. Report that mismatch rather than repeatedly granting temporary access, deleting the account again, changing identity, or disabling reconciliation.
+
+On 2026-09-07 the restored QA email authenticated successfully and Codex cache import worked, but the development admission sync reverted access on restart because its completed Clerk entry had no linked invitation. This is a blocked live feature pass until the admission owner resolves that state. The native controlled fixture tests do not substitute for it.
+
+An invitation can be accepted in a fresh isolated Playwright browser context without signing out of Electron. A signed-in context may skip straight to the dashboard and leave the invitation pending. Verify the invitation status through Clerk afterward; acceptance alone does not prove the Convex admission sync approved the account.

@@ -1,11 +1,13 @@
+import { UpdateControls } from "./UpdateControls.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { agentRuntimeAttentionCopy, type AgentRuntimeAttention, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
+import { agentRuntimeAttentionCopy, type AgentRuntimeAttention, type NotificationIntent, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
 
 export type AppScreen = "week" | "settings";
 export type SettingsLanding = "settings" | "usage" | "feedback";
 
 export function AppChrome({
+  chatName,
   screen,
   settingsLanding,
   studentName,
@@ -13,8 +15,10 @@ export function AppChrome({
   deskBusy,
   onNavigate,
   onOpenDesk,
+  onNotification,
   onSignOut,
 }: {
+  chatName?: string | undefined;
   screen: AppScreen;
   settingsLanding: SettingsLanding;
   studentName: string;
@@ -22,6 +26,7 @@ export function AppChrome({
   deskBusy: boolean;
   onNavigate: (screen: AppScreen, landing?: SettingsLanding) => void;
   onOpenDesk: () => void;
+  onNotification: (target: NotificationIntent["target"]) => void;
   onSignOut: () => void;
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
@@ -64,10 +69,9 @@ export function AppChrome({
   return (
     <header className="app-chrome">
       <button className="brand-lockup brand-home" type="button" onClick={() => onNavigate("week")} aria-label="Open dashboard"><strong>studi</strong></button>
+      {chatName&&<div className="chat-breadcrumb"><span>/</span>{chatName}</div>}
       <div className="chrome-end">
-        <button className={`desk-launch ${deskOpen ? "is-open" : ""} ${deskBusy ? "is-busy" : ""}`} type="button" onClick={onOpenDesk}>
-          Inky’s desk
-        </button>
+        <UpdateControls onNotification={onNotification}/>
         <div className="account-menu-wrap" ref={accountMenuRef}>
           <button ref={accountButtonRef} className="account-chip" type="button" aria-haspopup="menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => { if (!open) setAccountNotice(null); return !open; })}>
             <span aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</span>
@@ -141,7 +145,7 @@ export function RuntimeAttentionBanner({
     <div className={`truth-banner ${kind === "usage" ? "truth-banner--partial" : "truth-banner--error"}`}>
       <strong>{copy.title}</strong>
       <span>{copy.body}</span>
-      {login?.phase === "waiting" && <p className="provider-code">{login.userCode}<small>Enter this at {login.verificationUri}</small></p>}
+      {login?.phase === "waiting" && <p className="provider-code" data-secret>{login.userCode}<small>Enter this at {login.verificationUri}</small></p>}
       {login?.phase === "starting" && <span>Getting your code…</span>}
       {(login?.phase === "failed" || login?.phase === "expired") && <span>{login.phase === "expired" ? "That code expired." : "Couldn't get a code."}</span>}
       <button type="button" onClick={onConnect} disabled={busy || login?.phase === "starting" || login?.phase === "waiting"}>

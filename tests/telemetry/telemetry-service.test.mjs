@@ -274,7 +274,7 @@ test("renderer replay records Studi text, still masks passwords, and never enter
   ]);
   for (const policy of [
     /maskTextSelector:\s*"input\[type='password'\], \[data-secret\]"/,
-    /maskAllInputs:\s*true/,
+    /maskAllInputs:\s*false/,
     /mask_all_text:\s*false/,
     /recordHeaders:\s*false/,
     /recordBody:\s*false/,
@@ -360,4 +360,13 @@ test("renderer replay records Studi text, still masks passwords, and never enter
       $el_text: "Start scan",
     },
   });
+});
+
+test('handled chat errors use PostHog exception tracking and retain ordinary context',async()=>{
+ await withService(async({client,service})=>{
+  const exceptions=[];client.captureException=(error,id,props)=>exceptions.push({error,id,props});
+  service.captureError(new Error('Math chat failed password=HIDDEN_CREDENTIAL'),'ipc','ipc_request');
+  assert.equal(exceptions.length,1);assert.match(exceptions[0].error.message,/Math chat/);assert.equal(exceptions[0].error.stack.includes('HIDDEN_CREDENTIAL'),false);assert.equal(exceptions[0].id,service.state().distinctId);
+  service.setPreferences(false,false);service.captureError(new Error('Muted'),'ipc','ipc_request');assert.equal(exceptions.length,1);
+ });
 });

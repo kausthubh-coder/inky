@@ -198,6 +198,8 @@ interface TelemetryClient {
     properties: Record<string, string | number | boolean | Record<string, string | number | boolean>>;
     disableGeoip?: boolean;
   }): void;
+  captureException?(error: unknown, distinctId?: string, properties?: Record<string, unknown>): void;
+  flush?(): Promise<unknown>;
   shutdown(timeoutMs?: number): Promise<void>;
 }
 
@@ -300,7 +302,9 @@ export class TelemetryService {
   }
 
   captureTrace(event: AgentTraceEvent): boolean {
-    return this.capture("studi_agent_trace", AgentTraceEventSchema.parse(event));
+    const parsed = AgentTraceEventSchema.parse(event);
+    if(parsed.type==='error')this.captureError(new Error(typeof parsed.payload.message==='string'?parsed.payload.message:'Conversation failed'),'ipc','ipc_request');
+    return this.capture("studi_agent_trace", parsed);
   }
 
   subscribeToTrace(trace: AgentTrace): () => void {
@@ -315,6 +319,11 @@ export class TelemetryService {
     operation: EventProperties<"studi_error">["operation"],
     extras: Pick<EventProperties<"studi_error">, "model" | "reasoning_effort"> = {},
   ): boolean {
+    if(this.#settings.enabled&&this.#client?.captureException){
+      const safe=new Error(stripSecrets(errorMessage(error)));safe.name=errorName(error);
+      if(error instanceof Error&&error.stack)safe.stack=stripSecrets(error.stack);
+      try{this.#client.captureException(safe,this.#distinctId,{boundary,operation,...extras});}catch{/* Diagnostics cannot interrupt the student. */}
+    }
     const debugSummary = this.#isDebugActive() ? `${errorName(error)} stopped at ${boundary}` : undefined;
     return this.capture("studi_error", {
       boundary,
@@ -380,6 +389,8 @@ export class TelemetryService {
     this.#persist();
     return this.state();
   }
+
+  async flush(): Promise<void> {try{await this.#client?.flush?.();}catch{/* Existing SDK queue owns retries. */}}
 
   shutdown(timeoutMs = 2_000): Promise<void> {
     if (!this.#client) return Promise.resolve();
@@ -475,6 +486,8 @@ function sanitizeSdkMessage(message: unknown) {
   if (record.event === "$identify") {
     return sanitizeIdentifyMessage(distinctIdResult.data, record.properties);
   }
+  // The SDK builds exception metadata; keep it intact while stripping credentials.
+  if(record.event==='$exception'&&record.properties&&typeof record.properties==='object'&&!Array.isArray(record.properties))return {distinctId:distinctIdResult.data,event:'$exception',properties:stripSecretProperties(record.properties as Record<string,unknown>),_originatedFromCaptureException:true};
   const eventResult = TelemetryEventNameSchema.safeParse(record.event);
   if (!eventResult.success) return null;
   const properties = record.properties;

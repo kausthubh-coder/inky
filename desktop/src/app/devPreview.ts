@@ -25,6 +25,7 @@ export type DevPreviewScenarioId =
   | "onboarding-welcome" | "onboarding-chatgpt" | "onboarding-connections" | "onboarding-folder"
   | "onboarding-school" | "onboarding-permission" | "onboarding-schedule" | "onboarding-signin"
   | "onboarding-scan" | "onboarding-handoff" | "onboarding-ready"
+  | "chat-expanded" | "chat-thinking" | "chat-error" | "week-error" | "week-updating" | "updates-ready" | "updates-mac" | "updates-error"
   | "week" | "assignment" | "desk-working" | "desk-needs-user" | "desk-review" | "desk-submitted"
   | "settings-inky" | "settings-school" | "settings-privacy" | "settings-account";
 
@@ -49,6 +50,14 @@ export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId
   { id: "onboarding-scan", group: "Onboarding", title: "Scanning school", note: "Live progress" },
   { id: "onboarding-handoff", group: "Onboarding", title: "Needs student", note: "Linked-site sign-in" },
   { id: "onboarding-ready", group: "Onboarding", title: "Week ready", note: "Partial but truthful completion" },
+  {id:'chat-expanded',group:'Chat & updates',title:'chat expanded',note:'Interactive real component fixture'},
+  {id:'chat-thinking',group:'Chat & updates',title:'chat thinking',note:'Interactive real component fixture'},
+  {id:'chat-error',group:'Chat & updates',title:'chat error',note:'Interactive real component fixture'},
+  {id:'week-error',group:'Chat & updates',title:'week error',note:'Interactive real component fixture'},
+  {id:'week-updating',group:'Chat & updates',title:'week updating',note:'Interactive real component fixture'},
+  {id:'updates-ready',group:'Chat & updates',title:'updates ready',note:'Interactive real component fixture'},
+  {id:'updates-mac',group:'Chat & updates',title:'updates mac',note:'Interactive real component fixture'},
+  {id:'updates-error',group:'Chat & updates',title:'updates error',note:'Interactive real component fixture'},
   { id: "week", group: "Workspace", title: "This week", note: "Dashboard and assignments" },
   { id: "assignment", group: "Workspace", title: "Assignment details", note: "Peek drawer" },
   { id: "desk-working", group: "Workspace", title: "Inky working", note: "Visible school work" },
@@ -96,7 +105,7 @@ function assignment(assignmentId: string, title: string, dueAt: string): Assignm
     courseId: "course-csc316",
     title,
     sourceTarget: `https://school.example.edu/courses/csc316/${assignmentId}`,
-    dueAt,
+    dueAt: (()=>{const date=new Date(); date.setHours(19,59,0,0);date.setDate(date.getDate()-(date.getDay()+6)%7+Math.max(0,new Date(dueAt).getUTCDate()-3));return date.toISOString();})(),
     discoveredAt: now,
     lastVerifiedScanId: "preview-scan",
     evidence: [evidence],
@@ -269,6 +278,12 @@ export function installDevPreview(): void {
     }
   }
 
+  let chatActivity: 'idle'|'thinking'|'typing' = preview.id==='chat-thinking'?'thinking':'idle';
+  let stopRequested=false;
+  let updateState: import('../../shared/index.js').UpdateState = {capability:preview.id==='updates-mac'?'manual':'native',installedVersion:'0.1.2',targetVersion:preview.id.startsWith('updates-')?'0.1.3':null,phase:preview.id==='updates-error'?'error':preview.id.startsWith('updates-')?'ready':'idle',notes:'A more personal conversation with Inky. Browse your weeks and mention assignments.',error:preview.id==='updates-error'?'The update service could not be reached.':null,restartBlock:null};
+  if (preview.id==='week-error'||preview.id==='week-updating') onboarding={...onboarding,scan:onboarding.scan?{...onboarding.scan,state:preview.id==='week-error'?'failed':'running',failures:preview.id==='week-error'?['The school connection timed out.']:[]}:null};
+  const home = conversation({kind:'home'});
+  if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
   const api: StudiRendererApi = {
     getRuntimeInfo: async () => ({ app: "0.1.0-preview", electron: "37.10.3", chrome: "138", node: "22" }),
     getContractManifest: async () => CONTRACT_MANIFEST,
@@ -307,11 +322,19 @@ export function installDevPreview(): void {
     loginOpenAiCodex: async () => workspace(),
     cancelOpenAiCodexLogin: async () => workspace(),
     selectAgentModel: async ({ modelId, reasoningEffort }) => { settings = { ...settings, preferences: { ...settings.preferences, agentModelId: modelId, agentReasoningEffort: reasoningEffort, updatedAt: new Date().toISOString() } }; return workspace(); },
+    getUpdateState: async () => updateState,
+    checkForUpdates: async () => {updateState={...updateState,phase:'checking',error:null};setTimeout(()=>{updateState={...updateState,phase:'ready',targetVersion:'0.1.3'};},1000);return updateState;},
+    installUpdate: async () => ({...await api.getUpdateState(),error:'Preview only — no installer is run.'}),
+    getConversationState: async () => ({job:conversation({kind:'home'}),activity:chatActivity}),
+    stopConversation: async () => {stopRequested=true;chatActivity='idle';return {job:conversation({kind:'home'}),activity:'idle'};},
+    getNotifications: async () => lifecycle.latestNotification ? [lifecycle.latestNotification] : [],
+    readNotification: async ({ notificationId }) => { if (lifecycle.latestNotification?.notificationId === notificationId) lifecycle.latestNotification.clickedAt = new Date().toISOString(); return lifecycle.latestNotification ? [lifecycle.latestNotification] : []; },
     getManagerState: async () => lifecycle.manager,
-    send: async ({ target, text }) => {
+    send: async ({ target, text, assignmentRefs, clientMessageId }) => {
+      chatActivity='thinking';stopRequested=false;await new Promise(resolve=>setTimeout(resolve,650));chatActivity=stopRequested?'idle':'typing';await new Promise(resolve=>setTimeout(resolve,650));chatActivity='idle';
       const current = conversation(target);
       const turnIndex = current.turnIndex + 1;
-      const reply = target.kind === "home"
+      const reply = stopRequested ? "Paused. I’m here when you’re ready." : target.kind === "home"
         ? `Okay, I will keep that in mind: ${text.slice(0, 140)}`
         : `I checked this assignment: ${text.slice(0, 140)}`;
       const job: AgentJob = {
@@ -322,7 +345,7 @@ export function installDevPreview(): void {
         sessionId: current.sessionId ?? `preview-session-${current.jobId}`,
         messages: [
           ...current.messages,
-          { messageId: `preview-user-${current.jobId}-${turnIndex}`, role: "user", text, createdAt: now, turnIndex },
+          { messageId: `preview-user-${current.jobId}-${turnIndex}`, role: "user", text, createdAt: now, turnIndex, ...(assignmentRefs?{assignmentRefs}:{}), ...(clientMessageId?{clientMessageId}:{}) },
           { messageId: `preview-inky-${current.jobId}-${turnIndex}`, role: "assistant", text: reply, createdAt: now, turnIndex },
         ],
         updatedAt: now,

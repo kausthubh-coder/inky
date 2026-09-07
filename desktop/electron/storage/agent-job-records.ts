@@ -46,10 +46,10 @@ export interface PersistedAgentJob {
   readonly sessionPath: string | null;
 }
 
-export function agentTargetKey(target: AgentTarget): string {
+export function agentTargetKey(target: AgentTarget, ownerSubject?: string): string {
   if (target.kind === "assignment") return `assignment:${target.assignmentId}`;
   if (target.kind === "scan") return `scan:${target.scanId}`;
-  return target.kind;
+  return target.kind === "home" && ownerSubject ? `home:${ownerSubject}` : target.kind;
 }
 
 function subjectId(target: AgentTarget): string | null {
@@ -109,7 +109,7 @@ export class AgentJobRepository {
           record_json = excluded.record_json
       `).run(
         job.jobId,
-        agentTargetKey(target),
+        agentTargetKey(target, job.ownerSubject),
         target.kind,
         subjectId(target),
         job.phase,
@@ -140,12 +140,12 @@ export class AgentJobRepository {
     return row ? this.#parseJob(row) : null;
   }
 
-  getByTarget(target: AgentTarget): PersistedAgentJob | null {
+  getByTarget(target: AgentTarget, ownerSubject?: string): PersistedAgentJob | null {
     const row = this.database.handle.prepare(`
       SELECT job_id, target_key, target_kind, subject_id, phase, turn_index, run_id,
              session_id, session_path, created_at, updated_at, record_json
       FROM agent_jobs WHERE target_key = ?
-    `).get(agentTargetKey(AgentTargetSchema.parse(target))) as JobRow | undefined;
+    `).get(agentTargetKey(AgentTargetSchema.parse(target), ownerSubject)) as JobRow | undefined;
     return row ? this.#parseJob(row) : null;
   }
 
@@ -202,7 +202,7 @@ export class AgentJobRepository {
   #parseJob(row: JobRow): PersistedAgentJob {
     const stored = parseJson(StoredAgentJobSchema, row.record_json, "agent job");
     assertEqual("agent job", stored.jobId, row.job_id, stored.jobId);
-    assertEqual("agent job", stored.jobId, row.target_key, agentTargetKey(stored.target));
+    assertEqual("agent job", stored.jobId, row.target_key, agentTargetKey(stored.target, stored.ownerSubject));
     assertEqual("agent job", stored.jobId, row.target_kind, stored.target.kind);
     assertEqual("agent job", stored.jobId, row.subject_id, subjectId(stored.target));
     assertEqual("agent job", stored.jobId, row.phase, stored.phase);

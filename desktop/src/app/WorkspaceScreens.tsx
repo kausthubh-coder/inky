@@ -1,4 +1,12 @@
-import { type CSSProperties, type FormEvent, useEffect, useMemo, useState } from "react";
+import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
+import { calendarWeek, localDateKey } from "./weekCalendar.js";
+import {
+  type CSSProperties,
+  type FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
 import {
   classifyAgentRuntimeAttention,
@@ -12,6 +20,7 @@ import {
   type LibraryState,
   type LifecycleState,
   type NotificationKind,
+  type NotificationIntent,
   type NotificationPreferences,
   type NotificationSoundId,
   type NotificationTestReceipt,
@@ -27,14 +36,31 @@ import {
   type TelemetryState,
   type UsageState,
 } from "../../shared/index.js";
-import { DeskDrawer, deskInkyState, taskStatusCopy, type DeskPanel } from "./DeskScreen.js";
+import {
+  DeskDrawer,
+  deskInkyState,
+  taskStatusCopy,
+  type DeskPanel,
+} from "./DeskScreen.js";
 import { Inky } from "./Inky.js";
 import { readDevPreviewConfig } from "./devPreview.js";
-import { AppChrome, type AppScreen, type SettingsLanding, Field, PaperCard, RuntimeAttentionBanner, StatusPill, TelemetryControls, formatDateTime } from "./Ui.js";
+import {
+  AppChrome,
+  type AppScreen,
+  type SettingsLanding,
+  Field,
+  PaperCard,
+  RuntimeAttentionBanner,
+  StatusPill,
+  TelemetryControls,
+  formatDateTime,
+} from "./Ui.js";
 
 type SettingsGroup = "inky" | "school" | "you";
 
-function settingsGroup(section?: "inky" | "school" | "privacy" | "account"): SettingsGroup {
+function settingsGroup(
+  section?: "inky" | "school" | "privacy" | "account",
+): SettingsGroup {
   if (section === "privacy" || section === "account") return "you";
   if (section === "school") return "school";
   return "inky";
@@ -43,10 +69,22 @@ function settingsGroup(section?: "inky" | "school" | "privacy" | "account"): Set
 type SaveRuleInput =
   | { ruleId?: string; scope: "global"; mode: PermissionMode }
   | { ruleId?: string; scope: "course"; courseId: string; mode: PermissionMode }
-  | { ruleId?: string; scope: "pattern"; courseId: string; patternId: string; mode: PermissionMode }
-  | { ruleId?: string; scope: "assignment"; assignmentId: string; mode: PermissionMode };
+  | {
+      ruleId?: string;
+      scope: "pattern";
+      courseId: string;
+      patternId: string;
+      mode: PermissionMode;
+    }
+  | {
+      ruleId?: string;
+      scope: "assignment";
+      assignmentId: string;
+      mode: PermissionMode;
+    };
 
 export interface ChromeProps {
+  storageKey?: string;
   screen: AppScreen;
   settingsLanding: SettingsLanding;
   studentName: string;
@@ -54,6 +92,7 @@ export interface ChromeProps {
   deskBusy: boolean;
   onNavigate: (screen: AppScreen, landing?: SettingsLanding) => void;
   onOpenDesk: () => void;
+  onNotification: (target: NotificationIntent["target"]) => void;
   onSignOut: () => void;
 }
 
@@ -114,132 +153,327 @@ export function DashboardScreen({
   onFeedback: (context: string, message: string) => void;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
 }) {
-  const [prompt, setPrompt] = useState("");
+  const [chatView, setChatView] = useState<ChatView>(() =>
+    readDevPreviewConfig()?.id.startsWith("chat-") ? "expanded" : "home",
+  );
+  const [clock, setClock] = useState(() => new Date());
+  const [weekOffset, setWeekOffset] = useState(0);
+  useEffect(() => {
+    const tick = () => setClock(new Date());
+    const timer = setInterval(tick, 30_000);
+    window.addEventListener("focus", tick);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("focus", tick);
+    };
+  }, []);
+  useEffect(() => {
+    if (panel.kind !== "closed") setChatView("expanded");
+  }, [panel]);
   const [feedback, setFeedback] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
-  const verified = onboarding.assignments.filter((assignment) => assignment.lastVerifiedScanId && assignment.evidence.length > 0);
-  const taskByAssignment = new Map((library?.tasks ?? []).map((item) => [item.assignment.assignmentId, item]));
-  const days = useMemo(() => fiveDays(), []);
+  const verified = onboarding.assignments.filter(
+    (assignment) =>
+      assignment.lastVerifiedScanId && assignment.evidence.length > 0,
+  );
+  const taskByAssignment = new Map(
+    (library?.tasks ?? []).map((item) => [item.assignment.assignmentId, item]),
+  );
+  const week = useMemo(
+    () => calendarWeek(clock, weekOffset),
+    [clock, weekOffset],
+  );
+  const days = week.days;
   const scan = onboarding.scan;
-  const dueToday = verified.filter((assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === days[0]?.key).length;
-  const runtimeAttention = classifyAgentRuntimeAttention(workspace?.provider, scan?.state === "failed" ? scan.failures[0] ?? scan.currentStep : null);
+  const dueToday = verified.filter(
+    (assignment) =>
+      assignment.dueAt &&
+      localDateKey(new Date(assignment.dueAt)) === localDateKey(clock),
+  ).length;
+  const runtimeAttention = classifyAgentRuntimeAttention(
+    workspace?.provider,
+    scan?.state === "failed" ? (scan.failures[0] ?? scan.currentStep) : null,
+  );
   const inkyState = deskInkyState({
     ...(lifecycle.execution ? { execution: lifecycle.execution } : {}),
     ...(workspace ? { driver: workspace.browser.driver } : {}),
     ...(scan ? { scanState: scan.state } : {}),
     runtimeAttention,
   });
-  const selectedAssignment = panel.kind === "assignment"
-    ? onboarding.assignments.find((item) => item.assignmentId === panel.assignmentId) ?? null
-    : panel.kind === "desk"
-      ? onboarding.assignments.find((item) => item.assignmentId === (detail?.assignment.assignmentId ?? lifecycle.execution?.assignmentId)) ?? null
+  const selectedAssignment =
+    panel.kind === "assignment"
+      ? (onboarding.assignments.find(
+          (item) => item.assignmentId === panel.assignmentId,
+        ) ?? null)
+      : panel.kind === "desk"
+        ? (onboarding.assignments.find(
+            (item) =>
+              item.assignmentId ===
+              (detail?.assignment.assignmentId ??
+                lifecycle.execution?.assignmentId),
+          ) ?? null)
+        : null;
+  const selectedTask = selectedAssignment
+    ? (taskByAssignment.get(selectedAssignment.assignmentId) ??
+      (detail &&
+      detail.assignment.assignmentId === selectedAssignment.assignmentId
+        ? detail
+        : null))
+    : panel.kind === "desk" && detail
+      ? detail
       : null;
-  const selectedTask = selectedAssignment ? taskByAssignment.get(selectedAssignment.assignmentId) ?? (detail && detail.assignment.assignmentId === selectedAssignment.assignmentId ? detail : null) : (panel.kind === "desk" && detail ? detail : null);
-
-  const submitCommand = (event: FormEvent) => {
-    event.preventDefault();
-    if (!prompt.trim()) return;
-    onCommand(prompt.trim());
-    setPrompt("");
-  };
 
   return (
-    <main className={`app-shell ${panel.kind !== "closed" ? "is-drawer-open" : ""} ${showingLiveDesk ? "is-desk-open" : ""}`} data-studi-app-ready="true">
-      <AppChrome {...chrome} />
+    <main
+      className={`app-shell chat-dashboard ${chatView === "expanded" ? "is-chat-expanded" : ""}`}
+      data-studi-app-ready="true"
+    >
+      <AppChrome
+        {...chrome}
+        chatName={chatView === "expanded" ? "Tonight, with Inky" : undefined}
+        onNavigate={(screen, landing) => {
+          if (screen === "week") {
+            setChatView("home");
+            onClosePanel();
+          }
+          chrome.onNavigate(screen, landing);
+        }}
+      />
       <div className="page dashboard-page">
         <header className="page-hero dashboard-hero">
-          <div className="dashboard-greeting">
-            <button className="inky-trigger" type="button" onClick={onOpenDesk} aria-label="Open Inky’s desk">
-              <Inky state={inkyState} size={74} label={`Inky is ${inkyState}`} />
+          <button
+            className="inky-trigger"
+            onClick={() => setChatView("compact")}
+            aria-label="Open your conversation with Inky"
+          >
+            <Inky state={inkyState} size={90} label={`Inky is ${inkyState}`} />
+          </button>
+          <h1>Hey {chrome.studentName}.</h1>
+          <p role="status">
+            {error
+              ? error
+              : scan?.state === "running"
+                ? "I’m checking your school pages. Your saved week is still here."
+                : scan?.state === "failed"
+                  ? "I couldn’t check school. Your saved week is still here."
+                  : scan?.state === "partial"
+                    ? "I checked some classes. A few pages still need another look."
+                    : scan?.state === "needs_user"
+                      ? "Could you help me with your school page?"
+                      : dueToday
+                        ? `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today. We’ll take them one at a time.`
+                        : "Nothing due today. A little room to breathe."}
+          </p>
+          {["failed", "partial"].includes(scan?.state ?? "") && (
+            <button className="quiet-button" onClick={onScanAgain}>
+              Try again ↻
             </button>
-            <div>
-              <p className="eyebrow">Your week</p>
-              <h1>Hey {chrome.studentName} — {dueToday === 0 ? "you’re clear today." : `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today.`}</h1>
-              <p>I checked these on the school pages.</p>
-            </div>
-          </div>
-          <div className="freshness">
-            <div className="sync-status">
-              <StatusPill tone={scan?.state === "succeeded" ? "mint" : scan?.state === "failed" ? "coral" : "yellow"}>{scanStatusCopy(scan?.state)}</StatusPill>
-              <span>{scan?.completedAt ? `checked ${formatDateTime(scan.completedAt)}` : "haven’t looked yet"}</span>
-              <button className="sync-now" onClick={onScanAgain} disabled={busy !== null} aria-label="Scan school again">↻</button>
-            </div>
-          </div>
+          )}
         </header>
 
-        <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />
-        {scan?.state === "partial" && runtimeAttention === "none" && <div className="truth-banner truth-banner--partial"><strong>This view is partial.</strong><span>{scan.failures[0] ?? "Some school coverage could not be verified."}</span><button onClick={onScanAgain}>Retry visible scan</button></div>}
-        {scan?.state === "failed" && runtimeAttention === "none" && <div className="truth-banner truth-banner--error"><strong>The latest scan failed.</strong><span>Prior verified assignments remain; nothing new is marked complete.</span><button onClick={onScanAgain}>Retry</button></div>}
-
-        <form className="manager-bar" onSubmit={submitCommand}>
-          <span className="manager-pen" aria-hidden="true">✎</span>
-          <input aria-label="Tell Studi what to do" value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="Tell Studi what to do — plan my night, start my essay…" maxLength={20_000} />
-          <button className="manager-send" disabled={busy !== null || !prompt.trim()}>{busy === "manager" ? "thinking…" : "enter ↵"}</button>
-        </form>
-        {managerReply && panel.kind === "closed" && <PaperCard tone="lavender" className="manager-reply"><p className="eyebrow">Inky</p><p>{managerReply}</p></PaperCard>}
+        <RuntimeAttentionBanner
+          attention={runtimeAttention}
+          workspace={workspace}
+          busy={busy !== null}
+          onConnect={onConnectRuntime}
+        />
 
         <section className="week-section" data-studi-week-board="true">
           <div className="section-title">
-            <div><h2>This week</h2></div>
+            <div>
+              <h2>{week.title}</h2>
+              <small>{week.range}</small>
+            </div>
             <div className="week-tools">
-              <span>{verified.length === 0 ? "Nothing from school yet" : `${verified.length} from school`}</span>
-              <button className="quiet-button" type="button" onClick={() => setNoteOpen((open) => !open)}>{noteOpen ? "Hide note" : "Something look wrong?"}</button>
+              <span role="status">{scanStatusCopy(scan?.state)}</span>
+              <button
+                className="quiet-button"
+                onClick={onScanAgain}
+                disabled={scan?.state === "running" || busy !== null}
+                aria-label="Refresh assignments"
+              >
+                ↻
+              </button>
+              <span className="week-divider" />
+              {weekOffset !== 0 && (
+                <button
+                  className="quiet-button"
+                  onClick={() => setWeekOffset(0)}
+                >
+                  This week
+                </button>
+              )}
+              <button
+                className="week-arrow"
+                onClick={() => setWeekOffset((n) => n - 1)}
+                aria-label="Previous week"
+              >
+                ←
+              </button>
+              <button
+                className="week-arrow"
+                onClick={() => setWeekOffset((n) => n + 1)}
+                aria-label="Next week"
+              >
+                →
+              </button>
+              <button
+                className="quiet-button"
+                type="button"
+                onClick={() => setNoteOpen((open) => !open)}
+              >
+                {noteOpen ? "Hide note" : "Something look wrong?"}
+              </button>
             </div>
           </div>
           {noteOpen && (
-            <form className="week-note" onSubmit={(event) => { event.preventDefault(); if (!feedback.trim()) return; onFeedback("dashboard", feedback.trim()); setFeedback(""); setNoteOpen(false); }}>
-              <input value={feedback} onChange={(event) => setFeedback(event.target.value)} placeholder="Tell Studi what this view missed" maxLength={1000} />
-              <button className="button button--yellow" disabled={!feedback.trim() || busy !== null}>Send note</button>
+            <form
+              className="week-note"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!feedback.trim()) return;
+                onFeedback("dashboard", feedback.trim());
+                setFeedback("");
+                setNoteOpen(false);
+              }}
+            >
+              <input
+                value={feedback}
+                onChange={(event) => setFeedback(event.target.value)}
+                placeholder="Tell Studi what this view missed"
+                maxLength={1000}
+              />
+              <button
+                className="button button--yellow"
+                disabled={!feedback.trim() || busy !== null}
+              >
+                Send note
+              </button>
             </form>
           )}
           <div className="week-grid">
             {days.map((day, index) => {
-              const items = verified.filter((assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === day.key);
+              const items = verified.filter(
+                (assignment) =>
+                  assignment.dueAt &&
+                  localDateKey(new Date(assignment.dueAt)) === day.key,
+              );
               return (
-                <section className={`day-column ${index === 0 ? "is-today" : ""}`} key={day.key}>
-                  <header><strong>{day.label}</strong><small>{index === 0 ? "today" : day.date}</small></header>
+                <section
+                  className={`day-column ${day.isToday ? "is-today" : ""}`}
+                  key={day.key}
+                >
+                  <header>
+                    <strong>{day.label}</strong>
+                    <small>{day.isToday ? "today" : day.date}</small>
+                  </header>
                   <div className="day-stack">
-                    {items.length === 0 ? <p className="empty-day"><span aria-hidden="true">〰</span>Nothing due</p> : items.map((assignment) => {
-                      const task = taskByAssignment.get(assignment.assignmentId);
-                      const course = courseLabel(onboarding, assignment.courseId);
-                      const selected = (panel.kind === "assignment" && panel.assignmentId === assignment.assignmentId)
-                        || (showingLiveDesk && lifecycle.execution?.assignmentId === assignment.assignmentId);
-                      return <AssignmentCard key={assignment.assignmentId} assignmentId={assignment.assignmentId} selected={selected} {...(task ? { item: task } : {})} title={assignment.title} {...(assignment.dueAt ? { dueAt: assignment.dueAt } : {})} course={course} tone={courseTone(course)} onAssignment={onAssignment} />;
-                    })}
+                    {items.length === 0 ? (
+                      <p className="empty-day">
+                        <span aria-hidden="true">〰</span>Nothing due
+                      </p>
+                    ) : (
+                      items.map((assignment) => {
+                        const task = taskByAssignment.get(
+                          assignment.assignmentId,
+                        );
+                        const course = courseLabel(
+                          onboarding,
+                          assignment.courseId,
+                        );
+                        const selected =
+                          (panel.kind === "assignment" &&
+                            panel.assignmentId === assignment.assignmentId) ||
+                          (showingLiveDesk &&
+                            lifecycle.execution?.assignmentId ===
+                              assignment.assignmentId);
+                        return (
+                          <AssignmentCard
+                            key={assignment.assignmentId}
+                            assignmentId={assignment.assignmentId}
+                            selected={selected}
+                            {...(task ? { item: task } : {})}
+                            title={assignment.title}
+                            {...(assignment.dueAt
+                              ? { dueAt: assignment.dueAt }
+                              : {})}
+                            course={course}
+                            tone={courseTone(course)}
+                            onAssignment={onAssignment}
+                          />
+                        );
+                      })
+                    )}
                   </div>
                 </section>
               );
             })}
           </div>
-          {verified.length === 0 && <PaperCard className="empty-state"><p className="eyebrow">Nothing here yet</p><h3>I haven’t found homework on the school pages.</h3><p>{scan?.state === "succeeded" ? "I looked, and nothing showed up. Check the school page or tell me what I missed." : "Let me look through school first."}</p></PaperCard>}
+          {verified.some((a) => !a.dueAt) && (
+            <div className="undated-assignments">
+              <h3>No due date yet</h3>
+              <div>
+                {verified
+                  .filter((a) => !a.dueAt)
+                  .map((assignment) => (
+                    <AssignmentCard
+                      key={assignment.assignmentId}
+                      assignmentId={assignment.assignmentId}
+                      title={assignment.title}
+                      course={courseLabel(onboarding, assignment.courseId)}
+                      tone={courseTone(
+                        courseLabel(onboarding, assignment.courseId),
+                      )}
+                      selected={
+                        selectedAssignment?.assignmentId ===
+                        assignment.assignmentId
+                      }
+                      onAssignment={onAssignment}
+                    />
+                  ))}
+              </div>
+            </div>
+          )}
+          {verified.length === 0 && (
+            <PaperCard className="empty-state">
+              <p className="eyebrow">Nothing here yet</p>
+              <h3>I haven’t found homework on the school pages.</h3>
+              <p>
+                {scan?.state === "succeeded"
+                  ? "I looked, and nothing showed up. Check the school page or tell me what I missed."
+                  : "Let me look through school first."}
+              </p>
+            </PaperCard>
+          )}
         </section>
-        {error && panel.kind === "closed" && <p className="error-note" role="alert">{error}</p>}
+        {error && panel.kind === "closed" && (
+          <p className="error-note" role="alert">
+            {error}
+          </p>
+        )}
       </div>
-      {panel.kind !== "closed" && (
-        <DeskDrawer
-          panel={panel}
-          onboarding={onboarding}
-          workspace={workspace}
-          lifecycle={lifecycle}
-          detail={detail}
-          assignment={selectedAssignment}
-          task={selectedTask}
-          showingLiveDesk={showingLiveDesk}
-          busy={busy}
-          error={error}
-          talk={talk}
-          onClose={onClosePanel}
-          onStart={onStart}
-          onTalk={onTalk}
-          onTakeover={onTakeover}
-          onResume={onResume}
-          onCancel={onCancel}
-          onVerifySubmission={onVerifySubmission}
-          onOpenArtifact={onOpenArtifact}
-          onConnectRuntime={onConnectRuntime}
-          onSchoolSlot={onSchoolSlot}
-        />
-      )}
+      <ChatWorkspace
+        key={chrome.storageKey}
+        view={chatView}
+        onView={setChatView}
+        storageKey={chrome.storageKey ?? chrome.studentName}
+        onboarding={onboarding}
+        lifecycle={lifecycle}
+        workspace={workspace}
+        assignment={selectedAssignment}
+        task={selectedTask}
+        mood={inkyState}
+        actionError={error}
+        onStart={onStart}
+        onOpenWork={onOpenDesk}
+        onTakeover={onTakeover}
+        onResume={onResume}
+        onCancel={onCancel}
+        onOpenArtifact={onOpenArtifact}
+        onVerifySubmission={onVerifySubmission}
+        onSchoolSlot={onSchoolSlot}
+        onResumeScan={onScanAgain}
+      />
     </main>
   );
 }
@@ -714,5 +948,3 @@ function ruleScopeLabel(rule: PermissionRule, onboarding: SchoolOnboardingState)
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
 function courseTone(course: string): number { return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6; }
-function localDateKey(date: Date): string { return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`; }
-function fiveDays(): Array<{ key: string; label: string; date: string }> { const formatter = new Intl.DateTimeFormat(undefined, { weekday: "long" }); const dateFormatter = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }); const start = new Date(); start.setHours(0, 0, 0, 0); return Array.from({ length: 5 }, (_, offset) => { const date = new Date(start); date.setDate(start.getDate() + offset); return { key: localDateKey(date), label: offset === 0 ? "Today" : formatter.format(date), date: dateFormatter.format(date) }; }); }

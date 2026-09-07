@@ -23,3 +23,5 @@ createRoot(rootElement).render(
     {previewGallery ? <PreviewGallery /> : <StudiApp />}
   </StrictMode>,
 );
+
+import "./app/chat.css";

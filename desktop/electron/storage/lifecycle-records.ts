@@ -182,6 +182,11 @@ export class LifecycleRepository {
     return row ? parseNotificationRow(row) : null;
   }
 
+  listNotifications(): NotificationIntent[] {
+    const rows = this.database.handle.prepare("SELECT notification_id, kind, target_type, target_id, created_at, delivered_at, clicked_at, record_json FROM notification_intents ORDER BY created_at DESC, notification_id DESC LIMIT 100").all() as unknown as NotificationRow[];
+    return rows.map(parseNotificationRow);
+  }
+
   latestNotification(): NotificationIntent | null {
     const row = this.database.handle.prepare("SELECT notification_id, kind, target_type, target_id, created_at, delivered_at, clicked_at, record_json FROM notification_intents ORDER BY created_at DESC, notification_id DESC LIMIT 1").get() as NotificationRow | undefined;
     return row ? parseNotificationRow(row) : null;

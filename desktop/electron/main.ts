@@ -1,3 +1,4 @@
+import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
@@ -6,6 +7,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   app,
+  autoUpdater,
   BrowserWindow,
   dialog,
   Menu,
@@ -120,6 +122,7 @@ let authCoordinator: AuthCoordinator | null = null;
 let telemetryService: TelemetryService | null = null;
 let gateTray: Tray | null = null;
 let gateQuitting = false;
+let updateService: UpdateService | null = null;
 let pendingDesktopConnect = !isSelfTest && Boolean(findDesktopConnectUrl(process.argv));
 let telemetryShutdownFinished = false;
 const pendingNotifications: ExecutionNotification[] = [];
@@ -182,7 +185,34 @@ interface AgentSelfTestObservation {
   };
 }
 
+function updates(): UpdateService {
+  if (!updateService) {
+    updateService = new UpdateService({platform:process.platform,arch:process.arch,packaged:app.isPackaged,version:app.getVersion(),firstRun:process.argv.includes('--squirrel-firstrun'),native:autoUpdater,
+      blocked: () => {
+        if (conversationCoordinator?.isBusy) return 'Finish or stop your reply before restarting.';
+        const scan = localStore?.school.latestScan();
+        const execution = localStore?.lifecycle.getActiveExecution();
+        if (scan?.state === 'running' || scan?.state === 'needs_user') return 'Finish checking your school before restarting.';
+        if (execution && ['working','submitting','needs_user','ready_review'].includes(execution.phase)) return 'Finish your current assignment or browser handoff before restarting.';
+        return null;
+      },
+      prepare: async () => {
+        // Acquire service gate synchronously, then stop the scheduler before any await.
+        appKernel?.prepareUpdate();
+        // Drafts are synchronously persisted on each edit. Ask the renderer to verify storage before quitting.
+        await mainWindow?.webContents.executeJavaScript('(() => { const event = new Event("studi:before-update", {cancelable:true}); if(!window.dispatchEvent(event))throw new Error("Your draft could not be saved."); })()');
+        const block=updates().state().restartBlock;
+        if(block)throw new Error(block);
+        if (telemetryService) await Promise.race([telemetryService.flush(),new Promise<void>(resolve=>setTimeout(resolve,3000))]);
+        telemetryShutdownFinished = true; gateQuitting = true;
+      },recover:()=>{gateQuitting=false;telemetryShutdownFinished=false;appKernel?.cancelUpdate();},openDownload: url => shell.openExternal(url),report: error=>telemetryService?.captureError(error,'ipc','ipc_request')});
+  }
+  return updateService;
+}
 const ipcHandlers: StudiIpcHandlers = {
+  getUpdateState: () => updates().state(),
+  checkForUpdates: () => updates().check(),
+  installUpdate: () => updates().install(),
   getRuntimeInfo: () => {
     if (isSelfTest && process.env.STUDI_SELF_TEST_MALFORMED_RUNTIME_RESULT === "1") {
       return {
@@ -303,8 +333,16 @@ const ipcHandlers: StudiIpcHandlers = {
     await requireConversationCoordinator().replaceSessions();
     return readWorkspaceState();
   },
+  getConversationState: () => requireConversationCoordinator().state(),
+  stopConversation: () => requireConversationCoordinator().stop(),
+  getNotifications: () => requireLocalStore().lifecycle.listNotifications(),
+  readNotification: ({notificationId}) => {
+    const store = requireLocalStore(); const note = store.lifecycle.getNotification(notificationId);
+    if (note && !note.clickedAt) store.lifecycle.putNotification({...note, clickedAt:new Date().toISOString()});
+    return store.lifecycle.listNotifications();
+  },
   getManagerState: () => requireManagerCoordinator().state(),
-  send: async ({ target, text }) => {
+  send: async ({ target, text, ...metadata }) => {
     const provider = await requireAgentRuntime().getProviderStatus("openai-codex");
     const attention = classifyAgentRuntimeAttention(provider);
     if (attention === "usage") {
@@ -316,7 +354,7 @@ const ipcHandlers: StudiIpcHandlers = {
     if (provider.state !== "ready") {
       throw new Error("Connect the Codex subscription before asking Inky");
     }
-    const result = await requireConversationCoordinator().send(target, text);
+    const result = await requireConversationCoordinator().send(target, text, metadata);
     return result;
   },
   selectAssignment: ({ assignmentId }) => requireConversationCoordinator().selectAssignment(assignmentId),
@@ -503,8 +541,10 @@ const ipcHandlers: StudiIpcHandlers = {
     service.capture("studi_setting_changed", { setting: "beta_debug", enabled: durationMinutes > 0 });
     return service.state();
   },
-  captureUiTelemetry: ({ section }) =>
-    requireTelemetryService().capture("studi_dashboard_viewed", { section }),
+  captureUiTelemetry: (input) => {
+    if(input.event==='ui_error'){const error=new Error(input.message);if(input.stack)error.stack=input.stack;return requireTelemetryService().captureError(error,'ipc','ipc_request');}
+    return requireTelemetryService().capture("studi_dashboard_viewed",{section:input.section});
+  },
   exportDiagnostics: async () => {
     const window = requireMainWindow();
     const exportedAt = new Date();
@@ -544,6 +584,7 @@ function registerIpcHandlers(): void {
   for (const registration of createIpcHandlerRegistrations(studiIpcRegistry, ipcHandlers)) {
     ipcMain.handle(registration.channel, async (_event, rawRequest: unknown) => {
       try {
+        if (updateService?.restarting && !registration.channel.startsWith('studi:update-')) throw new Error('Studi is saving your place for an update.');
         return await registration.handle(rawRequest);
       } catch (error) {
         telemetryService?.captureError(error, "ipc", "ipc_request");
@@ -1346,6 +1387,8 @@ async function initializeAgentSelfTest(): Promise<void> {
 }
 
 async function initializeDesktopAgent(): Promise<void> {
+  const identity = isSelfTest ? selfTestAuthState : authCoordinator?.state();
+  const ownerSubject = identity && (identity.status === "approved" || identity.status === "offline") ? identity.user.subject : undefined;
   const dataRoot = join(app.getPath("userData"), "studi-data");
   agentRuntime = await PiAgentRuntime.create({
     cwd: dataRoot,
@@ -1373,7 +1416,7 @@ async function initializeDesktopAgent(): Promise<void> {
     requireLocalStore(),
     agentRuntime,
     managerCoordinator,
-    { connectedAppTools: loadConnectedAppTools },
+    { connectedAppTools: loadConnectedAppTools, ownerSubject },
   );
   unsubscribeConversationTrace = requireTelemetryService().subscribeToTrace(conversationCoordinator.trace);
   visibleBrowserWork = new VisibleBrowserWork(requireLocalStore());
@@ -1990,6 +2033,7 @@ if (canStart) {
         ensureGateTray();
       }
       registerIpcHandlers();
+      updates().start();
       startRenderer(window);
       if (!isSelfTest) {
         const state = await requireAuthCoordinator().start();
@@ -2040,6 +2084,7 @@ app.on("before-quit", (event) => {
 
 app.on("will-quit", () => {
   gateQuitting = true;
+  updateService?.dispose();
   disposeGateTray();
   disposeProtectedRuntime();
   authCoordinator = null;

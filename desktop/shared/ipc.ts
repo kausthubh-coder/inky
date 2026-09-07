@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { UpdateStateSchema } from './updates.js';
 
 import { AgentReasoningEffortSchema } from "./agent-runtime.js";
 import { SchemaVersionSchema, STUDI_SCHEMA_VERSION } from "./schema-version.js";
@@ -10,10 +11,12 @@ import { ConnectedAppConnectionSchema, ConnectedAppsStateSchema } from "./compos
 import { ManagerStateSchema } from "./manager.js";
 import {
   AddressedSendResultSchema,
+  AssignmentReferenceSchema,
+  ConversationStateSchema,
   ConversationTargetSchema,
   SelectedConversationSchema,
 } from "./agent-job.js";
-import { LifecycleStateSchema, type NotificationIntent } from "./lifecycle.js";
+import { LifecycleStateSchema, NotificationIntentSchema, type NotificationIntent } from "./lifecycle.js";
 import { ArtifactDocumentSchema } from "./artifact.js";
 import {
   BrowserLayoutModeSchema,
@@ -254,8 +257,15 @@ const ExportDiagnosticsManifestEntrySchema = z.strictObject({ method: z.literal(
 
 export const ContractManifestSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
-  contractVersion: z.literal("15"),
+  contractVersion: z.literal("16"),
   ipcMethods: z.tuple([
+    z.strictObject({method:z.literal('getUpdateState'),channel:z.literal('studi:update-state')}),
+    z.strictObject({method:z.literal('checkForUpdates'),channel:z.literal('studi:update-check')}),
+    z.strictObject({method:z.literal('installUpdate'),channel:z.literal('studi:update-install')}),
+    z.strictObject({method:z.literal('getConversationState'),channel:z.literal('studi:conversation-state')}),
+    z.strictObject({method:z.literal('stopConversation'),channel:z.literal('studi:conversation-stop')}),
+    z.strictObject({method:z.literal('getNotifications'),channel:z.literal('studi:notifications')}),
+    z.strictObject({method:z.literal('readNotification'),channel:z.literal('studi:notification-read')}),
     RuntimeInfoManifestEntrySchema,
     ContractManifestEntrySchema,
     GetAuthStateManifestEntrySchema,
@@ -351,6 +361,13 @@ export type IpcHandlerRegistration = Readonly<{
 }>;
 
 export const studiIpcRegistry = Object.freeze({
+  getUpdateState: {channel:'studi:update-state',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
+  checkForUpdates: {channel:'studi:update-check',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
+  installUpdate: {channel:'studi:update-install',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
+  getConversationState: { channel: 'studi:conversation-state', requestSchema: z.undefined(), resultSchema: ConversationStateSchema },
+  stopConversation: { channel: 'studi:conversation-stop', requestSchema: z.undefined(), resultSchema: ConversationStateSchema },
+  getNotifications: { channel: 'studi:notifications', requestSchema: z.undefined(), resultSchema: z.array(NotificationIntentSchema) },
+  readNotification: { channel: 'studi:notification-read', requestSchema: z.strictObject({ notificationId: z.string().min(1).max(256) }), resultSchema: z.array(NotificationIntentSchema) },
   [runtimeInfoMethod]: Object.freeze({
     channel: runtimeInfoChannel,
     requestSchema: z.undefined(),
@@ -444,6 +461,8 @@ export const studiIpcRegistry = Object.freeze({
     requestSchema: z.strictObject({
       target: ConversationTargetSchema,
       text: z.string().trim().min(1).max(100_000),
+      clientMessageId: z.string().uuid().optional(),
+      assignmentRefs: z.array(AssignmentReferenceSchema).max(20).optional(),
     }),
     resultSchema: AddressedSendResultSchema,
   }),
@@ -711,7 +730,7 @@ export function createIpcHandlerRegistrations<Registry extends IpcRegistryDefini
 
 const contractManifest = ContractManifestSchema.parse({
   schemaVersion: STUDI_SCHEMA_VERSION,
-  contractVersion: "15",
+  contractVersion: "16",
   ipcMethods: studiIpcMethods.map((method) => ({
     method,
     channel: studiIpcRegistry[method].channel,
