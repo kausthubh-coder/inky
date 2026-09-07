@@ -17,6 +17,7 @@ import {
 } from "../../shared/index.js";
 import type { DeskPanel } from "./DeskScreen.js";
 import type { AppScreen } from "./Ui.js";
+import { SETTINGS_SECTIONS, type SettingsSectionId } from "./SettingsNavigation.js";
 
 const now = "2026-09-03T16:00:00.000Z";
 
@@ -26,15 +27,15 @@ export type DevPreviewScenarioId =
   | "onboarding-school" | "onboarding-permission" | "onboarding-schedule" | "onboarding-signin"
   | "onboarding-scan" | "onboarding-handoff" | "onboarding-ready"
   | "chat-expanded" | "chat-thinking" | "chat-error" | "chat-handoff" | "week-error" | "week-updating" | "updates-ready" | "updates-mac" | "updates-error"
-  | "week" | "assignment" | "desk-working" | "desk-needs-user" | "desk-review" | "desk-submitted"
-  | "settings-inky" | "settings-school" | "settings-privacy" | "settings-account";
+  | "week" | "week-undated" | "assignment" | "desk-working" | "desk-needs-user" | "desk-review" | "desk-submitted"
+  | `settings-${SettingsSectionId}`;
 
 export interface DevPreviewConfig {
   readonly id: DevPreviewScenarioId;
   readonly screen: AppScreen;
   readonly panel: DeskPanel;
   readonly onboardingStep?: 0 | 1 | 2 | 3 | 4 | 5 | 6;
-  readonly settingsSection?: "inky" | "school" | "privacy" | "account";
+  readonly settingsSection?: SettingsSectionId;
 }
 
 export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId; readonly group: string; readonly title: string; readonly note: string }[] = [
@@ -60,15 +61,13 @@ export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId
   {id:'updates-mac',group:'Chat & updates',title:'updates mac',note:'Interactive real component fixture'},
   {id:'updates-error',group:'Chat & updates',title:'updates error',note:'Interactive real component fixture'},
   { id: "week", group: "Workspace", title: "This week", note: "Dashboard and assignments" },
+  { id: "week-undated", group: "Workspace", title: "Without dates", note: "Undated work, grouped by class" },
   { id: "assignment", group: "Workspace", title: "Assignment details", note: "Peek drawer" },
   { id: "desk-working", group: "Workspace", title: "Inky working", note: "Visible school work" },
   { id: "desk-needs-user", group: "Workspace", title: "Inky needs you", note: "Resume handoff" },
   { id: "desk-review", group: "Workspace", title: "Ready for review", note: "Completion checklist" },
   { id: "desk-submitted", group: "Workspace", title: "Submitted", note: "Verified receipt" },
-  { id: "settings-inky", group: "Settings", title: "Inky & apps", note: "Models, connected apps, files" },
-  { id: "settings-school", group: "Settings", title: "School", note: "Schedule and permissions" },
-  { id: "settings-privacy", group: "Settings", title: "Privacy", note: "Telemetry and diagnostics" },
-  { id: "settings-account", group: "Settings", title: "Account", note: "Runtime and sign-out" },
+  ...SETTINGS_SECTIONS.map(section => ({ id: `settings-${section.id}` as const, group: "Settings", title: section.label, note: section.hint })),
 ];
 
 export function readDevPreviewConfig(): DevPreviewConfig | null {
@@ -118,6 +117,9 @@ const assignments = [
   assignment("assignment-hw3", "HW 3", "2026-09-04T23:45:00.000Z"),
   assignment("assignment-hw1", "Homework 1", "2026-09-05T23:59:00.000Z"),
 ];
+// Undated work is intentional preview data, kept separate from the calendar.
+const { dueAt: _previewDueAt, ...undatedPreview } = assignment("assignment-project", "Final project · reading notes", "2026-09-05T23:59:00.000Z");
+assignments.push(undatedPreview);
 
 const permission = { mode: "attempt" as const, mayAttempt: true, maySubmit: false, matchedRuleId: "preview-global", rationale: "A saved rule lets Inky try this and stop before submit." };
 

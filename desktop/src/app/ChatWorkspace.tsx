@@ -1,3 +1,4 @@
+import { Icon } from "./Icon.js";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type {
   Assignment,
@@ -607,7 +608,7 @@ export function ChatWorkspace(props: ChatProps) {
             aria-label="Open your conversation with Inky"
             onClick={() => onView("compact")}
           >
-            <Inky state="hello" size={86} label="Inky waves hello" />
+            <Inky state="hello" size={54} label="Inky waves hello" />
           </button>
         )}
         {draft.refs.length > 0 && (
@@ -725,7 +726,7 @@ export function ChatWorkspace(props: ChatProps) {
             aria-label={active ? "Stop reply" : "Send message"}
             disabled={!active && !draft.text.trim()}
           >
-            {active ? "stop" : "say it"}
+            <Icon name={active ? "stop" : "send"} size={20} />
           </button>
         </div>
       </form>
