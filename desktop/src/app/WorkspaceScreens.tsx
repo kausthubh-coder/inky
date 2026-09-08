@@ -1,3 +1,5 @@
+import { ConnectedAppRow } from "./ConnectedAppRow.js";
+import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
 import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
 import { Icon } from "./Icon.js";
 import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
@@ -12,9 +14,7 @@ import {
 
 import {
   classifyAgentRuntimeAttention,
-  connectedAppCatalogEntry,
   type AgentReasoningEffort,
-  connectedAppIsActive,
   type ConnectedAppConnection,
   type ConnectedAppsState,
   type DiagnosticsExportReceipt,
@@ -671,7 +671,7 @@ export function SettingsScreen({
   onboarding,
   workspace,
   connectedApps,
-  appConnections,
+  appConnections, appConnectionFeedback,
   telemetry,
   runtime,
   diagnosticsReceipt,
@@ -702,7 +702,7 @@ export function SettingsScreen({
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
   connectedApps: ConnectedAppsState | null;
-  appConnections: Readonly<Record<string, ConnectedAppConnection | null>>;
+  appConnections: Readonly<Record<string, ConnectedAppConnection | null>>; appConnectionFeedback: ConnectionFeedbackMap;
   telemetry: TelemetryState | null;
   runtime: RuntimeInfo | null;
   diagnosticsReceipt: DiagnosticsExportReceipt | null;
@@ -808,24 +808,9 @@ export function SettingsScreen({
               {!connectedApps && <small>Connected apps need an online Studi account.</small>}
               {connectedApps && !connectedApps.configured && <small>Connected apps are not configured on this Studi server.</small>}
               <div className="connected-app-grid">
-                {connectedApps?.toolkits.map(({ toolkit, access, tools }) => {
-                  const connection = appConnections[toolkit] ?? null;
-                  const active = connectedAppIsActive(connection);
-                  const app = connectedAppCatalogEntry(toolkit);
-                  return (
-                    <div className="connected-app-row" key={toolkit} data-connected-app={toolkit}>
-                      <img className="connected-app-logo" src={app.logoUrl} alt="" loading="lazy" />
-                      <span>
-                        <strong>{app.label}</strong>
-                        <small>{app.description}</small>
-                        <small>{active ? "Connected" : connection?.status === "INITIATED" ? "Waiting for browser sign-in" : "Not connected"} · {access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}</small>
-                      </span>
-                      <button className="quiet-button" type="button" disabled={busy !== null} onClick={() => active ? onRefreshConnectedApp(toolkit) : connection?.status === "INITIATED" ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>
-                        {active ? "Check" : connection?.status === "INITIATED" ? "I finished" : "Connect"}
-                      </button>
-                    </div>
-                  );
-                })}
+                {connectedApps?.configured && connectedApps.toolkits.map(({ toolkit, access, tools }) => (
+                  <ConnectedAppRow key={toolkit} toolkit={toolkit} connection={appConnections[toolkit] ?? null} feedback={appConnectionFeedback[toolkit]} access={access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`} disabled={busy !== null} onConnect={onConnectApp} onCheck={onRefreshConnectedApp} />
+                ))}
               </div>
             </PaperCard>
             )}
