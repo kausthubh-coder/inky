@@ -24,6 +24,8 @@ import type { BrowserController } from "../browser/controller.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
+import { reconcileAssignments } from "../storage/assignment-reconciliation.js";
+import { assignmentIdentity, exactTarget, isMoodleIndex, normalize, observedTarget, schoolIdentity } from "./source-identity.js";
 
 export interface ScanSessionRuntime {
   createScanSession(
@@ -76,6 +78,7 @@ export class SchoolScanCoordinator {
       scan: this.#store.school.latestScan(),
       courses,
       assignments,
+      assignmentConflicts: this.#store.assignmentConflicts,
       linkedSystems: this.#store.school.listLinkedSystems(),
       workflowRevision:
         workflow?.revision ?? null,
@@ -259,7 +262,7 @@ export class SchoolScanCoordinator {
       : "";
     return this.#run(
       scan,
-      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. Open each assignment detail page before recording it so sourceTarget points to the work, not the dashboard. Capture its visible instructions and due date (dueText must be the exact visible date). Do not omit visible details. Use stable courseKey and assignmentKey values across pages and replays. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing. Navigation hints become a Markdown note. Write them as plain text or Markdown, never HTML.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
+      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. Record assignments from their destination links on lists, then visit their detail pages to capture instructions and dates. If a list has no unambiguous link, open the assignment before recording it. Capture its visible instructions and due date (dueText must be the exact visible date). Do not omit visible details. Identify assignment destination links with observationRef when recording a list. Code derives identity from these links, not courseKey or assignmentKey. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing. Navigation hints become a Markdown note. Write them as plain text or Markdown, never HTML.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
     );
   }
 
@@ -321,14 +324,17 @@ export class SchoolScanCoordinator {
         const snapshot = await this.#browser.snapshot();
         const observation = requireSnapshotFact(snapshot, input.label, input.observationRef, "course label");
         const evidence = this.#evidence(scanId, snapshot, `Observed course ${input.label.trim()} in ${observation}.`);
-        const priorCourse = this.#store.school.listCourses().find(course =>
-          course.sourceTarget === evidence.sourceTarget && sameFact(course.label, input.label));
-        const courseId = priorCourse?.courseId ?? stableId("course", input.courseKey ?? `${snapshot.url}|${input.label.trim()}`);
+        const sourceTarget = observedTarget(snapshot, input.label, input.observationRef);
+        const identity = schoolIdentity(sourceTarget, "course");
+        const priorCourse = this.#store.school.listCourses().find(course => identity
+          ? schoolIdentity(course.sourceTarget, "course") === identity
+          : exactTarget(course.sourceTarget) === exactTarget(sourceTarget) && sameFact(course.label, input.label));
+        const courseId = priorCourse?.courseId ?? stableId("course", identity ?? `${exactTarget(sourceTarget)}|${normalize(input.label)}`);
         const course = this.#store.school.putCourse({
           schemaVersion: STUDI_SCHEMA_VERSION,
           courseId,
           label: input.label.trim(),
-          sourceTarget: evidence.sourceTarget,
+          sourceTarget,
           lastVerifiedScanId: scanId,
           lastVerifiedAt: evidence.capturedAt,
           evidence,
@@ -363,50 +369,81 @@ export class SchoolScanCoordinator {
     }[]) => {
       const scan = this.#requiredRunningScan(scanId);
       const snapshot = await this.#browser.snapshot();
-      const assignments = inputs.map((input) => {
-        if (!scan.observedCourseIds.includes(input.courseId)) {
-          throw new Error("The assignment's course has not been verified in this scan");
-        }
-        const observation = requireSnapshotFact(snapshot, input.title, input.observationRef, "assignment title");
-        if (input.instructions) requireSnapshotFact(snapshot, input.instructions, undefined, "assignment instructions");
-        const dueAt = input.dueAt === undefined && input.dueText === undefined
-          ? undefined
-          : requireObservedDueAt(snapshot, input.dueAt, input.dueText);
-        const evidence = this.#evidence(scanId, snapshot, `Observed assignment ${input.title.trim()} in ${observation}.`);
-        const priorAssignment = this.#store.assignments.listByCourse(input.courseId).find(assignment =>
-          assignment.sourceTarget === evidence.sourceTarget && sameFact(assignment.title, input.title));
-        const assignmentId = priorAssignment?.assignmentId ?? stableId(
-          "assignment",
-          `${input.courseId}|${input.assignmentKey ?? `${snapshot.url}|${input.title.trim()}`}`,
-        );
-        const assignment = this.#store.assignments.put({
-          schemaVersion: STUDI_SCHEMA_VERSION,
-          assignmentId,
-          courseId: input.courseId,
-          title: input.title.trim(),
-          sourceTarget: evidence.sourceTarget,
-          ...(dueAt === undefined ? {} : { dueAt }),
-          ...(input.instructions === undefined ? {} : { instructions: input.instructions.trim() }),
-          ...(input.dueText === undefined ? {} : { dueText: input.dueText.trim() }),
-          discoveredAt: priorAssignment?.discoveredAt ?? evidence.capturedAt,
-          lastVerifiedScanId: scanId,
-          evidence: [evidence],
+      return this.#store.database.transaction(() => {
+        const assignments = inputs.map((input) => {
+          if (!scan.observedCourseIds.includes(input.courseId)) {
+            throw new Error("The assignment's course has not been verified in this scan");
+          }
+          const observation = requireSnapshotFact(snapshot, input.title, input.observationRef, "assignment title");
+          if (input.instructions) requireSnapshotFact(snapshot, input.instructions, undefined, "assignment instructions");
+          const dueAt = input.dueAt === undefined && input.dueText === undefined
+            ? undefined
+            : requireObservedDueAt(snapshot, input.dueAt, input.dueText);
+          const evidence = this.#evidence(scanId, snapshot, `Observed assignment ${input.title.trim()} in ${observation}.`);
+          const sourceTarget = observedTarget(snapshot, input.title, input.observationRef);
+          if (isMoodleIndex(sourceTarget) || schoolIdentity(sourceTarget, "course")) {
+            throw new Error("Open the assignment detail page; this list has no unambiguous assignment link");
+          }
+          // Generic pages without links retain a course/title-scoped identity. This
+          // avoids collapsing several list entries into the page's URL.
+          const hasLink = snapshot.elements.some(element => element.href === sourceTarget && normalize(element.name).includes(normalize(input.title)));
+          const sourceIdentity = schoolIdentity(sourceTarget, "assignment") ?? (hasLink
+            ? assignmentIdentity(sourceTarget)
+            : `observed|${input.courseId}|${exactTarget(sourceTarget)}|${normalize(input.title)}`);
+          if (hasLink && exactTarget(sourceTarget) !== exactTarget(snapshot.url)) {
+            // Upgrade only an unambiguous legacy observation from this very list
+            // and course, confirmed now by its actual link (never title alone).
+            const candidates = this.#store.assignments.listAll().filter(assignment =>
+              (assignment.courseId === input.courseId || isMoodleIndex(snapshot.url)) &&
+              !assignment.sourceIdentity && exactTarget(assignment.sourceTarget) === exactTarget(snapshot.url) &&
+              sameFact(assignment.title, input.title) && (dueAt === undefined || assignment.dueAt === dueAt));
+            if (candidates.length === 1) this.#store.assignments.put({ ...candidates[0], sourceIdentity, sourceTarget });
+          }
+          const conflicts = reconcileAssignments(this.#store);
+          this.#store.assignmentConflicts = conflicts;
+          const matches = this.#store.assignments.listAll().filter(assignment =>
+            (assignment.sourceIdentity ?? schoolIdentity(assignment.sourceTarget, "assignment")) === sourceIdentity ||
+            (assignment.sourceIdentity === assignmentIdentity(sourceTarget)) ||
+            ((!assignment.sourceIdentity || assignment.sourceIdentity.startsWith("observed|")) && assignment.courseId === input.courseId &&
+              exactTarget(assignment.sourceTarget) === exactTarget(sourceTarget) && sameFact(assignment.title, input.title)));
+          const conflict = conflicts.find(item => matches.some(match => item.assignmentIds.includes(match.assignmentId)));
+          if (matches.length > 1 && !conflict) throw new Error("Assignment identity is ambiguous; open its detail page before recording it");
+          // Commit confirmed identity even when merging needs review. Rolling it
+          // back would let a later detail scan forget the conflict and run a copy.
+          const priorAssignment = matches.find(item => item.courseId === input.courseId) ?? matches[0];
+          const assignmentId = priorAssignment?.assignmentId ?? stableId("assignment", sourceIdentity);
+          const assignment = this.#store.assignments.put({
+            schemaVersion: STUDI_SCHEMA_VERSION,
+            ...priorAssignment,
+            assignmentId,
+            courseId: priorAssignment?.courseId ?? input.courseId,
+            title: input.title.trim(),
+            sourceTarget,
+            sourceIdentity: !hasLink && priorAssignment?.sourceIdentity?.startsWith("url|")
+              ? priorAssignment.sourceIdentity : sourceIdentity,
+            ...(dueAt === undefined ? {} : { dueAt }),
+            ...(input.instructions === undefined ? {} : { instructions: input.instructions.trim() }),
+            ...(input.dueText === undefined ? {} : { dueText: input.dueText.trim() }),
+            discoveredAt: priorAssignment?.discoveredAt ?? evidence.capturedAt,
+            lastVerifiedScanId: scanId,
+            evidence: [...(priorAssignment?.evidence ?? []), evidence],
+          });
+          if (!conflict) this.#ensureTaskOrigin(assignment, scanId);
+          return assignment;
         });
-        this.#ensureTaskOrigin(assignment, scanId);
-        return assignment;
+        this.#store.school.putScan({
+          ...scan,
+          updatedAt: this.#now(),
+          currentStep: assignments.length === 1
+            ? `Verified assignment: ${assignments[0]!.title}`
+            : `Verified ${assignments.length} assignments on the current page`,
+          observedAssignmentIds: assignments.reduce(
+            (ids, assignment) => addUnique(ids, assignment.assignmentId),
+            scan.observedAssignmentIds,
+          ),
+        });
+        return assignments;
       });
-      this.#store.school.putScan({
-        ...scan,
-        updatedAt: this.#now(),
-        currentStep: assignments.length === 1
-          ? `Verified assignment: ${assignments[0]!.title}`
-          : `Verified ${assignments.length} assignments on the current page`,
-        observedAssignmentIds: assignments.reduce(
-          (ids, assignment) => addUnique(ids, assignment.assignmentId),
-          scan.observedAssignmentIds,
-        ),
-      });
-      return assignments;
     };
 
     const recordAssignment = defineTool({

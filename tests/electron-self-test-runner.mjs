@@ -94,7 +94,7 @@ try {
 function assertComposition(composition) {
   assert.deepEqual(composition.window, { menuBarVisible: false });
   assert.equal(composition.storage.driver, "node:sqlite");
-  assert.equal(composition.storage.schemaVersion, 6);
+  assert.equal(composition.storage.schemaVersion, 7);
   assert.equal(composition.storage.fileBacked, true);
   assert.equal(composition.storage.reopened, true);
   assert.equal(composition.storage.backupValidated, true);

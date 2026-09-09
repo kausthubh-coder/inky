@@ -16,6 +16,7 @@ import {
 } from "../../shared/index.js";
 import { StudiSqliteDatabase } from "./database.js";
 import { StorageError, errorMessage, isStorageError } from "./errors.js";
+import { resolveRecordId } from "./redirects.js";
 
 type JsonRow = { record_json: string };
 type StoredColumn = string | number | null;
@@ -84,6 +85,21 @@ function assertStoredColumns(
 }
 
 export function validatePersistedRecords(database: StudiSqliteDatabase): void {
+  for (const row of database.handle.prepare("SELECT kind, old_id, record_json FROM record_redirects").all()) {
+    if (row.kind !== "assignment" && row.kind !== "task") throw new Error("Invalid redirect kind");
+    const original = JSON.parse(String(row.record_json));
+    const id = String(row.old_id);
+    const canonicalId = resolveRecordId(database, row.kind, id);
+    const repository = row.kind === "assignment" ? new AssignmentRepository(database) : new TaskRepository(database);
+    if (canonicalId === id || !repository.get(canonicalId)) throw new Error("Redirect target is missing");
+    if (row.kind === "assignment") {
+      if (AssignmentSchema.parse(original).assignmentId !== id) throw new Error("Archived assignment id does not match redirect");
+    } else {
+      const task = TaskSchema.parse(original.task);
+      const replayed = replayTaskEvents(id, z.array(TaskEventSchema).parse(original.events));
+      if (JSON.stringify(task) !== JSON.stringify(replayed)) throw new Error("Archived task history does not replay");
+    }
+  }
   const assignments = database.handle
     .prepare(
       "SELECT assignment_id, course_id, due_at, discovered_at, record_json FROM assignments",
@@ -300,6 +316,9 @@ export class AssignmentRepository {
 
   put(value: unknown): Assignment {
     const record = parseRecord(AssignmentSchema, value, "assignment");
+    if (resolveRecordId(this.database, "assignment", record.assignmentId) !== record.assignmentId) {
+      throw new Error("This assignment was merged; refresh its canonical record before saving");
+    }
     const recordJson = canonicalJson(AssignmentSchema, record, "assignment");
     this.database.handle
       .prepare(`
@@ -322,6 +341,7 @@ export class AssignmentRepository {
   }
 
   get(assignmentId: string): Assignment | null {
+    assignmentId = resolveRecordId(this.database, "assignment", assignmentId);
     const row = this.database.handle
       .prepare("SELECT record_json FROM assignments WHERE assignment_id = ?")
       .get(assignmentId) as JsonRow | undefined;
@@ -358,7 +378,10 @@ export class PermissionRuleRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   put(value: unknown): PermissionRule {
-    const record = parseRecord(PermissionRuleSchema, value, "permission rule");
+    const parsed = parseRecord(PermissionRuleSchema, value, "permission rule");
+    const record = parsed.scope === "assignment"
+      ? { ...parsed, assignmentId: resolveRecordId(this.database, "assignment", parsed.assignmentId) }
+      : parsed;
     const recordJson = canonicalJson(PermissionRuleSchema, record, "permission rule");
     const courseId = "courseId" in record ? record.courseId : null;
     const assignmentId = "assignmentId" in record ? record.assignmentId : null;
@@ -477,6 +500,7 @@ export class TaskRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   get(taskId: string): Task | null {
+    taskId = resolveRecordId(this.database, "task", taskId);
     const row = this.database.handle
       .prepare("SELECT record_json FROM task_projections WHERE task_id = ?")
       .get(taskId) as JsonRow | undefined;
@@ -589,10 +613,12 @@ export class TaskRepository {
   }
 
   replay(taskId: string): Task {
+    taskId = resolveRecordId(this.database, "task", taskId);
     return replayTaskEvents(taskId, this.readEvents(taskId));
   }
 
   rebuildProjection(taskId: string): Task {
+    taskId = resolveRecordId(this.database, "task", taskId);
     return this.database.transaction(() => {
       const task = replayTaskEvents(taskId, this.readEvents(taskId));
       const recordJson = canonicalJson(TaskSchema, task, "task projection");
@@ -621,6 +647,7 @@ export class TaskRepository {
   }
 
   private readEvents(taskId: string): TaskEvent[] {
+    taskId = resolveRecordId(this.database, "task", taskId);
     const rows = this.database.handle
       .prepare("SELECT record_json FROM task_events WHERE task_id = ? ORDER BY sequence")
       .all(taskId) as unknown as JsonRow[];

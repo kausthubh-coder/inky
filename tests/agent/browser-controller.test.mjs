@@ -32,6 +32,17 @@ test("browser snapshot is bounded and page revisions invalidate old refs", async
   assert.equal(second.elements[0].ref, `r${second.revision}:1`);
 });
 
+test("browser snapshots expose observed HTTP link destinations for assignment identity", async () => {
+  const href = "https://school.example.edu/mod/assign/view.php?id=1360376";
+  const target = fakeTarget([
+    { ...axNode(1, "link", "Homework 1"), properties: [{ name: "url", value: { value: href } }] },
+    { ...axNode(2, "link", "Run script"), properties: [{ name: "url", value: { value: "javascript:void(0)" } }] },
+  ]);
+  const snapshot = BrowserSnapshotSchema.parse(await new BrowserController(target).snapshot());
+  assert.equal(snapshot.elements[0].href, href);
+  assert.equal(snapshot.elements[1].href, undefined);
+});
+
 test("ordinary click refuses submission while explicit submit can activate it", async () => {
   const target = fakeTarget([axNode(1, "button", "Submit assignment")], {
     inspection: { connected: true, disabled: false, submission: true, label: "Submit assignment" },
