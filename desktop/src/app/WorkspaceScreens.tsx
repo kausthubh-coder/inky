@@ -1,3 +1,4 @@
+import { ScanStatus } from "./ScanStatus.js";
 import { ConnectedAppRow } from "./ConnectedAppRow.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
 import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
@@ -113,6 +114,7 @@ export function DashboardScreen({
   onVerifySubmission,
   onOpenArtifact,
   onScanAgain,
+  onStopAndScan,
   onConnectRuntime,
   onFeedback,
   onSchoolSlot,
@@ -141,6 +143,7 @@ export function DashboardScreen({
   onVerifySubmission: (taskId: string, confirmation: string) => void;
   onOpenArtifact: (taskId: string) => void;
   onScanAgain: () => void;
+  onStopAndScan: (taskId: string) => void;
   onConnectRuntime: () => void;
   onFeedback: (context: string, message: string) => void;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
@@ -236,26 +239,7 @@ export function DashboardScreen({
       <div className="page dashboard-page">
         <header className="page-hero dashboard-hero">
           <h1>Hey {chrome.studentName.trim().split(/\s+/)[0]}.</h1>
-          <p role="status">
-            {error
-              ? error
-              : scan?.state === "running"
-                ? "I’m checking your school pages. Your saved week is still here."
-                : scan?.state === "failed"
-                  ? "I couldn’t check school. Your saved week is still here."
-                  : scan?.state === "partial"
-                    ? "I checked some classes. A few pages still need another look."
-                    : scan?.state === "needs_user"
-                      ? "Could you help me with your school page?"
-                      : dueToday
-                        ? `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today. We’ll take them one at a time.`
-                        : "Nothing due today. A little room to breathe."}
-          </p>
-          {["failed", "partial"].includes(scan?.state ?? "") && (
-            <button className="scan-retry" onClick={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} disabled={false}>
-              <Icon name="refresh" size={14} />Try again
-            </button>
-          )}
+          <p>{dueToday ? `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today. We’ll take them one at a time.` : "Nothing due today. A little room to breathe."}</p>
         </header>
 
         <RuntimeAttentionBanner
@@ -264,6 +248,11 @@ export function DashboardScreen({
           busy={busy !== null}
           onConnect={onConnectRuntime}
         />
+
+        <ScanStatus state={onboarding} lifecycle={lifecycle} busy={busy !== null}
+          onCheck={onScanAgain} onStopAndScan={onStopAndScan} onOpenWork={onOpenDesk}
+          onWait={() => { onClosePanel(); setSchoolOpen(false); setChatView("home"); }}
+          onDetails={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} />
 
         <section className="week-section" data-studi-week-board="true">
           {onboarding.assignmentConflicts?.map(conflict => (
@@ -311,7 +300,7 @@ export function DashboardScreen({
                 autoFocus
                 value={feedback}
                 onChange={(event) => setFeedback(event.target.value)}
-                placeholder="Tell Studi what this view missed"
+                placeholder="Which assignment is missing or incorrect?"
                 maxLength={1000}
               />
               <button
@@ -420,8 +409,8 @@ export function DashboardScreen({
             </PaperCard>
           )}
           <footer className="week-footer">
-            <button className="scan-refresh" onClick={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} aria-label="School check"><Icon name="refresh" size={15} /><span role="status">{scanStatusCopy(scan?.state)}</span></button>
-            <button className="week-correction" onClick={() => setNoteOpen(open => !open)} aria-expanded={noteOpen}><Icon name="note" size={15} />{noteOpen ? "Close note" : "Something missing?"}</button>
+            <button className="scan-refresh" onClick={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} aria-label="School check"><Icon name="refresh" size={15} /><span role="status">School scan details</span></button>
+            <button className="week-correction" onClick={() => setNoteOpen(open => !open)} aria-expanded={noteOpen}><Icon name="note" size={15} />{noteOpen ? "Close note" : "Report missing or incorrect homework"}</button>
           </footer>
         </section>
         {error && panel.kind === "closed" && (
@@ -453,6 +442,7 @@ export function DashboardScreen({
         onVerifySubmission={onVerifySubmission}
         onSchoolSlot={onSchoolSlot}
         onResumeScan={onScanAgain}
+        onStopAndScan={onStopAndScan}
         scanBusy={busy !== null}
       />
     </main>
@@ -469,15 +459,6 @@ function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, select
       {status && <StatusPill tone={status.tone}>{status.label}</StatusPill>}
     </button>
   );
-}
-
-function scanStatusCopy(state?: string): string {
-  if (state === "succeeded") return "Checked";
-  if (state === "running") return "Looking";
-  if (state === "partial") return "Some pages";
-  if (state === "failed") return "Stuck";
-  if (state === "needs_user") return "Need you";
-  return "Not yet";
 }
 
 const NOTIFICATION_ROWS: ReadonlyArray<{ kind: NotificationKind; label: string; hint: string }> = [

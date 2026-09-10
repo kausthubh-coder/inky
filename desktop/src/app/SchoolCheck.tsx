@@ -1,7 +1,15 @@
-import type { SchoolOnboardingState } from "../../shared/index.js";
+import type { LifecycleState, SchoolOnboardingState } from "../../shared/index.js";
+import { ScanStatus } from "./ScanStatus.js";
+import { scanBrowserOwner } from "./scanBrowserOwner.js";
+import { Icon } from "./Icon.js";
 
-export function SchoolCheck({ state, onAssignment, onCheck, onPause, onBrowser, busy }: {
+export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWork, browserOpen, onAssignment, onCheck, onPause, onBrowser, busy }: {
   state: SchoolOnboardingState;
+  lifecycle: LifecycleState;
+  onStopAndScan: (taskId: string) => void;
+  onWait: () => void;
+  onOpenWork: () => void;
+  browserOpen: boolean;
   onAssignment: (id: string) => void;
   onCheck: () => void;
   onPause: () => void;
@@ -10,17 +18,16 @@ export function SchoolCheck({ state, onAssignment, onCheck, onPause, onBrowser, 
 }) {
   const scan = state.scan;
   const checking = scan?.state === "running";
+  const owner = scanBrowserOwner(state, lifecycle);
   const changes = scan?.changes ?? [];
   const directory = scan?.inventories.find(item => item.kind === "courses");
   const courses = directory ? state.courses.filter(course => directory.itemIds.includes(course.courseId)) : state.courses;
   const checked = courses.filter(course => scan?.inventories.some(item => item.kind === "assignments" && item.courseId === course.courseId));
   return <div className="school-check">
-    <p className="check-purpose">Finding new homework and updating what changed.</p>
-    <div className="check-current" role="status"><span className={checking ? "check-pulse" : "check-dot"} /><span>{scan?.currentStep ?? "Ready to check your school."}</span></div>
-    {scan?.handoff && scan.handoff.reason !== scan.currentStep && <p>{scan.handoff.reason}</p>}
+    <ScanStatus state={state} lifecycle={lifecycle} busy={busy} onCheck={onCheck} onStopAndScan={onStopAndScan} onWait={onWait} onOpenWork={onOpenWork} />
     <div className="chat-card-actions">
-      <button className="button button--paper" onClick={onBrowser}>View school browser</button>
-      {checking ? <button className="quiet-button" onClick={onPause}>Pause</button> : <button className="button button--yellow" onClick={onCheck} disabled={busy}>{scan?.state === "needs_user" ? "Continue check" : "Check school"}</button>}
+      <button className={`button button--${scan?.state === "needs_user" ? "yellow" : "paper"}`} aria-expanded={browserOpen} onClick={onBrowser}><Icon name="browser" />{browserOpen ? "Close school browser" : "Open school browser"}</button>
+      {!owner && (checking ? <button className="quiet-button" disabled={busy} onClick={onPause}>Pause scan</button> : scan?.state === "needs_user" && <button className="button button--paper" onClick={onCheck} disabled={busy}>I’m done · continue scan</button>)}
     </div>
     {courses.length > 0 && <details className="check-coverage"><summary>{checked.length} of {courses.length} classes checked</summary><ul>{courses.map(course => <li key={course.courseId}><span>{course.label}</span><small>{checked.includes(course) ? "Checked" : course.lastVerifiedScanId === scan?.scanId ? "Checking homework" : "Not checked yet"}</small></li>)}</ul></details>}
     {changes.length > 0 && <section className="check-results" aria-label="New and updated homework"><h3>{changes.filter(change => change.kind === "new").length} new · {changes.filter(change => change.kind === "updated").length} updated</h3>{changes.map(change => {

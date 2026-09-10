@@ -117,7 +117,7 @@ export function installDevPreview(): void {
     onboarding = { ...onboarding, scan: null, workflowRevision: null };
   } else if (preview.id === "onboarding-scan") {
     onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "running", completedAt: undefined, currentStep: "Checking linked homework pages…", failures: [], handoff: null }, workflowRevision: null };
-  } else if (preview.id === "onboarding-handoff" || preview.id === "chat-handoff") {
+  } else if (preview.id === "onboarding-handoff" || preview.id === "chat-handoff" || preview.id === "week-needs-user") {
     onboarding = {
       ...onboarding,
       scan: {
@@ -128,7 +128,7 @@ export function installDevPreview(): void {
         failures: [],
         handoff: { kind: "linked_system_sign_in", reason: "WebAssign needs you to sign in before I can keep checking.", requestedAt: now, evidence },
       },
-      workflowRevision: preview.id === "chat-handoff" ? 1 : null,
+      workflowRevision: preview.id === "onboarding-handoff" ? null : 1,
     };
   }
 
@@ -187,7 +187,7 @@ export function installDevPreview(): void {
     return job;
   };
 
-  if (preview.id.startsWith("desk-")) {
+  if (preview.id.startsWith("desk-") || preview.id === "week-browser-busy") {
     const item = tasks[0]!;
     const phase = preview.id === "desk-needs-user" ? "needs_user" : preview.id === "desk-review" ? "ready_review" : preview.id === "desk-submitted" ? "submitted" : "working";
     const checkpoint = { revision: 4, url: item.assignment.sourceTarget, title: item.assignment.title, capturedAt: now, summary: "All six written answers are visible on the assignment page." };
@@ -215,7 +215,7 @@ export function installDevPreview(): void {
       item.submissionReceipt = receipt;
       lifecycle = { ...lifecycle, execution: item.execution, submissionReceipt: receipt };
     } else {
-      lifecycle = { ...lifecycle, execution: item.execution };
+      lifecycle = { ...lifecycle, execution: item.execution, manager: { entries: [], lease: { schemaVersion: 1, leaseId: "browser-worker", taskId: item.task.taskId, state: "active", acquiredAt: now, workerSessionId: "preview-worker", workerSessionPath: "preview-session" } } };
     }
   }
 
@@ -231,6 +231,14 @@ export function installDevPreview(): void {
     restartBlock: null,
   };
   if (preview.id==='week-error'||preview.id==='week-updating') onboarding={...onboarding,scan:onboarding.scan?{...onboarding.scan,state:preview.id==='week-error'?'failed':'running',failures:preview.id==='week-error'?['The school connection timed out.']:[]}:null};
+  if (preview.id === "week-idle") onboarding = { ...onboarding, scan: null };
+  if (preview.id === "week-complete") onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "succeeded", failures: [], currentStep: "Your homework is up to date." } };
+  if (preview.id === "week-updating") onboarding = { ...onboarding, scan: { ...onboarding.scan!, completedAt: undefined, currentStep: "Checking linked homework pages…" } };
+  const startPreviewScan = async () => {
+    if (lifecycle.manager.lease) throw new Error("An assignment is using the school browser.");
+    onboarding = { ...onboarding, scan: { ...onboarding.scan!, schemaVersion: 1, scanId: "preview-scan", kind: "first_scan", state: "running", startedAt: now, updatedAt: now, completedAt: undefined, currentStep: "Checking linked homework pages…", failures: [], handoff: null, inventories: [], messages: [], changes: [], coverage: [], observedCourseIds: [], observedAssignmentIds: [], observedLinkedSystemIds: [] } };
+    return onboarding;
+  };
   const home = conversation({kind:'home'});
   if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
   const api: StudiRendererApi = {
@@ -316,9 +324,9 @@ export function installDevPreview(): void {
     },
     getSchoolOnboardingState: async () => onboarding,
     saveSchoolProfile: async (input) => { onboarding = { ...onboarding, profile: onboarding.profile ? { ...onboarding.profile, ...input, updatedAt: new Date().toISOString() } : onboarding.profile }; return onboarding; },
-    startSchoolScan: async () => onboarding,
-    resumeSchoolScan: async () => onboarding,
-    replaySchoolScan: async () => onboarding,
+    startSchoolScan: startPreviewScan,
+    resumeSchoolScan: startPreviewScan,
+    replaySchoolScan: startPreviewScan,
     recordMissedCourseFeedback: async () => onboarding,
     getLifecycleState: async () => lifecycle,
     setAutomationPaused: async () => lifecycle,
@@ -368,7 +376,7 @@ export function installDevPreview(): void {
       }
       return lifecycle;
     },
-    cancelAssignment: async () => { lifecycle = { ...lifecycle, execution: null }; return lifecycle; },
+    cancelAssignment: async () => { lifecycle = { ...lifecycle, execution: null, manager: { entries: [], lease: null } }; return lifecycle; },
     setBrowserLayout: async ({ mode }) => mode,
     getTelemetryState: async () => ({ configured: false, enabled: false, replayEnabled: false, identity: "anonymous", distinctId: "preview", debugUntil: null, rendererConfig: null, inspector: [] }),
     setTelemetryPreferences: async () => api.getTelemetryState(),

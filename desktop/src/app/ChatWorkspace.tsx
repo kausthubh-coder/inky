@@ -42,6 +42,7 @@ interface ChatProps {
   onVerifySubmission: (id: string, text: string) => void;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
   onResumeScan: () => void;
+  onStopAndScan: (taskId: string) => void;
 }
 type Draft = {
   text: string;
@@ -337,13 +338,14 @@ export function ChatWorkspace(props: ChatProps) {
               <small role="status">{school ? "Your school" : assignment ? onboarding.courses.find(course => course.courseId === assignment.courseId)?.label : status}</small>
             </div>
             <div className="conversation-actions">
-              {!school && assignment && (
+              {(school || assignment) && (
                 <button
                   className="chat-icon"
-                  aria-label="Open browser"
-                  onClick={openBrowser}
+                  aria-label={browser ? "Close school browser" : "Open school browser"}
+                  aria-expanded={browser}
+                  onClick={() => browser ? setBrowser(false) : openBrowser()}
                 >
-                  ▣
+                  <Icon name="browser" />
                 </button>
               )}
               {assignment && <button className="quiet-button" onClick={() => { setBrowser(false); setAnswer(null); setFilesOpen(true); }}>Files</button>}
@@ -363,7 +365,7 @@ export function ChatWorkspace(props: ChatProps) {
             aria-label="Messages"
             aria-live="polite"
           >
-            {school && <SchoolCheck state={onboarding} onAssignment={props.onAssignment ?? (() => {})} onCheck={props.onResumeScan} onPause={() => { void window.studi?.pauseSchoolScan().catch(cause => setError(String(cause))); }} onBrowser={openBrowser} busy={props.scanBusy} />}
+            {school && <SchoolCheck state={onboarding} lifecycle={lifecycle} onStopAndScan={props.onStopAndScan} onWait={() => onView("home")} onOpenWork={props.onOpenWork} browserOpen={browser} onAssignment={props.onAssignment ?? (() => {})} onCheck={props.onResumeScan} onPause={() => { void window.studi?.pauseSchoolScan().catch(cause => setError(String(cause))); }} onBrowser={() => browser ? setBrowser(false) : openBrowser()} busy={props.scanBusy} />}
             {assignment && <details className="homework-instructions"><summary>Assignment instructions</summary><p>{assignment.instructions ?? "Open the assignment source so Inky can read its instructions."}</p><small>{assignment.dueAt ? new Date(assignment.dueAt).toLocaleString() : assignment.dueText ?? "No due date listed"}</small></details>}
             {!school && !assignment && !messages.length && (
               <article className="chat-bubble inky-bubble">
