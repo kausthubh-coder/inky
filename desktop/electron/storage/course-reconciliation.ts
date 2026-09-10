@@ -7,6 +7,7 @@ import type { LocalStore } from "./store.js";
 
 export interface CourseConflict {
   readonly courseIds: string[];
+  readonly kind: "permissions" | "references";
   readonly reason: string;
 }
 
@@ -53,7 +54,7 @@ export function reconcileCourses(store: LocalStore): CourseConflict[] {
         .map(rule => [rule.scope === "pattern" ? rule.patternId : "", rule.mode, rule.updatedAt]).sort()));
       const protectedCourses = group.filter(course => hasExternalReference(store, course.courseId));
       if (modes.size > 1 || new Set(patterns).size > 1 || protectedCourses.length > 1) {
-        conflicts.push({ courseIds: group.map(course => course.courseId), reason: modes.size > 1 || new Set(patterns).size > 1
+        conflicts.push({ courseIds: group.map(course => course.courseId), kind: modes.size > 1 || new Set(patterns).size > 1 ? "permissions" : "references", reason: modes.size > 1 || new Set(patterns).size > 1
           ? "These class copies have different homework permissions. Review them before merging."
           : "These class copies have separate saved notes or references. Review them before merging." });
         continue;

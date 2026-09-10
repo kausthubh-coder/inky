@@ -234,6 +234,7 @@ export function installDevPreview(): void {
   if (preview.id === "week-idle") onboarding = { ...onboarding, scan: null };
   if (preview.id === "week-complete") onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "succeeded", failures: [], currentStep: "Your homework is up to date." } };
   if (preview.id === "week-updating") onboarding = { ...onboarding, scan: { ...onboarding.scan!, completedAt: undefined, currentStep: "Checking linked homework pages…" } };
+  if (preview.id === "week-conflicts") onboarding = { ...onboarding, courseConflicts: [{ kind: "permissions", courseIds: ["course-csc316"], reason: "These class records have different homework rules. I kept them separate so your permissions stay unchanged." }] };
   const startPreviewScan = async () => {
     if (lifecycle.manager.lease) throw new Error("An assignment is using the school browser.");
     onboarding = { ...onboarding, scan: { ...onboarding.scan!, schemaVersion: 1, scanId: "preview-scan", kind: "first_scan", state: "running", startedAt: now, updatedAt: now, completedAt: undefined, currentStep: "Checking linked homework pages…", failures: [], handoff: null, inventories: [], messages: [], changes: [], coverage: [], observedCourseIds: [], observedAssignmentIds: [], observedLinkedSystemIds: [] } };
@@ -364,7 +365,11 @@ export function installDevPreview(): void {
       sound: settings.preferences.notifications.kinds[kind].sound,
       supported: false,
     }),
-    savePermissionRule: async () => settings,
+    savePermissionRule: async (input) => {
+      const rule = { ...input, schemaVersion: 1 as const, ruleId: input.ruleId ?? `preview-rule-${settings.permissionRules.length}`, updatedAt: new Date().toISOString() };
+      settings = { ...settings, permissionRules: [...settings.permissionRules.filter(item => item.ruleId !== rule.ruleId), rule] };
+      return settings;
+    },
     deletePermissionRule: async () => settings,
     configureScanSchedule: async () => settings,
     getLibraryState: async () => library(),

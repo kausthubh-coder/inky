@@ -240,6 +240,13 @@ export function DashboardScreen({
           onDetails={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} />
 
         <section className="week-section" data-studi-week-board="true">
+          {onboarding.courseConflicts?.map(conflict => (
+            <div className="week-note" role="status" key={conflict.courseIds.join(",")}>
+              <strong>I kept these classes separate: {conflict.courseIds.map(id => courseLabel(onboarding, id)).join(" · ")}.</strong>
+              <p>{conflict.reason} Automatic work on these classes is paused.</p>
+              {conflict.kind === "permissions" && <button className="quiet-button" onClick={() => chrome.onNavigate("settings", "rules")}>Review homework rules</button>}
+            </div>
+          ))}
           {onboarding.assignmentConflicts?.map(conflict => (
             <p className="week-note" role="status" key={conflict.assignmentIds.join(",")}>
               I kept separate copies of {onboarding.assignments.find(item => item.assignmentId === conflict.assignmentIds[0])?.title ?? "this homework"}.
@@ -697,7 +704,7 @@ export function SettingsScreen({
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
-  const [section, setSection] = useState<SettingsSectionId>(() => chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : readDevPreviewConfig()?.settingsSection ?? initialSection);
+  const [section, setSection] = useState<SettingsSectionId>(() => chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : chrome.settingsLanding === "rules" ? "rules" : readDevPreviewConfig()?.settingsSection ?? initialSection);
   const [query, setQuery] = useState("");
   const matches = matchingSettings(query);
   const visible = (id: SettingsSectionId) => query.trim() ? matches.includes(id) : section === id;

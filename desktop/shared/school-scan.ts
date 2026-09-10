@@ -120,6 +120,7 @@ export const SchoolScanWorkflowSchema = z.strictObject({
 
 export const SchoolOnboardingStateSchema = z.strictObject({
   courseConflicts: z.array(z.strictObject({
+    kind: z.enum(["permissions", "references"]).optional(),
     courseIds: z.array(z.string()),
     reason: z.string(),
   })).optional(),

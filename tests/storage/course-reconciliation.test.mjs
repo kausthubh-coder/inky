@@ -77,6 +77,7 @@ test("course policies remain separate and pause work, including inherited versus
     store.permissionRules.put({ schemaVersion: 1, ruleId: "explicit", scope: "course", courseId: "one", mode: "attempt", updatedAt: now });
     store.courseConflicts = reconcileCourses(store);
     assert.match(store.courseConflicts[0].reason, /permissions/);
+    assert.equal(store.courseConflicts[0].kind, "permissions");
     assert.equal(store.school.listCourses().length, 2);
     const manager = await ManagerCoordinator.create(store, {}, { now: () => now });
     try { assert.equal(manager.resolvePermission("homework", "two").mayAttempt, false); }
@@ -94,7 +95,9 @@ test("two independent course notes remain intact for review; transaction failure
     assert.equal(store.database.handle.prepare("SELECT count(*) n FROM record_redirects").get().n, 0);
     store.database.handle.exec("DROP TRIGGER reject_course_repair");
     for (const id of ["one", "two"]) await store.artifacts.write({ frontmatter: { schemaVersion: 1, kind: "memory", artifactId: `memory-${id}`, updatedAt: now }, content: `Saved notes for ${id}` });
-    assert.match(reconcileCourses(store)[0].reason, /separate saved notes/);
+    const conflict = reconcileCourses(store)[0];
+    assert.match(conflict.reason, /separate saved notes/);
+    assert.equal(conflict.kind, "references");
     assert.equal(store.school.listCourses().length, 2);
   });
 });

@@ -24,6 +24,7 @@ export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId
   {id:'updates-ready',group:'Chat & updates',title:'updates ready',note:'Interactive real component fixture'},
   {id:'updates-mac',group:'Chat & updates',title:'updates mac',note:'Interactive real component fixture'},
   {id:'updates-error',group:'Chat & updates',title:'updates error',note:'Interactive real component fixture'},
+  { id: "week-conflicts", group: "School scan", title: "Class permission conflict", note: "Simulated unresolved class aliases" },
   { id: "week-needs-user", group: "School scan", title: "Scan needs you", note: "Simulated sign-in handoff" },
   { id: "week-complete", group: "School scan", title: "Scan finished", note: "Start another school check" },
   { id: "week-idle", group: "School scan", title: "Start a scan", note: "No previous school check" },
