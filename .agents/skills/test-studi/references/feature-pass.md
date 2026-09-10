@@ -8,7 +8,7 @@ Online end-to-end proof requires `auth.status=approved`; an offline session prov
 
 ## Relevant feature checks
 
-Use current accessible controls rather than stale screen names. For chat/PR 21 changes:
+Use current accessible controls rather than stale screen names. Select relevant checks below; [focused-passes.md](focused-passes.md) covers UI, agents and system changes without forcing the entire journey.
 
 1. Send a short read-only message and wait for a real response. Check error surfaces and draft retention, not just whether the input cleared.
 2. Attach a scanned fixture assignment with `@`; verify the selected reference, send it, and confirm the reply uses that assignment.
@@ -19,4 +19,4 @@ Use current accessible controls rather than stale screen names. For chat/PR 21 c
 7. For update changes, verify busy/restart rules and error recovery separately. An extracted app smoke test does not prove installed auto-updating.
 8. Restart the same profile using the stop/start helpers. Recheck approved access, provider readiness, onboarding, chat history, draft, and assignment state.
 
-For unrelated changes choose the relevant subset, then the full matching journey at its checkpoint. A successful preview or mocked Electron self-test does not prove a live chat, scan, browser handoff, or provider request.
+For unrelated changes choose the relevant subset. Use [full-app-pass.md](full-app-pass.md) for broad changes and integrated release verification. Include common competing-activity/restart behavior when ownership or scheduling changes. A successful preview or mocked Electron self-test does not prove a live chat, scan, browser handoff, or provider request.

@@ -1,4 +1,4 @@
 interface:
   display_name: "Test Studi"
-  short_description: "Test accounts, invites, and isolated desktop flows"
-  default_prompt: "Use $test-studi to test this checkout. Launch an isolated named profile, attach to its receipt's CDP endpoint, prepare or reuse its dedicated development account, and verify invitation acceptance and lasting admission. Finish onboarding with the local school fixture and real Codex provider before testing scan/chat/work. Keep concurrent worktrees on separate profiles and identities. Report live, controlled, and untested boundaries accurately."
+  short_description: "Full app and focused tests, UX and code review"
+  default_prompt: "Use $test-studi to verify this change with the appropriate full or focused pass, review usability and maintainability, and report evidence and untested boundaries."
