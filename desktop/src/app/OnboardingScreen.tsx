@@ -1,10 +1,9 @@
+import { ConnectedAppRow } from "./ConnectedAppRow.js";
+import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   connectedAppCatalogEntry,
-  connectedAppIsActive,
-  connectedAppIsPending,
-  connectedAppStatusLabel,
   presentSchoolOnboardingScan,
   type ConnectedAppConnection,
   type ConnectedAppsState,
@@ -48,7 +47,7 @@ const CADENCES: Array<{ value: "manual" | "daily" | "weekly"; title: string }> =
 ];
 
 export function OnboardingScreen({
-  workspace, onboarding, connectedApps, appConnections, studentName, schoolUrl, homeworkRoot, scanCadence, defaultPermission, busy, error,
+  workspace, onboarding, connectedApps, appConnections, appConnectionFeedback, studentName, schoolUrl, homeworkRoot, scanCadence, defaultPermission, busy, error,
   initialStep,
   onSchoolUrl, onCadence, onDefaultPermission, onConnectRuntime, onCancelRuntimeLogin,
   onConnectApp, onRefreshConnectedApp, onSelectHomeworkRoot, onSaveProfile, onStartScan, onResumeScan, onFinish,
@@ -56,7 +55,7 @@ export function OnboardingScreen({
   workspace: StudiWorkspaceState | null;
   onboarding: SchoolOnboardingState | null;
   connectedApps: ConnectedAppsState | null;
-  appConnections: Readonly<Record<string, ConnectedAppConnection | null>>;
+  appConnections: Readonly<Record<string, ConnectedAppConnection | null>>; appConnectionFeedback: ConnectionFeedbackMap;
   studentName: string;
   schoolUrl: string;
   homeworkRoot: string | null;
@@ -146,7 +145,7 @@ export function OnboardingScreen({
                       <h1>{message.id === step || !browserStage ? title : message.title}</h1>
                       <p>{message.body}</p>
                       {message.id === 8 && step === 8 && onboarding?.scan?.currentStep && <p className="fable-scan-progress" role="status">{onboarding.scan.currentStep}</p>}
-                      {(!browserStage || message.id === step) && <StepExtra step={step} workspace={workspace} connectedApps={connectedApps} appConnections={appConnections} providerReady={providerReady} schoolUrl={schoolUrl} homeworkRoot={homeworkRoot} cadence={scanCadence} permission={defaultPermission} busy={busy} onSchoolUrl={onSchoolUrl} onCadence={onCadence} onPermission={onDefaultPermission} onConnect={onConnectRuntime} onCancelConnect={onCancelRuntimeLogin} onConnectApp={onConnectApp} onRefreshConnectedApp={onRefreshConnectedApp} onSelectHomeworkRoot={onSelectHomeworkRoot} />}
+                      {(!browserStage || message.id === step) && <StepExtra step={step} workspace={workspace} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} providerReady={providerReady} schoolUrl={schoolUrl} homeworkRoot={homeworkRoot} cadence={scanCadence} permission={defaultPermission} busy={busy} onSchoolUrl={onSchoolUrl} onCadence={onCadence} onPermission={onDefaultPermission} onConnect={onConnectRuntime} onCancelConnect={onCancelRuntimeLogin} onConnectApp={onConnectApp} onRefreshConnectedApp={onRefreshConnectedApp} onSelectHomeworkRoot={onSelectHomeworkRoot} />}
                     </article>
                   </div>
                 ))}
@@ -180,8 +179,8 @@ export function OnboardingScreen({
   );
 }
 
-function StepExtra({ step, workspace, connectedApps, appConnections, providerReady, schoolUrl, homeworkRoot, cadence, permission, busy, onSchoolUrl, onCadence, onPermission, onConnect, onCancelConnect, onConnectApp, onRefreshConnectedApp, onSelectHomeworkRoot }: {
-  step: OnboardingStep; workspace: StudiWorkspaceState | null; connectedApps: ConnectedAppsState | null; appConnections: Readonly<Record<string, ConnectedAppConnection | null>>; providerReady: boolean; schoolUrl: string; homeworkRoot: string | null; cadence: "manual" | "daily" | "weekly"; permission: PermissionMode; busy: string | null;
+function StepExtra({ step, workspace, connectedApps, appConnections, appConnectionFeedback, providerReady, schoolUrl, homeworkRoot, cadence, permission, busy, onSchoolUrl, onCadence, onPermission, onConnect, onCancelConnect, onConnectApp, onRefreshConnectedApp, onSelectHomeworkRoot }: {
+  step: OnboardingStep; workspace: StudiWorkspaceState | null; connectedApps: ConnectedAppsState | null; appConnections: Readonly<Record<string, ConnectedAppConnection | null>>; appConnectionFeedback: ConnectionFeedbackMap; providerReady: boolean; schoolUrl: string; homeworkRoot: string | null; cadence: "manual" | "daily" | "weekly"; permission: PermissionMode; busy: string | null;
   onSchoolUrl: (value: string) => void; onCadence: (value: "manual" | "daily" | "weekly") => void; onPermission: (value: PermissionMode) => void; onConnect: () => void; onCancelConnect: () => void; onConnectApp: (toolkit: string) => void; onRefreshConnectedApp: (toolkit: string) => void; onSelectHomeworkRoot: () => void;
 }) {
   const login = workspace?.providerLogin;
@@ -226,19 +225,9 @@ function StepExtra({ step, workspace, connectedApps, appConnections, providerRea
     if (!connectedApps.configured) return <p className="fable-hint">Connected apps are not available on this Studi server yet.</p>;
     return (
       <div className="fable-picks" data-onboarding-connected-apps="true">
-        {connectedApps.toolkits.filter(({ toolkit }) => connectedAppCatalogEntry(toolkit).onboarding).map(({ toolkit, access, tools }) => {
-          const connection = appConnections[toolkit] ?? null;
-          const active = connectedAppIsActive(connection);
-          const waiting = connectedAppIsPending(connection);
-          const app = connectedAppCatalogEntry(toolkit);
-          return (
-            <div className="fable-pick fable-connected-app" data-connected-app={toolkit} key={toolkit}>
-              <img className="connected-app-logo" src={app.logoUrl} alt="" loading="lazy" />
-              <span><strong>{app.label}</strong><small role="status">{connectedAppStatusLabel(connection)} · {access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}</small></span>
-              <button type="button" className="fable-button" disabled={busy !== null} onClick={() => active || waiting ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>{active ? "Check" : waiting ? "I finished" : "Connect"}</button>
-            </div>
-          );
-        })}
+        {connectedApps.toolkits.filter(({ toolkit }) => connectedAppCatalogEntry(toolkit).onboarding).map(({ toolkit, access, tools }) => (
+          <ConnectedAppRow key={toolkit} toolkit={toolkit} connection={appConnections[toolkit] ?? null} feedback={appConnectionFeedback[toolkit]} access={access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`} disabled={busy !== null} onboarding onConnect={onConnectApp} onCheck={onRefreshConnectedApp} />
+        ))}
         <p className="fable-hint">Calendar, Canvas, Outlook, Sheets, Dropbox, Slack, Discord, and Todoist are in Settings.</p>
       </div>
     );
