@@ -1,3 +1,5 @@
+import { HomeworkRules } from "./HomeworkRules.js";
+import { FeedbackSettings } from "./FeedbackSettings.js";
 import { ScanStatus } from "./ScanStatus.js";
 import { ConnectedAppRow } from "./ConnectedAppRow.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
@@ -7,7 +9,6 @@ import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsS
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
 import {
   type CSSProperties,
-  type FormEvent,
   useEffect,
   useMemo,
   useState,
@@ -27,12 +28,11 @@ import {
   type NotificationPreferences,
   type NotificationSoundId,
   type NotificationTestReceipt,
-  type PermissionMode,
-  type PermissionRule,
   type ProductSettingsState,
   type RuntimeInfo,
   type SchoolOnboardingState,
   type StudiWorkspaceState,
+  type StudiRendererApi,
   type SchoolPageBounds,
   type TaskDetail,
   type TaskSummary,
@@ -59,22 +59,7 @@ import {
   formatDateTime,
 } from "./Ui.js";
 
-type SaveRuleInput =
-  | { ruleId?: string; scope: "global"; mode: PermissionMode }
-  | { ruleId?: string; scope: "course"; courseId: string; mode: PermissionMode }
-  | {
-      ruleId?: string;
-      scope: "pattern";
-      courseId: string;
-      patternId: string;
-      mode: PermissionMode;
-    }
-  | {
-      ruleId?: string;
-      scope: "assignment";
-      assignmentId: string;
-      mode: PermissionMode;
-    };
+type SaveRuleInput = Parameters<StudiRendererApi["savePermissionRule"]>[0];
 
 export interface ChromeProps {
   storageKey?: string;
@@ -145,7 +130,7 @@ export function DashboardScreen({
   onScanAgain: () => void;
   onStopAndScan: (taskId: string) => void;
   onConnectRuntime: () => void;
-  onFeedback: (context: string, message: string) => void;
+  onFeedback: (context: string, message: string) => Promise<boolean>;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
 }) {
   const [chatView, setChatView] = useState<ChatView>(() =>
@@ -287,18 +272,20 @@ export function DashboardScreen({
           {noteOpen && (
             <form
               className="week-note"
-              onSubmit={(event) => {
+              onSubmit={async (event) => {
                 event.preventDefault();
-                if (!feedback.trim()) return;
-                onFeedback("dashboard", feedback.trim());
-                setFeedback("");
-                setNoteOpen(false);
+                if (!feedback.trim() || busy !== null) return;
+                if (await onFeedback("dashboard", feedback.trim())) {
+                  setFeedback("");
+                  setNoteOpen(false);
+                }
               }}
             >
               <input
                 aria-label="Note about your assignments"
                 autoFocus
                 value={feedback}
+                disabled={busy !== null}
                 onChange={(event) => setFeedback(event.target.value)}
                 placeholder="Which assignment is missing or incorrect?"
                 maxLength={1000}
@@ -706,7 +693,7 @@ export function SettingsScreen({
   onTelemetryDebug: (minutes: 0 | 30) => void;
   onExportDiagnostics: () => void;
   onSignOut: () => void;
-  onFeedback: (context: string, message: string) => void;
+  onFeedback: (context: string, message: string) => Promise<boolean>;
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
@@ -721,12 +708,6 @@ export function SettingsScreen({
   const [cadence, setCadence] = useState<"manual" | "daily" | "weekly">("daily");
   const [localTime, setLocalTime] = useState("09:00");
   const [weekday, setWeekday] = useState(1);
-  const [scope, setScope] = useState<"global" | "course" | "pattern" | "assignment">("course");
-  const [mode, setMode] = useState<PermissionMode>("attempt");
-  const [courseId, setCourseId] = useState(onboarding.courses[0]?.courseId ?? "");
-  const [assignmentId, setAssignmentId] = useState(onboarding.assignments[0]?.assignmentId ?? "");
-  const [patternId, setPatternId] = useState("");
-  const [note, setNote] = useState("");
   useEffect(() => { if (preferences) { setReview(preferences.reviewMinutes); setHandoff(preferences.handoffMinutes); setMemory(preferences.memoryVisibility); } }, [preferences]);
   useEffect(() => { if (schedule) { setCadence(schedule.cadence); setLocalTime(schedule.localTime); setWeekday(schedule.weekday ?? 1); } }, [schedule]);
   useEffect(() => {
@@ -736,14 +717,6 @@ export function SettingsScreen({
     return () => window.cancelAnimationFrame(frame);
   }, [chrome.settingsLanding]);
   const validPreferences = Number.isInteger(review) && review >= 1 && review <= 120 && Number.isInteger(handoff) && handoff >= 1 && handoff <= 240;
-  const validRule = scope === "global" || (scope === "assignment" ? Boolean(assignmentId) : Boolean(courseId) && (scope !== "pattern" || Boolean(patternId.trim())));
-  const saveRule = (event: FormEvent) => {
-    event.preventDefault();
-    if (scope === "global") onSaveRule({ scope, mode });
-    else if (scope === "course" && courseId) onSaveRule({ scope, courseId, mode });
-    else if (scope === "assignment" && assignmentId) onSaveRule({ scope, assignmentId, mode });
-    else if (scope === "pattern" && courseId && patternId.trim()) onSaveRule({ scope, courseId, patternId: patternId.trim(), mode });
-  };
 
   return (
     <main className="app-shell" data-studi-app-ready="true">
@@ -820,33 +793,7 @@ export function SettingsScreen({
               {schedule && <small>Next look: {schedule.nextRunAt ? formatDateTime(schedule.nextRunAt) : "only when you ask"}</small>}
             </PaperCard>
             )}
-            {visible("rules") && (
-            <PaperCard className="settings-card">
-              <p className="eyebrow">What I may try</p>
-              <h2>Homework rules</h2>
-              <form className="rule-form rule-form--stack" onSubmit={saveRule}>
-                <Field label="For"><select value={scope} onChange={(event) => setScope(event.target.value as typeof scope)}><option value="global">Everything</option><option value="course">A class</option><option value="pattern">A pattern</option><option value="assignment">One assignment</option></select></Field>
-                {(scope === "course" || scope === "pattern") && <Field label="Class"><select value={courseId} onChange={(event) => setCourseId(event.target.value)}>{onboarding.courses.map((course) => <option key={course.courseId} value={course.courseId}>{course.label}</option>)}</select></Field>}
-                {scope === "assignment" && <Field label="Assignment"><select value={assignmentId} onChange={(event) => setAssignmentId(event.target.value)}>{onboarding.assignments.map((assignment) => <option key={assignment.assignmentId} value={assignment.assignmentId}>{assignment.title}</option>)}</select></Field>}
-                {scope === "pattern" && <Field label="Pattern"><input value={patternId} onChange={(event) => setPatternId(event.target.value)} placeholder="weekly-problem-set" /></Field>}
-                <Field label="I may"><select value={mode} onChange={(event) => setMode(event.target.value as PermissionMode)}><option value="do_not_attempt">Don’t try it</option><option value="attempt">Try it, don’t submit</option><option value="auto_submit">Submit if that’s allowed</option></select></Field>
-                <button className="button button--coral" disabled={busy !== null || !validRule}>Add rule</button>
-                {!validRule && <small>Choose a class or assignment from a school scan first.</small>}
-              </form>
-              <div className="rules-list">
-                {settings?.permissionRules.map((rule) => (
-                  <div key={rule.ruleId}>
-                    <span>
-                      <strong>{ruleScopeLabel(rule, onboarding)}</strong>
-                      <small>{ruleModeLabel(rule.mode)}</small>
-                    </span>
-                    <button className="quiet-button" aria-label={`Remove rule for ${ruleScopeLabel(rule, onboarding)}`} disabled={busy !== null} onClick={() => onDeleteRule(rule.ruleId)}>Remove</button>
-                  </div>
-                ))}
-                {(settings?.permissionRules.length ?? 0) === 0 && <small>No rules yet. I won’t start homework without one.</small>}
-              </div>
-            </PaperCard>
-            )}
+            {visible("rules") && <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={busy !== null} onSaveRule={onSaveRule} onDeleteRule={onDeleteRule} />}
 
             {visible("usage") && <UsageCard entitlement={entitlement} usage={usage} />}
             {visible("notifications") && <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />}
@@ -862,16 +809,7 @@ export function SettingsScreen({
               <small>Studi {runtime?.app ?? "—"}</small>
             </PaperCard>
             )}
-            {visible("support") && (
-            <PaperCard className="settings-card" id="feedback-settings">
-              <p className="eyebrow">A note for us</p>
-              <h2>Something look wrong?</h2>
-              <form className="settings-note" onSubmit={(event) => { event.preventDefault(); if (!note.trim()) return; onFeedback("settings", note.trim()); setNote(""); }}>
-                <textarea aria-label="Feedback for Studi" rows={3} value={note} onChange={(event) => setNote(event.target.value)} maxLength={1000} placeholder="Tell Studi what to fix" />
-                <button className="button button--yellow" disabled={!note.trim() || busy !== null}>Send note</button>
-              </form>
-            </PaperCard>
-            )}
+            {visible("support") && <FeedbackSettings busy={busy !== null} onFeedback={onFeedback} />}
             {visible("account") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Signed in</p>
@@ -885,19 +823,6 @@ export function SettingsScreen({
       </div>
     </main>
   );
-}
-
-function ruleModeLabel(mode: PermissionMode): string {
-  if (mode === "do_not_attempt") return "don’t try";
-  if (mode === "auto_submit") return "try and submit";
-  return "try, don’t submit";
-}
-
-function ruleScopeLabel(rule: PermissionRule, onboarding: SchoolOnboardingState): string {
-  if (rule.scope === "global") return "Everything";
-  if (rule.scope === "course") return courseLabel(onboarding, rule.courseId);
-  if (rule.scope === "pattern") return `${courseLabel(onboarding, rule.courseId)} · ${rule.patternId}`;
-  return onboarding.assignments.find((assignment) => assignment.assignmentId === rule.assignmentId)?.title ?? "One assignment";
 }
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
