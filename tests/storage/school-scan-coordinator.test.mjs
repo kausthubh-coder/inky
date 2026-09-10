@@ -20,6 +20,7 @@ test("dashboard handoff resumes the same replay without navigating away from the
   const finish = async (tools) => {
     browser.showAssignments();
     await invoke(tools, "scan_record_course", { label: "Calculus", courseKey: "calc-101" });
+    await recordFixtureInventories(tools, browser);
     await invoke(tools, "scan_finish", {
       coverage: [{ target: "Course: Calculus", status: "verified" }],
       navigationHints: [],
@@ -40,6 +41,11 @@ test("dashboard handoff resumes the same replay without navigating away from the
     assert.equal(paused.scan.state, "needs_user");
     assert.equal(paused.workflowRevision, 1);
     const navigationCount = browser.navigations.length;
+    const note = {scanId:paused.scan.scanId, text:"Check every class before finishing.",clientMessageId:"00000000-0000-4000-8000-000000000011"};
+    await coordinator.sendMessage(note);
+    await coordinator.sendMessage(note);
+    assert.equal((await coordinator.state()).scan.messages.length, 1, "retrying a paused message does not duplicate it");
+    await assert.rejects(coordinator.sendMessage({...note,scanId:"different-check"}), /ended/);
     await assert.rejects(coordinator.replay(), /already owns the visible school browser/);
     const actions = { scan: () => coordinator.startScan(), replay: () => coordinator.replay(), resume: () => coordinator.resume() };
     const resumed = await actions[nextSchoolScanAction(paused)]();
@@ -48,6 +54,8 @@ test("dashboard handoff resumes the same replay without navigating away from the
     assert.equal(resumed.scan.kind, "replay");
     assert.equal(browser.navigations.length, navigationCount, "resume preserves the student's current page");
     assert.match(runtime.prompts.at(-1), /continue the same scan/);
+    assert.match(runtime.prompts.at(-1), /Check every class before finishing/);
+    await assert.rejects(coordinator.sendMessage({...note,clientMessageId:"after-finish"}), /ended/);
   } finally {
     coordinator.dispose();
     store.close();
@@ -171,7 +179,8 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
         });
         // A submit/autograde page is not an assignment catalog, so the scan omits it.
         browser.showAutograder();
-        await invoke(tools, "scan_finish", {
+        await recordFixtureInventories(tools, browser);
+    await invoke(tools, "scan_finish", {
           coverage: [{ target: "Course: Calculus", status: "verified" }],
           navigationHints: ["Open the <strong>Courses</strong> link, then each current course."],
         });
@@ -187,7 +196,8 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
           dueText: "2026-09-03T15:00:00.000Z",
           observationRef: "assignment-limits",
         });
-        await invoke(tools, "scan_finish", {
+        await recordFixtureInventories(tools, browser);
+    await invoke(tools, "scan_finish", {
           coverage: [{ target: "Assignment lists", status: "partial", failure: "One course page timed out." }],
           navigationHints: [],
         });
@@ -384,7 +394,8 @@ test("student takeover pauses a running scan without failing it", async () => {
               dueText: "2026-09-03T15:00:00.000Z",
               observationRef: "assignment-limits",
             });
-            await invoke(tools, "scan_finish", {
+            await recordFixtureInventories(tools, browser);
+    await invoke(tools, "scan_finish", {
               coverage: [{ target: "Course: Calculus", status: "verified" }],
               navigationHints: [],
             });
@@ -558,6 +569,7 @@ test("Moodle list → detail → changed course label/key → partial replay kee
       courseId: course.courseId, title: "Homework 1", assignmentKey: `model-assignment-${turn}`,
       ...(turn === 0 ? { dueAt: "2026-09-09T12:00:00.000Z", dueText: "2026-09-09T12:00:00.000Z", instructions: "Write a C program." } : {}),
     });
+    await recordFixtureInventories(tools, browser);
     await invoke(tools, "scan_finish", { coverage: [{ target: `Course: ${label}`, status: turn === 3 ? "partial" : "verified",
       ...(turn === 3 ? { failure: "Another page timed out" } : {}) }], navigationHints: [] });
   }));
@@ -577,7 +589,7 @@ test("Moodle list → detail → changed course label/key → partial replay kee
       assert.equal(next.assignments[0].dueAt, "2026-09-09T12:00:00.000Z");
       assert.equal(store.tasks.listAll().length, 1);
     }
-    store.close();
+    scan.dispose(); store.close();
     store = await openLocalStore(root);
     assert.equal(store.assignments.listAll().length, 1);
     assert.equal(store.tasks.listAll().length, 1);
@@ -612,6 +624,7 @@ test("a fresh list link reconciles an old index record with a detail record, but
     assert.equal(store.tasks.listAll().length, 1);
     assert.equal(store.assignments.get("legacy-list").assignmentId, store.assignments.get("legacy-detail").assignmentId);
     assert.equal(store.assignments.get("legacy-list").assignmentId, store.assignments.get("legacy-detail-again").assignmentId);
+    await recordFixtureInventories(tools, browser);
     await invoke(tools, "scan_finish", { coverage: [{ target: "Course: C and Software Tools", status: "verified" }], navigationHints: [] });
   }]);
   const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
@@ -642,6 +655,7 @@ test("a legacy permission conflict keeps its confirmed identity and pause after 
     assert.equal(store.assignmentConflicts.length, 1);
     assert.equal(store.assignments.listAll().length, 2);
     assert.equal(store.tasks.listAll().length, 0);
+    await recordFixtureInventories(tools, browser);
     await invoke(tools, "scan_finish", { coverage: [{ target: "Course: C and Software Tools", status: "verified" }], navigationHints: [] });
   }]);
   const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
@@ -650,7 +664,7 @@ test("a legacy permission conflict keeps its confirmed identity and pause after 
     const state = await scan.startScan();
     assert.equal(state.scan.state, "succeeded");
     assert.equal(state.assignmentConflicts.length, 1);
-    store.close(); store = await openLocalStore(root);
+    scan.dispose(); store.close(); store = await openLocalStore(root);
     assert.equal(store.assignmentConflicts.length, 1);
     assert.equal(store.assignments.listAll().length, 2);
   } finally { scan.dispose(); store.close(); await rm(root, { recursive: true, force: true }); }
@@ -684,6 +698,7 @@ test("scan refreshes rotated refs and verifies instructions and dates independen
     assert.equal(dated.dueText, "2026-09-09 at 11:59 PM");
     await assert.rejects(invoke(tools, "scan_record_assignment", { ...input, instructions: "Invented instructions" }), /claimed assignment instructions/);
     await assert.rejects(invoke(tools, "scan_record_course", { label: "Invented course", observationRef: "r1:1" }), /claimed course label/);
+    await recordFixtureInventories(tools, browser);
     await invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "verified" }], navigationHints: [] });
   }]);
   const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
@@ -706,6 +721,7 @@ test("replay preserves course, assignment and task identities when the model cha
     const course = await invoke(tools, "scan_record_course", { label: "Calculus", courseKey: key });
     browser.url = rootUrl + "assignment/limits";
     await invoke(tools, "scan_record_assignment", { courseId: course.courseId, title: "Limits practice", assignmentKey: key });
+    await recordFixtureInventories(tools, browser);
     await invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "verified" }], navigationHints: [] });
   }));
   const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
@@ -721,4 +737,111 @@ test("replay preserves course, assignment and task identities when the model cha
     scan.dispose(); store.close();
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+});
+
+// Explicit simulated inventory pages used by the successful scripted journeys.
+test("a running check delivers a steering message once and preserves concurrent discoveries", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-scan-steering-"));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  let started, finish, delivered;
+  const entered = new Promise(resolve => { started=resolve; });
+  const finishTurn = new Promise(resolve => { finish=resolve; });
+  const delivery = new Promise(resolve => { delivered=resolve; });
+  const calls=[];
+  const runtime = new ScriptedScanRuntime([async tools => {
+    started(tools);
+    await finishTurn;
+    await recordFixtureInventories(tools,browser);
+    await invoke(tools,"scan_finish",{coverage:[{target:"Course: Calculus",status:"verified"}],navigationHints:[]});
+  }]);
+  const create = runtime.createScanSession.bind(runtime);
+  runtime.createScanSession = async tools => ({...await create(tools),steer:async text=>{calls.push(text);await delivery;}});
+  const scan = new SchoolScanCoordinator(store,runtime,browser,{now:()=>now});
+  try {
+    await scan.saveProfile({studentName:"Avery",schoolRoot:rootUrl,defaultPermission:"do_not_attempt",scanCadence:"manual"});
+    const running=scan.startScan();
+    const tools=await entered;
+    const input={scanId:(await scan.state()).scan.scanId,text:"Check every class",clientMessageId:"00000000-0000-4000-8000-000000000012"};
+    const sending=scan.sendMessage(input);
+    await assert.rejects(scan.sendMessage(input),/still being delivered/);
+    browser.showAssignments();
+    const course=await invoke(tools,"scan_record_course",{label:"Calculus"});
+    delivered();await sending;await scan.sendMessage(input);
+    const state=await scan.state();
+    assert.deepEqual(calls,[input.text]);
+    assert.equal(state.scan.messages.length,1);
+    assert.ok(state.scan.observedCourseIds.includes(course.courseId));
+    finish();assert.equal((await running).scan.state,"succeeded");
+  } finally { delivered?.();finish?.();scan.dispose();store.close();await rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100}); }
+});
+
+test("new destination links refine legacy directory records without losing their IDs", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-legacy-directory-"));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const runtime = new ScriptedScanRuntime([0, 1].map(turn => async tools => {
+    browser.url = rootUrl;
+    browser.text = "Calculus Limits practice 2026-09-03T15:00:00.000Z";
+    browser.elements = turn ? [
+      {ref:"course",role:"link",name:"Calculus",href:rootUrl+"courses/calculus"},
+      {ref:"assignment",role:"link",name:"Limits practice",href:rootUrl+"assignments/limits"},
+    ] : [];
+    const course = await invoke(tools,"scan_record_course",{label:"Calculus"});
+    await invoke(tools,"scan_record_assignment",{courseId:course.courseId,title:"Limits practice",...(turn ? {dueAt:"2026-09-03T15:00:00.000Z",dueText:"2026-09-03T15:00:00.000Z"} : {})});
+    await recordFixtureInventories(tools,browser);
+    await invoke(tools,"scan_finish",{coverage:[{target:"Course: Calculus",status:"verified"}],navigationHints:[]});
+  }));
+  const scan = new SchoolScanCoordinator(store,runtime,browser,{now:()=>now});
+  try {
+    await scan.saveProfile({studentName:"Avery",schoolRoot:rootUrl,defaultPermission:"do_not_attempt",scanCadence:"manual"});
+    const original = await scan.startScan();
+    const {sourceIdentity:_, ...legacy} = original.assignments[0];
+    store.assignments.put(legacy);
+    const updated = await scan.replay();
+    assert.equal(updated.scan.state,"succeeded", JSON.stringify(updated.scan.failures));
+    assert.equal(updated.courses.length,1);
+    assert.equal(updated.courses[0].courseId,original.courses[0].courseId);
+    assert.equal(updated.assignments.length,1);
+    assert.equal(updated.assignments[0].assignmentId,legacy.assignmentId);
+    assert.equal(updated.assignments[0].sourceTarget,rootUrl+"assignments/limits");
+    assert.equal(updated.assignments[0].dueAt,"2026-09-03T15:00:00.000Z");
+    assert.equal(store.tasks.listAll().length,1);
+  } finally { scan.dispose();store.close();await rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100}); }
+});
+
+async function recordFixtureInventories(tools, browser) {
+  const {scan,courses,assignments} = await invoke(tools,"scan_status",{});
+  if (!courses.length) return;
+  const saved = {url:browser.url,text:browser.text,elements:browser.elements};
+  try {
+    browser.url=rootUrl; browser.elements=[]; browser.text="All courses: " + courses.map(course=>course.label).join(", ");
+    await invoke(tools,"scan_record_inventory",{kind:"courses",state:"complete",itemIds:scan.observedCourseIds,evidenceText:"All courses"});
+    for (const course of courses) {
+      const items=assignments.filter(item=>item.courseId===course.courseId);
+      browser.url=course.sourceTarget; browser.text=course.label + " " + (items.length ? "All assignments: " + items.map(item=>item.title).join(", ") : "No assignments");
+      await invoke(tools,"scan_record_inventory",{kind:"assignments",courseId:course.courseId,state:items.length?"complete":"empty",itemIds:items.map(item=>item.assignmentId),evidenceText:items.length?"All assignments":"No assignments"});
+    }
+  } finally { Object.assign(browser,saved); }
+}
+
+test("school check reports only new or changed work and refuses incomplete inventory",async()=>{
+ const root=await mkdtemp(join(tmpdir(),"studi-scan-changes-")); const store=await openLocalStore(root); const browser=new RecordingBrowser();
+ const runtime=new ScriptedScanRuntime([0,1,2,3].map(turn=>async tools=>{
+  browser.showAssignments();
+  const course=await invoke(tools,"scan_record_course",{label:"Calculus"});
+  const due=turn>=2?"2026-09-04T15:00:00.000Z":"2026-09-03T15:00:00.000Z";
+  browser.text="Calculus Limits practice "+due; browser.elements=[];
+  await invoke(tools,"scan_record_assignment",{courseId:course.courseId,title:"Limits practice",dueAt:due,dueText:due});
+  if(turn!==3) await recordFixtureInventories(tools,browser);
+  await invoke(tools,"scan_finish",{coverage:[{target:"Course: Calculus",status:"verified"}],navigationHints:[]});
+ }));
+ const coordinator=new SchoolScanCoordinator(store,runtime,browser,{now:()=>now});
+ try {
+  await coordinator.saveProfile({studentName:"Avery",schoolRoot:rootUrl,defaultPermission:"do_not_attempt",scanCadence:"manual"});
+  const first=await coordinator.startScan();assert.equal(first.scan.changes.length,1);assert.equal(first.scan.changes[0].kind,"new");
+  const unchanged=await coordinator.replay();assert.equal(unchanged.scan.changes.length,0);
+  const updated=await coordinator.replay();assert.equal(updated.scan.changes[0].kind,"updated");assert.ok(updated.scan.changes[0].fields.includes("dueAt"));assert.equal(updated.assignments.length,1);
+  const incomplete=await coordinator.replay();assert.equal(incomplete.scan.state,"partial");assert.match(incomplete.scan.failures.join(" "),/inventory|directory/);
+ }finally{coordinator.dispose();store.close();await rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
 });

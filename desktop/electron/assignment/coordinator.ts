@@ -33,7 +33,12 @@ export type ConnectedAppToolProvider = () => Promise<readonly ToolDefinition[]>;
 export class AssignmentExecutionCoordinator {
   readonly #store: LocalStore;
   readonly #manager: ManagerCoordinator;
-  readonly #browser: BrowserController;
+  readonly #defaultBrowser: BrowserController;
+  readonly #browserForAssignment: ((id:string) => BrowserController) | undefined;
+  get #browser(): BrowserController {
+    const execution = this.#activeExecution();
+    return execution && this.#browserForAssignment ? this.#browserForAssignment(execution.assignmentId) : this.#defaultBrowser;
+  }
   readonly #browserWork: VisibleBrowserWork;
   readonly #notify: ExecutionNotificationSink;
   readonly #now: () => string;
@@ -54,12 +59,14 @@ export class AssignmentExecutionCoordinator {
       readonly reviewWindowMs?: number;
       readonly handoffWindowMs?: number;
       readonly browserWork?: VisibleBrowserWork;
+      readonly browserForAssignment?: (id:string) => BrowserController;
       readonly connectedAppTools?: ConnectedAppToolProvider;
     },
   ) {
     this.#store = store;
     this.#manager = manager;
-    this.#browser = browser;
+    this.#defaultBrowser = browser;
+    this.#browserForAssignment = options.browserForAssignment;
     this.#browserWork = options.browserWork ?? new VisibleBrowserWork(store);
     this.#notify = options.notify ?? (() => undefined);
     this.#now = options.now ?? (() => new Date().toISOString());
@@ -79,6 +86,7 @@ export class AssignmentExecutionCoordinator {
       readonly reviewWindowMs?: number;
       readonly handoffWindowMs?: number;
       readonly browserWork?: VisibleBrowserWork;
+      readonly browserForAssignment?: (id:string) => BrowserController;
       readonly connectedAppTools?: ConnectedAppToolProvider;
     } = {},
   ): Promise<AssignmentExecutionCoordinator> {
@@ -267,6 +275,7 @@ export class AssignmentExecutionCoordinator {
   async #run(execution: AssignmentExecution, instruction: string): Promise<void> {
     const assignment = this.#requiredAssignment(execution.assignmentId);
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
+    if (this.#browserForAssignment && (!this.#browser.state.url || this.#browser.state.url === "about:blank")) await this.#browser.navigate(assignment.sourceTarget);
     const snapshot = await this.#browser.snapshot();
     const noteEntries = retrieveNoteIndex(this.#store.notes.list(), this.#noteContext(assignment.assignmentId, assignment.courseId), "automatic");
     const notes = await Promise.all(noteEntries.map(async (entry) => ({ entry, content: (await this.#store.notes.read(entry.noteId))?.content ?? null })));
@@ -295,6 +304,8 @@ export class AssignmentExecutionCoordinator {
     ].join("\n\n");
     try {
       const result = await this.continueTurn(execution.taskId, prompt, (event) => this.#recordActivity(execution.taskId, event));
+      const persisted = this.#store.agentJobs.getByTarget({kind:"assignment", assignmentId:execution.assignmentId});
+      if (persisted) this.#store.agentJobs.put({...persisted.job, messages:[...persisted.job.messages, {messageId:randomUUID(),role:"assistant",text:result.text || "This work turn ended. Check the assignment status below.",createdAt:this.#now(),turnIndex:persisted.job.turnIndex}]}, persisted.sessionPath);
       const current = this.#store.lifecycle.getExecution(execution.taskId);
       if (current?.phase === "working") {
         await this.#handoff(current, result.outcome === "completed"
@@ -609,7 +620,7 @@ export class AssignmentExecutionCoordinator {
   async #assignmentSessionPlan(assignmentId: string): Promise<AssignmentSessionPlan> {
     const { workspace, files: homeworkFiles } = await this.#assignmentWorkspace(assignmentId);
     const files = createWorkspaceCodingTools(workspace.assignmentDirectory);
-    const upload = createBrowserUploadTool(this.#browser, (paths) => homeworkFiles.resolveUploads(paths));
+    const upload = createBrowserUploadTool(this.#browserForAssignment?.(assignmentId) ?? this.#defaultBrowser, (paths) => homeworkFiles.resolveUploads(paths));
     let connected: readonly ToolDefinition[] = [];
     try { connected = await this.#connectedAppTools(); } catch { /* Connected apps cannot disable local tools. */ }
     return {
@@ -617,6 +628,10 @@ export class AssignmentExecutionCoordinator {
       tools: [...this.#tools, ...files, upload, ...connected],
     };
   }
+
+  async assignmentFiles(assignmentId:string) { return (await this.#assignmentWorkspace(assignmentId)).files.list(); }
+  async readAssignmentFile(assignmentId:string, path:string) { return (await this.#assignmentWorkspace(assignmentId)).files.read(path); }
+  async assignmentDirectory(assignmentId:string) { return (await this.#assignmentWorkspace(assignmentId)).workspace.assignmentDirectory; }
 
   async #homeworkFiles(assignmentId: string): Promise<HomeworkFiles | null> {
     try {

@@ -272,6 +272,14 @@ export class ManagerCoordinator {
     this.#releaseActive(taskId);
   }
 
+  get isWorkerRunning(): boolean { return this.#workerRunning; }
+
+  async steerWorker(taskId:string, text:string): Promise<void> {
+    this.#assertActiveLease(taskId);
+    if (!this.#workerRunning || !this.#workerSession?.steer) throw new Error("The assignment is between turns. Try your message again in a moment.");
+    await this.#workerSession.steer(text);
+  }
+
   async runWorkerTurn(
     prompt: string,
     observe?: (event: AgentRunEvent) => void,
@@ -304,6 +312,7 @@ export class ManagerCoordinator {
     this.#workerSession?.dispose();
     const plan = await resolveAssignmentSessionPlan(tools, this.#requiredTask(lease.taskId).assignmentId);
     this.#workerSession = await runtime.createAssignmentSession!(plan.tools, {
+      assignmentId: this.#requiredTask(lease.taskId).assignmentId,
       resumeSessionPath: lease.workerSessionPath,
       ...(plan.cwd ? { cwd: plan.cwd } : {}),
     });
@@ -429,7 +438,7 @@ export class ManagerCoordinator {
           ? { resumeSessionPath: agentJob.sessionPath }
           : {};
       const plan = await resolveAssignmentSessionPlan(assignmentTools, entry.assignmentId);
-      const sessionTarget = { ...target, ...(plan.cwd ? { cwd: plan.cwd } : {}) };
+      const sessionTarget = { ...target, assignmentId:entry.assignmentId, ...(plan.cwd ? { cwd: plan.cwd } : {}) };
       worker = plan.tools.length > 0
         ? await this.#requiredAssignmentRuntime().createAssignmentSession!(plan.tools, sessionTarget)
         : await this.#runtime.createWorkerSession(target);

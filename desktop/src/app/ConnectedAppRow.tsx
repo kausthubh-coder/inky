@@ -16,7 +16,7 @@ export function ConnectedAppRow({ toolkit, connection, feedback, access, disable
   const app = connectedAppCatalogEntry(toolkit);
   const active = connectedAppIsActive(connection);
   const status = connection?.status.toUpperCase();
-  const waiting = status === "INITIATED";
+  const waiting = status === "INITIATED" || status === "INITIALIZING";
   const pending = feedback?.phase === "checking" || feedback?.phase === "connecting";
   const failed = feedback?.phase === "error";
   const checked = feedback?.phase === "checked";

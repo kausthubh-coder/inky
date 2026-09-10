@@ -236,6 +236,7 @@ export function StudiApp() {
     const stopActivated = studi.onLifecycleActivated((target) => {
       setError(null);
       if (target.type === "scan") {
+        setPanel({kind:"school"});
         setScreen("week");
         return;
       }

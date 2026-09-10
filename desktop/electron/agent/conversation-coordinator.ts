@@ -76,6 +76,7 @@ export class ConversationCoordinator {
   readonly #connectedAppTools: () => Promise<readonly ToolDefinition[]>;
   readonly #sessions = new Map<string, AgentSession>();
   readonly #running = new Set<string>();
+  readonly #steering = new Set<string>();
   #cumulativeUsage = emptyUsage();
   readonly #activity = new Map<string, "thinking" | "typing">();
   readonly #cancelled = new Set<string>();
@@ -121,10 +122,10 @@ export class ConversationCoordinator {
     this.#assignmentWorkRunner = runner;
   }
 
-  state(): ConversationState {
+  state(target: ConversationTarget = { kind: "home" }): ConversationState {
     this.#assertUsable();
-    let job = this.#requiredJob({ kind: "home" });
-    if (!this.#running.has(job.jobId) && job.messages.at(-1)?.role === "user") {
+    let job = this.#requiredJob(ConversationTargetSchema.parse(target));
+    if (!this.#running.has(job.jobId) && !(target.kind === "assignment" && this.#manager.isWorkerRunning && this.#manager.activeTaskForAssignment(target.assignmentId)) && job.messages.at(-1)?.role === "user") {
       job = this.#save({
         ...job,
         phase: "aborted",
@@ -150,13 +151,13 @@ export class ConversationCoordinator {
     return this.#running.size > 0;
   }
 
-  async stop(): Promise<ConversationState> {
-    const { job } = this.state();
+  async stop(target: ConversationTarget = { kind: "home" }): Promise<ConversationState> {
+    const { job } = this.state(target);
     if (this.#running.has(job.jobId)) {
       this.#cancelled.add(job.jobId);
       await this.#sessions.get(job.jobId)?.abort();
     }
-    return this.state();
+    return this.state(target);
   }
 
   async send(
@@ -198,6 +199,19 @@ export class ConversationCoordinator {
         );
       return { assignmentId: assignment.assignmentId, title: assignment.title };
     });
+    if (target.kind === "assignment" && this.#manager.isWorkerRunning) {
+      const taskId = this.#manager.activeTaskForAssignment(target.assignmentId);
+      if (taskId) {
+        if (this.#steering.has(job.jobId)) throw new Error("Your previous message is still being delivered.");
+        this.#steering.add(job.jobId);
+        try {
+          await this.#manager.steerWorker(taskId,text);
+          job = this.#store.agentJobs.get(job.jobId)?.job ?? job;
+          job = this.#save({...job,turnIndex:job.turnIndex+1,updatedAt:this.#now(),messages:[...job.messages,AgentMessageSchema.parse({messageId:randomUUID(),role:"user",text,...metadata,assignmentRefs:refs,createdAt:this.#now(),turnIndex:job.turnIndex+1})]});
+          return AddressedSendResultSchema.parse({job,text:"",outcome:"completed"});
+        } finally { this.#steering.delete(job.jobId); }
+      }
+    }
     if (this.#running.has(job.jobId))
       throw new Error("Inky is already answering in this conversation");
     this.#running.add(job.jobId);
@@ -233,11 +247,13 @@ export class ConversationCoordinator {
         clientMessageId: metadata.clientMessageId,
       });
 
-      const activeTaskId =
+      const claimedTaskId =
         target.kind === "assignment" && job.claim
           ? this.#manager.activeTaskForAssignment(target.assignmentId)
           : null;
-      if (job.claim && !activeTaskId) {
+      const executionPhase = claimedTaskId ? this.#store.lifecycle.getExecution(claimedTaskId)?.phase : null;
+      const activeTaskId = claimedTaskId && (!executionPhase || ["working", "needs_user"].includes(executionPhase)) ? claimedTaskId : null;
+      if (job.claim && !claimedTaskId) {
         throw new Error(
           "This assignment's browser claim is stale; reopen Studi so it can recover safely",
         );
@@ -261,6 +277,10 @@ export class ConversationCoordinator {
           {
             title: "Current Studi facts",
             content: JSON.stringify(this.#brief(target)),
+          },
+          {
+            title: "Recent conversation",
+            content: JSON.stringify(job.messages.slice(-20)),
           },
           {
             title: "Assignments mentioned by the student",
@@ -534,11 +554,15 @@ export class ConversationCoordinator {
     const active = this.#sessions.get(job.jobId);
     if (active) return active;
     const persisted = this.#store.agentJobs.get(job.jobId);
+    // A review conversation must not open a second writer on the retained
+    // worker's Pi session file. The durable job transcript supplies continuity.
+    const workerPath = this.#manager.state().lease?.workerSessionPath;
+    const resumePath = persisted?.sessionPath === workerPath ? null : persisted?.sessionPath;
     const session = await this.#runtime.createJobSession(
       ConversationTargetSchema.parse(job.target),
       tools,
-      persisted?.sessionPath
-        ? { resumeSessionPath: persisted.sessionPath }
+      resumePath
+        ? { resumeSessionPath: resumePath }
         : {},
     );
     if (!session.sessionPath) {

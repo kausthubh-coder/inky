@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { BROWSER_TOOL_NAMES } from "../shared/browser-agent.js";
+import { SCAN_TOOL_NAMES } from "../shared/school-scan.js";
 
 import type { AgentJobPhase, AgentTarget } from "./contracts.js";
 
@@ -36,15 +38,7 @@ const toolsByCapability = Object.freeze({
   "notes-search": ["note_search"],
   "notes-read": ["note_read"],
   assignment: ["assignment_read"],
-  browser: [
-    "browser_snapshot",
-    "browser_navigate",
-    "browser_click",
-    "browser_type",
-    "browser_select",
-    "browser_press",
-    "browser_wait",
-  ],
+  browser: [...BROWSER_TOOL_NAMES],
   "assignment-effects": [
     "assignment_record_answer_snapshot",
     "assignment_record_recovery",
@@ -54,7 +48,7 @@ const toolsByCapability = Object.freeze({
     "note_upsert",
   ],
   scan: ["scan_status"],
-  "scan-record": ["scan_record_course", "scan_record_assignment", "scan_record_coverage", "scan_request_handoff"],
+  "scan-record": SCAN_TOOL_NAMES.filter((name) => name !== "scan_status"),
   files: ["file_list", "file_read", "file_write"],
   shell: ["shell_run"],
   composio: [],

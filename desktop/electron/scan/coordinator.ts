@@ -5,6 +5,7 @@ import { Type } from "typebox";
 
 import {
   SafeSourceTargetSchema,
+  SCAN_TOOL_NAMES,
   SchoolOnboardingStateSchema,
   SchoolScanSchema,
   STUDI_SCHEMA_VERSION,
@@ -19,7 +20,7 @@ import {
   type SchoolScanWorkflow,
 } from "../../shared/index.js";
 import { retrieveNoteIndex } from "../../agent-system/retrieve.js";
-import type { AgentSession, AgentSessionTarget } from "../agent/runtime.js";
+import type { AgentSession, AgentSessionTarget, ScanSessionControl } from "../agent/runtime.js";
 import type { BrowserController } from "../browser/controller.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
@@ -31,6 +32,7 @@ export interface ScanSessionRuntime {
   createScanSession(
     recordingTools: readonly ToolDefinition[],
     target?: AgentSessionTarget,
+    control?: ScanSessionControl,
   ): Promise<AgentSession>;
 }
 
@@ -45,6 +47,8 @@ export class SchoolScanCoordinator {
   #session: AgentSession | null = null;
   #sessionScanId: string | null = null;
   #disposed = false;
+  #takingOver = false;
+  readonly #pendingMessages = new Set<string>();
 
   constructor(
     store: LocalStore,
@@ -64,6 +68,10 @@ export class SchoolScanCoordinator {
     this.#manager = options.manager ?? null;
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#onError = options.onError ?? (() => undefined);
+    const interrupted = store.school.latestScan();
+    if (interrupted?.state === "running") {
+      this.#fail(interrupted.scanId, "Studi stopped before the school scan finished. Saved discoveries are preserved; start a new scan to verify coverage.");
+    }
   }
 
   async state(): Promise<SchoolOnboardingState> {
@@ -160,9 +168,11 @@ export class SchoolScanCoordinator {
     this.#assertUsable();
     const scan = this.#store.school.latestScan();
     if (!scan || scan.state !== "running") throw new Error("No school scan is driving the browser");
+    this.#takingOver = true;
     const evidence = await this.#takeoverEvidence(scan);
+    const latest = this.#store.school.getScan(scan.scanId) ?? scan;
     this.#store.school.putScan({
-      ...scan,
+      ...latest,
       state: "needs_user",
       updatedAt: this.#now(),
       currentStep: "You have the page.",
@@ -173,9 +183,28 @@ export class SchoolScanCoordinator {
         evidence,
       },
     });
+    this.#takingOver = false;
     this.#updateProfileState("needs_sign_in");
     await this.#session?.abort();
     return this.state();
+  }
+
+  async sendMessage(input: { scanId: string; text: string; clientMessageId: string }): Promise<SchoolOnboardingState> {
+    this.#assertUsable();
+    const scan = this.#store.school.latestScan();
+    if (!scan || scan.scanId !== input.scanId || !["running", "needs_user"].includes(scan.state)) throw new Error("This school check has ended. Start another check to add instructions.");
+    if (scan.messages.some(message => message.clientMessageId === input.clientMessageId)) return this.state();
+    const text = input.text.trim();
+    if (!text || text.length > 20000) throw new Error("Write a message of up to 20,000 characters.");
+    if (scan.state === "running" && !this.#session?.steer) throw new Error("The school check is still starting. Try again in a moment.");
+    if (this.#pendingMessages.has(input.clientMessageId)) throw new Error("That message is still being delivered.");
+    this.#pendingMessages.add(input.clientMessageId);
+    try {
+      if (scan.state === "running") await this.#session!.steer!(text);
+      const latest = this.#store.school.getScan(scan.scanId)!;
+      this.#store.school.putScan({...latest, messages:[...latest.messages, {messageId:randomUUID(), role:"user", text, clientMessageId:input.clientMessageId, createdAt:this.#now()}]});
+      return this.state();
+    } finally { this.#pendingMessages.delete(input.clientMessageId); }
   }
 
   async recordMissedCourseFeedback(rawFeedback: string): Promise<SchoolOnboardingState> {
@@ -202,6 +231,8 @@ export class SchoolScanCoordinator {
 
   dispose(): void {
     if (this.#disposed) return;
+    const scan = this.#store.school.latestScan();
+    if (scan?.state === "running") this.#fail(scan.scanId, "Studi closed before the school scan finished. Saved discoveries are preserved.");
     this.#disposed = true;
     this.#session?.dispose();
     this.#session = null;
@@ -239,11 +270,6 @@ export class SchoolScanCoordinator {
 
     try {
       await this.#browser.navigate(profile.schoolRoot);
-    } catch (error) {
-      this.#reportError(error, scan.scanId);
-      this.#fail(scan.scanId, `The school root could not open: ${errorMessage(error)}`);
-      return this.state();
-    }
 
     const noteEntries = retrieveNoteIndex(this.#store.notes.list(), { kind: "scan", schoolId: profile.profileId });
     const noteBodies = await Promise.all(noteEntries.map(async (entry) => ({ entry, document: await this.#store.notes.read(entry.noteId) })));
@@ -260,35 +286,47 @@ export class SchoolScanCoordinator {
     const priorWorkflow = kind === "replay" && workflow
       ? `\n\n# Structured replay hints\n${JSON.stringify({ revision: workflow.revision, root: workflow.root, steps: workflow.steps, coverageTargets: workflow.coverageTargets })}\n\nThese typed locations are navigation hints only. Re-observe every target and use record tools for every current claim; prior completion is never evidence.`
       : "";
-    return this.#run(
+    return await this.#run(
       scan,
       `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. Record assignments from their destination links on lists, then visit their detail pages to capture instructions and dates. If a list has no unambiguous link, open the assignment before recording it. Capture its visible instructions and due date (dueText must be the exact visible date). Do not omit visible details. Identify assignment destination links with observationRef when recording a list. Code derives identity from these links, not courseKey or assignmentKey. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing. Navigation hints become a Markdown note. Write them as plain text or Markdown, never HTML.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
     );
+    } catch (error) {
+      this.#fail(scan.scanId, `The scan could not start: ${errorMessage(error)}`);
+      return this.state();
+    }
   }
 
   async #run(scan: SchoolScan, prompt: string): Promise<SchoolOnboardingState> {
+    let reply = "";
+    let terminalOutcome: "completed" | "failed" | "aborted" | null = null;
+    let unsubscribe: () => void = () => {};
+    try {
     let session = this.#session;
     if (!session || this.#sessionScanId !== scan.scanId) {
       session?.dispose();
-      session = await this.#runtime.createScanSession(this.#createRecordingTools(scan.scanId));
+      session = await this.#runtime.createScanSession(this.#createRecordingTools(scan.scanId), {}, {
+        assertActive: () => { this.#requiredRunningScan(scan.scanId); },
+      });
       this.#session = session;
       this.#sessionScanId = scan.scanId;
     }
 
-    let terminalOutcome: "completed" | "failed" | "aborted" | null = null;
-    const unsubscribe = session.subscribe((event: AgentRunEvent) => {
+    this.#requiredRunningScan(scan.scanId);
+    unsubscribe = session.subscribe((event: AgentRunEvent) => {
+      if (event.type === "text") reply += event.delta;
       if (event.type === "terminal") terminalOutcome = event.outcome;
       if (event.type === "tool_finished" && event.outcome === "failed") this.#reportError(event, scan.scanId, event.toolName);
       if (event.type === "terminal" && event.outcome === "failed") this.#reportError(event.reason ?? "Scan model failed", scan.scanId);
     });
-    try {
-      await session.prompt(prompt);
+      await session.prompt(`${prompt}\n\n# Durable scan checkpoint\n${JSON.stringify(this.#checkpoint(scan.scanId))}\nThese saved IDs support resuming this scan. Take a new browser snapshot before new claims or actions.`);
     } catch (error) {
       const current = this.#store.school.getScan(scan.scanId);
       this.#reportError(error, scan.scanId);
       if (current?.state === "running") this.#fail(scan.scanId, `The scan agent stopped: ${errorMessage(error)}`);
     } finally {
       unsubscribe();
+      const saved = this.#store.school.getScan(scan.scanId);
+      if (saved && reply.trim()) this.#store.school.putScan({...saved, messages:[...saved.messages, {messageId:randomUUID(),role:"assistant",text:reply.slice(0,100000),createdAt:this.#now()}]});
     }
 
     const current = this.#store.school.getScan(scan.scanId);
@@ -310,6 +348,13 @@ export class SchoolScanCoordinator {
   }
 
   #createRecordingTools(scanId: string): ToolDefinition[] {
+    const status = defineTool({
+      name: "scan_status",
+      label: "Read scan progress",
+      description: "Read durable discoveries, inventory coverage and outstanding gaps. Use returned IDs when resuming after a handoff.",
+      parameters: Type.Object({}, { additionalProperties: false }),
+      execute: async () => toolResult(this.#checkpoint(scanId)),
+    });
     const recordCourse = defineTool({
       name: "scan_record_course",
       label: "Record verified course",
@@ -320,15 +365,22 @@ export class SchoolScanCoordinator {
         observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
       }, { additionalProperties: false }),
       execute: async (_toolCallId, input) => {
+        const snapshot = await this.#observe(scanId, [input.observationRef]);
         const scan = this.#requiredRunningScan(scanId);
-        const snapshot = await this.#browser.snapshot();
         const observation = requireSnapshotFact(snapshot, input.label, input.observationRef, "course label");
         const evidence = this.#evidence(scanId, snapshot, `Observed course ${input.label.trim()} in ${observation}.`);
         const sourceTarget = observedTarget(snapshot, input.label, input.observationRef);
         const identity = schoolIdentity(sourceTarget, "course");
-        const priorCourse = this.#store.school.listCourses().find(course => identity
+        const courses = this.#store.school.listCourses();
+        let priorCourse = courses.find(course => identity
           ? schoolIdentity(course.sourceTarget, "course") === identity
           : exactTarget(course.sourceTarget) === exactTarget(sourceTarget) && sameFact(course.label, input.label));
+        if (!priorCourse && exactTarget(sourceTarget) !== exactTarget(snapshot.url)) {
+          // A newly visible course link may refine a legacy directory observation.
+          // Preserve its ID, permissions and homework folders when unambiguous.
+          const legacy = courses.filter(course => exactTarget(course.sourceTarget) === exactTarget(snapshot.url) && sameFact(course.label, input.label));
+          if (legacy.length === 1) priorCourse = legacy[0];
+        }
         const courseId = priorCourse?.courseId ?? stableId("course", identity ?? `${exactTarget(sourceTarget)}|${normalize(input.label)}`);
         const course = this.#store.school.putCourse({
           schemaVersion: STUDI_SCHEMA_VERSION,
@@ -367,9 +419,10 @@ export class SchoolScanCoordinator {
       readonly dueText?: string;
       readonly observationRef?: string;
     }[]) => {
+      const snapshot = await this.#observe(scanId, inputs.map((input) => input.observationRef));
       const scan = this.#requiredRunningScan(scanId);
-      const snapshot = await this.#browser.snapshot();
       return this.#store.database.transaction(() => {
+        const changes = [...scan.changes];
         const assignments = inputs.map((input) => {
           if (!scan.observedCourseIds.includes(input.courseId)) {
             throw new Error("The assignment's course has not been verified in this scan");
@@ -396,7 +449,7 @@ export class SchoolScanCoordinator {
             const candidates = this.#store.assignments.listAll().filter(assignment =>
               (assignment.courseId === input.courseId || isMoodleIndex(snapshot.url)) &&
               !assignment.sourceIdentity && exactTarget(assignment.sourceTarget) === exactTarget(snapshot.url) &&
-              sameFact(assignment.title, input.title) && (dueAt === undefined || assignment.dueAt === dueAt));
+              sameFact(assignment.title, input.title) && (dueAt === undefined || assignment.dueAt === undefined || assignment.dueAt === dueAt));
             if (candidates.length === 1) this.#store.assignments.put({ ...candidates[0], sourceIdentity, sourceTarget });
           }
           const conflicts = reconcileAssignments(this.#store);
@@ -428,6 +481,10 @@ export class SchoolScanCoordinator {
             lastVerifiedScanId: scanId,
             evidence: [...(priorAssignment?.evidence ?? []), evidence],
           });
+          const fields = priorAssignment ? ["title", "dueAt", "dueText", "instructions"].filter(field => assignment[field as keyof Assignment] !== priorAssignment[field as keyof Assignment]) : [];
+          const existingChange = changes.find(change => change.assignmentId === assignmentId);
+          if (existingChange) existingChange.fields = [...new Set([...existingChange.fields, ...fields])];
+          else if (!priorAssignment || fields.length) changes.push({assignmentId, kind:priorAssignment ? "updated" : "new", fields});
           if (!conflict) this.#ensureTaskOrigin(assignment, scanId);
           return assignment;
         });
@@ -437,6 +494,7 @@ export class SchoolScanCoordinator {
           currentStep: assignments.length === 1
             ? `Verified assignment: ${assignments[0]!.title}`
             : `Verified ${assignments.length} assignments on the current page`,
+          changes,
           observedAssignmentIds: assignments.reduce(
             (ids, assignment) => addUnique(ids, assignment.assignmentId),
             scan.observedAssignmentIds,
@@ -480,8 +538,8 @@ export class SchoolScanCoordinator {
         stateObservationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
       }, { additionalProperties: false }),
       execute: async (_toolCallId, input) => {
+        const snapshot = await this.#observe(scanId, [input.observationRef, input.stateObservationRef]);
         const scan = this.#requiredRunningScan(scanId);
-        const snapshot = await this.#browser.snapshot();
         const labelObservation = requireSnapshotFact(snapshot, input.label, input.observationRef, "linked-system label");
         const stateObservation = requireSnapshotFact(snapshot, input.stateText, input.stateObservationRef, "linked-system state");
         requireLinkedSystemStateFact({
@@ -543,7 +601,7 @@ export class SchoolScanCoordinator {
             throw new Error("A linked-system handoff requires a linked system observed in this scan");
           }
         }
-        const snapshot = await this.#browser.snapshot();
+        const snapshot = await this.#observe(scanId);
         const evidence = this.#evidence(scanId, snapshot, "Observed a page that requires the student's sign-in.");
         let next = this.#store.school.putScan({
           ...scan,
@@ -560,6 +618,64 @@ export class SchoolScanCoordinator {
         });
         this.#updateProfileState("needs_sign_in");
         return toolResult(next);
+      },
+    });
+
+    const inventory = defineTool({
+      name: "scan_record_inventory",
+      label: "Verify a complete inventory",
+      description: "Record the completed course directory or one course's assignment inventory after inspecting every page/filter and recording its items. Supply all discovered item IDs and exact visible text from the final inventory page. An empty inventory requires an explicit empty-list message. Search results and truncated observations cannot prove completeness.",
+      parameters: Type.Object({
+        kind: Type.Union([Type.Literal("courses"), Type.Literal("assignments")]),
+        courseId: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),
+        state: Type.Union([Type.Literal("complete"), Type.Literal("empty")]),
+        itemIds: Type.Array(Type.String({ minLength: 1, maxLength: 256 }), { maxItems: 10_000 }),
+        evidenceText: Type.String({ minLength: 1, maxLength: 300 }),
+        observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+      }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        const snapshot = await this.#observe(scanId, [input.observationRef]);
+        const scan = this.#requiredRunningScan(scanId);
+        if (snapshot.truncated || snapshot.search) throw new Error("Inspect the remaining inventory without a search filter before recording completeness");
+        requireSnapshotFact(snapshot, input.evidenceText, input.observationRef, "inventory evidence");
+        if (input.kind === "assignments" && (!input.courseId || !scan.observedCourseIds.includes(input.courseId))) {
+          throw new Error("Verify the course before its assignment inventory");
+        }
+        if (input.kind === "courses" && input.courseId) throw new Error("The course directory cannot have a courseId");
+        const expected = input.kind === "courses" ? scan.observedCourseIds : scan.observedAssignmentIds.filter(
+          (id) => this.#store.assignments.get(id)?.courseId === input.courseId,
+        );
+        if (new Set(input.itemIds).size !== input.itemIds.length || input.itemIds.length !== expected.length || expected.some((id) => !input.itemIds.includes(id))) {
+          throw new Error("Inventory IDs must match all items recorded for this inventory in the current scan");
+        }
+        if (input.state === "empty") {
+          const empty = input.kind === "assignments"
+            ? isEmptyAssignmentIndex(normalizeFact(input.evidenceText))
+            : /\b(?:no courses|0 courses)\b/.test(normalizeFact(input.evidenceText));
+          if (input.itemIds.length || !empty) throw new Error("An empty inventory requires explicit empty-list evidence and zero recorded items");
+        } else if (input.itemIds.length === 0) {
+          throw new Error("A complete nonempty inventory needs recorded items");
+        }
+        // A final page must identify this inventory, rather than an unrelated
+        // account dashboard or a different course's empty list.
+        if (input.kind === "assignments") {
+          const course = this.#store.school.listCourses().find((item) => item.courseId === input.courseId)!;
+          requireSnapshotFact(snapshot, course.label, undefined, "inventory course");
+        }
+        const recorded = {
+          kind: input.kind,
+          ...(input.courseId ? { courseId: input.courseId } : {}),
+          state: input.state,
+          itemIds: input.itemIds,
+          evidence: this.#evidence(scanId, snapshot, `Inventory ${input.state}: ${input.evidenceText.trim()}`),
+        };
+        this.#store.school.putScan({
+          ...scan,
+          inventories: [...scan.inventories.filter((item) => item.kind !== input.kind || item.courseId !== input.courseId), recorded],
+          currentStep: input.kind === "courses" ? "Verified the course directory" : "Verified a course's assignment inventory",
+          updatedAt: this.#now(),
+        });
+        return toolResult(recorded);
       },
     });
 
@@ -598,7 +714,10 @@ export class SchoolScanCoordinator {
             failure: item.failure.trim(),
           }];
         });
-        const coverage = [...observedCoverage, ...requestedCoverage];
+        const inventoryGaps = this.#inventoryGaps(scan).map((failure) => ({
+          target: "Inventory coverage", status: "partial" as const, failure,
+        }));
+        const coverage = [...observedCoverage, ...requestedCoverage, ...inventoryGaps];
         const linkedNeedsUser = this.#store.school.listLinkedSystems().some(
           (system) => scan.observedLinkedSystemIds.includes(system.linkedSystemId) && system.state === "needs_user",
         );
@@ -635,7 +754,46 @@ export class SchoolScanCoordinator {
       },
     });
 
-    return [recordCourse, recordAssignment, recordAssignments, recordLinkedSystem, requestHandoff, finish];
+    const tools = [status, recordCourse, recordAssignment, recordAssignments, recordLinkedSystem, inventory, requestHandoff, finish];
+    if (tools.some((tool, index) => tool.name !== SCAN_TOOL_NAMES[index])) throw new Error("Scan tools do not match the shared capability contract");
+    return tools;
+  }
+
+  async #observe(scanId: string, refs: readonly (string | undefined)[] = []): Promise<BrowserSnapshot> {
+    this.#requiredRunningScan(scanId);
+    const snapshot = this.#browser.evidenceSnapshot
+      ? await this.#browser.evidenceSnapshot([...new Set(refs.filter((ref): ref is string => Boolean(ref)))])
+      : await this.#browser.snapshot();
+    this.#requiredRunningScan(scanId);
+    return snapshot;
+  }
+
+  #inventoryGaps(scan: SchoolScan): string[] {
+    const sameIds = (left: readonly string[], right: readonly string[]) => left.length === right.length && left.every((id) => right.includes(id));
+    const gaps: string[] = [];
+    if (!scan.inventories.some((item) => item.kind === "courses" && sameIds(item.itemIds, scan.observedCourseIds))) {
+      gaps.push("The complete course directory has not been verified.");
+    }
+    for (const courseId of scan.observedCourseIds) {
+      const assignmentIds = scan.observedAssignmentIds.filter((id) => this.#store.assignments.get(id)?.courseId === courseId);
+      if (!scan.inventories.some((item) => item.kind === "assignments" && item.courseId === courseId && sameIds(item.itemIds, assignmentIds))) {
+        const course = this.#store.school.listCourses().find((item) => item.courseId === courseId);
+        gaps.push(`The assignment inventory for ${course?.label ?? courseId} has not been verified.`);
+      }
+    }
+    return gaps;
+  }
+
+  #checkpoint(scanId: string) {
+    const scan = this.#store.school.getScan(scanId);
+    if (!scan) throw new Error("Scan does not exist");
+    return {
+      scan,
+      courses: this.#store.school.listCourses().filter((course) => scan.observedCourseIds.includes(course.courseId)),
+      assignments: scan.observedAssignmentIds.map((id) => this.#store.assignments.get(id)),
+      linkedSystems: this.#store.school.listLinkedSystems().filter((system) => scan.observedLinkedSystemIds.includes(system.linkedSystemId)),
+      gaps: this.#inventoryGaps(scan),
+    };
   }
 
   #ensureTaskOrigin(assignment: Assignment, scanId: string): void {
@@ -712,6 +870,8 @@ export class SchoolScanCoordinator {
   }
 
   #requiredRunningScan(scanId: string): SchoolScan {
+    this.#assertUsable();
+    if (this.#takingOver) throw new Error("The student is taking over the browser");
     const scan = this.#store.school.getScan(scanId);
     if (!scan || scan.state !== "running") {
       throw new Error("This scan is no longer accepting browser evidence");
@@ -756,6 +916,7 @@ export class SchoolScanCoordinator {
   }
 
   #fail(scanId: string, reason: string): void {
+    reason = reason.slice(0, 500);
     const scan = this.#store.school.getScan(scanId);
     if (!scan || scan.state !== "running") return;
     const completedAt = this.#now();

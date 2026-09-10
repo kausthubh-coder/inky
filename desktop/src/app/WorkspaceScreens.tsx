@@ -148,6 +148,7 @@ export function DashboardScreen({
   const [chatView, setChatView] = useState<ChatView>(() =>
     readDevPreviewConfig()?.id.startsWith("chat-") ? "expanded" : "home",
   );
+  const [schoolOpen, setSchoolOpen] = useState(false);
   const [clock, setClock] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [boardView, setBoardView] = useState<"week" | "undated">(() => readDevPreviewConfig()?.id === "week-undated" ? "undated" : "week");
@@ -161,7 +162,7 @@ export function DashboardScreen({
     };
   }, []);
   useEffect(() => {
-    if (panel.kind !== "closed") setChatView("expanded");
+    if (panel.kind !== "closed") { setSchoolOpen(panel.kind === "school"); setChatView("expanded"); }
   }, [panel]);
   const [feedback, setFeedback] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
@@ -218,12 +219,12 @@ export function DashboardScreen({
 
   return (
     <main
-      className={`app-shell chat-dashboard ${chatView === "expanded" ? "is-chat-expanded" : ""}`}
+      className="app-shell chat-dashboard"
       data-studi-app-ready="true"
     >
       <AppChrome
         {...chrome}
-        chatName={chatView === "expanded" ? "Tonight, with Inky" : undefined}
+        chatName={undefined}
         onNavigate={(screen, landing) => {
           if (screen === "week") {
             setChatView("home");
@@ -234,13 +235,6 @@ export function DashboardScreen({
       />
       <div className="page dashboard-page">
         <header className="page-hero dashboard-hero">
-          <button
-            className="inky-trigger"
-            onClick={() => setChatView("compact")}
-            aria-label="Open your conversation with Inky"
-          >
-            <Inky state={inkyState} size={90} label={`Inky is ${inkyState}`} />
-          </button>
           <h1>Hey {chrome.studentName.trim().split(/\s+/)[0]}.</h1>
           <p role="status">
             {error
@@ -258,7 +252,7 @@ export function DashboardScreen({
                         : "Nothing due today. A little room to breathe."}
           </p>
           {["failed", "partial"].includes(scan?.state ?? "") && (
-            <button className="scan-retry" onClick={onScanAgain} disabled={busy !== null}>
+            <button className="scan-retry" onClick={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} disabled={false}>
               <Icon name="refresh" size={14} />Try again
             </button>
           )}
@@ -426,7 +420,7 @@ export function DashboardScreen({
             </PaperCard>
           )}
           <footer className="week-footer">
-            <button className="scan-refresh" onClick={onScanAgain} disabled={scan?.state === "running" || busy !== null} aria-label="Refresh assignments"><Icon name="refresh" size={15} /><span role="status">{scanStatusCopy(scan?.state)}</span></button>
+            <button className="scan-refresh" onClick={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} aria-label="School check"><Icon name="refresh" size={15} /><span role="status">{scanStatusCopy(scan?.state)}</span></button>
             <button className="week-correction" onClick={() => setNoteOpen(open => !open)} aria-expanded={noteOpen}><Icon name="note" size={15} />{noteOpen ? "Close note" : "Something missing?"}</button>
           </footer>
         </section>
@@ -437,15 +431,17 @@ export function DashboardScreen({
         )}
       </div>
       <ChatWorkspace
-        key={chrome.storageKey}
-        view={chatView}
-        onView={setChatView}
+        key={`${chrome.storageKey}:${schoolOpen ? "school" : selectedAssignment?.assignmentId ?? "home"}`}
+        schoolCheck={schoolOpen}
+        onAssignment={id => { setSchoolOpen(false); onAssignment(id); }}
+        view={chatView === "home" ? "home" : "expanded"}
+        onView={view => { setChatView(view); if(view === "home") { onClosePanel(); setSchoolOpen(false); } }}
         storageKey={chrome.storageKey ?? chrome.studentName}
         onboarding={onboarding}
         lifecycle={lifecycle}
         workspace={workspace}
-        assignment={selectedAssignment}
-        task={selectedTask}
+        assignment={schoolOpen ? null : selectedAssignment}
+        task={schoolOpen ? null : selectedTask}
         mood={inkyState}
         actionError={error}
         onStart={onStart}

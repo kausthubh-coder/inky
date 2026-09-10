@@ -15,7 +15,7 @@ export async function verifyChatPreview(page, base = "http://127.0.0.1:4174") {
     await page.setViewportSize({ width: 1440, height: 950 });
     await open("week");
     await page.evaluate(() =>
-      localStorage.removeItem("studi-chat-draft:preview"),
+      Object.keys(localStorage).filter(key => key.startsWith("studi-chat-draft:")).forEach(key => localStorage.removeItem(key)),
     );
     await page.reload();
     await page.waitForSelector(".composer-mascot");
@@ -43,7 +43,7 @@ export async function verifyChatPreview(page, base = "http://127.0.0.1:4174") {
     await page
       .getByRole("button", { name: "Send message", exact: true })
       .click();
-    assert.equal(await page.locator(".chat-view-compact").count(), 1);
+    assert.equal(await page.locator(".workspace-dialog[open]").count(), 1);
     assert.equal(
       await page.locator(".composer-mascot,.chat-work-slip").count(),
       0,
@@ -52,27 +52,11 @@ export async function verifyChatPreview(page, base = "http://127.0.0.1:4174") {
     await page.waitForTimeout(1800);
     assert.equal(await box().inputValue(), "Keep this next draft");
     assert.equal(await page.locator(".student-bubble").count(), 1);
-    await page
-      .getByRole("button", { name: "Expand chat", exact: true })
-      .click();
-    assert.match(
-      await page.locator(".chat-breadcrumb").innerText(),
-      /Tonight, with Inky/,
-    );
-    await page.getByRole("button", { name: "Tuck chat away" }).click();
+    await page.getByRole("dialog").waitFor();
+    await page.getByRole("button", {name:"Close chat",exact:true}).click();
     await page.locator(".composer-mascot").click();
     assert.equal(await page.locator(".student-bubble").count(), 1);
-    await page
-      .getByRole("button", { name: "Expand chat", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Open browser", exact: true })
-      .click();
-    assert.equal(await page.locator(".chat-browser-slot").count(), 1);
-    await page
-      .getByRole("button", { name: "Close browser", exact: true })
-      .click();
-    assert.equal(await page.locator(".chat-browser-slot").count(), 0);
+    assert.equal(await box().inputValue(), "Keep this next draft");
     await box().fill("name@example.com");
     assert.equal(await page.getByRole("listbox").count(), 0);
     await box().fill("@not-an-assignment");
@@ -81,7 +65,7 @@ export async function verifyChatPreview(page, base = "http://127.0.0.1:4174") {
       /No assignments/,
     );
     await box().press("Escape");
-    assert.equal(await page.locator(".chat-view-expanded").count(), 1);
+    assert.equal(await page.locator(".workspace-dialog[open]").count(), 1);
     await box().fill("Stop this reply");
     await page
       .getByRole("button", { name: "Send message", exact: true })
@@ -90,10 +74,10 @@ export async function verifyChatPreview(page, base = "http://127.0.0.1:4174") {
     await page.waitForTimeout(1600);
     assert.match(await page.locator(".conversation-log").innerText(), /Paused/);
     results.push(
-      "week arrows, mentions, retained draft, single chat, browser, stop",
+      "week arrows, mentions, retained draft, centered chat, retained drafts, mention Escape, stop",
     );
     await open("chat-error");
-    await page.getByRole("button", { name: "Try again", exact: true }).click();
+    await page.getByRole("log", {name:"Messages"}).getByRole("button", { name: "Try again", exact: true }).click();
     await page.waitForTimeout(1600);
     assert.equal(await page.locator(".student-bubble").count(), 2);
     results.push("saved failure and retry");
@@ -125,7 +109,7 @@ export async function verifyChatPreview(page, base = "http://127.0.0.1:4174") {
           `${id} composer outside viewport`,
         );
         if (id === "desk-needs-user") {
-          await page.getByRole("button", { name: "Tuck chat away" }).click();
+          await page.getByRole("button", { name: "Close assignment" }).click();
           assert.equal(await page.locator(".chat-work-slip").count(), 1);
           await page.locator(".chat-work-slip button").first().click();
           assert.equal(await page.locator(".chat-work-slip").count(), 0);

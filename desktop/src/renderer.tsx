@@ -15,3 +15,4 @@ export function mountRenderer(content: ReactNode): void {
   if (!rootElement) throw new Error("Studi renderer root is missing");
   createRoot(rootElement).render(<StrictMode>{content}</StrictMode>);
 }
+import "./app/activity-workspace.css";

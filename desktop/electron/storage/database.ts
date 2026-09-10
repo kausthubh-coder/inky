@@ -623,11 +623,11 @@ const requiredIndexes = [
 ] as const;
 
 export class StudiSqliteDatabase {
-  #transactionDepth = 0;
   readonly handle!: DatabaseSync;
   readonly databasePath: string;
   readonly failureInjector: StorageFailureInjector | undefined;
   #closed = false;
+  #transactionDepth = 0;
 
   constructor(
     databasePath: string,
