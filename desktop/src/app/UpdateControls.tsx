@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { NotificationIntent, UpdateState } from "../../shared/index.js";
 import { Inky } from "./Inky.js";
+import { Icon } from "./Icon.js";
+
+const notificationKinds = {
+  handoff: { icon: "hand", label: "Needs you" },
+  review_ready: { icon: "check", label: "Ready to review" },
+  scan_result: { icon: "search", label: "School scan" },
+  failure: { icon: "warning", label: "Needs attention" },
+} as const;
 
 export function UpdateControls({
   onNotification,
@@ -76,23 +84,16 @@ export function UpdateControls({
         className={`update-entry ${ready ? "is-ready" : ""}`}
         onClick={() => update.current?.showModal()}
       >
-        {ready ? "Update ready" : "Updates"}
+        {ready ? "App update ready" : "App updates"}
       </button>
       <button
         className="notification-toggle"
         aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
         onClick={() => notifications.current?.showModal()}
       >
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.6"
-          aria-hidden="true"
-        >
-          <path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8ZM10 21h4" />
-        </svg>
-        {unread > 0 && <i />}
+        <Icon name="bell" />
+        <span>Notifications</span>
+        {unread > 0 && <b aria-hidden="true">{unread}</b>}
       </button>
       <dialog
         className="studi-update-dialog"
@@ -230,6 +231,7 @@ export function UpdateControls({
                 );
             }}
           >
+            <span className={`notification-kind notification-kind--${note.kind}`}><Icon name={notificationKinds[note.kind].icon} size={18} />{notificationKinds[note.kind].label}</span>
             <strong>{note.title}</strong>
             <span>{note.body}</span>
             <time>{new Date(note.createdAt).toLocaleString()}</time>

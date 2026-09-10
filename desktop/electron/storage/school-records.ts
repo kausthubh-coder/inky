@@ -14,6 +14,7 @@ import {
 } from "../../shared/index.js";
 import type { StudiSqliteDatabase } from "./database.js";
 import { StorageError, errorMessage } from "./errors.js";
+import { resolveRecordId } from "./redirects.js";
 
 type JsonRow = { record_json: string };
 
@@ -124,7 +125,7 @@ export class SchoolRepository {
   }
 
   putScan(value: unknown): SchoolScan {
-    const scan = parseValue(SchoolScanSchema, value, "school scan");
+    const scan = this.#canonicalScan(parseValue(SchoolScanSchema, value, "school scan"));
     this.database.handle.prepare(`
       INSERT INTO school_scans(scan_id, state, started_at, updated_at, completed_at, record_json)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -155,7 +156,7 @@ export class SchoolRepository {
       updated_at: string;
       completed_at: string | null;
     }) | undefined;
-    return row ? parseScanRow(scanId, row) : null;
+    return row ? this.#canonicalScan(parseScanRow(scanId, row)) : null;
   }
 
   latestScan(): SchoolScan | null {
@@ -169,11 +170,28 @@ export class SchoolRepository {
       updated_at: string;
       completed_at: string | null;
     }) | undefined;
-    return row ? parseScanRow(row.scan_id, row) : null;
+    return row ? this.#canonicalScan(parseScanRow(row.scan_id, row)) : null;
+  }
+
+  resolveCourseId(courseId: string): string {
+    return resolveRecordId(this.database, "course", courseId);
+  }
+
+  #canonicalScan(scan: SchoolScan): SchoolScan {
+    const ids = (kind: "course" | "assignment", values: string[]) => [...new Set(values.map(id => resolveRecordId(this.database, kind, id)))];
+    return { ...scan, observedCourseIds: ids("course", scan.observedCourseIds),
+      observedAssignmentIds: ids("assignment", scan.observedAssignmentIds),
+      changes: scan.changes.map(change => ({ ...change, assignmentId: resolveRecordId(this.database, "assignment", change.assignmentId) })),
+      inventories: scan.inventories.map(inventory => ({ ...inventory,
+        ...(inventory.courseId ? { courseId: this.resolveCourseId(inventory.courseId) } : {}),
+        itemIds: ids(inventory.kind === "courses" ? "course" : "assignment", inventory.itemIds),
+      })),
+    };
   }
 
   putCourse(value: unknown): Course {
     const course = parseValue(CourseSchema, value, "course");
+    if (this.resolveCourseId(course.courseId) !== course.courseId) throw new Error("This course was merged; refresh its canonical record before saving");
     this.database.handle.prepare(`
       INSERT INTO courses(course_id, last_verified_scan_id, last_verified_at, record_json)
       VALUES (?, ?, ?, ?)

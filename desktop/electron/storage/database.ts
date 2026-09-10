@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import { StorageError, errorMessage, isStorageError } from "./errors.js";
 
-export const STORAGE_SCHEMA_VERSION = 7 as const;
+export const STORAGE_SCHEMA_VERSION = 8 as const;
 
 export type StorageFailurePoint =
   | "migration_before_version"
@@ -287,6 +287,8 @@ const storageMigrations = [
       PRIMARY KEY (kind, old_id)
     );
   ` },
+  // Version gate: older binaries cannot validate course redirect archives.
+  { version: 8, sql: "SELECT 1;" },
 ] as const;
 
 type RequiredColumn = readonly [

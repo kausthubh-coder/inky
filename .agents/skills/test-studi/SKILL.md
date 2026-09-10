@@ -1,13 +1,28 @@
 ---
 name: test-studi
-description: Test Studi's real Electron app and web account UI, including creating or reusing dedicated development accounts, accepting Clerk invitations, onboarding, local school scans, chat, and assignment work. Isolates profiles, ports, and identities for concurrent worktrees; distinguishes live-provider proof from controlled tests.
+description: Verify Studi changes with full app journeys or focused UI, agent harness, storage, and web checks. Review common failure states, usability, code quality, and maintainability; isolate QA profiles and distinguish live proof from controlled tests.
 ---
 
 # Test Studi
 
-Test the checkout the user is changing. Repair routine QA setup yourself; a signed-out or missing test profile is setup work, not a reason to stop. Do not claim a full flow from screenshots, previews, or seeded state.
+Test the checkout the user is changing. Choose evidence proportional to the change, fix failures within scope, and review the final diff before calling the work ready. Repair routine QA setup yourself; a signed-out or missing test profile is setup work, not a reason to stop. Do not claim a full flow from screenshots, previews, or seeded state.
 
-## Choose the proof
+## Choose the proof before editing
+
+State the user-visible outcome and the few likely ways it could fail. Use the smallest mode that proves that outcome; combine modes when a change crosses boundaries. Read [review-standard.md](references/review-standard.md) for the shared usability, code-quality, and completion review.
+
+| Change or request | Required proof |
+| --- | --- |
+| Full app test, release readiness, onboarding, or a broad cross-system change | [Full app pass](references/full-app-pass.md): fresh admission → onboarding → scan → chat → homework → restart. Include connected-app work when supported/in scope. |
+| An existing desktop feature or bug | [Feature pass](references/feature-pass.md): reproduce the trigger, exercise the fix in the real app, check its result and the adjacent common failure/recovery path. Reuse an onboarded profile. |
+| UI, copy, icons, layout, interaction | [Focused UI pass](references/focused-passes.md#ui-and-interaction): actual components, visual inspection, controls and relevant states; native verification for native behavior. |
+| Prompts, model/reasoning, memory, tools, agent harness or benchmark | [Focused agent pass](references/focused-passes.md#agent-harness-prompts-and-memory): production-path contracts plus bounded live runs when claiming agent behavior. |
+| Storage, identities, permissions, IPC, scheduling or updates | [Focused system pass](references/focused-passes.md#storage-runtime-and-native-systems): observable invariants and the affected app boundary. |
+| Documentation or skill-only edit | Validate references, commands and representative decisions. Run changed helpers if any; no unrelated full app run. |
+
+Use a full pass again on the integrated release candidate when separately tested changes interact. A component test passing on another branch is not evidence that the combined build works. Do not repeat full onboarding for a cosmetic edit or run every suite after relevant checks already pass.
+
+## Setup guides
 
 - **Web account UI:** use [references/web-account-pass.md](references/web-account-pass.md) for the Next.js dashboard, settings, billing, and desktop handoff page. Test this checkout's web server in an isolated browser with the dedicated Clerk development identity. Electron and Codex are not required for a web-only UI pass.
 
@@ -45,8 +60,10 @@ If signed out, look up and prepare the dedicated test identity using the account
 
 ## Completion evidence
 
-Record build/revision and dirty state, receipt/profile name and `buildTreeSha256`, screens actually exercised, public auth status and provider readiness, real scan coverage and discovered fixture assignment, chat/work outcome, and restart result. The tree hash includes imported Electron modules and renderer assets; entry-point hashes alone cannot prove a fix is loaded. Separate **passed**, **failed**, and **not run**. Keep the smallest reproduction for each failure.
+Keep a concise receipt under ignored `.agents/studi-qa/`: selected mode, intended result, build/revision and dirty state, checks with expected/observed outcomes, evidence paths, code/UI review findings, and remaining limits. For desktop journeys include receipt/profile name and `buildTreeSha256`, screens actually exercised, public auth/provider readiness, relevant scan/work outcomes, and restart result when required. The tree hash includes imported Electron modules and renderer assets; entry-point hashes alone cannot prove a fix is loaded. Separate **passed**, **failed**, and **not run**, and label live, controlled, preview, and native evidence. Keep the smallest reproduction for each failure.
 
 A full live pass requires approved access and provider ready, a real fixture scan, a real chat reply, scoped assignment work, and persistence after restart. A partial/empty scan or accepted invitation with waitlisted Convex access is a failure at that boundary. Stop that dependent journey, diagnose it, and continue independent checks.
 
 Run helper regressions with `node --test tests/auth/qa-tooling.test.mjs`; normal `bun run test:auth` includes them. The controlled native suite is `bun run test:electron`.
+
+The final report leads with what now works, then relevant verification and material limitations. Never replace evidence with “all tested,” a test count, or a screenshot. If a required live check is blocked, finish independent checks and identify the exact unproven boundary; mark the change implemented with verification pending, not fully verified.

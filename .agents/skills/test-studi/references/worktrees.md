@@ -2,6 +2,12 @@
 
 ## Ownership
 
+### Limited-memory Windows machines
+
+Keep testing sequential on the user's PC. Before a build, test suite or Electron launch, inspect available RAM (`Get-CimInstance Win32_OperatingSystem`) and the QA processes owned by this task. Run one heavy build/test job at a time and at most one Studi QA app with its required fixture. Stop your own idle preview/fixture servers and QA app when finished; preserve profiles and worktrees for reuse. Do not close the user's browser, installed Studi, Codex or another task's processes to make room.
+
+When available RAM is already low or the machine is paging heavily, continue lightweight code review/edits and defer the heavy run until there is headroom. Recheck after cleanup and between stages; if a required check remains blocked, report it accurately. A worktree mostly consumes disk while idle: reuse existing worktrees and dependencies, and avoid starting apps or dependency installs in each one. In manager-led work, one owner holds the test slot; the others remain idle until handed that slot explicitly.
+
 Run `Setup-StudiWorktree.ps1` inside the checkout to install with Bun, import an available QA Codex cache, and build. It never copies an Electron profile. Managed worktrees receive `.env.local` and the QA cache through `.worktreeinclude`; manually created worktrees can read the primary checkout's QA cache through the sync helper. Never share the writable `auth.json` file itself between running apps.
 
 The launcher derives paths from its own checkout, uses a stable suggested test email per worktree/profile, and allocates CDP, Clerk relay, and main inspector ports. A profile launch lock prevents concurrent initialization; a running-profile check rejects duplicate use. Different names in the same checkout provide independent journeys.

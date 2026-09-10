@@ -1,0 +1,15 @@
+.homework-rules form{display:grid;gap:20px;max-width:680px}
+.homework-rules fieldset{display:grid;gap:12px;min-width:0;margin:0;padding:0;border:0}
+.homework-rules legend{margin-bottom:12px;font-weight:700}
+.homework-rules__actions label{display:flex;align-items:start;gap:12px;padding:13px;border:1px solid var(--line);border-radius:9px;cursor:pointer}
+.homework-rules__actions label.is-selected{background:var(--sky)}
+.homework-rules__actions input,.homework-rules__group input{width:16px;height:16px;flex-shrink:0;margin:3px 0;accent-color:var(--ink)}
+.homework-rules__actions span{display:grid;gap:3px}
+.homework-rules__actions small{line-height:1.5}
+.homework-rules__advanced{font-size:.8rem}
+.homework-rules__advanced summary{cursor:pointer}
+.homework-rules__group{display:flex;align-items:center;gap:8px;margin:12px 0}
+.homework-rules__summary{padding:12px;background:var(--panel);border-left:3px solid var(--line);font-size:.85rem;overflow-wrap:anywhere}
+.homework-rules form>.button{justify-self:start}
+.homework-rules .rules-list>small{display:block;line-height:1.6;margin-top:15px}
+.homework-rules .rules-list strong{overflow-wrap:anywhere}

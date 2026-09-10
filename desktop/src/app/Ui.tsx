@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { agentRuntimeAttentionCopy, type AgentRuntimeAttention, type NotificationIntent, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
 
 export type AppScreen = "week" | "settings";
-export type SettingsLanding = "settings" | "usage" | "feedback";
+export type SettingsLanding = "settings" | "usage" | "feedback" | "rules";
 
 export function AppChrome({
   chatName,

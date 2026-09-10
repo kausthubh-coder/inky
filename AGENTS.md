@@ -6,6 +6,8 @@ When an HTML plan or mockup shows existing app UI, use the `existing-ui-mockups`
 
 we also test our app with test-studi skill
 
+For Studi changes, use `.agents/skills/test-studi/SKILL.md` to choose full-app or focused verification. Exercise the affected behavior, review common failure/recovery states and code maintainability, and report actual evidence and untested limits. Use full journeys for broad changes and integrated releases, not every small edit. Keep UI actions self-explanatory and code direct; fewer lines must not come at the expense of readability or meaningful safeguards.
+
 try to make code as high quilty as poslsible and as mannageble as pssobile,
 
 dont be too thorugh , make code elegent,

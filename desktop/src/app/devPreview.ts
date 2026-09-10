@@ -9,7 +9,7 @@ export type DevPreviewScenarioId =
   | "onboarding-school" | "onboarding-permission" | "onboarding-schedule" | "onboarding-signin"
   | "onboarding-scan" | "onboarding-handoff" | "onboarding-ready"
   | "chat-expanded" | "chat-thinking" | "chat-error" | "chat-handoff" | "week-error" | "week-updating" | "updates-ready" | "updates-mac" | "updates-error"
-  | "week" | "week-undated" | "assignment" | "desk-working" | "desk-needs-user" | "desk-review" | "desk-submitted"
+  | "week" | "week-conflicts" | "week-needs-user" | "week-complete" | "week-idle" | "week-browser-busy" | "week-undated" | "assignment" | "desk-working" | "desk-needs-user" | "desk-review" | "desk-submitted"
   | `settings-${SettingsSectionId}`;
 
 export interface DevPreviewConfig {

@@ -1,6 +1,6 @@
 import type { StudiSqliteDatabase } from "./database.js";
 
-export function resolveRecordId(database: StudiSqliteDatabase, kind: "assignment" | "task", id: string): string {
+export function resolveRecordId(database: StudiSqliteDatabase, kind: "assignment" | "task" | "course", id: string): string {
   const seen = new Set<string>();
   while (!seen.has(id)) {
     seen.add(id);
