@@ -23,7 +23,7 @@ export async function waitForAppConnection({ initial, read, signal, intervalMs =
     while (!stopped && !signal.aborted) {
       if (connection?.status.toUpperCase() === "ACTIVE") return connection;
       const status = connection?.status.toUpperCase();
-      if (status && status !== "INITIATED" && status !== "DISCONNECTED") throw new Error("Connection failed");
+      if (status && status !== "INITIATED" && status !== "INITIALIZING" && status !== "DISCONNECTED") throw new Error("Connection failed");
       await new Promise<void>(resolve => { pause = setTimeout(resolve, intervalMs); });
       if (stopped || signal.aborted) break;
       connection = await read();

@@ -60,7 +60,21 @@ export const SchoolScanSchema = z.strictObject({
   observedCourseIds: z.array(z.string().min(1).max(256)).max(1_000),
   observedAssignmentIds: z.array(z.string().min(1).max(256)).max(10_000),
   observedLinkedSystemIds: z.array(z.string().min(1).max(256)).max(1_000),
+  messages: z.array(z.strictObject({ messageId:z.string(), role:z.enum(["user","assistant"]), text:z.string().max(100000), createdAt:IsoTimestampSchema, clientMessageId:z.string().optional() })).max(1000).default([]),
+  changes: z.array(z.strictObject({assignmentId:z.string(), kind:z.enum(["new","updated"]), fields:z.array(z.string())})).max(10000).default([]),
+  inventories: z.array(z.strictObject({
+    kind: z.enum(["courses", "assignments"]),
+    courseId: z.string().min(1).max(256).optional(),
+    state: z.enum(["complete", "empty"]),
+    itemIds: z.array(z.string().min(1).max(256)).max(10_000),
+    evidence: EvidenceReferenceSchema,
+  })).max(1_001).default([]),
 });
+
+export const SCAN_TOOL_NAMES = [
+  "scan_status", "scan_record_course", "scan_record_assignment", "scan_record_assignments",
+  "scan_record_linked_system", "scan_record_inventory", "scan_request_handoff", "scan_finish",
+] as const;
 
 export const CourseSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,

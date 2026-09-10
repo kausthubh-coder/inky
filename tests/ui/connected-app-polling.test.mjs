@@ -6,14 +6,14 @@ const connection = status => ({ toolkit: "gmail", sessionId: "test", connectedAc
 const options = () => ({ initial: connection("INITIATED"), signal: new AbortController().signal, intervalMs: 1, timeoutMs: 100 });
 
 test("automatically waits through pending and delayed account creation until active", async () => {
-  const statuses = [null, "DISCONNECTED", "INITIATED", "ACTIVE"];
+  const statuses = [null, "DISCONNECTED", "INITIATED", "INITIALIZING", "ACTIVE"];
   let calls = 0;
   const result = await waitForAppConnection({ ...options(), read: async () => {
     const status = statuses[calls++];
     return status ? connection(status) : null;
   } });
   assert.equal(result.status, "ACTIVE");
-  assert.equal(calls, 4);
+  assert.equal(calls, statuses.length);
 });
 
 test("already active accounts finish without a refresh", async () => {

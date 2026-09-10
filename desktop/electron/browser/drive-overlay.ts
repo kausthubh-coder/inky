@@ -6,6 +6,7 @@ export const SCHOOL_PANE_RADIUS = 22;
 
 export class DriveOverlay {
   readonly #view: WebContentsView;
+  readonly #window: BrowserWindow;
   readonly #onTakeover: () => void;
   #bounds: Electron.Rectangle | null = null;
   #driver: BrowserDriver = "none";
@@ -13,6 +14,7 @@ export class DriveOverlay {
 
   constructor(window: BrowserWindow, onTakeover: () => void) {
     this.#onTakeover = onTakeover;
+    this.#window = window;
     this.#view = new WebContentsView({
       webPreferences: {
         nodeIntegration: false,
@@ -33,6 +35,13 @@ export class DriveOverlay {
       if (overlayConsoleMessage(args) === "studi-overlay:takeover") this.#onTakeover();
     });
     void this.#view.webContents.loadURL(overlayDataUrl());
+  }
+
+  raise(): void { this.#window.contentView.addChildView(this.#view); }
+
+  dispose(): void {
+    if (!this.#window.isDestroyed()) this.#window.contentView.removeChildView(this.#view);
+    if (!this.#view.webContents.isDestroyed()) this.#view.webContents.close();
   }
 
   layout(bounds: Electron.Rectangle | null): void {

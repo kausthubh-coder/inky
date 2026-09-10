@@ -21,7 +21,8 @@ import { Field, PaperCard, RuntimeAttentionBanner, StatusPill, formatDateTime } 
 export type DeskPanel =
   | { kind: "closed" }
   | { kind: "assignment"; assignmentId: string }
-  | { kind: "desk" };
+  | { kind: "desk" }
+  | { kind: "school" };
 
 export function viewingLiveDesk(
   panel: DeskPanel,

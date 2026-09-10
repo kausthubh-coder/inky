@@ -23,7 +23,10 @@ test("browser snapshot is bounded and page revisions invalidate old refs", async
   assert.equal(first.elements.length, 80);
   assert.equal(first.truncated, true);
   assert.equal(first.elements[0].ref, `r${first.revision}:1`);
-  assert.match(first.text, /Page summary/);
+  assert.equal(first.nextOffset, 80);
+  const continuation = await controller.snapshot({offset:first.nextOffset});
+  assert.match(continuation.text, /Page summary/);
+  assert.equal(continuation.truncated, false);
 
   controller.pageChanged();
   await assert.rejects(controller.click(first.elements[0].ref), /Stale or unknown browser ref/);
@@ -88,7 +91,7 @@ test("browser tools expose only named safe operations and URL validation rejects
     "browser_type",
     "browser_select",
     "browser_press",
-    "browser_wait",
+    "browser_wait", "browser_scroll", "browser_link", "browser_screenshot",
     "browser_submit",
   ]);
   await assert.rejects(controller.navigate("javascript:alert(1)"), /HTTP or HTTPS/);
@@ -136,7 +139,7 @@ test("real Pi session registers the Studi browser tools and no built-in coding t
         "browser_type",
         "browser_select",
         "browser_press",
-        "browser_wait",
+        "browser_wait", "browser_scroll", "browser_link", "browser_screenshot",
         "browser_submit",
       ]);
     } finally {

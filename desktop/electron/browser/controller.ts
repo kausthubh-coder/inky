@@ -54,10 +54,16 @@ interface AxNode {
   readonly value?: AxValue;
 }
 
+export interface SnapshotOptions {
+  readonly offset?: number;
+  readonly search?: string;
+}
+
 export class BrowserController {
   readonly #target: BrowserTarget;
   readonly #refs = new Map<string, ElementTarget>();
   #revision = 1;
+  #lastSnapshotOptions: SnapshotOptions = {};
 
   constructor(target: BrowserTarget) {
     this.#target = target;
@@ -86,19 +92,28 @@ export class BrowserController {
     return this.snapshot();
   }
 
-  async snapshot(): Promise<BrowserSnapshot> {
+  async snapshot(options: SnapshotOptions = {}): Promise<BrowserSnapshot> {
+    const offset = options.offset ?? 0;
+    if (!Number.isInteger(offset) || offset < 0) throw new Error("Snapshot offset must be a nonnegative integer");
+    this.#lastSnapshotOptions = options;
     this.pageChanged();
     const response = asRecord(
-      await this.#send("Accessibility.getFullAXTree", { depth: 12 }, true),
+      await this.#send("Accessibility.getFullAXTree", {}, true),
     );
-    const rawNodes = Array.isArray(response.nodes) ? response.nodes : [];
+    const search = options.search?.trim().toLocaleLowerCase();
+    const rawNodes = (Array.isArray(response.nodes) ? response.nodes : []).filter((raw) => {
+      const node = raw as AxNode;
+      return !node.ignored && (!search || `${readAxString(node.name)} ${readAxString(node.value)}`.toLocaleLowerCase().includes(search));
+    });
     const elements: BrowserSnapshot["elements"] = [];
     const textParts: string[] = [];
     const seenText = new Set<string>();
     let truncated = false;
     this.#refs.clear();
+    let nextOffset: number | undefined;
 
-    for (const rawNode of rawNodes) {
+    for (let index = offset; index < rawNodes.length; index += 1) {
+      const rawNode = rawNodes[index];
       const node = rawNode as AxNode;
       if (node.ignored) {
         continue;
@@ -106,6 +121,12 @@ export class BrowserController {
       const role = readAxString(node.role).toLowerCase();
       const name = readAxString(node.name).trim();
       const value = readAxString(node.value).trim();
+      const addedLength = [name, value].filter((part) => part && !seenText.has(part)).join("\n").length;
+      if (index > offset && (elements.length >= MAX_ELEMENTS || textParts.join("\n").length + addedLength > MAX_TEXT_LENGTH)) {
+        nextOffset = index;
+        truncated = true;
+        break;
+      }
       if (name && !seenText.has(name)) {
         seenText.add(name);
         textParts.push(name);
@@ -139,9 +160,6 @@ export class BrowserController {
       text = text.slice(0, MAX_TEXT_LENGTH);
       truncated = true;
     }
-    if (rawNodes.length > MAX_ELEMENTS * 10) {
-      truncated = true;
-    }
 
     return {
       revision: this.#revision,
@@ -150,7 +168,59 @@ export class BrowserController {
       text,
       elements,
       truncated,
+      ...(nextOffset === undefined ? {} : { nextOffset }),
+      ...(options.search ? { search: options.search } : {}),
     };
+  }
+
+  // Evidence refreshes compare DOM identity, not an expired textual ref or a
+  // potentially duplicated label. Aliases are only for validating this observation;
+  // they are never installed as actionable refs.
+  async evidenceSnapshot(refs: readonly string[] = []): Promise<BrowserSnapshot> {
+    const previous = new Map(refs.map((ref) => [ref, this.#targetForRef(ref)]));
+    const revision = this.#revision;
+    const url = this.#target.getURL();
+    const snapshot = await this.snapshot(this.#lastSnapshotOptions);
+    if (snapshot.revision !== revision + 1 || snapshot.url !== url) {
+      throw new Error("The page changed while refreshing evidence. Take a new snapshot.");
+    }
+    const aliases = new Map<string, string>();
+    for (const [ref, target] of previous) {
+      const match = snapshot.elements.find((element) => {
+        const current = this.#refs.get(element.ref);
+        return current?.backendNodeId === target.backendNodeId && current.role === target.role && current.name === target.name;
+      });
+      if (!match) throw new Error("The observed element changed. Take a new snapshot before recording.");
+      aliases.set(match.ref, ref);
+    }
+    return { ...snapshot, elements: snapshot.elements.map((element) => ({ ...element, ref: aliases.get(element.ref) ?? element.ref })) };
+  }
+
+  async link(ref: string): Promise<string> {
+    const { objectId } = await this.#resolve(ref);
+    const result = await this.#callOn(objectId, `function () {
+      if (!this.isConnected) throw new Error("Link is no longer available");
+      return this.closest("a[href]")?.href || "";
+    }`);
+    if (typeof result.value !== "string" || !result.value) throw new Error("The referenced element has no link destination");
+    return parseSchoolUrl(result.value);
+  }
+
+  async scroll(direction: "up" | "down", ref?: string): Promise<BrowserSnapshot> {
+    const amount = direction === "down" ? 600 : -600;
+    if (ref) {
+      const { objectId } = await this.#resolve(ref);
+      await this.#callOn(objectId, `function (amount) { this.scrollIntoView({block:"center"}); this.scrollBy({top:amount,behavior:"instant"}); }`, [{ value: amount }]);
+    } else {
+      await this.#send("Runtime.evaluate", { expression: `window.scrollBy({top:${amount},behavior:"instant"})` });
+    }
+    return this.#afterAction();
+  }
+
+  async screenshot(): Promise<string> {
+    const result = asRecord(await this.#send("Page.captureScreenshot", { format: "jpeg", quality: 70, captureBeyondViewport: false }));
+    if (typeof result.data !== "string" || result.data.length > 8_000_000) throw new Error("The browser screenshot was unavailable or too large");
+    return result.data;
   }
 
   async click(ref: string, allowSubmission = false): Promise<BrowserSnapshot> {
@@ -425,7 +495,8 @@ export function formatSnapshot(snapshot: BrowserSnapshot): string {
     snapshot.url,
     snapshot.text,
     elementLines.length ? `Interactive elements:\n${elementLines.join("\n")}` : "Interactive elements: none",
-    snapshot.truncated ? "Observation truncated to Studi's safety bounds." : "",
+    snapshot.nextOffset !== undefined ? `More page content: call browser_snapshot with offset=${snapshot.nextOffset}${snapshot.search ? ` and search=${JSON.stringify(snapshot.search)}` : ""}.` : "",
+    snapshot.truncated ? "This observation is incomplete; inspect remaining content before claiming inventory coverage." : "",
   ]
     .filter(Boolean)
     .join("\n\n");

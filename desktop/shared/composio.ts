@@ -62,3 +62,14 @@ export type ConnectedAppExecution = z.infer<typeof ConnectedAppExecutionSchema>;
 export function connectedAppIsActive(connection: ConnectedAppConnection | null): boolean {
   return connection?.status.toLocaleUpperCase() === "ACTIVE";
 }
+
+export function connectedAppIsPending(connection: ConnectedAppConnection | null): boolean {
+  return ["INITIATED", "INITIALIZING"].includes(connection?.status.toUpperCase() ?? "");
+}
+
+export function connectedAppStatusLabel(connection: ConnectedAppConnection | null): string {
+  if (connectedAppIsActive(connection)) return "Connected";
+  if (connectedAppIsPending(connection)) return "Waiting for browser sign-in";
+  if (["FAILED", "EXPIRED", "INACTIVE"].includes(connection?.status.toUpperCase() ?? "")) return "Connection needs attention — reconnect";
+  return "Not connected";
+}

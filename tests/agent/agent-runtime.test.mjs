@@ -353,7 +353,7 @@ test("real Pi assignment session accepts workspace tools and preserves their fil
     try {
       assert.deepEqual(new Set(session.toolNames), new Set([
         "browser_snapshot", "browser_navigate", "browser_click", "browser_type",
-        "browser_select", "browser_press", "browser_wait", ...files.map((tool) => tool.name),
+        "browser_select", "browser_press", "browser_wait", "browser_scroll", "browser_link", "browser_screenshot", ...files.map((tool) => tool.name),
       ]));
       faux.setResponses([
         fauxAssistantMessage(fauxToolCall("write", { path: "answer.txt", content: "42" }), { stopReason: "toolUse" }),

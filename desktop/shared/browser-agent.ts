@@ -18,7 +18,15 @@ export const BrowserSnapshotSchema = z.strictObject({
   text: z.string().max(8_000),
   elements: z.array(BrowserElementSchema).max(80),
   truncated: z.boolean(),
+  nextOffset: z.number().int().nonnegative().optional(),
+  search: z.string().optional(),
 });
+
+export const BROWSER_TOOL_NAMES = [
+  "browser_snapshot", "browser_navigate", "browser_click", "browser_type",
+  "browser_select", "browser_press", "browser_wait", "browser_scroll",
+  "browser_link", "browser_screenshot",
+] as const;
 
 export const BrowserDriverSchema = z.enum(["inky", "student", "none"]);
 export type BrowserDriver = z.infer<typeof BrowserDriverSchema>;

@@ -89,7 +89,7 @@ export async function verifyConnectedAppsPreview(page, base = "http://127.0.0.1:
 }
 
 export async function verifyOnboardingAutoConnect(page, base = "http://127.0.0.1:4185") {
-  const sourceRoute = "**/desktop/src/app/devPreview.ts*";
+  const sourceRoute = "**/desktop/src/preview/fixtures.ts*";
   await page.route(sourceRoute, async route => {
     const response = await route.fetch();
     const source = await response.text();

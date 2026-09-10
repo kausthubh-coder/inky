@@ -23,6 +23,7 @@ export async function verifyWorkspacePreview(page, base = "http://127.0.0.1:4174
     await page.getByRole("button", { name: /Without dates/ }).click();
     await page.getByRole("button", { name: /Final project · reading notes/ }).click();
     assert.equal(await page.locator(".chat-view-expanded").count(), 1);
+    await page.getByRole("button", { name: "Close assignment", exact: true }).click();
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     const search = page.getByRole("searchbox", { name: "Search settings" });
     await search.fill("sound");

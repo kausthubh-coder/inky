@@ -43,6 +43,10 @@ test("addressed sends keep home separate and resume one assignment job across re
     assert.equal(second.job.turnIndex, 2);
     assert.equal(second.job.messages.length, 4);
     assert.notEqual(home.job.jobId, first.job.jobId);
+    assert.equal(conversations.state({kind:"assignment",assignmentId:"assignment-statistics"}).job.jobId, first.job.jobId);
+    assert.equal(conversations.state().job.jobId, home.job.jobId);
+    await conversations.stop({kind:"assignment",assignmentId:"assignment-statistics"});
+    assert.equal(conversations.state().job.messages.length, home.job.messages.length, "stopping an assignment leaves home history intact");
     assert.deepEqual(first.job.target, { kind: "assignment", assignmentId: "assignment-statistics" });
 
     const assignmentPath = store.agentJobs.get(first.job.jobId).sessionPath;

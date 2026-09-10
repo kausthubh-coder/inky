@@ -46,8 +46,13 @@ type PiSessionOptions = NonNullable<Parameters<typeof createAgentSession>[0]>;
 type PiModel = NonNullable<PiSessionOptions["model"]>;
 
 export interface AgentSessionTarget {
+  readonly assignmentId?: string;
   readonly resumeSessionPath?: string;
   readonly cwd?: string;
+}
+
+export interface ScanSessionControl {
+  assertActive(): void;
 }
 
 export type AgentRunEventListener = (event: AgentRunEvent) => void;
@@ -58,6 +63,7 @@ export interface AgentSession {
   readonly toolNames: readonly string[];
   subscribe(listener: AgentRunEventListener): () => void;
   prompt(text: string): Promise<void>;
+  steer?(text: string): Promise<void>;
   compact(instructions?: string): Promise<void>;
   abort(): Promise<void>;
   replace(target?: AgentSessionTarget): Promise<void>;
@@ -74,6 +80,7 @@ export interface AgentRuntime {
   createScanSession(
     recordingTools: readonly ToolDefinition[],
     target?: AgentSessionTarget,
+    control?: ScanSessionControl,
   ): Promise<AgentSession>;
   createJobSession(
     target: ConversationTarget,
@@ -97,6 +104,8 @@ export interface PiAgentRuntimeOptions {
   readonly modelRuntime?: ModelRuntime;
   readonly model?: PiModel;
   readonly browserController?: BrowserController;
+  readonly scanBrowserController?: BrowserController;
+  readonly assignmentBrowser?: (assignmentId:string) => BrowserController;
   readonly onUsage?: (usage: AgentUsageSnapshot, kind: UsageEventKind) => void;
   readonly onSessionError?: (error: unknown) => void;
   readonly onDiagnostic?: (event: RuntimeDiagnostic) => void;
@@ -121,6 +130,8 @@ export class PiAgentRuntime implements AgentRuntime {
   readonly #sessionDirectory: string;
   readonly #modelRuntime: ModelRuntime;
   readonly #workerTools: ToolDefinition[];
+  readonly #scanBrowserTools: ToolDefinition[] | null;
+  readonly #assignmentBrowser: ((assignmentId:string) => BrowserController) | undefined;
   readonly #browserTools: ToolDefinition[] | null;
   readonly #assignmentBrowserTools: ToolDefinition[] | null;
   readonly #onUsage: ((usage: AgentUsageSnapshot, kind: UsageEventKind) => void) | null;
@@ -144,6 +155,8 @@ export class PiAgentRuntime implements AgentRuntime {
     this.#assignmentBrowserTools = options.browserController
       ? createBrowserTools(options.browserController, { includeSubmit: false })
       : null;
+    this.#assignmentBrowser = options.assignmentBrowser;
+    this.#scanBrowserTools = options.scanBrowserController ? createBrowserTools(options.scanBrowserController, {includeSubmit:false}) : this.#assignmentBrowserTools;
     this.#workerTools = this.#browserTools ?? [studiProbe];
     const initialModel = options.model ?? selectDefaultModel(modelRuntime);
     if (initialModel) {
@@ -186,7 +199,8 @@ export class PiAgentRuntime implements AgentRuntime {
     if (!this.#assignmentBrowserTools) {
       throw new Error("The Studi assignment session requires the visible school browser");
     }
-    const tools = [...this.#assignmentBrowserTools, ...recordingTools];
+    const browserTools = target.assignmentId && this.#assignmentBrowser ? createBrowserTools(this.#assignmentBrowser(target.assignmentId), {includeSubmit:false}) : this.#assignmentBrowserTools;
+    const tools = [...browserTools, ...recordingTools];
     if (new Set(tools.map((tool) => tool.name)).size !== tools.length) {
       throw new Error("The Studi assignment session received a duplicate tool name");
     }
@@ -202,11 +216,19 @@ export class PiAgentRuntime implements AgentRuntime {
   async createScanSession(
     recordingTools: readonly ToolDefinition[],
     target: AgentSessionTarget = {},
+    control?: ScanSessionControl,
   ): Promise<AgentSession> {
     if (!this.#browserTools) {
       throw new Error("The Studi scan session requires the visible school browser");
     }
-    const tools = [...this.#browserTools, ...recordingTools];
+    const tools = [...this.#scanBrowserTools!, ...recordingTools].map((tool) => ({
+      ...tool,
+      execute: (...args: Parameters<ToolDefinition["execute"]>) => {
+        control?.assertActive();
+        if (args[2]?.aborted) throw new Error("The scan was stopped");
+        return tool.execute(...args);
+      },
+    }));
     if (new Set(tools.map((tool) => tool.name)).size !== tools.length) {
       throw new Error("The Studi scan session received a duplicate tool name");
     }
@@ -533,6 +555,11 @@ class PiBackedAgentSession implements AgentSession {
     return () => {
       this.#listeners.delete(listener);
     };
+  }
+
+  async steer(text: string): Promise<void> {
+    this.#assertUsable();
+    await this.#piSession.steer(text);
   }
 
   async prompt(text: string): Promise<void> {

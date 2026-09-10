@@ -106,6 +106,9 @@ let agentSelfTestObservation: AgentSelfTestObservation | null = null;
 let browserSelfTestObservation: BrowserSelfTestObservation | null = null;
 let browserController: BrowserController | null = null;
 let browserView: WebContentsView | null = null;
+const browserPages = new Map<string, {view:WebContentsView; controller:BrowserController}>();
+let selectedBrowserPage = "school";
+let browserDriverTimer: ReturnType<typeof setInterval> | null = null;
 let driveOverlay: DriveOverlay | null = null;
 let browserLayoutMode: BrowserLayoutMode = "hidden";
 let deskSlotBounds: SchoolPageBounds | null = null;
@@ -311,8 +314,11 @@ const ipcHandlers: StudiIpcHandlers = {
     return connection;
   },
   getWorkspaceState: () => readWorkspaceState(),
-  navigateBrowser: async ({ url }) => {
-    await requireBrowserController().navigate(url);
+  navigateBrowser: async ({ url, target }) => {
+    const key = target ? target.kind === "assignment" ? `assignment:${target.assignmentId}` : target.kind : selectedBrowserPage;
+    if (target?.kind === "assignment" && !requireLocalStore().assignments.get(target.assignmentId)) throw new Error("That assignment no longer exists");
+    if (browserPageBusy(key)) throw new Error("Pause this activity before navigating its page.");
+    await schoolBrowserPage(key).controller.navigate(url);
     requireTelemetryService().capture("studi_onboarding_step", { step: "school_browser_opened" });
     return readWorkspaceState();
   },
@@ -334,6 +340,32 @@ const ipcHandlers: StudiIpcHandlers = {
     await requireConversationCoordinator().replaceSessions();
     return readWorkspaceState();
   },
+  getAssignmentFiles: ({assignmentId}) => requireAssignmentExecutionCoordinator().assignmentFiles(assignmentId),
+  readAssignmentFile: ({assignmentId,path}) => requireAssignmentExecutionCoordinator().readAssignmentFile(assignmentId,path),
+  openAssignmentFolder: async ({assignmentId}) => {
+    const error = await shell.openPath(await requireAssignmentExecutionCoordinator().assignmentDirectory(assignmentId));
+    if(error) throw new Error(error);
+    return true;
+  },
+  selectBrowserPage: async target => {
+    const key = target.kind === "assignment" ? `assignment:${target.assignmentId}` : target.kind;
+    const assignment = target.kind === "assignment" ? requireLocalStore().assignments.get(target.assignmentId) : null;
+    if (target.kind === "assignment" && !assignment) throw new Error("That assignment no longer exists");
+    const page = schoolBrowserPage(key);
+    selectedBrowserPage = key;
+    browserView = page.view;
+    browserController = page.controller;
+    layoutSchoolBrowser();
+    return readWorkspaceState();
+  },
+  getScopedConversation: target => requireConversationCoordinator().state(target),
+  stopScopedConversation: async target => {
+    const taskId = target.kind === "assignment" ? requireManagerCoordinator().activeTaskForAssignment(target.assignmentId) : null;
+    if (taskId && requireManagerCoordinator().isWorkerRunning) await requireAssignmentExecutionCoordinator().requestTakeover(taskId);
+    return requireConversationCoordinator().stop(target);
+  },
+  sendScanMessage: input => requireSchoolScanCoordinator().sendMessage(input),
+  pauseSchoolScan: () => requireSchoolScanCoordinator().requestTakeover(),
   getConversationState: () => requireConversationCoordinator().state(),
   stopConversation: () => requireConversationCoordinator().stop(),
   getNotifications: () => requireLocalStore().lifecycle.listNotifications(),
@@ -774,52 +806,43 @@ function startRenderer(window: BrowserWindow): void {
 }
 
 function createSchoolBrowser(window: BrowserWindow): void {
-  const schoolSession = electronSession.fromPartition("persist:studi-school", {
-    cache: true,
-  });
-  const view = new WebContentsView({
-    webPreferences: {
-      session: schoolSession,
-      nodeIntegration: false,
-      contextIsolation: true,
-      sandbox: true,
-    },
-  });
-  browserView = view;
-  browserController = new BrowserController(view.webContents);
-  view.setBorderRadius(SCHOOL_PANE_RADIUS);
-  window.contentView.addChildView(view);
+  selectedBrowserPage = "school";
+  const page = schoolBrowserPage("school");
+  browserView = page.view;
+  browserController = page.controller;
   driveOverlay = new DriveOverlay(window, () => {
     void takeOverVisibleBrowser();
   });
 
   layoutSchoolBrowser();
   window.on("resize", layoutSchoolBrowser);
-  setInterval(() => {
+  browserDriverTimer = setInterval(() => {
     if (browserLayoutMode === "hidden") return;
     driveOverlay?.setDriver(currentBrowserDriver());
   }, 80);
 
-  view.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
-    if (isMainFrame) {
-      browserController?.pageChanged();
-      recordBrowserDiagnostic("navigation_started", { url: _url, in_place: _inPlace });
-    }
+}
+
+function schoolBrowserPage(key: string): {view:WebContentsView;controller:BrowserController} {
+  const existing = browserPages.get(key);
+  if (existing) return existing;
+  const window = mainWindow;
+  if (!window || window.isDestroyed()) throw new Error("The school browser is unavailable");
+  const view = new WebContentsView({webPreferences:{session:electronSession.fromPartition("persist:studi-school",{cache:true}),nodeIntegration:false,contextIsolation:true,sandbox:true}});
+  const controller = new BrowserController(view.webContents);
+  browserPages.set(key,{view,controller});
+  view.setVisible(false);
+  window.contentView.addChildView(view);
+  driveOverlay?.raise();
+  view.webContents.on("did-start-navigation",(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame) controller.pageChanged();});
+  view.webContents.on("did-fail-load",(_event,code,description,url,isMainFrame)=>{if(isMainFrame) recordBrowserDiagnostic("load_failed",{page:key,code,description,url});});
+  view.webContents.on("render-process-gone",(_event,details)=>recordBrowserDiagnostic("process_gone",{page:key,...details}));
+  view.webContents.setWindowOpenHandler(({url})=>{
+    if (/^https?:/i.test(url)) void controller.navigate(url).catch(error=>recordBrowserDiagnostic("popup_failed",{page:key,message:formatError(error)}));
+    return {action:"deny"};
   });
-  view.webContents.on("did-finish-load", () => recordBrowserDiagnostic("page_loaded", {
-    url: view.webContents.getURL(), title: view.webContents.getTitle(),
-  }));
-  view.webContents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
-    if (isMainFrame) recordBrowserDiagnostic("load_failed", { url, code, description });
-  });
-  view.webContents.on("render-process-gone", (_event, details) => recordBrowserDiagnostic("process_gone", details));
-  view.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/i.test(url)) {
-      void view.webContents.loadURL(url);
-    }
-    return { action: "deny" };
-  });
-  void view.webContents.loadURL("about:blank");
+  void view.webContents.loadURL("about:blank").catch(error => recordBrowserDiagnostic("page_start_failed",{page:key,message:formatError(error)}));
+  return {view,controller};
 }
 
 function recordBrowserDiagnostic(kind: string, payload: unknown): void {
@@ -833,6 +856,7 @@ function layoutSchoolBrowser(): void {
   const window = mainWindow;
   const view = browserView;
   if (!window || window.isDestroyed() || !view) return;
+  for (const page of browserPages.values()) if (page.view !== view) page.view.setVisible(false);
   const bounds = visibleSchoolBounds(window);
   if (!bounds) {
     view.setVisible(false);
@@ -849,13 +873,13 @@ function layoutSchoolBrowser(): void {
 async function takeOverVisibleBrowser(): Promise<void> {
   try {
     const execution = localStore?.lifecycle.getActiveExecution();
-    if (execution?.phase === "working" && assignmentExecutionCoordinator) {
+    if (execution?.phase === "working" && selectedBrowserPage === `assignment:${execution.assignmentId}` && assignmentExecutionCoordinator) {
       await assignmentExecutionCoordinator.requestTakeover(execution.taskId);
       driveOverlay?.setDriver(currentBrowserDriver());
       return;
     }
     const scan = localStore?.school.latestScan();
-    if (scan?.state === "running" && schoolScanCoordinator) {
+    if (selectedBrowserPage === "school" && scan?.state === "running" && schoolScanCoordinator) {
       await schoolScanCoordinator.requestTakeover();
       driveOverlay?.setDriver(currentBrowserDriver());
     }
@@ -874,13 +898,19 @@ function visibleSchoolBounds(window: BrowserWindow): Electron.Rectangle | null {
   return { x, y, width: Math.max(300, width - x - 10), height: Math.max(300, height - y - 10) };
 }
 
+function browserPageBusy(key:string): boolean {
+  const scan = localStore?.school.latestScan();
+  const execution = localStore?.lifecycle.getActiveExecution();
+  return (key === "school" && scan?.state === "running") || Boolean(execution && key === `assignment:${execution.assignmentId}` && ["working","submitting"].includes(execution.phase));
+}
+
 function currentBrowserDriver() {
   const scan = localStore?.school.latestScan();
   const execution = localStore?.lifecycle.getActiveExecution();
   return browserDriver({
     layout: browserLayoutMode,
-    ...(scan ? { scanState: scan.state } : {}),
-    ...(execution ? { executionPhase: execution.phase } : {}),
+    ...(selectedBrowserPage === "school" && scan ? { scanState: scan.state } : {}),
+    ...(execution && selectedBrowserPage === `assignment:${execution.assignmentId}` ? { executionPhase: execution.phase } : {}),
   });
 }
 
@@ -1430,7 +1460,9 @@ async function initializeDesktopAgent(): Promise<void> {
   agentRuntime = await PiAgentRuntime.create({
     cwd: dataRoot,
     agentDir: join(dataRoot, "pi"),
-    browserController: requireBrowserController(),
+    browserController: schoolBrowserPage("home").controller,
+    scanBrowserController: schoolBrowserPage("school").controller,
+    assignmentBrowser: id => schoolBrowserPage(`assignment:${id}`).controller,
     onUsage: recordAgentUsage,
     onSessionError: (error) => requireTelemetryService().captureError(error, "runtime", "session_start", currentAgentSelection()),
     onDiagnostic: (event) => {
@@ -1467,7 +1499,7 @@ async function initializeDesktopAgent(): Promise<void> {
   schoolScanCoordinator = new SchoolScanCoordinator(
     requireLocalStore(),
     agentRuntime,
-    requireBrowserController(),
+    schoolBrowserPage("school").controller,
     {
       browserWork: requireVisibleBrowserWork(), manager: requireManagerCoordinator(),
       onError: (error, scanId, toolName) => requireTelemetryService().captureError(error, "scan", "school_scan", {
@@ -1510,10 +1542,16 @@ function disposeProtectedRuntime(): void {
   visibleBrowserWork = null;
   agentRuntime = null;
   pendingNotifications.splice(0);
-  if (browserView) {
+  for (const {view:browserView} of browserPages.values()) {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(browserView);
     if (!browserView.webContents.isDestroyed()) browserView.webContents.close();
   }
+  browserPages.clear();
+  if (browserDriverTimer) clearInterval(browserDriverTimer);
+  browserDriverTimer = null;
+  mainWindow?.removeListener("resize",layoutSchoolBrowser);
+  driveOverlay?.dispose();
+  driveOverlay = null;
   browserView = null;
   browserController = null;
 }
@@ -1546,6 +1584,7 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
     {
       browserWork: requireVisibleBrowserWork(),
       connectedAppTools: loadConnectedAppTools,
+      browserForAssignment: id => schoolBrowserPage(`assignment:${id}`).controller,
       reviewWindowMs: productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
       notify: async (intent) => {

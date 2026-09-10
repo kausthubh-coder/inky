@@ -7,6 +7,7 @@ import type { InkyState } from "../lib/inky";
 import { InkyMascot } from "./inky-mascot";
 import { SiteNav } from "./site-nav";
 import { WaitlistForm } from "./waitlist-form";
+import { useLandingAnalytics } from "./use-landing-analytics";
 import styles from "./landing-page.module.css";
 
 const STEPS: readonly {
@@ -91,6 +92,7 @@ export function LandingPage() {
   const [joined, setJoined] = useState(false);
   const onJoined = () => setJoined(true);
   const { pageRef, expanded, toggleDesktop } = useDesktopIntro();
+  useLandingAnalytics(pageRef);
   return (
     <div className={styles.page} ref={pageRef} data-expanded={expanded}>
       <SiteNav tour />
@@ -200,7 +202,9 @@ export function LandingPage() {
           <h2 id="faq-title">A few things you might be wondering.</h2>
           <div>
             {FAQ.map(([question, answer]) => (
-              <details key={question}>
+              <details key={question} onToggle={(event) => {
+                if (event.currentTarget.open) track("faq_opened", { question });
+              }}>
                 <summary>
                   {question}
                   <span aria-hidden="true">+</span>
@@ -258,6 +262,7 @@ function useDesktopIntro() {
     };
   }, []);
   function toggleDesktop() {
+    track("demo_display_toggled", { expanded: !expanded });
     const pin = document.getElementById("pin");
     const reduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -288,15 +293,46 @@ function Demo({
   const body = useRef<HTMLDivElement>(null);
   const started = useRef(false);
   const completed = useRef(false);
+  const tour = useRef<HTMLDivElement>(null);
+  const viewed = useRef(false);
+  const stepEnteredAt = useRef(0);
   const current = STEPS[step];
+
+  useEffect(() => { stepEnteredAt.current = performance.now(); }, [step]);
+
+  function markViewed() {
+    if (viewed.current) return;
+    viewed.current = true;
+    track("demo_viewed");
+    track("demo_step_viewed", { step: 1, label: STEPS[0].label, direction: "initial" });
+  }
+
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        markViewed();
+        observer.disconnect();
+      }
+    }, { threshold: 0.25 });
+    if (tour.current) observer.observe(tour.current);
+    return () => observer.disconnect();
+  }, []);
 
   function go(next: number) {
     if (next < 0 || next >= STEPS.length || next === step) return;
+    markViewed();
+    track("demo_step_left", {
+      step: step + 1,
+      label: current.label,
+      next_step: next + 1,
+      elapsed_ms: Math.round(performance.now() - stepEnteredAt.current),
+    });
+    if (step === STEPS.length - 1 && next === 0) track("demo_replayed");
     if (!started.current && next > 0) {
       started.current = true;
       track("demo_started");
     }
-    track("demo_step_viewed", { step: next + 1, label: STEPS[next].label });
+    track("demo_step_viewed", { step: next + 1, label: STEPS[next].label, direction: next > step ? "forward" : "back" });
     if (next === STEPS.length - 1 && !completed.current) {
       completed.current = true;
       track("demo_completed");
@@ -309,7 +345,7 @@ function Demo({
   }
 
   return (
-    <div id="tour" className={styles.tour}>
+    <div id="tour" ref={tour} className={styles.tour}>
       <div
         className={styles.desktop}
         style={{ backgroundImage: `url(${wallpaper.src})` }}

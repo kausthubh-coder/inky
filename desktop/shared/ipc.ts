@@ -257,11 +257,19 @@ const ExportDiagnosticsManifestEntrySchema = z.strictObject({ method: z.literal(
 
 export const ContractManifestSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
-  contractVersion: z.literal("16"),
+  contractVersion: z.literal("17"),
   ipcMethods: z.tuple([
     z.strictObject({method:z.literal('getUpdateState'),channel:z.literal('studi:update-state')}),
     z.strictObject({method:z.literal('checkForUpdates'),channel:z.literal('studi:update-check')}),
     z.strictObject({method:z.literal('installUpdate'),channel:z.literal('studi:update-install')}),
+    z.strictObject({method:z.literal('getAssignmentFiles'),channel:z.literal('studi:assignment-files')}),
+    z.strictObject({method:z.literal('readAssignmentFile'),channel:z.literal('studi:assignment-file')}),
+    z.strictObject({method:z.literal('openAssignmentFolder'),channel:z.literal('studi:assignment-folder')}),
+    z.strictObject({method:z.literal('selectBrowserPage'),channel:z.literal('studi:browser-page')}),
+    z.strictObject({method:z.literal('getScopedConversation'),channel:z.literal('studi:scoped-conversation')}),
+    z.strictObject({method:z.literal('stopScopedConversation'),channel:z.literal('studi:scoped-conversation-stop')}),
+    z.strictObject({method:z.literal('sendScanMessage'),channel:z.literal('studi:scan-message')}),
+    z.strictObject({method:z.literal('pauseSchoolScan'),channel:z.literal('studi:scan-pause')}),
     z.strictObject({method:z.literal('getConversationState'),channel:z.literal('studi:conversation-state')}),
     z.strictObject({method:z.literal('stopConversation'),channel:z.literal('studi:conversation-stop')}),
     z.strictObject({method:z.literal('getNotifications'),channel:z.literal('studi:notifications')}),
@@ -364,6 +372,14 @@ export const studiIpcRegistry = Object.freeze({
   getUpdateState: {channel:'studi:update-state',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
   checkForUpdates: {channel:'studi:update-check',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
   installUpdate: {channel:'studi:update-install',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
+  getAssignmentFiles: {channel:'studi:assignment-files',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256)}),resultSchema:z.array(z.strictObject({path:z.string(),kind:z.enum(["file","directory"]),size:z.number(),modifiedAt:z.string()}))},
+  readAssignmentFile: {channel:'studi:assignment-file',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048)}),resultSchema:z.strictObject({path:z.string(),content:z.string(),modifiedAt:z.string()})},
+  openAssignmentFolder: {channel:'studi:assignment-folder',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256)}),resultSchema:z.boolean()},
+  selectBrowserPage: { channel:'studi:browser-page', requestSchema:z.union([ConversationTargetSchema,z.strictObject({kind:z.literal("school")})]), resultSchema:StudiWorkspaceStateSchema },
+  getScopedConversation: { channel: 'studi:scoped-conversation', requestSchema: ConversationTargetSchema, resultSchema: ConversationStateSchema },
+  stopScopedConversation: { channel: 'studi:scoped-conversation-stop', requestSchema: ConversationTargetSchema, resultSchema: ConversationStateSchema },
+  sendScanMessage: { channel: 'studi:scan-message', requestSchema: z.strictObject({scanId:z.string().min(1).max(256), text:z.string().trim().min(1).max(20000), clientMessageId:z.uuid()}), resultSchema: SchoolOnboardingStateSchema },
+  pauseSchoolScan: { channel: 'studi:scan-pause', requestSchema: z.undefined(), resultSchema: SchoolOnboardingStateSchema },
   getConversationState: { channel: 'studi:conversation-state', requestSchema: z.undefined(), resultSchema: ConversationStateSchema },
   stopConversation: { channel: 'studi:conversation-stop', requestSchema: z.undefined(), resultSchema: ConversationStateSchema },
   getNotifications: { channel: 'studi:notifications', requestSchema: z.undefined(), resultSchema: z.array(NotificationIntentSchema) },
@@ -430,7 +446,7 @@ export const studiIpcRegistry = Object.freeze({
   }),
   [navigateBrowserMethod]: Object.freeze({
     channel: navigateBrowserChannel,
-    requestSchema: z.strictObject({ url: z.string().min(1).max(2_048) }),
+    requestSchema: z.strictObject({ url: z.string().min(1).max(2_048), target:z.union([ConversationTargetSchema,z.strictObject({kind:z.literal("school")})]).optional() }),
     resultSchema: StudiWorkspaceStateSchema,
   }),
   [loginOpenAiCodexMethod]: Object.freeze({
@@ -730,7 +746,7 @@ export function createIpcHandlerRegistrations<Registry extends IpcRegistryDefini
 
 const contractManifest = ContractManifestSchema.parse({
   schemaVersion: STUDI_SCHEMA_VERSION,
-  contractVersion: "16",
+  contractVersion: "17",
   ipcMethods: studiIpcMethods.map((method) => ({
     method,
     channel: studiIpcRegistry[method].channel,

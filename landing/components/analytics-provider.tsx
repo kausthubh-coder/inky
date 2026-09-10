@@ -1,46 +1,35 @@
 "use client";
 
-import posthog, { type CaptureResult } from "posthog-js";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
+import { usePathname } from "next/navigation";
+import posthog from "posthog-js";
 import { useEffect, type ReactNode } from "react";
+import { initializeAnalytics } from "../lib/analytics";
+import { analyticsEnabled, cleanAnalyticsUrl, isMarketingPath } from "../lib/analytics-policy";
 
-const key = process.env.NEXT_PUBLIC_POSTHOG_KEY ?? "";
-const host = process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
-
-function withoutQuery(value: unknown) {
-  if (typeof value !== "string") return value;
-  try {
-    const url = new URL(value);
-    return `${url.origin}${url.pathname}`;
-  } catch {
-    return value.split(/[?#]/, 1)[0];
-  }
-}
-
-function sanitize(event: CaptureResult | null): CaptureResult | null {
-  if (!event?.properties) return event;
-  event.properties.$current_url = withoutQuery(event.properties.$current_url);
-  event.properties.$referrer = withoutQuery(event.properties.$referrer);
-  return event;
+function beforeSend<T extends { url: string }>(event: T): T | null {
+  if (!isMarketingPath(new URL(event.url).pathname)) return null;
+  return { ...event, url: cleanAnalyticsUrl(event.url) };
 }
 
 export function AnalyticsProvider({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const marketing = isMarketingPath(pathname);
   useEffect(() => {
-    if (!key || posthog.__loaded) return;
-    posthog.init(key, {
-      api_host: host,
-      ui_host: "https://us.posthog.com",
-      defaults: "2026-05-30",
-      cookieless_mode: "always",
-      capture_pageview: "history_change",
-      persistence: "memory",
-      autocapture: false,
-      capture_exceptions: false,
-      disable_session_recording: true,
-      person_profiles: "never",
-      advanced_disable_flags: true,
-      before_send: sanitize,
-    });
-  }, []);
+    initializeAnalytics();
+    if (!posthog.__loaded) return;
+    if (marketing) posthog.startSessionRecording();
+    else posthog.stopSessionRecording();
+  }, [marketing]);
 
-  return children;
+  return (
+    <>
+      <div data-analytics-private={marketing ? undefined : "true"} style={{ display: "contents" }}>{children}</div>
+      {analyticsEnabled && marketing && <>
+        <Analytics beforeSend={beforeSend} />
+        <SpeedInsights beforeSend={beforeSend} />
+      </>}
+    </>
+  );
 }

@@ -11,8 +11,11 @@ export function createBrowserTools(
     name: "browser_snapshot",
     label: "Read visible school page",
     description: "Read a bounded accessibility snapshot of Studi's visible school browser. Take a new snapshot after every action because refs expire when the page changes.",
-    parameters: Type.Object({}, { additionalProperties: false }),
-    execute: async () => result(await controller.snapshot()),
+    parameters: Type.Object({
+      offset: Type.Optional(Type.Integer({ minimum: 0 })),
+      search: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
+    }, { additionalProperties: false }),
+    execute: async (_toolCallId, input) => result(await controller.snapshot(input)),
   });
   const navigate = defineTool({
     name: "browser_navigate",
@@ -89,9 +92,40 @@ export function createBrowserTools(
     execute: async (_toolCallId, input) => result(await controller.click(input.ref, true)),
   });
 
+  const scroll = defineTool({
+    name: "browser_scroll",
+    label: "Scroll the school page",
+    description: "Scroll the page or a referenced scrollable element to reveal more content, then return a fresh snapshot. Use snapshot offsets for content already loaded in the accessibility tree.",
+    parameters: Type.Object({
+      direction: Type.Union([Type.Literal("up"), Type.Literal("down")]),
+      ref: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+    }, { additionalProperties: false }),
+    execute: async (_id, input) => result(await controller.scroll(input.direction, input.ref)),
+  });
+  const link = defineTool({
+    name: "browser_link",
+    label: "Read a link destination",
+    description: "Read the actual HTTP(S) destination of a current link ref without navigating. Use stable source URLs for course and assignment keys; never invent URLs.",
+    parameters: Type.Object({ ref: Type.String({ minLength: 1, maxLength: 64 }) }, { additionalProperties: false }),
+    execute: async (_id, input) => {
+      const url = await controller.link(input.ref);
+      return { content: [{ type: "text" as const, text: url }], details: { url } };
+    },
+  });
+  const screenshot = defineTool({
+    name: "browser_screenshot",
+    label: "See the school page",
+    description: "View a screenshot when layout, an embedded document, or an unlabeled control is unclear. Use snapshot refs for actions and text evidence for recorded claims. Never capture credentials during a student handoff.",
+    parameters: Type.Object({}, { additionalProperties: false }),
+    execute: async () => ({
+      content: [{ type: "image" as const, mimeType: "image/jpeg", data: await controller.screenshot() }],
+      details: { kind: "viewport" },
+    }),
+  });
+
   return options.includeSubmit === false
-    ? [snapshot, navigate, click, type, select, press, wait]
-    : [snapshot, navigate, click, type, select, press, wait, submit];
+    ? [snapshot, navigate, click, type, select, press, wait, scroll, link, screenshot]
+    : [snapshot, navigate, click, type, select, press, wait, scroll, link, screenshot, submit];
 }
 
 export function createBrowserUploadTool(
