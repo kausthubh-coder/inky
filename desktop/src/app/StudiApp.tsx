@@ -1,4 +1,4 @@
-import { stopAssignmentForScan } from "./stopAssignmentForScan.js";
+import { canStopAssignmentForScan, stopAssignmentForScan } from "./stopAssignmentForScan.js";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { hasCompletedSchoolOnboarding, isLivePhase, nextSchoolScanAction, type AgentReasoningEffort, type AuthState, type DiagnosticsExportReceipt, type LibraryState, type LifecycleState, type NotificationKind, type NotificationIntent, type NotificationPreferences, type NotificationTestReceipt, type PermissionMode, type ProductSettingsState, type RuntimeInfo, type SchoolOnboardingState, type SchoolPageBounds, type StudiWorkspaceState, type TaskDetail, type TelemetryState, type UsageState } from "../../shared/index.js";import { rendererTelemetry } from "../telemetry/renderer.js";
@@ -43,6 +43,8 @@ export function StudiApp() {
   const [diagnosticsReceipt, setDiagnosticsReceipt] = useState<DiagnosticsExportReceipt | null>(null);
   const { connectedApps, appConnections, appConnectionFeedback, connectApp, refreshConnectedApp } = useConnectedApps(auth.status === "approved");
   const [busy, setBusy] = useState<BusyAction>(null);
+  const actionSequence = useRef(0);
+  const stoppingForScan = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [showOnboardingCompletion, setShowOnboardingCompletion] = useState(preview?.id === "onboarding-ready");
   const telemetryView = useRef<string | null>(null);
@@ -133,7 +135,22 @@ export function StudiApp() {
     void refresh(); const timer = window.setInterval(() => void refresh(), 15_000); return () => { cancelled = true; window.clearInterval(timer); };
   }, [authorized, screen]);
 
-  async function action<T>(name: BusyAction, run: () => Promise<T>, apply?: (value: T) => void | Promise<void>): Promise<T | undefined> { setBusy(name); setError(null); try { const value = await run(); await apply?.(value); return value; } catch (cause) { setError(formatError(cause)); return undefined; } finally { setBusy(null); } }
+  async function action<T>(name: BusyAction, run: () => Promise<T>, apply?: (value: T) => void | Promise<void>): Promise<T | undefined> {
+    const sequence = ++actionSequence.current;
+    setBusy(name);
+    setError(null);
+    try {
+      const value = await run();
+      if (sequence !== actionSequence.current) return undefined;
+      await apply?.(value);
+      return value;
+    } catch (cause) {
+      if (sequence === actionSequence.current) setError(formatError(cause));
+      return undefined;
+    } finally {
+      if (sequence === actionSequence.current) setBusy(null);
+    }
+  }
 
   const signIn = async () => { const studi = window.studi; if (!studi) return; setAuth({ status: "signing_in" }); const next = await action("auth", () => studi.signIn()); if (next) setAuth(next); else setAuth(await studi.getAuthState()); };
   const retryAuth = async () => { const studi = window.studi; if (!studi) return; setAuth({ status: "checking" }); const next = await action("auth-retry", () => studi.retryEntitlement()); if (next) setAuth(next); };
@@ -146,14 +163,19 @@ export function StudiApp() {
   const runScan = async (kind: "scan" | "resume" | "replay") => { const studi = window.studi; if (!studi) return; const command = kind === "scan" ? studi.startSchoolScan : kind === "resume" ? studi.resumeSchoolScan : studi.replaySchoolScan; await action(kind, () => command(), async (state) => { setOnboarding(state); if (!onboardingComplete && hasCompletedSchoolOnboarding(state)) setShowOnboardingCompletion(true); setWorkspace(await studi.getWorkspaceState()); setLibrary(await studi.getLibraryState()); }); };
   const stopAndScan = async (taskId: string) => {
     const studi = window.studi;
-    if (!studi || busy) return;
-    const stopped = await action("cancel", async () => {
-      await stopAssignmentForScan(studi, taskId);
-      setLifecycle(await studi.getLifecycleState());
-      setLibrary(await studi.getLibraryState());
-      return await studi.getSchoolOnboardingState();
-    });
-    if (stopped) await runScan(nextSchoolScanAction(stopped));
+    if (!studi || stoppingForScan.current || !canStopAssignmentForScan(busy)) return;
+    stoppingForScan.current = true;
+    try {
+      const stopped = await action("cancel", async () => {
+        await stopAssignmentForScan(studi, taskId);
+        setLifecycle(await studi.getLifecycleState());
+        setLibrary(await studi.getLibraryState());
+        return await studi.getSchoolOnboardingState();
+      });
+      if (stopped) await runScan(nextSchoolScanAction(stopped));
+    } finally {
+      stoppingForScan.current = false;
+    }
   };
   const sendToInky = async (target: { kind: "home" } | { kind: "assignment"; assignmentId: string }, text: string) => {
     const studi = window.studi;
@@ -295,6 +317,7 @@ export function StudiApp() {
     onNavigate: (next: AppScreen, landing: SettingsLanding = "settings") => {
       setScreen(next);
       if (next === "settings") setSettingsLanding(landing);
+      if (next === "settings") void window.studi?.getProductSettings().then(setSettings).catch(cause => setError(formatError(cause)));
       if (next === "settings" && landing === "usage") void window.studi?.getUsageState().then(setUsage).catch(() => setUsage(null));
       setError(null);
       if (next === "settings") setPanel({ kind: "closed" });

@@ -1,24 +1,48 @@
-# Integrated verification receipt — 2026-09-10
+# Integrated verification — 2026-09-10
 
-Mode: focused UI + affected storage/permission/ownership checks. Integration base de309f6, plus course-conflict presentation and fixture improvements in final commit. Production UI uses actual scan/lease state; synthetic data is confined to preview fixtures.
+Mode: focused UI/storage checks plus real Electron authentication, scan, assignment draft, browser recovery, and restart. Base 8a30d80; final UI corrections are committed with this receipt. No merge/release.
 
-Passed on final source:
-- bun run typecheck (NODE_OPTIONS=--max-old-space-size=1024).
-- bun run build (same heap). Existing bundle-size warning remains.
-- node --experimental-strip-types --test tests/ui/scan-browser-owner.test.mjs tests/ui/stop-assignment-for-scan.test.mjs tests/storage/course-reconciliation.test.mjs tests/storage/assignment-reconciliation.test.mjs tests/contracts/permission.test.mjs — 23/23.
-- Actual React preview journey: all four permission scopes sent exact payloads; selected class/assignment and saved rule state shown; scope switch reset submission mode; missing confirmed-group ID disabled saving.
-- Feedback: controlled failed submission retained all 1000 characters; pending field disabled; confirmed submission cleared the draft; exact note sent without hidden prefix. No external feedback transmitted.
-- Course conflicts: permission-kind notice routes directly to Homework rules; references-kind notice remains visible without that misleading action. Both explicitly state automatic work is paused. Storage regressions assert both kind values.
-- Scan: Help Inky opens School check; keyboard Enter opens/closes browser, aria-expanded changes; continue transitions needs-user to running. No horizontal document overflow at 720x520. Screens visually inspected at 1280x850 and 720x520.
+## Final checks
 
-Evidence:
-- Tracked .agent/plans/scan-status/integrated-rules.png, integrated-conflicts.png, integrated-scanning.png, integrated-narrow.png.
-- Reusable tests/ui/homework-rules-feedback.journey.mjs (controlled API transport).
-- Ignored .agents/studi-qa/integrated-typecheck.log, integrated-build.log, integrated-focused.log.
+- `bun run typecheck` and `bun run build` passed with NODE_OPTIONS=--max-old-space-size=1024. Existing dependency annotation/bundle warnings remain.
+- `node --experimental-strip-types --test tests/ui/scan-browser-owner.test.mjs tests/ui/stop-assignment-for-scan.test.mjs`: 8/8 passed, including long-turn gating, delayed abort ordering, failed takeover, changed ownership, and lease release.
+- Rendered ScanStatus checks passed: unrelated mutations do not claim scanning/cancellation; actual replay/cancel labels remain; assignment/manager turns permit interruption and cancellation blocks duplicates.
+- Earlier integrated 23/23 ownership, reconciliation, and permission checks passed on 8a30d80. Backend/runtime code did not change afterward.
+- Full `node tests/electron-self-test-runner.mjs` passed on 8a30d80: onboarding-welcome, onboarding-ready, partial-dashboard, desk-handoff, invalid-profile/renderer-load rejection, malformed manifest/runtime rejection, and cleanup. Earlier readiness timeout did not recur; its cause remains unidentified.
 
-Failed / limited:
-- node tests/electron-self-test-runner.mjs --positive-only initially timed out at app readiness (25 seconds), before UI assertions. integrated-native.log records it.
-- One bounded native launch investigation with desk-handoff reached STUDI_SELF_TEST_READY and CDP renderer within the same 25-second window. Native-launch-probe.json records diagnostics. Its owned process/profile were cleaned up. First launch timeout cause is unidentified; no full-native pass claimed.
-- Previous native toggle proof predates this combined tree. Final guest focus/visibility and actual delayed worker cancellation remain unproven on the combined tree.
-- No live provider, account creation, fixture scan/draft, or restart journey run. Existing dedicated QA profile is preserved and signed out; account lookup found no dedicated identity. Manager halted provider/account setup at 66% weekly remaining to preserve quota.
-- Preview server stopped; no QA/probe app left running by this task. No merge or release.
+## Real Electron journey
+
+One persistent dedicated QA profile, local fixture only, manual cadence, permission attempt (never submit). Isolated Clerk email-code login/consent used a fresh dedicated identity with an accepted linked invitation. Initial waitlist status recovered to approved after one Check again. No manual entitlement/credit/admin writes. Imported Codex credentials yielded ready provider; real turns used existing GPT-6 Astra/medium selection.
+
+Only the native folder chooser used the documented one-shot simulation to select an empty QA directory. Assignments were discovered, not seeded.
+
+- First scan completed in about 44 seconds: Writing 101, Observation paragraph, September 12, 11:59 PM, exact instructions, complete inventories, no failures.
+- Real general chat produced a short reply. An earlier short message landed during onboarding's automatic assignment start and interfered with final outcome recording, reaching needs-user after the draft was already saved. This is recovery evidence, not a clean uninterrupted first work turn.
+- Retried assignment: Pause & take over, then I'm done/check, reached ready_review. Fixture health proved answerSaved=true and submitted=false.
+- Inspected actual studi-answer.md: exactly 3 sentences describing a rainy afternoon, including rain tapping as the sound and a yellow umbrella as the color. Actual local file existed, 315 bytes. No submission occurred.
+- Busy card named the correct assignment; Open assignment opened it. School-browser controls toggled aria-expanded true/false. Saved answer opened in-app.
+- Stop-and-scan from needs-user released the lease and completed a replay without duplicate courses/assignments.
+- Same-profile restart retained approved auth, ready provider, course course-55087477c691186aa063407f and assignment assignment-2134fe1ab7da1ef20b1d9d27, successful scan, conversation history, and local answer. Review conservatively recovered to needs_user with an explanation that the browser page was not retained and the local answer was preserved.
+
+## Native-discovered fixes
+
+1. Generic pending actions claimed Starting scan/Stopping work. Labels now use action kind.
+2. Settings showed stale onboarding rules. Entering Settings refreshes real rules. A controlled public-API rule change outside Settings appeared upon reentry; the temporary rule was removed through UI. Actual global onboarding rule remains visible.
+3. Long worker requests disabled Stop assignment & scan throughout the turn. Assignment/manager turns now remain interruptible. An action sequence prevents older aborted completion clearing newer cancellation state, and a ref serializes stop-and-scan.
+
+Final native working-cancellation proof, buildTreeSha256:
+`a8e0ad99b5ae73ab36f8d0bc1a095600f7047eccf3a2276961a1b1c7b38fd4cf`
+
+Resumed real worker and verified phase working with enabled stop button. DOM observer recorded enabled Stop assignment & scan → disabled Stopping work… → disabled Scan for homework → disabled Starting scan… → View scan. Finishing aborted request never reenabled cancellation/scan during this transition. Task became stopped (failed lifecycle phase), lease=null, and one replay began. Replay succeeded with no failures and one course/assignment; only dueText wording changed. Saved draft remained unsubmitted.
+
+## Controlled preview coverage
+
+Actual React preview passed all 4 rule scopes/exact payloads/saved state; submission-mode reset and group validation; 1000-character feedback retention on failure, disabled pending input, clearing after confirmed success. No external feedback sent. Conflict kinds/direct rules routing passed. Needs-user scan/browser keyboard toggle/continue passed. No horizontal overflow at 720×520; 1280×850 and narrow images inspected.
+
+## Evidence and limits
+
+Tracked native screenshots: native-busy.png, native-working-stop.png, native-scanning.png, native-rules.png, native-ready-review.png. They show only dedicated QA/local fixture content. Existing integrated-*.png are controlled previews.
+
+Full native log: ignored .agents/studi-qa/pr30-native.log. Launch/build receipts, preserved profile, and answer remain in ignored QA storage. Owned app, relay, and fixture were stopped after testing; profile is preserved.
+
+This covers one local fixture, not broad LMS compatibility, installed auto-updates, or real homework submission. Full controlled startup suite ran on 8a30d80; rebuilt native app exercised final rules, labels, working cancellation, and browser controls afterward.

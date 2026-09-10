@@ -14,7 +14,7 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
   onCheck: () => void;
   onPause: () => void;
   onBrowser: () => void;
-  busy: boolean;
+  busy: string | null;
 }) {
   const scan = state.scan;
   const checking = scan?.state === "running";
@@ -27,7 +27,7 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
     <ScanStatus state={state} lifecycle={lifecycle} busy={busy} onCheck={onCheck} onStopAndScan={onStopAndScan} onWait={onWait} onOpenWork={onOpenWork} />
     <div className="chat-card-actions">
       <button className={`button button--${scan?.state === "needs_user" ? "yellow" : "paper"}`} aria-expanded={browserOpen} onClick={onBrowser}><Icon name="browser" />{browserOpen ? "Close school browser" : "Open school browser"}</button>
-      {!owner && (checking ? <button className="quiet-button" disabled={busy} onClick={onPause}>Pause scan</button> : scan?.state === "needs_user" && <button className="button button--paper" onClick={onCheck} disabled={busy}>I’m done · continue scan</button>)}
+      {!owner && (checking ? <button className="quiet-button" disabled={busy !== null} onClick={onPause}>Pause scan</button> : scan?.state === "needs_user" && <button className="button button--paper" onClick={onCheck} disabled={busy !== null}>I’m done · continue scan</button>)}
     </div>
     {courses.length > 0 && <details className="check-coverage"><summary>{checked.length} of {courses.length} classes checked</summary><ul>{courses.map(course => <li key={course.courseId}><span>{course.label}</span><small>{checked.includes(course) ? "Checked" : course.lastVerifiedScanId === scan?.scanId ? "Checking homework" : "Not checked yet"}</small></li>)}</ul></details>}
     {changes.length > 0 && <section className="check-results" aria-label="New and updated homework"><h3>{changes.filter(change => change.kind === "new").length} new · {changes.filter(change => change.kind === "updated").length} updated</h3>{changes.map(change => {

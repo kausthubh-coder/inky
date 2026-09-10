@@ -1,4 +1,5 @@
 import { scanBrowserOwner } from "./scanBrowserOwner.js";
+import { canStopAssignmentForScan } from "./stopAssignmentForScan.js";
 import type { LifecycleState, SchoolOnboardingState } from "../../shared/index.js";
 import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
@@ -6,7 +7,7 @@ import { Inky } from "./Inky.js";
 export function ScanStatus({ state, lifecycle, busy, onCheck, onDetails, onStopAndScan, onWait, onOpenWork }: {
   state: SchoolOnboardingState;
   lifecycle: LifecycleState;
-  busy: boolean;
+  busy: string | null;
   onCheck: () => void;
   onDetails?: () => void;
   onStopAndScan: (taskId: string) => void;
@@ -31,8 +32,8 @@ export function ScanStatus({ state, lifecycle, busy, onCheck, onDetails, onStopA
       <p>{description}</p>
     </div>
     <div className="scan-status__actions">
-      {owner ? <><button className="button button--paper" onClick={onOpenWork}>Open assignment<Icon name="right" size={16} /></button><button className="quiet-button" onClick={onWait}>{ownerPaused ? "Back to my week" : "I’ll wait"}</button>{owner.canStop && <button className="quiet-button" disabled={busy} onClick={() => onStopAndScan(owner.taskId)}>{busy ? "Stopping work…" : "Stop assignment & scan"}</button>}<small>Saved work stays available.</small></> : <>
-        {running || needs ? onDetails && <button className={`button button--${needs ? "yellow" : "paper"}`} onClick={onDetails}>{needs ? "Help Inky" : "View scan"}<Icon name="right" size={16} /></button> : <button className="button button--yellow" onClick={onCheck} disabled={busy}>{busy ? "Starting scan…" : incomplete ? "Try scan again" : "Scan for homework"}<Icon name="search" size={16} /></button>}
+      {owner ? <><button className="button button--paper" onClick={onOpenWork}>Open assignment<Icon name="right" size={16} /></button><button className="quiet-button" onClick={onWait}>{ownerPaused ? "Back to my week" : "I’ll wait"}</button>{owner.canStop && <button className="quiet-button" disabled={!canStopAssignmentForScan(busy)} onClick={() => onStopAndScan(owner.taskId)}>{busy === "cancel" ? "Stopping work…" : "Stop assignment & scan"}</button>}<small>Saved work stays available.</small></> : <>
+        {running || needs ? onDetails && <button className={`button button--${needs ? "yellow" : "paper"}`} onClick={onDetails}>{needs ? "Help Inky" : "View scan"}<Icon name="right" size={16} /></button> : <button className="button button--yellow" onClick={onCheck} disabled={busy !== null}>{busy === "scan" || busy === "resume" || busy === "replay" ? "Starting scan…" : incomplete ? "Try scan again" : "Scan for homework"}<Icon name="search" size={16} /></button>}
         {onDetails && !running && !needs && <button className="quiet-button" onClick={onDetails}>Scan details</button>}
       </>}
     </div>

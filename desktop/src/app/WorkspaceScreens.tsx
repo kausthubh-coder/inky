@@ -234,7 +234,7 @@ export function DashboardScreen({
           onConnect={onConnectRuntime}
         />
 
-        <ScanStatus state={onboarding} lifecycle={lifecycle} busy={busy !== null}
+        <ScanStatus state={onboarding} lifecycle={lifecycle} busy={busy}
           onCheck={onScanAgain} onStopAndScan={onStopAndScan} onOpenWork={onOpenDesk}
           onWait={() => { onClosePanel(); setSchoolOpen(false); setChatView("home"); }}
           onDetails={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} />
@@ -437,7 +437,7 @@ export function DashboardScreen({
         onSchoolSlot={onSchoolSlot}
         onResumeScan={onScanAgain}
         onStopAndScan={onStopAndScan}
-        scanBusy={busy !== null}
+        scanBusy={busy}
       />
     </main>
   );

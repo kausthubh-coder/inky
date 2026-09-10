@@ -1,5 +1,9 @@
 import type { StudiRendererApi } from "../../shared/index.js";
 
+export function canStopAssignmentForScan(busy: string | null): boolean {
+  return busy === null || busy === "assignment" || busy === "manager";
+}
+
 // Takeover waits for the worker to abort before cancellation releases its lease.
 // A new owner or a failed stop must never turn into a scan request.
 export async function stopAssignmentForScan(studi: Pick<StudiRendererApi, "getLifecycleState" | "requestAssignmentTakeover" | "cancelAssignment" | "getManagerState">, taskId: string): Promise<void> {

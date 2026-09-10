@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { stopAssignmentForScan } from "../../desktop/src/app/stopAssignmentForScan.ts";
+import { canStopAssignmentForScan, stopAssignmentForScan } from "../../desktop/src/app/stopAssignmentForScan.ts";
+
+test("long worker turns remain interruptible while other mutations block stop-and-scan", () => {
+  for (const action of [null, "assignment", "manager"]) assert.equal(canStopAssignmentForScan(action), true);
+  for (const action of ["cancel", "takeover", "scan", "resume", "replay", "settings", "loading"]) assert.equal(canStopAssignmentForScan(action), false);
+});
 
 function fixture(phase = "working") {
   const calls = [];

@@ -12,4 +12,3 @@ export function scanBrowserOwner(state: SchoolOnboardingState, lifecycle: Lifecy
     canStop: lease.state === "active" && !!execution && ["working", "needs_user", "ready_review"].includes(execution.phase),
   };
 }
-

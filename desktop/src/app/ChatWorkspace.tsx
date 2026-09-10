@@ -32,7 +32,7 @@ interface ChatProps {
   task: TaskSummary | null;
   mood: InkyState;
   actionError: string | null;
-  scanBusy: boolean;
+  scanBusy: string | null;
   onStart: (id: string) => void;
   onOpenWork: () => void;
   onTakeover: (id: string) => void;
