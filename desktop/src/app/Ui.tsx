@@ -1,4 +1,5 @@
 import { UpdateControls } from "./UpdateControls.js";
+import { readDevPreviewConfig } from "./devPreview.js";
 import { Icon } from "./Icon.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
@@ -72,7 +73,7 @@ export function AppChrome({
       <button className="brand-lockup brand-home" type="button" onClick={() => onNavigate("week")} aria-label="Open dashboard"><strong>studi</strong></button>
       {chatName&&<div className="chat-breadcrumb"><span>/</span>{chatName}</div>}
       <div className="chrome-end">
-        {new URLSearchParams(window.location.search).has("preview") && <span className="preview-mode-label">Design preview</span>}
+        {readDevPreviewConfig() && <span className="preview-mode-label">Design preview</span>}
         <UpdateControls onNotification={onNotification}/>
         <button className="chrome-settings" type="button" aria-label="Settings" title="Settings" aria-current={screen === "settings" ? "page" : undefined} onClick={() => openSettings("settings")}><Icon name="settings" size={19} /></button>
         <div className="account-menu-wrap" ref={accountMenuRef}>

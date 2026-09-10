@@ -36,6 +36,8 @@ bun run dev:landing
 
 Copy `landing/.env.example` to `landing/.env.local` and fill in the keys for the dedicated **Inky** Clerk application. Its development instance uses Waitlist access mode, the `convex` JWT template, and the public **Inky Desktop** OAuth client with PKCE. Convex needs `CLERK_JWT_ISSUER_DOMAIN` plus that desktop client's `CLERK_OAUTH_CLIENT_ID`; its auth config accepts both the web `convex` token and the Electron OAuth ID token.
 
+Convex also needs the same Clerk instance's `CLERK_SECRET_KEY` as a server-only deployment environment variable for beta admission checks. A verified primary email with a valid invited/completed waitlist entry grants a beta entitlement; a Clerk account alone does not. Sign-in schedules reconciliation (at most once per account per minute), and a five-minute cron checks existing accounts in small batches. A first sign-in may need **Retry** after the check finishes. Clerk bans, locks, rejected entries, and revoked invitations remove access; explicit manual Convex revocations remain in force. Existing plan/credit balances are preserved, and API outages do not rewrite approvals. Run `bun run test:backend` for the real Convex function tests with mocked Clerk responses.
+
 Private-beta access is free. The billing page is an account-facing beta-plan receipt and never asks for a card. Clerk sends the waitlist confirmation and invitation emails from the source-controlled templates in `clerk/email-templates`.
 
 The landing site can send anonymous, cookieless traffic and conversion events to a dedicated Inky PostHog project. The event contract and dashboard recipe are in [`landing/ANALYTICS.md`](landing/ANALYTICS.md).

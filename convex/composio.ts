@@ -60,7 +60,7 @@ export const search = action({
     const result = await session.search({ query, toolkits: [toolkit] });
     if (!result.success) throw new Error(result.error ?? `Could not find a ${toolkit} action`);
     const tools = Object.values(result.toolSchemas)
-      .filter((schema) => schema.toolkit === toolkit)
+      .filter((schema) => schema.toolkit.toLowerCase() === toolkit)
       .filter((schema) => toolkitPolicy.access === "all" || toolkitPolicy.tools.includes(schema.toolSlug))
       .slice(0, 24)
       .map((schema) => ({

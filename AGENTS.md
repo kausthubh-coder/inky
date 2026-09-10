@@ -2,6 +2,8 @@ okay this project is studi2, not to be mistaken with an pervois app also called 
 
 we create plans in html and sace it to .agent/plans,
 
+When an HTML plan or mockup shows existing app UI, use the `existing-ui-mockups` skill (`~/.codex/skills/existing-ui-mockups/SKILL.md`). Open the relevant real UI preview first (`bun run preview:ui`, or the existing preview server). Reuse the actual React components, app CSS, fonts, Inky component, assets, and navigation; do not redraw an approximate app shell. Change only the proposed feature. Keep prototype controls outside the product UI, label simulated behavior, and compare the mockup against the existing screen at the same viewport before sharing it. Save plans under `.agent/plans`; keep mockup-only code out of production behavior. See `.agent/plans/electron-updates-preview/` for a rebuildable example.
+
 we also test our app with test-studi skill
 
 try to make code as high quilty as poslsible and as mannageble as pssobile,

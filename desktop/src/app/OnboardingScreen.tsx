@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   connectedAppCatalogEntry,
   connectedAppIsActive,
+  connectedAppIsPending,
+  connectedAppStatusLabel,
   presentSchoolOnboardingScan,
   type ConnectedAppConnection,
   type ConnectedAppsState,
@@ -227,12 +229,12 @@ function StepExtra({ step, workspace, connectedApps, appConnections, providerRea
         {connectedApps.toolkits.filter(({ toolkit }) => connectedAppCatalogEntry(toolkit).onboarding).map(({ toolkit, access, tools }) => {
           const connection = appConnections[toolkit] ?? null;
           const active = connectedAppIsActive(connection);
-          const waiting = connection?.status === "INITIATED";
+          const waiting = connectedAppIsPending(connection);
           const app = connectedAppCatalogEntry(toolkit);
           return (
             <div className="fable-pick fable-connected-app" data-connected-app={toolkit} key={toolkit}>
               <img className="connected-app-logo" src={app.logoUrl} alt="" loading="lazy" />
-              <span><strong>{app.label}</strong><small>{active ? "Connected" : waiting ? "Waiting for browser sign-in" : "Not connected"} · {access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}</small></span>
+              <span><strong>{app.label}</strong><small role="status">{connectedAppStatusLabel(connection)} · {access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}</small></span>
               <button type="button" className="fable-button" disabled={busy !== null} onClick={() => active || waiting ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>{active ? "Check" : waiting ? "I finished" : "Connect"}</button>
             </div>
           );

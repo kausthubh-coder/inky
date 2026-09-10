@@ -15,6 +15,8 @@ import {
   connectedAppCatalogEntry,
   type AgentReasoningEffort,
   connectedAppIsActive,
+  connectedAppIsPending,
+  connectedAppStatusLabel,
   type ConnectedAppConnection,
   type ConnectedAppsState,
   type DiagnosticsExportReceipt,
@@ -818,10 +820,10 @@ export function SettingsScreen({
                       <span>
                         <strong>{app.label}</strong>
                         <small>{app.description}</small>
-                        <small>{active ? "Connected" : connection?.status === "INITIATED" ? "Waiting for browser sign-in" : "Not connected"} · {access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}</small>
+                        <small role="status">{connectedAppStatusLabel(connection)} · {access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}</small>
                       </span>
-                      <button className="quiet-button" type="button" disabled={busy !== null} onClick={() => active ? onRefreshConnectedApp(toolkit) : connection?.status === "INITIATED" ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>
-                        {active ? "Check" : connection?.status === "INITIATED" ? "I finished" : "Connect"}
+                      <button className="quiet-button" type="button" disabled={busy !== null} onClick={() => active || connectedAppIsPending(connection) ? onRefreshConnectedApp(toolkit) : onConnectApp(toolkit)}>
+                        {active ? "Check" : connectedAppIsPending(connection) ? "I finished" : "Connect"}
                       </button>
                     </div>
                   );

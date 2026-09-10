@@ -29,10 +29,11 @@
     "package:mac": "bun run build && electron-forge package --platform=darwin --arch=universal",
     "make:mac": "bun run build && electron-forge make --platform=darwin --arch=universal",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p desktop/electron/tsconfig.json --noEmit",
-    "test": "bun run typecheck && bun run build && bun run test:contracts && bun run test:packaging && bun run test:foundation",
+    "test": "bun run typecheck && bun run test:backend && bun run build && bun run test:contracts && bun run test:packaging && bun run test:foundation",
     "test:contracts": "bun run build:electron && node --test \"tests/contracts/*.test.mjs\"",
     "test:agent": "bun run build:electron && node --test \"tests/agent/*.test.mjs\"",
     "test:auth": "bun run build:electron && node --test \"tests/auth/*.test.mjs\"",
+    "test:backend": "vitest run",
     "test:telemetry": "bun run build:electron && node --experimental-strip-types --test \"tests/telemetry/*.test.mjs\"",
     "test:packaging": "bun run build:electron && node --test \"tests/packaging/*.test.mjs\"",
     "test:storage": "bun run build:electron && node --test \"tests/storage/*.test.mjs\"",
@@ -59,6 +60,7 @@
     "zod": "4.5.4"
   },
   "devDependencies": {
+    "@edge-runtime/vm": "^5.0.0",
     "@electron-forge/cli": "^7.11.2",
     "@electron-forge/maker-dmg": "^7.11.2",
     "@electron-forge/maker-squirrel": "^7.11.2",
@@ -71,6 +73,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "5.0.4",
     "concurrently": "^9.2.1",
+    "convex-test": "^0.0.56",
     "electron": "^37.4.0",
     "esbuild": "0.25.12",
     "fast-check": "4.9.0",
@@ -79,6 +82,7 @@
     "react-dom": "19.2.0",
     "typescript": "^5.9.3",
     "vite": "6.4.2",
+    "vitest": "^5.0.0",
     "wait-on": "^8.0.4",
     "ws": "^8.21.3"
   },

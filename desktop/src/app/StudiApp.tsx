@@ -7,6 +7,8 @@ import { Inky, type InkyState } from "./Inky.js";
 import { OnboardingScreen } from "./OnboardingScreen.js";
 import { DashboardScreen, SettingsScreen } from "./WorkspaceScreens.js";
 import { type AppScreen, type SettingsLanding } from "./Ui.js";
+import { connectedAppIsPending } from "../../shared/composio.js";
+import { watchConnection } from "../../shared/connection-refresh.js";
 
 type BusyAction = "loading" | "auth" | "auth-retry" | "sign-out" | "model" | "profile" | "navigate" | "scan" | "resume" | "replay" | "manager" | "assignment" | "takeover" | "cancel" | "artifact" | "settings" | "feedback" | "telemetry" | "diagnostics" | "connected-app" | null;
 
@@ -79,15 +81,33 @@ export function StudiApp() {
   useEffect(() => {
     const studi = window.studi;
     if (!studi || auth.status !== "approved") return;
+    let cancelled = false;
+    setAppConnections({});
     void studi.getConnectedApps().then(async (state) => {
+      if (cancelled) return;
       setConnectedApps(state);
       const entries = await Promise.all(state.toolkits.map(async ({ toolkit }) => {
         try { return [toolkit, await studi.refreshConnectedApp({ toolkit })] as const; }
         catch { return [toolkit, null] as const; }
       }));
-      setAppConnections(Object.fromEntries(entries));
-    }).catch(() => setConnectedApps(null));
+      if (!cancelled) setAppConnections((current) => ({ ...Object.fromEntries(entries), ...current }));
+    }).catch((cause) => { if (!cancelled) setError(formatError(cause)); });
+    return () => { cancelled = true; };
   }, [auth.status]);
+
+  const pendingConnections = Object.entries(appConnections).filter(([, connection]) => connectedAppIsPending(connection)).map(([toolkit]) => toolkit).sort().join(",");
+  useEffect(() => {
+    const studi = window.studi;
+    if (!studi || auth.status !== "approved" || !pendingConnections) return;
+    const watchers = pendingConnections.split(",").map((toolkit) => watchConnection({
+      refresh: () => studi.refreshConnectedApp({ toolkit }),
+      onConnection: (connection) => setAppConnections((current) => ({ ...current, [toolkit]: connection })),
+      onError: (cause) => setError(formatError(cause)),
+    }));
+    const onFocus = () => { for (const watcher of watchers) void watcher.refresh(); };
+    window.addEventListener("focus", onFocus);
+    return () => { window.removeEventListener("focus", onFocus); for (const watcher of watchers) watcher.dispose(); };
+  }, [auth.status, pendingConnections]);
 
   useEffect(() => {
     if (!authorized || onboarding?.profile || studentName.trim()) return;

@@ -1,6 +1,15 @@
-import { DEV_PREVIEW_SCENARIOS } from "./devPreview.js";
+import { useEffect, useState } from "react";
+import { DEV_PREVIEW_SCENARIOS } from "./scenarios.js";
+
+interface SourceInfo { root: string; branch: string; revision: string; version: string; modified: boolean }
 
 export function PreviewGallery() {
+  const [source, setSource] = useState<SourceInfo | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/__studi_preview/source", { signal: controller.signal }).then(response => response.json()).then(setSource).catch(() => {});
+    return () => controller.abort();
+  }, []);
   const groups = [...new Set(DEV_PREVIEW_SCENARIOS.map((scenario) => scenario.group))];
   return (
     <main className="preview-gallery" data-studi-preview-gallery="true">
@@ -9,6 +18,7 @@ export function PreviewGallery() {
           <p className="eyebrow">Browser-only test harness</p>
           <h1>Every Studi screen, in one place.</h1>
           <p>These are the real components with controlled local data. Open one to inspect it at full size; no Electron, Clerk, Convex, or school login is required.</p>
+          <p className="preview-source"><strong>{source ? `${source.branch} · ${source.revision}${source.modified ? " + local edits" : ""}` : "Source: this development server"}</strong><br /><small>{source?.root ?? "Run bun run preview:ui for checkout details."}</small></p>
         </div>
         <a className="button button--yellow" href="/?preview=week">Open the week</a>
       </header>

@@ -44,8 +44,13 @@ function ClerkWaitlistForm({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (busy) return;
+    onStart();
     setError(null);
     setBusy(true);
+    const submittedAt = performance.now();
+    track("waitlist_submitted", { placement });
+    let status = 0;
 
     try {
       const response = await fetch("/api/waitlist", {
@@ -53,11 +58,17 @@ function ClerkWaitlistForm({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ email, company: "" }),
       });
-      const result = (await response.json().catch(() => null)) as { error?: string } | null;
+      status = response.status;
+      const result = (await response.json().catch(() => null)) as { error?: string; alreadyJoined?: boolean; joined?: boolean } | null;
       if (!response.ok) throw new Error(result?.error ?? "Waitlist request failed");
-      track("waitlist_joined", { placement });
+      if (!result?.joined) throw new Error("Invalid waitlist response");
+      track(result.alreadyJoined ? "waitlist_already_joined" : "waitlist_joined", {
+        placement,
+        duration_ms: Math.round(performance.now() - submittedAt),
+      });
       onJoined();
     } catch (cause) {
+      track("waitlist_failed", { placement, status, duration_ms: Math.round(performance.now() - submittedAt) });
       setError(
         cause instanceof Error && cause.message === "Enter a real email address"
           ? cause.message

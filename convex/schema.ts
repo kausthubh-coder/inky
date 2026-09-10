@@ -8,6 +8,7 @@ export default defineSchema({
     name: v.union(v.string(), v.null()),
     createdAt: v.number(),
     lastSeenAt: v.number(),
+    accessSyncRequestedAt: v.optional(v.number()),
   }).index("by_clerk_subject", ["clerkSubject"]),
 
   betaAccess: defineTable({
