@@ -4,7 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 
 import { StorageError, errorMessage, isStorageError } from "./errors.js";
 
-export const STORAGE_SCHEMA_VERSION = 6 as const;
+export const STORAGE_SCHEMA_VERSION = 7 as const;
 
 export type StorageFailurePoint =
   | "migration_before_version"
@@ -278,6 +278,15 @@ const storageMigrations = [
   { version: 4, sql: migrationFour },
   { version: 5, sql: migrationFive },
   { version: 6, sql: migrationSix },
+  { version: 7, sql: `
+    CREATE TABLE record_redirects (
+      kind TEXT NOT NULL,
+      old_id TEXT NOT NULL,
+      canonical_id TEXT NOT NULL,
+      record_json TEXT NOT NULL CHECK (json_valid(record_json)),
+      PRIMARY KEY (kind, old_id)
+    );
+  ` },
 ] as const;
 
 type RequiredColumn = readonly [
@@ -288,6 +297,12 @@ type RequiredColumn = readonly [
 ];
 
 const requiredTables = {
+  record_redirects: [
+    ["kind", "TEXT", 1, 1],
+    ["old_id", "TEXT", 1, 2],
+    ["canonical_id", "TEXT", 1, 0],
+    ["record_json", "TEXT", 1, 0],
+  ],
   schema_migrations: [
     ["version", "INTEGER", 0, 1],
     ["applied_at", "TEXT", 1, 0],
@@ -608,6 +623,7 @@ const requiredIndexes = [
 ] as const;
 
 export class StudiSqliteDatabase {
+  #transactionDepth = 0;
   readonly handle!: DatabaseSync;
   readonly databasePath: string;
   readonly failureInjector: StorageFailureInjector | undefined;
@@ -663,18 +679,23 @@ export class StudiSqliteDatabase {
   }
 
   transaction<T>(operation: () => T): T {
-    this.handle.exec("BEGIN IMMEDIATE");
+    const depth = this.#transactionDepth;
+    const savepoint = `studi_${depth}`;
+    this.handle.exec(depth === 0 ? "BEGIN IMMEDIATE" : `SAVEPOINT ${savepoint}`);
+    this.#transactionDepth++;
     try {
       const result = operation();
-      this.handle.exec("COMMIT");
+      this.handle.exec(depth === 0 ? "COMMIT" : `RELEASE SAVEPOINT ${savepoint}`);
       return result;
     } catch (error) {
       try {
-        this.handle.exec("ROLLBACK");
+        this.handle.exec(depth === 0 ? "ROLLBACK" : `ROLLBACK TO SAVEPOINT ${savepoint}; RELEASE SAVEPOINT ${savepoint}`);
       } catch {
         // Keep the operation error. The connection will not be reused if rollback failed.
       }
       throw error;
+    } finally {
+      this.#transactionDepth--;
     }
   }
 

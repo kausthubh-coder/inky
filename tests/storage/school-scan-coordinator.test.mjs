@@ -154,7 +154,7 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
         assert.equal(store.school.getLinkedSystem(linkedSystemId).state, "verified");
         browser.showLinkedHomework();
         await invoke(tools, "scan_record_assignment", {
-          courseId: courseId("calc-101"),
+          courseId: calculusCourseId(),
           title: "Series homework",
           assignmentKey: "series-1",
           dueAt: "2026-09-04T15:00:00.000Z",
@@ -180,7 +180,7 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
         browser.showAssignments();
         await invoke(tools, "scan_record_course", { label: "Calculus", courseKey: "calc-101" });
         await invoke(tools, "scan_record_assignment", {
-          courseId: courseId("calc-101"),
+          courseId: calculusCourseId(),
           title: "Limits practice",
           assignmentKey: "limits-1",
           dueAt: "2026-09-03T15:00:00.000Z",
@@ -533,9 +533,128 @@ class ScriptedScanRuntime {
 
 }
 
-function courseId(courseKey) {
-  return `course-${createHash("sha256").update(courseKey).digest("hex").slice(0, 24)}`;
+function calculusCourseId() {
+  return `course-${createHash("sha256").update(`${rootUrl}|calculus`).digest("hex").slice(0, 24)}`;
 }
+
+test("Moodle list → detail → changed course label/key → partial replay keeps one assignment and task", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-moodle-identity-"));
+  let store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const list = `${rootUrl}mod/assign/index.php?id=230`;
+  const destination = `${rootUrl}mod/assign/view.php?id=1360376`;
+  const runtime = new ScriptedScanRuntime([0, 1, 2, 3].map(turn => async tools => {
+    const label = turn < 2 ? "C and Software Tools" : "CSC 230 (002) Fall 2026 C and Software Tools";
+    browser.url = turn === 0 ? list : `${rootUrl}course/view.php?id=230`;
+    browser.text = label;
+    browser.elements = [];
+    const course = await invoke(tools, "scan_record_course", { label, courseKey: `model-course-${turn}` });
+    browser.text = `${label} Homework 1`;
+    await assert.rejects(invoke(tools, "scan_record_assignment", { courseId: course.courseId, title: "Homework 1" }), /no unambiguous assignment link/);
+    browser.url = turn % 2 === 0 ? list : destination + "&action=view#intro";
+    browser.text = "Homework 1 Write a C program. 2026-09-09T12:00:00.000Z";
+    browser.elements = turn % 2 === 0 ? [{ ref: "homework", role: "link", name: "Homework 1", href: destination }] : [];
+    await invoke(tools, "scan_record_assignment", {
+      courseId: course.courseId, title: "Homework 1", assignmentKey: `model-assignment-${turn}`,
+      ...(turn === 0 ? { dueAt: "2026-09-09T12:00:00.000Z", dueText: "2026-09-09T12:00:00.000Z", instructions: "Write a C program." } : {}),
+    });
+    await invoke(tools, "scan_finish", { coverage: [{ target: `Course: ${label}`, status: turn === 3 ? "partial" : "verified",
+      ...(turn === 3 ? { failure: "Another page timed out" } : {}) }], navigationHints: [] });
+  }));
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    const first = await scan.startScan();
+    assert.equal(first.scan.state, "succeeded");
+    assert.equal(first.assignments[0].sourceTarget, destination);
+    assert.equal(first.assignments[0].evidence[0].sourceTarget, list);
+    for (let turn = 1; turn < 4; turn++) {
+      const next = await scan.replay();
+      assert.equal(next.courses.length, 1);
+      assert.equal(next.assignments.length, 1);
+      assert.equal(next.assignments[0].assignmentId, first.assignments[0].assignmentId);
+      assert.equal(next.assignments[0].instructions, "Write a C program.");
+      assert.equal(next.assignments[0].dueAt, "2026-09-09T12:00:00.000Z");
+      assert.equal(store.tasks.listAll().length, 1);
+    }
+    store.close();
+    store = await openLocalStore(root);
+    assert.equal(store.assignments.listAll().length, 1);
+    assert.equal(store.tasks.listAll().length, 1);
+  } finally {
+    scan.dispose(); store.close(); await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("a fresh list link reconciles an old index record with a detail record, but a failed batch rolls back", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-moodle-legacy-"));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const list = `${rootUrl}mod/assign/index.php?id=230`;
+  const destination = `${rootUrl}mod/assign/view.php?id=1360376`;
+  const runtime = new ScriptedScanRuntime([async tools => {
+    browser.url = list;
+    browser.text = "C and Software Tools Homework 1";
+    browser.elements = [{ ref: "hw", role: "link", name: "Homework 1", href: destination }];
+    const course = await invoke(tools, "scan_record_course", { label: "C and Software Tools" });
+    const original = { schemaVersion: 1, courseId: course.courseId, title: "Homework 1", discoveredAt: now, evidence: [] };
+    store.assignments.put({ ...original, assignmentId: "legacy-list", sourceTarget: list });
+    store.school.putCourse({ ...course, courseId: "old-long-name", label: "CSC 230 (002) Fall 2026 C and Software Tools" });
+    store.assignments.put({ ...original, assignmentId: "legacy-detail", sourceTarget: destination, courseId: "old-long-name" });
+    store.assignments.put({ ...original, assignmentId: "legacy-detail-again", sourceTarget: `${destination}&action=view` });
+    const input = { courseId: course.courseId, title: "Homework 1" };
+    await assert.rejects(invoke(tools, "scan_record_assignments", { assignments: [input, { ...input, title: "Invented homework" }] }), /claimed assignment title/);
+    assert.equal(store.assignments.listAll().length, 3);
+    assert.equal(store.tasks.listAll().length, 0);
+    assert.equal(store.database.handle.prepare("SELECT count(*) AS n FROM record_redirects").get().n, 0);
+    await invoke(tools, "scan_record_assignment", input);
+    assert.equal(store.assignments.listAll().length, 1);
+    assert.equal(store.tasks.listAll().length, 1);
+    assert.equal(store.assignments.get("legacy-list").assignmentId, store.assignments.get("legacy-detail").assignmentId);
+    assert.equal(store.assignments.get("legacy-list").assignmentId, store.assignments.get("legacy-detail-again").assignmentId);
+    await invoke(tools, "scan_finish", { coverage: [{ target: "Course: C and Software Tools", status: "verified" }], navigationHints: [] });
+  }]);
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    assert.equal((await scan.startScan()).scan.state, "succeeded");
+  } finally { scan.dispose(); store.close(); await rm(root, { recursive: true, force: true }); }
+});
+
+test("a legacy permission conflict keeps its confirmed identity and pause after restart", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-moodle-conflict-"));
+  let store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const destination = `${rootUrl}mod/assign/view.php?id=1360376`;
+  const runtime = new ScriptedScanRuntime([async tools => {
+    browser.url = `${rootUrl}mod/assign/index.php?id=230`;
+    browser.text = "C and Software Tools Homework 1";
+    browser.elements = [{ ref: "hw", role: "link", name: "Homework 1", href: destination }];
+    const course = await invoke(tools, "scan_record_course", { label: "C and Software Tools" });
+    const original = { schemaVersion: 1, courseId: course.courseId, title: "Homework 1", discoveredAt: now, evidence: [] };
+    store.assignments.put({ ...original, assignmentId: "legacy-list", sourceTarget: browser.url });
+    store.assignments.put({ ...original, assignmentId: "legacy-detail", sourceTarget: destination });
+    store.permissionRules.put({ schemaVersion: 1, scope: "assignment", ruleId: "no-work", assignmentId: "legacy-list", mode: "do_not_attempt", updatedAt: now });
+    await invoke(tools, "scan_record_assignment", { courseId: course.courseId, title: "Homework 1" });
+    browser.url = destination;
+    browser.elements = [];
+    await invoke(tools, "scan_record_assignment", { courseId: course.courseId, title: "Homework 1" });
+    assert.equal(store.assignmentConflicts.length, 1);
+    assert.equal(store.assignments.listAll().length, 2);
+    assert.equal(store.tasks.listAll().length, 0);
+    await invoke(tools, "scan_finish", { coverage: [{ target: "Course: C and Software Tools", status: "verified" }], navigationHints: [] });
+  }]);
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "attempt", scanCadence: "manual" });
+    const state = await scan.startScan();
+    assert.equal(state.scan.state, "succeeded");
+    assert.equal(state.assignmentConflicts.length, 1);
+    store.close(); store = await openLocalStore(root);
+    assert.equal(store.assignmentConflicts.length, 1);
+    assert.equal(store.assignments.listAll().length, 2);
+  } finally { scan.dispose(); store.close(); await rm(root, { recursive: true, force: true }); }
+});
 
 async function invoke(tools, name, input) {
   const tool = tools.find((candidate) => candidate.name === name);

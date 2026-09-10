@@ -8,6 +8,7 @@ export const BrowserElementSchema = z.strictObject({
   role: z.string().min(1),
   name: z.string(),
   value: z.string().optional(),
+  href: z.string().url().optional(),
 });
 
 export const BrowserSnapshotSchema = z.strictObject({

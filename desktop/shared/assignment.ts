@@ -10,6 +10,7 @@ export const AssignmentSchema = z.strictObject({
   courseId: CourseIdSchema,
   title: z.string().min(1).max(500),
   sourceTarget: SafeSourceTargetSchema,
+  sourceIdentity: z.string().min(1).max(4096).optional(),
   dueAt: IsoTimestampSchema.optional(),
   dueText: z.string().min(1).max(200).optional(),
   instructions: z.string().min(1).max(8000).optional(),

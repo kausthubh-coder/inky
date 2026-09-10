@@ -46,6 +46,7 @@ interface AxValue {
 }
 
 interface AxNode {
+  readonly properties?: readonly { readonly name: string; readonly value: AxValue }[];
   readonly ignored?: boolean;
   readonly backendDOMNodeId?: number;
   readonly role?: AxValue;
@@ -128,7 +129,9 @@ export class BrowserController {
         role,
         name,
       });
-      elements.push({ ref, role, name, ...(value ? { value } : {}) });
+      const url = readAxString(node.properties?.find(property => property.name === "url")?.value);
+      const href = role === "link" && /^https?:\/\//i.test(url) ? url : undefined;
+      elements.push({ ref, role, name, ...(value ? { value } : {}), ...(href ? { href } : {}) });
     }
 
     let text = textParts.join("\n");
@@ -414,7 +417,8 @@ const KEY_CODES: Record<BrowserKey, number> = {
 export function formatSnapshot(snapshot: BrowserSnapshot): string {
   const elementLines = snapshot.elements.map((element) => {
     const value = element.value ? ` value=${JSON.stringify(element.value)}` : "";
-    return `${element.ref} ${element.role} ${JSON.stringify(element.name)}${value}`;
+    const href = element.href ? ` href=${JSON.stringify(element.href)}` : "";
+    return `${element.ref} ${element.role} ${JSON.stringify(element.name)}${value}${href}`;
   });
   return [
     `Page revision ${snapshot.revision}: ${snapshot.title || "Untitled"}`,
