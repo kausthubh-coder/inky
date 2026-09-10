@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server.js";
 import { nullableText, requireIdentity } from "./identity.js";
-import { requestAccessSync } from "./accessSync.js";
 
 const accountResult = v.object({
   subject: v.string(),
@@ -108,16 +107,14 @@ export const syncWebProfile = mutation({
       .unique();
     if (account) {
       await ctx.db.patch(account._id, { email, name, lastSeenAt: now });
-      await requestAccessSync(ctx, account);
     } else {
-      const id = await ctx.db.insert("accounts", {
+      await ctx.db.insert("accounts", {
         clerkSubject: identity.subject,
         email,
         name,
         createdAt: now,
         lastSeenAt: now,
       });
-      await requestAccessSync(ctx, (await ctx.db.get(id))!);
     }
     return null;
   },
@@ -139,16 +136,14 @@ export const bootstrap = mutation({
       .unique();
     if (account) {
       await ctx.db.patch(account._id, { email, name, lastSeenAt: now });
-      await requestAccessSync(ctx, account);
     } else {
-      const id = await ctx.db.insert("accounts", {
+      await ctx.db.insert("accounts", {
         clerkSubject: subject,
         email,
         name,
         createdAt: now,
         lastSeenAt: now,
       });
-      await requestAccessSync(ctx, (await ctx.db.get(id))!);
     }
 
     let access = await ctx.db

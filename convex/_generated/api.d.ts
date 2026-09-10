@@ -8,14 +8,10 @@
  * @module
  */
 
-import type * as accessSync from "../accessSync.js";
 import type * as account from "../account.js";
-import type * as clerkAccess from "../clerkAccess.js";
-import type * as clerkAdmission from "../clerkAdmission.js";
 import type * as composio from "../composio.js";
 import type * as composioAccess from "../composioAccess.js";
 import type * as composioPolicy from "../composioPolicy.js";
-import type * as crons from "../crons.js";
 import type * as feedback from "../feedback.js";
 import type * as identity from "../identity.js";
 import type * as usage from "../usage.js";
@@ -28,14 +24,10 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  accessSync: typeof accessSync;
   account: typeof account;
-  clerkAccess: typeof clerkAccess;
-  clerkAdmission: typeof clerkAdmission;
   composio: typeof composio;
   composioAccess: typeof composioAccess;
   composioPolicy: typeof composioPolicy;
-  crons: typeof crons;
   feedback: typeof feedback;
   identity: typeof identity;
   usage: typeof usage;
