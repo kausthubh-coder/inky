@@ -219,7 +219,12 @@ export function StudiApp() {
   const updateTelemetryDebug = async (durationMinutes: 0 | 30) => { const studi = window.studi; if (studi) await action("telemetry", () => studi.setTelemetryDebug({ durationMinutes }), setTelemetry); };
   const exportDiagnostics = async () => { const studi = window.studi; if (studi) await action("diagnostics", () => studi.exportDiagnostics(), setDiagnosticsReceipt); };
 
-  const sendFeedback = async (context: string, message: string) => { const studi = window.studi; if (studi) await action("feedback", () => studi.submitFeedback({ message: `[${context}] ${message}` })); };
+  const sendFeedback = async (_context: string, message: string): Promise<boolean> => {
+    const studi = window.studi;
+    if (!studi) return false;
+    const receipt = await action("feedback", () => studi.submitFeedback({ message }));
+    return receipt?.accepted === true;
+  };
   const talkAboutAssignment = async (message: string) => {
     const assignmentId = openId;
     if (!assignmentId) return;
@@ -276,7 +281,7 @@ export function StudiApp() {
   }, []);
 
   if (!window.studi) return <main className="desktop-required" data-studi-app-ready="true"><p className="eyebrow">Studi desktop</p><h1>Open the desktop app to use the school browser.</h1></main>;
-  if (!authorized) return <AuthGate auth={auth} busy={busy} error={error} feedback={gateFeedback} sent={feedbackSent} onFeedback={setGateFeedback} onSignIn={() => void signIn()} onRetry={() => void retryAuth()} onSignOut={() => void signOut()} onSubmit={async (event) => { event.preventDefault(); if (!gateFeedback.trim()) return; await sendFeedback("beta_gate", gateFeedback.trim()); setGateFeedback(""); setFeedbackSent(true); }} />;
+  if (!authorized) return <AuthGate auth={auth} busy={busy} error={error} feedback={gateFeedback} sent={feedbackSent} onFeedback={setGateFeedback} onSignIn={() => void signIn()} onRetry={() => void retryAuth()} onSignOut={() => void signOut()} onSubmit={async (event) => { event.preventDefault(); if (!gateFeedback.trim()) return; if (await sendFeedback("beta_gate", gateFeedback.trim())) { setGateFeedback(""); setFeedbackSent(true); } }} />;
   if (!onboarding || !lifecycle) return <main className="loading-screen"><Inky state="sleep" size={132} label="Inky is waking up" /><h1>Opening your desk…</h1>{error && <p className="error-note">{error}</p>}</main>;
   if (!onboarded) return <OnboardingScreen workspace={workspace} onboarding={onboarding} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} studentName={studentName} schoolUrl={schoolUrl} homeworkRoot={settings?.preferences.homeworkRoot ?? null} scanCadence={scanCadence} defaultPermission={defaultPermission} busy={busy} error={error} onStudentName={setStudentName} onSchoolUrl={setSchoolUrl} onCadence={setScanCadence} onDefaultPermission={setDefaultPermission} onConnectRuntime={() => void connectRuntime()} onCancelRuntimeLogin={() => void cancelRuntimeLogin()} onSelectModel={(id) => void selectAgentRuntime(id)} onConnectApp={(toolkit) => void connectApp(toolkit, true)} onRefreshConnectedApp={(toolkit) => void refreshConnectedApp(toolkit)} onSelectHomeworkRoot={() => void selectHomeworkRoot()} onSaveProfile={() => void saveProfile()} onOpenSchool={() => void openSchool()} onStartScan={() => void runScan("scan")} onResumeScan={() => void runScan("resume")} onReplayScan={() => void runScan("replay")} onFinish={() => finishOnboarding()} />;
   const chrome = { storageKey: authorized && (auth.status === "approved" || auth.status === "offline") ? auth.user.subject : "signed-out",
