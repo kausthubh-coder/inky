@@ -374,6 +374,11 @@ export class ManagerCoordinator {
   }
 
   #resolvePermission(assignmentId: string, courseId: string) {
+    const conflict = this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId));
+    if (conflict) return {
+      mode: "do_not_attempt" as const, mayAttempt: false, maySubmit: false,
+      matchedRuleId: null, rationale: conflict.reason,
+    };
     const matchedPatternIds = this.#store.manager
       .listConfirmedPatterns(assignmentId, courseId)
       .map((match) => match.patternId);

@@ -161,7 +161,7 @@ const selfTestUsageState: UsageState = {
 interface StorageSelfTestObservation {
   readonly driver: "node:sqlite";
   readonly node: string;
-  readonly schemaVersion: 6;
+  readonly schemaVersion: 7;
   readonly fileBacked: boolean;
   readonly reopened: boolean;
   readonly artifactRoundTrip: boolean;
@@ -1281,7 +1281,7 @@ function isSuccessfulStorageObservation(value: unknown): value is StorageSelfTes
   return (
     record.driver === "node:sqlite" &&
     record.node === process.versions.node &&
-    record.schemaVersion === 6 &&
+    record.schemaVersion === 7 &&
     record.fileBacked === true &&
     record.reopened === true &&
     record.artifactRoundTrip === true &&
@@ -1352,7 +1352,7 @@ async function initializeStorage(): Promise<void> {
     fileBacked: localStore.databasePath !== ":memory:" && existsSync(localStore.databasePath),
     reopened: reopened?.assignmentId === assignment.assignmentId,
     artifactRoundTrip: reopenedArtifact?.content === artifact.content,
-    backupValidated: backup.schemaVersion === 6,
+    backupValidated: backup.schemaVersion === 7,
     backupArtifactCount: backup.artifactCount,
   };
 }

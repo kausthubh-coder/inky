@@ -272,6 +272,12 @@ export function DashboardScreen({
         />
 
         <section className="week-section" data-studi-week-board="true">
+          {onboarding.assignmentConflicts?.map(conflict => (
+            <p className="week-note" role="status" key={conflict.assignmentIds.join(",")}>
+              I kept separate copies of {onboarding.assignments.find(item => item.assignmentId === conflict.assignmentIds[0])?.title ?? "this homework"}.
+              {" "}{conflict.reason} I’ve paused automatic work on these copies.
+            </p>
+          ))}
           <div className="section-title">
             <div>
               <div className="board-views" aria-label="Assignment views">

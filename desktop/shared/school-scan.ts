@@ -103,6 +103,10 @@ export const SchoolScanWorkflowSchema = z.strictObject({
 });
 
 export const SchoolOnboardingStateSchema = z.strictObject({
+  assignmentConflicts: z.array(z.strictObject({
+    assignmentIds: z.array(z.string()),
+    reason: z.string(),
+  })).optional(),
   profile: SchoolProfileSchema.nullable(),
   scan: SchoolScanSchema.nullable(),
   courses: z.array(CourseSchema),
