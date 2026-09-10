@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   AssignmentSchema,
+  CourseSchema,
   PermissionRuleSchema,
   RunSchema,
   TASK_TRANSITIONS,
@@ -86,10 +87,15 @@ function assertStoredColumns(
 
 export function validatePersistedRecords(database: StudiSqliteDatabase): void {
   for (const row of database.handle.prepare("SELECT kind, old_id, record_json FROM record_redirects").all()) {
-    if (row.kind !== "assignment" && row.kind !== "task") throw new Error("Invalid redirect kind");
+    if (row.kind !== "assignment" && row.kind !== "task" && row.kind !== "course") throw new Error("Invalid redirect kind");
     const original = JSON.parse(String(row.record_json));
     const id = String(row.old_id);
     const canonicalId = resolveRecordId(database, row.kind, id);
+    if (row.kind === "course") {
+      if (canonicalId === id || !database.handle.prepare("SELECT course_id FROM courses WHERE course_id = ?").get(canonicalId)) throw new Error("Course redirect target is missing");
+      if (CourseSchema.parse(original).courseId !== id) throw new Error("Archived course id does not match redirect");
+      continue;
+    }
     const repository = row.kind === "assignment" ? new AssignmentRepository(database) : new TaskRepository(database);
     if (canonicalId === id || !repository.get(canonicalId)) throw new Error("Redirect target is missing");
     if (row.kind === "assignment") {
@@ -315,7 +321,8 @@ export class AssignmentRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   put(value: unknown): Assignment {
-    const record = parseRecord(AssignmentSchema, value, "assignment");
+    const parsed = parseRecord(AssignmentSchema, value, "assignment");
+    const record = { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) };
     if (resolveRecordId(this.database, "assignment", record.assignmentId) !== record.assignmentId) {
       throw new Error("This assignment was merged; refresh its canonical record before saving");
     }
@@ -349,6 +356,7 @@ export class AssignmentRepository {
   }
 
   listByCourse(courseId: string): Assignment[] {
+    courseId = resolveRecordId(this.database, "course", courseId);
     const rows = this.database.handle
       .prepare(
         "SELECT record_json FROM assignments WHERE course_id = ? ORDER BY due_at, assignment_id",
@@ -381,7 +389,7 @@ export class PermissionRuleRepository {
     const parsed = parseRecord(PermissionRuleSchema, value, "permission rule");
     const record = parsed.scope === "assignment"
       ? { ...parsed, assignmentId: resolveRecordId(this.database, "assignment", parsed.assignmentId) }
-      : parsed;
+      : "courseId" in parsed ? { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) } : parsed;
     const recordJson = canonicalJson(PermissionRuleSchema, record, "permission rule");
     const courseId = "courseId" in record ? record.courseId : null;
     const assignmentId = "assignmentId" in record ? record.assignmentId : null;

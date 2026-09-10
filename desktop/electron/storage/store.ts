@@ -26,6 +26,7 @@ import { ProductPreferencesStore } from "./product-preferences.js";
 import { AgentJobRepository } from "./agent-job-records.js";
 import { NoteStore } from "./notes.js";
 import { reconcileAssignments, type AssignmentConflict } from "./assignment-reconciliation.js";
+import { reconcileCourses, type CourseConflict } from "./course-reconciliation.js";
 
 export interface OpenLocalStoreOptions {
   readonly failureInjector?: StorageFailureInjector;
@@ -48,6 +49,7 @@ export class LocalStore {
   readonly agentJobs: AgentJobRepository;
   readonly notes: NoteStore;
   assignmentConflicts: AssignmentConflict[] = [];
+  courseConflicts: CourseConflict[] = [];
 
   constructor(rootDirectory: string, options: OpenLocalStoreOptions = {}) {
     this.rootDirectory = resolve(rootDirectory);
@@ -69,7 +71,10 @@ export class LocalStore {
       this.productPreferences = new ProductPreferencesStore(join(this.rootDirectory, "product-preferences.json"));
       this.agentJobs = new AgentJobRepository(this.database);
       this.notes = new NoteStore(join(this.rootDirectory, "notes"), this.database);
-      this.assignmentConflicts = reconcileAssignments(this);
+      this.database.transaction(() => {
+        this.courseConflicts = reconcileCourses(this);
+        this.assignmentConflicts = reconcileAssignments(this);
+      });
     } catch (error) {
       this.database.close();
       throw error;

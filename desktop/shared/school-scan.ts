@@ -81,6 +81,8 @@ export const CourseSchema = z.strictObject({
   courseId: z.string().min(1).max(256),
   label: z.string().trim().min(1).max(300),
   sourceTarget: SafeSourceTargetSchema,
+  sourceIdentity: z.string().min(1).max(4000).optional(),
+  sourceAliases: z.array(z.strictObject({ label: z.string().min(1).max(300), sourceTarget: SafeSourceTargetSchema })).max(100).optional(),
   lastVerifiedScanId: z.string().min(1).max(256),
   lastVerifiedAt: IsoTimestampSchema,
   evidence: EvidenceReferenceSchema,
@@ -117,6 +119,10 @@ export const SchoolScanWorkflowSchema = z.strictObject({
 });
 
 export const SchoolOnboardingStateSchema = z.strictObject({
+  courseConflicts: z.array(z.strictObject({
+    courseIds: z.array(z.string()),
+    reason: z.string(),
+  })).optional(),
   assignmentConflicts: z.array(z.strictObject({
     assignmentIds: z.array(z.string()),
     reason: z.string(),

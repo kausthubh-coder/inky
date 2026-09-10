@@ -383,7 +383,9 @@ export class ManagerCoordinator {
   }
 
   #resolvePermission(assignmentId: string, courseId: string) {
-    const conflict = this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId));
+    courseId = this.#store.school.resolveCourseId(courseId);
+    const conflict = this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId))
+      ?? this.#store.courseConflicts.find(item => item.courseIds.includes(courseId));
     if (conflict) return {
       mode: "do_not_attempt" as const, mayAttempt: false, maySubmit: false,
       matchedRuleId: null, rationale: conflict.reason,

@@ -26,6 +26,8 @@ import { VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
 import { reconcileAssignments } from "../storage/assignment-reconciliation.js";
+import { courseIdentity, courseObservations, reconcileCourses } from "../storage/course-reconciliation.js";
+import { resolveRecordId } from "../storage/redirects.js";
 import { assignmentIdentity, exactTarget, isMoodleIndex, normalize, observedTarget, schoolIdentity } from "./source-identity.js";
 
 export interface ScanSessionRuntime {
@@ -87,6 +89,7 @@ export class SchoolScanCoordinator {
       courses,
       assignments,
       assignmentConflicts: this.#store.assignmentConflicts,
+      courseConflicts: this.#store.courseConflicts,
       linkedSystems: this.#store.school.listLinkedSystems(),
       workflowRevision:
         workflow?.revision ?? null,
@@ -371,33 +374,43 @@ export class SchoolScanCoordinator {
         const evidence = this.#evidence(scanId, snapshot, `Observed course ${input.label.trim()} in ${observation}.`);
         const sourceTarget = observedTarget(snapshot, input.label, input.observationRef);
         const identity = schoolIdentity(sourceTarget, "course");
-        const courses = this.#store.school.listCourses();
-        let priorCourse = courses.find(course => identity
-          ? schoolIdentity(course.sourceTarget, "course") === identity
-          : exactTarget(course.sourceTarget) === exactTarget(sourceTarget) && sameFact(course.label, input.label));
-        if (!priorCourse && exactTarget(sourceTarget) !== exactTarget(snapshot.url)) {
-          // A newly visible course link may refine a legacy directory observation.
-          // Preserve its ID, permissions and homework folders when unambiguous.
-          const legacy = courses.filter(course => exactTarget(course.sourceTarget) === exactTarget(snapshot.url) && sameFact(course.label, input.label));
-          if (legacy.length === 1) priorCourse = legacy[0];
-        }
-        const courseId = priorCourse?.courseId ?? stableId("course", identity ?? `${exactTarget(sourceTarget)}|${normalize(input.label)}`);
-        const course = this.#store.school.putCourse({
-          schemaVersion: STUDI_SCHEMA_VERSION,
-          courseId,
-          label: input.label.trim(),
-          sourceTarget,
-          lastVerifiedScanId: scanId,
-          lastVerifiedAt: evidence.capturedAt,
-          evidence,
+        return this.#store.database.transaction(() => {
+          const courses = this.#store.school.listCourses();
+          const matches = courses.filter(course => identity
+            ? courseIdentity(this.#store, course) === identity
+            : courseObservations(course).some(observation => exactTarget(observation.sourceTarget) === exactTarget(sourceTarget) && sameFact(observation.label, input.label)));
+          if (!identity && matches.length > 1) throw new Error("Several classes match this observation; open the course page before recording it");
+          let priorCourse = matches[0];
+          if (!priorCourse && exactTarget(sourceTarget) !== exactTarget(snapshot.url)) {
+            // A newly visible course link may refine a legacy directory observation.
+            // Preserve its ID, permissions and homework folders when unambiguous.
+            const legacy = courses.filter(course => exactTarget(course.sourceTarget) === exactTarget(snapshot.url) && sameFact(course.label, input.label));
+            if (legacy.length === 1) priorCourse = legacy[0];
+          }
+          const courseId = priorCourse?.courseId ?? stableId("course", identity ?? `${exactTarget(sourceTarget)}|${normalize(input.label)}`);
+          let course = this.#store.school.putCourse({
+            schemaVersion: STUDI_SCHEMA_VERSION,
+            ...priorCourse,
+            courseId,
+            label: input.label.trim(),
+            sourceTarget,
+            ...(identity ? { sourceIdentity: identity } : {}),
+            ...(priorCourse ? { sourceAliases: courseObservations(priorCourse) } : {}),
+            lastVerifiedScanId: scanId,
+            lastVerifiedAt: evidence.capturedAt,
+            evidence,
+          });
+          this.#store.courseConflicts = reconcileCourses(this.#store);
+          const canonicalId = this.#store.school.resolveCourseId(course.courseId);
+          course = this.#store.school.listCourses().find(item => item.courseId === canonicalId)!;
+          this.#store.school.putScan({
+            ...scan,
+            updatedAt: this.#now(),
+            currentStep: `Verified course: ${course.label}`,
+            observedCourseIds: addUnique(scan.observedCourseIds, course.courseId),
+          });
+          return toolResult(course);
         });
-        this.#store.school.putScan({
-          ...scan,
-          updatedAt: this.#now(),
-          currentStep: `Verified course: ${course.label}`,
-          observedCourseIds: addUnique(scan.observedCourseIds, course.courseId),
-        });
-        return toolResult(course);
       },
     });
 
@@ -423,10 +436,15 @@ export class SchoolScanCoordinator {
       const scan = this.#requiredRunningScan(scanId);
       return this.#store.database.transaction(() => {
         const changes = [...scan.changes];
-        const assignments = inputs.map((input) => {
-          if (!scan.observedCourseIds.includes(input.courseId)) {
+        const assignments = inputs.map((rawInput) => {
+          const input = { ...rawInput, courseId: this.#store.school.resolveCourseId(rawInput.courseId) };
+          if (!scan.observedCourseIds.map(id => this.#store.school.resolveCourseId(id)).includes(input.courseId)) {
             throw new Error("The assignment's course has not been verified in this scan");
           }
+          const observedCourse = schoolIdentity(snapshot.url, "course");
+          const knownCourse = this.#store.school.listCourses().find(course => course.courseId === input.courseId)!;
+          const knownIdentity = courseIdentity(this.#store, knownCourse);
+          if (observedCourse && knownIdentity && observedCourse !== knownIdentity) throw new Error("This assignment list belongs to a different course");
           const observation = requireSnapshotFact(snapshot, input.title, input.observationRef, "assignment title");
           if (input.instructions) requireSnapshotFact(snapshot, input.instructions, undefined, "assignment instructions");
           const dueAt = input.dueAt === undefined && input.dueText === undefined
@@ -448,7 +466,7 @@ export class SchoolScanCoordinator {
             // and course, confirmed now by its actual link (never title alone).
             const candidates = this.#store.assignments.listAll().filter(assignment =>
               (assignment.courseId === input.courseId || isMoodleIndex(snapshot.url)) &&
-              !assignment.sourceIdentity && exactTarget(assignment.sourceTarget) === exactTarget(snapshot.url) &&
+              (!assignment.sourceIdentity || assignment.sourceIdentity.startsWith("observed|")) && exactTarget(assignment.sourceTarget) === exactTarget(snapshot.url) &&
               sameFact(assignment.title, input.title) && (dueAt === undefined || assignment.dueAt === undefined || assignment.dueAt === dueAt));
             if (candidates.length === 1) this.#store.assignments.put({ ...candidates[0], sourceIdentity, sourceTarget });
           }
@@ -465,7 +483,7 @@ export class SchoolScanCoordinator {
           // back would let a later detail scan forget the conflict and run a copy.
           const priorAssignment = matches.find(item => item.courseId === input.courseId) ?? matches[0];
           const assignmentId = priorAssignment?.assignmentId ?? stableId("assignment", sourceIdentity);
-          const assignment = this.#store.assignments.put({
+          let assignment = this.#store.assignments.put({
             schemaVersion: STUDI_SCHEMA_VERSION,
             ...priorAssignment,
             assignmentId,
@@ -481,11 +499,15 @@ export class SchoolScanCoordinator {
             lastVerifiedScanId: scanId,
             evidence: [...(priorAssignment?.evidence ?? []), evidence],
           });
+          // Newly recorded list-page evidence can identify a provisional class.
+          // Reconcile now so this scan cannot leave another directory alias behind.
+          this.#store.courseConflicts = reconcileCourses(this.#store);
+          assignment = this.#store.assignments.get(assignment.assignmentId)!;
           const fields = priorAssignment ? ["title", "dueAt", "dueText", "instructions"].filter(field => assignment[field as keyof Assignment] !== priorAssignment[field as keyof Assignment]) : [];
           const existingChange = changes.find(change => change.assignmentId === assignmentId);
           if (existingChange) existingChange.fields = [...new Set([...existingChange.fields, ...fields])];
           else if (!priorAssignment || fields.length) changes.push({assignmentId, kind:priorAssignment ? "updated" : "new", fields});
-          if (!conflict) this.#ensureTaskOrigin(assignment, scanId);
+          if (!conflict && !this.#store.courseConflicts.some(item => item.courseIds.includes(assignment.courseId))) this.#ensureTaskOrigin(assignment, scanId);
           return assignment;
         });
         this.#store.school.putScan({
@@ -637,6 +659,10 @@ export class SchoolScanCoordinator {
         const snapshot = await this.#observe(scanId, [input.observationRef]);
         const scan = this.#requiredRunningScan(scanId);
         if (snapshot.truncated || snapshot.search) throw new Error("Inspect the remaining inventory without a search filter before recording completeness");
+        input = { ...input,
+          ...(input.courseId ? { courseId: this.#store.school.resolveCourseId(input.courseId) } : {}),
+          itemIds: [...new Set(input.itemIds.map(id => resolveRecordId(this.#store.database, input.kind === "courses" ? "course" : "assignment", id)))],
+        };
         requireSnapshotFact(snapshot, input.evidenceText, input.observationRef, "inventory evidence");
         if (input.kind === "assignments" && (!input.courseId || !scan.observedCourseIds.includes(input.courseId))) {
           throw new Error("Verify the course before its assignment inventory");
@@ -698,9 +724,12 @@ export class SchoolScanCoordinator {
           throw new Error("A scan cannot complete without at least one browser-verified course");
         }
         const observedCoverage = this.#verifiedCoverage(scan);
+        const observedCourses = this.#store.school.listCourses().filter(course => scan.observedCourseIds.includes(course.courseId));
         const requestedCoverage = input.coverage.flatMap((item) => {
           if (item.status === "verified") {
-            if (!observedCoverage.some((observed) => sameFact(observed.target, item.target))) {
+            const courseAlias = observedCourses.some(course => courseObservations(course)
+              .some(observation => sameFact(`Course: ${observation.label}`, item.target)));
+            if (!courseAlias && !observedCoverage.some((observed) => sameFact(observed.target, item.target))) {
               throw new Error(`Verified coverage must name an entity recorded in this scan: ${item.target.trim()}`);
             }
             return [];

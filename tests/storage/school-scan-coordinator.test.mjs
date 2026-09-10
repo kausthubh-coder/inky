@@ -634,6 +634,71 @@ test("a fresh list link reconciles an old index record with a detail record, but
   } finally { scan.dispose(); store.close(); await rm(root, { recursive: true, force: true }); }
 });
 
+test("existing course aliases and exercise_05 survive list/detail/rescan/restart as one class, assignment and task", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-course-alias-regression-"));
+  let store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const list = `${rootUrl}mod/assign/index.php?id=11497`;
+  const destination = `${rootUrl}mod/assign/view.php?id=1360423`;
+  const short = "C and Software Tools", full = "CSC 230 (002) Fall 2026 C and Software Tools";
+  for (const [courseId, label, sourceTarget] of [["legacy-short", short, rootUrl], ["legacy-full", full, list]]) {
+    store.school.putCourse({ schemaVersion: 1, courseId, label, sourceTarget, lastVerifiedScanId: "old-scan", lastVerifiedAt: now,
+      evidence: { schemaVersion: 1, evidenceId: `evidence-${courseId}`, reference: `evidence-${courseId}`, kind: "agent_observation", sourceTarget, capturedAt: now, summary: label } });
+  }
+  for (const [assignmentId, courseId, sourceTarget] of [["legacy-list", "legacy-short", list], ["legacy-detail", "legacy-full", destination]]) {
+    store.assignments.put({ schemaVersion: 1, assignmentId, courseId, title: "exercise_05", sourceTarget, discoveredAt: now, evidence: [] });
+    const taskId = `task-${assignmentId}`;
+    const projection = { schemaVersion: 1, taskId, assignmentId, state: "discovered", revision: 0, createdAt: now, updatedAt: now };
+    store.tasks.append({ expectedRevision: null, projection, event: { schemaVersion: 1, eventId: `event-${assignmentId}`, aggregateType: "task",
+      aggregateId: taskId, runId: "old-scan", sequence: 0, occurredAt: now, type: "task_created",
+      payload: { taskId, assignmentId, state: "discovered", revision: 0, createdAt: now, updatedAt: now } } });
+  }
+  store.lifecycle.putExecution({ schemaVersion: 1, taskId: "task-legacy-detail", assignmentId: "legacy-detail", phase: "preserved",
+    answerArtifactId: "answer-exercise", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 1,
+    attemptCount: 0, answerSnapshot: "My saved C program", updatedAt: now });
+  await store.artifacts.write({ frontmatter: { schemaVersion: 1, kind: "answer", artifactId: "answer-exercise", updatedAt: now }, content: "My saved C program for task-legacy-detail" });
+  const events = store.tasks.listEvents("task-legacy-detail");
+  store.close(); store = await openLocalStore(root);
+  assert.equal(store.school.listCourses().length, 1);
+  assert.equal(store.assignments.listAll().length, 2, "startup waits for verified assignment destination evidence");
+  const runtime = new ScriptedScanRuntime([0, 1, 2, 3].map(turn => async tools => {
+    const label = turn === 1 ? full : short;
+    browser.url = turn === 3 ? rootUrl : turn === 0 ? list : `${rootUrl}course/view.php?id=11497`;
+    browser.text = label;
+    browser.elements = [];
+    const course = await invoke(tools, "scan_record_course", { label, courseKey: `new-key-${turn}` });
+    browser.url = turn === 1 ? `${destination}&action=view` : list;
+    browser.text = "exercise_05";
+    browser.elements = turn === 1 ? [] : [{ ref: "exercise", role: "link", name: "exercise_05", href: destination }];
+    if (turn === 0) {
+      browser.url = list.replace("11497", "12172");
+      await assert.rejects(invoke(tools, "scan_record_assignment", { courseId: "legacy-full", title: "exercise_05" }), /different course/);
+      assert.equal(store.assignments.listAll().length, 2);
+      browser.url = list;
+    }
+    const recorded = await invoke(tools, "scan_record_assignment", { courseId: "legacy-full", title: "exercise_05", assignmentKey: `key-${turn}` });
+    assert.equal(recorded.assignmentId, "legacy-detail");
+    assert.equal(recorded.courseId, course.courseId);
+    await recordFixtureInventories(tools, browser);
+    await invoke(tools, "scan_finish", { coverage: [{ target: `Course: ${label}`, status: "verified" }], navigationHints: [] });
+  }));
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    for (let turn = 0; turn < 4; turn++) {
+      const state = turn === 0 ? await scan.startScan() : await scan.replay();
+      assert.equal(state.scan.state, "succeeded");
+      assert.equal(state.courses.length, 1); assert.equal(state.assignments.length, 1);
+      assert.equal(store.tasks.listAll().length, 1);
+    }
+    scan.dispose(); store.close(); store = await openLocalStore(root);
+    assert.equal(store.school.listCourses().length, 1); assert.equal(store.assignments.listAll().length, 1);
+    assert.equal(store.tasks.get("task-legacy-list").taskId, "task-legacy-detail");
+    assert.deepEqual(store.tasks.listEvents("task-legacy-detail"), events);
+    assert.equal(store.lifecycle.getExecution("task-legacy-detail").answerSnapshot, "My saved C program");
+  } finally { scan.dispose(); store.close(); await rm(root, { recursive: true, force: true }); }
+});
+
 test("a legacy permission conflict keeps its confirmed identity and pause after restart", async () => {
   const root = await mkdtemp(join(tmpdir(), "studi-moodle-conflict-"));
   let store = await openLocalStore(root);

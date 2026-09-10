@@ -164,7 +164,7 @@ const selfTestUsageState: UsageState = {
 interface StorageSelfTestObservation {
   readonly driver: "node:sqlite";
   readonly node: string;
-  readonly schemaVersion: 7;
+  readonly schemaVersion: 8;
   readonly fileBacked: boolean;
   readonly reopened: boolean;
   readonly artifactRoundTrip: boolean;
@@ -1382,7 +1382,7 @@ async function initializeStorage(): Promise<void> {
     fileBacked: localStore.databasePath !== ":memory:" && existsSync(localStore.databasePath),
     reopened: reopened?.assignmentId === assignment.assignmentId,
     artifactRoundTrip: reopenedArtifact?.content === artifact.content,
-    backupValidated: backup.schemaVersion === 7,
+    backupValidated: backup.schemaVersion === 8,
     backupArtifactCount: backup.artifactCount,
   };
 }

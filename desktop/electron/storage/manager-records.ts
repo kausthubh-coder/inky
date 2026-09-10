@@ -12,6 +12,7 @@ import {
 } from "../../shared/index.js";
 import type { StudiSqliteDatabase } from "./database.js";
 import { StorageError, errorMessage } from "./errors.js";
+import { resolveRecordId } from "./redirects.js";
 
 type JsonRow = { record_json: string };
 type QueueRow = JsonRow & {
@@ -98,7 +99,8 @@ export class ManagerStateRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   confirmPatternMatch(value: unknown): ConfirmedPatternMatch {
-    const match = parseValue(ConfirmedPatternMatchSchema, value, "confirmed pattern match");
+    const parsed = parseValue(ConfirmedPatternMatchSchema, value, "confirmed pattern match");
+    const match = { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) };
     this.database.handle.prepare(`
       INSERT INTO confirmed_pattern_matches(
         assignment_id, course_id, pattern_id, confirmed_at, record_json
@@ -118,6 +120,7 @@ export class ManagerStateRepository {
   }
 
   listConfirmedPatterns(assignmentId: string, courseId: string): ConfirmedPatternMatch[] {
+    courseId = resolveRecordId(this.database, "course", courseId);
     const rows = this.database.handle.prepare(`
       SELECT assignment_id, course_id, pattern_id, confirmed_at, record_json
       FROM confirmed_pattern_matches
@@ -152,7 +155,8 @@ export class ManagerStateRepository {
   }
 
   putQueueEntry(value: unknown): ManagerQueueEntry {
-    const entry = parseValue(ManagerQueueEntrySchema, value, "manager queue entry");
+    const parsed = parseValue(ManagerQueueEntrySchema, value, "manager queue entry");
+    const entry = { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) };
     this.database.handle.prepare(`
       INSERT INTO manager_queue(
         task_id, assignment_id, course_id, due_at, priority, enqueued_at, record_json
