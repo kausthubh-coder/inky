@@ -228,6 +228,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "installUpdate",
     "getAssignmentFiles",
     "readAssignmentFile",
+    "importAssignmentFiles",
     "openAssignmentFolder",
     "selectBrowserPage",
     "getScopedConversation",

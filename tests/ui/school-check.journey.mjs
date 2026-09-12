@@ -33,13 +33,13 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   assert.equal(await page.locator(".inky-composer").count(), 0);
   assert.match(await page.locator(".scan-change-date").last().innerText(), /Sep 12.*→.*Sep 16/);
   assert.equal(await page.getByText("1 of 1 classes checked", { exact: true }).count(), 1);
-  await page.getByRole("button", { name: "Scan details", exact: true }).click();
+  await page.locator(".scan-report").getByRole("button", { name: "Scan details", exact: true }).click();
   await page.getByRole("heading", { name: "Latest scan details" }).waitFor();
   assert.equal(await page.locator(".scan-details-page details").count(), 0);
   assert.equal(await page.getByText("Unreleased future work stays in scan details.").count(), 1);
   assert.equal(await page.getByRole("heading", { name: "Latest scan details" }).evaluate(node => node === document.activeElement), true);
   await page.getByRole("button", { name: "Scan result", exact: true }).click();
-  assert.equal(await page.getByRole("button", { name: "Scan details", exact: true }).evaluate(node => node === document.activeElement), true);
+  assert.equal(await page.locator(".scan-report").getByRole("button", { name: "Scan details", exact: true }).evaluate(node => node === document.activeElement), true);
 
   await page.setViewportSize({ width: 800, height: 650 });
   assert.equal(await page.locator(".scan-report").evaluate(node => node.scrollWidth <= node.clientWidth + 1), true);

@@ -201,14 +201,14 @@ async function exerciseExpandedBrowser(client) {
     const click=(selector)=>{const button=document.querySelector(selector);if(!(button instanceof HTMLButtonElement))throw new Error('Missing '+selector);button.click();};
     click('.chat-work-slip button');await new Promise(r=>setTimeout(r,100));
     document.body.dataset.activityCardRemoved=String(!document.querySelector('.chat-work-slip')&&!document.body.innerText.includes("What I’ve done"));
-    click('[aria-label="Open school browser"]');await new Promise(r=>setTimeout(r,150));
+    click('.assignment-meta button[aria-expanded]');await new Promise(r=>setTimeout(r,150));
     document.body.dataset.browserExpanded=String(Boolean(document.querySelector('.chat-browser-slot')));
-    if(document.querySelector('[aria-label="Close school browser"]')?.getAttribute('aria-expanded')!=='true')throw new Error('Browser toggle did not announce expanded state');
-    click('[aria-label="Close school browser"]');await new Promise(r=>setTimeout(r,100));
-    if(document.querySelector('.chat-browser-slot'))throw new Error('Browser toggle did not close the browser');
-    click('[aria-label="Open school browser"]');await new Promise(r=>setTimeout(r,150));
+    if(document.querySelector('.assignment-meta button[aria-expanded]')?.getAttribute('aria-expanded')!=='true')throw new Error('Browser toggle did not announce expanded state');
     click('[aria-label="Close browser"]');await new Promise(r=>setTimeout(r,100));
-    document.body.dataset.browserClosedCleanly=String(!document.querySelector('.chat-browser-slot')&&Boolean(document.querySelector('.conversation-paper')));
+    if(document.querySelector('.chat-browser-slot'))throw new Error('Browser toggle did not close the browser');
+    click('.assignment-meta button[aria-expanded]');await new Promise(r=>setTimeout(r,150));
+    click('[aria-label="Close browser"]');await new Promise(r=>setTimeout(r,100));
+    document.body.dataset.browserClosedCleanly=String(!document.querySelector('.chat-browser-slot')&&Boolean(document.querySelector('.assignment-workspace')));
   })()`);
 }
 

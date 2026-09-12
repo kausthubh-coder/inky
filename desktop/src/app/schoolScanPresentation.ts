@@ -41,7 +41,7 @@ export function scanChangeLabel(change: ScanChange): string {
   return (labels.length ? [...new Set(labels)].join(" & ") : "Details") + " changed";
 }
 
-function dueLabel(value: { dueAt?: string; dueText?: string }): string {
+function dueLabel(value: Pick<Assignment, "dueAt" | "dueText">): string {
   return value.dueAt ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(value.dueAt)) : value.dueText ?? "No due date";
 }
 

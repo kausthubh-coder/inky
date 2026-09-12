@@ -618,7 +618,7 @@ function SchoolBrowser({
   workspace: StudiWorkspaceState | null;
   status: string | undefined;
   onPause: (() => void) | undefined;
-  onContinue?: () => void;
+  onContinue: (() => void) | undefined;
   busy?: boolean;
 }) {
   const slot = useRef<HTMLDivElement>(null);
