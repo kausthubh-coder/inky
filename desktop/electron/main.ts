@@ -342,7 +342,26 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   getAssignmentFiles: ({assignmentId}) => requireAssignmentExecutionCoordinator().assignmentFiles(assignmentId),
   readAssignmentFile: ({assignmentId,path}) => requireAssignmentExecutionCoordinator().readAssignmentFile(assignmentId,path),
-  openAssignmentFolder: async ({assignmentId}) => {
+  importAssignmentFiles: async ({assignmentId}) => {
+    const coordinator = requireAssignmentExecutionCoordinator();
+    await coordinator.assignmentDirectory(assignmentId);
+    if (!mainWindow || mainWindow.isDestroyed()) throw new Error("Open Studi before adding files.");
+    const result = await dialog.showOpenDialog(mainWindow, { title: "Add files to this assignment", buttonLabel: "Add files", properties: ["openFile", "multiSelections"] });
+    const imported: string[] = [];
+    const errors: Array<{ name: string; message: string }> = [];
+    if (result.canceled) return { imported, errors };
+    if (result.filePaths.length > 12) throw new Error("Add up to 12 files at a time.");
+    for (const source of result.filePaths) {
+      try { imported.push(await coordinator.importAssignmentFile(assignmentId, source)); }
+      catch (cause) { errors.push({ name: source.split(/[\\/]/).pop() ?? "File", message: cause instanceof Error ? cause.message : "Couldn’t add this file. Try again." }); }
+    }
+    return { imported, errors };
+  },
+  openAssignmentFolder: async ({assignmentId,path}) => {
+    if (path) {
+      shell.showItemInFolder(await requireAssignmentExecutionCoordinator().revealAssignmentFile(assignmentId, path));
+      return true;
+    }
     const error = await shell.openPath(await requireAssignmentExecutionCoordinator().assignmentDirectory(assignmentId));
     if(error) throw new Error(error);
     return true;

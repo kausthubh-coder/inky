@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { lstat, mkdir, open, readFile, readdir, realpath, rename, stat, unlink } from "node:fs/promises";
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
+import { copyFile, lstat, mkdir, open, readFile, readdir, realpath, rename, stat, unlink } from "node:fs/promises";
+import { constants } from "node:fs";
+import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 
 const READ_LIMIT = 250_000;
 const WRITE_LIMIT = 1_000_000;
@@ -45,6 +46,34 @@ export class HomeworkFiles {
     const content = await readFile(path, "utf8");
     if (content.includes("\u0000")) throw new TypeError("Binary homework files are not readable as text");
     return { path: this.#relative(path), content, modifiedAt: metadata.mtime.toISOString() };
+  }
+
+  async revealPath(rawPath: string): Promise<string> {
+    return this.#existing(rawPath);
+  }
+
+  // Sources come only from Electron's student-operated file picker.
+  async importFile(source: string): Promise<string> {
+    const metadata = await lstat(source);
+    if (!metadata.isFile()) throw new Error("Choose a regular file.");
+    if (metadata.size > UPLOAD_FILE_LIMIT) throw new Error("Choose a file smaller than 50 MB.");
+    const name = basename(source);
+    if (name.startsWith(".studi-")) throw new Error("Studi’s internal files cannot be added as materials.");
+    const directory = this.#resolve("materials");
+    await this.#assertNoLinks(directory);
+    await mkdir(directory, { recursive: true });
+    await this.#assertNoLinks(directory);
+    const extension = extname(name);
+    for (let suffix = 0; suffix < 1000; suffix++) {
+      const target = resolve(directory, suffix ? `${basename(name, extension)} (${suffix})${extension}` : name);
+      try {
+        await copyFile(source, target, constants.COPYFILE_EXCL);
+        return this.#relative(target);
+      } catch (cause) {
+        if ((cause as NodeJS.ErrnoException).code !== "EEXIST") throw cause;
+      }
+    }
+    throw new Error("Too many files share this name. Rename the file and try again.");
   }
 
   async write(rawPath: string, content: string): Promise<{ path: string; size: number; modifiedAt: string }> {

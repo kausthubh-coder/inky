@@ -192,15 +192,13 @@ export function StudiApp() {
   const updateLifecycle = async (name: BusyAction, command: () => Promise<LifecycleState>) => {
     const studi = window.studi;
     if (!studi) return;
-    const state = await action(name, command);
-    if (state) {
+    return action(name, command, async (state) => {
       setLifecycle(state);
       const libraryState = await studi.getLibraryState();
       setLibrary(libraryState);
       const wantedTaskId = taskIdForPanel(panelRef.current, state, libraryState);
       if (wantedTaskId) setDetail(await studi.getTaskDetail({ taskId: wantedTaskId }));
-    }
-    return state;
+    });
   };
   const loadTask = async (taskId: string) => { const studi = window.studi; if (!studi) return; const value = await action("loading", () => studi.getTaskDetail({ taskId })); if (value) setDetail(value); };
   const openAssignment = async (assignmentId: string) => {

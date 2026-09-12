@@ -632,6 +632,8 @@ export class AssignmentExecutionCoordinator {
   async assignmentFiles(assignmentId:string) { return (await this.#assignmentWorkspace(assignmentId)).files.list(); }
   async readAssignmentFile(assignmentId:string, path:string) { return (await this.#assignmentWorkspace(assignmentId)).files.read(path); }
   async assignmentDirectory(assignmentId:string) { return (await this.#assignmentWorkspace(assignmentId)).workspace.assignmentDirectory; }
+  async revealAssignmentFile(assignmentId: string, path: string) { return (await this.#assignmentWorkspace(assignmentId)).files.revealPath(path); }
+  async importAssignmentFile(assignmentId: string, source: string) { return (await this.#assignmentWorkspace(assignmentId)).files.importFile(source); }
 
   async #homeworkFiles(assignmentId: string): Promise<HomeworkFiles | null> {
     try {

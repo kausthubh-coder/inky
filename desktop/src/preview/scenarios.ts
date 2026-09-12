@@ -32,6 +32,10 @@ export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId
   { id: "week", group: "Workspace", title: "This week", note: "Dashboard and assignments" },
   { id: "week-undated", group: "Workspace", title: "Without dates", note: "Undated work, grouped by class" },
   { id: "assignment", group: "Workspace", title: "Assignment details", note: "Homework conversation and files" },
+  { id: "assignment-failed", group: "Workspace", title: "Assignment retry", note: "Simulated failure and retry" },
+  { id: "assignment-stopped", group: "Workspace", title: "Stopped assignment", note: "Student cancelled work" },
+  { id: "assignment-restricted", group: "Workspace", title: "Assignment permission", note: "Disabled start and homework rules" },
+  { id: "assignment-saved", group: "Workspace", title: "Saved assignment", note: "Answers saved, submission unconfirmed" },
   { id: "desk-working", group: "Workspace", title: "Inky working", note: "Visible school work" },
   { id: "desk-needs-user", group: "Workspace", title: "Inky needs you", note: "Resume handoff" },
   { id: "desk-review", group: "Workspace", title: "Ready for review", note: "Completion checklist" },
@@ -52,8 +56,8 @@ export function parsePreviewConfig(search: string): DevPreviewConfig | null {
     "onboarding-permission": 5,
     "onboarding-schedule": 6,
   } as Partial<Record<DevPreviewScenarioId, DevPreviewConfig["onboardingStep"]>>)[id];
-  const panel: DeskPanel = id === "assignment"
-    ? { kind: "assignment", assignmentId: "assignment-sort" }
+  const panel: DeskPanel = id === "assignment" || id.startsWith("assignment-")
+    ? { kind: "assignment", assignmentId: id === "assignment-saved" ? "assignment-hw1" : "assignment-sort" }
     : id === "chat-handoff" ? {kind:"school"} : id.startsWith("desk-") ? { kind: "desk" } : { kind: "closed" };
   return { id, screen: settingsSection ? "settings" : "week", panel, ...(onboardingStep === undefined ? {} : { onboardingStep }), ...(settingsSection ? { settingsSection } : {}) };
 }
