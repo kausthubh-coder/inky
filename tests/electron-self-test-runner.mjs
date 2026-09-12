@@ -36,7 +36,7 @@ try {
 
   const onboarding = await runControlledScenario("onboarding-ready");
   assert.equal(onboarding.observation.marker, true);
-  assert.equal(onboarding.observation.contractVersion, "17");
+  assert.equal(onboarding.observation.contractVersion, "18");
   assert.equal(onboarding.observation.runtime.electron, "37.10.3");
   assert.equal(onboarding.observation.runtime.node, "22.21.1");
   assert.deepEqual(onboarding.observation.onboarding, {

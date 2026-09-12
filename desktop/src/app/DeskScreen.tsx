@@ -10,10 +10,10 @@ import {
   type SchoolPageBounds,
   type StudiWorkspaceState,
   type TaskDetail,
-  type TaskState,
   type TaskSummary,
 } from "../../shared/index.js";
 import { Inky, type InkyState } from "./Inky.js";
+import { taskStatusCopy } from "./assignmentPresentation.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { Field, PaperCard, RuntimeAttentionBanner, StatusPill, formatDateTime } from "./Ui.js";
@@ -367,16 +367,6 @@ export function DeskDrawer({
       {error && <p className="error-note" role="alert">{error}</p>}
     </aside>
   );
-}
-
-export function taskStatusCopy(state: TaskState | string): { label: string; tone: "plain" | "mint" | "yellow" | "coral" } {
-  if (state === "submitted" || state === "preserved") return { label: "Done", tone: "mint" };
-  if (state === "working" || state === "submitting") return { label: "I’m on it", tone: "yellow" };
-  if (state === "needs_user") return { label: "Need you", tone: "coral" };
-  if (state === "ready_review") return { label: "Look this over", tone: "coral" };
-  if (state === "failed" || state === "cancelled") return { label: "Stopped", tone: "coral" };
-  if (state === "ignored") return { label: "Left alone", tone: "plain" };
-  return { label: "Ready", tone: "plain" };
 }
 
 function inkyLine({

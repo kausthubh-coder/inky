@@ -16,9 +16,12 @@
 .workspace-dialog .chat-with-browser .conversation-log { display: none; }
 .workspace-dialog .chat-with-browser .inky-composer { order: 2; }
 .workspace-dialog .chat-browser-slot { min-height: 180px; }
-.workspace-dialog .homework-instructions { padding: 16px; border: 1px solid var(--line); border-radius: 12px; margin-bottom: 24px; background: var(--paper); }
-.workspace-dialog summary { cursor: pointer; min-height: 32px; align-content: center; }
-.workspace-dialog .homework-instructions p { white-space: pre-wrap; line-height: 1.65; }
+@media (max-height:650px) {
+  .workspace-dialog { height:calc(100dvh - 24px); }
+  .workspace-dialog .chat-browser > header { padding:6px 12px; }
+  .workspace-dialog .chat-browser-owner { padding:8px 12px; margin:0; }
+  .workspace-dialog .chat-browser-slot { min-height:0; }
+}
 .check-purpose { color: var(--muted); margin-top: 0; }
 .check-current { display: flex; gap: 12px; align-items: center; margin: 24px 0 16px; }
 .check-pulse,.check-dot { width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; background: #b18726; }
@@ -37,4 +40,3 @@
 @keyframes check-pulse { 50% { opacity:.4; } }
 @media (prefers-reduced-motion:reduce) { .workspace-dialog,.check-pulse { animation:none; } }
 @media (max-width:700px) { .workspace-dialog { width:calc(100vw - 24px); height:calc(100dvh - 32px); border-radius:18px; } .workspace-dialog .conversation-header { padding:12px; } .workspace-dialog .conversation-log { padding:16px; } .workspace-dialog .inky-composer { margin:12px; } .workspace-dialog .chat-presence > strong { font-size:20px; } }
-.workspace-dialog .homework-answer { order:1; flex:1; min-height:0; overflow:auto; margin:0 24px; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--panel); } .homework-answer header { display:flex; justify-content:space-between; align-items:center; } .homework-answer pre { white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; line-height:1.6; }

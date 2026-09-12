@@ -50,7 +50,7 @@ function assignment(assignmentId: string, title: string, dueAt: string): Assignm
 }
 
 const assignments = [
-  assignment("assignment-sort", "IBM Sorting Machine", "2026-09-03T23:59:00.000Z"),
+  { ...assignment("assignment-sort", "IBM Sorting Machine", "2026-09-03T23:59:00.000Z"), instructions: "Trace how the IBM Sorting Machine orders a set of punched cards. Show the contents after each pass, then explain how the process relates to radix sort.\nInclude your completed trace and a short explanation of the algorithm’s time complexity." },
   assignment("assignment-hw3", "HW 3", "2026-09-04T23:45:00.000Z"),
   assignment("assignment-hw1", "Homework 1", "2026-09-05T23:59:00.000Z"),
 ];
@@ -111,6 +111,14 @@ export function installDevPreview(): void {
     submissionReceipt: null,
     activity: [],
   }));
+  if (preview.id === "assignment-restricted") {
+    tasks[0]!.permission = { ...permission, mode: "do_not_attempt", mayAttempt: false, rationale: "Simulated rule: do not attempt." };
+  }
+  if (preview.id === "assignment-failed" || preview.id === "assignment-stopped") {
+    const item = tasks[0]!;
+    item.task = { ...item.task, state: preview.id === "assignment-stopped" ? "cancelled" : "failed", revision: 2 };
+    item.execution = { schemaVersion: 1, taskId: item.task.taskId, assignmentId: item.assignment.assignmentId, phase: "failed", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 2, attemptCount: 1, lastError: preview.id === "assignment-stopped" ? "Cancelled by the student." : "The school page stopped responding. Your saved work is still here.", updatedAt: now };
+  }
 
   if (preview.onboardingStep !== undefined) {
     onboarding = { profile: null, scan: null, courses: [], assignments: [], linkedSystems: [], workflowRevision: null };
@@ -278,6 +286,7 @@ export function installDevPreview(): void {
     refreshConnectedApp: async ({ toolkit }) => ({ toolkit, sessionId: "preview-composio", connectedAccountId: "preview-account", status: "ACTIVE", redirectUrl: null }),
     getWorkspaceState: async () => workspace(),
     getAssignmentFiles: async () => [{path:"answer.md",kind:"file",size:85,modifiedAt:now}],
+    importAssignmentFiles: async () => ({ imported: [], errors: [{ name: "Preview", message: "Adding files is available in the desktop app." }] }),
     readAssignmentFile: async ({path}) => ({path,content:"Simulated preview file. No homework is run or saved by this preview.",modifiedAt:now}),
     openAssignmentFolder: async () => true,
     selectBrowserPage: async () => workspace(),
@@ -345,7 +354,14 @@ export function installDevPreview(): void {
       lifecycle = { ...lifecycle, execution: item.execution, attempts: item.attempts };
       return lifecycle;
     },
-    resumeAssignment: async () => lifecycle,
+    resumeAssignment: async ({ taskId }) => {
+      const item = detail(taskId);
+      if (!item?.execution || item.execution.phase !== "needs_user") throw new Error("This assignment is not paused.");
+      item.task = { ...item.task, state: "working", revision: item.task.revision + 1 };
+      item.execution = { ...item.execution, phase: "working", lastError: undefined, returnPredicate: undefined, updatedAt: new Date().toISOString() };
+      lifecycle = { ...lifecycle, execution: item.execution };
+      return lifecycle;
+    },
     verifyStudentSubmission: async () => lifecycle,
     openAnswerArtifact: async () => true,
     getProductSettings: async () => settings,
@@ -378,14 +394,26 @@ export function installDevPreview(): void {
     configureScanSchedule: async () => settings,
     getLibraryState: async () => library(),
     getTaskDetail: async ({ taskId }) => { const value = detail(taskId); if (!value) throw new Error("Missing task"); return value; },
-    readArtifact: async () => null,
+    readArtifact: async ({ kind, artifactId }) => kind === "answer" && artifactId === "preview-answer"
+      ? { frontmatter: { schemaVersion: 1, kind: "answer", artifactId, updatedAt: now }, content: "Simulated saved answers for UI preview. This assignment has not been submitted.\n\n1. Sort each digit in order, preserving the order within each group.\n2. Repeat for the remaining digits." }
+      : null,
     requestAssignmentTakeover: async ({ taskId }) => {
       if (lifecycle.execution?.taskId === taskId && lifecycle.execution) {
-        lifecycle = { ...lifecycle, execution: { ...lifecycle.execution, phase: "needs_user", returnPredicate: "You have the page.", updatedAt: new Date().toISOString() } };
+        const item = detail(taskId)!;
+        item.task = { ...item.task, state: "needs_user", revision: item.task.revision + 1 };
+        item.execution = { ...lifecycle.execution, phase: "needs_user", lastError: "The browser is yours. Resume when you’re ready.", returnPredicate: "You have the page.", updatedAt: new Date().toISOString() };
+        lifecycle = { ...lifecycle, execution: item.execution };
       }
       return lifecycle;
     },
-    cancelAssignment: async () => { lifecycle = { ...lifecycle, execution: null, manager: { entries: [], lease: null } }; return lifecycle; },
+    cancelAssignment: async ({ taskId }) => {
+      const item = detail(taskId);
+      if (!item?.execution || !["working", "needs_user", "ready_review"].includes(item.execution.phase)) throw new Error("This assignment cannot be stopped.");
+      item.task = { ...item.task, state: "cancelled", revision: item.task.revision + 1 };
+      item.execution = { ...item.execution, phase: "failed", lastError: "Cancelled by the student.", updatedAt: new Date().toISOString() };
+      lifecycle = { ...lifecycle, execution: item.execution, manager: { entries: [], lease: null } };
+      return lifecycle;
+    },
     setBrowserLayout: async ({ mode }) => mode,
     getTelemetryState: async () => ({ configured: false, enabled: false, replayEnabled: false, identity: "anonymous", distinctId: "preview", debugUntil: null, rendererConfig: null, inspector: [] }),
     setTelemetryPreferences: async () => api.getTelemetryState(),

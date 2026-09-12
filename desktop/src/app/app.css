@@ -143,9 +143,10 @@ body{background:radial-gradient(circle at 1px 1px,#e9e0cd 1.1px,transparent 1.2p
 .assignment-card>strong{font-size:.76rem}
 .assignment-card>span:not(.status-pill){color:#a09689;font-size:.63rem}
 .assignment-card .status-pill{padding:3px 6px;font-size:.54rem}
-.course-accent-0::before{background:var(--course-yellow)}.course-accent-1::before{background:var(--course-coral)}
-.course-accent-2::before{background:var(--course-mint)}.course-accent-3::before{background:var(--course-sky)}
-.course-accent-4::before{background:var(--course-pink)}.course-accent-5::before{background:var(--course-lavender)}
+.course-accent-0{--course-accent:var(--course-yellow)}.course-accent-1{--course-accent:var(--course-coral)}
+.course-accent-2{--course-accent:var(--course-mint)}.course-accent-3{--course-accent:var(--course-sky)}
+.course-accent-4{--course-accent:var(--course-pink)}.course-accent-5{--course-accent:var(--course-lavender)}
+.assignment-card::before{background:var(--course-accent,var(--course-yellow))}
 
 .desk-board{margin-top:18px}
 .desk-title{align-items:center;margin:0 0 8px}

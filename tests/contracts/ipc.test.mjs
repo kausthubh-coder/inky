@@ -298,6 +298,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       installUpdate: "studi:update-install",
       getAssignmentFiles: "studi:assignment-files",
       readAssignmentFile: "studi:assignment-file",
+      importAssignmentFiles: "studi:assignment-files-import",
       openAssignmentFolder: "studi:assignment-folder",
       selectBrowserPage: "studi:browser-page",
       getScopedConversation: "studi:scoped-conversation",
@@ -363,13 +364,14 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   );
   assert.deepEqual(CONTRACT_MANIFEST, {
     schemaVersion: 1,
-    contractVersion: "17",
+    contractVersion: "18",
     ipcMethods: [
       { method: "getUpdateState", channel: "studi:update-state" },
       { method: "checkForUpdates", channel: "studi:update-check" },
       { method: "installUpdate", channel: "studi:update-install" },
       {method:"getAssignmentFiles",channel:"studi:assignment-files"},
       {method:"readAssignmentFile",channel:"studi:assignment-file"},
+      {method:"importAssignmentFiles",channel:"studi:assignment-files-import"},
       {method:"openAssignmentFolder",channel:"studi:assignment-folder"},
       {method:"selectBrowserPage",channel:"studi:browser-page"},
       {method:"getScopedConversation",channel:"studi:scoped-conversation"},

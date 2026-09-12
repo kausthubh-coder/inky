@@ -7,6 +7,7 @@ import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
 import { Icon } from "./Icon.js";
 import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
+import { courseTone, taskStatusCopy } from "./assignmentPresentation.js";
 import {
   type CSSProperties,
   useEffect,
@@ -42,7 +43,6 @@ import {
 import {
   DeskDrawer,
   deskInkyState,
-  taskStatusCopy,
   type DeskPanel,
 } from "./DeskScreen.js";
 import { Inky } from "./Inky.js";
@@ -429,6 +429,8 @@ export function DashboardScreen({
         actionError={error}
         onStart={onStart}
         onOpenWork={onOpenDesk}
+        onOpenSchoolCheck={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }}
+        onOpenRules={() => chrome.onNavigate("settings", "rules")}
         onTakeover={onTakeover}
         onResume={onResume}
         onCancel={onCancel}
@@ -882,4 +884,3 @@ export function SettingsScreen({
 }
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
-function courseTone(course: string): number { return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6; }
