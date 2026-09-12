@@ -505,8 +505,19 @@ export class SchoolScanCoordinator {
           assignment = this.#store.assignments.get(assignment.assignmentId)!;
           const fields = priorAssignment ? ["title", "dueAt", "dueText", "instructions"].filter(field => assignment[field as keyof Assignment] !== priorAssignment[field as keyof Assignment]) : [];
           const existingChange = changes.find(change => change.assignmentId === assignmentId);
-          if (existingChange) existingChange.fields = [...new Set([...existingChange.fields, ...fields])];
-          else if (!priorAssignment || fields.length) changes.push({assignmentId, kind:priorAssignment ? "updated" : "new", fields});
+          const dateChanged = fields.includes("dueAt") || fields.includes("dueText");
+          const dueChange = priorAssignment && dateChanged ? {
+            before: { dueAt: priorAssignment.dueAt, dueText: priorAssignment.dueText },
+            after: { dueAt: assignment.dueAt, dueText: assignment.dueText },
+          } : undefined;
+          if (existingChange) {
+            existingChange.fields = [...new Set([...existingChange.fields, ...fields])];
+            if (existingChange.kind === "updated" && dueChange) {
+              existingChange.dueChange = { before: existingChange.dueChange?.before ?? dueChange.before, after: dueChange.after };
+            }
+          } else if (!priorAssignment || fields.length) {
+            changes.push({ assignmentId, kind: priorAssignment ? "updated" : "new", fields, ...(dueChange ? { dueChange } : {}) });
+          }
           if (!conflict && !this.#store.courseConflicts.some(item => item.courseIds.includes(assignment.courseId))) this.#ensureTaskOrigin(assignment, scanId);
           return assignment;
         });
