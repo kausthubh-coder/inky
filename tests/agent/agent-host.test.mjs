@@ -23,7 +23,7 @@ test("capabilities follow target, explicit work, claim, and submit facts", async
   assert.deepEqual(connectedHome.toolNames.slice(-2), ["connected_apps_search", "connected_apps_execute"]);
 
   const talk = await buildAgentTurn({ target: { kind: "assignment", assignmentId: "a-1" }, phase: "conversing", hasBrowserClaim: false }, "due?");
-  assert.deepEqual(talk.toolNames, ["assignment_read", "note_search", "note_read"]);
+  assert.deepEqual(talk.toolNames, ["assignment_read", "assignment_start", "note_search", "note_read"]);
   const connectedTalk = await buildAgentTurn({ target: { kind: "assignment", assignmentId: "a-1" }, phase: "conversing", hasBrowserClaim: false, composioTools: ["connected_apps_search", "connected_apps_execute"] }, "put this in Notion");
   assert.deepEqual(connectedTalk.toolNames.slice(-2), ["connected_apps_search", "connected_apps_execute"]);
 

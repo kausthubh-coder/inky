@@ -1150,7 +1150,8 @@ function sameOrigin(left: string, right: string): boolean {
 
 function isEmptyAssignmentIndex(fact: string): boolean {
   return ["no assignments", "no homework", "nothing due", "0 assignments", "no due dates"]
-    .some((marker) => fact.includes(marker));
+    .some((marker) => fact.includes(marker))
+    || /\b(?:hasn t|has not) released any assignments yet\b/u.test(fact);
 }
 
 function contradictsVerifiedLinkedSystemState(fact: string): boolean {

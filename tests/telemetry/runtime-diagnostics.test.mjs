@@ -21,6 +21,8 @@ test("runtime diagnostics retain complete messages and tools, link model calls, 
   assert.equal(generation.payload.$ai_trace_id, events[0].run_id);
   assert.equal(generation.payload.$ai_span_id, events.find(event => event.kind === "provider_request").payload.span_id);
   assert.equal(generation.payload.$ai_input_tokens, 42);
+  assert.equal(generation.payload.$ai_cache_reporting_exclusive, true);
+  assert.equal(generation.payload.$ai_cache_read_input_tokens, 3);
   assert.equal(generation.payload.$ai_total_cost_usd, 0.02);
   assert.ok(generation.payload.$ai_latency >= 0);
   assert.ok(generation.payload.$ai_time_to_first_token >= 0);

@@ -17,6 +17,7 @@ import { Inky, type InkyState } from "./Inky.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { chatTimeline, type ChatCardEntry } from "./chatTimeline.js";
+import { formatDateTime } from "./Ui.js";
 
 export type ChatView = "home" | "compact" | "expanded";
 interface ChatProps {
@@ -95,6 +96,7 @@ export function ChatWorkspace(props: ChatProps) {
   const mounted = useRef(true);
   const active = (chat?.activity !== "idle" && Boolean(chat)) || sending;
   const execution = !school && assignment ? task?.execution ?? (lifecycle.execution?.assignmentId === assignment.assignmentId ? lifecycle.execution : null) : null;
+  const reviewEndsAt = execution?.handoffDeadline ?? execution?.reviewDeadline;
   const activeExecution = lifecycle.execution;
   const workingAnywhere =
     activeExecution &&
@@ -511,6 +513,7 @@ export function ChatWorkspace(props: ChatProps) {
                   }}
                 >
                   <h3>Take a look before you hand it in.</h3>
+                  {reviewEndsAt && <p>Open for review until <time dateTime={reviewEndsAt}>{formatDateTime(reviewEndsAt)}</time>. When time runs out, I save your answers without submitting.</p>}
                   <p>
                     Open the school page and review your answer. After you submit
                     it yourself, tell me the confirmation you see.

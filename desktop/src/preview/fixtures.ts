@@ -4,6 +4,7 @@ import {
   DEFAULT_AGENT_REASONING_EFFORT,
   DEFAULT_NOTIFICATION_PREFERENCES,
   isLivePhase,
+  permissionRuleTargetKey,
   type Assignment,
   type AgentJob,
   type ConversationTarget,
@@ -366,11 +367,14 @@ export function installDevPreview(): void {
       supported: false,
     }),
     savePermissionRule: async (input) => {
-      const rule = { ...input, schemaVersion: 1 as const, ruleId: input.ruleId ?? `preview-rule-${settings.permissionRules.length}`, updatedAt: new Date().toISOString() };
-      settings = { ...settings, permissionRules: [...settings.permissionRules.filter(item => item.ruleId !== rule.ruleId), rule] };
+      const rule = { ...input, schemaVersion: 1 as const, ruleId: input.ruleId ?? `preview-rule-${crypto.randomUUID()}`, updatedAt: new Date().toISOString() };
+      settings = { ...settings, permissionRules: [...settings.permissionRules.filter(item => item.ruleId !== rule.ruleId && permissionRuleTargetKey(item) !== permissionRuleTargetKey(rule)), rule] };
       return settings;
     },
-    deletePermissionRule: async () => settings,
+    deletePermissionRule: async ({ ruleId }) => {
+      settings = { ...settings, permissionRules: settings.permissionRules.filter(rule => rule.ruleId !== ruleId) };
+      return settings;
+    },
     configureScanSchedule: async () => settings,
     getLibraryState: async () => library(),
     getTaskDetail: async ({ taskId }) => { const value = detail(taskId); if (!value) throw new Error("Missing task"); return value; },

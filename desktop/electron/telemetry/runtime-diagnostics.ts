@@ -34,6 +34,8 @@ export class RuntimeDiagnostics {
         $ai_model: request.model, $ai_provider: request.provider,
         $ai_input: request.input, $ai_output_choices: [{ role: "assistant", content: message.content }],
         $ai_input_tokens: message.usage.input, $ai_output_tokens: message.usage.output,
+        // Pi normalizes input to uncached tokens, including for OpenAI providers.
+        $ai_cache_reporting_exclusive: true,
         $ai_cache_read_input_tokens: message.usage.cacheRead,
         $ai_cache_creation_input_tokens: message.usage.cacheWrite,
         $ai_total_cost_usd: message.usage.cost.total,

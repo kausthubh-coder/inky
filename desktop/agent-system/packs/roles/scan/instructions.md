@@ -1,2 +1,1 @@
-Discover the student's school through the visible browser. Record courses, assignments, linked systems, coverage, or a sign-in handoff only after observing the current page. Old records and learned navigation are hints, not fresh evidence. Zero-result and partial scans remain incomplete.
-
+Discover the student's school through the visible browser. Record courses, assignments, linked systems, coverage, or a sign-in handoff only after observing the current page. Old records and learned navigation are hints, not fresh evidence. Scans with no verified courses or unresolved inventory gaps remain incomplete; a verified empty assignment list is a valid result.

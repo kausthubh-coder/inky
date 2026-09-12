@@ -33,12 +33,46 @@ export async function verifyWorkspacePreview(page, base = "http://127.0.0.1:4174
     assert.equal(await page.getByRole("heading", { name: "No settings found.", exact: true }).count(), 1);
     await page.getByRole("button", { name: "Clear search", exact: true }).first().click();
     await page.getByRole("button", { name: "Review & memory", exact: true }).click();
-    await page.getByLabel("Minutes to look over answers", { exact: true }).fill("23");
-    await page.getByRole("button", { name: "Save", exact: true }).click();
-    assert.equal(await page.evaluate(async () => (await window.studi.getProductSettings()).preferences.reviewMinutes), 23);
+    const reviewTime = page.getByRole("spinbutton", { name: "Keep the assignment open for (minutes)", exact: true });
+    const showMemories = page.getByRole("checkbox", { name: "Show saved memories", exact: true });
+    const savePreferences = page.getByRole("button", { name: "Save changes", exact: true });
+    assert.equal(await page.getByRole("spinbutton").count(), 1);
+    assert.equal(await reviewTime.inputValue(), "30");
+    assert.equal(await showMemories.isChecked(), true);
+    assert.equal(await savePreferences.isDisabled(), true);
+    for (const invalid of ["", "0", "241", "1.5"]) {
+      await reviewTime.fill(invalid);
+      assert.equal(await savePreferences.isDisabled(), true);
+      assert.equal(await reviewTime.getAttribute("aria-invalid"), "true");
+      assert.equal(await page.getByRole("status").innerText(), "Enter a whole number from 1 to 240 minutes.");
+    }
+    await reviewTime.fill("23");
+    await showMemories.focus();
+    await page.keyboard.press("Space");
+    await savePreferences.click();
+    await page.waitForFunction(async () => (await window.studi.getProductSettings()).preferences.handoffMinutes === 23);
+    const savedPreferences = await page.evaluate(async () => (await window.studi.getProductSettings()).preferences);
+    assert.equal(savedPreferences.handoffMinutes, 23);
+    assert.equal(savedPreferences.memoryVisibility, "none");
+    assert.equal(await savePreferences.isDisabled(), true);
+    assert.equal(await page.getByRole("status").innerText(), "Changes saved.");
+    await reviewTime.fill("240");
+    await showMemories.check();
+    await reviewTime.press("Enter");
+    await page.waitForFunction(async () => (await window.studi.getProductSettings()).preferences.handoffMinutes === 240);
+    assert.equal(await page.evaluate(async () => (await window.studi.getProductSettings()).preferences.memoryVisibility), "all");
     await page.getByRole("button", { name: /Account for/ }).click();
     await page.keyboard.press("Escape");
     assert.equal(await page.getByRole("menu", { name: "Profile menu" }).count(), 0);
+    await open("desk-review");
+    await page.locator('time[datetime="2026-09-03T16:15:00.000Z"]').waitFor();
+    await page.evaluate(async () => {
+      const library = await window.studi.getLibraryState();
+      const review = library.tasks.find(item => item.execution?.phase === "ready_review");
+      review.execution.handoffDeadline = "2026-09-03T16:30:00.000Z";
+    });
+    await page.locator('time[datetime="2026-09-03T16:30:00.000Z"]').waitFor();
+    assert.equal(await page.locator('time[datetime="2026-09-03T16:15:00.000Z"]').count(), 0);
     const sections = ["inky", "preferences", "apps", "folder", "school", "rules", "notifications", "privacy", "usage", "support", "account"];
     for (const size of [{ width: 1280, height: 850 }, { width: 1024, height: 768 }, { width: 720, height: 520 }]) {
       await page.setViewportSize(size);
@@ -53,7 +87,7 @@ export async function verifyWorkspacePreview(page, base = "http://127.0.0.1:4174
     assert.equal(await page.locator('a[href="/?preview=week-undated"]').count(), 2);
     assert.equal(await page.locator('a[href="/?preview=settings-notifications"]').count(), 2);
     assert.deepEqual(errors, []);
-    return { passed: ["undated separation, navigation retention, assignment opens", "settings search, empty results, save, account Escape", "all 11 settings sections at three window sizes", "preview gallery routes"], pageErrors: errors };
+    return { passed: ["undated separation, navigation retention, assignment opens", "settings search, single review timer, validation, keyboard save, memory visibility", "review shows page hold deadline with legacy fallback", "all 11 settings sections at three window sizes", "preview gallery routes"], pageErrors: errors };
   } finally {
     page.off("pageerror", onError);
   }

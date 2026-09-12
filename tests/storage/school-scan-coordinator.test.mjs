@@ -433,6 +433,47 @@ test("student takeover pauses a running scan without failing it", async () => {
   }
 });
 
+test("unreleased Gradescope assignments verify an empty source without hiding login or course gaps", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-scan-unreleased-"));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const emptyText = "Your instructor hasn't released any assignments yet.";
+  const runtime = new ScriptedScanRuntime([false, true].map(hasGap => async tools => {
+    browser.showAssignments();
+    await invoke(tools, "scan_record_course", { label: "Calculus" });
+    await recordFixtureInventories(tools, browser);
+    browser.url = "https://gradescope.example.edu/courses/123";
+    browser.elements = [];
+    const input = { label: "Gradescope", state: "verified", stateText: emptyText };
+    browser.text = `Gradescope Sign in required ${emptyText}`;
+    await assert.rejects(invoke(tools, "scan_record_linked_system", input), /contradicts verified/);
+    browser.text = `Gradescope ${emptyText}`;
+    await invoke(tools, "scan_record_linked_system", input);
+    await invoke(tools, "scan_finish", {
+      coverage: [
+        { target: "Linked system: Gradescope", status: "verified" },
+        ...(hasGap ? [{ target: "Course: Calculus", status: "partial", failure: "Workshop instructions are blocked by an unfinished prerequisite." }] : []),
+      ],
+      navigationHints: [],
+    });
+  }));
+  const coordinator = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await coordinator.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    const complete = await coordinator.startScan();
+    assert.equal(complete.scan.state, "succeeded", complete.scan.failures.join(" "));
+    assert.equal(complete.assignments.length, 0);
+    assert.equal(complete.linkedSystems[0].state, "verified");
+    const partial = await coordinator.replay();
+    assert.equal(partial.scan.state, "partial");
+    assert.deepEqual(partial.scan.failures, ["Workshop instructions are blocked by an unfinished prerequisite."]);
+  } finally {
+    coordinator.dispose();
+    store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
 class RecordingBrowser {
   url = rootUrl;
   revision = 0;

@@ -4,6 +4,7 @@ import {
   AssignmentSchema,
   CourseSchema,
   PermissionRuleSchema,
+  currentPermissionRules,
   RunSchema,
   TASK_TRANSITIONS,
   TaskEventSchema,
@@ -394,8 +395,12 @@ export class PermissionRuleRepository {
     const courseId = "courseId" in record ? record.courseId : null;
     const assignmentId = "assignmentId" in record ? record.assignmentId : null;
     const patternId = "patternId" in record ? record.patternId : null;
-    this.database.handle
-      .prepare(`
+    this.database.transaction(() => {
+      this.database.handle.prepare(`
+        DELETE FROM permission_rules
+        WHERE scope = ? AND course_id IS ? AND assignment_id IS ? AND pattern_id IS ?
+      `).run(record.scope, courseId, assignmentId, patternId);
+      this.database.handle.prepare(`
         INSERT INTO permission_rules(
           rule_id, scope, course_id, assignment_id, pattern_id, updated_at, record_json
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -416,6 +421,7 @@ export class PermissionRuleRepository {
         record.updatedAt,
         recordJson,
       );
+    });
     return record;
   }
 
@@ -432,19 +438,26 @@ export class PermissionRuleRepository {
         "SELECT record_json FROM permission_rules WHERE scope = ? ORDER BY updated_at DESC, rule_id",
       )
       .all(scope) as unknown as JsonRow[];
-    return rowsToRecords(PermissionRuleSchema, rows, "permission rule");
+    return currentPermissionRules(rowsToRecords(PermissionRuleSchema, rows, "permission rule"));
   }
 
   listAll(): PermissionRule[] {
     const rows = this.database.handle
       .prepare("SELECT record_json FROM permission_rules ORDER BY updated_at DESC, rule_id")
       .all() as unknown as JsonRow[];
-    return rowsToRecords(PermissionRuleSchema, rows, "permission rule");
+    return currentPermissionRules(rowsToRecords(PermissionRuleSchema, rows, "permission rule"));
   }
 
   delete(ruleId: string): boolean {
-    const result = this.database.handle.prepare("DELETE FROM permission_rules WHERE rule_id = ?").run(ruleId);
-    return Number(result.changes) === 1;
+    const rule = this.get(ruleId);
+    if (!rule) return false;
+    // Remove the whole target so an older permission can never reappear.
+    const result = this.database.handle.prepare(`
+      DELETE FROM permission_rules
+      WHERE scope = ? AND course_id IS ? AND assignment_id IS ? AND pattern_id IS ?
+    `).run(rule.scope, "courseId" in rule ? rule.courseId : null,
+      "assignmentId" in rule ? rule.assignmentId : null, "patternId" in rule ? rule.patternId : null);
+    return Number(result.changes) > 0;
   }
 }
 
