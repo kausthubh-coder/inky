@@ -191,6 +191,7 @@ export const telemetryEventSchemas = {
     $ai_model: z.string(), $ai_provider: z.string(),
     $ai_input: z.unknown(), $ai_output_choices: z.unknown(),
     $ai_input_tokens: z.number(), $ai_output_tokens: z.number(),
+    $ai_cache_reporting_exclusive: z.boolean().optional(),
     $ai_cache_read_input_tokens: z.number(), $ai_cache_creation_input_tokens: z.number(),
     $ai_total_cost_usd: z.number(), $ai_latency: z.number(),
     $ai_time_to_first_token: z.number().optional(),

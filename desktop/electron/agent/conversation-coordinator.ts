@@ -80,6 +80,7 @@ export class ConversationCoordinator {
   #cumulativeUsage = emptyUsage();
   readonly #activity = new Map<string, "thinking" | "typing">();
   readonly #cancelled = new Set<string>();
+  readonly #requestedStarts = new Map<string, string>();
   #assignmentWorkRunner: AssignmentWorkRunner | null = null;
   #disposed = false;
 
@@ -229,6 +230,7 @@ export class ConversationCoordinator {
       createdAt: this.#now(),
       turnIndex,
     });
+    let startingAssignment = false;
     try {
       const hasBrowserClaim =
         target.kind === "assignment" && Boolean(job.claim);
@@ -446,6 +448,14 @@ export class ConversationCoordinator {
       if (assistantMessage)
         await this.#emit(job, "reply_recorded", { text: reply });
       await this.#emit(job, "phase_changed", { phase: job.phase });
+      const requestedTaskId = target.kind === "assignment" ? this.#requestedStarts.get(target.assignmentId) : undefined;
+      if (requestedTaskId && outcome === "completed" && !this.#cancelled.has(job.jobId)) {
+        // The worker reuses this job's session file. Finish and persist the chat
+        // turn before disposing its session and transferring it to the worker.
+        startingAssignment = true;
+        await this.#manager.startFromConversation(requestedTaskId);
+        job = this.#store.agentJobs.get(job.jobId)?.job ?? job;
+      }
       return AddressedSendResultSchema.parse({ outcome, text: reply, job });
     } catch (error) {
       const latest = this.#store.agentJobs.get(job.jobId)?.job ?? job;
@@ -455,7 +465,9 @@ export class ConversationCoordinator {
       const message = AgentMessageSchema.parse({
         messageId: randomUUID(),
         role: "assistant",
-        text: "I couldn’t finish that reply. Your message is saved—try again when you’re ready.",
+        text: startingAssignment
+          ? `I couldn’t start this assignment: ${error instanceof Error ? error.message : "Please try again."}`
+          : "I couldn’t finish that reply. Your message is saved—try again when you’re ready.",
         recovery: "failed",
         createdAt: this.#now(),
         turnIndex,
@@ -474,6 +486,7 @@ export class ConversationCoordinator {
         outcome: "failed",
       });
     } finally {
+      if (target.kind === "assignment") this.#requestedStarts.delete(target.assignmentId);
       this.#running.delete(job.jobId);
       this.#activity.delete(job.jobId);
       this.#cancelled.delete(job.jobId);
@@ -674,6 +687,23 @@ export class ConversationCoordinator {
       execute: async () =>
         toolResult(this.#brief({ kind: "assignment", assignmentId })),
     });
+    const startAssignment = defineTool({
+      name: "assignment_start",
+      label: "Start this assignment",
+      description: "Ask Studi's homework worker to complete this assignment using its saved source. Use when the student says do it, start, or finish it. End this conversation turn after acceptance so the worker can take over.",
+      parameters: Type.Object({}, { additionalProperties: false }),
+      execute: async () => {
+        const assignment = this.#store.assignments.get(assignmentId)!;
+        if (!this.#manager.resolvePermission(assignmentId, assignment.courseId).mayAttempt) {
+          throw new Error("Your homework rules don't allow Inky to work on this assignment. Change its homework rule to allow an attempt first.");
+        }
+        if (this.#manager.state().lease) throw new Error("Inky is already working in the school browser. Pause that work before starting this assignment.");
+        const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId && ["discovered", "queued", "failed", "cancelled"].includes(task.state));
+        if (tasks.length !== 1) throw new Error("This assignment has no single task ready to start. Check its current work status first.");
+        this.#requestedStarts.set(assignmentId, tasks[0]!.taskId);
+        return toolResult({ status: "requested", assignmentId, message: "The homework worker will start after this reply ends, using the saved assignment source and current homework rules." });
+      },
+    });
     const search = defineTool({
       name: "note_search",
       label: "Search assignment notes",
@@ -713,7 +743,7 @@ export class ConversationCoordinator {
         return toolResult(note);
       },
     });
-    return [readAssignment, search, read];
+    return [readAssignment, startAssignment, search, read];
   }
 
   async #automaticNotes(target: ConversationTarget): Promise<unknown[]> {

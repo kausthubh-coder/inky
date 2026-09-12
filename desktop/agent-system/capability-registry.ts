@@ -10,6 +10,7 @@ export const CapabilityNameSchema = z.enum([
   "notes-search",
   "notes-read",
   "assignment",
+  "assignment-start",
   "browser",
   "assignment-effects",
   "scan",
@@ -38,6 +39,7 @@ const toolsByCapability = Object.freeze({
   "notes-search": ["note_search"],
   "notes-read": ["note_read"],
   assignment: ["assignment_read"],
+  "assignment-start": ["assignment_start"],
   browser: [...BROWSER_TOOL_NAMES],
   "assignment-effects": [
     "assignment_record_answer_snapshot",
@@ -66,6 +68,7 @@ export function selectCapabilities(context: CapabilityContext): readonly Capabil
   }
 
   const selected: CapabilityName[] = ["assignment", "notes-search", "notes-read"];
+  if (!context.hasBrowserClaim) selected.splice(1, 0, "assignment-start");
   if ((context.composioTools?.length ?? 0) > 0) selected.push("composio");
   if (context.phase !== "working" || !context.hasBrowserClaim) return selected;
 
@@ -98,7 +101,7 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
     }
     if (normalized.startsWith("manager_") || normalized.startsWith("queue_")) selected.add("queue");
     if (normalized.startsWith("browser_")) selected.add("browser");
-    if (normalized.startsWith("assignment_")) selected.add("assignment-effects");
+    if (normalized.startsWith("assignment_") && !["assignment_read", "assignment_start"].includes(normalized)) selected.add("assignment-effects");
     if (normalized.startsWith("scan_record_") || normalized === "scan_request_handoff") selected.add("scan-record");
     if (normalized.startsWith("note_search")) selected.add("notes-search");
     if (normalized.startsWith("note_read")) selected.add("notes-read");

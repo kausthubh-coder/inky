@@ -47,6 +47,36 @@ export const PermissionRuleSchema = z.discriminatedUnion("scope", [
 
 export type PermissionRule = z.infer<typeof PermissionRuleSchema>;
 
+type PermissionTarget =
+  | { scope: "global" }
+  | { scope: "course"; courseId: string }
+  | { scope: "pattern"; courseId: string; patternId: string }
+  | { scope: "assignment"; assignmentId: string };
+
+export function permissionRuleTargetKey(rule: PermissionTarget): string {
+  switch (rule.scope) {
+    case "global": return JSON.stringify([rule.scope]);
+    case "course": return JSON.stringify([rule.scope, rule.courseId]);
+    case "pattern": return JSON.stringify([rule.scope, rule.courseId, rule.patternId]);
+    case "assignment": return JSON.stringify([rule.scope, rule.assignmentId]);
+  }
+}
+
+function newestRuleFirst(left: PermissionRule, right: PermissionRule): number {
+  return right.updatedAt.localeCompare(left.updatedAt) || left.ruleId.localeCompare(right.ruleId);
+}
+
+// Legacy saves could append conflicting rules. Keep exactly the rule the resolver
+// already follows for each target, including its deterministic timestamp tie-break.
+export function currentPermissionRules(rules: readonly PermissionRule[]): PermissionRule[] {
+  const current = new Map<string, PermissionRule>();
+  for (const rule of [...rules].sort(newestRuleFirst)) {
+    const key = permissionRuleTargetKey(rule);
+    if (!current.has(key)) current.set(key, rule);
+  }
+  return [...current.values()];
+}
+
 export const PermissionAssignmentContextSchema = z.strictObject({
   assignmentId: AssignmentIdSchema,
   courseId: CourseIdSchema,
@@ -105,12 +135,7 @@ export function resolvePermission(
       return specificityDifference;
     }
 
-    const updatedAtDifference = right.updatedAt.localeCompare(left.updatedAt);
-    if (updatedAtDifference !== 0) {
-      return updatedAtDifference;
-    }
-
-    return left.ruleId.localeCompare(right.ruleId);
+    return newestRuleFirst(left, right);
   })[0];
 
   if (!selected) {

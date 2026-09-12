@@ -134,6 +134,14 @@ html[data-desktop] .fable-onboarding, html[data-desktop] .loading-screen { min-h
 .settings-content .connected-app-grid { grid-template-columns: 1fr; }
 .settings-content .connected-app-row { padding: 14px 0; border: 0; border-bottom: 1px solid #e4dac9; border-radius: 0; background: transparent; }
 .settings-content .toggle-row strong { font-size: 13px; }
+.review-preferences { display: grid; gap: 24px; }
+.review-preferences__section { display: grid; gap: 12px; }
+.review-preferences__section + .review-preferences__section { padding-top: 24px; border-top: 1px solid #ded4c2; }
+.review-duration { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 14px; }
+.review-duration__value { display: inline-flex; align-items: center; gap: 8px; }
+.review-duration__value input { width: 88px; }
+.review-preferences .toggle-row { gap: 12px; }
+.review-preferences .toggle-row span { gap: 4px; }
 .settings-no-results { padding: 35px 0; }
 
 @media (max-width: 1000px) {

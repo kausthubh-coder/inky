@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import test from "node:test";
 import { TelemetryService } from "../../dist/electron/telemetry/service.js";
+import { RuntimeDiagnostics } from "../../dist/electron/telemetry/runtime-diagnostics.js";
 
 test("the real PostHog SDK sends identities, diagnostic content, AI events and replay IDs without credentials", async () => {
   const root = await mkdtemp(join(tmpdir(), "studi-sdk-delivery-"));
@@ -33,6 +34,13 @@ test("the real PostHog SDK sends identities, diagnostic content, AI events and r
       $ai_input_tokens: 1, $ai_output_tokens: 2, $ai_cache_read_input_tokens: 0, $ai_cache_creation_input_tokens: 0,
       $ai_total_cost_usd: 0, $ai_latency: 0.5, $ai_is_error: false, stop_reason: "stop",
     });
+    const runtime = new RuntimeDiagnostics("pi-cache-session", event => service.captureDiagnostic({ source: "runtime", ...event }));
+    runtime.providerRequest("gpt-6-astra", "openai-codex", { input: [] });
+    runtime.accept({ type: "message_end", message: {
+      role: "assistant", content: [], stopReason: "stop",
+      // Uncached input exceeds cache reads: PostHog cannot infer exclusive accounting from the counts.
+      usage: { input: 100, output: 2, cacheRead: 40, cacheWrite: 0, cost: { total: 0 } },
+    } });
     await service.flush();
     assert.equal(batches.find(event => event.event === "$identify").properties.$set.email, "friend@example.test");
     const diagnostic = batches.find(event => event.event === "studi_diagnostic");
@@ -42,6 +50,11 @@ test("the real PostHog SDK sends identities, diagnostic content, AI events and r
     assert.equal(generation.properties.$ai_output_choices[0].content, "Exact reply");
     assert.equal(generation.properties.$session_id, "replay-delivery");
     assert.equal(generation.distinct_id, "user_delivery");
+    const cachedGeneration = batches.find(event => event.event === "$ai_generation" && event.properties.$ai_session_id === "pi-cache-session");
+    assert.ok(cachedGeneration, "runtime generation must survive the strict telemetry schema and SDK delivery");
+    assert.equal(cachedGeneration.properties.$ai_input_tokens, 100);
+    assert.equal(cachedGeneration.properties.$ai_cache_read_input_tokens, 40);
+    assert.equal(cachedGeneration.properties.$ai_cache_reporting_exclusive, true);
     assert.equal(JSON.stringify(batches).includes("CREDENTIAL_CANARY"), false);
   } finally {
     await service.shutdown();

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { PermissionMode, PermissionRule, SchoolOnboardingState, StudiRendererApi } from "../../shared/index.js";
+import { permissionRuleTargetKey } from "../../shared/index.js";
 import { Field, PaperCard } from "./Ui.js";
 import "./homework-rules.css";
 
@@ -21,7 +22,14 @@ export function HomeworkRules({ rules, onboarding, busy, onSaveRule, onDeleteRul
   const [courseId, setCourseId] = useState("");
   const [assignmentId, setAssignmentId] = useState("");
   const [patternId, setPatternId] = useState("");
-  const [mode, setMode] = useState<PermissionMode>("attempt");
+  const [chosenMode, setMode] = useState<PermissionMode | null>(null);
+  const ruleTargetInput = scope === "global" ? { scope }
+    : scope === "assignment" ? { scope, assignmentId }
+    : scope === "pattern" ? { scope, courseId, patternId: patternId.trim() }
+    : { scope, courseId };
+  const existingRule = rules.find(rule => permissionRuleTargetKey(rule) === permissionRuleTargetKey(ruleTargetInput));
+  const mode = chosenMode ?? existingRule?.mode ?? "attempt";
+  const unchanged = existingRule?.mode === mode;
   const course = onboarding.courses.find(item => item.courseId === courseId);
   const assignment = onboarding.assignments.find(item => item.assignmentId === assignmentId);
   const problem = scope === "global" ? null
@@ -34,29 +42,26 @@ export function HomeworkRules({ rules, onboarding, busy, onSaveRule, onDeleteRul
     : scope === "pattern" ? `confirmed group “${patternId.trim()}” in ${course?.label}`
     : `homework in ${course?.label}`;
   const save = () => {
-    if (busy || problem) return;
-    if (scope === "global") onSaveRule({ scope, mode });
-    else if (scope === "assignment") onSaveRule({ scope, mode, assignmentId });
-    else if (scope === "pattern") onSaveRule({ scope, mode, courseId, patternId: patternId.trim() });
-    else onSaveRule({ scope, mode, courseId });
+    if (busy || problem || unchanged) return;
+    onSaveRule({ ...ruleTargetInput, mode });
   };
   return <PaperCard className="settings-card homework-rules">
     <h2>What can I help with?</h2>
     <form onSubmit={event => { event.preventDefault(); save(); }}>
       <fieldset disabled={busy}>
         <legend>1. Choose the homework</legend>
-        <Field label="Apply this rule to"><select value={scope === "pattern" ? "course" : scope} onChange={event => { setScope(event.target.value as typeof scope); setMode("attempt"); }}>
+        <Field label="Apply this rule to"><select value={scope === "pattern" ? "course" : scope} onChange={event => { setScope(event.target.value as typeof scope); setMode(null); }}>
           <option value="course">One class</option><option value="assignment">One assignment</option><option value="global">All homework</option>
         </select></Field>
-        {(scope === "course" || scope === "pattern") && <Field label="Which class?"><select value={course?.courseId ?? ""} onChange={event => setCourseId(event.target.value)}>
+        {(scope === "course" || scope === "pattern") && <Field label="Which class?"><select value={course?.courseId ?? ""} onChange={event => { setCourseId(event.target.value); setMode(null); }}>
           <option value="">Choose a class…</option>{onboarding.courses.map(item => <option key={item.courseId} value={item.courseId}>{item.label}</option>)}
         </select></Field>}
-        {scope === "assignment" && <Field label="Which assignment?"><select value={assignment?.assignmentId ?? ""} onChange={event => setAssignmentId(event.target.value)}>
+        {scope === "assignment" && <Field label="Which assignment?"><select value={assignment?.assignmentId ?? ""} onChange={event => { setAssignmentId(event.target.value); setMode(null); }}>
           <option value="">Choose an assignment…</option>{onboarding.assignments.map(item => <option key={item.assignmentId} value={item.assignmentId}>{item.title} · {courseName(item.courseId, onboarding)}</option>)}
         </select></Field>}
         {(scope === "course" || scope === "pattern") && <details className="homework-rules__advanced"><summary>Advanced: a confirmed assignment group</summary>
-          <label className="homework-rules__group"><input type="checkbox" checked={scope === "pattern"} onChange={event => { setScope(event.target.checked ? "pattern" : "course"); setMode("attempt"); }} />Limit this rule to a confirmed group</label>
-          {scope === "pattern" && <Field label="Exact group ID" hint="For example: weekly-problem-set. This is a saved group ID, not words to match in a title. Only assignments confirmed in this group are included."><input value={patternId} maxLength={256} onChange={event => setPatternId(event.target.value)} /></Field>}
+          <label className="homework-rules__group"><input type="checkbox" checked={scope === "pattern"} onChange={event => { setScope(event.target.checked ? "pattern" : "course"); setMode(null); }} />Limit this rule to a confirmed group</label>
+          {scope === "pattern" && <Field label="Exact group ID" hint="For example: weekly-problem-set. This is a saved group ID, not words to match in a title. Only assignments confirmed in this group are included."><input value={patternId} maxLength={256} onChange={event => { setPatternId(event.target.value); setMode(null); }} /></Field>}
         </details>}
       </fieldset>
       <fieldset disabled={busy} className="homework-rules__actions"><legend>2. Choose what I may do</legend>
@@ -68,13 +73,13 @@ export function HomeworkRules({ rules, onboarding, busy, onSaveRule, onDeleteRul
       <div className="homework-rules__summary" aria-live="polite" id="homework-rule-summary">
         {problem ?? <><strong>For {target}:</strong> {actions.find(action => action.mode === mode)?.detail}</>}
       </div>
-      <button className="button button--coral" disabled={busy || Boolean(problem)} aria-describedby="homework-rule-summary">Save rule</button>
+      <button className="button button--coral" disabled={busy || Boolean(problem) || unchanged} aria-describedby="homework-rule-summary">{busy ? "Saving…" : existingRule ? unchanged ? "Saved" : "Update rule" : "Save rule"}</button>
     </form>
     <div className="rules-list">
-      <h3>Saved rules</h3>
+      <h3>Current rules</h3>
       {rules.map(rule => <div key={rule.ruleId}><span><strong>{ruleTarget(rule, onboarding)}</strong><small>{actions.find(action => action.mode === rule.mode)?.title}</small></span><button type="button" className="quiet-button" disabled={busy} aria-label={`Remove rule for ${ruleTarget(rule, onboarding)}`} onClick={() => onDeleteRule(rule.ruleId)}>Remove</button></div>)}
       {rules.length === 0 && <p>No rules yet. I won’t start homework without one.</p>}
-      <small>An assignment rule overrides a group rule, then a class rule, then an all-homework rule. At the same level, the newest matching rule wins. With no matching rule, I won’t start.</small>
+      <small>Saving for the same homework replaces its rule. An assignment rule overrides a group rule, then a class rule, then an all-homework rule. If multiple groups match, the most recently saved group wins. With no matching rule, I won’t start.</small>
     </div>
   </PaperCard>;
 }

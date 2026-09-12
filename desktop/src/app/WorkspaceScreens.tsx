@@ -7,6 +7,7 @@ import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
 import { Icon } from "./Icon.js";
 import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
+import { courseTone, taskStatusCopy } from "./assignmentPresentation.js";
 import {
   type CSSProperties,
   useEffect,
@@ -42,7 +43,6 @@ import {
 import {
   DeskDrawer,
   deskInkyState,
-  taskStatusCopy,
   type DeskPanel,
 } from "./DeskScreen.js";
 import { Inky } from "./Inky.js";
@@ -429,6 +429,8 @@ export function DashboardScreen({
         actionError={error}
         onStart={onStart}
         onOpenWork={onOpenDesk}
+        onOpenSchoolCheck={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }}
+        onOpenRules={() => chrome.onNavigate("settings", "rules")}
         onTakeover={onTakeover}
         onResume={onResume}
         onCancel={onCancel}
@@ -709,13 +711,18 @@ export function SettingsScreen({
   const matches = matchingSettings(query);
   const visible = (id: SettingsSectionId) => query.trim() ? matches.includes(id) : section === id;
   const currentSection = SETTINGS_SECTIONS.find(item => item.id === section)!;
-  const [review, setReview] = useState(15);
-  const [handoff, setHandoff] = useState(30);
+  const [reviewTime, setReviewTime] = useState("30");
   const [memory, setMemory] = useState<"none" | "selected" | "all">("selected");
+  const [preferencesSubmitted, setPreferencesSubmitted] = useState(false);
   const [cadence, setCadence] = useState<"manual" | "daily" | "weekly">("daily");
   const [localTime, setLocalTime] = useState("09:00");
   const [weekday, setWeekday] = useState(1);
-  useEffect(() => { if (preferences) { setReview(preferences.reviewMinutes); setHandoff(preferences.handoffMinutes); setMemory(preferences.memoryVisibility); } }, [preferences]);
+  useEffect(() => {
+    if (preferences) {
+      setReviewTime(String(preferences.handoffMinutes));
+      setMemory(preferences.memoryVisibility);
+    }
+  }, [preferences]);
   useEffect(() => { if (schedule) { setCadence(schedule.cadence); setLocalTime(schedule.localTime); setWeekday(schedule.weekday ?? 1); } }, [schedule]);
   useEffect(() => {
     const targetId = chrome.settingsLanding === "usage" ? "usage-settings" : chrome.settingsLanding === "feedback" ? "feedback-settings" : null;
@@ -723,7 +730,12 @@ export function SettingsScreen({
     const frame = window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ block: "start" }));
     return () => window.cancelAnimationFrame(frame);
   }, [chrome.settingsLanding]);
-  const validPreferences = Number.isInteger(review) && review >= 1 && review <= 120 && Number.isInteger(handoff) && handoff >= 1 && handoff <= 240;
+  const reviewMinutes = Number(reviewTime);
+  const validPreferences = Number.isInteger(reviewMinutes) && reviewMinutes >= 1 && reviewMinutes <= 240;
+  const preferencesChanged = preferences && (
+    reviewMinutes !== preferences.handoffMinutes ||
+    (memory === "none") !== (preferences.memoryVisibility === "none")
+  );
 
   return (
     <main className="app-shell" data-studi-app-ready="true">
@@ -752,15 +764,54 @@ export function SettingsScreen({
             )}
             {visible("preferences") && (
             <PaperCard className="settings-card">
-              <p className="eyebrow">When I finish</p>
-              <h2>Your look, then I wait</h2>
-              <div className="form-grid form-grid--two">
-                <Field label="Minutes to look over answers"><input type="number" min={1} max={120} value={review} onChange={(event) => setReview(Number(event.target.value))} /></Field>
-                <Field label="Minutes I wait on the page"><input type="number" min={1} max={240} value={handoff} onChange={(event) => setHandoff(Number(event.target.value))} /></Field>
-                <Field label="What I may remember"><select value={memory} onChange={(event) => setMemory(event.target.value as typeof memory)}><option value="none">Nothing</option><option value="selected">Things you pick</option><option value="all">Everything saved</option></select></Field>
-              </div>
-              <button className="button button--yellow" disabled={busy !== null || !validPreferences} onClick={() => onSavePreferences(review, handoff, memory)}>Save</button>
-              {!validPreferences && <small role="status">Choose 1–120 minutes for review and 1–240 minutes to wait.</small>}
+              <form className="review-preferences" onSubmit={(event) => {
+                event.preventDefault();
+                if (preferences && preferencesChanged && validPreferences && busy === null) {
+                  setPreferencesSubmitted(true);
+                  onSavePreferences(preferences.reviewMinutes, reviewMinutes, memory);
+                }
+              }}>
+                <div className="review-preferences__section">
+                  <h3>Time to review your answers</h3>
+                  <label className="review-duration">
+                    <span>Keep the assignment open for</span>
+                    <span className="review-duration__value">
+                      <input
+                        type="number" min={1} max={240} step={1} required
+                        aria-label="Keep the assignment open for (minutes)"
+                        aria-describedby={validPreferences ? "review-time-help" : "review-time-error"}
+                        aria-invalid={!validPreferences}
+                        value={reviewTime}
+                        disabled={!preferences || busy !== null}
+                        onChange={(event) => { setReviewTime(event.target.value); setPreferencesSubmitted(false); }}
+                      />
+                      <span>minutes</span>
+                    </span>
+                  </label>
+                  <p id="review-time-help">Starts when your answers are ready. When time runs out, I save your answers and move on without submitting.</p>
+                  {!validPreferences && <small id="review-time-error" role="status">Enter a whole number from 1 to 240 minutes.</small>}
+                </div>
+                <div className="review-preferences__section">
+                  <label className="toggle-row">
+                    <input
+                      type="checkbox"
+                      aria-label="Show saved memories"
+                      aria-describedby="saved-memories-help"
+                      checked={memory !== "none"}
+                      disabled={!preferences || busy !== null}
+                      onChange={(event) => { setMemory(event.target.checked ? "all" : "none"); setPreferencesSubmitted(false); }}
+                    />
+                    <span>
+                      <strong>Show saved memories</strong>
+                      <small id="saved-memories-help">Hiding them doesn’t delete them or stop Inky from saving notes.</small>
+                    </span>
+                  </label>
+                </div>
+                <button className="button button--yellow" type="submit" disabled={!preferencesChanged || busy !== null || !validPreferences}>
+                  {busy === "settings" ? "Saving…" : "Save changes"}
+                </button>
+                {preferencesSubmitted && !preferencesChanged && busy === null && !error && <small role="status">Changes saved.</small>}
+              </form>
             </PaperCard>
             )}
             {visible("apps") && (
@@ -833,4 +884,3 @@ export function SettingsScreen({
 }
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
-function courseTone(course: string): number { return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6; }
