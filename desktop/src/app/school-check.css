@@ -1,0 +1,53 @@
+/* School scan summary and its single details view. */
+.scan-report { padding:4px 0 12px; }
+.scan-report-date { display:flex;align-items:center;gap:12px;margin:0 0 26px;flex-wrap:wrap; }
+.scan-report-date > strong { font-size:14px; }
+.scan-report-date > time,.scan-details-heading > time { font-size:12px;color:var(--muted); }
+.scan-live-label { display:flex;gap:6px;align-items:center; }
+.scan-live-label i { height:7px;width:7px;border-radius:50%;background:var(--sky); }
+.scan-result-hero { display:flex;align-items:center;gap:18px;margin-bottom:30px; }
+.scan-result-copy { flex:1;min-width:0; }
+.scan-result-copy h2 { font:600 25px/1.3 "Shantell Sans",cursive;margin:0 0 8px;text-wrap:balance; }
+.scan-result-copy p { margin:0;color:var(--muted);font-size:14px;line-height:1.5; }
+.scan-saved { display:inline-flex;align-items:center;gap:5px;margin-top:9px;color:#527355;font-size:12px; }
+.scan-hero-action { flex:none; }
+.scan-hero-action .button { display:inline-flex;align-items:center;gap:9px; }
+.scan-change-list h3 { font-size:13px;margin:0 0 14px; }
+.scan-report .scan-change { display:flex;align-items:center;gap:14px;margin:10px 0;padding:17px 16px;border:0;border-radius:14px 11px 16px 12px;background:var(--panel);box-shadow:2px 3px 0 rgb(59 52 44 / 7%); }
+.scan-report .scan-change:hover { background:#f8f0d9; }
+.scan-report .scan-change:active { transform:translateY(1px); }
+.scan-report .scan-change > .scan-change-symbol { display:grid;flex:none;place-items:center;width:40px;height:44px;border-radius:10px 8px 12px 7px;background:color-mix(in srgb,var(--mint) 52%,var(--panel));color:var(--ink); }
+.scan-report .scan-change > .scan-change-symbol.is-updated { background:color-mix(in srgb,var(--yellow) 40%,var(--panel)); }
+.scan-change-copy { display:grid;gap:5px;flex:1;min-width:0; }
+.scan-change-copy > strong { display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:15px; }
+.scan-change-copy > small { font-size:12px; }
+.scan-report .scan-change-tag { color:#58715b;font-size:10px;padding:2px 6px;border-radius:5px;background:#e9f0e3;font-weight:700; }
+.scan-change:has(.is-updated) .scan-change-tag { color:#886624;background:#f8edc6; }
+.scan-change-date { font-size:12px;color:var(--muted);max-width:230px;overflow-wrap:anywhere; }
+.scan-result-footer { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:25px; }
+.scan-result-footer > span { color:var(--muted);font-size:12px; }
+.scan-result-footer > button { margin-left:auto; }
+.scan-text-button { display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:5px 0;border:0;background:transparent;color:var(--ink);font:700 13px "Nunito Sans",sans-serif; }
+.scan-text-button:hover { color:#84631f; }
+.scan-missing-source { display:flex;align-items:center;gap:10px;background:#fff0c2;border-radius:11px;padding:12px 16px;margin:0 0 24px;font-size:13px; }
+.scan-recovery-note { margin:-10px 0 24px;font-size:13px;color:var(--muted); }
+.scan-details-heading { margin:18px 0 24px; }
+.scan-details-heading h2 { font:600 24px/1.3 "Shantell Sans",cursive;margin:0 0 6px; }
+.scan-details-page h3 { font-size:14px;margin:24px 0 12px; }
+.scan-class-list { list-style:none;padding:0;display:grid;gap:14px; }
+.scan-class-list li { display:flex;gap:10px;align-items:center;font-size:13px; }
+.scan-class-list li > span:nth-child(2) { flex:1; }
+.scan-class-list small { color:var(--muted);font-size:12px; }
+.scan-class-mark { display:grid;place-items:center;width:23px;height:23px;border-radius:7px;background:#ede8dc;color:var(--muted); }
+.scan-class-mark.is-checked { color:#4d7854;background:#e1ecd9; }
+.scan-detail-note { background:var(--panel);padding:2px 16px 12px;margin-top:24px;border-radius:14px 10px 13px 11px; }
+.scan-detail-note h3 { margin-top:13px; }
+.scan-detail-note p,.scan-detail-activity p { color:var(--muted);font-size:13px;line-height:1.6; }
+.scan-detail-activity p { display:flex;gap:16px; }
+.scan-detail-activity time { flex:none;font-size:11px;padding-top:2px; }
+.scan-detail-activity span { min-width:0;white-space:pre-wrap;overflow-wrap:anywhere; }
+.scan-count { display:block;margin-top:8px;color:var(--muted); }
+.scan-result-hero.is-first { min-height:170px; }
+.scan-browser-continue { display:inline-flex;align-items:center;gap:8px;margin-left:12px;font-size:12px; }
+@media(max-width:900px){.scan-result-hero{flex-wrap:wrap;gap:14px}.scan-result-copy{flex-basis:calc(100% - 110px)}.scan-hero-action{margin-left:104px}.scan-result-copy h2{font-size:23px}}
+@media(max-width:760px){.scan-report .scan-change{gap:10px;padding:14px 12px}.scan-change-copy>strong{font-size:14px;gap:5px}.scan-change-date{font-size:11px;white-space:normal;max-width:96px}.scan-report .scan-change>.scan-change-symbol{width:33px;height:39px}.scan-result-footer{align-items:flex-start}.scan-report-date{margin-bottom:22px}.scan-class-list li{align-items:flex-start}}

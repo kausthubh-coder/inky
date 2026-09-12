@@ -61,7 +61,15 @@ export const SchoolScanSchema = z.strictObject({
   observedAssignmentIds: z.array(z.string().min(1).max(256)).max(10_000),
   observedLinkedSystemIds: z.array(z.string().min(1).max(256)).max(1_000),
   messages: z.array(z.strictObject({ messageId:z.string(), role:z.enum(["user","assistant"]), text:z.string().max(100000), createdAt:IsoTimestampSchema, clientMessageId:z.string().optional() })).max(1000).default([]),
-  changes: z.array(z.strictObject({assignmentId:z.string(), kind:z.enum(["new","updated"]), fields:z.array(z.string())})).max(10000).default([]),
+  changes: z.array(z.strictObject({
+    assignmentId: z.string(),
+    kind: z.enum(["new", "updated"]),
+    fields: z.array(z.string()),
+    dueChange: z.strictObject({
+      before: z.strictObject({ dueAt: IsoTimestampSchema.optional(), dueText: z.string().max(200).optional() }),
+      after: z.strictObject({ dueAt: IsoTimestampSchema.optional(), dueText: z.string().max(200).optional() }),
+    }).optional(),
+  })).max(10000).default([]),
   inventories: z.array(z.strictObject({
     kind: z.enum(["courses", "assignments"]),
     courseId: z.string().min(1).max(256).optional(),

@@ -939,6 +939,11 @@ test("school check reports only new or changed work and refuses incomplete inven
   const due=turn>=2?"2026-09-04T15:00:00.000Z":"2026-09-03T15:00:00.000Z";
   browser.text="Calculus Limits practice "+due; browser.elements=[];
   await invoke(tools,"scan_record_assignment",{courseId:course.courseId,title:"Limits practice",dueAt:due,dueText:due});
+  if (turn === 2) {
+    const revised = "2026-09-05T15:00:00.000Z";
+    browser.text = "Calculus Limits practice " + revised;
+    await invoke(tools,"scan_record_assignment",{courseId:course.courseId,title:"Limits practice",dueAt:revised,dueText:revised});
+  }
   if(turn!==3) await recordFixtureInventories(tools,browser);
   await invoke(tools,"scan_finish",{coverage:[{target:"Course: Calculus",status:"verified"}],navigationHints:[]});
  }));
@@ -948,6 +953,13 @@ test("school check reports only new or changed work and refuses incomplete inven
   const first=await coordinator.startScan();assert.equal(first.scan.changes.length,1);assert.equal(first.scan.changes[0].kind,"new");
   const unchanged=await coordinator.replay();assert.equal(unchanged.scan.changes.length,0);
   const updated=await coordinator.replay();assert.equal(updated.scan.changes[0].kind,"updated");assert.ok(updated.scan.changes[0].fields.includes("dueAt"));assert.equal(updated.assignments.length,1);
+  assert.deepEqual(updated.scan.changes[0].dueChange, {
+    before: { dueAt: "2026-09-03T15:00:00.000Z", dueText: "2026-09-03T15:00:00.000Z" },
+    after: { dueAt: "2026-09-05T15:00:00.000Z", dueText: "2026-09-05T15:00:00.000Z" },
+  }, "repeated observations keep the original deadline and latest correction");
+  const reopened = await openLocalStore(root);
+  try { assert.deepEqual(reopened.school.latestScan().changes, updated.scan.changes); }
+  finally { reopened.close(); }
   const incomplete=await coordinator.replay();assert.equal(incomplete.scan.state,"partial");assert.match(incomplete.scan.failures.join(" "),/inventory|directory/);
  }finally{coordinator.dispose();store.close();await rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
 });
