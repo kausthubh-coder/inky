@@ -29,6 +29,7 @@ export interface CdpDebugger {
 
 export interface BrowserTarget {
   readonly debugger: CdpDebugger;
+  readonly session?: Pick<Electron.Session, "fetch">;
   getURL(): string;
   getTitle(): string;
   loadURL(url: string): Promise<void>;
@@ -85,9 +86,21 @@ export class BrowserController {
     this.#refs.clear();
   }
 
+  async downloadSource(ref?: string): Promise<string> {
+    return parseSchoolUrl(ref ? await this.link(ref) : this.#target.getURL());
+  }
+
+  fetchDownload(url: string, signal: AbortSignal): Promise<Response> {
+    if (!this.#target.session) throw new Error("School downloads are unavailable in this browser. Try reading the document with browser_screenshot.");
+    return this.#target.session.fetch(parseSchoolUrl(url), {
+      method: "GET", credentials: "include", redirect: "follow", signal,
+      bypassCustomProtocolHandlers: true,
+    });
+  }
+
   async navigate(rawUrl: string): Promise<BrowserSnapshot> {
     const url = parseSchoolUrl(rawUrl);
-    await this.#target.loadURL(url);
+    await boundedBrowserOperation(this.#target.loadURL(url), "Navigation did not finish. Inspect browser_snapshot or browser_screenshot before retrying; an open PDF can also be read with browser_download.", 15_000);
     this.pageChanged();
     return this.snapshot();
   }
@@ -440,14 +453,14 @@ export class BrowserController {
   ): Promise<unknown> {
     this.#ensureAttached();
     try {
-      return await this.#target.debugger.sendCommand(method, params);
+      return await boundedBrowserOperation(this.#target.debugger.sendCommand(method, params), "The browser operation timed out. Try a fresh snapshot, a screenshot, or download the open document instead.");
     } catch (error) {
       if (!retryAfterDetach || this.#target.debugger.isAttached()) {
         throw error;
       }
       this.pageChanged();
       this.#ensureAttached();
-      return this.#target.debugger.sendCommand(method, params);
+      return boundedBrowserOperation(this.#target.debugger.sendCommand(method, params), "The browser operation timed out after reconnecting. Inspect the visible page or try downloading the document.");
     }
   }
 
@@ -521,4 +534,14 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
+async function boundedBrowserOperation<T>(operation: Promise<T>, message: string, milliseconds = 10_000): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      operation,
+      new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error(message)), milliseconds); }),
+    ]);
+  } finally { clearTimeout(timer); }
 }

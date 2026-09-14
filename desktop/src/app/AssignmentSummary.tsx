@@ -2,6 +2,7 @@ import type { Assignment, LifecycleState, SchoolOnboardingState, TaskSummary } f
 import { assignmentState } from "./assignmentPresentation.js";
 import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 
 export function AssignmentSummary({ assignment, task, execution, lifecycle, onboarding, busy, onStart, onResume, onPause, onBrowser, onAnswer, onOpenWork, onOpenSchoolCheck, onOpenRules }: {
   assignment: Assignment;
@@ -96,7 +97,7 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
   return <section className="assignment-summary" aria-label="Inky’s assignment progress">
       <div className="assignment-inky-intro"><Inky size={72} state={state === "working" || state === "submitting" ? "thinking" : "idle"} /><span>Inky</span></div>
       <h2 aria-live="polite">{heading}</h2>
-      <p id="assignment-action-note" className={blocked ? "assignment-blocked" : ""}>{blocked ?? note}</p>
+      <div id="assignment-action-note" className={blocked ? "assignment-action-note assignment-blocked" : "assignment-action-note"}><ChatMarkdown text={blocked ?? note} /></div>
       <button className="button button--yellow assignment-primary" autoFocus onClick={action}
         disabled={(busy !== null && !(state === "working" && busy === "assignment")) || Boolean(blocked) || state === "submitting"}
         aria-describedby="assignment-action-note">

@@ -1,4 +1,5 @@
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 import { AssignmentWorkspace } from "./AssignmentWorkspace.js";
 import { SchoolCheck } from "./SchoolCheck.js";
 import { Icon } from "./Icon.js";
@@ -339,7 +340,7 @@ export function ChatWorkspace(props: ChatProps) {
                         ))}
                       </div>
                     )}
-                    <p>{message.text}</p>
+                    {message.role === "user" ? <p>{message.text}</p> : <ChatMarkdown text={message.text} />}
                     {message.recovery === "failed" && (
                       <button
                         className="button button--yellow"

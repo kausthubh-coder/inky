@@ -1,4 +1,5 @@
 import { ConnectedAppRow } from "./ConnectedAppRow.js";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -143,8 +144,8 @@ export function OnboardingScreen({
                     <article className="fable-speech">
                       <span className="fable-tail" aria-hidden="true" />
                       <h1>{message.id === step || !browserStage ? title : message.title}</h1>
-                      <p>{message.body}</p>
-                      {message.id === 8 && step === 8 && onboarding?.scan?.currentStep && <p className="fable-scan-progress" role="status">{onboarding.scan.currentStep}</p>}
+                      <ChatMarkdown text={message.body} />
+                      {message.id === 8 && step === 8 && onboarding?.scan?.currentStep && <div className="fable-scan-progress" role="status"><ChatMarkdown text={onboarding.scan.currentStep} /></div>}
                       {(!browserStage || message.id === step) && <StepExtra step={step} workspace={workspace} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} providerReady={providerReady} schoolUrl={schoolUrl} homeworkRoot={homeworkRoot} cadence={scanCadence} permission={defaultPermission} busy={busy} onSchoolUrl={onSchoolUrl} onCadence={onCadence} onPermission={onDefaultPermission} onConnect={onConnectRuntime} onCancelConnect={onCancelRuntimeLogin} onConnectApp={onConnectApp} onRefreshConnectedApp={onRefreshConnectedApp} onSelectHomeworkRoot={onSelectHomeworkRoot} />}
                     </article>
                   </div>

@@ -36,8 +36,8 @@
 .assignment-inky-scroll { flex:1; min-height:0; overflow:auto; padding:24px 25px 16px; scrollbar-width:thin; }
 .assignment-inky-intro { display:flex; align-items:center; gap:5px; margin:0 0 8px -7px; }
 .assignment-inky-intro>span:last-child { font:600 18px 'Shantell Sans',cursive; }
-.assignment-summary h2 { font-size:23px; line-height:1.35; margin:0 0 12px; }
-.assignment-summary p { font-size:13px; line-height:1.75; color:#736656; margin:0 0 20px; overflow-wrap:anywhere; }
+.assignment-summary > h2 { font-size:23px; line-height:1.35; margin:0 0 12px; }
+.assignment-action-note { font-size:13px; line-height:1.75; color:#736656; margin:0 0 20px; overflow-wrap:anywhere; }
 .assignment-summary .assignment-blocked { color:#805020; }
 .assignment-summary>.assignment-primary { width:100%; display:flex; align-items:center; justify-content:center; gap:9px; min-height:48px; padding:10px 12px; font-size:14px; }
 .assignment-primary svg { flex-shrink:0; }
@@ -52,7 +52,7 @@
 .assignment-inky .conversation-log:empty { display:none; }
 .assignment-inky .chat-bubble { padding:0; margin:22px 0 0; font-size:13px; line-height:1.6; border:0; background:none; box-shadow:none; border-radius:0; max-width:100%; }
 .assignment-inky .chat-bubble>small { font-size:10px; color:#8d7c65; }
-.assignment-inky .chat-bubble p { margin:4px 0 0; }
+.assignment-inky .chat-bubble > p { margin:4px 0 0; }
 .assignment-inky .student-bubble { border-left:2px solid #c6b599; padding-left:12px; }
 .assignment-inky .chat-error { margin:16px 0 0; overflow-wrap:anywhere; }
 .assignment-inky .chat-refs>span { border-radius:3px; }
@@ -102,8 +102,8 @@
   .assignment-meta { gap:8px 14px; font-size:11px; }
   .assignment-page-scroll { padding:20px; }
   .assignment-inky-scroll { padding:16px; }
-  .assignment-summary h2 { font-size:21px; }
-  .assignment-summary p { font-size:12px; }
+  .assignment-summary > h2 { font-size:21px; }
+  .assignment-action-note { font-size:12px; }
   .assignment-tabs { padding:0 20px; gap:19px; }
   .assignment-summary>.assignment-primary { font-size:12px; min-height:44px; }
   .workspace-dialog .assignment-inky .inky-composer { margin:10px 13px 15px; }
@@ -115,6 +115,6 @@
   .assignment-inky-scroll { padding-top:12px; }
   .assignment-inky-intro { display:none; }
   .assignment-page-scroll { padding-top:18px; }
-  .assignment-summary h2 { font-size:21px; }
-  .assignment-summary p { margin-bottom:13px; }
+  .assignment-summary > h2 { font-size:21px; }
+  .assignment-action-note { margin-bottom:13px; }
 }

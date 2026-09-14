@@ -52,6 +52,50 @@ export class HomeworkFiles {
     return this.#existing(rawPath);
   }
 
+  // Downloaded bytes are committed only after the entire response succeeds.
+  // Exclusive creation preserves student work and concurrent same-name downloads.
+  async saveMaterial(name: string, bytes: Uint8Array, signal?: AbortSignal): Promise<string> {
+    if (bytes.byteLength > UPLOAD_FILE_LIMIT) throw new Error("School downloads are limited to 50 MB.");
+    const safeName = name.normalize("NFKC").replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").replace(/[. ]+$/g, "").slice(0, 160);
+    if (!safeName || safeName.startsWith(".") || /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(safeName)) {
+      throw new Error("The school file has an invalid filename.");
+    }
+    const directory = this.#resolve("materials");
+    await this.#assertNoLinks(directory);
+    await mkdir(directory, { recursive: true });
+    await this.#assertNoLinks(directory);
+    const extension = extname(safeName);
+    for (let suffix = 0; suffix < 1000; suffix++) {
+      signal?.throwIfAborted();
+      const target = resolve(directory, suffix ? `${basename(safeName, extension)} (${suffix})${extension}` : safeName);
+      let handle;
+      try { handle = await open(target, "wx", 0o600); }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "EEXIST") continue;
+        throw error;
+      }
+      try {
+        await handle.writeFile(bytes);
+        signal?.throwIfAborted();
+        await handle.sync();
+        await handle.close();
+        return this.#relative(target);
+      } catch (error) {
+        await handle.close().catch(() => {});
+        await unlink(target).catch(() => {});
+        throw error;
+      }
+    }
+    throw new Error("Too many materials share this filename.");
+  }
+
+  async readBinary(rawPath: string): Promise<Uint8Array> {
+    const path = await this.#existing(rawPath);
+    const metadata = await stat(path);
+    if (!metadata.isFile() || metadata.size > UPLOAD_FILE_LIMIT) throw new Error("Choose a workspace file smaller than 50 MB.");
+    return new Uint8Array(await readFile(path));
+  }
+
   // Sources come only from Electron's student-operated file picker.
   async importFile(source: string): Promise<string> {
     const metadata = await lstat(source);
