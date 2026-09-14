@@ -31,6 +31,8 @@ jobs:
       - name: Verify authenticated downloads and PDF rendering in Electron
         run: bunx electron tests/school-materials-native.cjs
       - run: bun run make:win
+      - name: Verify PDF reading from the Windows package
+        run: bunx electron tests/packaged-pdf.cjs out/Studi-win32-x64/resources/app.asar
       - name: Stage Windows installer
         shell: pwsh
         run: |
@@ -86,6 +88,8 @@ jobs:
           native="out/Studi-darwin-universal/Studi.app/Contents/Resources/app.asar.unpacked/node_modules/@napi-rs"
           lipo -verify_arch x86_64 "$native/canvas-darwin-x64/skia.darwin-x64.node"
           lipo -verify_arch arm64 "$native/canvas-darwin-arm64/skia.darwin-arm64.node"
+      - name: Verify PDF reading from the universal Mac package
+        run: bunx electron tests/packaged-pdf.cjs out/Studi-darwin-universal/Studi.app/Contents/Resources/app.asar
       - name: Stage macOS disk image
         run: |
           mkdir -p release
