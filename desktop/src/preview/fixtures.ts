@@ -250,7 +250,33 @@ export function installDevPreview(): void {
     return onboarding;
   };
   const home = conversation({kind:'home'});
-  if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
+  const inkyMarkdown = `Tonight I’d start with **IBM Sorting Machine**. It’s due soon, and it’s the one with a clear path.
+
+Here’s how I’d do it:
+
+1. Open the school page and copy the trace table
+2. Walk each pass in \`O(n · k)\` — that’s radix sort
+3. Write the short explanation last
+
+\`\`\`
+after pass 1:  4  1  3  2
+\`\`\`
+
+The prompt is on your [school page](https://school.example.edu/courses/csc316/assignment-sort).
+
+Want me to start, or talk it through first?`;
+  if (preview.id === "chat-markdown") conversations.set("home", {...home, messages:[
+    {messageId:"preview-question",role:"user" as const,text:"What should I work on tonight?",turnIndex:0,createdAt:now},
+    {messageId:"preview-inky",role:"assistant",text:inkyMarkdown,turnIndex:0,createdAt:now},
+  ]});
+  else if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
+  if (preview.id === "assignment") {
+    const assignmentChat = conversation({kind:"assignment", assignmentId:"assignment-sort"});
+    conversations.set("assignment:assignment-sort", {...assignmentChat, messages:[
+      {messageId:"preview-asg-you",role:"user" as const,text:"Can you start this?",turnIndex:0,createdAt:now},
+      {messageId:"preview-asg-inky",role:"assistant",text:"Yes. I’ll **trace the IBM sort** and stop before submit.\n\n1. Open the school page\n2. Fill the trace table\n3. Leave it for you to review",turnIndex:0,createdAt:now},
+    ]});
+  }
   const api: StudiRendererApi = {
     getRuntimeInfo: async () => ({ app: `${version}-preview`, electron: "simulated", chrome: "simulated", node: "simulated" }),
     getContractManifest: async () => CONTRACT_MANIFEST,

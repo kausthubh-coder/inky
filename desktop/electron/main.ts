@@ -666,6 +666,17 @@ function registerIpcHandlers(): void {
   }
 }
 
+function openHttpExternal(url: string): void {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return;
+    if (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") return;
+    void shell.openExternal(parsed.href);
+  } catch {
+    // Ignore malformed chat links.
+  }
+}
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1120,
@@ -688,9 +699,13 @@ function createWindow(): BrowserWindow {
   window.setMenu(null);
   window.setMenuBarVisibility(false);
 
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  window.webContents.on("will-navigate", (event) => {
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openHttpExternal(url);
+    return { action: "deny" };
+  });
+  window.webContents.on("will-navigate", (event, url) => {
     event.preventDefault();
+    openHttpExternal(url);
   });
   window.on("close", (event) => {
     if (!appKernel && !gateQuitting) {

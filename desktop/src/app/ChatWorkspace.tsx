@@ -16,6 +16,7 @@ import type {
 import { Inky, type InkyState } from "./Inky.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { readDevPreviewConfig } from "./devPreview.js";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 import { chatTimeline } from "./chatTimeline.js";
 
 export type ChatView = "home" | "compact" | "expanded";
@@ -339,7 +340,11 @@ export function ChatWorkspace(props: ChatProps) {
                         ))}
                       </div>
                     )}
-                    <p>{message.text}</p>
+                    {message.role === "assistant" ? (
+                      <ChatMarkdown text={message.text} />
+                    ) : (
+                      <p>{message.text}</p>
+                    )}
                     {message.recovery === "failed" && (
                       <button
                         className="button button--yellow"

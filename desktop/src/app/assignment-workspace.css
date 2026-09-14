@@ -52,7 +52,8 @@
 .assignment-inky .conversation-log:empty { display:none; }
 .assignment-inky .chat-bubble { padding:0; margin:22px 0 0; font-size:13px; line-height:1.6; border:0; background:none; box-shadow:none; border-radius:0; max-width:100%; }
 .assignment-inky .chat-bubble>small { font-size:10px; color:#8d7c65; }
-.assignment-inky .chat-bubble p { margin:4px 0 0; }
+.assignment-inky .chat-bubble p,
+.assignment-inky .inky-markdown { margin:4px 0 0; font-size:13px; line-height:1.6; }
 .assignment-inky .student-bubble { border-left:2px solid #c6b599; padding-left:12px; }
 .assignment-inky .chat-error { margin:16px 0 0; overflow-wrap:anywhere; }
 .assignment-inky .chat-refs>span { border-radius:3px; }

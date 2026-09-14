@@ -405,9 +405,12 @@ body{background:radial-gradient(circle at 1px 1px,#e9e0cd 1.1px,transparent 1.2p
 .drawer-scroll{display:grid;align-content:start;gap:10px;min-height:0;flex:1 1 80px;overflow:auto;padding:12px 16px}
 .workspace-drawer.is-desk .drawer-scroll{flex:0 1 auto;max-height:min(220px,26vh)}
 .drawer-talk-log{display:grid;gap:8px}
-.drawer-bubble{position:relative;margin:0;max-width:88%;padding:9px 12px;border:2px solid var(--ink);border-radius:8px 16px 16px 14px;background:#fff;box-shadow:2px 2px 0 rgb(59 52 44 / 8%);font-size:.76rem;font-weight:800;line-height:1.35}
+.drawer-bubble{position:relative;margin:0;max-width:88%;padding:9px 12px;border:2px solid var(--ink);border-radius:8px 16px 16px 14px;background:#fff;box-shadow:2px 2px 0 rgb(59 52 44 / 8%);font-size:.76rem;font-weight:800;line-height:1.35;overflow-wrap:anywhere}
 .drawer-bubble--inky{justify-self:start}
-.drawer-bubble--you{justify-self:end;border-radius:16px 8px 14px 16px;background:#fff2b5}
+.drawer-bubble--you{justify-self:end;border-radius:16px 8px 14px 16px;background:#fff2b5;white-space:pre-wrap}
+.drawer-bubble .inky-markdown{margin:0;font-size:inherit;font-weight:700;line-height:1.45}
+.drawer-bubble .inky-markdown p,.drawer-bubble .inky-markdown ul,.drawer-bubble .inky-markdown ol{margin:0.4em 0 0}
+.drawer-bubble .inky-markdown>:first-child{margin-top:0}
 .drawer-talk{
   display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;height:auto;
   margin:4px 12px 12px;padding:8px 12px;border:2px solid var(--ink);border-top:2px solid var(--ink);
