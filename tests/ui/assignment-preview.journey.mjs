@@ -21,7 +21,9 @@ export async function verifyAssignmentPreview(page, base) {
     await page.keyboard.press("Enter");
     await status("Not started");
     assert.equal(await page.locator(".assignment-course .course-dot").evaluate(el => getComputedStyle(el).backgroundColor), color);
-    assert.match(await page.locator(".assignment-brief").innerText(), /radix sort/);
+    // Current requirement evidence takes precedence over the fixture's legacy summary.
+    assert.match(await page.locator(".assignment-brief").innerText(), /Complete the assignment and include your explanation/);
+    assert.doesNotMatch(await page.locator(".assignment-brief").innerText(), /radix sort/);
     assert.match(await page.locator(".assignment-due").innerText(), /Due/);
     await page.keyboard.press("Escape");
     assert.equal(await card.evaluate(el => el === document.activeElement), true);
