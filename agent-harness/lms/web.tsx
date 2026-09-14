@@ -189,15 +189,22 @@ export function renderPublic(
         </div>
       </>,
     );
-  if (path === "/" && service !== "school")
+  if (path === "/" && service !== "school") {
+    const vendorActivities = state.activities.filter(
+      (item) => item.service === service,
+    );
     return render(
       labels[service],
-      rows(
-        state,
-        origins,
-        state.activities.filter((item) => item.service === service),
-      ),
+      <section aria-labelledby="assignment-list-heading" data-assignment-list>
+        <h2 id="assignment-list-heading">Assignments</h2>
+        {vendorActivities.length > 0 ? (
+          rows(state, origins, vendorActivities)
+        ) : (
+          <p>No assignments are published on this site.</p>
+        )}
+      </section>,
     );
+  }
   if (path === "/" || path === "/courses")
     return render(
       path === "/" ? "Dashboard" : "My courses",
@@ -304,7 +311,10 @@ export function renderPublic(
         )}
       </>,
     );
-  if (path === "/announcements")
+  if (path === "/announcements") {
+    const hasPartnerBoard = state.activities.some(
+      (item) => item.id === "partners",
+    );
     return render(
       "Announcements and notices",
       <>
@@ -320,15 +330,20 @@ export function renderPublic(
               </li>
             ))}
         </ul>
-        <h2>Project partner board</h2>
-        <p>
-          Students are looking for project partners. Maximum group size is
-          three. This notice does not assign discussion replies or establish
-          whether solo work is permitted.
-        </p>
-        <a href="/assignments/partners">Open the partner board</a>
+        {hasPartnerBoard && (
+          <>
+            <h2>Project partner board</h2>
+            <p>
+              Students are looking for project partners. Maximum group size is
+              three. This notice does not assign discussion replies or
+              establish whether solo work is permitted.
+            </p>
+            <a href="/assignments/partners">Open the partner board</a>
+          </>
+        )}
       </>,
     );
+  }
   if (path === "/grades")
     return render(
       "Gradebook",

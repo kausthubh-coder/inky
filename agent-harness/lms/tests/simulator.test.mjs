@@ -197,6 +197,13 @@ test("vendor sign-in and runs are independent; public pages cannot inspect contr
   await post(`${a.server.url}/logout`, logout.values);
   assert.equal(a.server.inspect().state.sessions.school, false);
   assert.equal(b.server.inspect().state.sessions.school, true);
+  const fullAnnouncements = await fields(`${a.server.url}/announcements`),
+    smokeAnnouncements = await fields(`${b.server.url}/announcements`),
+    emptyVendor = await fields(b.server.origins.statistics);
+  assert.match(fullAnnouncements.html, /href="\/assignments\/partners"/);
+  assert.doesNotMatch(smokeAnnouncements.html, /\/assignments\/partners/);
+  assert.match(emptyVendor.html, /data-assignment-list/);
+  assert.match(emptyVendor.html, /No assignments are published on this site/);
   for (const path of [
     "/truth",
     "/inspect",
