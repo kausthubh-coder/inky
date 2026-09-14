@@ -1,4 +1,5 @@
 import { windowChromeOptions } from "./window-chrome.js";
+import { httpExternalUrl } from "./http-external-url.js";
 import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -666,6 +667,11 @@ function registerIpcHandlers(): void {
   }
 }
 
+function openHttpExternal(url: string): void {
+  const href = httpExternalUrl(url);
+  if (href) void shell.openExternal(href);
+}
+
 function createWindow(): BrowserWindow {
   const window = new BrowserWindow({
     width: 1120,
@@ -688,9 +694,13 @@ function createWindow(): BrowserWindow {
   window.setMenu(null);
   window.setMenuBarVisibility(false);
 
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  window.webContents.on("will-navigate", (event) => {
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openHttpExternal(url);
+    return { action: "deny" };
+  });
+  window.webContents.on("will-navigate", (event, url) => {
     event.preventDefault();
+    openHttpExternal(url);
   });
   window.on("close", (event) => {
     if (!appKernel && !gateQuitting) {

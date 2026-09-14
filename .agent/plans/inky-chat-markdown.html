@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studi · Inky writes in ink</title>
+<style>
+*{box-sizing:border-box}body{margin:0;color:#363026;background:#f1e6cc;font:16px/1.6 system-ui,sans-serif;background-image:radial-gradient(#cdbf9f .8px,transparent .8px);background-size:24px 24px}main{max-width:980px;margin:auto;padding:40px 28px 90px}header{border-bottom:2px solid;padding-bottom:24px}h1{font-size:42px;line-height:1.1;letter-spacing:-1.5px;margin:18px 0}h2{margin:38px 0 12px;font-size:25px}p{max-width:820px}a{color:inherit;text-underline-offset:4px}.eyebrow{font-size:12px;text-transform:uppercase;letter-spacing:2px}.actions{display:flex;gap:12px;flex-wrap:wrap;margin:24px 0}.actions a{padding:11px 18px;background:#fffdf6;border:1.5px solid;border-radius:30px;text-decoration:none;box-shadow:2px 3px #c8bea7}.actions a:first-child{background:#f7ce49}.paper{background:#fffdf6;padding:24px;border:1.5px solid;border-radius:18px;box-shadow:3px 4px #c8bea7;margin:16px 0}code{font-size:13px;background:#ece8dd;padding:2px 5px}li+li{margin-top:7px}footer{border-top:1px solid #ad9f82;margin-top:40px;padding-top:20px}small{color:#766d5e}.grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:760px){.grid{grid-template-columns:1fr}h1{font-size:32px}main{padding:24px 16px}}
+</style>
+<main>
+<header>
+  <span class="eyebrow">Studi / chat / September 14, 2026</span>
+  <h1>Inky writes in ink, not asterisks.</h1>
+  <p>Inky already talks in markdown. The chat used to show the punctuation. This change reads the message as writing — still Inky, still paper, still a person.</p>
+  <nav class="actions">
+    <a href="http://127.0.0.1:4174/?preview=chat-markdown">Open the real chat with markdown →</a>
+    <a href="http://127.0.0.1:4174/?preview=assignment">Assignment sidebar</a>
+    <a href="http://127.0.0.1:4174/?preview=chat-handoff">School check while scanning</a>
+    <a href="http://127.0.0.1:4174/?preview=chat-expanded">Same shell, plain greeting</a>
+  </nav>
+  <small>Run <code>bun run preview:ui</code> first. These links are the production React chat, fonts, Inky, and CSS with a fixture transcript. Nothing here redraws Studi’s chrome.</small>
+</header>
+<p><img src="inky-chat-markdown.png" alt="Real Studi chat: Inky’s message shows bold, a numbered list, paper code, and a school link"></p>
+<p><img src="inky-chat-assignment.png" alt="Assignment sidebar: Inky’s list and bold in the real assignment chat"></p>
+<p><img src="inky-chat-scan.png" alt="School check: Inky’s scan reply as a markdown bubble under the report"></p>
+
+<h2>What the student sees</h2>
+<div class="grid">
+  <article class="paper">
+    <h3>You</h3>
+    <p>Your bubble stays exactly as you typed it. Homework titles with stars, formulas, and emails do not turn into formatting.</p>
+  </article>
+  <article class="paper">
+    <h3>Inky</h3>
+    <p>Emphasis, lists, a scrap of code, a real link. Headings stay at speaking size. No docs-site stack, no syntax-highlighter chrome, no remote pictures.</p>
+  </article>
+</div>
+
+<h2>One renderer</h2>
+<div class="paper">
+  <p>Home chat, assignment sidebar, desk drawer, and school-check talk all use the same Inky markdown. While a scan is running, Inky’s replies show as bubbles under the report — not only later in Scan details. Your bubbles stay as typed. Stored text does not change.</p>
+  <ul>
+    <li>Only <code>http</code>, <code>https</code>, and <code>mailto</code> links are clickable.</li>
+    <li>In the desktop window, those links open in the system browser instead of navigating Studi away.</li>
+    <li>A message with no markdown still looks like a spoken paragraph.</li>
+  </ul>
+</div>
+
+<h2>Prove it</h2>
+<ol>
+  <li>Preview <code>chat-markdown</code>: list, bold, inline code, a fenced note, and a school link. Compare with <code>chat-expanded</code> at the same size.</li>
+  <li>Assignment preview: Inky’s sidebar note uses the same writing, just quieter.</li>
+  <li><code>bun run test:ui</code> for link safety. Typecheck and the existing chat preview journey still pass.</li>
+  <li>A live Electron reply is extra proof, not required to see the renderer. Plain Inky text must still read as speech if the model does not use markdown.</li>
+</ol>
+
+<footer>
+  <small>User-facing plan: store docs/inky-chat-markdown.md. Mockup-only fixture lives in the UI preview, not in production chat behavior.</small>
+</footer>
+</main>
+</html>

@@ -16,6 +16,7 @@ import type {
 import { Inky, type InkyState } from "./Inky.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { readDevPreviewConfig } from "./devPreview.js";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 import { chatTimeline } from "./chatTimeline.js";
 
 export type ChatView = "home" | "compact" | "expanded";
@@ -102,8 +103,8 @@ export function ChatWorkspace(props: ChatProps) {
       activeExecution.phase,
     );
   const messages = school ? (onboarding.scan?.messages ?? []).map((message,index) => ({...message,turnIndex:index})) : chat?.job.messages ?? [];
-  const timeline = chatTimeline(school ? [] : messages, []);
   const scanActive = school && ["running", "needs_user"].includes(onboarding.scan?.state ?? "");
+  const timeline = chatTimeline(school && !(scanActive && !scanDetails) ? [] : messages, []);
   useEffect(() => { setScanDetails(false); }, [onboarding.scan?.scanId]);
   const mood: InkyState =
     chat?.activity === "typing"
@@ -189,10 +190,11 @@ export function ChatWorkspace(props: ChatProps) {
     }
   }, [draft.text, view]);
   useEffect(() => {
-    if (school || !log.current || !messages.length) return;
-    if (assignment) log.current.lastElementChild?.scrollIntoView({ block: "nearest" });
+    if (!log.current || !messages.length) return;
+    if (school && !(scanActive && !scanDetails)) return;
+    if (school || assignment) log.current.lastElementChild?.scrollIntoView({ block: "nearest" });
     else log.current.scrollTop = log.current.scrollHeight;
-  }, [chat?.job.messages.length, timeline.length, active, view]);
+  }, [chat?.job.messages.length, timeline.length, active, view, school, scanActive, scanDetails, assignment]);
   useEffect(() => {
     const persist = (event: Event) => {
       try {
@@ -339,7 +341,11 @@ export function ChatWorkspace(props: ChatProps) {
                         ))}
                       </div>
                     )}
-                    <p>{message.text}</p>
+                    {message.role === "assistant" ? (
+                      <ChatMarkdown text={message.text} />
+                    ) : (
+                      <p>{message.text}</p>
+                    )}
                     {message.recovery === "failed" && (
                       <button
                         className="button button--yellow"

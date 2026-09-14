@@ -12,6 +12,7 @@ import {
   type TaskDetail,
   type TaskSummary,
 } from "../../shared/index.js";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 import { Inky, type InkyState } from "./Inky.js";
 import { taskStatusCopy } from "./assignmentPresentation.js";
 import { readDevPreviewConfig } from "./devPreview.js";
@@ -347,9 +348,15 @@ export function DeskDrawer({
 
         {talk.length > 0 && (
           <div className="drawer-talk-log" aria-live="polite">
-            {talk.map((line, index) => (
-              <p className={`drawer-bubble drawer-bubble--${line.who}`} key={`${line.who}-${index}`}>{line.text}</p>
-            ))}
+            {talk.map((line, index) =>
+              line.who === "inky" ? (
+                <div className={`drawer-bubble drawer-bubble--${line.who}`} key={`${line.who}-${index}`}>
+                  <ChatMarkdown text={line.text} />
+                </div>
+              ) : (
+                <p className={`drawer-bubble drawer-bubble--${line.who}`} key={`${line.who}-${index}`}>{line.text}</p>
+              ),
+            )}
           </div>
         )}
       </div>

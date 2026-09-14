@@ -136,6 +136,10 @@ export function installDevPreview(): void {
         currentStep: "Waiting for a linked homework sign-in.",
         failures: [],
         handoff: { kind: "linked_system_sign_in", reason: "WebAssign needs you to sign in before I can keep checking.", requestedAt: now, evidence },
+        messages: [
+          { messageId: "preview-scan-you", role: "user" as const, text: "WebAssign is asking me to sign in.", createdAt: now },
+          { messageId: "preview-scan-inky", role: "assistant" as const, text: "Yes — **WebAssign** is behind that sign-in.\n\n1. Open the school page\n2. Sign in there\n3. Tell me when you’re back", createdAt: now },
+        ],
       },
       workflowRevision: preview.id === "onboarding-handoff" ? null : 1,
     };
@@ -250,7 +254,33 @@ export function installDevPreview(): void {
     return onboarding;
   };
   const home = conversation({kind:'home'});
-  if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
+  const inkyMarkdown = `Tonight I’d start with **IBM Sorting Machine**. It’s due soon, and it’s the one with a clear path.
+
+Here’s how I’d do it:
+
+1. Open the school page and copy the trace table
+2. Walk each pass in \`O(n · k)\` — that’s radix sort
+3. Write the short explanation last
+
+\`\`\`
+after pass 1:  4  1  3  2
+\`\`\`
+
+The prompt is on your [school page](https://school.example.edu/courses/csc316/assignment-sort).
+
+Want me to start, or talk it through first?`;
+  if (preview.id === "chat-markdown") conversations.set("home", {...home, messages:[
+    {messageId:"preview-question",role:"user" as const,text:"What should I work on tonight?",turnIndex:0,createdAt:now},
+    {messageId:"preview-inky",role:"assistant",text:inkyMarkdown,turnIndex:0,createdAt:now},
+  ]});
+  else if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
+  if (preview.id === "assignment") {
+    const assignmentChat = conversation({kind:"assignment", assignmentId:"assignment-sort"});
+    conversations.set("assignment:assignment-sort", {...assignmentChat, messages:[
+      {messageId:"preview-asg-you",role:"user" as const,text:"Can you start this?",turnIndex:0,createdAt:now},
+      {messageId:"preview-asg-inky",role:"assistant",text:"Yes. I’ll **trace the IBM sort** and stop before submit.\n\n1. Open the school page\n2. Fill the trace table\n3. Leave it for you to review",turnIndex:0,createdAt:now},
+    ]});
+  }
   const api: StudiRendererApi = {
     getRuntimeInfo: async () => ({ app: `${version}-preview`, electron: "simulated", chrome: "simulated", node: "simulated" }),
     getContractManifest: async () => CONTRACT_MANIFEST,
@@ -299,7 +329,22 @@ export function installDevPreview(): void {
     installUpdate: async () => ({...await api.getUpdateState(),error:'Preview only — no installer is run.'}),
     getScopedConversation: async target => ({job:conversation(target),activity:chatActivity}),
     stopScopedConversation: async target => {stopRequested=true;chatActivity='idle';return {job:conversation(target),activity:'idle'};},
-    sendScanMessage: async ({text,clientMessageId}) => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,messages:[...onboarding.scan.messages,{messageId:clientMessageId,clientMessageId,role:"user",text,createdAt:new Date().toISOString()}]}};return onboarding; },
+    sendScanMessage: async ({text,clientMessageId}) => {
+      if (!onboarding.scan) return onboarding;
+      const createdAt = new Date().toISOString();
+      onboarding = {
+        ...onboarding,
+        scan: {
+          ...onboarding.scan,
+          messages: [
+            ...onboarding.scan.messages,
+            { messageId: clientMessageId, clientMessageId, role: "user", text, createdAt },
+            { messageId: `preview-scan-inky-${createdAt}`, role: "assistant", text: `Got it. I’ll keep that in mind: **${text.slice(0, 80)}**.`, createdAt },
+          ],
+        },
+      };
+      return onboarding;
+    },
     pauseSchoolScan: async () => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,state:"needs_user",currentStep:"You have the page."}};return onboarding; },
     getConversationState: async () => ({job:conversation({kind:'home'}),activity:chatActivity}),
     stopConversation: async () => {stopRequested=true;chatActivity='idle';return {job:conversation({kind:'home'}),activity:'idle'};},

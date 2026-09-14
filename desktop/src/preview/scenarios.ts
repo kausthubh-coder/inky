@@ -18,6 +18,7 @@ export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId
   {id:'chat-expanded',group:'Chat & updates',title:'chat expanded',note:'Interactive real component fixture'},
   {id:'chat-thinking',group:'Chat & updates',title:'chat thinking',note:'Interactive real component fixture'},
   {id:'chat-error',group:'Chat & updates',title:'chat error',note:'Interactive real component fixture'},
+  {id:'chat-markdown',group:'Chat & updates',title:'Inky markdown',note:'Formatted Inky writing in the real chat'},
   {id:'chat-handoff',group:'Chat & updates',title:'School sign-in handoff',note:'Resume a scan from the conversation'},
   {id:'week-error',group:'Chat & updates',title:'week error',note:'Interactive real component fixture'},
   {id:'week-updating',group:'Chat & updates',title:'week updating',note:'Interactive real component fixture'},

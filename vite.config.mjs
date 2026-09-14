@@ -7,7 +7,7 @@ export default defineConfig({
     outDir: "dist/client",
   },
   optimizeDeps: {
-    include: ["react", "react-dom/client"],
+    include: ["react", "react-dom/client", "react-markdown", "remark-gfm", "remark-breaks"],
   },
   server: {
     host: "0.0.0.0",
