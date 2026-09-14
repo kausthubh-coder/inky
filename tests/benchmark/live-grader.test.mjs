@@ -38,3 +38,20 @@ test("school effects override an agent's clean scan claim", () => {
   const school = inspection(); school.effects.push({ type: "submitted" });
   assert.equal(gradeLive(school, result(), origins).passed, false);
 });
+
+
+test("live grade checks declared requirements and date-only wording independently", () => {
+  const school = inspection(), recorded = result();
+  school.state.activities[0].requirements = ["Explain both observations."];
+  school.state.activities[0].dueAt = null;
+  school.state.activities[0].dueText = "September 20, during class";
+  delete recorded.assignments[0].dueAt;
+  recorded.assignments[0].dueText = "September 20, during class";
+  recorded.assignments[0].instructions = "Explain both observations.";
+  assert.equal(gradeLive(school, recorded, origins).passed, true);
+  recorded.assignments[0].instructions = "";
+  assert.equal(gradeLive(school, recorded, origins).passed, false);
+  recorded.assignments[0].instructions = "Explain both observations.";
+  recorded.assignments[0].dueText = "September 21";
+  assert.equal(gradeLive(school, recorded, origins).passed, false);
+});

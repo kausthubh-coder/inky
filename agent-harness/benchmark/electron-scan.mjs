@@ -12,6 +12,7 @@ const { PiAgentRuntime } = await moduleAt("electron/agent/runtime.js");
 const { SchoolScanCoordinator } = await moduleAt("electron/scan/coordinator.js");
 const { ManagerCoordinator } = await moduleAt("electron/manager/coordinator.js");
 const { openLocalStore } = await moduleAt("electron/storage/index.js");
+const { initializeHomeworkWorkspace } = await moduleAt("electron/files/workspace.js");
 const { ProductPreferencesSchema } = await moduleAt("shared/index.js");
 const { stripSecrets } = await moduleAt("electron/telemetry/service.js");
 app.setPath("userData", join(config.runRoot, "electron"));
@@ -36,10 +37,12 @@ async function initialize() {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.session.on("will-download", event => event.preventDefault());
   window.webContents.session.webRequest.onBeforeRequest((details, callback) => {
-    if (!allowed(details.url)) { violations.push("Attempted navigation outside the fixture"); trace({ kind: "forbidden_navigation", url: details.url }); }
-    callback({ cancel: !allowed(details.url) });
+    const internalPdf = details.url.startsWith("chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/");
+    if (!allowed(details.url) && !internalPdf) { violations.push("Attempted navigation outside the fixture"); trace({ kind: "forbidden_navigation", url: details.url }); }
+    callback({ cancel: !allowed(details.url) && !internalPdf });
   });
   const browser = new BrowserController({ debugger: window.webContents.debugger,
+    session: window.webContents.session,
     getURL: () => window.webContents.getURL(), getTitle: () => window.webContents.getTitle(),
     loadURL: async url => { if (!allowed(url)) { violations.push("Attempted navigation outside the fixture"); trace({ kind: "forbidden_navigation", url }); throw new Error("Only this run's fake school is allowed"); } await window.loadURL(url); },
   });
@@ -68,6 +71,10 @@ async function initialize() {
   const provider = await runtime.getProviderStatus(config.provider);
   if (provider.state !== "ready") throw new Error(`Provider preflight: ${provider.state}`);
   store = await openLocalStore(join(config.runRoot, "store"));
+  const homeworkRoot = join(config.runRoot, "homework");
+  await mkdir(homeworkRoot, { recursive: true });
+  await initializeHomeworkWorkspace(homeworkRoot);
+  await store.productPreferences.put({ ...await store.productPreferences.get(), homeworkRoot });
   if ("workStartMode" in ProductPreferencesSchema.shape) await store.productPreferences.put({ ...await store.productPreferences.get(), workStartMode: "automatic" });
   manager = await ManagerCoordinator.create(store, runtime, { now: () => config.clock });
   const scanRuntime = { createScanSession: async (tools, target, control) => {

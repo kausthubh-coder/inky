@@ -31,6 +31,7 @@ import { courseIdentity, courseObservations, reconcileCourses } from "../storage
 import { resolveRecordId } from "../storage/redirects.js";
 import { assignmentIdentity, exactTarget, isMoodleIndex, normalize, observedTarget, schoolIdentity } from "./source-identity.js";
 import { createSourceCheckpointTools } from "./source-checkpoints.js";
+import { createScanMaterialReader } from "./materials.js";
 import { parseZonedDeadline } from "./zoned-deadline.js";
 
 export interface ScanSessionRuntime {
@@ -388,6 +389,7 @@ export class SchoolScanCoordinator {
   }
 
   #createRecordingTools(scanId: string): ToolDefinition[] {
+    const pdf = createScanMaterialReader({ store: this.#store, browser: this.#browser, scan: () => this.#requiredRunningScan(scanId), observe: () => this.#observe(scanId), now: this.#now });
     const status = defineTool({
       name: "scan_status",
       label: "Read scan progress",
@@ -458,6 +460,7 @@ export class SchoolScanCoordinator {
       instructions: Type.Optional(Type.String({ minLength: 1, maxLength: 8000 })),
       requirementExcerpts: Type.Optional(Type.Array(Type.Object({
         text: Type.String({ minLength: 1, maxLength: 8000 }),
+        sourceRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
         observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
       }), { maxItems: 100 })),
       requirementsComplete: Type.Optional(Type.Boolean()),
@@ -483,7 +486,7 @@ export class SchoolScanCoordinator {
       readonly title: string;
       readonly assignmentKey?: string;
       readonly instructions?: string;
-      readonly requirementExcerpts?: readonly { text: string; observationRef?: string }[];
+      readonly requirementExcerpts?: readonly { text: string; observationRef?: string; sourceRef?: string }[];
       readonly requirementsComplete?: boolean;
       readonly replaceRequirementsFromSource?: boolean;
       readonly missingRequirements?: string[];
@@ -513,13 +516,14 @@ export class SchoolScanCoordinator {
           if (observedCourse && knownIdentity && observedCourse !== knownIdentity) throw new Error("This assignment list belongs to a different course");
           const observation = requireSnapshotFact(snapshot, input.title, input.observationRef, "assignment title");
           if (input.instructions) requireSnapshotFact(snapshot, input.instructions, undefined, "assignment instructions");
+          const sourceTarget = observedTarget(snapshot, input.title, input.observationRef);
+          if (input.dueText ?? input.dueAt) requireAssignmentFact(snapshot, sourceTarget, input.title, (input.dueText ?? input.dueAt)!, undefined, "assignment due date");
           const dueAt = input.dueAt === undefined && input.dueText === undefined
             ? undefined
             : requireObservedDueAt(snapshot, input.dueAt, input.dueText);
           const evidence = this.#evidence(scanId, snapshot, `Observed assignment ${input.title.trim()} in ${observation}.`);
-          const sourceTarget = observedTarget(snapshot, input.title, input.observationRef);
-          const newRequirements = [...(input.requirementExcerpts ?? []), ...(input.instructions ? [{ text: input.instructions }] : [])];
-          for (const excerpt of newRequirements) requireAssignmentFact(snapshot, sourceTarget, input.title, excerpt.text, excerpt.observationRef, "requirement excerpt");
+          const newRequirements = [...(input.requirementExcerpts ?? []), ...(input.instructions ? [{ text: input.instructions, sourceRef: undefined, observationRef: undefined }] : [])];
+          for (const excerpt of newRequirements) if (!excerpt.sourceRef) requireAssignmentFact(snapshot, sourceTarget, input.title, excerpt.text, excerpt.observationRef, "requirement excerpt");
           if (input.schoolStatus) {
             requireAssignmentFact(snapshot, sourceTarget, input.title, input.schoolStatus.text, input.schoolStatus.observationRef, "school submission status");
             requireSchoolStatus(input.schoolStatus.state, input.schoolStatus.text);
@@ -571,7 +575,7 @@ export class SchoolScanCoordinator {
           const assignmentId = priorAssignment?.assignmentId ?? stableId("assignment", sourceIdentity);
           if (input.replaceRequirementsFromSource && (snapshot.truncated || snapshot.search || snapshot.nextOffset !== undefined || !newRequirements.length)) throw new Error("Replacing source requirements needs a full unfiltered observation and current excerpts");
           const priorRequirements = (priorAssignment?.requirementEvidence ?? []).filter(item => !input.replaceRequirementsFromSource || exactTarget(item.evidence.sourceTarget) !== exactTarget(snapshot.url));
-          const requirementEvidence = mergeRequirementEvidence(priorRequirements, newRequirements.map(item => ({ text: item.text.trim(), evidence })));
+          const requirementEvidence = mergeRequirementEvidence(priorRequirements, newRequirements.map(item => ({ text: item.text.trim(), evidence: item.sourceRef ? pdf.resolveExcerpt(item.sourceRef, assignmentId, item.text) : evidence })));
           const missingRequirements = input.missingRequirements ?? priorAssignment?.missingRequirements ?? [];
           if (input.requirementsComplete && (!requirementEvidence.length || missingRequirements.length)) throw new Error("Complete requirements need evidence and no unresolved requirements");
           const requirementsChanged = JSON.stringify(requirementEvidence.map(item => item.text).sort()) !== JSON.stringify((priorAssignment?.requirementEvidence ?? []).map(item => item.text).sort());
@@ -897,7 +901,7 @@ export class SchoolScanCoordinator {
       },
     });
 
-    const tools = [status, recordCourse, recordAssignment, recordAssignments, recordLinkedSystem, inventory, requestHandoff, finish,
+    const tools: ToolDefinition[] = [status, recordCourse, recordAssignment, recordAssignments, recordLinkedSystem, inventory, requestHandoff, finish,
       ...createSourceCheckpointTools({ store: this.#store, scanId, scan: () => this.#requiredRunningScan(scanId),
         observe: () => this.#observe(scanId), evidence: (snapshot, summary) => this.#evidence(scanId, snapshot, summary), now: this.#now,
         checkpointSaved: () => {
@@ -905,6 +909,7 @@ export class SchoolScanCoordinator {
           this.#rotateSession = true;
           void this.#session?.abort().catch(error => this.#reportError(error, scanId));
         } }),
+      pdf.tool,
     ];
     if (tools.some((tool, index) => tool.name !== SCAN_TOOL_NAMES[index])) throw new Error("Scan tools do not match the shared capability contract");
     return tools.map(tool => {

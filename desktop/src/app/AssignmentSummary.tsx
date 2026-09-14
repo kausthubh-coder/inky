@@ -31,7 +31,7 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
       && ["working", "needs_user", "ready_review", "submitting"].includes(lifecycle.execution.phase));
   const scanActive = onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user";
   const eligibility = assignmentWorkEligibility(assignment, new Date().toISOString());
-  const terminalSchoolStatus = canStart && ["submitted", "graded", "locked"].includes(assignment.schoolStatus?.state ?? "");
+  const terminalSchoolStatus = canStart && ["submitted", "graded"].includes(assignment.schoolStatus?.state ?? "");
   const canCheckDetails = canStart && !eligibility.eligible && !terminalSchoolStatus && !otherWork && !scanActive;
   const blocked = (canStart || state === "needs_user") && task
     ? !task.permission.mayAttempt ? "Inky isn’t allowed to attempt this assignment."

@@ -100,7 +100,7 @@ export const SchoolScanSchema = z.strictObject({
 export const SCAN_TOOL_NAMES = [
   "scan_status", "scan_record_course", "scan_record_assignment", "scan_record_assignments",
   "scan_record_linked_system", "scan_record_inventory", "scan_request_handoff", "scan_finish",
-  "scan_check_source", "scan_record_source", "scan_read_assignment",
+  "scan_check_source", "scan_record_source", "scan_read_assignment", "scan_read_material",
 ] as const;
 
 export const CourseSchema = z.strictObject({

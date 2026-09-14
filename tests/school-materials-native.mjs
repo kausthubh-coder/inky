@@ -64,6 +64,40 @@ try {
   snapshot = await browser.snapshot();
   await assert.rejects(download.execute('login', { ref: snapshot.elements.find(e => e.name === 'Unavailable attachment').ref }), /web page/);
   await assert.rejects(download.execute('stale', { ref }), /Stale/);
+  const { createScanMaterialReader } = await import('../dist/electron/scan/materials.js');
+  const { openLocalStore } = await import('../dist/electron/storage/index.js');
+  const { initializeHomeworkWorkspace } = await import('../dist/electron/files/workspace.js');
+  const scanStore = await openLocalStore(join(root, 'scan-store'));
+  try {
+    const homeworkRoot = join(root, 'scan-homework');
+    await mkdir(homeworkRoot);
+    await initializeHomeworkWorkspace(homeworkRoot);
+    await scanStore.productPreferences.put({ ...await scanStore.productPreferences.get(), homeworkRoot });
+    const capturedAt = new Date().toISOString();
+    const assignment = { schemaVersion: 1, assignmentId: 'scan-assignment', courseId: 'scan-course', title: 'Exercise 6', sourceTarget: `${origin}/work`, discoveredAt: capturedAt, evidence: [] };
+    scanStore.assignments.put(assignment);
+    let active = true;
+    const scanPdf = createScanMaterialReader({ store: scanStore, browser, now: () => capturedAt, observe: () => browser.snapshot(), scan: () => {
+      if (!active) throw new Error('Scan stopped');
+      return { scanId: 'native-pdf', observedAssignmentIds: [assignment.assignmentId] };
+    } });
+    const linked = await browser.navigate(`${origin}/work`);
+    const first = await scanPdf.tool.execute('scan-pdf', { assignmentId: assignment.assignmentId, ref: linked.elements.find(e => e.name === 'Exercise 6 Description PDF').ref });
+    assert.match(first.content[0].text, /Add 2 and 3/);
+    assert.equal(browser.state.url, `${origin}/work`, 'reading preserves the assignment page');
+    const evidence = scanPdf.resolveExcerpt(first.details.sourceRef, assignment.assignmentId, 'Add 2 and 3');
+    assert.equal(evidence.kind, 'document');
+    assert.match(evidence.digest, /^sha256:/);
+    assert.throws(() => scanPdf.resolveExcerpt(first.details.sourceRef, assignment.assignmentId, 'invented instruction'), /Quote the attachment/);
+    assert.throws(() => scanPdf.resolveExcerpt(first.details.sourceRef, 'other-assignment', 'Add 2 and 3'), /this assignment/);
+    const second = await scanPdf.tool.execute('scan-page-two', { assignmentId: assignment.assignmentId, documentId: first.details.documentId, page: 2, image: true });
+    assert.equal(second.details.pages, 2);
+    assert.ok(second.content.some(item => item.type === 'image'));
+    assert.match(scanPdf.resolveExcerpt(second.details.sourceRef, assignment.assignmentId, 'Transcribed image text').summary, /Visual transcription/);
+    active = false;
+    await assert.rejects(scanPdf.tool.execute('stopped', { assignmentId: assignment.assignmentId, documentId: first.details.documentId }), /Scan stopped/);
+    console.log('Native: scan PDF provenance, images, scope, page reuse and cancellation passed');
+  } finally { scanStore.close(); }
   console.log('Native: login and stale-link recovery passed; opening original PDF viewer');
   let viewerNavigation = 'loaded';
   try { await browser.navigate(`${origin}/exercise.pdf`); }

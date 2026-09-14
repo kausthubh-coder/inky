@@ -320,3 +320,28 @@ test("eligibility excludes completed, stale, incomplete and overdue work; extens
   };
   assert.equal((await scan.startScan()).scan.state, "partial");
 }));
+
+
+test("list deadlines cannot be borrowed from another assignment", async () => fixture(async ({ scan, runtime, browser }) => {
+  runtime.next = async tools => {
+    const assignment = await recordReady(tools, browser);
+    browser.url = courseUrl;
+    browser.text = `Calculus\nPuzzle Game\nOther homework due ${due}`;
+    const original = browser.snapshot.bind(browser);
+    browser.snapshot = async () => ({ ...await original(), elements: [{ ref: "link", role: "link", name: "Puzzle Game", href: assignmentUrl }] });
+    await assert.rejects(invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title, dueText: due }), /detail page|row/);
+    await finishPartial(tools);
+  };
+  assert.equal((await scan.startScan()).scan.state, "partial");
+}));
+
+test("fresh status and deadline cannot revive stale attachment instructions", async () => fixture(async ({ scan, runtime, browser }) => {
+  runtime.next = async tools => {
+    const ready = await recordReady(tools, browser);
+    const stale = { ...ready, requirementEvidence: ready.requirementEvidence.map(item => ({ ...item, evidence: { ...item.evidence, kind: "document", capturedAt: "2026-08-01T00:00:00.000Z" } })) };
+    assert.equal(assignmentWorkEligibility(stale, now).eligible, false);
+    assert.match(assignmentWorkEligibility(stale, now).reason, /instructions and attached materials/);
+    await finishPartial(tools);
+  };
+  assert.equal((await scan.startScan()).scan.state, "partial");
+}));

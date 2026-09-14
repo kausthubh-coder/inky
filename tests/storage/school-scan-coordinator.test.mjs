@@ -890,6 +890,7 @@ test("new destination links refine legacy directory records without losing their
     browser.elements = turn ? [
       {ref:"course",role:"link",name:"Calculus",href:rootUrl+"courses/calculus"},
       {ref:"assignment",role:"link",name:"Limits practice",href:rootUrl+"assignments/limits"},
+      {ref:"assignment-row",role:"row",name:"Limits practice 2026-09-03T15:00:00.000Z"},
     ] : [];
     const course = await invoke(tools,"scan_record_course",{label:"Calculus"});
     await invoke(tools,"scan_record_assignment",{courseId:course.courseId,title:"Limits practice",...(turn ? {dueAt:"2026-09-03T15:00:00.000Z",dueText:"2026-09-03T15:00:00.000Z"} : {})});

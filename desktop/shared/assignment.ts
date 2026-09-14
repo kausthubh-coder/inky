@@ -59,6 +59,7 @@ export function assignmentWorkEligibility(assignment: Assignment, now: string): 
   if (assignment.requirementsState !== "complete" || !assignment.requirementEvidence?.length || assignment.missingRequirements?.length) {
     return blocked("Read the remaining assignment instructions before starting.");
   }
+  if (!assignment.requirementEvidence.every(item => fresh(item.evidence))) return blocked("Refresh the assignment instructions and attached materials before starting.");
   if (assignment.deadlinePrecision !== "datetime" || !assignment.dueAt || !fresh(assignment.deadlineEvidence)) {
     return blocked("Confirm the exact deadline before starting.");
   }

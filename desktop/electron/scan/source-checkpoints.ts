@@ -49,7 +49,7 @@ export function createSourceCheckpointTools(context: Context): ToolDefinition[] 
         const courseIds = previous.courseIds.filter(id => store.school.listCourses().some(course => course.courseId === id));
         for (const assignmentId of assignmentIds) {
           const assignment = store.assignments.get(assignmentId)!;
-          store.assignments.put({ ...assignment, lastVerifiedScanId: scanId, evidence: [...assignment.evidence.slice(-99), evidence] });
+          store.assignments.put({ ...assignment, lastVerifiedScanId: scanId, requirementEvidence: assignment.requirementEvidence?.map(item => exactTarget(item.evidence.sourceTarget) === exactTarget(snapshot.url) && item.evidence.kind !== "document" ? { ...item, evidence } : item), evidence: [...assignment.evidence.slice(-99), evidence] });
         }
         store.school.putScan({
           ...scan, updatedAt: context.now(),

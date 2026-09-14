@@ -45,6 +45,10 @@ export function gradeLive(inspection, result, origins) {
     if (!actual) continue;
     check(`${item.id}: course`, result.courses?.some(course => course.courseId === actual.courseId && course.label.includes(inspection.state.courses.find(course => course.id === item.courseId).title)), actual.courseId);
     check(`${item.id}: deadline`, item.dueAt ? actual.dueAt === item.dueAt : !actual.dueAt, actual.dueAt ?? null);
+    const normalize = value => String(value ?? "").replace(/\s+/g, " ").trim().toLowerCase();
+    if (!item.dueAt && item.dueText) check(`${item.id}: date-only wording`, normalize(actual.dueText) === normalize(item.dueText), actual.dueText ?? null);
+    const requirements = normalize([actual.instructions, ...(actual.requirementEvidence ?? []).map(entry => entry.text)].filter(Boolean).join("\n"));
+    for (const requirement of item.requirements ?? []) check(`${item.id}: retained requirement: ${requirement}`, requirements.includes(normalize(requirement)), null);
     if (["submitted", "graded"].includes(item.status)) check(`${item.id}: school completion state`, actual.schoolStatus?.state === item.status, actual.schoolStatus?.state ?? null);
   }
   const queuedIds = (result.queue ?? []).filter(item => item.state === "queued").map(entry => canonicalId(assignments.find(item => item.assignmentId === entry.assignmentId) ?? {}));
@@ -71,7 +75,7 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
     fixture: { scenarioId, version: null, seed, clock: null, contentHash: null },
     config: { model, provider, effort, budgetMs, maxToolCalls, phases },
     revision: { gitSha: gitSha ?? spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", windowsHide: true }).stdout.trim(), buildTreeSha256: null, harnessTreeSha256: null },
-    scope: "Live production Pi scan sessions, BrowserController, scan coordinator, storage and queue manager in isolated Electron. Desktop admission/UI, downloads, popup tabs, assignment execution and submission are not exercised.",
+    scope: "Live production Pi scan sessions, BrowserController, scan coordinator, storage and queue manager in isolated Electron. Desktop admission/UI, popup tabs, assignment execution and submission are not exercised.",
     phases: results,
   };
   let child, started = null;

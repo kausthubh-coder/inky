@@ -59,7 +59,7 @@ export function createPdfReadTool(files: HomeworkFiles) {
           } finally { signal?.removeEventListener("abort", cancelRender); }
         }
         signal?.throwIfAborted();
-        return { content, details: { path: input.path, page: pageNumber, pages: pdf.numPages, textTruncated: text.length > 20_000 } };
+        return { content, details: { path: input.path, page: pageNumber, pages: pdf.numPages, text: text.slice(0, 20_000), textTruncated: text.length > 20_000 } };
       } finally {
         signal?.removeEventListener("abort", cancel);
         await loading.destroy();
