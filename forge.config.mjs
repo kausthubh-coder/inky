@@ -2,7 +2,7 @@ export default {
   packagerConfig: {
     name: "Studi",
     executableName: "Studi",
-    asar: true,
+    asar: { unpack: "**/*.node" },
     icon: "assets/studi-inky",
     extraResource: ["assets/studi-inky.png", "assets/studi-inky.ico", "THIRD_PARTY_NOTICES.md"],
     ignore: [

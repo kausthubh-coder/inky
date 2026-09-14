@@ -159,6 +159,20 @@ function axNode(backendDOMNodeId, role, name) {
   };
 }
 
+test("an unresponsive PDF observation returns a recovery error instead of hanging the worker", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const target = fakeTarget([]);
+  target.debugger.sendCommand = async () => new Promise(() => {});
+  const browser = new BrowserController(target);
+  const pending = browser.snapshot();
+  t.mock.timers.tick(10_000);
+  await assert.rejects(pending, /timed out.*screenshot.*download/);
+  target.loadURL = async () => new Promise(() => {});
+  const navigation = browser.navigate("https://school.example.edu/file.pdf");
+  t.mock.timers.tick(15_000);
+  await assert.rejects(navigation, /Navigation did not finish.*browser_download/);
+});
+
 function fakeTarget(nodes, options = {}) {
   let attached = false;
   let url = "https://school.example.edu/";
