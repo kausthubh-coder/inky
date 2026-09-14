@@ -3,7 +3,7 @@
 Two different kinds of evidence share a result format and strict paired comparator.
 
 - `replay` feeds fixed synthetic page observations through the selected build's **actual** scan recording tools, local storage and manager. It measures whether recorded facts and queue decisions are correct. Its browser and model are controlled; token usage is unknown. It is not a speed or model-quality benchmark.
-- `live` runs production Pi scan sessions, BrowserController, scan coordinator, storage and manager in an isolated Electron window against the durable local LMS. It records effective model/reasoning, tool traces, usage when supplied, persisted results, and independent school state. It does not exercise desktop admission, product UI, downloads, popup tabs, or assignment execution/submission.
+- `live` runs production Pi scan sessions, BrowserController, scan coordinator, storage and manager in an isolated Electron window against the durable local LMS. It records effective model/reasoning, tool traces, usage when supplied, persisted results, and independent school state. It does not exercise desktop admission, product UI, popup tabs, or assignment execution/submission.
 
 Run commands with Bun, using Node for SQLite-compatible runtime execution:
 
@@ -28,14 +28,21 @@ bun run benchmark -- compare <baseline-result.json> <candidate-result.json> --ou
 
 For live pairs, keep model, provider, reasoning, scenario, seed, budgets and phase sequence identical. Each run gets a fresh school and agent store. `--phases cold,unchanged` preserves that run's store across two real scans. A changed phase requires the fixture's deterministic `deadline-change` event. A resume phase requires an actual `needs_user` scan and the fixture's `restore-access` event. Unsupported transitions fail; they are not treated as successful recovery. A recovery run keeps its expected interruption visible and cannot pass the all-phases-success comparator; inspect that recovery evidence separately.
 
-Live grading measures the declared assignment inventory, title/course/deadline accuracy, known completed status, and forbidden queue/write effects. It does not establish full requirement capture, answer quality, or that every eligible task was queued. The richer replay checks cover recorded requirements and exact queue eligibility. Hidden Electron uses offscreen rendering and a five-second screenshot timeout; an unavailable frame is a tool error, not a fabricated screenshot.
+Live grading measures declared assignment inventory, title/course/deadline accuracy (including date-only wording), authored on-page requirement retention, known completed status, and forbidden queue/write effects. It does not establish every attachment requirement, answer quality, or that every eligible task was queued. Attachment provenance is separately inspected in persisted records and native tests. The richer replay checks cover recorded requirements and exact queue eligibility. Hidden Electron uses offscreen rendering and a five-second screenshot timeout; an unavailable frame is a tool error, not a fabricated screenshot.
 
 Artifacts live in ignored `.studi-harness/benchmarks/<run-id>/`. Review `result.json`, per-phase school state, and `trace.jsonl`. Records retain incomplete phases and errors. The comparison refuses fixture/configuration mismatches and external exploratory Codex runs. Unknown usage stays `null`; zero tokens are never inferred from a failed request. Token deltas are measurements, not subscription prices or a general model-quality verdict.
 
 ## Ground truth and fairness
 
-The operator process owns the fixture and expected outcomes. Live candidate tools receive public browser URLs and production scan tools, with no shell or file tools. The browser is restricted to the current run's school origins. This is capability separation, not an OS security sandbox against arbitrary native code.
+The operator process owns the fixture and expected outcomes. Live candidate tools receive public browser URLs and production scan tools, with no shell or general filesystem tools. The production scan material reader can save only observed school attachments into that run’s isolated homework folder. The browser is restricted to the current run's school origins. This is capability separation, not an OS security sandbox against arbitrary native code.
 
 The replay corpus recreates submitted/graded work, closed and explicitly accepted late work, date-only deadlines, prerequisites, unavailable status, missing requirements and multi-part instructions. The baseline receives the full continuous instruction passage that its existing tool accepts. New fields are passed only to builds that expose them. The grader does not call production eligibility code and does not trust the agent's success statement.
 
 Exploratory Codex review can inspect public school pages and later inspect all results. A reviewer who has read source scenarios or answer keys is not a blind model trial. Keep their findings separate from controlled model comparisons.
+
+
+## September 14 bounded release check
+
+Use v0.1.9 (`36d5d54`) as the shipped baseline; its preserved `dist` resolves the same locked dependencies as the candidate. The current Electron adapter supplies the real browser session and an initialized isolated homework folder to both builds. Chromium’s built-in PDF viewer resources are allowed without widening allowed school origins. This removes a harness false navigation failure; it is not a scanner quality improvement.
+
+One pair uses smoke, seed 42, Astra/medium, 180 seconds and 90 tools per run. A separate Codex browser observation is informed by previous fixture knowledge and has different tools; it is never admitted to the paired comparator. Preserve older partial pairs as historical evidence. See [readiness report](../../docs/reports/scanner-readiness-2026-09-14.md).

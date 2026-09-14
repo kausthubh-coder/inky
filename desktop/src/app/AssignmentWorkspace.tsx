@@ -58,7 +58,10 @@ export function AssignmentWorkspace({ assignment, task, execution, lifecycle, on
         {browser && <div className="assignment-school">{browser}</div>}
         <section className="assignment-page-scroll assignment-brief" role="tabpanel" id="assignment-panel-assignment" aria-labelledby="assignment-tab-assignment" hidden={Boolean(browser) || tab !== "assignment"} tabIndex={0}>
           <h2>Assignment instructions</h2>
-          <p>{assignment.instructions ?? "No instructions saved yet. Open the school page for the full requirements."}</p>
+          {assignment.requirementEvidence?.length
+            ? assignment.requirementEvidence.map((item, index) => <p key={index}>{item.text}</p>)
+            : <p>{assignment.instructions ?? "No instructions saved yet. Open the school page for the full requirements."}</p>}
+          {assignment.missingRequirements?.length ? <div role="status"><strong>Still needs checking</strong><ul>{assignment.missingRequirements.map((item, index) => <li key={index}>{item}</li>)}</ul></div> : null}
           <button className="assignment-material-link" onClick={() => selectTab("files")}><Icon name="note" />Files for this assignment{fileCount !== null && <span>{fileCount}</span>}<Icon name="right" /></button>
         </section>
         <section className="assignment-page-scroll" role="tabpanel" id="assignment-panel-files" aria-labelledby="assignment-tab-files" hidden={Boolean(browser) || tab !== "files"} tabIndex={0}>

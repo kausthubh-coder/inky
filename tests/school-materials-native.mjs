@@ -94,6 +94,10 @@ try {
     assert.equal(second.details.pages, 2);
     assert.ok(second.content.some(item => item.type === 'image'));
     assert.match(scanPdf.resolveExcerpt(second.details.sourceRef, assignment.assignmentId, 'Transcribed image text').summary, /Visual transcription/);
+    const textLink = await browser.snapshot();
+    const plain = await scanPdf.tool.execute('scan-text', { assignmentId: assignment.assignmentId, ref: textLink.elements.find(e => e.name === 'Starter file').ref });
+    assert.match(plain.content[0].text, /starter = 2 \+ 3/);
+    assert.equal(scanPdf.resolveExcerpt(plain.details.sourceRef, assignment.assignmentId, 'starter = 2 + 3').kind, 'document');
     active = false;
     await assert.rejects(scanPdf.tool.execute('stopped', { assignmentId: assignment.assignmentId, documentId: first.details.documentId }), /Scan stopped/);
     console.log('Native: scan PDF provenance, images, scope, page reuse and cancellation passed');
@@ -119,7 +123,7 @@ try {
   assert.equal(current.details.path, 'materials/Exercise 6 (1).pdf');
   await school.clearStorageData();
   await assert.rejects(download.execute('signed-out', {}), /web page/);
-  const receipt = { mode: 'controlled native Electron', electron: process.versions.electron, node: process.versions.node, profile: root, viewerNavigation, viewerCapture, passed: ['signed-in download from observed link', 'redirect with session cookie', 'duplicate preservation', 'starter file', 'PDF text and image-only page', 'stale link rejection', 'HTML/login rejection', 'current-document download'], notRun: ['real Moodle', 'macOS package'] };
+  const receipt = { mode: 'controlled native Electron', electron: process.versions.electron, node: process.versions.node, profile: root, viewerNavigation, viewerCapture, passed: ['signed-in download from observed link', 'redirect with session cookie', 'duplicate preservation', 'starter file', 'PDF text and image-only page', 'stale link rejection', 'HTML/login rejection', 'current-document download', 'scan PDF/text provenance and assignment isolation', 'scan image-page transcription and cancellation'], notRun: ['real Moodle', 'macOS package'] };
   await writeFile(join(evidence, 'native.json'), JSON.stringify(receipt, null, 2));
   console.log(JSON.stringify(receipt));
   if (process.argv.includes('--live-agent')) {

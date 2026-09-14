@@ -1,3 +1,5 @@
+> September 14 follow-up: [current readiness report](scanner-readiness-2026-09-14.md) integrates v0.1.9 and adds a new bounded comparison. The runs below remain historical evidence.
+
 # Fake school and scan benchmark report
 
 This work builds a repeatable local school, changes how Studi records and queues homework, and compares the current scanner with the previous production build. The baseline is commit `3365ad6`; implementation lives on `codex/fake-lms-scan-comparison` in a separate worktree.

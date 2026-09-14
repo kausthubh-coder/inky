@@ -17,6 +17,7 @@ export const SchoolProfileSchema = z.strictObject({
   defaultPermission: PermissionModeSchema,
   scanCadence: ScanCadenceSchema,
   onboardingState: z.enum(["profile_saved", "needs_sign_in", "scanning", "ready"]),
+  onboardingCompletedAt: IsoTimestampSchema.optional(),
   missedCourseFeedback: z.array(z.string().trim().min(1).max(500)).max(20),
   updatedAt: IsoTimestampSchema,
 });
@@ -199,7 +200,7 @@ export function hasCompletedSchoolOnboarding(
   state: Pick<SchoolOnboardingState, "profile" | "scan" | "workflowRevision">,
 ): boolean {
   if (!state.profile) return false;
-  if (state.workflowRevision !== null) return true;
+  if (state.profile.onboardingCompletedAt || state.workflowRevision !== null) return true;
   return Boolean(
     state.scan?.completedAt && !state.scan.targetAssignmentId &&
     (state.scan.state === "succeeded" || state.scan.state === "partial") &&

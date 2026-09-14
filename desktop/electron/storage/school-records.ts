@@ -173,6 +173,15 @@ export class SchoolRepository {
     return row ? this.#canonicalScan(parseScanRow(row.scan_id, row)) : null;
   }
 
+  completedOnboardingAt(schoolRoot: string): string | undefined {
+    const rows = this.database.handle.prepare("SELECT record_json FROM school_scans WHERE state IN ('succeeded', 'partial') AND completed_at IS NOT NULL ORDER BY rowid DESC").all() as JsonRow[];
+    for (const row of rows) {
+      const scan = parseRow(SchoolScanSchema, row, "school scan");
+      if (!scan.targetAssignmentId && scan.coverage.some(item => item.evidence && new URL(item.evidence.sourceTarget).origin === new URL(schoolRoot).origin)) return scan.completedAt;
+    }
+    return undefined;
+  }
+
   resolveCourseId(courseId: string): string {
     return resolveRecordId(this.database, "course", courseId);
   }

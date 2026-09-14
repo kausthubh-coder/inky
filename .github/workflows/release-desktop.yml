@@ -25,8 +25,8 @@ jobs:
       - run: bun run test
       - run: bun run test:auth
       - run: bun run test:telemetry
-      - name: Verify PDF materials and chat regressions
-        run: node --test tests/storage/school-materials.test.mjs tests/storage/lifecycle-execution.test.mjs tests/agent/browser-controller.test.mjs
+      - name: Verify scan, materials and chat regressions
+        run: node --test tests/storage/school-materials.test.mjs tests/storage/lifecycle-execution.test.mjs tests/agent/browser-controller.test.mjs tests/storage/scan-evidence.test.mjs tests/benchmark/*.test.mjs
       - run: bun run test:ui
       - name: Verify authenticated downloads and PDF rendering in Electron
         run: bunx electron tests/school-materials-native.cjs
@@ -77,8 +77,8 @@ jobs:
       - run: bun run test
       - run: bun run test:auth
       - run: bun run test:telemetry
-      - name: Verify PDF materials and chat regressions
-        run: node --test tests/storage/school-materials.test.mjs tests/storage/lifecycle-execution.test.mjs tests/agent/browser-controller.test.mjs
+      - name: Verify scan, materials and chat regressions
+        run: node --test tests/storage/school-materials.test.mjs tests/storage/lifecycle-execution.test.mjs tests/agent/browser-controller.test.mjs tests/storage/scan-evidence.test.mjs tests/benchmark/*.test.mjs
       - run: bun run test:ui
       - name: Verify authenticated downloads and PDF rendering in Electron
         run: bunx electron tests/school-materials-native.cjs

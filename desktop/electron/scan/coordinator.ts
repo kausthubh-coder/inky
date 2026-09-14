@@ -83,6 +83,11 @@ export class SchoolScanCoordinator {
     this.#maxSourcesPerSession = options.maxSourcesPerSession ?? 8;
     this.#maxSessionsPerRun = options.maxSessionsPerRun ?? 8;
     if (![this.#maxSourcesPerSession, this.#maxSessionsPerRun].every(value => Number.isInteger(value) && value >= 1 && value <= 100)) throw new Error("Scan session budgets must be integers between 1 and 100");
+    const savedProfile = store.school.getProfile();
+    if (savedProfile && !savedProfile.onboardingCompletedAt) {
+      const onboardingCompletedAt = store.school.completedOnboardingAt(savedProfile.schoolRoot);
+      if (onboardingCompletedAt) store.school.putProfile({ ...savedProfile, onboardingCompletedAt });
+    }
     const interrupted = store.school.latestScan();
     if (interrupted?.state === "running") {
       this.#fail(interrupted.scanId, "Studi stopped before the school scan finished. Continue this scan from its saved source checkpoints.");
@@ -123,6 +128,7 @@ export class SchoolScanCoordinator {
         previous?.onboardingState === "ready" && previous.schoolRoot === input.schoolRoot
           ? "ready"
           : "profile_saved",
+      ...(previous?.schoolRoot === input.schoolRoot && previous.onboardingCompletedAt ? { onboardingCompletedAt: previous.onboardingCompletedAt } : {}),
       missedCourseFeedback: previous?.missedCourseFeedback ?? [],
       updatedAt: this.#now(),
     };
@@ -1149,7 +1155,11 @@ For login, request a school_sign_in handoff with the exact blocker; resume this 
   #updateProfileState(onboardingState: SchoolProfile["onboardingState"]): void {
     if (this.#store.school.latestScan()?.targetAssignmentId) return;
     const profile = this.#store.school.getProfile();
-    if (profile) this.#store.school.putProfile({ ...profile, onboardingState, updatedAt: this.#now() });
+    if (profile) {
+      const scan = this.#store.school.latestScan();
+      const onboardingCompletedAt = profile.onboardingCompletedAt ?? (scan?.completedAt && ["succeeded", "partial"].includes(scan.state) && scan.coverage.length ? scan.completedAt : undefined);
+      this.#store.school.putProfile({ ...profile, ...(onboardingCompletedAt ? { onboardingCompletedAt } : {}), onboardingState, updatedAt: this.#now() });
+    }
   }
 
   async #writeWorkflowHints(scanId: string, hints: readonly string[]): Promise<void> {
