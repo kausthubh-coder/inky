@@ -5,7 +5,7 @@ import { BROWSER_KEYS, formatSnapshot, type BrowserController } from "./controll
 
 export function createBrowserTools(
   controller: BrowserController,
-  options: { readonly includeSubmit?: boolean } = {},
+  options: { readonly includeSubmit?: boolean; readonly readOnly?: boolean } = {},
 ): ToolDefinition[] {
   const snapshot = defineTool({
     name: "browser_snapshot",
@@ -32,7 +32,7 @@ export function createBrowserTools(
     label: "Click visible element",
     description: "Click a current snapshot ref. This tool refuses known submission controls.",
     parameters: Type.Object({ ref: Type.String({ minLength: 1, maxLength: 64 }) }, { additionalProperties: false }),
-    execute: async (_toolCallId, input) => result(await controller.click(input.ref)),
+    execute: async (_toolCallId, input) => result(await controller.click(input.ref, false, options.readOnly)),
   });
   const type = defineTool({
     name: "browser_type",
@@ -45,7 +45,7 @@ export function createBrowserTools(
       },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => result(await controller.type(input.ref, input.text)),
+    execute: async (_toolCallId, input) => result(await controller.type(input.ref, input.text, options.readOnly)),
   });
   const select = defineTool({
     name: "browser_select",
@@ -55,7 +55,7 @@ export function createBrowserTools(
       { ref: Type.String({ minLength: 1, maxLength: 64 }), value: Type.String({ maxLength: 2_000 }) },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => result(await controller.select(input.ref, input.value)),
+    execute: async (_toolCallId, input) => result(await controller.select(input.ref, input.value, options.readOnly)),
   });
   const press = defineTool({
     name: "browser_press",
@@ -65,7 +65,7 @@ export function createBrowserTools(
       { key: Type.Union(BROWSER_KEYS.map((key) => Type.Literal(key))) },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => result(await controller.press(input.key)),
+    execute: async (_toolCallId, input) => result(await controller.press(input.key, options.readOnly)),
   });
   const wait = defineTool({
     name: "browser_wait",
@@ -123,7 +123,7 @@ export function createBrowserTools(
     }),
   });
 
-  return options.includeSubmit === false
+  return options.includeSubmit === false || options.readOnly
     ? [snapshot, navigate, click, type, select, press, wait, scroll, link, screenshot]
     : [snapshot, navigate, click, type, select, press, wait, scroll, link, screenshot, submit];
 }

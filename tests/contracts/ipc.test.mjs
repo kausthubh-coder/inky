@@ -18,6 +18,19 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+test("optional scan intent supports the existing no-argument call and validates assignment scope", async () => {
+  const received = [];
+  const api = composeIpc({ startSchoolScan: { ...studiIpcRegistry.startSchoolScan, resultSchema: z.boolean() } }, {
+    startSchoolScan: input => { received.push(input); return true; },
+  }, []);
+  assert.equal(await api.startSchoolScan(), true);
+  assert.equal(await api.startSchoolScan({ assignmentId: "assignment-1" }), true);
+  assert.deepEqual(received, [undefined, { assignmentId: "assignment-1" }]);
+  await assert.rejects(api.startSchoolScan({ assignmentId: "" }), z.ZodError);
+  await assert.rejects(api.startSchoolScan({ assignmentId: "assignment-1", submit: true }), z.ZodError);
+  await assert.rejects(api.startSchoolScan({}, "extra"), /expects 1 argument/);
+});
+
 function composeIpc(registry, handlers, calls) {
   const registrations = createIpcHandlerRegistrations(registry, handlers);
   return createIpcApi(registry, async (channel, request) => {

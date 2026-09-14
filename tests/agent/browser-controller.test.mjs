@@ -221,3 +221,21 @@ test("explicit draft-save buttons can post a form while final and ambiguous subm
     }
   }
 });
+
+test("read-only scan tools deny draft saves, answer fields and keyboard activation while allowing navigation", async () => {
+  for (const label of ["Save draft", "Save as draft", "Submit assignment", "Mark as done", "Course details"]) {
+    const target = fakeTarget([axNode(1, "button", label)], { inspection: { connected: true, disabled: false, submission: label.startsWith("Save"), label } });
+    const controller = new BrowserController(target);
+    const tools = createBrowserTools(controller, { readOnly: true });
+    assert.equal(tools.some(tool => tool.name === "browser_submit"), false);
+    const snapshot = await controller.snapshot();
+    const click = () => tools.find(tool => tool.name === "browser_click").execute("scan", { ref: snapshot.elements[0].ref });
+    if (label === "Course details") { await click(); assert.equal(target.clicks, 1); }
+    else { await assert.rejects(click(), /read-only/); assert.equal(target.clicks, 0); }
+    const current = await controller.snapshot();
+    await assert.rejects(controller.type(current.elements[0].ref, "answer", true), /only identified search or filter/);
+    await assert.rejects(controller.select(current.elements[0].ref, "answer", true), /only identified search or filter/);
+    await assert.rejects(controller.press("Enter", true), /read-only/);
+    assert.equal(target.keyEvents, 0);
+  }
+});

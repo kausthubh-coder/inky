@@ -156,7 +156,8 @@ export class PiAgentRuntime implements AgentRuntime {
       ? createBrowserTools(options.browserController, { includeSubmit: false })
       : null;
     this.#assignmentBrowser = options.assignmentBrowser;
-    this.#scanBrowserTools = options.scanBrowserController ? createBrowserTools(options.scanBrowserController, {includeSubmit:false}) : this.#assignmentBrowserTools;
+    const scanBrowser = options.scanBrowserController ?? options.browserController;
+    this.#scanBrowserTools = scanBrowser ? createBrowserTools(scanBrowser, { includeSubmit: false, readOnly: true }) : null;
     this.#workerTools = this.#browserTools ?? [studiProbe];
     const initialModel = options.model ?? selectDefaultModel(modelRuntime);
     if (initialModel) {

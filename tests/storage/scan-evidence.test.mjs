@@ -66,6 +66,84 @@ async function finishPartial(tools) {
   return invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "partial", failure: "Other class sources still need checking." }], navigationHints: [] });
 }
 
+test("a scoped details check refreshes only its assignment and waits for an explicit work request", async () => fixture(async ({ scan, runtime, browser, store, manager }) => {
+  let assignment;
+  runtime.next = async tools => { assignment = await recordReady(tools, browser); await finishPartial(tools); };
+  const previous = (await scan.startScan()).scan;
+  const profile = store.school.getProfile();
+  store.assignments.put({ ...assignment, requirementsState: "partial", missingRequirements: ["README requirements"] });
+  const unrelated = store.assignments.put({ ...assignment, assignmentId: "unrelated", title: "Other assignment", sourceTarget: "https://school.example/mod/assign/view.php?id=999", sourceIdentity: undefined });
+  manager.setWorkStartMode("automatic");
+  const task = store.tasks.listAll().find(item => item.assignmentId === assignment.assignmentId);
+  runtime.next = async tools => {
+    assert.equal(browser.url, assignment.sourceTarget);
+    browser.detail();
+    await assert.rejects(invoke(tools, "scan_record_course", { label: "Calculus" }), /cannot change school/);
+    await assert.rejects(invoke(tools, "scan_read_assignment", { assignmentId: unrelated.assignmentId }), /selected/);
+    await assert.rejects(invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: "Other assignment" }), /only the selected assignment/);
+    await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title, dueText: due,
+      schoolStatus: { state: "not_submitted", text: "Not submitted" },
+      requirementExcerpts: [{ text: "Build a playable game." }, { text: "Submit a README PDF with walkthroughs." }], requirementsComplete: true, missingRequirements: [] });
+    const snapshot = browser.snapshot.bind(browser);
+    const rubricUrl = "https://school.example/puzzle-rubric";
+    browser.snapshot = async () => { const page = await snapshot(); return { ...page, elements: [...page.elements, { ref: `r${page.revision}:2`, role: "link", name: "Puzzle rubric", href: rubricUrl }] }; };
+    await invoke(tools, "scan_check_source", { kind: "details" });
+    browser.url = rubricUrl;
+    browser.text = "Puzzle Game\nProvide a walkthrough for every level.";
+    await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title,
+      requirementExcerpts: [{ text: "Provide a walkthrough for every level." }], requirementsComplete: true, missingRequirements: [] });
+    await invoke(tools, "scan_record_source", { kind: "details", courseId: assignment.courseId, state: "checked", assignmentIds: [assignment.assignmentId] });
+    await invoke(tools, "scan_finish", { coverage: [{ target: `Assignment: ${assignment.title}`, status: "verified" }], navigationHints: [] });
+  };
+  const result = await scan.startScan(assignment.assignmentId);
+  assert.equal(result.scan.state, "succeeded", result.scan.failures.join("; "));
+  assert.equal(result.scan.targetAssignmentId, assignment.assignmentId);
+  assert.deepEqual(result.scan.observedCourseIds, []);
+  assert.deepEqual(store.school.getScan(previous.scanId), previous);
+  assert.deepEqual(store.school.getProfile(), profile);
+  assert.deepEqual(store.assignments.get(unrelated.assignmentId), JSON.parse(JSON.stringify(unrelated)));
+  assert.equal(assignmentWorkEligibility(store.assignments.get(assignment.assignmentId), now).eligible, true);
+  assert.equal(store.assignments.get(assignment.assignmentId).sourceTarget, assignment.sourceTarget);
+  assert.equal(store.assignments.get(assignment.assignmentId).sourceIdentity, assignment.sourceIdentity);
+  assert.equal(store.assignments.get(assignment.assignmentId).requirementEvidence.length, 3);
+  assert.equal(manager.state().entries.length, 0, "even automatic mode cannot enqueue from a read-only check");
+  assert.equal(manager.state().lease, null);
+  assert.equal(store.tasks.get(task.taskId).state, "discovered");
+  manager.setWorkStartMode("manual");
+  manager.enqueue({ taskId: task.taskId, requestOrigin: "student" });
+  assert.equal(manager.state().entries[0].requestOrigin, "student");
+  await assert.rejects(scan.startScan("no-longer-exists"), /no longer available/);
+}));
+
+test("scoped sign-in recovery survives coordinator restart and submitted work stays out of the queue", async () => fixture(async ({ scan, runtime, browser, store, manager }) => {
+  let assignment;
+  runtime.next = async tools => { assignment = await recordReady(tools, browser); await finishPartial(tools); };
+  await scan.startScan();
+  store.assignments.put({ ...assignment, requirementsState: "partial" });
+  runtime.next = async tools => { await invoke(tools, "scan_request_handoff", { kind: "school_sign_in", reason: "Sign in to check this assignment." }); };
+  const paused = await scan.startScan(assignment.assignmentId);
+  assert.equal(paused.scan.state, "needs_user");
+  await assert.rejects(scan.startScan(assignment.assignmentId), /already owns|must finish/);
+  scan.dispose();
+  const resumed = new SchoolScanCoordinator(store, runtime, browser, { manager, now: () => now });
+  try {
+    runtime.next = async tools => {
+      browser.detail(); browser.text = browser.text.replace("Not submitted", "Submitted for grading");
+      await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title,
+        schoolStatus: { state: "submitted", text: "Submitted for grading" } });
+      await invoke(tools, "scan_finish", { coverage: [{ target: `Assignment: ${assignment.title}`, status: "verified" }], navigationHints: [] });
+    };
+    const result = await resumed.resume();
+    assert.equal(result.scan.state, "succeeded", result.scan.failures.join("; "));
+    assert.equal(result.scan.scanId, paused.scan.scanId);
+    assert.equal(result.scan.targetAssignmentId, assignment.assignmentId);
+    assert.match(runtime.prompts.at(-1), /Check only this selected assignment/);
+    assert.equal(store.assignments.get(assignment.assignmentId).schoolStatus.state, "submitted");
+    assert.equal(assignmentWorkEligibility(store.assignments.get(assignment.assignmentId), now).eligible, false);
+    assert.equal(manager.state().entries.length, 0);
+  } finally { resumed.dispose(); }
+}));
+
 test("separate excerpts persist; date-only updates remove invented precision; false submission and late claims fail", async () => fixture(async ({ scan, runtime, browser, store }) => {
   runtime.next = async tools => {
     const assignment = await recordReady(tools, browser);

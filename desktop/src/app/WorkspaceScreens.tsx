@@ -99,6 +99,7 @@ export function DashboardScreen({
   onVerifySubmission,
   onOpenArtifact,
   onScanAgain,
+  onCheckAssignment,
   onStopAndScan,
   onConnectRuntime,
   onFeedback,
@@ -128,6 +129,7 @@ export function DashboardScreen({
   onVerifySubmission: (taskId: string, confirmation: string) => void;
   onOpenArtifact: (taskId: string) => void;
   onScanAgain: () => void;
+  onCheckAssignment: (assignmentId: string) => void;
   onStopAndScan: (taskId: string) => void;
   onConnectRuntime: () => void;
   onFeedback: (context: string, message: string) => Promise<boolean>;
@@ -428,6 +430,7 @@ export function DashboardScreen({
         mood={inkyState}
         actionError={error}
         onStart={onStart}
+        onCheckAssignment={id => { setSchoolOpen(true); setChatView("expanded"); onCheckAssignment(id); }}
         onOpenWork={onOpenDesk}
         onOpenSchoolCheck={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }}
         onOpenRules={() => chrome.onNavigate("settings", "rules")}

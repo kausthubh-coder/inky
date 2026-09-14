@@ -70,6 +70,8 @@ export const SchoolScanSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   scanId: z.string().min(1).max(256),
   kind: z.enum(["first_scan", "replay"]),
+  targetAssignmentId: z.string().min(1).max(256).optional(),
+  targetSourceTargets: z.array(SafeSourceTargetSchema).max(500).optional(),
   state: z.enum(["running", "needs_user", "succeeded", "partial", "failed"]),
   startedAt: IsoTimestampSchema,
   updatedAt: IsoTimestampSchema,
@@ -199,7 +201,7 @@ export function hasCompletedSchoolOnboarding(
   if (!state.profile) return false;
   if (state.workflowRevision !== null) return true;
   return Boolean(
-    state.scan?.completedAt &&
+    state.scan?.completedAt && !state.scan.targetAssignmentId &&
     (state.scan.state === "succeeded" || state.scan.state === "partial") &&
     state.scan.coverage.length > 0,
   );

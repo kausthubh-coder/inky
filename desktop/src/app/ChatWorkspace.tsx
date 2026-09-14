@@ -34,6 +34,7 @@ interface ChatProps {
   actionError: string | null;
   scanBusy: string | null;
   onStart: (id: string) => void;
+  onCheckAssignment: (assignmentId: string) => void;
   onOpenWork: () => void;
   onOpenSchoolCheck: () => void;
   onOpenRules: () => void;
@@ -519,7 +520,7 @@ export function ChatWorkspace(props: ChatProps) {
       busy={props.scanBusy} conversation={conversation} composer={composer} browser={schoolBrowser}
       error={(error || props.actionError) && <p className="chat-error" role="alert">{error || props.actionError}</p>}
       onClose={() => onView("home")} onBrowser={openBrowser} onCloseBrowser={() => setBrowser(false)}
-      onStart={props.onStart} onResume={props.onResume} onPause={props.onTakeover} onCancel={props.onCancel}
+      onStart={props.onStart} onCheckAssignment={props.onCheckAssignment} onResume={props.onResume} onPause={props.onTakeover} onCancel={props.onCancel}
       onOpenWork={props.onOpenWork} onOpenSchoolCheck={props.onOpenSchoolCheck} onOpenRules={props.onOpenRules}
       onOpenArtifact={props.onOpenArtifact} onVerifySubmission={props.onVerifySubmission} />
   ) : (

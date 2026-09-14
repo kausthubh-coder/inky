@@ -423,9 +423,9 @@ const ipcHandlers: StudiIpcHandlers = {
     requireTelemetryService().setPerson({ student_name: input.studentName, school_root: input.schoolRoot });
     return state;
   },
-  startSchoolScan: async () => {
+  startSchoolScan: async (input) => {
     await requireReadyProviderForScan();
-    return runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startScan());
+    return runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startScan(input?.assignmentId));
   },
   resumeSchoolScan: async () => {
     await requireReadyProviderForScan();

@@ -74,11 +74,12 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
       {!owner && <div className="scan-hero-action">
         {view.running ? <button className="button button--paper" disabled={disabled} onClick={onPause}>Pause scan</button>
           : view.signIn ? <button className="button button--yellow" disabled={disabled} onClick={onBrowser}>Open sign-in<Icon name="browser" size={17} /></button>
-          : <button className="button button--yellow" disabled={disabled} onClick={onCheck}>{busyStarting ? "Starting scan…" : view.paused ? "Continue scan" : scan?.state === "failed" ? "Restart scan" : scan ? "Scan again" : "Scan for homework"}<Icon name={view.paused ? "right" : "search"} size={17} /></button>}
+          : <button className="button button--yellow" disabled={disabled} onClick={onCheck}>{busyStarting ? "Starting scan…" : scan?.targetAssignmentId && (scan.state === "partial" || scan.state === "failed") ? "Continue checking assignment" : view.paused ? "Continue scan" : scan?.state === "failed" ? "Restart scan" : scan ? "Scan again" : "Scan for homework"}<Icon name={view.paused ? "right" : "search"} size={17} /></button>}
       </div>}
     </div>
     {view.paused && <p className="scan-recovery-note">{view.signIn ? "Sign in on your school page, then continue this scan." : "Your place is saved. Continue when you’re ready."}</p>}
-    {scan?.state === "failed" && <p className="scan-recovery-note">Restart checks your classes again. Your saved homework stays.</p>}
+    {scan?.state === "failed" && <p className="scan-recovery-note">{scan.targetAssignmentId ? "Continue checking this assignment from the saved progress." : "Continue checking from the saved progress. Your saved homework stays."}</p>}
+    {scan?.targetAssignmentId && !view.active && <button className="button button--paper" onClick={() => onAssignment(scan.targetAssignmentId!)}>Back to assignment<Icon name="right" size={17} /></button>}
     {scan?.state === "partial" && <p className="scan-missing-source"><Icon name="warning" size={17} /><span>{view.incompleteLabel}</span></p>}
     {view.changes.length > 0 && <section className="scan-change-list" aria-label="Changes from this scan">
       <h3>{view.active || scan?.state === "failed" ? "Found so far" : "Added & updated in this scan"}</h3>

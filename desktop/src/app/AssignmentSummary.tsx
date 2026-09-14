@@ -4,7 +4,7 @@ import { assignmentState } from "./assignmentPresentation.js";
 import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
 
-export function AssignmentSummary({ assignment, task, execution, lifecycle, onboarding, busy, onStart, onResume, onPause, onBrowser, onAnswer, onOpenWork, onOpenSchoolCheck, onOpenRules }: {
+export function AssignmentSummary({ assignment, task, execution, lifecycle, onboarding, busy, onStart, onCheckAssignment, onResume, onPause, onBrowser, onAnswer, onOpenWork, onOpenSchoolCheck, onOpenRules }: {
   assignment: Assignment;
   task: TaskSummary | null;
   execution: LifecycleState["execution"];
@@ -12,6 +12,7 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
   onboarding: SchoolOnboardingState;
   busy: string | null;
   onStart: (taskId: string) => void;
+  onCheckAssignment: (assignmentId: string) => void;
   onResume: (taskId: string) => void;
   onPause: (taskId: string) => void;
   onBrowser: () => void;
@@ -29,6 +30,8 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
       && ["working", "needs_user", "ready_review", "submitting"].includes(lifecycle.execution.phase));
   const scanActive = onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user";
   const eligibility = assignmentWorkEligibility(assignment, new Date().toISOString());
+  const terminalSchoolStatus = canStart && ["submitted", "graded", "locked"].includes(assignment.schoolStatus?.state ?? "");
+  const canCheckDetails = canStart && !eligibility.eligible && !terminalSchoolStatus && !otherWork && !scanActive;
   const blocked = (canStart || state === "needs_user") && task
     ? !task.permission.mayAttempt ? "Inky isn’t allowed to attempt this assignment."
         : otherWork ? "Inky has another assignment open. Finish or stop that work first."
@@ -87,6 +90,8 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
       label = "View assignment source";
       action = onBrowser;
   }
+  if (terminalSchoolStatus) { label = "View assignment source"; action = onBrowser; }
+  else if (canCheckDetails) { label = "Check assignment details"; action = () => onCheckAssignment(assignment.assignmentId); }
   const pending = otherWork ? null : busy === "assignment" ? (state === "needs_user" ? "Resuming…" : state === "ready_review" ? "Checking submission…" : canStart ? "Starting…" : null)
     : busy === "takeover" ? "Pausing…" : busy === "cancel" ? "Stopping…" : null;
   const heading = state === "working" ? "I’m on it." : state === "needs_user" ? "I’ve kept your place."
@@ -98,15 +103,16 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
   return <section className="assignment-summary" aria-label="Inky’s assignment progress">
       <div className="assignment-inky-intro"><Inky size={72} state={state === "working" || state === "submitting" ? "thinking" : "idle"} /><span>Inky</span></div>
       <h2 aria-live="polite">{heading}</h2>
-      <p id="assignment-action-note" className={blocked ? "assignment-blocked" : ""}>{blocked ?? note}</p>
+      <p id="assignment-action-note" className={blocked ? "assignment-blocked" : ""}>{terminalSchoolStatus || canCheckDetails ? eligibility.reason : blocked ?? note}</p>
       <button className="button button--yellow assignment-primary" autoFocus onClick={action}
-        disabled={(busy !== null && !(state === "working" && busy === "assignment")) || Boolean(blocked) || state === "submitting"}
+        disabled={(busy !== null && !(state === "working" && busy === "assignment")) || (Boolean(blocked) && !canCheckDetails && !terminalSchoolStatus) || state === "submitting"}
         aria-describedby="assignment-action-note">
         <Icon name={state === "working" ? "hand" : state === "ready_review" || state === "preserved" || state === "submitted" ? "check" : "right"} />
         {pending ?? label}
       </button>
     {canStart && !blocked && task && <small className="assignment-permission">{task.permission.maySubmit ? "Can attempt and submit · your saved rule" : "Stops before submission · you review first"}</small>}
-    {blocked && (!task?.permission.mayAttempt
+    {canCheckDetails && <small>I’ll check the missing facts, then wait for you to start.</small>}
+    {blocked && !canCheckDetails && !terminalSchoolStatus && (!task?.permission.mayAttempt
       ? <button className="quiet-button" onClick={onOpenRules}>Homework rules <span aria-hidden="true">↗</span></button>
       : otherWork ? <button className="quiet-button" onClick={onOpenWork}>Go to current assignment <span aria-hidden="true">↗</span></button>
         : <button className="quiet-button" onClick={onOpenSchoolCheck}>Open school check <span aria-hidden="true">↗</span></button>)}

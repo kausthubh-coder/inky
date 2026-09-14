@@ -42,7 +42,7 @@ export function createSourceCheckpointTools(context: Context): ToolDefinition[] 
       const previous = scan.sourceCheckpoints.find(item => exactTarget(item.sourceTarget) === exactTarget(snapshot.url) && item.kind === input.kind && item.courseId === input.courseId);
       const completeObservation = !snapshot.truncated && !snapshot.search && snapshot.nextOffset === undefined;
       const unchanged = completeObservation && previous?.contentDigest === sourceContentDigest(snapshot);
-      const reusable = Boolean(unchanged && previous?.state === "checked" && input.kind === "details" && previous.assignmentIds.length && previous.courseIds.every(id => scan.observedCourseIds.includes(id)));
+      const reusable = Boolean(!scan.targetAssignmentId && unchanged && previous?.state === "checked" && input.kind === "details" && previous.assignmentIds.length && previous.courseIds.every(id => scan.observedCourseIds.includes(id)));
       if (reusable && previous) {
         const evidence = context.evidence(snapshot, "Rechecked unchanged assignment detail source.");
         const assignmentIds = previous.assignmentIds.filter(id => store.assignments.get(id));
@@ -76,9 +76,11 @@ export function createSourceCheckpointTools(context: Context): ToolDefinition[] 
       const snapshot = await context.observe();
       SafeSourceTargetSchema.parse(snapshot.url);
       const scan = context.scan();
+      if (scan.targetAssignmentId && ((input.assignmentIds ?? []).some(id => id !== scan.targetAssignmentId)
+        || !scan.targetSourceTargets?.some(url => exactTarget(url) === exactTarget(snapshot.url)))) throw new Error("Checkpoint sources and assignments must belong to this details check");
       if (input.state === "checked" && (snapshot.truncated || snapshot.search || snapshot.nextOffset !== undefined)) throw new Error("A truncated or filtered source cannot be checkpointed as checked");
       if (input.state === "blocked" && !input.note) throw new Error("A blocked source needs an explanation");
-      if (input.courseId && !scan.observedCourseIds.includes(input.courseId)) throw new Error("Record the course before checkpointing its source");
+      if (input.courseId && !(scan.targetAssignmentId ? store.assignments.get(scan.targetAssignmentId)?.courseId === input.courseId : scan.observedCourseIds.includes(input.courseId))) throw new Error("Record the course before checkpointing its source");
       const assignmentIds = [...new Set(input.assignmentIds ?? [])];
       const assignments = assignmentIds.map(id => store.assignments.get(id));
       for (const assignment of assignments) {
@@ -104,7 +106,8 @@ export function createSourceCheckpointTools(context: Context): ToolDefinition[] 
     description: "Read one saved assignment's full requirements and eligibility. Saved evidence keeps its original timestamp and is not fresh browser evidence.",
     parameters: Type.Object({ assignmentId: Type.String() }, { additionalProperties: false }),
     execute: async (_id, input) => {
-      context.scan();
+      const scan = context.scan();
+      if (scan.targetAssignmentId && input.assignmentId !== scan.targetAssignmentId) throw new Error("Read only the assignment selected for this details check");
       const assignment = store.assignments.get(input.assignmentId);
       if (!assignment) throw new Error("Assignment not found");
       return result({ assignment, eligibility: assignmentWorkEligibility(assignment, context.now()) });
