@@ -86,8 +86,8 @@ jobs:
       - name: Verify both packaged PDF renderer architectures
         run: |
           native="out/Studi-darwin-universal/Studi.app/Contents/Resources/app.asar.unpacked/node_modules/@napi-rs"
-          lipo -verify_arch x86_64 "$native/canvas-darwin-x64/skia.darwin-x64.node"
-          lipo -verify_arch arm64 "$native/canvas-darwin-arm64/skia.darwin-arm64.node"
+          lipo "$native/canvas-darwin-x64/skia.darwin-x64.node" -verify_arch x86_64
+          lipo "$native/canvas-darwin-arm64/skia.darwin-arm64.node" -verify_arch arm64
       - name: Verify PDF reading from the universal Mac package
         run: bunx electron tests/packaged-pdf.cjs out/Studi-darwin-universal/Studi.app/Contents/Resources/app.asar
       - name: Stage macOS disk image
