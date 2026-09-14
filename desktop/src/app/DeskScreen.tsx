@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 
 import {
   classifyAgentRuntimeAttention,
@@ -348,7 +349,9 @@ export function DeskDrawer({
         {talk.length > 0 && (
           <div className="drawer-talk-log" aria-live="polite">
             {talk.map((line, index) => (
-              <p className={`drawer-bubble drawer-bubble--${line.who}`} key={`${line.who}-${index}`}>{line.text}</p>
+              <div className={`drawer-bubble drawer-bubble--${line.who}`} key={`${line.who}-${index}`}>
+                {line.who === "inky" ? <ChatMarkdown text={line.text} /> : line.text}
+              </div>
             ))}
           </div>
         )}
