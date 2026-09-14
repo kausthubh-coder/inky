@@ -193,10 +193,6 @@ test("vendor sign-in and runs are independent; public pages cannot inspect contr
   );
   assert.equal(a.server.inspect().state.sessions.statistics, true);
   assert.equal(a.server.inspect().state.sessions.feedback, false);
-  const logout = await fields(`${a.server.url}/account`);
-  await post(`${a.server.url}/logout`, logout.values);
-  assert.equal(a.server.inspect().state.sessions.school, false);
-  assert.equal(b.server.inspect().state.sessions.school, true);
   const fullAnnouncements = await fields(`${a.server.url}/announcements`),
     smokeAnnouncements = await fields(`${b.server.url}/announcements`),
     emptyVendor = await fields(b.server.origins.statistics);
@@ -204,6 +200,10 @@ test("vendor sign-in and runs are independent; public pages cannot inspect contr
   assert.doesNotMatch(smokeAnnouncements.html, /\/assignments\/partners/);
   assert.match(emptyVendor.html, /data-assignment-list/);
   assert.match(emptyVendor.html, /No assignments are published on this site/);
+  const logout = await fields(`${a.server.url}/account`);
+  await post(`${a.server.url}/logout`, logout.values);
+  assert.equal(a.server.inspect().state.sessions.school, false);
+  assert.equal(b.server.inspect().state.sessions.school, true);
   for (const path of [
     "/truth",
     "/inspect",
