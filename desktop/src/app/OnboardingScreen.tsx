@@ -165,7 +165,7 @@ export function OnboardingScreen({
                 {step === 9 && presentation.kind === "handoff" && <button className="fable-button primary" onClick={onResumeScan} disabled={busy !== null}>{busy === "resume" ? "Checking…" : onboarding?.scan?.handoff?.kind === "student_takeover" ? "Keep looking" : "I'm signed in. Continue"}</button>}
                 {step === 9 && (presentation.kind === "runtime_usage" || presentation.kind === "runtime_unavailable") && <button className="fable-button primary" onClick={onConnectRuntime} disabled={busy !== null}>{presentation.kind === "runtime_usage" ? "Connect another ChatGPT" : "Try again"}</button>}
                 {step === 9 && presentation.kind === "retry" && <button className="fable-button primary" onClick={onStartScan} disabled={!providerReady || busy !== null}>{busy === "scan" ? "Looking…" : "Try again"}</button>}
-                {step === 10 && <button className="fable-button primary" onClick={onFinish}>{defaultPermission === "do_not_attempt" ? "Open my week" : "Open my week and start"}</button>}
+                {step === 10 && <button className="fable-button primary" onClick={onFinish}>Open my week</button>}
               </div>
               {error && <p className="fable-error" role="alert">{error}</p>}
             </div>

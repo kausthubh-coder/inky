@@ -236,7 +236,7 @@ export class BrowserController {
     return result.data;
   }
 
-  async click(ref: string, allowSubmission = false): Promise<BrowserSnapshot> {
+  async click(ref: string, allowSubmission = false, readOnly = false): Promise<BrowserSnapshot> {
     const { objectId, target } = await this.#resolve(ref);
     const inspection = asRecord(
       await this.#callOn(objectId, `function () {
@@ -254,6 +254,10 @@ export class BrowserController {
     );
     const value = asRecord(inspection.value);
     const label = typeof value.label === "string" ? value.label : target.name;
+    if (readOnly && (/\b(save|submit|turn in|hand in|upload|delete|remove|enroll|unenroll|post|reply|send|start attempt|begin attempt|mark as done)\b/i.test(label)
+      || ["checkbox", "radio", "switch"].includes(target.role))) {
+      throw new Error("A read-only school check cannot activate a control that changes schoolwork");
+    }
     // Saving a draft is a form POST on many school sites, but does not hand in work.
     const draftSave = /^save(?: as)? draft$/i.test(label);
     const knownSubmission = SUBMISSION_PATTERN.test(label) || (value.submission === true && !draftSave);
@@ -281,8 +285,20 @@ export class BrowserController {
     return { snapshot, ref: matches[0]!.ref };
   }
 
-  async type(ref: string, text: string): Promise<BrowserSnapshot> {
+  async #assertScanFilter(objectId: string): Promise<void> {
+    const inspected = asRecord(await this.#callOn(objectId, `function () {
+      const tag = String(this.tagName || "").toLowerCase();
+      const type = String(this.type || "").toLowerCase();
+      const label = [this.getAttribute?.("aria-label"), this.placeholder, ...(Array.from(this.labels || []).map(label => label.innerText))].filter(Boolean).join(" ");
+      const safeType = tag === "select" || (tag === "input" && ["text", "search"].includes(type));
+      return { scanFilter: safeType && (type === "search" || this.getAttribute?.("role") === "searchbox" || /\\b(search|filter)\\b/i.test(label)) };
+    }`));
+    if (asRecord(inspected.value).scanFilter !== true) throw new Error("A read-only school check can edit only identified search or filter controls");
+  }
+
+  async type(ref: string, text: string, readOnly = false): Promise<BrowserSnapshot> {
     const { objectId } = await this.#resolve(ref);
+    if (readOnly) await this.#assertScanFilter(objectId);
     await this.#callOn(
       objectId,
       `function (nextValue) {
@@ -301,8 +317,9 @@ export class BrowserController {
     return this.#afterAction();
   }
 
-  async select(ref: string, value: string): Promise<BrowserSnapshot> {
+  async select(ref: string, value: string, readOnly = false): Promise<BrowserSnapshot> {
     const { objectId } = await this.#resolve(ref);
+    if (readOnly) await this.#assertScanFilter(objectId);
     await this.#callOn(
       objectId,
       `function (nextValue) {
@@ -344,7 +361,8 @@ export class BrowserController {
     return this.#afterAction();
   }
 
-  async press(key: BrowserKey): Promise<BrowserSnapshot> {
+  async press(key: BrowserKey, readOnly = false): Promise<BrowserSnapshot> {
+    if (readOnly && !["Tab", "Escape", "PageUp", "PageDown", "Home", "End"].includes(key)) throw new Error("A read-only school check uses clicks for navigation and cannot edit or activate forms with keys");
     if (key === "Enter" && (await this.#enterWouldSubmit())) {
       throw new Error("Enter could submit the current form. Use browser_submit only after the student explicitly asks to submit.");
     }

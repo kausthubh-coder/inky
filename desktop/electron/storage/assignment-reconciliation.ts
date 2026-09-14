@@ -44,8 +44,11 @@ export function reconcileAssignments(store: LocalStore): AssignmentConflict[] {
         matchedPatternIds: store.manager.listConfirmedPatterns(assignment.assignmentId, assignment.courseId).map(match => match.patternId),
       }, store.permissionRules.listAll()).mode));
       const orphanedWork = protectedRecords.length === 1 && protectedRecords[0]!.tasks.length === 0 && records.some(record => record.tasks.length > 0);
-      if (protectedRecords.length > 1 || modes.size > 1 || orphanedWork || records.some(record => record.tasks.length > 1)) {
-        conflicts.push({ assignmentIds: group.map(item => item.assignmentId), reason: modes.size > 1
+      const evidenceConflict = group.some((left, index) => group.slice(index + 1).some(right => conflictingSchoolFacts(left, right)));
+      if (evidenceConflict || protectedRecords.length > 1 || modes.size > 1 || orphanedWork || records.some(record => record.tasks.length > 1)) {
+        conflicts.push({ assignmentIds: group.map(item => item.assignmentId), reason: evidenceConflict
+          ? "These copies have conflicting school status or deadline evidence. Check the school before merging."
+          : modes.size > 1
           ? "These copies have different homework permissions. Review them before merging."
           : "These copies have separate saved work or history. Review them before merging." });
         continue;
@@ -73,6 +76,7 @@ export function reconcileAssignments(store: LocalStore): AssignmentConflict[] {
         }
         kept = {
           ...donor.assignment, ...kept, sourceIdentity: identity,
+          ...mergeSchoolFacts(kept, donor.assignment),
           discoveredAt: [kept.discoveredAt, donor.assignment.discoveredAt].sort()[0]!,
           evidence: [...new Map([...donor.assignment.evidence, ...kept.evidence].map(item => [item.evidenceId, item])).values()],
         };
@@ -90,6 +94,7 @@ function archive(store: LocalStore, kind: "assignment" | "task", id: string, can
 }
 
 function hasWork(store: LocalStore, assignment: Assignment, tasks: Task[], files: string[]): boolean {
+  if (tasks.some(task => store.manager.getQueueEntry(task.taskId)?.requestOrigin === "student")) return true;
   if (tasks.some(task => !["discovered", "queued"].includes(task.state) ||
     store.tasks.listEvents(task.taskId).some(event => event.type !== "task_created" &&
       !(event.payload.from === "discovered" && event.payload.to === "queued")))) return true;
@@ -111,6 +116,33 @@ function hasWork(store: LocalStore, assignment: Assignment, tasks: Task[], files
     }
   }
   return false;
+}
+
+function mergeSchoolFacts(kept: Assignment, donor: Assignment): Partial<Assignment> {
+  const newer = <T extends { evidence: { capturedAt: string } }>(left: T | undefined, right: T | undefined): T | undefined =>
+    !left ? right : right && right.evidence.capturedAt > left.evidence.capturedAt ? right : left;
+  const deadline = !kept.deadlineEvidence && !donor.deadlineEvidence
+    ? { dueAt: kept.dueAt ?? donor.dueAt, dueText: kept.dueText ?? donor.dueText,
+        deadlinePrecision: kept.deadlinePrecision ?? donor.deadlinePrecision, deadlineEvidence: undefined }
+    : !kept.deadlineEvidence || (donor.deadlineEvidence && donor.deadlineEvidence.capturedAt > kept.deadlineEvidence.capturedAt) ? donor : kept;
+  const requirements = [...new Map([...(donor.requirementEvidence ?? []), ...(kept.requirementEvidence ?? [])].map(item => [item.text, item])).values()];
+  const differentRequirements = Boolean(kept.requirementEvidence?.length && donor.requirementEvidence?.length &&
+    JSON.stringify(kept.requirementEvidence.map(item => item.text).sort()) !== JSON.stringify(donor.requirementEvidence.map(item => item.text).sort()));
+  const missing = [...new Set([...(kept.missingRequirements ?? []), ...(donor.missingRequirements ?? []), ...(differentRequirements ? ["Reconcile the different requirement excerpts recorded for these source aliases."] : [])])];
+  return {
+    schoolStatus: newer(kept.schoolStatus, donor.schoolStatus), latePolicy: newer(kept.latePolicy, donor.latePolicy),
+    dueAt: deadline.dueAt, dueText: deadline.dueText, deadlinePrecision: deadline.deadlinePrecision, deadlineEvidence: deadline.deadlineEvidence,
+    requirementEvidence: requirements,
+    requirementsState: !missing.length && (kept.requirementsState === "complete" || donor.requirementsState === "complete") ? "complete" : "partial",
+    missingRequirements: missing,
+  };
+}
+
+function conflictingSchoolFacts(left: Assignment, right: Assignment): boolean {
+  const sameTime = (a: { capturedAt: string } | undefined, b: { capturedAt: string } | undefined) => Boolean(a && b && a.capturedAt === b.capturedAt);
+  return (sameTime(left.schoolStatus?.evidence, right.schoolStatus?.evidence) && left.schoolStatus?.state !== right.schoolStatus?.state)
+    || (sameTime(left.latePolicy?.evidence, right.latePolicy?.evidence) && (left.latePolicy?.state !== right.latePolicy?.state || left.latePolicy?.until !== right.latePolicy?.until))
+    || (sameTime(left.deadlineEvidence, right.deadlineEvidence) && (left.dueAt !== right.dueAt || left.deadlinePrecision !== right.deadlinePrecision || (!left.dueAt && left.dueText !== right.dueText)));
 }
 
 function artifactText(directory: string): string[] {

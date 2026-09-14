@@ -9,6 +9,7 @@ import {
   SchoolOnboardingStateSchema,
   SchoolScanSchema,
   STUDI_SCHEMA_VERSION,
+  assignmentWorkEligibility,
   type AgentRunEvent,
   type Assignment,
   type BrowserSnapshot,
@@ -29,6 +30,9 @@ import { reconcileAssignments } from "../storage/assignment-reconciliation.js";
 import { courseIdentity, courseObservations, reconcileCourses } from "../storage/course-reconciliation.js";
 import { resolveRecordId } from "../storage/redirects.js";
 import { assignmentIdentity, exactTarget, isMoodleIndex, normalize, observedTarget, schoolIdentity } from "./source-identity.js";
+import { createSourceCheckpointTools } from "./source-checkpoints.js";
+import { createScanMaterialReader } from "./materials.js";
+import { parseZonedDeadline } from "./zoned-deadline.js";
 
 export interface ScanSessionRuntime {
   createScanSession(
@@ -43,13 +47,17 @@ export class SchoolScanCoordinator {
   readonly #runtime: ScanSessionRuntime;
   readonly #browser: BrowserController;
   readonly #browserWork: VisibleBrowserWork;
-  readonly #manager: Pick<ManagerCoordinator, "enqueue" | "resolvePermission"> | null;
+  readonly #manager: Pick<ManagerCoordinator, "enqueue" | "resolvePermission" | "reconcileQueue" | "allowsAutomaticWork"> | null;
   readonly #now: () => string;
   readonly #onError: (error: unknown, scanId: string, toolName?: string) => void;
   #session: AgentSession | null = null;
   #sessionScanId: string | null = null;
   #disposed = false;
   #takingOver = false;
+  #sourceChecksThisSession = 0;
+  #rotateSession = false;
+  readonly #maxSourcesPerSession: number;
+  readonly #maxSessionsPerRun: number;
   readonly #pendingMessages = new Set<string>();
 
   constructor(
@@ -59,8 +67,10 @@ export class SchoolScanCoordinator {
     options: {
       readonly now?: () => string;
       readonly browserWork?: VisibleBrowserWork;
-      readonly manager?: Pick<ManagerCoordinator, "enqueue" | "resolvePermission">;
+      readonly manager?: Pick<ManagerCoordinator, "enqueue" | "resolvePermission" | "reconcileQueue" | "allowsAutomaticWork">;
       readonly onError?: (error: unknown, scanId: string, toolName?: string) => void;
+      readonly maxSourcesPerSession?: number;
+      readonly maxSessionsPerRun?: number;
     } = {},
   ) {
     this.#store = store;
@@ -70,9 +80,17 @@ export class SchoolScanCoordinator {
     this.#manager = options.manager ?? null;
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#onError = options.onError ?? (() => undefined);
+    this.#maxSourcesPerSession = options.maxSourcesPerSession ?? 8;
+    this.#maxSessionsPerRun = options.maxSessionsPerRun ?? 8;
+    if (![this.#maxSourcesPerSession, this.#maxSessionsPerRun].every(value => Number.isInteger(value) && value >= 1 && value <= 100)) throw new Error("Scan session budgets must be integers between 1 and 100");
+    const savedProfile = store.school.getProfile();
+    if (savedProfile && !savedProfile.onboardingCompletedAt) {
+      const onboardingCompletedAt = store.school.completedOnboardingAt(savedProfile.schoolRoot);
+      if (onboardingCompletedAt) store.school.putProfile({ ...savedProfile, onboardingCompletedAt });
+    }
     const interrupted = store.school.latestScan();
     if (interrupted?.state === "running") {
-      this.#fail(interrupted.scanId, "Studi stopped before the school scan finished. Saved discoveries are preserved; start a new scan to verify coverage.");
+      this.#fail(interrupted.scanId, "Studi stopped before the school scan finished. Continue this scan from its saved source checkpoints.");
     }
   }
 
@@ -110,6 +128,7 @@ export class SchoolScanCoordinator {
         previous?.onboardingState === "ready" && previous.schoolRoot === input.schoolRoot
           ? "ready"
           : "profile_saved",
+      ...(previous?.schoolRoot === input.schoolRoot && previous.onboardingCompletedAt ? { onboardingCompletedAt: previous.onboardingCompletedAt } : {}),
       missedCourseFeedback: previous?.missedCourseFeedback ?? [],
       updatedAt: this.#now(),
     };
@@ -124,8 +143,8 @@ export class SchoolScanCoordinator {
     return this.state();
   }
 
-  async startScan(): Promise<SchoolOnboardingState> {
-    return this.#browserWork.startScan(() => this.#start("first_scan"));
+  async startScan(assignmentId?: string): Promise<SchoolOnboardingState> {
+    return this.#browserWork.startScan(() => this.#start("first_scan", null, assignmentId));
   }
 
   async replay(): Promise<SchoolOnboardingState> {
@@ -154,13 +173,18 @@ export class SchoolScanCoordinator {
     return this.#browserWork.resumeScan(async () => {
       this.#assertUsable();
       const scan = this.#store.school.latestScan();
-      if (!scan || scan.state !== "needs_user") throw new Error("No school scan is waiting for the student");
+      if (!scan || !["needs_user", "partial", "failed"].includes(scan.state)) throw new Error("No incomplete school scan is available to resume");
       const resumed = this.#store.school.putScan({
         ...scan,
+        ...(Date.parse(this.#now()) - Date.parse(scan.updatedAt) > 24 * 60 * 60 * 1000
+          ? { inventories: [], observedCourseIds: [], observedAssignmentIds: [], observedLinkedSystemIds: [] } : {}),
         state: "running",
         updatedAt: this.#now(),
         currentStep: "Checking the visible browser after the student returned",
         handoff: null,
+        completedAt: undefined,
+        failures: [],
+        coverage: [],
       });
       this.#updateProfileState("scanning");
       return this.#run(resumed, "The student has returned after the requested handoff. Take a fresh browser snapshot. If login still blocks the assignment list, request another handoff and stop. If this is a linked homework system, list the student's assignments or confirm an empty assignment index before recording it verified. Account names and dashboards are not verification. Then continue the same scan.");
@@ -242,12 +266,16 @@ export class SchoolScanCoordinator {
     this.#sessionScanId = null;
   }
 
-  async #start(kind: SchoolScan["kind"], workflow: SchoolScanWorkflow | null = null): Promise<SchoolOnboardingState> {
+  async #start(kind: SchoolScan["kind"], workflow: SchoolScanWorkflow | null = null, targetAssignmentId?: string): Promise<SchoolOnboardingState> {
     this.#assertUsable();
     const profile = this.#requiredProfile();
     const latest = this.#store.school.latestScan();
     if (latest?.state === "running" || latest?.state === "needs_user") {
       throw new Error("The current school scan must finish or resume before another scan starts");
+    }
+    const assignment = targetAssignmentId ? this.#store.assignments.get(targetAssignmentId) : null;
+    if (targetAssignmentId && (!assignment || !this.#store.school.listCourses().some(course => course.courseId === assignment.courseId))) {
+      throw new Error("This assignment is no longer available. Reopen it from your week.");
     }
 
     this.#session?.dispose();
@@ -258,21 +286,24 @@ export class SchoolScanCoordinator {
       schemaVersion: STUDI_SCHEMA_VERSION,
       scanId: `scan-${randomUUID()}`,
       kind,
+      ...(assignment ? { targetAssignmentId: assignment.assignmentId, targetSourceTargets: [assignment.sourceTarget, ...(assignment.requirementEvidence ?? []).map(item => item.evidence.sourceTarget)].slice(0, 500) } : {}),
       state: "running",
       startedAt,
       updatedAt: startedAt,
-      currentStep: "Opening the school root in the visible browser",
+      currentStep: assignment ? `Checking details for ${assignment.title}`.slice(0, 500) : "Opening the school root in the visible browser",
       coverage: [],
       failures: [],
       handoff: null,
       observedCourseIds: [],
       observedAssignmentIds: [],
       observedLinkedSystemIds: [],
+      sourceCheckpoints: latest?.sourceCheckpoints ?? [],
     });
     this.#updateProfileState("scanning");
 
     try {
-      await this.#browser.navigate(profile.schoolRoot);
+      await this.#browser.navigate(assignment?.sourceTarget ?? profile.schoolRoot);
+      if (assignment) return await this.#run(scan, "Check the selected assignment's missing or stale facts. This is a read-only details check; return control to the student when finished.");
 
     const noteEntries = retrieveNoteIndex(this.#store.notes.list(), { kind: "scan", schoolId: profile.profileId });
     const noteBodies = await Promise.all(noteEntries.map(async (entry) => ({ entry, document: await this.#store.notes.read(entry.noteId) })));
@@ -291,7 +322,7 @@ export class SchoolScanCoordinator {
       : "";
     return await this.#run(
       scan,
-      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. Record assignments from their destination links on lists, then visit their detail pages to capture instructions and dates. If a list has no unambiguous link, open the assignment before recording it. Capture its visible instructions and due date (dueText must be the exact visible date). Do not omit visible details. Identify assignment destination links with observationRef when recording a list. Code derives identity from these links, not courseKey or assignmentKey. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing. Navigation hints become a Markdown note. Write them as plain text or Markdown, never HTML.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
+      `Scan the visible school from its root. This turn was started by a typed ${kind === "replay" ? "replay" : "first-scan"} intent. Verify school sign-in through the page, then discover courses and assignments. First record discoveries and visible submission/deadline facts from lists, sections, schedules and announcements. Then investigate unresolved, upcoming or preparation-heavy work; use scan_check_source to reuse unchanged detail-page requirements. Do not force a deep visit to every distant or already submitted assignment. If a list has no unambiguous link, open the assignment before recording it. Retain all relevant facts already observed, with exact dueText and separate requirementExcerpts. Use scan_record_source after each inspected source to save progress and allow bounded session rotation. Use scan_read_assignment for targeted saved details. Missing submission status or requirements remain explicit unknowns; never infer readiness from discovery. Identify assignment destination links with observationRef when recording a list. Code derives identity from these links, not courseKey or assignmentKey. When one page shows several assignments, record them together with scan_record_assignments; do not make one tool call per assignment. Record a linked system only when it is a place teachers put assignments and deadlines and this scan can list the student's homework there. Account names, profile menus, and dashboards are not verification. Do not mark coverage failed because a submit or autograde page is not an assignment catalog. Request a sign-in handoff only when login blocks that list. Record explicit coverage before finishing. Navigation hints become a Markdown note. Write them as plain text or Markdown, never HTML.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
     );
     } catch (error) {
       this.#fail(scan.scanId, `The scan could not start: ${errorMessage(error)}`);
@@ -299,7 +330,9 @@ export class SchoolScanCoordinator {
     }
   }
 
-  async #run(scan: SchoolScan, prompt: string): Promise<SchoolOnboardingState> {
+  async #run(scan: SchoolScan, prompt: string, sessionsRemaining = this.#maxSessionsPerRun): Promise<SchoolOnboardingState> {
+    this.#sourceChecksThisSession = 0;
+    this.#rotateSession = false;
     let reply = "";
     let terminalOutcome: "completed" | "failed" | "aborted" | null = null;
     let unsubscribe: () => void = () => {};
@@ -308,7 +341,7 @@ export class SchoolScanCoordinator {
     if (!session || this.#sessionScanId !== scan.scanId) {
       session?.dispose();
       session = await this.#runtime.createScanSession(this.#createRecordingTools(scan.scanId), {}, {
-        assertActive: () => { this.#requiredRunningScan(scan.scanId); },
+        assertActive: () => { this.#requiredRunningScan(scan.scanId); if (this.#rotateSession) throw new Error("Saved source checkpoint; continuing in a fresh scan session."); },
       });
       this.#session = session;
       this.#sessionScanId = scan.scanId;
@@ -321,11 +354,12 @@ export class SchoolScanCoordinator {
       if (event.type === "tool_finished" && event.outcome === "failed") this.#reportError(event, scan.scanId, event.toolName);
       if (event.type === "terminal" && event.outcome === "failed") this.#reportError(event.reason ?? "Scan model failed", scan.scanId);
     });
-      await session.prompt(`${prompt}\n\n# Durable scan checkpoint\n${JSON.stringify(this.#checkpoint(scan.scanId))}\nThese saved IDs support resuming this scan. Take a new browser snapshot before new claims or actions.`);
+      const assignmentScope = scan.targetAssignmentId ? this.#assignmentScopePrompt(scan) : "";
+      await session.prompt(`${assignmentScope || prompt}\n\n# Durable scan checkpoint\n${JSON.stringify(this.#checkpoint(scan.scanId))}\nThese saved IDs support resuming this scan. Take a new browser snapshot before new claims or actions.`);
     } catch (error) {
       const current = this.#store.school.getScan(scan.scanId);
-      this.#reportError(error, scan.scanId);
-      if (current?.state === "running") this.#fail(scan.scanId, `The scan agent stopped: ${errorMessage(error)}`);
+      if (!this.#rotateSession) this.#reportError(error, scan.scanId);
+      if (current?.state === "running" && !this.#rotateSession) this.#fail(scan.scanId, `The scan agent stopped: ${errorMessage(error)}`);
     } finally {
       unsubscribe();
       const saved = this.#store.school.getScan(scan.scanId);
@@ -333,6 +367,16 @@ export class SchoolScanCoordinator {
     }
 
     const current = this.#store.school.getScan(scan.scanId);
+    if (current?.state === "running" && this.#rotateSession) {
+      this.#session?.dispose();
+      this.#session = null;
+      this.#sessionScanId = null;
+      if (sessionsRemaining > 1) return this.#run(current, "Continue this scan from its saved source checkpoints. Read scan_status; inspect remaining sources and use scan_read_assignment only for the assignment needing detail. Do not repeat already checked sources in this scan. Finish with explicit coverage or request help if access is blocked.", sessionsRemaining - 1);
+      this.#store.school.putScan({ ...current, state: "partial", completedAt: this.#now(), updatedAt: this.#now(),
+        currentStep: "Saved scan progress. More sources remain to check.", failures: ["This check reached its source-session budget; continue from the saved checkpoints."], handoff: null });
+      this.#updateProfileState("profile_saved");
+      return this.state();
+    }
     if (current?.state === "running") {
       const reason = terminalOutcome === "aborted"
         ? "The school scan was aborted before it recorded coverage."
@@ -351,6 +395,7 @@ export class SchoolScanCoordinator {
   }
 
   #createRecordingTools(scanId: string): ToolDefinition[] {
+    const pdf = createScanMaterialReader({ store: this.#store, browser: this.#browser, scan: () => this.#requiredRunningScan(scanId), observe: () => this.#observe(scanId), now: this.#now });
     const status = defineTool({
       name: "scan_status",
       label: "Read scan progress",
@@ -419,6 +464,25 @@ export class SchoolScanCoordinator {
       title: Type.String({ minLength: 1, maxLength: 500 }),
       assignmentKey: Type.Optional(Type.String({ minLength: 1, maxLength: 500 })),
       instructions: Type.Optional(Type.String({ minLength: 1, maxLength: 8000 })),
+      requirementExcerpts: Type.Optional(Type.Array(Type.Object({
+        text: Type.String({ minLength: 1, maxLength: 8000 }),
+        sourceRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+        observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+      }), { maxItems: 100 })),
+      requirementsComplete: Type.Optional(Type.Boolean()),
+      replaceRequirementsFromSource: Type.Optional(Type.Boolean()),
+      missingRequirements: Type.Optional(Type.Array(Type.String({ minLength: 1, maxLength: 500 }), { maxItems: 30 })),
+      schoolStatus: Type.Optional(Type.Object({
+        state: Type.Union([Type.Literal("unknown"), Type.Literal("not_submitted"), Type.Literal("submitted"), Type.Literal("graded"), Type.Literal("locked")]),
+        text: Type.String({ minLength: 1, maxLength: 1000 }),
+        observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+      })),
+      latePolicy: Type.Optional(Type.Object({
+        state: Type.Union([Type.Literal("accepted"), Type.Literal("not_accepted"), Type.Literal("unknown")]),
+        text: Type.String({ minLength: 1, maxLength: 1000 }),
+        until: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
+        untilText: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+      })),
       dueAt: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
       dueText: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
       observationRef: Type.Optional(Type.String({ minLength: 1, maxLength: 100 })),
@@ -428,17 +492,28 @@ export class SchoolScanCoordinator {
       readonly title: string;
       readonly assignmentKey?: string;
       readonly instructions?: string;
+      readonly requirementExcerpts?: readonly { text: string; observationRef?: string; sourceRef?: string }[];
+      readonly requirementsComplete?: boolean;
+      readonly replaceRequirementsFromSource?: boolean;
+      readonly missingRequirements?: string[];
+      readonly schoolStatus?: { state: "unknown" | "not_submitted" | "submitted" | "graded" | "locked"; text: string; observationRef?: string };
+      readonly latePolicy?: { state: "accepted" | "not_accepted" | "unknown"; text: string; until?: string; untilText?: string };
       readonly dueAt?: string;
       readonly dueText?: string;
       readonly observationRef?: string;
     }[]) => {
-      const snapshot = await this.#observe(scanId, inputs.map((input) => input.observationRef));
+      const snapshot = await this.#observe(scanId, inputs.flatMap((input) => [input.observationRef, input.schoolStatus?.observationRef, ...(input.requirementExcerpts ?? []).map(item => item.observationRef)]));
       const scan = this.#requiredRunningScan(scanId);
       return this.#store.database.transaction(() => {
         const changes = [...scan.changes];
         const assignments = inputs.map((rawInput) => {
           const input = { ...rawInput, courseId: this.#store.school.resolveCourseId(rawInput.courseId) };
-          if (!scan.observedCourseIds.map(id => this.#store.school.resolveCourseId(id)).includes(input.courseId)) {
+          const selected = scan.targetAssignmentId ? this.#store.assignments.get(scan.targetAssignmentId) : null;
+          if (scan.targetAssignmentId && (!selected || selected.courseId !== input.courseId || !sameFact(selected.title, input.title)
+            || !scan.targetSourceTargets?.some(url => exactTarget(url) === exactTarget(snapshot.url)))) {
+            throw new Error("This details check can record only the selected assignment from its known or observed linked sources");
+          }
+          if (!selected && !scan.observedCourseIds.map(id => this.#store.school.resolveCourseId(id)).includes(input.courseId)) {
             throw new Error("The assignment's course has not been verified in this scan");
           }
           const observedCourse = schoolIdentity(snapshot.url, "course");
@@ -447,11 +522,31 @@ export class SchoolScanCoordinator {
           if (observedCourse && knownIdentity && observedCourse !== knownIdentity) throw new Error("This assignment list belongs to a different course");
           const observation = requireSnapshotFact(snapshot, input.title, input.observationRef, "assignment title");
           if (input.instructions) requireSnapshotFact(snapshot, input.instructions, undefined, "assignment instructions");
+          const sourceTarget = observedTarget(snapshot, input.title, input.observationRef);
+          if (input.dueText ?? input.dueAt) requireAssignmentFact(snapshot, sourceTarget, input.title, (input.dueText ?? input.dueAt)!, undefined, "assignment due date");
           const dueAt = input.dueAt === undefined && input.dueText === undefined
             ? undefined
             : requireObservedDueAt(snapshot, input.dueAt, input.dueText);
           const evidence = this.#evidence(scanId, snapshot, `Observed assignment ${input.title.trim()} in ${observation}.`);
-          const sourceTarget = observedTarget(snapshot, input.title, input.observationRef);
+          const newRequirements = [...(input.requirementExcerpts ?? []), ...(input.instructions ? [{ text: input.instructions, sourceRef: undefined, observationRef: undefined }] : [])];
+          for (const excerpt of newRequirements) if (!excerpt.sourceRef) requireAssignmentFact(snapshot, sourceTarget, input.title, excerpt.text, excerpt.observationRef, "requirement excerpt");
+          if (input.schoolStatus) {
+            requireAssignmentFact(snapshot, sourceTarget, input.title, input.schoolStatus.text, input.schoolStatus.observationRef, "school submission status");
+            requireSchoolStatus(input.schoolStatus.state, input.schoolStatus.text);
+          }
+          let lateUntil: string | undefined;
+          if (input.latePolicy) {
+            requireAssignmentFact(snapshot, sourceTarget, input.title, input.latePolicy.text, undefined, "late-submission policy");
+            if (input.latePolicy.state === "accepted") {
+              const text = normalizeFact(input.latePolicy.text);
+              const negative = /\b(no|not|never|cannot|can t|closed|expired)\b/.test(text);
+              if (negative || !/\b(late|extension|extended|accepted|accepting|open)\b/.test(text)) throw new Error("Late acceptance requires explicit non-contradictory school evidence");
+            }
+            if (input.latePolicy.until || input.latePolicy.untilText) {
+              if (!input.latePolicy.untilText || !includesFact(input.latePolicy.text, input.latePolicy.untilText)) throw new Error("The late cutoff must occur in the observed acceptance statement");
+              lateUntil = requireObservedDueAt(snapshot, input.latePolicy.until, input.latePolicy.untilText);
+            }
+          }
           if (isMoodleIndex(sourceTarget) || schoolIdentity(sourceTarget, "course")) {
             throw new Error("Open the assignment detail page; this list has no unambiguous assignment link");
           }
@@ -461,7 +556,7 @@ export class SchoolScanCoordinator {
           const sourceIdentity = schoolIdentity(sourceTarget, "assignment") ?? (hasLink
             ? assignmentIdentity(sourceTarget)
             : `observed|${input.courseId}|${exactTarget(sourceTarget)}|${normalize(input.title)}`);
-          if (hasLink && exactTarget(sourceTarget) !== exactTarget(snapshot.url)) {
+          if (!selected && hasLink && exactTarget(sourceTarget) !== exactTarget(snapshot.url)) {
             // Upgrade only an unambiguous legacy observation from this very list
             // and course, confirmed now by its actual link (never title alone).
             const candidates = this.#store.assignments.listAll().filter(assignment =>
@@ -470,7 +565,7 @@ export class SchoolScanCoordinator {
               sameFact(assignment.title, input.title) && (dueAt === undefined || assignment.dueAt === undefined || assignment.dueAt === dueAt));
             if (candidates.length === 1) this.#store.assignments.put({ ...candidates[0], sourceIdentity, sourceTarget });
           }
-          const conflicts = reconcileAssignments(this.#store);
+          const conflicts = selected ? this.#store.assignmentConflicts : reconcileAssignments(this.#store);
           this.#store.assignmentConflicts = conflicts;
           const matches = this.#store.assignments.listAll().filter(assignment =>
             (assignment.sourceIdentity ?? schoolIdentity(assignment.sourceTarget, "assignment")) === sourceIdentity ||
@@ -478,22 +573,36 @@ export class SchoolScanCoordinator {
             ((!assignment.sourceIdentity || assignment.sourceIdentity.startsWith("observed|")) && assignment.courseId === input.courseId &&
               exactTarget(assignment.sourceTarget) === exactTarget(sourceTarget) && sameFact(assignment.title, input.title)));
           const conflict = conflicts.find(item => matches.some(match => item.assignmentIds.includes(match.assignmentId)));
+          if (selected && matches.some(match => match.assignmentId !== selected.assignmentId)) throw new Error("This source identifies a different assignment");
           if (matches.length > 1 && !conflict) throw new Error("Assignment identity is ambiguous; open its detail page before recording it");
           // Commit confirmed identity even when merging needs review. Rolling it
           // back would let a later detail scan forget the conflict and run a copy.
-          const priorAssignment = matches.find(item => item.courseId === input.courseId) ?? matches[0];
+          const priorAssignment = selected ?? matches.find(item => item.courseId === input.courseId) ?? matches[0];
           const assignmentId = priorAssignment?.assignmentId ?? stableId("assignment", sourceIdentity);
+          if (input.replaceRequirementsFromSource && (snapshot.truncated || snapshot.search || snapshot.nextOffset !== undefined || !newRequirements.length)) throw new Error("Replacing source requirements needs a full unfiltered observation and current excerpts");
+          const priorRequirements = (priorAssignment?.requirementEvidence ?? []).filter(item => !input.replaceRequirementsFromSource || exactTarget(item.evidence.sourceTarget) !== exactTarget(snapshot.url));
+          const requirementEvidence = mergeRequirementEvidence(priorRequirements, newRequirements.map(item => ({ text: item.text.trim(), evidence: item.sourceRef ? pdf.resolveExcerpt(item.sourceRef, assignmentId, item.text) : evidence })));
+          const missingRequirements = input.missingRequirements ?? priorAssignment?.missingRequirements ?? [];
+          if (input.requirementsComplete && (!requirementEvidence.length || missingRequirements.length)) throw new Error("Complete requirements need evidence and no unresolved requirements");
+          const requirementsChanged = JSON.stringify(requirementEvidence.map(item => item.text).sort()) !== JSON.stringify((priorAssignment?.requirementEvidence ?? []).map(item => item.text).sort());
           let assignment = this.#store.assignments.put({
             schemaVersion: STUDI_SCHEMA_VERSION,
             ...priorAssignment,
             assignmentId,
             courseId: priorAssignment?.courseId ?? input.courseId,
             title: input.title.trim(),
-            sourceTarget,
-            sourceIdentity: !hasLink && priorAssignment?.sourceIdentity?.startsWith("url|")
-              ? priorAssignment.sourceIdentity : sourceIdentity,
-            ...(dueAt === undefined ? {} : { dueAt }),
-            ...(input.instructions === undefined ? {} : { instructions: input.instructions.trim() }),
+            sourceTarget: selected?.sourceTarget ?? sourceTarget,
+            sourceIdentity: selected ? selected.sourceIdentity : (!hasLink && priorAssignment?.sourceIdentity?.startsWith("url|")
+              ? priorAssignment.sourceIdentity : sourceIdentity),
+            ...(input.dueText === undefined ? {} : { dueAt, deadlinePrecision: dueAt ? "datetime" as const : /\d/.test(input.dueText) ? "date" as const : "unknown" as const, deadlineEvidence: evidence }),
+            ...(input.instructions === undefined && !input.replaceRequirementsFromSource ? {} : { instructions: input.instructions?.trim() }),
+            ...(newRequirements.length ? { requirementEvidence } : {}),
+            ...(input.requirementsComplete !== undefined || requirementsChanged || input.missingRequirements !== undefined ? {
+              requirementsState: input.requirementsComplete === true ? "complete" as const : "partial" as const,
+              missingRequirements,
+            } : {}),
+            ...(input.schoolStatus ? { schoolStatus: { state: input.schoolStatus.state, text: input.schoolStatus.text, evidence } } : {}),
+            ...(input.latePolicy ? { latePolicy: { state: input.latePolicy.state, text: input.latePolicy.text, until: lateUntil, evidence } } : {}),
             ...(input.dueText === undefined ? {} : { dueText: input.dueText.trim() }),
             discoveredAt: priorAssignment?.discoveredAt ?? evidence.capturedAt,
             lastVerifiedScanId: scanId,
@@ -501,9 +610,12 @@ export class SchoolScanCoordinator {
           });
           // Newly recorded list-page evidence can identify a provisional class.
           // Reconcile now so this scan cannot leave another directory alias behind.
-          this.#store.courseConflicts = reconcileCourses(this.#store);
+          if (!selected) this.#store.courseConflicts = reconcileCourses(this.#store);
           assignment = this.#store.assignments.get(assignment.assignmentId)!;
-          const fields = priorAssignment ? ["title", "dueAt", "dueText", "instructions"].filter(field => assignment[field as keyof Assignment] !== priorAssignment[field as keyof Assignment]) : [];
+          const fields = priorAssignment ? ["title", "dueAt", "dueText", "instructions", "requirementsState", "missingRequirements"].filter(field => JSON.stringify(assignment[field as keyof Assignment]) !== JSON.stringify(priorAssignment[field as keyof Assignment])) : [];
+          if (priorAssignment && assignment.schoolStatus?.state !== priorAssignment.schoolStatus?.state) fields.push("schoolStatus");
+          if (priorAssignment && JSON.stringify(assignment.requirementEvidence?.map(item => item.text)) !== JSON.stringify(priorAssignment.requirementEvidence?.map(item => item.text))) fields.push("instructions");
+          if (priorAssignment && (assignment.latePolicy?.state !== priorAssignment.latePolicy?.state || assignment.latePolicy?.until !== priorAssignment.latePolicy?.until)) fields.push("latePolicy");
           const existingChange = changes.find(change => change.assignmentId === assignmentId);
           const dateChanged = fields.includes("dueAt") || fields.includes("dueText");
           const dueChange = priorAssignment && dateChanged ? {
@@ -518,7 +630,7 @@ export class SchoolScanCoordinator {
           } else if (!priorAssignment || fields.length) {
             changes.push({ assignmentId, kind: priorAssignment ? "updated" : "new", fields, ...(dueChange ? { dueChange } : {}) });
           }
-          if (!conflict && !this.#store.courseConflicts.some(item => item.courseIds.includes(assignment.courseId))) this.#ensureTaskOrigin(assignment, scanId);
+          if (!selected && !conflict && !this.#store.courseConflicts.some(item => item.courseIds.includes(assignment.courseId))) this.#ensureTaskOrigin(assignment, scanId);
           return assignment;
         });
         this.#store.school.putScan({
@@ -629,7 +741,7 @@ export class SchoolScanCoordinator {
       }, { additionalProperties: false }),
       execute: async (_toolCallId, input) => {
         const scan = this.#requiredRunningScan(scanId);
-        if (input.kind === "linked_system_sign_in") {
+        if (input.kind === "linked_system_sign_in" && !scan.targetAssignmentId) {
           if (!input.linkedSystemId || !scan.observedLinkedSystemIds.includes(input.linkedSystemId)) {
             throw new Error("A linked-system handoff requires a linked system observed in this scan");
           }
@@ -730,6 +842,7 @@ export class SchoolScanCoordinator {
       }, { additionalProperties: false }),
       execute: async (_toolCallId, input) => {
         const scan = this.#requiredRunningScan(scanId);
+        if (scan.targetAssignmentId) return toolResult(this.#finishAssignmentCheck(scan, input.coverage));
         if (scan.observedCourseIds.length === 0) {
           this.#fail(scanId, "The scan found no browser-verified courses. Nothing was marked complete.");
           throw new Error("A scan cannot complete without at least one browser-verified course");
@@ -794,23 +907,50 @@ export class SchoolScanCoordinator {
       },
     });
 
-    const tools = [status, recordCourse, recordAssignment, recordAssignments, recordLinkedSystem, inventory, requestHandoff, finish];
+    const tools: ToolDefinition[] = [status, recordCourse, recordAssignment, recordAssignments, recordLinkedSystem, inventory, requestHandoff, finish,
+      ...createSourceCheckpointTools({ store: this.#store, scanId, scan: () => this.#requiredRunningScan(scanId),
+        observe: () => this.#observe(scanId), evidence: (snapshot, summary) => this.#evidence(scanId, snapshot, summary), now: this.#now,
+        checkpointSaved: () => {
+          if (++this.#sourceChecksThisSession < this.#maxSourcesPerSession) return;
+          this.#rotateSession = true;
+          void this.#session?.abort().catch(error => this.#reportError(error, scanId));
+        } }),
+      pdf.tool,
+    ];
     if (tools.some((tool, index) => tool.name !== SCAN_TOOL_NAMES[index])) throw new Error("Scan tools do not match the shared capability contract");
-    return tools;
+    return tools.map(tool => {
+      if (!["scan_record_course", "scan_record_inventory", "scan_record_linked_system"].includes(tool.name)) return tool;
+      return { ...tool, execute: async (...args: Parameters<typeof tool.execute>) => {
+        if (this.#requiredRunningScan(scanId).targetAssignmentId) throw new Error("An assignment details check cannot change school inventories, courses or linked-system records");
+        return tool.execute(...args);
+      } };
+    });
   }
 
   async #observe(scanId: string, refs: readonly (string | undefined)[] = []): Promise<BrowserSnapshot> {
+    if (this.#rotateSession) throw new Error("Saved source checkpoint; continuing in a fresh scan session.");
     this.#requiredRunningScan(scanId);
     const snapshot = this.#browser.evidenceSnapshot
       ? await this.#browser.evidenceSnapshot([...new Set(refs.filter((ref): ref is string => Boolean(ref)))])
       : await this.#browser.snapshot();
-    this.#requiredRunningScan(scanId);
+    const scan = this.#requiredRunningScan(scanId);
+    if (scan.targetAssignmentId && scan.targetSourceTargets?.some(url => exactTarget(url) === exactTarget(snapshot.url))) {
+      const links = snapshot.elements.flatMap(element => {
+        const parsed = SafeSourceTargetSchema.safeParse(element.href);
+        return parsed.success ? [parsed.data] : [];
+      });
+      this.#store.school.putScan({ ...scan, targetSourceTargets: [...new Set([...scan.targetSourceTargets, ...links])].slice(0, 500) });
+    }
     return snapshot;
   }
 
   #inventoryGaps(scan: SchoolScan): string[] {
+    if (scan.targetAssignmentId) return [];
     const sameIds = (left: readonly string[], right: readonly string[]) => left.length === right.length && left.every((id) => right.includes(id));
     const gaps: string[] = [];
+    for (const source of scan.sourceCheckpoints) {
+      if (source.scanId === scan.scanId && source.state === "blocked") gaps.push(source.note ?? "A source remains blocked.");
+    }
     if (!scan.inventories.some((item) => item.kind === "courses" && sameIds(item.itemIds, scan.observedCourseIds))) {
       gaps.push("The complete course directory has not been verified.");
     }
@@ -828,20 +968,59 @@ export class SchoolScanCoordinator {
     const scan = this.#store.school.getScan(scanId);
     if (!scan) throw new Error("Scan does not exist");
     return {
-      scan,
+      scan: { scanId: scan.scanId, targetAssignmentId: scan.targetAssignmentId, state: scan.state, currentStep: scan.currentStep, inventories: scan.inventories,
+        sourceCheckpoints: scan.sourceCheckpoints, failures: scan.failures, messages: scan.messages.slice(-10),
+        observedCourseIds: scan.observedCourseIds, observedAssignmentIds: scan.observedAssignmentIds, observedLinkedSystemIds: scan.observedLinkedSystemIds },
       courses: this.#store.school.listCourses().filter((course) => scan.observedCourseIds.includes(course.courseId)),
-      assignments: scan.observedAssignmentIds.map((id) => this.#store.assignments.get(id)),
+      assignments: scan.observedAssignmentIds.flatMap((id) => {
+        const assignment = this.#store.assignments.get(id);
+        return assignment ? [{ assignmentId: id, courseId: assignment.courseId, title: assignment.title,
+          sourceTarget: assignment.sourceTarget, dueAt: assignment.dueAt, dueText: assignment.dueText,
+          schoolStatus: assignment.schoolStatus?.state, requirementsState: assignment.requirementsState,
+          eligibility: assignmentWorkEligibility(assignment, this.#now()) }] : [];
+      }),
       linkedSystems: this.#store.school.listLinkedSystems().filter((system) => scan.observedLinkedSystemIds.includes(system.linkedSystemId)),
       gaps: this.#inventoryGaps(scan),
     };
   }
 
+  #assignmentScopePrompt(scan: SchoolScan): string {
+    const assignment = this.#store.assignments.get(scan.targetAssignmentId!)!;
+    return `Check only this selected assignment: ${JSON.stringify(assignment)}.
+This is a read-only details check, including after a pause, restart or session rotation. It does not authorize starting homework, entering answers, saving drafts or submitting. Do not scan other assignments or record courses/inventories/linked systems.
+Take fresh snapshots of the saved source and its relevant observed links. Call scan_check_source before following a page's links so their observed destinations are saved. Use scan_read_assignment for saved evidence. Record facts using this exact courseId and title; retain the same assignment identity. Gather missing instructions, rubric, deliverables, deadline and current submission state, with separate requirementExcerpts and explicit missingRequirements. If a linked page cannot be tied to this assignment, leave that question unresolved. For already submitted, graded or locked work, record the current state and stop investigating requirements for new work.
+For login, request a school_sign_in handoff with the exact blocker; resume this same assignment when the student returns. Use scan_record_source for progress. Finish with coverage naming Assignment: ${assignment.title}. Do not claim the whole school is complete. Return control to the student; a successful details check does not start work.`;
+  }
+
+  #finishAssignmentCheck(scan: SchoolScan, requested: readonly { target: string; status: "verified" | "partial" | "failed"; failure?: string }[]): SchoolScan {
+    const assignment = this.#store.assignments.get(scan.targetAssignmentId!)!;
+    const target = `Assignment: ${assignment.title}`.slice(0, 200);
+    if (requested.some(item => item.status === "verified" && !sameFact(item.target, target))) throw new Error("This check can verify only the selected assignment");
+    const recorded = scan.observedAssignmentIds.includes(assignment.assignmentId);
+    const statusEvidence = assignment.schoolStatus?.evidence;
+    const currentStatus = statusEvidence && Date.parse(statusEvidence.capturedAt) >= Date.parse(scan.startedAt)
+      && statusEvidence.evidenceId.includes(scan.scanId);
+    const terminal = currentStatus && ["submitted", "graded", "locked"].includes(assignment.schoolStatus!.state);
+    const eligibility = assignmentWorkEligibility(assignment, this.#now());
+    const failures = requested.flatMap(item => item.status === "verified" ? [] : [item.failure?.trim() || "Some assignment details still need checking."]);
+    for (const source of scan.sourceCheckpoints) if (source.scanId === scan.scanId && source.state === "blocked") failures.push(source.note ?? "An assignment source is blocked.");
+    if (!recorded || !currentStatus) failures.push("The assignment's current school status still needs checking.");
+    else if (!terminal && !eligibility.eligible) failures.push(eligibility.reason);
+    const succeeded = failures.length === 0;
+    const evidence = [...assignment.evidence].reverse().find(item => item.evidenceId.includes(scan.scanId));
+    return this.#store.school.putScan({ ...scan, state: succeeded ? "succeeded" : "partial", updatedAt: this.#now(), completedAt: this.#now(), handoff: null,
+      currentStep: succeeded ? terminal ? "School status checked. This assignment will not be started." : "Assignment details checked. Ready when you choose to start." : "Saved assignment details. Some questions remain.",
+      failures: [...new Set(failures)], coverage: [{ target, status: succeeded ? "verified" : "partial", ...(succeeded ? { evidence } : { failure: failures[0] }) }],
+    });
+  }
+
   #ensureTaskOrigin(assignment: Assignment, scanId: string): void {
     const existing = this.#store.tasks.listAll().find((task) => task.assignmentId === assignment.assignmentId);
     const task = existing ?? this.#createTaskOrigin(assignment, scanId);
+    this.#manager?.reconcileQueue();
     if (!this.#manager || (task.state !== "discovered" && task.state !== "queued")) return;
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (permission.mayAttempt) this.#manager.enqueue({ taskId: task.taskId });
+    if (this.#manager.allowsAutomaticWork && permission.mayAttempt && assignmentWorkEligibility(assignment, this.#now()).eligible) this.#manager.enqueue({ taskId: task.taskId, requestOrigin: "automatic" });
   }
 
   #createTaskOrigin(assignment: Assignment, scanId: string) {
@@ -916,6 +1095,7 @@ export class SchoolScanCoordinator {
     if (!scan || scan.state !== "running") {
       throw new Error("This scan is no longer accepting browser evidence");
     }
+    if (scan.targetAssignmentId && !this.#store.assignments.get(scan.targetAssignmentId)) throw new Error("The selected assignment is no longer available. Reopen it from your week.");
     return scan;
   }
 
@@ -973,13 +1153,18 @@ export class SchoolScanCoordinator {
   }
 
   #updateProfileState(onboardingState: SchoolProfile["onboardingState"]): void {
+    if (this.#store.school.latestScan()?.targetAssignmentId) return;
     const profile = this.#store.school.getProfile();
-    if (profile) this.#store.school.putProfile({ ...profile, onboardingState, updatedAt: this.#now() });
+    if (profile) {
+      const scan = this.#store.school.latestScan();
+      const onboardingCompletedAt = profile.onboardingCompletedAt ?? (scan?.completedAt && ["succeeded", "partial"].includes(scan.state) && scan.coverage.length ? scan.completedAt : undefined);
+      this.#store.school.putProfile({ ...profile, ...(onboardingCompletedAt ? { onboardingCompletedAt } : {}), onboardingState, updatedAt: this.#now() });
+    }
   }
 
   async #writeWorkflowHints(scanId: string, hints: readonly string[]): Promise<void> {
     const scan = this.#store.school.getScan(scanId);
-    if (!scan || scan.state !== "succeeded") return;
+    if (!scan || scan.state !== "succeeded" || scan.targetAssignmentId) return;
     const profile = this.#requiredProfile();
     const normalizedHints = [...new Set(hints.map((item) => item.replace(/\s+/g, " ").trim()).filter(Boolean))].slice(0, 50);
     await this.#store.notes.upsert({
@@ -1110,9 +1295,14 @@ function requireObservedDueAt(
 ): string | undefined {
   if (!dueText) throw new Error("A due date requires the exact visible due-date text from the current snapshot");
   requireSnapshotFact(snapshot, dueText, undefined, "assignment due date");
+  const hasTime = /\b\d{1,2}:\d{2}\b|\b\d{1,2}\s*(?:am|pm)\b|T\d{2}:\d{2}/i.test(dueText);
+  if (!hasTime) {
+    if (dueAt !== undefined) throw new Error("A date-only deadline cannot claim an exact time");
+    return undefined;
+  }
   // Keep ambiguous dates as visible text rather than inventing a year or deadline.
   const parsedText = /\b\d{4}\b/.test(dueText)
-    ? Date.parse(dueText.replace(/\s+at\s+/i, " "))
+    ? parseZonedDeadline(dueText) ?? Date.parse(dueText.replace(/\s+at\s+/i, " ").replace(/(\d)(am|pm)\b/ig, "$1 $2"))
     : NaN;
   if (dueAt === undefined) return Number.isFinite(parsedText) ? new Date(parsedText).toISOString() : undefined;
   const parsedDueAt = Date.parse(dueAt);
@@ -1120,6 +1310,36 @@ function requireObservedDueAt(
     throw new Error("The claimed due date does not match the visible due-date text");
   }
   return new Date(parsedDueAt).toISOString();
+}
+
+function requireAssignmentFact(snapshot: BrowserSnapshot, target: string, title: string, text: string, ref: string | undefined, label: string): void {
+  requireSnapshotFact(snapshot, text, ref, label);
+  if (exactTarget(snapshot.url) === exactTarget(target) && !isMoodleIndex(target)) return;
+  const row = snapshot.elements.find(element => (!ref || element.ref === ref) && includesFact(`${element.name} ${element.value ?? ""}`, title) && includesFact(`${element.name} ${element.value ?? ""}`, text));
+  if (!row) throw new Error(`Open the assignment detail page or provide a row containing its title and ${label}`);
+}
+
+function requireSchoolStatus(state: NonNullable<Assignment["schoolStatus"]>["state"], text: string): void {
+  const fact = normalizeFact(text);
+  const negative = /\b(not submitted|no submissions?|nothing submitted|not yet submitted|no attempts?|not attempted|to do)\b/g;
+  const notSubmitted = Boolean(fact.match(negative));
+  const positive = /\b(submitted|submission received|finished|completed)\b/.test(fact.replace(negative, ""));
+  const markers = {
+    unknown: true,
+    not_submitted: notSubmitted && !positive && !/\b(locked|closed|no more attempts)\b/.test(fact),
+    submitted: !notSubmitted && positive,
+    graded: !/\b(not graded|ungraded|no grade|awaiting grade|pending|not yet)\b/.test(fact)
+      && (/\bgraded\b/.test(fact) || /\b(grade|current score|final score)\b.*(?:\d|\b[abcdf]\b)/.test(fact)),
+    locked: /\b(locked|closed|no more attempts|not available|unavailable)\b/.test(fact),
+  };
+  if (!markers[state]) throw new Error("School status does not match the visible status text");
+}
+
+function mergeRequirementEvidence(prior: NonNullable<Assignment["requirementEvidence"]>, incoming: NonNullable<Assignment["requirementEvidence"]>) {
+  const items = new Map(prior.map(item => [normalizeFact(item.text), item]));
+  for (const item of incoming) items.set(normalizeFact(item.text), item);
+  if (items.size > 100) throw new Error("This assignment has too many requirement excerpts; consolidate verified excerpts before recording more");
+  return [...items.values()];
 }
 
 function requireLinkedSystemStateFact(input: {

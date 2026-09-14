@@ -493,6 +493,7 @@ async function invoke(tools, name, input) {
 function seedTask(store, suffix, dueAt) {
   const assignmentId = `assignment-${suffix}`;
   const taskId = `task-${suffix}`;
+  const evidence = { schemaVersion: 1, evidenceId: `evidence-${suffix}`, reference: `evidence-${suffix}`, kind: "text_snapshot", sourceTarget: `https://school.example.edu/assignments/${suffix}`, capturedAt: initialNow };
   store.assignments.put({
     schemaVersion: 1,
     assignmentId,
@@ -500,6 +501,9 @@ function seedTask(store, suffix, dueAt) {
     title: `Assignment ${suffix}`,
     sourceTarget: `https://school.example.edu/assignments/${suffix}`,
     dueAt,
+    deadlinePrecision: "datetime", deadlineEvidence: evidence,
+    schoolStatus: { state: "not_submitted", text: "Not submitted", evidence },
+    requirementEvidence: [{ text: "Complete the exercise.", evidence }], requirementsState: "complete",
     discoveredAt: initialNow,
     evidence: [],
   });

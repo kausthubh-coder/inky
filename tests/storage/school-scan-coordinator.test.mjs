@@ -248,8 +248,8 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
     const assignment = state.assignments[0];
     const assignmentTasks = store.tasks.listAll().filter((task) => task.assignmentId === assignment.assignmentId);
     assert.equal(assignmentTasks.length, 1, "a verified assignment has one durable task origin");
-    assert.equal(manager.state().entries.length, 2, "each permitted assignment enters the existing manager queue once");
-    assert.equal(manager.state().entries[0].taskId, assignmentTasks[0].taskId);
+    assert.equal(manager.state().entries.length, 0, "permission alone does not queue discoveries in manual work mode");
+    assert.equal(assignmentTasks[0].state, "discovered");
 
     const workflow = store.school.getWorkflow();
     assert.equal(workflow.root, rootUrl);
@@ -260,8 +260,6 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
     assert.match(navigationNote.content, /Open the &lt;strong&gt;Courses&lt;\/strong&gt; link/);
 
     const successfulRows = { courses: state.courses.length, assignments: state.assignments.length };
-    manager.steerNext(assignmentTasks[0].taskId);
-    const manualPriority = manager.state().entries[0].priority;
     state = await coordinator.replay();
     assert.equal(state.scan.kind, "replay");
     assert.equal(state.scan.state, "partial");
@@ -276,8 +274,7 @@ test("school scan pauses for sign-ins, records evidence, replays from root, and 
     assert.equal(state.courses[0].lastVerifiedScanId, state.scan.scanId, "replay re-observed the course");
     assert.equal(state.assignments[0].lastVerifiedScanId, state.scan.scanId, "replay refreshed the assignment from a current fact");
     assert.equal(store.tasks.listAll().filter((task) => task.assignmentId === assignment.assignmentId).length, 1, "replay does not duplicate the task origin");
-    assert.equal(manager.state().entries.length, 2, "replay does not duplicate the queue entry");
-    assert.equal(manager.state().entries[0].priority, manualPriority, "replay preserves manual priority");
+    assert.equal(manager.state().entries.length, 0, "replay preserves manual work mode");
     assert.equal(state.workflowRevision, 1, "partial replay does not write a workflow");
 
     state = await coordinator.startScan();
@@ -605,7 +602,8 @@ test("Moodle list → detail → changed course label/key → partial replay kee
     await assert.rejects(invoke(tools, "scan_record_assignment", { courseId: course.courseId, title: "Homework 1" }), /no unambiguous assignment link/);
     browser.url = turn % 2 === 0 ? list : destination + "&action=view#intro";
     browser.text = "Homework 1 Write a C program. 2026-09-09T12:00:00.000Z";
-    browser.elements = turn % 2 === 0 ? [{ ref: "homework", role: "link", name: "Homework 1", href: destination }] : [];
+    browser.elements = turn % 2 === 0 ? [{ ref: "homework", role: "link", name: "Homework 1", href: destination },
+      { ref: "homework-row", role: "row", name: "Homework 1 Write a C program. 2026-09-09T12:00:00.000Z" }] : [];
     await invoke(tools, "scan_record_assignment", {
       courseId: course.courseId, title: "Homework 1", assignmentKey: `model-assignment-${turn}`,
       ...(turn === 0 ? { dueAt: "2026-09-09T12:00:00.000Z", dueText: "2026-09-09T12:00:00.000Z", instructions: "Write a C program." } : {}),
@@ -892,6 +890,7 @@ test("new destination links refine legacy directory records without losing their
     browser.elements = turn ? [
       {ref:"course",role:"link",name:"Calculus",href:rootUrl+"courses/calculus"},
       {ref:"assignment",role:"link",name:"Limits practice",href:rootUrl+"assignments/limits"},
+      {ref:"assignment-row",role:"row",name:"Limits practice 2026-09-03T15:00:00.000Z"},
     ] : [];
     const course = await invoke(tools,"scan_record_course",{label:"Calculus"});
     await invoke(tools,"scan_record_assignment",{courseId:course.courseId,title:"Limits practice",...(turn ? {dueAt:"2026-09-03T15:00:00.000Z",dueText:"2026-09-03T15:00:00.000Z"} : {})});

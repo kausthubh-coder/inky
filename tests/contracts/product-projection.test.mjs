@@ -40,9 +40,8 @@ test("manual scan retries are fresh until a successful workflow exists", () => {
 test("returning from a browser handoff resumes the scan even when a saved workflow exists", () => {
   for (const workflowRevision of [null, 1]) {
     assert.equal(nextSchoolScanAction({ scan: { state: "needs_user" }, workflowRevision }), "resume");
-    for (const state of ["succeeded", "partial", "failed"]) {
-      assert.equal(nextSchoolScanAction({ scan: { state }, workflowRevision }), workflowRevision === null ? "scan" : "replay");
-    }
+    for (const state of ["partial", "failed"]) assert.equal(nextSchoolScanAction({ scan: { state }, workflowRevision }), "resume");
+    assert.equal(nextSchoolScanAction({ scan: { state: "succeeded" }, workflowRevision }), workflowRevision === null ? "scan" : "replay");
   }
 });
 
@@ -88,4 +87,11 @@ test("onboarding chat only asks for another login when a scan is actually waitin
     scan: { state: "failed", coverage: [], completedAt: "2026-09-02T19:23:04.569Z", handoff: null },
     workflowRevision: null,
   }), { step: 7, kind: "retry" });
+});
+
+
+test("a failed assignment details check retains completed onboarding", () => {
+  const scan = { state: "failed", targetAssignmentId: "assignment", coverage: [], completedAt: "2026-09-14T12:00:00.000Z" };
+  assert.equal(hasCompletedSchoolOnboarding({ profile: { onboardingCompletedAt: "2026-09-13T12:00:00.000Z" }, scan, workflowRevision: null }), true);
+  assert.equal(hasCompletedSchoolOnboarding({ profile: {}, scan, workflowRevision: null }), false);
 });

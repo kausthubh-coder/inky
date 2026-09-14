@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 
-// Run through the official Playwright MCP against the isolated preview fixture.
+// Run with Microsoft Playwright against the isolated preview fixture.
 export async function verifyChatHandoff(page, base = "http://127.0.0.1:4174") {
   await page.goto(`${base}/?preview=chat-handoff`);
   await page.waitForSelector("[data-studi-app-ready]");
@@ -24,9 +24,10 @@ export async function verifyChatHandoff(page, base = "http://127.0.0.1:4174") {
   await page.getByText("I'm signed in now", { exact: true }).waitFor();
   assert.deepEqual((await page.locator(".student-bubble").innerText()).split(/\n+/), ["You", "I'm signed in now"]);
   assert.equal(await page.locator(".student-bubble .chat-refs").count(), 0);
-  await page.getByRole("button", { name: "Continue check", exact: true }).click();
-  assert.equal(await page.getByRole("button", { name: "Continue check", exact: true }).isDisabled(), true);
-  await page.getByRole("button", { name: "Continue check", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Open sign-in", exact: true }).click();
+  await page.getByRole("button", { name: "Continue scan", exact: true }).click();
+  assert.equal(await page.getByRole("button", { name: "Continue scan", exact: true }).isDisabled(), true);
+  await page.waitForFunction(async () => (await window.studi.getSchoolOnboardingState()).scan.state === "running");
   assert.deepEqual(await page.evaluate(() => window.handoffCalls), ["resume"]);
   assert.equal(await page.getByRole("alert").count(), 0);
   return { emptyReferencesHidden: true, schoolMessagePreserved: true, resumedOnce: true, busyButtonDisabled: true };

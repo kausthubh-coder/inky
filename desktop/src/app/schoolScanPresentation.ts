@@ -4,6 +4,7 @@ type ScanChange = SchoolScan["changes"][number];
 
 export function schoolScanPresentation(state: SchoolOnboardingState) {
   const scan = state.scan;
+  const selectedAssignment = state.assignments.find(assignment => assignment.assignmentId === scan?.targetAssignmentId);
   const running = scan?.state === "running";
   const paused = scan?.state === "needs_user";
   const active = running || paused;
@@ -25,7 +26,10 @@ export function schoolScanPresentation(state: SchoolOnboardingState) {
     : "I’ll check your school for assignments and due dates.";
   const gaps = scan?.coverage.filter(item => item.status !== "verified").map(item => item.target) ?? [];
   return {
-    running, paused, active, signIn, directoryKnown: Boolean(directory), courses, checkedIds, checkedLabel, title, description,
+    running, paused, active, signIn, directoryKnown: Boolean(directory), courses: scan?.targetAssignmentId ? [] : courses, checkedIds,
+    checkedLabel: scan?.targetAssignmentId ? "Selected assignment only" : checkedLabel,
+    title: scan?.targetAssignmentId ? running ? "Checking this assignment…" : paused ? title : scan.state === "succeeded" ? "Assignment checked." : "This assignment needs another look." : title,
+    description: scan?.targetAssignmentId ? `${selectedAssignment?.title ?? "Selected assignment"} · ${scan.handoff?.reason ?? scan.currentStep}` : description,
     mood: running ? "scanning" as const : paused ? signIn ? "needs" as const : "sleep" as const : scan?.state === "failed" ? "needs" as const : scan ? "done" as const : "hello" as const,
     incompleteLabel: gaps.length ? `Still needs checking: ${gaps.join(", ")}.` : "Some homework sources weren’t fully checked. See Scan details.",
     changes: (scan?.changes ?? []).flatMap(change => {

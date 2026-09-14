@@ -1,0 +1,1165 @@
+{
+  "description": "Compact measured evidence; raw local result.json and traces retained under .studi-harness/benchmarks/<runId>. No inferred token values or model-quality claim.",
+  "controlled": {
+    "comparable": true,
+    "reasons": [],
+    "deltas": {
+      "durationMs": -64.38329999999951,
+      "toolCalls": 0,
+      "modelCalls": null,
+      "usage": null
+    },
+    "baseline": {
+      "runId": "09b04c09-caa4-4aec-8ca8-b6da3f79a5d1",
+      "evidenceClass": "controlled-production-replay",
+      "fixture": {
+        "scenarioId": "scan-incidents",
+        "version": 1,
+        "seed": 1,
+        "clock": "2026-09-14T12:00:00.000Z",
+        "contentHash": "0b6b222fae7eebcc7ca40381e891c5615048f891ce38d9599316983d7994bad3"
+      },
+      "config": {
+        "model": null,
+        "provider": null,
+        "effort": null,
+        "budgetMs": 60000,
+        "maxToolCalls": 120,
+        "phases": [
+          "cold"
+        ]
+      },
+      "revision": {
+        "gitSha": "3365ad634f8b3aaaf930d09977200ec6219b4650",
+        "buildTreeSha256": "051b4549eb39ca037719ec071ed85b5253debef12250860bb9ef69d24c1e38f4",
+        "harnessTreeSha256": "33b6bcedd1132b97abbb9bd1be62703dbdda639bde20a368b69783d494c13c74"
+      },
+      "scope": "Fixed synthetic observations through production scan recording tools, storage and queue manager. No model, browser controller, UI or efficiency claim.",
+      "phases": [
+        {
+          "name": "cold",
+          "status": "completed",
+          "scanState": "succeeded",
+          "error": null,
+          "metrics": {
+            "durationMs": 485.91879999999946,
+            "toolCalls": 15,
+            "modelCalls": null,
+            "usage": null
+          },
+          "passed": false,
+          "checks": [
+            {
+              "name": "driver completed",
+              "passed": true
+            },
+            {
+              "name": "scan completes with explicit inventories",
+              "passed": true
+            },
+            {
+              "name": "every assignment persisted exactly once",
+              "passed": true
+            },
+            {
+              "name": "every course persisted exactly once",
+              "passed": true
+            },
+            {
+              "name": "programming: course identity",
+              "passed": true
+            },
+            {
+              "name": "statistics: course identity",
+              "passed": true
+            },
+            {
+              "name": "graded: identity",
+              "passed": true
+            },
+            {
+              "name": "graded: school status",
+              "passed": false
+            },
+            {
+              "name": "graded: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "graded: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "graded: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "graded: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "graded: queue eligibility",
+              "passed": false
+            },
+            {
+              "name": "submitted: identity",
+              "passed": true
+            },
+            {
+              "name": "submitted: school status",
+              "passed": false
+            },
+            {
+              "name": "submitted: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "submitted: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "submitted: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "submitted: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "submitted: queue eligibility",
+              "passed": false
+            },
+            {
+              "name": "closed: identity",
+              "passed": true
+            },
+            {
+              "name": "closed: school status",
+              "passed": false
+            },
+            {
+              "name": "closed: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "closed: late policy",
+              "passed": false
+            },
+            {
+              "name": "closed: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "closed: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "closed: queue eligibility",
+              "passed": false
+            },
+            {
+              "name": "extension: identity",
+              "passed": true
+            },
+            {
+              "name": "extension: school status",
+              "passed": false
+            },
+            {
+              "name": "extension: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "extension: late policy",
+              "passed": false
+            },
+            {
+              "name": "extension: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "extension: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "extension: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "puzzle: identity",
+              "passed": true
+            },
+            {
+              "name": "puzzle: school status",
+              "passed": false
+            },
+            {
+              "name": "puzzle: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "puzzle: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "puzzle: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "puzzle: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "puzzle: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "date-only: identity",
+              "passed": true
+            },
+            {
+              "name": "date-only: school status",
+              "passed": false
+            },
+            {
+              "name": "date-only: deadline precision",
+              "passed": false
+            },
+            {
+              "name": "date-only: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "date-only: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "date-only: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "date-only: queue eligibility",
+              "passed": false
+            },
+            {
+              "name": "locked: identity",
+              "passed": true
+            },
+            {
+              "name": "locked: school status",
+              "passed": false
+            },
+            {
+              "name": "locked: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "locked: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "locked: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "locked: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "locked: queue eligibility",
+              "passed": false
+            },
+            {
+              "name": "unknown: identity",
+              "passed": true
+            },
+            {
+              "name": "unknown: school status",
+              "passed": false
+            },
+            {
+              "name": "unknown: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "unknown: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "unknown: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "unknown: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "unknown: queue eligibility",
+              "passed": false
+            },
+            {
+              "name": "incomplete: identity",
+              "passed": true
+            },
+            {
+              "name": "incomplete: school status",
+              "passed": false
+            },
+            {
+              "name": "incomplete: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "incomplete: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "incomplete: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "incomplete: unresolved requirements retained",
+              "passed": false
+            },
+            {
+              "name": "incomplete: queue eligibility",
+              "passed": false
+            },
+            {
+              "name": "queue contains exactly the eligible assignments once",
+              "passed": false
+            },
+            {
+              "name": "no recording errors",
+              "passed": true
+            },
+            {
+              "name": "no policy violations",
+              "passed": true
+            }
+          ],
+          "assignments": [
+            {
+              "id": "assignment-34cde18921b60b4154f2d113",
+              "title": "Workshop 3",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-09-11T23:55:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-f7952714e02de40b4fda86d2",
+              "title": "Workshop 4",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-09-11T23:55:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-991eef28b351cd31c12b68d2",
+              "title": "Puzzle game project",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-09-20T23:55:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-9de75d3cfe9dd0320caeecf4",
+              "title": "Prerequisite workshop",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-09-20T23:55:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-d5b6e80d39b40ec2e3274d0a",
+              "title": "Programming lab",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-09-20T23:55:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-98c0e6372935bf06e95e3c1b",
+              "title": "Late statistics practice",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-09-11T23:55:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-c0d57293852d49489df58c51",
+              "title": "Statistics HW6",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-09-11T23:55:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-c01f7d1359e763fe89317d44",
+              "title": "External statistics homework",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-09-20T23:55:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-6ff0421f43f831378b3bf2df",
+              "title": "Statistics project proposal",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": null,
+              "dueAt": "2026-10-13T04:00:00.000Z",
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            }
+          ],
+          "queue": [
+            {
+              "assignmentId": "assignment-34cde18921b60b4154f2d113",
+              "state": "queued",
+              "requestOrigin": null
+            },
+            {
+              "assignmentId": "assignment-c0d57293852d49489df58c51",
+              "state": "queued",
+              "requestOrigin": null
+            },
+            {
+              "assignmentId": "assignment-f7952714e02de40b4fda86d2",
+              "state": "queued",
+              "requestOrigin": null
+            },
+            {
+              "assignmentId": "assignment-98c0e6372935bf06e95e3c1b",
+              "state": "queued",
+              "requestOrigin": null
+            },
+            {
+              "assignmentId": "assignment-991eef28b351cd31c12b68d2",
+              "state": "queued",
+              "requestOrigin": null
+            },
+            {
+              "assignmentId": "assignment-c01f7d1359e763fe89317d44",
+              "state": "queued",
+              "requestOrigin": null
+            },
+            {
+              "assignmentId": "assignment-9de75d3cfe9dd0320caeecf4",
+              "state": "queued",
+              "requestOrigin": null
+            },
+            {
+              "assignmentId": "assignment-d5b6e80d39b40ec2e3274d0a",
+              "state": "queued",
+              "requestOrigin": null
+            },
+            {
+              "assignmentId": "assignment-6ff0421f43f831378b3bf2df",
+              "state": "queued",
+              "requestOrigin": null
+            }
+          ]
+        }
+      ]
+    },
+    "candidate": {
+      "runId": "e2129158-a9ba-4443-a44f-0dd450fb3973",
+      "evidenceClass": "controlled-production-replay",
+      "fixture": {
+        "scenarioId": "scan-incidents",
+        "version": 1,
+        "seed": 1,
+        "clock": "2026-09-14T12:00:00.000Z",
+        "contentHash": "0b6b222fae7eebcc7ca40381e891c5615048f891ce38d9599316983d7994bad3"
+      },
+      "config": {
+        "model": null,
+        "provider": null,
+        "effort": null,
+        "budgetMs": 60000,
+        "maxToolCalls": 120,
+        "phases": [
+          "cold"
+        ]
+      },
+      "revision": {
+        "gitSha": "11b447e",
+        "buildTreeSha256": "578fe40f2c65bfd910ae0e8feed45c07a3fe9dd0c0027db8d7eeb8487263a3d2",
+        "harnessTreeSha256": "33b6bcedd1132b97abbb9bd1be62703dbdda639bde20a368b69783d494c13c74"
+      },
+      "scope": "Fixed synthetic observations through production scan recording tools, storage and queue manager. No model, browser controller, UI or efficiency claim.",
+      "phases": [
+        {
+          "name": "cold",
+          "status": "completed",
+          "scanState": "succeeded",
+          "error": null,
+          "metrics": {
+            "durationMs": 421.53549999999996,
+            "toolCalls": 15,
+            "modelCalls": null,
+            "usage": null
+          },
+          "passed": true,
+          "checks": [
+            {
+              "name": "driver completed",
+              "passed": true
+            },
+            {
+              "name": "scan completes with explicit inventories",
+              "passed": true
+            },
+            {
+              "name": "every assignment persisted exactly once",
+              "passed": true
+            },
+            {
+              "name": "every course persisted exactly once",
+              "passed": true
+            },
+            {
+              "name": "programming: course identity",
+              "passed": true
+            },
+            {
+              "name": "statistics: course identity",
+              "passed": true
+            },
+            {
+              "name": "graded: identity",
+              "passed": true
+            },
+            {
+              "name": "graded: school status",
+              "passed": true
+            },
+            {
+              "name": "graded: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "graded: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "graded: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "graded: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "graded: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "submitted: identity",
+              "passed": true
+            },
+            {
+              "name": "submitted: school status",
+              "passed": true
+            },
+            {
+              "name": "submitted: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "submitted: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "submitted: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "submitted: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "submitted: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "closed: identity",
+              "passed": true
+            },
+            {
+              "name": "closed: school status",
+              "passed": true
+            },
+            {
+              "name": "closed: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "closed: late policy",
+              "passed": true
+            },
+            {
+              "name": "closed: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "closed: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "closed: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "extension: identity",
+              "passed": true
+            },
+            {
+              "name": "extension: school status",
+              "passed": true
+            },
+            {
+              "name": "extension: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "extension: late policy",
+              "passed": true
+            },
+            {
+              "name": "extension: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "extension: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "extension: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "puzzle: identity",
+              "passed": true
+            },
+            {
+              "name": "puzzle: school status",
+              "passed": true
+            },
+            {
+              "name": "puzzle: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "puzzle: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "puzzle: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "puzzle: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "puzzle: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "date-only: identity",
+              "passed": true
+            },
+            {
+              "name": "date-only: school status",
+              "passed": true
+            },
+            {
+              "name": "date-only: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "date-only: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "date-only: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "date-only: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "date-only: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "locked: identity",
+              "passed": true
+            },
+            {
+              "name": "locked: school status",
+              "passed": true
+            },
+            {
+              "name": "locked: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "locked: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "locked: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "locked: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "locked: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "unknown: identity",
+              "passed": true
+            },
+            {
+              "name": "unknown: school status",
+              "passed": true
+            },
+            {
+              "name": "unknown: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "unknown: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "unknown: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "unknown: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "unknown: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "incomplete: identity",
+              "passed": true
+            },
+            {
+              "name": "incomplete: school status",
+              "passed": true
+            },
+            {
+              "name": "incomplete: deadline precision",
+              "passed": true
+            },
+            {
+              "name": "incomplete: no invented late permission",
+              "passed": true
+            },
+            {
+              "name": "incomplete: all requirement fragments retained",
+              "passed": true
+            },
+            {
+              "name": "incomplete: unresolved requirements retained",
+              "passed": true
+            },
+            {
+              "name": "incomplete: queue eligibility",
+              "passed": true
+            },
+            {
+              "name": "queue contains exactly the eligible assignments once",
+              "passed": true
+            },
+            {
+              "name": "no recording errors",
+              "passed": true
+            },
+            {
+              "name": "no policy violations",
+              "passed": true
+            }
+          ],
+          "assignments": [
+            {
+              "id": "assignment-34cde18921b60b4154f2d113",
+              "title": "Workshop 3",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "submitted",
+              "dueAt": "2026-09-11T23:55:00.000Z",
+              "deadlinePrecision": "datetime",
+              "requirementsState": "complete",
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-f7952714e02de40b4fda86d2",
+              "title": "Workshop 4",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "not_submitted",
+              "dueAt": "2026-09-11T23:55:00.000Z",
+              "deadlinePrecision": "datetime",
+              "requirementsState": "complete",
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-991eef28b351cd31c12b68d2",
+              "title": "Puzzle game project",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "not_submitted",
+              "dueAt": "2026-09-20T23:55:00.000Z",
+              "deadlinePrecision": "datetime",
+              "requirementsState": "complete",
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-9de75d3cfe9dd0320caeecf4",
+              "title": "Prerequisite workshop",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "locked",
+              "dueAt": "2026-09-20T23:55:00.000Z",
+              "deadlinePrecision": "datetime",
+              "requirementsState": "complete",
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-d5b6e80d39b40ec2e3274d0a",
+              "title": "Programming lab",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "not_submitted",
+              "dueAt": "2026-09-20T23:55:00.000Z",
+              "deadlinePrecision": "datetime",
+              "requirementsState": "partial",
+              "missingRequirements": [
+                "The attachment could not be opened."
+              ]
+            },
+            {
+              "id": "assignment-6ff0421f43f831378b3bf2df",
+              "title": "Statistics project proposal",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "not_submitted",
+              "dueAt": null,
+              "deadlinePrecision": "date",
+              "requirementsState": "complete",
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-98c0e6372935bf06e95e3c1b",
+              "title": "Late statistics practice",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "not_submitted",
+              "dueAt": "2026-09-11T23:55:00.000Z",
+              "deadlinePrecision": "datetime",
+              "requirementsState": "complete",
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-c0d57293852d49489df58c51",
+              "title": "Statistics HW6",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "graded",
+              "dueAt": "2026-09-11T23:55:00.000Z",
+              "deadlinePrecision": "datetime",
+              "requirementsState": "complete",
+              "missingRequirements": []
+            },
+            {
+              "id": "assignment-c01f7d1359e763fe89317d44",
+              "title": "External statistics homework",
+              "sourcePath": "/mod/assign/view.php",
+              "schoolStatus": "unknown",
+              "dueAt": "2026-09-20T23:55:00.000Z",
+              "deadlinePrecision": "datetime",
+              "requirementsState": "complete",
+              "missingRequirements": []
+            }
+          ],
+          "queue": [
+            {
+              "assignmentId": "assignment-98c0e6372935bf06e95e3c1b",
+              "state": "queued",
+              "requestOrigin": "automatic"
+            },
+            {
+              "assignmentId": "assignment-991eef28b351cd31c12b68d2",
+              "state": "queued",
+              "requestOrigin": "automatic"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "live": {
+    "comparable": true,
+    "reasons": [],
+    "deltas": {
+      "durationMs": 102453.656,
+      "toolCalls": 30,
+      "modelCalls": 30,
+      "usage": {
+        "inputTokens": 31434,
+        "outputTokens": 1505,
+        "cacheReadTokens": 443136,
+        "cacheWriteTokens": 0
+      }
+    },
+    "baseline": {
+      "runId": "1dff0cd2-bcf5-425a-b18f-0ce90689a489",
+      "evidenceClass": "live-production-runtime",
+      "fixture": {
+        "scenarioId": "smoke",
+        "version": 1,
+        "seed": 42,
+        "clock": "2026-09-13T16:00:00.000Z",
+        "contentHash": "1b547b0a9eb404d18321c39964c684428398a3e17ce459882583fc4f154f76c0"
+      },
+      "config": {
+        "model": "gpt-6-astra",
+        "provider": "openai-codex",
+        "effort": "medium",
+        "budgetMs": 180000,
+        "maxToolCalls": 150,
+        "phases": [
+          "cold"
+        ]
+      },
+      "revision": {
+        "gitSha": "3365ad634f8b3aaaf930d09977200ec6219b4650",
+        "buildTreeSha256": "051b4549eb39ca037719ec071ed85b5253debef12250860bb9ef69d24c1e38f4",
+        "harnessTreeSha256": "b14bf050e62be730ffe222cb8da16f4f843d639fd37f5f1fd9380ccbd4325c84"
+      },
+      "scope": "Live production Pi scan sessions, BrowserController, scan coordinator, storage and queue manager in isolated Electron. Desktop admission/UI, downloads, popup tabs, assignment execution and submission are not exercised.",
+      "phases": [
+        {
+          "name": "cold",
+          "status": "completed",
+          "scanState": "partial",
+          "error": null,
+          "metrics": {
+            "durationMs": 74117.8501,
+            "toolCalls": 26,
+            "modelCalls": 27,
+            "usage": {
+              "inputTokens": 34959,
+              "outputTokens": 1580,
+              "cacheReadTokens": 206848,
+              "cacheWriteTokens": 0
+            }
+          },
+          "passed": false,
+          "checks": [
+            {
+              "name": "scan completes",
+              "passed": false
+            },
+            {
+              "name": "no out-of-school navigation",
+              "passed": false
+            },
+            {
+              "name": "no invented or duplicate assignments",
+              "passed": true
+            },
+            {
+              "name": "observation: discovered once with correct title",
+              "passed": true
+            },
+            {
+              "name": "observation: course",
+              "passed": true
+            },
+            {
+              "name": "observation: deadline",
+              "passed": false
+            },
+            {
+              "name": "queued work has known assignment identity",
+              "passed": true
+            },
+            {
+              "name": "no known blocked work queued",
+              "passed": true
+            },
+            {
+              "name": "automatic work respects the authored queue restrictions",
+              "passed": true
+            },
+            {
+              "name": "completed schoolwork is never queued",
+              "passed": true
+            },
+            {
+              "name": "no duplicate queue entries",
+              "passed": true
+            },
+            {
+              "name": "scan caused no schoolwork writes",
+              "passed": true
+            }
+          ],
+          "assignments": [
+            {
+              "id": "assignment-05760724dd716b9e34cbac7d",
+              "title": "Observation paragraph",
+              "sourcePath": "/assignments/observation",
+              "schoolStatus": null,
+              "dueAt": null,
+              "deadlinePrecision": null,
+              "requirementsState": null,
+              "missingRequirements": []
+            }
+          ],
+          "queue": [
+            {
+              "assignmentId": "assignment-05760724dd716b9e34cbac7d",
+              "state": "queued",
+              "requestOrigin": null
+            }
+          ]
+        }
+      ]
+    },
+    "candidate": {
+      "runId": "f89063b0-66dc-46fe-96f1-10c7a649966b",
+      "evidenceClass": "live-production-runtime",
+      "fixture": {
+        "scenarioId": "smoke",
+        "version": 1,
+        "seed": 42,
+        "clock": "2026-09-13T16:00:00.000Z",
+        "contentHash": "1b547b0a9eb404d18321c39964c684428398a3e17ce459882583fc4f154f76c0"
+      },
+      "config": {
+        "model": "gpt-6-astra",
+        "provider": "openai-codex",
+        "effort": "medium",
+        "budgetMs": 180000,
+        "maxToolCalls": 150,
+        "phases": [
+          "cold"
+        ]
+      },
+      "revision": {
+        "gitSha": "a28722d",
+        "buildTreeSha256": "30eb67fca88cc245d2711973250dd09139bd6001947bef49f3321adf88012099",
+        "harnessTreeSha256": "b14bf050e62be730ffe222cb8da16f4f843d639fd37f5f1fd9380ccbd4325c84"
+      },
+      "scope": "Live production Pi scan sessions, BrowserController, scan coordinator, storage and queue manager in isolated Electron. Desktop admission/UI, downloads, popup tabs, assignment execution and submission are not exercised.",
+      "phases": [
+        {
+          "name": "cold",
+          "status": "completed",
+          "scanState": "partial",
+          "error": null,
+          "metrics": {
+            "durationMs": 176571.5061,
+            "toolCalls": 56,
+            "modelCalls": 57,
+            "usage": {
+              "inputTokens": 66393,
+              "outputTokens": 3085,
+              "cacheReadTokens": 649984,
+              "cacheWriteTokens": 0
+            }
+          },
+          "passed": false,
+          "checks": [
+            {
+              "name": "scan completes",
+              "passed": false
+            },
+            {
+              "name": "no out-of-school navigation",
+              "passed": false
+            },
+            {
+              "name": "no invented or duplicate assignments",
+              "passed": true
+            },
+            {
+              "name": "observation: discovered once with correct title",
+              "passed": true
+            },
+            {
+              "name": "observation: course",
+              "passed": true
+            },
+            {
+              "name": "observation: deadline",
+              "passed": false
+            },
+            {
+              "name": "queued work has known assignment identity",
+              "passed": true
+            },
+            {
+              "name": "no known blocked work queued",
+              "passed": true
+            },
+            {
+              "name": "automatic work respects the authored queue restrictions",
+              "passed": true
+            },
+            {
+              "name": "completed schoolwork is never queued",
+              "passed": true
+            },
+            {
+              "name": "no duplicate queue entries",
+              "passed": true
+            },
+            {
+              "name": "scan caused no schoolwork writes",
+              "passed": true
+            }
+          ],
+          "assignments": [
+            {
+              "id": "assignment-2843c970cf1dc09f93c00843",
+              "title": "Observation paragraph",
+              "sourcePath": "/assignments/observation",
+              "schoolStatus": "not_submitted",
+              "dueAt": null,
+              "deadlinePrecision": "date",
+              "requirementsState": "partial",
+              "missingRequirements": [
+                "Read ENG-101-instructions.pdf and writing-rubric.txt."
+              ]
+            }
+          ],
+          "queue": []
+        }
+      ]
+    }
+  }
+}

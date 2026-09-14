@@ -16,7 +16,7 @@ import { task, taskTransitionCommand } from "./fixtures.mjs";
 const expectedTransitions = {
   discovered: ["ignored", "queued"],
   ignored: [],
-  queued: ["working", "cancelled"],
+  queued: ["discovered", "working", "cancelled"],
   working: ["needs_user", "ready_review", "submitting", "failed", "cancelled"],
   needs_user: ["working", "queued", "preserved", "cancelled"],
   ready_review: ["submitting", "submitted", "preserved", "needs_user", "cancelled"],

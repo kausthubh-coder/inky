@@ -1,13 +1,18 @@
-import type { TaskState } from "../../shared/index.js";
+import type { Assignment, TaskState } from "../../shared/index.js";
 
 // Keep a class's existing calendar color everywhere its assignments appear.
 export function courseTone(course: string): number {
   return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6;
 }
 
-export function taskStatusCopy(state: TaskState | string): { label: string; tone: "plain" | "mint" | "yellow" | "coral" } {
+export function taskStatusCopy(state: TaskState | string, assignment?: Assignment): { label: string; tone: "plain" | "mint" | "yellow" | "coral" } {
+  if (["discovered", "queued", "failed", "cancelled"].includes(state)) {
+    if (assignment?.schoolStatus?.state === "submitted") return { label: "Submitted at school", tone: "mint" };
+    if (assignment?.schoolStatus?.state === "graded") return { label: "Graded at school", tone: "mint" };
+    if (assignment?.schoolStatus?.state === "locked") return { label: "Locked at school", tone: "plain" };
+  }
   switch (state) {
-    case "discovered": return { label: "Not attempted", tone: "plain" };
+    case "discovered": return { label: "Not started", tone: "plain" };
     case "queued": return { label: "Queued", tone: "plain" };
     case "working": return { label: "Inky is working", tone: "yellow" };
     case "needs_user": return { label: "Paused · needs you", tone: "coral" };

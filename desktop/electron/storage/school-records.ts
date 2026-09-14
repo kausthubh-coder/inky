@@ -173,6 +173,15 @@ export class SchoolRepository {
     return row ? this.#canonicalScan(parseScanRow(row.scan_id, row)) : null;
   }
 
+  completedOnboardingAt(schoolRoot: string): string | undefined {
+    const rows = this.database.handle.prepare("SELECT record_json FROM school_scans WHERE state IN ('succeeded', 'partial') AND completed_at IS NOT NULL ORDER BY rowid DESC").all() as JsonRow[];
+    for (const row of rows) {
+      const scan = parseRow(SchoolScanSchema, row, "school scan");
+      if (!scan.targetAssignmentId && scan.coverage.some(item => item.evidence && new URL(item.evidence.sourceTarget).origin === new URL(schoolRoot).origin)) return scan.completedAt;
+    }
+    return undefined;
+  }
+
   resolveCourseId(courseId: string): string {
     return resolveRecordId(this.database, "course", courseId);
   }
@@ -180,6 +189,10 @@ export class SchoolRepository {
   #canonicalScan(scan: SchoolScan): SchoolScan {
     const ids = (kind: "course" | "assignment", values: string[]) => [...new Set(values.map(id => resolveRecordId(this.database, kind, id)))];
     return { ...scan, observedCourseIds: ids("course", scan.observedCourseIds),
+      sourceCheckpoints: scan.sourceCheckpoints.map(source => ({ ...source,
+        courseId: source.courseId ? this.resolveCourseId(source.courseId) : undefined,
+        courseIds: ids("course", source.courseIds), assignmentIds: ids("assignment", source.assignmentIds),
+      })),
       observedAssignmentIds: ids("assignment", scan.observedAssignmentIds),
       changes: scan.changes.map(change => ({ ...change, assignmentId: resolveRecordId(this.database, "assignment", change.assignmentId) })),
       inventories: scan.inventories.map(inventory => ({ ...inventory,

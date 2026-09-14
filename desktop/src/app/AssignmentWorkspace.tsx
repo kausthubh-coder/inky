@@ -10,12 +10,13 @@ import "./assignment-workspace.css";
 type Tab = "assignment" | "files" | "work";
 const tabs = [{ id: "assignment", label: "Assignment" }, { id: "files", label: "Files" }, { id: "work", label: "Inky’s work" }] as const;
 
-export function AssignmentWorkspace({ assignment, task, execution, lifecycle, onboarding, busy, conversation, composer, browser, error, onClose, onBrowser, onCloseBrowser, onStart, onResume, onPause, onCancel, onOpenWork, onOpenSchoolCheck, onOpenRules, onOpenArtifact, onVerifySubmission }: {
+export function AssignmentWorkspace({ assignment, task, execution, lifecycle, onboarding, busy, conversation, composer, browser, error, onClose, onBrowser, onCloseBrowser, onStart, onCheckAssignment, onResume, onPause, onCancel, onOpenWork, onOpenSchoolCheck, onOpenRules, onOpenArtifact, onVerifySubmission }: {
   assignment: Assignment; task: TaskSummary | null; execution: LifecycleState["execution"];
   lifecycle: LifecycleState; onboarding: SchoolOnboardingState; busy: string | null;
   conversation: ReactNode; composer: ReactNode; browser: ReactNode; error: ReactNode;
   onClose: () => void; onBrowser: () => void; onCloseBrowser: () => void;
   onStart: (id: string) => void; onResume: (id: string) => void; onPause: (id: string) => void;
+  onCheckAssignment: (assignmentId: string) => void;
   onCancel: (id: string) => void; onOpenWork: () => void; onOpenSchoolCheck: () => void;
   onOpenRules: () => void; onOpenArtifact: (id: string) => void;
   onVerifySubmission: (id: string, text: string) => void;
@@ -24,7 +25,7 @@ export function AssignmentWorkspace({ assignment, task, execution, lifecycle, on
   const [fileCount, setFileCount] = useState<number | null>(null);
   const course = onboarding.courses.find(course => course.courseId === assignment.courseId)?.label ?? assignment.courseId;
   const state = assignmentState(task, execution);
-  const status = taskStatusCopy(state ?? "unknown");
+  const status = taskStatusCopy(state ?? "unknown", assignment);
   const due = assignment.dueAt ? new Intl.DateTimeFormat(undefined, {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   }).format(new Date(assignment.dueAt)) : assignment.dueText ?? "No due date listed";
@@ -57,7 +58,10 @@ export function AssignmentWorkspace({ assignment, task, execution, lifecycle, on
         {browser && <div className="assignment-school">{browser}</div>}
         <section className="assignment-page-scroll assignment-brief" role="tabpanel" id="assignment-panel-assignment" aria-labelledby="assignment-tab-assignment" hidden={Boolean(browser) || tab !== "assignment"} tabIndex={0}>
           <h2>Assignment instructions</h2>
-          <p>{assignment.instructions ?? "No instructions saved yet. Open the school page for the full requirements."}</p>
+          {assignment.requirementEvidence?.length
+            ? assignment.requirementEvidence.map((item, index) => <p key={index}>{item.text}</p>)
+            : <p>{assignment.instructions ?? "No instructions saved yet. Open the school page for the full requirements."}</p>}
+          {assignment.missingRequirements?.length ? <div role="status"><strong>Still needs checking</strong><ul>{assignment.missingRequirements.map((item, index) => <li key={index}>{item}</li>)}</ul></div> : null}
           <button className="assignment-material-link" onClick={() => selectTab("files")}><Icon name="note" />Files for this assignment{fileCount !== null && <span>{fileCount}</span>}<Icon name="right" /></button>
         </section>
         <section className="assignment-page-scroll" role="tabpanel" id="assignment-panel-files" aria-labelledby="assignment-tab-files" hidden={Boolean(browser) || tab !== "files"} tabIndex={0}>
@@ -70,7 +74,7 @@ export function AssignmentWorkspace({ assignment, task, execution, lifecycle, on
       <aside className="assignment-inky" aria-label="Inky">
         <div className="assignment-inky-scroll">
           <AssignmentSummary assignment={assignment} task={task} execution={execution} lifecycle={lifecycle} onboarding={onboarding} busy={busy}
-            onStart={onStart} onResume={onResume} onPause={onPause} onBrowser={state === "ready_review" ? () => selectTab("work") : onBrowser}
+            onStart={onStart} onCheckAssignment={onCheckAssignment} onResume={onResume} onPause={onPause} onBrowser={state === "ready_review" ? () => selectTab("work") : onBrowser}
             onAnswer={() => selectTab("work")} onOpenWork={onOpenWork} onOpenSchoolCheck={onOpenSchoolCheck} onOpenRules={onOpenRules} />
           {execution && ["working", "needs_user", "ready_review"].includes(execution.phase) && <button className="assignment-text-action assignment-stop" disabled={busy !== null && !(busy === "assignment" && execution.phase === "working")} onClick={() => onCancel(execution.taskId)}>Stop work</button>}
           {error}

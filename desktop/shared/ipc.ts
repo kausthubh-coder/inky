@@ -344,6 +344,8 @@ export type IpcInvoke = (channel: string, request: unknown) => Promise<unknown>;
 type RequestArguments<Definition extends IpcMethodDefinition> =
   Definition["requestSchema"] extends z.ZodUndefined
     ? []
+    : Definition["requestSchema"] extends z.ZodOptional<z.ZodType>
+      ? [request?: z.input<Definition["requestSchema"]>]
     : [request: z.input<Definition["requestSchema"]>];
 
 type IpcMethod<Definition extends IpcMethodDefinition> = (
@@ -501,7 +503,7 @@ export const studiIpcRegistry = Object.freeze({
   }),
   [startSchoolScanMethod]: Object.freeze({
     channel: startSchoolScanChannel,
-    requestSchema: z.undefined(),
+    requestSchema: z.strictObject({ assignmentId: z.string().min(1).max(256) }).optional(),
     resultSchema: SchoolOnboardingStateSchema,
   }),
   [resumeSchoolScanMethod]: Object.freeze({
@@ -684,7 +686,8 @@ function createIpcMethod<Definition extends IpcMethodDefinition>(
     const expectsNoArguments = contract.requestSchema instanceof z.ZodUndefined;
     const expectedArgumentCount = expectsNoArguments ? 0 : 1;
 
-    if (suppliedArguments.length !== expectedArgumentCount) {
+    const optionalRequest = contract.requestSchema instanceof z.ZodOptional;
+    if (suppliedArguments.length !== expectedArgumentCount && !(optionalRequest && suppliedArguments.length === 0)) {
       throw new TypeError(
         `IPC method ${method} expects ${expectedArgumentCount} argument${expectedArgumentCount === 1 ? "" : "s"}; received ${suppliedArguments.length}`,
       );

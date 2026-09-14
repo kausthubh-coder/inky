@@ -35,6 +35,7 @@ interface ChatProps {
   actionError: string | null;
   scanBusy: string | null;
   onStart: (id: string) => void;
+  onCheckAssignment: (assignmentId: string) => void;
   onOpenWork: () => void;
   onOpenSchoolCheck: () => void;
   onOpenRules: () => void;
@@ -103,8 +104,8 @@ export function ChatWorkspace(props: ChatProps) {
       activeExecution.phase,
     );
   const messages = school ? (onboarding.scan?.messages ?? []).map((message,index) => ({...message,turnIndex:index})) : chat?.job.messages ?? [];
-  const timeline = chatTimeline(school ? [] : messages, []);
   const scanActive = school && ["running", "needs_user"].includes(onboarding.scan?.state ?? "");
+  const timeline = chatTimeline(school && !(scanActive && !scanDetails) ? [] : messages, []);
   useEffect(() => { setScanDetails(false); }, [onboarding.scan?.scanId]);
   const mood: InkyState =
     chat?.activity === "typing"
@@ -190,10 +191,10 @@ export function ChatWorkspace(props: ChatProps) {
     }
   }, [draft.text, view]);
   useEffect(() => {
-    if (school || !log.current || !messages.length) return;
-    if (assignment) log.current.lastElementChild?.scrollIntoView({ block: "nearest" });
+    if (!log.current || !messages.length || (school && !(scanActive && !scanDetails))) return;
+    if (school || assignment) log.current.lastElementChild?.scrollIntoView({ block: "nearest" });
     else log.current.scrollTop = log.current.scrollHeight;
-  }, [chat?.job.messages.length, timeline.length, active, view]);
+  }, [chat?.job.messages.length, timeline.length, active, view, school, scanActive, scanDetails, assignment]);
   useEffect(() => {
     const persist = (event: Event) => {
       try {
@@ -520,7 +521,7 @@ export function ChatWorkspace(props: ChatProps) {
       busy={props.scanBusy} conversation={conversation} composer={composer} browser={schoolBrowser}
       error={(error || props.actionError) && <p className="chat-error" role="alert">{error || props.actionError}</p>}
       onClose={() => onView("home")} onBrowser={openBrowser} onCloseBrowser={() => setBrowser(false)}
-      onStart={props.onStart} onResume={props.onResume} onPause={props.onTakeover} onCancel={props.onCancel}
+      onStart={props.onStart} onCheckAssignment={props.onCheckAssignment} onResume={props.onResume} onPause={props.onTakeover} onCancel={props.onCancel}
       onOpenWork={props.onOpenWork} onOpenSchoolCheck={props.onOpenSchoolCheck} onOpenRules={props.onOpenRules}
       onOpenArtifact={props.onOpenArtifact} onVerifySubmission={props.onVerifySubmission} />
   ) : (

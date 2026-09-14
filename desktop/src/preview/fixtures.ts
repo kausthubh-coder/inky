@@ -36,6 +36,7 @@ const evidence = {
 };
 
 function assignment(assignmentId: string, title: string, dueAt: string): Assignment {
+  const currentEvidence = { ...evidence, capturedAt: new Date().toISOString() };
   return {
     schemaVersion: 1,
     assignmentId,
@@ -43,6 +44,12 @@ function assignment(assignmentId: string, title: string, dueAt: string): Assignm
     title,
     sourceTarget: `https://school.example.edu/courses/csc316/${assignmentId}`,
     dueAt: (()=>{const date=new Date(); date.setHours(19,59,0,0);date.setDate(date.getDate()-(date.getDay()+6)%7+Math.max(0,new Date(dueAt).getUTCDate()-3));return date.toISOString();})(),
+    deadlinePrecision: "datetime",
+    deadlineEvidence: currentEvidence,
+    schoolStatus: { state: "not_submitted", text: "Not submitted", evidence: currentEvidence },
+    requirementEvidence: [{ text: "Complete the assignment and include your explanation.", evidence: currentEvidence }],
+    requirementsState: "complete",
+    latePolicy: { state: "accepted", text: "Simulated school accepts late work during the preview.", until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), evidence: currentEvidence },
     discoveredAt: now,
     lastVerifiedScanId: "preview-scan",
     evidence: [evidence],
@@ -78,7 +85,7 @@ export function installDevPreview(): void {
       updatedAt: now,
     },
     scan: {
-      inventories: [], messages: [], changes: [],
+      inventories: [], messages: [], changes: [], sourceCheckpoints: [],
       schemaVersion: 1,
       scanId: "preview-scan",
       kind: "first_scan",
@@ -244,9 +251,9 @@ export function installDevPreview(): void {
   if (preview.id === "week-complete") onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "succeeded", failures: [], currentStep: "Your homework is up to date." } };
   if (preview.id === "week-updating") onboarding = { ...onboarding, scan: { ...onboarding.scan!, completedAt: undefined, currentStep: "Checking linked homework pages…" } };
   if (preview.id === "week-conflicts") onboarding = { ...onboarding, courseConflicts: [{ kind: "permissions", courseIds: ["course-csc316"], reason: "These class records have different homework rules. I kept them separate so your permissions stay unchanged." }] };
-  const startPreviewScan = async () => {
+  const startPreviewScan = async (input?: { assignmentId: string }) => {
     if (lifecycle.manager.lease) throw new Error("An assignment is using the school browser.");
-    onboarding = { ...onboarding, scan: { ...onboarding.scan!, schemaVersion: 1, scanId: "preview-scan", kind: "first_scan", state: "running", startedAt: now, updatedAt: now, completedAt: undefined, currentStep: "Checking linked homework pages…", failures: [], handoff: null, inventories: [], messages: [], changes: [], coverage: [], observedCourseIds: [], observedAssignmentIds: [], observedLinkedSystemIds: [] } };
+    onboarding = { ...onboarding, scan: { ...onboarding.scan!, schemaVersion: 1, scanId: "preview-scan", kind: "first_scan", targetAssignmentId: input?.assignmentId, state: "running", startedAt: now, updatedAt: now, completedAt: undefined, currentStep: input ? "Checking this assignment’s missing details…" : "Checking linked homework pages…", failures: [], handoff: null, inventories: [], messages: [], changes: [], coverage: [], observedCourseIds: [], observedAssignmentIds: [], observedLinkedSystemIds: [] } };
     return onboarding;
   };
   const home = conversation({kind:'home'});
@@ -336,7 +343,7 @@ export function installDevPreview(): void {
     getSchoolOnboardingState: async () => onboarding,
     saveSchoolProfile: async (input) => { onboarding = { ...onboarding, profile: onboarding.profile ? { ...onboarding.profile, ...input, updatedAt: new Date().toISOString() } : onboarding.profile }; return onboarding; },
     startSchoolScan: startPreviewScan,
-    resumeSchoolScan: startPreviewScan,
+    resumeSchoolScan: () => startPreviewScan(onboarding.scan?.targetAssignmentId ? { assignmentId: onboarding.scan.targetAssignmentId } : undefined),
     replaySchoolScan: startPreviewScan,
     recordMissedCourseFeedback: async () => onboarding,
     getLifecycleState: async () => lifecycle,
@@ -365,7 +372,7 @@ export function installDevPreview(): void {
     verifyStudentSubmission: async () => lifecycle,
     openAnswerArtifact: async () => true,
     getProductSettings: async () => settings,
-    saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, workStartMode: input.workStartMode ?? settings.preferences.workStartMode, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     selectHomeworkRoot: async () => { settings = { ...settings, preferences: { ...settings.preferences, homeworkRoot: "C:\\Studi Preview Homework", updatedAt: new Date().toISOString() } }; return settings.preferences; },
     saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     testNotification: async ({ kind }) => ({

@@ -99,6 +99,7 @@ export function DashboardScreen({
   onVerifySubmission,
   onOpenArtifact,
   onScanAgain,
+  onCheckAssignment,
   onStopAndScan,
   onConnectRuntime,
   onFeedback,
@@ -128,6 +129,7 @@ export function DashboardScreen({
   onVerifySubmission: (taskId: string, confirmation: string) => void;
   onOpenArtifact: (taskId: string) => void;
   onScanAgain: () => void;
+  onCheckAssignment: (assignmentId: string) => void;
   onStopAndScan: (taskId: string) => void;
   onConnectRuntime: () => void;
   onFeedback: (context: string, message: string) => Promise<boolean>;
@@ -428,6 +430,7 @@ export function DashboardScreen({
         mood={inkyState}
         actionError={error}
         onStart={onStart}
+        onCheckAssignment={id => { setSchoolOpen(true); setChatView("expanded"); onCheckAssignment(id); }}
         onOpenWork={onOpenDesk}
         onOpenSchoolCheck={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }}
         onOpenRules={() => chrome.onNavigate("settings", "rules")}
@@ -446,7 +449,7 @@ export function DashboardScreen({
 }
 
 function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, selected, onAssignment }: { assignmentId: string; item?: TaskSummary; title: string; dueAt?: string; course: string; tone: number; selected: boolean; onAssignment: (assignmentId: string) => void }) {
-  const status = item ? taskStatusCopy(item.task.state) : null;
+  const status = item ? taskStatusCopy(item.task.state, item.assignment) : null;
   return (
     <button className={`assignment-card course-accent-${tone} ${selected ? "is-selected" : ""}`} onClick={() => onAssignment(assignmentId)}>
       <small>{course}</small>
@@ -687,7 +690,7 @@ export function SettingsScreen({
   diagnosticsReceipt: DiagnosticsExportReceipt | null;
   busy: string | null;
   error: string | null;
-  onSavePreferences: (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all") => void;
+  onSavePreferences: (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all", workStartMode?: "manual" | "automatic") => void;
   onSelectHomeworkRoot: () => void;
   onSaveNotifications: (notifications: NotificationPreferences) => void;
   onTestNotification: (kind: NotificationKind) => Promise<NotificationTestReceipt | undefined>;
@@ -851,7 +854,20 @@ export function SettingsScreen({
               {schedule && <small>Next look: {schedule.nextRunAt ? formatDateTime(schedule.nextRunAt) : "only when you ask"}</small>}
             </PaperCard>
             )}
-            {visible("rules") && <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={busy !== null} onSaveRule={onSaveRule} onDeleteRule={onDeleteRule} />}
+            {visible("rules") && <>
+              <PaperCard className="settings-card">
+                <h2>When I start homework</h2>
+                <Field label="Start work">
+                  <select value={preferences?.workStartMode ?? "manual"} disabled={!preferences || busy !== null}
+                    onChange={event => preferences && onSavePreferences(preferences.reviewMinutes, preferences.handoffMinutes, preferences.memoryVisibility, event.target.value as "manual" | "automatic")}>
+                    <option value="manual">Only when I ask</option>
+                    <option value="automatic">Automatically, following my homework rules</option>
+                  </select>
+                </Field>
+                <p>{preferences?.workStartMode === "automatic" ? "I can queue unfinished homework once I’ve checked its deadline and instructions." : "I’ll find your homework and wait for you to choose what I should work on."}</p>
+              </PaperCard>
+              <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={busy !== null} onSaveRule={onSaveRule} onDeleteRule={onDeleteRule} />
+            </>}
 
             {visible("usage") && <UsageCard entitlement={entitlement} usage={usage} />}
             {visible("notifications") && <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />}

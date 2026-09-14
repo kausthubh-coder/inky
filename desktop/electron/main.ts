@@ -424,9 +424,9 @@ const ipcHandlers: StudiIpcHandlers = {
     requireTelemetryService().setPerson({ student_name: input.studentName, school_root: input.schoolRoot });
     return state;
   },
-  startSchoolScan: async () => {
+  startSchoolScan: async (input) => {
     await requireReadyProviderForScan();
-    return runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startScan());
+    return runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startScan(input?.assignmentId));
   },
   resumeSchoolScan: async () => {
     await requireReadyProviderForScan();
@@ -500,9 +500,11 @@ const ipcHandlers: StudiIpcHandlers = {
       reviewMinutes: input.reviewMinutes,
       handoffMinutes: input.handoffMinutes,
       memoryVisibility: input.memoryVisibility,
+      workStartMode: input.workStartMode ?? current.workStartMode ?? "manual",
       updatedAt: new Date().toISOString(),
     });
     requireAssignmentExecutionCoordinator().configureReviewHandoff(preferences.reviewMinutes, preferences.handoffMinutes);
+    requireManagerCoordinator().setWorkStartMode(preferences.workStartMode ?? "manual");
     return preferences;
   },
   selectHomeworkRoot: async () => {
@@ -537,10 +539,12 @@ const ipcHandlers: StudiIpcHandlers = {
       ruleId: input.ruleId ?? `setting-${randomUUID()}`,
       updatedAt: new Date().toISOString(),
     });
+    requireManagerCoordinator().reconcileQueue();
     return readProductSettings();
   },
   deletePermissionRule: async ({ ruleId }) => {
     requireLocalStore().permissionRules.delete(ruleId);
+    requireManagerCoordinator().reconcileQueue();
     return readProductSettings();
   },
   configureScanSchedule: async ({ cadence, localTime, weekday }) => {
