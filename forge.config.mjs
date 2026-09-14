@@ -2,7 +2,10 @@ export default {
   packagerConfig: {
     name: "Studi",
     executableName: "Studi",
-    asar: { unpack: "**/*.node" },
+    asar: { unpack: "**/@napi-rs/canvas-*/*.node" },
+    // Canvas selects its architecture-specific package at runtime. Preserve both
+    // prebuilds rather than attempting to combine identical per-arch files.
+    osxUniversal: { x64ArchFiles: "**/@napi-rs/canvas-darwin-{arm64,x64}/*.node" },
     icon: "assets/studi-inky",
     extraResource: ["assets/studi-inky.png", "assets/studi-inky.ico", "THIRD_PARTY_NOTICES.md"],
     ignore: [
