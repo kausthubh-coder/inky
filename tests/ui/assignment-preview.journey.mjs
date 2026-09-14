@@ -19,7 +19,7 @@ export async function verifyAssignmentPreview(page, base) {
     const color = await card.evaluate(el => getComputedStyle(el, "::before").backgroundColor);
     await card.focus();
     await page.keyboard.press("Enter");
-    await status("Not attempted");
+    await status("Not started");
     assert.equal(await page.locator(".assignment-course .course-dot").evaluate(el => getComputedStyle(el).backgroundColor), color);
     assert.match(await page.locator(".assignment-brief").innerText(), /radix sort/);
     assert.match(await page.locator(".assignment-due").innerText(), /Due/);

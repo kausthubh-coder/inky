@@ -31,6 +31,60 @@ async function fixture(fn) {
   try { await fn(store, root); } finally { store.close(); await rm(root, { recursive: true, force: true }); }
 }
 
+function factEvidence(id, capturedAt = now) {
+  return { schemaVersion: 1, evidenceId: id, reference: id, kind: "text_snapshot", sourceTarget: target, capturedAt };
+}
+
+test("alias merge retains legacy deadlines and newer status while preserving requirement gaps", async () => fixture(async store => {
+  const kept = seed(store, "a");
+  const donor = seed(store, "b");
+  const first = factEvidence("old");
+  const later = factEvidence("new", "2026-09-08T13:00:00.000Z");
+  store.assignments.put({ ...kept, dueAt: "2026-09-10T23:59:00.000Z", dueText: "September 10, 2026 11:59 PM",
+    schoolStatus: { state: "not_submitted", text: "Not submitted", evidence: first },
+    requirementEvidence: [{ text: "Write a program.", evidence: first }], requirementsState: "complete" });
+  store.assignments.put({ ...donor, schoolStatus: { state: "submitted", text: "Submitted for grading", evidence: later },
+    requirementEvidence: [{ text: "Include the test report.", evidence: later }], requirementsState: "partial", missingRequirements: ["Read the rubric."] });
+  assert.deepEqual(reconcileAssignments(store), []);
+  const merged = store.assignments.get("a");
+  assert.equal(merged.dueAt, "2026-09-10T23:59:00.000Z", "legacy deadline is not erased by an undated donor");
+  assert.equal(merged.schoolStatus.state, "submitted");
+  assert.equal(merged.requirementEvidence.length, 2);
+  assert.equal(merged.requirementsState, "partial");
+  assert.ok(merged.missingRequirements.includes("Read the rubric."));
+}));
+
+test("equally recent contradictory school facts keep aliases blocked instead of choosing an unfinished state", async () => fixture(async store => {
+  const a = seed(store, "a");
+  const b = seed(store, "b");
+  store.assignments.put({ ...a, schoolStatus: { state: "not_submitted", text: "Not submitted", evidence: factEvidence("a-status") } });
+  store.assignments.put({ ...b, schoolStatus: { state: "submitted", text: "Submitted for grading", evidence: factEvidence("b-status") } });
+  store.assignmentConflicts = reconcileAssignments(store);
+  assert.match(store.assignmentConflicts[0].reason, /conflicting school status/);
+  assert.equal(store.assignments.listAll().length, 2);
+  const manager = await ManagerCoordinator.create(store, {}, { now: () => now });
+  try { assert.equal(manager.resolvePermission("a", a.courseId).mayAttempt, false); }
+  finally { manager.dispose(); }
+}));
+
+test("a student-requested queue entry chooses the retained alias and keeps its intent", async () => fixture(async store => {
+  for (const id of ["a", "b"]) {
+    const assignment = seed(store, id);
+    const evidence = factEvidence(`evidence-${id}`);
+    store.assignments.put({ ...assignment, dueAt: "2026-09-10T23:59:00.000Z", deadlinePrecision: "datetime", deadlineEvidence: evidence,
+      schoolStatus: { state: "not_submitted", text: "Not submitted", evidence },
+      requirementEvidence: [{ text: "Write a program.", evidence }], requirementsState: "complete" });
+  }
+  store.permissionRules.put({ schemaVersion: 1, ruleId: "allow", scope: "global", mode: "attempt", updatedAt: now });
+  const manager = await ManagerCoordinator.create(store, {}, { now: () => now });
+  try {
+    manager.enqueue({ taskId: "task-b", requestOrigin: "student" });
+    assert.deepEqual(reconcileAssignments(store), []);
+    assert.equal(store.assignments.get("a").assignmentId, "b");
+    assert.equal(store.manager.getQueueEntry("task-b").requestOrigin, "student");
+  } finally { manager.dispose(); }
+}));
+
 test("school identity ignores Moodle view options, but separates installations, module types and ids", () => {
   assert.equal(schoolIdentity(target, "assignment"), schoolIdentity(`${target}&action=editsubmission#intro`, "assignment"));
   for (const other of [target.replace("1360376", "1360377"), target.replace("school.", "other."),

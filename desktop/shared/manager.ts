@@ -26,6 +26,7 @@ export const ManagerQueueEntrySchema = z.strictObject({
   priority: z.number().int().nonnegative(),
   enqueuedAt: IsoTimestampSchema,
   permission: PermissionResolutionSchema,
+  requestOrigin: z.enum(["student", "automatic"]).optional(),
 });
 
 export const BrowserWorkerLeaseSchema = z.strictObject({

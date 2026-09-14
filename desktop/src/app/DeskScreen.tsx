@@ -207,7 +207,7 @@ export function DeskDrawer({
     setPrompt("");
   };
 
-  const status = task ? taskStatusCopy(task.task.state) : null;
+  const status = task ? taskStatusCopy(task.task.state, assignment ?? undefined) : null;
 
   return (
     <aside className={`workspace-drawer ${desk ? "is-desk" : "is-peek"}`} aria-label={desk ? "Inky’s desk" : title}>

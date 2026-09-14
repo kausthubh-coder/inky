@@ -180,6 +180,10 @@ export class SchoolRepository {
   #canonicalScan(scan: SchoolScan): SchoolScan {
     const ids = (kind: "course" | "assignment", values: string[]) => [...new Set(values.map(id => resolveRecordId(this.database, kind, id)))];
     return { ...scan, observedCourseIds: ids("course", scan.observedCourseIds),
+      sourceCheckpoints: scan.sourceCheckpoints.map(source => ({ ...source,
+        courseId: source.courseId ? this.resolveCourseId(source.courseId) : undefined,
+        courseIds: ids("course", source.courseIds), assignmentIds: ids("assignment", source.assignmentIds),
+      })),
       observedAssignmentIds: ids("assignment", scan.observedAssignmentIds),
       changes: scan.changes.map(change => ({ ...change, assignmentId: resolveRecordId(this.database, "assignment", change.assignmentId) })),
       inventories: scan.inventories.map(inventory => ({ ...inventory,

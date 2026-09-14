@@ -1,4 +1,5 @@
 import type { Assignment, LifecycleState, SchoolOnboardingState, TaskSummary } from "../../shared/index.js";
+import { assignmentWorkEligibility } from "../../shared/index.js";
 import { assignmentState } from "./assignmentPresentation.js";
 import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
@@ -27,11 +28,12 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
     || (lifecycle.execution && lifecycle.execution.assignmentId !== assignment.assignmentId
       && ["working", "needs_user", "ready_review", "submitting"].includes(lifecycle.execution.phase));
   const scanActive = onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user";
+  const eligibility = assignmentWorkEligibility(assignment, new Date().toISOString());
   const blocked = (canStart || state === "needs_user") && task
     ? !task.permission.mayAttempt ? "Inky isn’t allowed to attempt this assignment."
         : otherWork ? "Inky has another assignment open. Finish or stop that work first."
           : scanActive ? "Finish the school check before Inky can work on this assignment."
-            : null
+            : canStart && !eligibility.eligible ? eligibility.reason : null
     : null;
   let note = "I haven’t attempted this assignment yet.";
   let label = "Start assignment";
@@ -107,6 +109,6 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
     {blocked && (!task?.permission.mayAttempt
       ? <button className="quiet-button" onClick={onOpenRules}>Homework rules <span aria-hidden="true">↗</span></button>
       : otherWork ? <button className="quiet-button" onClick={onOpenWork}>Go to current assignment <span aria-hidden="true">↗</span></button>
-        : scanActive && <button className="quiet-button" onClick={onOpenSchoolCheck}>Open school check <span aria-hidden="true">↗</span></button>)}
+        : <button className="quiet-button" onClick={onOpenSchoolCheck}>Open school check <span aria-hidden="true">↗</span></button>)}
   </section>;
 }

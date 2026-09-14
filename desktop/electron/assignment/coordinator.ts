@@ -284,7 +284,11 @@ export class AssignmentExecutionCoordinator {
     const folderListing = homeworkFiles ? await homeworkFiles.list() : [];
     const prompt = [
       "# Assignment",
-      JSON.stringify({ taskId: execution.taskId, title: assignment.title, sourceTarget: assignment.sourceTarget, dueAt: assignment.dueAt ?? null, instructions: assignment.instructions ?? null }, null, 2),
+        JSON.stringify({ taskId: execution.taskId, title: assignment.title, sourceTarget: assignment.sourceTarget,
+          dueAt: assignment.dueAt ?? null, dueText: assignment.dueText, schoolStatus: assignment.schoolStatus,
+          latePolicy: assignment.latePolicy, instructions: assignment.instructions ?? null,
+          requirements: assignment.requirementEvidence, missingRequirements: assignment.missingRequirements }, null, 2),
+        "Before entering answers, inspect this assignment's current submission state and cutoff. If already submitted, graded, locked, or the allowed submission window has closed, stop and report the change; do not overwrite or repeat schoolwork.",
       "# Fresh stored permission",
       JSON.stringify(permission, null, 2),
       "# Task budget",

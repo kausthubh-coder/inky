@@ -33,7 +33,7 @@ export const TERMINAL_TASK_STATES = Object.freeze([
 export const TASK_TRANSITIONS = Object.freeze({
   discovered: Object.freeze(["ignored", "queued"]),
   ignored: Object.freeze([]),
-  queued: Object.freeze(["working", "cancelled"]),
+  queued: Object.freeze(["discovered", "working", "cancelled"]),
   working: Object.freeze(["needs_user", "ready_review", "submitting", "failed", "cancelled"]),
   needs_user: Object.freeze(["working", "queued", "preserved", "cancelled"]),
   ready_review: Object.freeze(["submitting", "submitted", "preserved", "needs_user", "cancelled"]),

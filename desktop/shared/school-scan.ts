@@ -45,6 +45,27 @@ export const SchoolScanHandoffSchema = z.strictObject({
   evidence: EvidenceReferenceSchema,
 });
 
+export const SchoolScanInventorySchema = z.strictObject({
+  kind: z.enum(["courses", "assignments"]),
+  courseId: z.string().min(1).max(256).optional(),
+  state: z.enum(["complete", "empty"]),
+  itemIds: z.array(z.string().min(1).max(256)).max(10_000),
+  evidence: EvidenceReferenceSchema,
+});
+
+export const ScanSourceCheckpointSchema = z.strictObject({
+  sourceTarget: SafeSourceTargetSchema,
+  kind: z.enum(["directory", "inventory", "details", "schedule", "announcements", "linked"]),
+  courseId: z.string().min(1).max(256).optional(),
+  state: z.enum(["checked", "blocked"]),
+  contentDigest: z.string(),
+  scanId: z.string(),
+  evidence: EvidenceReferenceSchema,
+  courseIds: z.array(z.string()).max(1000),
+  assignmentIds: z.array(z.string()).max(10000),
+  note: z.string().max(500).optional(),
+});
+
 export const SchoolScanSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   scanId: z.string().min(1).max(256),
@@ -60,6 +81,7 @@ export const SchoolScanSchema = z.strictObject({
   observedCourseIds: z.array(z.string().min(1).max(256)).max(1_000),
   observedAssignmentIds: z.array(z.string().min(1).max(256)).max(10_000),
   observedLinkedSystemIds: z.array(z.string().min(1).max(256)).max(1_000),
+  sourceCheckpoints: z.array(ScanSourceCheckpointSchema).max(2000).default([]),
   messages: z.array(z.strictObject({ messageId:z.string(), role:z.enum(["user","assistant"]), text:z.string().max(100000), createdAt:IsoTimestampSchema, clientMessageId:z.string().optional() })).max(1000).default([]),
   changes: z.array(z.strictObject({
     assignmentId: z.string(),
@@ -70,18 +92,13 @@ export const SchoolScanSchema = z.strictObject({
       after: z.strictObject({ dueAt: IsoTimestampSchema.optional(), dueText: z.string().max(200).optional() }),
     }).optional(),
   })).max(10000).default([]),
-  inventories: z.array(z.strictObject({
-    kind: z.enum(["courses", "assignments"]),
-    courseId: z.string().min(1).max(256).optional(),
-    state: z.enum(["complete", "empty"]),
-    itemIds: z.array(z.string().min(1).max(256)).max(10_000),
-    evidence: EvidenceReferenceSchema,
-  })).max(1_001).default([]),
+  inventories: z.array(SchoolScanInventorySchema).max(1_001).default([]),
 });
 
 export const SCAN_TOOL_NAMES = [
   "scan_status", "scan_record_course", "scan_record_assignment", "scan_record_assignments",
   "scan_record_linked_system", "scan_record_inventory", "scan_request_handoff", "scan_finish",
+  "scan_check_source", "scan_record_source", "scan_read_assignment",
 ] as const;
 
 export const CourseSchema = z.strictObject({
@@ -206,6 +223,6 @@ export function presentSchoolOnboardingScan(
 }
 
 export function nextSchoolScanAction(state: Pick<SchoolOnboardingState, "scan" | "workflowRevision">): "scan" | "resume" | "replay" {
-  if (state.scan?.state === "needs_user") return "resume";
+  if (state.scan && ["needs_user", "partial", "failed"].includes(state.scan.state)) return "resume";
   return state.workflowRevision === null ? "scan" : "replay";
 }

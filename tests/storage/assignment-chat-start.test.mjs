@@ -24,6 +24,7 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
     for (const id of ["selected", "other"]) seedTask(store, id);
     const target = { kind: "assignment", assignmentId: "selected" };
     const manager = await ManagerCoordinator.create(store, base, {
+      now: () => now,
       startAssignment: async taskId => {
         assert.equal(prompting, false, "the chat session has finished before the worker starts");
         assert.equal(taskId, "task-selected", "only the addressed assignment can start");
@@ -95,7 +96,11 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
 
 function seedTask(store, id) {
   const sourceTarget = `https://school.example.edu/assignments/${id}`;
-  store.assignments.put({ schemaVersion: 1, assignmentId: id, courseId: "course", title: id, sourceTarget, discoveredAt: now, lastVerifiedScanId: "scan", evidence: [{ schemaVersion: 1, evidenceId: `evidence-${id}`, reference: `evidence-${id}`, kind: "agent_observation", sourceTarget, capturedAt: now, summary: `Observed ${id}` }] });
+  const evidence = { schemaVersion: 1, evidenceId: `evidence-${id}`, reference: `evidence-${id}`, kind: "agent_observation", sourceTarget, capturedAt: now, summary: `Observed ${id}` };
+  store.assignments.put({ schemaVersion: 1, assignmentId: id, courseId: "course", title: id, sourceTarget, discoveredAt: now, lastVerifiedScanId: "scan", evidence: [evidence],
+    dueAt: "2026-09-20T23:59:00.000Z", deadlinePrecision: "datetime", deadlineEvidence: evidence,
+    schoolStatus: { state: "not_submitted", text: "Not submitted", evidence },
+    requirementEvidence: [{ text: "Complete the exercise.", evidence }], requirementsState: "complete" });
   const task = { schemaVersion: 1, taskId: `task-${id}`, assignmentId: id, state: "discovered", revision: 0, createdAt: now, updatedAt: now };
   const { schemaVersion, ...payload } = task;
   store.tasks.append({ expectedRevision: null, projection: task, event: { schemaVersion: 1, eventId: `event-${id}`, aggregateType: "task", aggregateId: task.taskId, runId: `run-${id}`, sequence: 0, occurredAt: now, type: "task_created", payload } });

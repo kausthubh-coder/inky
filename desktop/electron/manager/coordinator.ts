@@ -7,6 +7,7 @@ import {
   AgentJobSchema,
   STUDI_SCHEMA_VERSION,
   resolvePermission,
+  assignmentWorkEligibility,
   transitionTask,
   type AgentRunEvent,
   type BrowserWorkerLease,
@@ -40,6 +41,7 @@ export interface EnqueueAssignmentInput {
   readonly taskId: string;
   readonly priority?: number;
   readonly retry?: boolean;
+  readonly requestOrigin?: "student" | "automatic";
 }
 
 export interface ManagerCoordinatorOptions {
@@ -54,6 +56,7 @@ export class ManagerCoordinator {
   readonly #startAssignment: ((taskId: string) => Promise<unknown>) | null;
   #workerSession: AgentSession | null = null;
   #workerRunning = false;
+  #workStartMode: "manual" | "automatic" = "manual";
   #disposed = false;
   #beforeAssignmentWork: ((assignmentId: string) => Promise<void>) | null = null;
 
@@ -80,6 +83,7 @@ export class ManagerCoordinator {
       options.now ?? (() => new Date().toISOString()),
       options.startAssignment ?? null,
     );
+    coordinator.#workStartMode = (await store.productPreferences.get()).workStartMode ?? "manual";
     await coordinator.#recover();
     return coordinator;
   }
@@ -130,6 +134,8 @@ export class ManagerCoordinator {
       throw new TypeError("Queue priority must be a non-negative integer");
     }
     const task = this.#requiredTask(input.taskId);
+    const requestOrigin = input.requestOrigin ?? "student";
+    if (requestOrigin === "automatic" && this.#workStartMode !== "automatic") throw new Error("Inky starts homework only when you ask.");
     const assignment = this.#store.assignments.get(task.assignmentId);
     if (!assignment) {
       throw new Error(`Assignment ${task.assignmentId} does not exist`);
@@ -142,6 +148,8 @@ export class ManagerCoordinator {
     if (!permission.mayAttempt) {
       throw new Error(`Task ${task.taskId} is blocked by stored permission rules`);
     }
+    const eligibility = assignmentWorkEligibility(assignment, this.#now());
+    if (!eligibility.eligible) throw new Error(eligibility.reason);
     if (task.state === "discovered" || retrying) {
       this.#transition(task.taskId, "queued", retrying ? "Retried at the student’s request" : "Queued by the Studi manager", `manager-${randomUUID()}`);
     }
@@ -155,6 +163,7 @@ export class ManagerCoordinator {
       priority: input.priority ?? existing?.priority ?? 0,
       enqueuedAt: existing?.enqueuedAt ?? this.#now(),
       permission,
+      requestOrigin: existing?.requestOrigin === "student" ? "student" : requestOrigin,
     });
   }
 
@@ -218,6 +227,7 @@ export class ManagerCoordinator {
     if (this.#store.manager.getLease()) {
       throw new Error("The visible school browser already has an active worker lease");
     }
+    if (!this.#store.manager.getQueueEntry(taskId)) this.enqueue({ taskId, retry: true, requestOrigin: "student" });
     const entry = this.#store.manager.getQueueEntry(taskId);
     if (!entry) throw new Error(`Task ${taskId} is not in the manager queue`);
     const permittedEntry = this.#refreshStartPermission(entry);
@@ -362,7 +372,7 @@ export class ManagerCoordinator {
         if (!permission.mayAttempt) {
           this.#transition(
             task.taskId,
-            "cancelled",
+            "discovered",
             "Stored permission no longer allows recovery into the queue",
             `manager-${randomUUID()}`,
           );
@@ -380,6 +390,7 @@ export class ManagerCoordinator {
         });
       }
     }
+    this.reconcileQueue();
   }
 
   #resolvePermission(assignmentId: string, courseId: string) {
@@ -404,13 +415,31 @@ export class ManagerCoordinator {
     return this.#resolvePermission(assignmentId, courseId);
   }
 
+  // Settings changes, new school evidence and startup use the same decision as
+  // startNext. Withdraw unstarted work without calling it cancelled/completed.
+  reconcileQueue(): void {
+    for (const entry of this.#store.manager.listQueue()) {
+      if (this.#store.tasks.get(entry.taskId)?.state === "queued") this.#refreshStartPermission(entry);
+    }
+  }
+
+  setWorkStartMode(mode: "manual" | "automatic"): void {
+    this.#workStartMode = mode;
+    this.reconcileQueue();
+  }
+
+  get allowsAutomaticWork(): boolean { return this.#workStartMode === "automatic"; }
+
   #refreshStartPermission(entry: ManagerQueueEntry): ManagerQueueEntry | null {
     const permission = this.#resolvePermission(entry.assignmentId, entry.courseId);
-    if (!permission.mayAttempt) {
+    const assignment = this.#store.assignments.get(entry.assignmentId);
+    const eligibility = assignment ? assignmentWorkEligibility(assignment, this.#now()) : { eligible: false, reason: "Assignment no longer exists." };
+    const manual = entry.requestOrigin !== "student" && !this.allowsAutomaticWork;
+    if (!permission.mayAttempt || !eligibility.eligible || manual) {
       this.#transition(
         entry.taskId,
-        "cancelled",
-        "Stored permission no longer allows an attempt",
+        "discovered",
+        manual ? "Inky starts homework only when you ask." : permission.mayAttempt ? eligibility.reason : "Stored permission no longer allows an attempt",
         `manager-${randomUUID()}`,
       );
       this.#store.manager.removeQueueEntry(entry.taskId);
@@ -446,6 +475,10 @@ export class ManagerCoordinator {
         : await this.#runtime.createWorkerSession(target);
       if (!worker.sessionPath) {
         throw new Error("Pi did not persist the assignment worker session");
+      }
+      const currentEntry = this.#store.manager.getQueueEntry(entry.taskId);
+      if (this.#requiredTask(entry.taskId).state !== "queued" || !currentEntry || !this.#refreshStartPermission(currentEntry)) {
+        throw new Error("The assignment is no longer eligible to start.");
       }
       const lease = this.#store.manager.activateLease(
         entry.taskId,

@@ -224,7 +224,7 @@ export function StudiApp() {
     if (taskId) await loadTask(taskId);
   };
   const openAnswerArtifact = async (taskId: string) => { const studi = window.studi; if (studi) await action("artifact", () => studi.openAnswerArtifact({ taskId })); };
-  const savePreferences = async (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all") => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.saveProductPreferences({ reviewMinutes, handoffMinutes, memoryVisibility }), (preferences) => setSettings((current) => current ? { ...current, preferences } : current)); };
+  const savePreferences = async (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all", workStartMode?: "manual" | "automatic") => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.saveProductPreferences({ reviewMinutes, handoffMinutes, memoryVisibility, workStartMode }), (preferences) => setSettings((current) => current ? { ...current, preferences } : current)); };
   const selectHomeworkRoot = async () => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.selectHomeworkRoot(), (preferences) => setSettings((current) => current ? { ...current, preferences } : current)); };
   const saveNotifications = async (notifications: NotificationPreferences) => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.saveNotificationPreferences(notifications), (preferences) => setSettings((current) => current ? { ...current, preferences } : current)); };
   const testNotification = async (kind: NotificationKind): Promise<NotificationTestReceipt | undefined> => {
@@ -262,11 +262,6 @@ export function StudiApp() {
   };
   const finishOnboarding = () => {
     setShowOnboardingCompletion(false);
-    if (defaultPermission === "do_not_attempt" || !window.studi) return;
-    setPanel({ kind: "desk" });
-    void updateLifecycle("assignment", () => window.studi!.startNextAssignment()).then((state) => {
-      if (!state?.execution) setPanel({ kind: "closed" });
-    });
   };
 
   useEffect(() => {

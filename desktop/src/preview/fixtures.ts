@@ -36,6 +36,7 @@ const evidence = {
 };
 
 function assignment(assignmentId: string, title: string, dueAt: string): Assignment {
+  const currentEvidence = { ...evidence, capturedAt: new Date().toISOString() };
   return {
     schemaVersion: 1,
     assignmentId,
@@ -43,6 +44,12 @@ function assignment(assignmentId: string, title: string, dueAt: string): Assignm
     title,
     sourceTarget: `https://school.example.edu/courses/csc316/${assignmentId}`,
     dueAt: (()=>{const date=new Date(); date.setHours(19,59,0,0);date.setDate(date.getDate()-(date.getDay()+6)%7+Math.max(0,new Date(dueAt).getUTCDate()-3));return date.toISOString();})(),
+    deadlinePrecision: "datetime",
+    deadlineEvidence: currentEvidence,
+    schoolStatus: { state: "not_submitted", text: "Not submitted", evidence: currentEvidence },
+    requirementEvidence: [{ text: "Complete the assignment and include your explanation.", evidence: currentEvidence }],
+    requirementsState: "complete",
+    latePolicy: { state: "accepted", text: "Simulated school accepts late work during the preview.", until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), evidence: currentEvidence },
     discoveredAt: now,
     lastVerifiedScanId: "preview-scan",
     evidence: [evidence],
@@ -78,7 +85,7 @@ export function installDevPreview(): void {
       updatedAt: now,
     },
     scan: {
-      inventories: [], messages: [], changes: [],
+      inventories: [], messages: [], changes: [], sourceCheckpoints: [],
       schemaVersion: 1,
       scanId: "preview-scan",
       kind: "first_scan",

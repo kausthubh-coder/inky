@@ -24,7 +24,7 @@ export function AssignmentWorkspace({ assignment, task, execution, lifecycle, on
   const [fileCount, setFileCount] = useState<number | null>(null);
   const course = onboarding.courses.find(course => course.courseId === assignment.courseId)?.label ?? assignment.courseId;
   const state = assignmentState(task, execution);
-  const status = taskStatusCopy(state ?? "unknown");
+  const status = taskStatusCopy(state ?? "unknown", assignment);
   const due = assignment.dueAt ? new Intl.DateTimeFormat(undefined, {
     month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
   }).format(new Date(assignment.dueAt)) : assignment.dueText ?? "No due date listed";

@@ -53,7 +53,7 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
       assignmentId: "assignment-b",
     });
     const lease = await coordinator.startNext();
-    assert.equal(store.tasks.get("task-b").state, "cancelled", "permission is resolved again at start");
+    assert.equal(store.tasks.get("task-b").state, "discovered", "revoked unstarted work returns to discovery");
     assert.equal(lease.taskId, "task-a");
     assert.equal(coordinator.state().lease.taskId, "task-a");
     const claimedJob = store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" });
@@ -162,7 +162,7 @@ test("a selected manager start cannot fall through when its permission is revoke
       coordinator.startFromConversation("task-selected"),
       /Task task-selected is blocked by stored permission rules/,
     );
-    assert.equal(store.tasks.get("task-selected").state, "cancelled");
+    assert.equal(store.tasks.get("task-selected").state, "discovered");
     assert.equal(store.tasks.get("task-other").state, "queued");
     assert.equal(coordinator.state().lease, null, "no other task acquires the browser lease");
     assert.deepEqual(coordinator.state().entries.map((entry) => entry.taskId), ["task-other"]);
@@ -212,6 +212,7 @@ function seedTask(store, suffix, dueAt) {
   const assignmentId = `assignment-${suffix}`;
   const taskId = `task-${suffix}`;
   const courseId = `course-${suffix}`;
+  const evidence = { schemaVersion: 1, evidenceId: `evidence-${suffix}`, reference: `evidence-${suffix}`, kind: "text_snapshot", sourceTarget: `https://school.example.edu/assignments/${suffix}`, capturedAt: now };
   store.assignments.put({
     schemaVersion: 1,
     assignmentId,
@@ -219,6 +220,10 @@ function seedTask(store, suffix, dueAt) {
     title: `Assignment ${suffix}`,
     sourceTarget: `https://school.example.edu/assignments/${suffix}`,
     dueAt,
+    deadlinePrecision: "datetime", deadlineEvidence: evidence,
+    schoolStatus: { state: "not_submitted", text: "Not submitted", evidence },
+    requirementEvidence: [{ text: "Solve the assigned exercises and upload a PDF.", evidence }],
+    requirementsState: "complete",
     discoveredAt: now,
     lastVerifiedScanId: "scan-manager-test",
     evidence: [{
