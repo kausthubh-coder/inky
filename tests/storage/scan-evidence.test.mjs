@@ -66,6 +66,31 @@ async function finishPartial(tools) {
   return invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "partial", failure: "Other class sources still need checking." }], navigationHints: [] });
 }
 
+test("visible IANA deadlines retain exact precision and reject unsupported model dates", async () => fixture(async ({ scan, runtime, browser, store }) => {
+  let recorded;
+  runtime.next = async tools => {
+    const assignment = await recordReady(tools, browser);
+    const dueText = "September 14, 2026 at 11:59 PM America/New_York";
+    browser.detail(dueText);
+    const input = { courseId: assignment.courseId, title: assignment.title, dueText };
+    recorded = await invoke(tools, "scan_record_assignment", { ...input, dueAt: "2026-09-14T23:59:00-04:00" });
+    assert.equal(recorded.dueAt, "2026-09-15T03:59:00.000Z");
+    assert.equal(recorded.deadlinePrecision, "datetime");
+    for (const wrong of ["2026-09-14T23:59:00-05:00", "2026-09-15T23:59:00-04:00", "2026-09-14T11:59:00-04:00"]) {
+      await assert.rejects(invoke(tools, "scan_record_assignment", { ...input, dueAt: wrong }), /does not match the visible due-date text/);
+      assert.equal(store.assignments.get(recorded.assignmentId).dueAt, recorded.dueAt);
+    }
+    const derived = await invoke(tools, "scan_record_assignment", input);
+    assert.equal(derived.dueAt, recorded.dueAt, "an omitted model timestamp uses the visible named zone, not the computer zone");
+    await assert.rejects(invoke(tools, "scan_record_assignment", { ...input, dueText: dueText.replace("September 14", "September 15") }), /claimed assignment due date/);
+    await finishPartial(tools);
+  };
+  const result = await scan.startScan();
+  assert.equal(result.scan.state, "partial");
+  assert.ok(result.scan.failures.includes("Other class sources still need checking."), result.scan.failures.join("; "));
+  assert.equal(store.assignments.get(recorded.assignmentId).deadlinePrecision, "datetime");
+}));
+
 test("a scoped details check refreshes only its assignment and waits for an explicit work request", async () => fixture(async ({ scan, runtime, browser, store, manager }) => {
   let assignment;
   runtime.next = async tools => { assignment = await recordReady(tools, browser); await finishPartial(tools); };

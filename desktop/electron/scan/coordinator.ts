@@ -31,6 +31,7 @@ import { courseIdentity, courseObservations, reconcileCourses } from "../storage
 import { resolveRecordId } from "../storage/redirects.js";
 import { assignmentIdentity, exactTarget, isMoodleIndex, normalize, observedTarget, schoolIdentity } from "./source-identity.js";
 import { createSourceCheckpointTools } from "./source-checkpoints.js";
+import { parseZonedDeadline } from "./zoned-deadline.js";
 
 export interface ScanSessionRuntime {
   createScanSession(
@@ -1286,7 +1287,7 @@ function requireObservedDueAt(
   }
   // Keep ambiguous dates as visible text rather than inventing a year or deadline.
   const parsedText = /\b\d{4}\b/.test(dueText)
-    ? Date.parse(dueText.replace(/\s+at\s+/i, " ").replace(/(\d)(am|pm)\b/ig, "$1 $2"))
+    ? parseZonedDeadline(dueText) ?? Date.parse(dueText.replace(/\s+at\s+/i, " ").replace(/(\d)(am|pm)\b/ig, "$1 $2"))
     : NaN;
   if (dueAt === undefined) return Number.isFinite(parsedText) ? new Date(parsedText).toISOString() : undefined;
   const parsedDueAt = Date.parse(dueAt);
