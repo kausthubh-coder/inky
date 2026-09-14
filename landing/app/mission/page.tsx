@@ -54,7 +54,7 @@ export default function MissionPage() {
 
       <footer className="foot">
         © 2026 Studi <span>·</span> Private beta <span>·</span>{" "}
-        <a href="/">Home</a> <span>·</span> <a href="/#wait">Waitlist</a>
+        <a href="/">Home</a> <span>·</span> <a href="/changelog">Changelog</a> <span>·</span> <a href="/#wait">Waitlist</a>
       </footer>
     </>
   );

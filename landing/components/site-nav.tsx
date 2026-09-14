@@ -10,6 +10,7 @@ const NAV_LINKS = [
   ["#trust", "Trust"],
   ["#faq", "FAQ"],
   ["/mission", "Mission"],
+  ["/changelog", "Changelog"],
 ] as const;
 
 type SiteNavProps = {
@@ -72,7 +73,7 @@ export function SiteNav({
                 href={dest}
                 key={href}
                 className={selected ? "on" : ""}
-                aria-current={selected ? "location" : undefined}
+                aria-current={selected ? (href.startsWith("/") ? "page" : "location") : undefined}
                 onClick={() => setOpen(false)}
               >
                 {label}

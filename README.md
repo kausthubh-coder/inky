@@ -67,6 +67,8 @@ Studi asks for a new empty folder during onboarding. It places class and assignm
 
 Pushing a `v*` tag runs [the desktop release workflow](.github/workflows/release-desktop.yml), tests on Windows and macOS, and publishes `Studi-Setup.exe`, `Studi-macOS.dmg`, and checksums to GitHub Releases. The stable download URLs used by the account portal and beta invitation are:
 
+Keep the public `/changelog` page current when publishing a release: add its version, UTC publication date and user-facing changes to `landing/lib/changelog.ts`, newest first. Summaries should describe shipped behavior, link back to the GitHub release, and retain material limitations. The page is rendered from this checked-in history so it does not depend on GitHub API availability.
+
 - `https://github.com/kausthubh-coder/inky/releases/latest/download/Studi-Setup.exe`
 - `https://github.com/kausthubh-coder/inky/releases/latest/download/Studi-macOS.dmg`
 

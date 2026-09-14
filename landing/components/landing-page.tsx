@@ -221,6 +221,7 @@ export function LandingPage() {
         </a>
         <span>Made for life after homework.</span>
         <a href="/mission">Our mission</a>
+        <a href="/changelog">Changelog</a>
         <small>© 2026 Studi</small>
       </footer>
     </div>
