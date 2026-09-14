@@ -4,7 +4,7 @@
     "comparable": true,
     "reasons": [],
     "deltas": {
-      "durationMs": -91.9754999999991,
+      "durationMs": -64.38329999999951,
       "toolCalls": 0,
       "modelCalls": null,
       "usage": null
@@ -481,7 +481,7 @@
       ]
     },
     "candidate": {
-      "runId": "0f6e8ace-d99b-42a8-a665-2b4ae38dd3c1",
+      "runId": "e2129158-a9ba-4443-a44f-0dd450fb3973",
       "evidenceClass": "controlled-production-replay",
       "fixture": {
         "scenarioId": "scan-incidents",
@@ -501,8 +501,8 @@
         ]
       },
       "revision": {
-        "gitSha": "a28722d",
-        "buildTreeSha256": "30eb67fca88cc245d2711973250dd09139bd6001947bef49f3321adf88012099",
+        "gitSha": "11b447e",
+        "buildTreeSha256": "578fe40f2c65bfd910ae0e8feed45c07a3fe9dd0c0027db8d7eeb8487263a3d2",
         "harnessTreeSha256": "33b6bcedd1132b97abbb9bd1be62703dbdda639bde20a368b69783d494c13c74"
       },
       "scope": "Fixed synthetic observations through production scan recording tools, storage and queue manager. No model, browser controller, UI or efficiency claim.",
@@ -513,7 +513,7 @@
           "scanState": "succeeded",
           "error": null,
           "metrics": {
-            "durationMs": 393.94330000000036,
+            "durationMs": 421.53549999999996,
             "toolCalls": 15,
             "modelCalls": null,
             "usage": null

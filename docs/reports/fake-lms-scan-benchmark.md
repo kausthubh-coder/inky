@@ -49,7 +49,7 @@ The paired controlled results use identical fixture/configuration and benchmark 
 
 The two eligible assignments were accepted late practice and the upcoming puzzle project. Both builds retained the full supported instruction passage; the comparison does not deliberately handicap the old tool. Independent review checked the raw SQLite assignment/course/queue records against both result files and found zero assignment executions.
 
-Controlled run IDs: baseline `09b04c09-caa4-4aec-8ca8-b6da3f79a5d1`, integrated candidate `0f6e8ace-d99b-42a8-a665-2b4ae38dd3c1` at `a28722d`. An earlier candidate also passed 72/72. Recorded runtime differences of less than a second are not evidence of model-efficiency improvement. [Compact measured evidence](fake-lms-scan-evidence.json) retains both builds' hashes, fixture/configuration, check outcomes, recorded facts and actual queues.
+Controlled run IDs: baseline `09b04c09-caa4-4aec-8ca8-b6da3f79a5d1`, final integrated candidate `e2129158-a9ba-4443-a44f-0dd450fb3973` at `11b447e`. Earlier candidates also passed 72/72. Recorded runtime differences of less than a second are not evidence of model-efficiency improvement. [Compact measured evidence](fake-lms-scan-evidence.json) retains both builds' hashes, fixture/configuration, check outcomes, recorded facts and actual queues.
 
 The real-model baseline smoke used `gpt-6-astra`, medium reasoning, a 180-second budget and 150-tool limit. It finished **partial** in 74.1 seconds, after 26 tool calls and 27 provider requests. Reported usage was 34,959 input, 1,580 output and 206,848 cached-input tokens. The assignment was found but its exact deadline was not retained. The run also encountered unreadable PDF/rubric content, ambiguous empty linked-system pages and a partner-board link missing from the small scenario.
 
@@ -68,15 +68,21 @@ The matched candidate also finished **partial**, after 176.6 seconds. It made 56
 
 Live run IDs: baseline `1dff0cd2-bcf5-425a-b18f-0ce90689a489`, candidate `f89063b0-66dc-46fe-96f1-10c7a649966b`. The comparator confirms identical fixture, benchmark and settings. These runs had already started with medium reasoning before the user changed all subsequent coding/review tasks to Astra/high; the historical evidence is not relabeled.
 
+This is one paired smoke trial, not an estimate across semesters or repeated trials. The additional candidate calls include evidence-validation retries and incomplete-source handling. A larger repeated live comparison is still needed before claiming a general efficiency change.
+
 The recorded navigation restriction was Chromium's built-in PDF viewer resource, not evidence that the model attempted to visit an unrelated external school. These fixture/window limitations confound a model-quality conclusion. A prior exploratory run timed out on hidden-window PDF screenshot capture; it remains recorded as a failure.
 
 Trace review also found a concrete parser defect shared by both builds: the candidate supplied the correct offset-bearing timestamp for a visible `America/New_York` deadline, but validation rejected it. The model retried without a timestamp, losing deadline precision. This is a production validation failure, not evidence that the model could not read the date.
+
+The post-comparison fix validates supported English month-name dates with an explicit clock and IANA timezone using `Intl` offsets and a wall-clock round trip. It derives the exact timestamp independently of the model's proposed value. Unknown zones, unsupported zoned formats, invalid calendar dates and ambiguous/nonexistent daylight-saving times remain unresolved. This deliberately bounded parser does not claim support for every school locale. The original live failures remain part of the evidence rather than being replaced with a success claim.
 
 That failure improved the harness: hidden windows now render offscreen, screenshots have a bounded failure path, and interrupted runs recover already-persisted facts without marking the scan complete. It does not prove that the visible installed app's PDF viewer is broken. Separate PDF/download work is not included in this comparison.
 
 The simulator's normal Chromium journey passed draft save, reload, server restart with the same draft, submission receipt and reload without duplicate submission. Its first browser failure exposed a real header bug: `Referrer-Policy: no-referrer` produced `Origin: null` on form submission. Changing it to `same-origin` fixed the form while preserving exact-origin and CSRF checks. Simulator/type checks, 11 simulator/telemetry tests, the existing QA-fixture regression, all four old harness suites (27 assertions), and 22 benchmark grader/metrics tests passed. The scanner owner additionally passed 34 focused scan/manager/alias tests and 19 lifecycle/chat/task-transition tests.
 
 After the frozen live pair, the final simulator removes the unavailable partner-board announcement from smoke and explicitly labels empty vendor assignment lists. Its type check, build and all 11 tests passed. These corrections have controlled verification; the recorded live pair used the earlier identical fixture on both sides. The integrated app type check, full renderer/Electron build and 44 focused scanner/browser/IPC regressions also passed at `a28722d`.
+
+After the timezone fix, the final integrated type check and full build passed again at `11b447e`, followed by **69/69 focused regressions** covering scan recording/recovery, browser mutation guards, IPC, timezone conversion and benchmark grading. The final production replay remained **72/72**. The new date regressions cover the exact observed failure, summer/winter and half-hour offsets, midnight/noon, wrong model timestamps, invalid dates and daylight-saving ambiguity.
 
 ## Independent review and limits
 
