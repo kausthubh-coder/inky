@@ -80,6 +80,13 @@ test("each changed fixture or configuration field refuses comparison", () => {
   }
 });
 
+test("changing the benchmark implementation cannot masquerade as a scanner improvement", () => {
+  const candidate = run(); candidate.revision.harnessTreeSha256 = "different-grader";
+  const comparison = compareRuns(run(), candidate);
+  assert.equal(comparison.comparable, false);
+  assert.equal(comparison.deltas, null);
+});
+
 test("missing equal metadata, unknown settings and exploratory evidence cannot silently compare", () => {
   for (const mutate of [
     r => delete r.fixture.contentHash,

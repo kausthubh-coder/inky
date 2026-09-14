@@ -21,6 +21,7 @@ export function compareRuns(baseline, candidate) {
     if (!equal(baseline?.config?.[field], candidate?.config?.[field])) reasons.push(`config.${field} differs`);
   }
   if (baseline?.evidenceClass !== candidate?.evidenceClass) reasons.push("evidenceClass differs");
+  if (baseline?.revision?.harnessTreeSha256 !== candidate?.revision?.harnessTreeSha256) reasons.push("benchmark implementation differs");
   const before = summarize(baseline), after = summarize(candidate);
   return {
     comparable: reasons.length === 0,

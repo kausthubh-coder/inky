@@ -41,6 +41,8 @@
     "preview": "vite preview",
     "test:electron": "bun run build && node tests/electron-self-test-runner.mjs",
     "agent:harness": "bun agent-harness/cli.ts",
+    "benchmark": "node agent-harness/benchmark/cli.mjs",
+    "test:benchmark": "node --test \"tests/benchmark/*.test.mjs\"",
     "test:harness": "bun run agent:harness -- run --suite foundation --driver scripted --json && bun run agent:harness -- run --suite routing --driver scripted --json && bun run agent:harness -- run --suite trace --driver scripted --json && bun run agent:harness -- run --suite files --driver scripted --json",
     "test:composio": "bun scripts/composio-test.ts",
     "deploy:composio-policy": "bun scripts/deploy-composio-policy.ts",
