@@ -137,6 +137,19 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
               interrupted.grade = gradeLive(inspection, interrupted, school.origins);
             } finally { saved.close(); }
           } catch (error) { record.recoveryError = error.message; }
+          try {
+            const events = (await readFile(join(runRoot, "trace.jsonl"), "utf8")).trim().split("\n").filter(Boolean)
+              .map(line => JSON.parse(line)).filter(event => event.phase === interrupted.name);
+            if (events.length) {
+              interrupted.metrics.toolCalls = events.filter(event => event.diagnostic?.kind === "tool_execution_start").length;
+              interrupted.metrics.modelCalls = events.filter(event => event.diagnostic?.kind === "provider_request").length;
+            }
+            // Completed generation usage is a lower bound after an interrupted
+            // request. Preserve it separately; total usage remains unknown.
+            interrupted.completedGenerations = events.filter(event => event.diagnostic?.kind === "generation")
+              .map(event => ({ inputTokens: event.diagnostic.payload.$ai_input_tokens ?? null, outputTokens: event.diagnostic.payload.$ai_output_tokens ?? null,
+                cacheReadTokens: event.diagnostic.payload.$ai_cache_read_input_tokens ?? null, cacheWriteTokens: event.diagnostic.payload.$ai_cache_creation_input_tokens ?? null }));
+          } catch (error) { record.traceRecoveryError = error.message; }
         }
       }
       finally { await school.close(); }
