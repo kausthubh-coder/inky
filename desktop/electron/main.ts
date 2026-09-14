@@ -1,4 +1,5 @@
 import { windowChromeOptions } from "./window-chrome.js";
+import { httpExternalUrl } from "./http-external-url.js";
 import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -667,14 +668,8 @@ function registerIpcHandlers(): void {
 }
 
 function openHttpExternal(url: string): void {
-  try {
-    const parsed = new URL(url);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return;
-    if (parsed.hostname === "127.0.0.1" || parsed.hostname === "localhost") return;
-    void shell.openExternal(parsed.href);
-  } catch {
-    // Ignore malformed chat links.
-  }
+  const href = httpExternalUrl(url);
+  if (href) void shell.openExternal(href);
 }
 
 function createWindow(): BrowserWindow {
