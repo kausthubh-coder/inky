@@ -13,12 +13,15 @@
   <p>Inky already talks in markdown. The chat used to show the punctuation. This change reads the message as writing — still Inky, still paper, still a person.</p>
   <nav class="actions">
     <a href="http://127.0.0.1:4174/?preview=chat-markdown">Open the real chat with markdown →</a>
-    <a href="http://127.0.0.1:4174/?preview=chat-expanded">Same shell, plain greeting</a>
     <a href="http://127.0.0.1:4174/?preview=assignment">Assignment sidebar</a>
+    <a href="http://127.0.0.1:4174/?preview=chat-handoff">School check while scanning</a>
+    <a href="http://127.0.0.1:4174/?preview=chat-expanded">Same shell, plain greeting</a>
   </nav>
   <small>Run <code>bun run preview:ui</code> first. These links are the production React chat, fonts, Inky, and CSS with a fixture transcript. Nothing here redraws Studi’s chrome.</small>
 </header>
 <p><img src="inky-chat-markdown.png" alt="Real Studi chat: Inky’s message shows bold, a numbered list, paper code, and a school link"></p>
+<p><img src="inky-chat-assignment.png" alt="Assignment sidebar: Inky’s list and bold in the real assignment chat"></p>
+<p><img src="inky-chat-scan.png" alt="School check: Inky’s scan reply as a markdown bubble under the report"></p>
 
 <h2>What the student sees</h2>
 <div class="grid">
@@ -34,7 +37,7 @@
 
 <h2>One renderer</h2>
 <div class="paper">
-  <p>Home chat, assignment chat, the desk drawer, and school-check notes all use the same Inky markdown. Stored text does not change. Stop, retry, drafts, and mentions stay as they are.</p>
+  <p>Home chat, assignment sidebar, desk drawer, and school-check talk all use the same Inky markdown. While a scan is running, Inky’s replies show as bubbles under the report — not only later in Scan details. Your bubbles stay as typed. Stored text does not change.</p>
   <ul>
     <li>Only <code>http</code>, <code>https</code>, and <code>mailto</code> links are clickable.</li>
     <li>In the desktop window, those links open in the system browser instead of navigating Studi away.</li>

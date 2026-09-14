@@ -136,6 +136,10 @@ export function installDevPreview(): void {
         currentStep: "Waiting for a linked homework sign-in.",
         failures: [],
         handoff: { kind: "linked_system_sign_in", reason: "WebAssign needs you to sign in before I can keep checking.", requestedAt: now, evidence },
+        messages: [
+          { messageId: "preview-scan-you", role: "user" as const, text: "WebAssign is asking me to sign in.", createdAt: now },
+          { messageId: "preview-scan-inky", role: "assistant" as const, text: "Yes — **WebAssign** is behind that sign-in.\n\n1. Open the school page\n2. Sign in there\n3. Tell me when you’re back", createdAt: now },
+        ],
       },
       workflowRevision: preview.id === "onboarding-handoff" ? null : 1,
     };
@@ -325,7 +329,22 @@ Want me to start, or talk it through first?`;
     installUpdate: async () => ({...await api.getUpdateState(),error:'Preview only — no installer is run.'}),
     getScopedConversation: async target => ({job:conversation(target),activity:chatActivity}),
     stopScopedConversation: async target => {stopRequested=true;chatActivity='idle';return {job:conversation(target),activity:'idle'};},
-    sendScanMessage: async ({text,clientMessageId}) => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,messages:[...onboarding.scan.messages,{messageId:clientMessageId,clientMessageId,role:"user",text,createdAt:new Date().toISOString()}]}};return onboarding; },
+    sendScanMessage: async ({text,clientMessageId}) => {
+      if (!onboarding.scan) return onboarding;
+      const createdAt = new Date().toISOString();
+      onboarding = {
+        ...onboarding,
+        scan: {
+          ...onboarding.scan,
+          messages: [
+            ...onboarding.scan.messages,
+            { messageId: clientMessageId, clientMessageId, role: "user", text, createdAt },
+            { messageId: `preview-scan-inky-${createdAt}`, role: "assistant", text: `Got it. I’ll keep that in mind: **${text.slice(0, 80)}**.`, createdAt },
+          ],
+        },
+      };
+      return onboarding;
+    },
     pauseSchoolScan: async () => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,state:"needs_user",currentStep:"You have the page."}};return onboarding; },
     getConversationState: async () => ({job:conversation({kind:'home'}),activity:chatActivity}),
     stopConversation: async () => {stopRequested=true;chatActivity='idle';return {job:conversation({kind:'home'}),activity:'idle'};},

@@ -43,6 +43,8 @@
 .scan-detail-note { background:var(--panel);padding:2px 16px 12px;margin-top:24px;border-radius:14px 10px 13px 11px; }
 .scan-detail-note h3 { margin-top:13px; }
 .scan-detail-note p,.scan-detail-activity p { color:var(--muted);font-size:13px;line-height:1.6; }
+.scan-detail-note .inky-markdown { margin:0.4em 0 0;font-size:13px;line-height:1.6;color:var(--muted); }
+.scan-detail-note .inky-markdown p { margin:0.4em 0 0;color:inherit; }
 .scan-detail-activity p { display:flex;gap:16px; }
 .scan-detail-activity time { flex:none;font-size:11px;padding-top:2px; }
 .scan-detail-activity span { min-width:0;white-space:pre-wrap;overflow-wrap:anywhere; }
