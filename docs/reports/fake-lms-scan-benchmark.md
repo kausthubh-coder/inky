@@ -86,6 +86,10 @@ After the timezone fix, the final integrated type check and full build passed ag
 
 ## Independent review and limits
 
+In the actual Electron app, the dedicated development account completed normal Clerk sign-in. An initial waitlist response recovered through the supported **Check again** action. Restart preserved approved access, the ready provider, Astra/high reasoning and the selected homework folder. The folder setup exercised the real IPC and filesystem initialization with a simulated native chooser response; that does not prove the operating-system chooser interaction.
+
+A subsequent real scan against the corrected smoke school, on the rebuilt app with Astra/high, persisted the formerly rejected deadline as `2026-09-15T03:59:00.000Z`. This is separate live evidence for the parser fix, not a replacement or directly comparable repetition of the earlier medium-reasoning pair. Full scan/recovery outcomes are recorded separately below when complete.
+
 The additional Codex review task examined the simulator, production changes and benchmark. Its findings improved phase usage accounting, comparison gates, exact queue grading, baseline instruction fairness, evidence binding, alias reconciliation, explicit-request preservation, and recovery from incomplete assignment details.
 
 The remaining architectural limits are explicit: eligibility rechecks saved evidence up to 24 hours old rather than enforcing a new live page read at every start; session rotation depends on checkpoint calls rather than a universal production token cap; automatic queue preference is not a new autonomous dispatch/submission loop. Unchanged page digests cannot prove that an attachment changed independently. Live benchmark windows do not verify desktop admission, product UI, downloads, popup tabs, assignment execution, or native installed-app behavior. Those require separate app evidence.
