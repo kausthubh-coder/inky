@@ -25,6 +25,8 @@ import { HomeworkFiles } from "../files/homework-files.js";
 import { createWorkspaceCodingTools } from "../files/workspace-tools.js";
 import { openAssignmentWorkspace } from "../files/workspace.js";
 import { createBrowserUploadTool } from "../browser/tools.js";
+import { createBrowserDownloadTool } from "../browser/downloads.js";
+import { createPdfReadTool } from "../files/pdf-tool.js";
 
 export type ExecutionNotification = Omit<NotificationIntent, "schemaVersion" | "notificationId" | "createdAt">;
 export type ExecutionNotificationSink = (intent: ExecutionNotification) => void | Promise<void>;
@@ -625,11 +627,13 @@ export class AssignmentExecutionCoordinator {
     const { workspace, files: homeworkFiles } = await this.#assignmentWorkspace(assignmentId);
     const files = createWorkspaceCodingTools(workspace.assignmentDirectory);
     const upload = createBrowserUploadTool(this.#browserForAssignment?.(assignmentId) ?? this.#defaultBrowser, (paths) => homeworkFiles.resolveUploads(paths));
+    const download = createBrowserDownloadTool(this.#browserForAssignment?.(assignmentId) ?? this.#defaultBrowser, homeworkFiles);
+    const pdf = createPdfReadTool(homeworkFiles);
     let connected: readonly ToolDefinition[] = [];
     try { connected = await this.#connectedAppTools(); } catch { /* Connected apps cannot disable local tools. */ }
     return {
       cwd: workspace.assignmentDirectory,
-      tools: [...this.#tools, ...files, upload, ...connected],
+      tools: [...this.#tools, ...files, upload, download, pdf, ...connected],
     };
   }
 

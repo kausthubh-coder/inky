@@ -1,4 +1,5 @@
 import { scanBrowserOwner } from "./scanBrowserOwner.js";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 import { canStopAssignmentForScan } from "./stopAssignmentForScan.js";
 import type { LifecycleState, SchoolOnboardingState } from "../../shared/index.js";
 import { Icon } from "./Icon.js";
@@ -29,7 +30,7 @@ export function ScanStatus({ state, lifecycle, busy, onCheck, onDetails, onStopA
     <div className="scan-status__copy" role="status" aria-live="polite" aria-atomic="true">
       <span className="scan-status__label"><Icon name={owner ? "browser" : needs ? "hand" : running ? "search" : incomplete ? "warning" : complete ? "check" : "search"} size={14} />{owner ? "Browser in use" : needs ? "Waiting for you · scan paused" : running ? "Scanning school" : incomplete ? "Scan incomplete" : complete ? "Scan finished" : "School scan"}</span>
       <h2>{scan?.targetAssignmentId && !owner ? running ? "I’m checking this assignment" : complete ? "Assignment details checked" : title : title}</h2>
-      <p>{scan?.targetAssignmentId && !owner && complete ? scan.currentStep : description}</p>
+      <ChatMarkdown text={scan?.targetAssignmentId && !owner && complete ? scan.currentStep : description} />
     </div>
     <div className="scan-status__actions">
       {owner ? <><button className="button button--paper" onClick={onOpenWork}>Open assignment<Icon name="right" size={16} /></button><button className="quiet-button" onClick={onWait}>{ownerPaused ? "Back to my week" : "I’ll wait"}</button>{owner.canStop && <button className="quiet-button" disabled={!canStopAssignmentForScan(busy)} onClick={() => onStopAndScan(owner.taskId)}>{busy === "cancel" ? "Stopping work…" : "Stop assignment & scan"}</button>}<small>Saved work stays available.</small></> : <>

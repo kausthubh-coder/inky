@@ -115,7 +115,7 @@ export function createBrowserTools(
   const screenshot = defineTool({
     name: "browser_screenshot",
     label: "See the school page",
-    description: "View a screenshot when layout, an embedded document, or an unlabeled control is unclear. Use snapshot refs for actions and text evidence for recorded claims. Never capture credentials during a student handoff.",
+    description: "View a screenshot when layout, an embedded document, or an unlabeled control is unclear. Read PDF pages and diagrams visually when accessible text is missing. Use snapshot refs for actions and distinguish visually read evidence from extracted text. Never capture credentials during a student handoff.",
     parameters: Type.Object({}, { additionalProperties: false }),
     execute: async () => ({
       content: [{ type: "image" as const, mimeType: "image/jpeg", data: await controller.screenshot() }],

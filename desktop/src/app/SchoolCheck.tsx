@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ChatMarkdown } from "./ChatMarkdown.js";
 import type { LifecycleState, SchoolOnboardingState } from "../../shared/index.js";
 import { ScanStatus } from "./ScanStatus.js";
 import { scanBrowserOwner } from "./scanBrowserOwner.js";
@@ -52,11 +53,16 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
       })}</ul>
     </>}
     {scan.coverage.length > 0 && <section className="scan-detail-note"><h3>Sources checked</h3>{scan.coverage.map((item, index) => <p key={index}><strong>{item.target}</strong> · {item.status === "verified" ? "Checked" : item.failure ?? "Needs another look"}</p>)}</section>}
-    {scan.failures.length > 0 && <section className="scan-detail-note"><h3>Inky’s notes</h3>{scan.failures.map((note, index) => <p key={index}>{note}</p>)}</section>}
+    {scan.failures.length > 0 && <section className="scan-detail-note"><h3>Inky’s notes</h3>{scan.failures.map((note, index) => <ChatMarkdown key={index} text={note} />)}</section>}
     <section className="scan-detail-activity"><h3>What happened</h3>
       <p><time dateTime={scan.startedAt}>{formatDateTime(scan.startedAt)}</time><span>Started this scan.</span></p>
-      {scan.messages.map(message => <p key={message.messageId}><time dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time><span><strong>{message.role === "user" ? "You" : "Inky"}</strong><br />{message.text}</span></p>)}
-      {scan.handoff && <p><time dateTime={scan.handoff.requestedAt}>{formatDateTime(scan.handoff.requestedAt)}</time><span>{scan.handoff.reason}</span></p>}
+      {scan.messages.map(message => <div className="scan-activity-entry" key={message.messageId}>
+        <time dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>
+        <div><strong>{message.role === "user" ? "You" : "Inky"}</strong>
+          {message.role === "user" ? <p className="scan-student-message">{message.text}</p> : <ChatMarkdown text={message.text} />}
+        </div>
+      </div>)}
+      {scan.handoff && <div className="scan-activity-entry"><time dateTime={scan.handoff.requestedAt}>{formatDateTime(scan.handoff.requestedAt)}</time><ChatMarkdown text={scan.handoff.reason} /></div>}
       {scan.completedAt && <p><time dateTime={scan.completedAt}>{formatDateTime(scan.completedAt)}</time><span>{scan.state === "succeeded" ? "Finished checking." : scan.state === "partial" ? "Saved a partial result." : "Scan stopped."}</span></p>}
     </section>
     <button className="scan-text-button" onClick={onBrowser}><Icon name="browser" size={16} />Open school browser</button>
@@ -67,7 +73,7 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
     {owner && <ScanStatus state={state} lifecycle={lifecycle} busy={busy} onCheck={onCheck} onStopAndScan={onStopAndScan} onWait={onWait} onOpenWork={onOpenWork} />}
     <div className={`scan-result-hero ${!scan ? "is-first" : ""}`}>
       <Inky state={view.mood} size={90} />
-      <div className="scan-result-copy" role="status" aria-live="polite"><h2>{view.title}</h2><p>{view.description}</p>
+      <div className="scan-result-copy" role="status" aria-live="polite"><h2>{view.title}</h2><ChatMarkdown text={view.description ?? ""} />
         {view.running && view.directoryKnown && <small className="scan-count">{view.checkedLabel}</small>}
         {scan && !view.active && scan.changes.length > 0 && <span className="scan-saved"><Icon name="check" size={14} />Saved to your week</span>}
       </div>

@@ -83,7 +83,7 @@ test("attempt-only work retains its browser lease through review and saves Markd
     assert.match((await store.artifacts.read("answer", ready.answerArtifactId)).content, /x = 4/);
     assert.match(await readFile(join(runtime.lastTarget.cwd, "studi-answer.md"), "utf8"), /x = 4/);
     const workerTools = new Set(manager.workerToolNames());
-    for (const toolName of ["read", "write", "edit", "grep", "find", "ls", "browser_upload", process.platform === "win32" ? "powershell" : "bash"]) {
+    for (const toolName of ["read", "write", "edit", "grep", "find", "ls", "browser_upload", "browser_download", "file_read_pdf", process.platform === "win32" ? "powershell" : "bash"]) {
       assert.ok(workerTools.has(toolName), `assignment worker is missing ${toolName}`);
     }
     assert.match(runtime.lastTarget.cwd, /Assignment review \[[a-f0-9]{6}\]$/, "the Pi session runs from its assignment workspace");

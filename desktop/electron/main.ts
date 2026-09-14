@@ -1,4 +1,5 @@
 import { windowChromeOptions } from "./window-chrome.js";
+import { configureAppNavigation } from "./app-navigation.js";
 import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -692,10 +693,7 @@ function createWindow(): BrowserWindow {
   window.setMenu(null);
   window.setMenuBarVisibility(false);
 
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  window.webContents.on("will-navigate", (event) => {
-    event.preventDefault();
-  });
+  configureAppNavigation(window.webContents, url => shell.openExternal(url));
   window.on("close", (event) => {
     if (!appKernel && !gateQuitting) {
       event.preventDefault();

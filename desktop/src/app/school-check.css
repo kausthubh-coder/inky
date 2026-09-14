@@ -7,8 +7,8 @@
 .scan-live-label i { height:7px;width:7px;border-radius:50%;background:var(--sky); }
 .scan-result-hero { display:flex;align-items:center;gap:18px;margin-bottom:30px; }
 .scan-result-copy { flex:1;min-width:0; }
-.scan-result-copy h2 { font:600 25px/1.3 "Shantell Sans",cursive;margin:0 0 8px;text-wrap:balance; }
-.scan-result-copy p { margin:0;color:var(--muted);font-size:14px;line-height:1.5; }
+.scan-result-copy > h2 { font:600 25px/1.3 "Shantell Sans",cursive;margin:0 0 8px;text-wrap:balance; }
+.scan-result-copy > .chat-markdown { color:var(--muted);font-size:14px;line-height:1.5; }
 .scan-saved { display:inline-flex;align-items:center;gap:5px;margin-top:9px;color:#527355;font-size:12px; }
 .scan-hero-action { flex:none; }
 .scan-hero-action .button { display:inline-flex;align-items:center;gap:9px; }
@@ -42,10 +42,14 @@
 .scan-class-mark.is-checked { color:#4d7854;background:#e1ecd9; }
 .scan-detail-note { background:var(--panel);padding:2px 16px 12px;margin-top:24px;border-radius:14px 10px 13px 11px; }
 .scan-detail-note h3 { margin-top:13px; }
-.scan-detail-note p,.scan-detail-activity p { color:var(--muted);font-size:13px;line-height:1.6; }
-.scan-detail-activity p { display:flex;gap:16px; }
+.scan-detail-note,.scan-detail-activity { color:var(--muted);font-size:13px;line-height:1.6; }
+.scan-detail-note > h3,.scan-detail-activity > h3 { color:var(--ink); }
+.scan-detail-note > .chat-markdown { margin-bottom:1em; }
+.scan-detail-activity > p,.scan-activity-entry { display:flex;gap:16px;margin:1em 0; }
+.scan-activity-entry > div { min-width:0;flex:1; }
+.scan-student-message { white-space:pre-wrap;overflow-wrap:anywhere;margin:0; }
 .scan-detail-activity time { flex:none;font-size:11px;padding-top:2px; }
-.scan-detail-activity span { min-width:0;white-space:pre-wrap;overflow-wrap:anywhere; }
+.scan-detail-activity > p > span { min-width:0;white-space:pre-wrap;overflow-wrap:anywhere; }
 .scan-count { display:block;margin-top:8px;color:var(--muted); }
 .scan-result-hero.is-first { min-height:170px; }
 .scan-browser-continue { display:inline-flex;align-items:center;gap:8px;margin-left:12px;font-size:12px; }
