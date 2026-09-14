@@ -47,16 +47,19 @@ test("existing users are preserved and a missing invitation link stays a failure
 });
 
 test("local school fixture saves drafts, escapes answers, and isolates simultaneous schools", async () => {
-  const a = schoolFixture(), b = schoolFixture();
+  const a = await schoolFixture(), b = await schoolFixture();
   try {
-    await Promise.all([a, b].map(server => new Promise(resolve => server.listen(0, "127.0.0.1", resolve))));
-    const url = server => `http://127.0.0.1:${server.address().port}`;
-    assert.notEqual(a.address().port, b.address().port);
-    await fetch(`${url(a)}/assignments/observation`, { method: "POST", body: new URLSearchParams({ answer: "<script>unsafe</script>", action: "save" }) });
-    assert.match(await (await fetch(`${url(a)}/assignments/observation`)).text(), /&lt;script&gt;/);
-    assert.deepEqual(await (await fetch(`${url(a)}/health`)).json(), { fixture: "studi-qa-school", answerSaved: true, submitted: false });
-    assert.equal((await (await fetch(`${url(b)}/health`)).json()).answerSaved, false);
-  } finally { await Promise.all([a, b].map(server => new Promise(resolve => server.close(resolve)))); }
+    assert.notEqual(a.url, b.url);
+    const html = await (await fetch(`${a.url}/assignments/observation`)).text();
+    const csrf = /name="csrf" value="([^"]+)"/.exec(html)[1];
+    const response = await fetch(`${a.url}/assignments/observation`, { method: "POST", body: new URLSearchParams({ csrf, revision: "0", answer: "<script>unsafe</script>", action: "save" }) });
+    assert.equal(response.status, 200);
+    assert.match(await response.text(), /&lt;script&gt;/);
+    assert.equal(a.inspect().state.drafts.observation.answer, "<script>unsafe</script>");
+    assert.equal(a.inspect().state.submissions.length, 0);
+    assert.equal(b.inspect().state.drafts.observation, undefined);
+    assert.equal((await fetch(`${a.url}/health`)).status, 404);
+  } finally { await Promise.all([a.close(), b.close()]); }
 });
 
 test("auth import preserves refreshed profile credentials instead of overwriting with stale cache", async () => {
