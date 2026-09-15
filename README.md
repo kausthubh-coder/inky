@@ -44,11 +44,10 @@ The landing site can send anonymous, cookieless traffic and conversion events to
 
 The website's **Open Studi** button sends only `studi://connect`. Electron owns the PKCE verifier, state, nonce, loopback callback, code exchange, and token storage.
 
-Create a production desktop build and run the focused smoke test:
+Build and run the automated checks:
 
 ```bash
-bun run build
-node tests/electron-self-test-runner.mjs --positive-only
+bun run test
 ```
 
 Build the Windows package:

@@ -1,5 +1,4 @@
 import {
-  CONTRACT_MANIFEST,
   DEFAULT_AGENT_MODEL_ID,
   DEFAULT_AGENT_REASONING_EFFORT,
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -264,7 +263,6 @@ export function installDevPreview(): void {
   if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
   const api: StudiRendererApi = {
     getRuntimeInfo: async () => ({ app: `${version}-preview`, electron: "simulated", chrome: "simulated", node: "simulated" }),
-    getContractManifest: async () => CONTRACT_MANIFEST,
     getAuthState: async () => preview.id === "auth" ? { status: "signed_out" } : ({ status: "approved", user: { subject: "preview", email: "preview@studi.local", name: "kausthubh" }, entitlement: { plan: "beta", credits: 0 }, deviceId: "00000000-0000-4000-8000-000000000001", secureStorage: false }),
     signIn: async () => api.getAuthState(),
     signOut: async () => ({ status: "signed_out" }),

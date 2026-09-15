@@ -1,9 +1,7 @@
 import { windowChromeOptions } from "./window-chrome.js";
 import { configureAppNavigation } from "./app-navigation.js";
 import { UpdateService } from "./updates/service.js";
-import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
-import { existsSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -24,10 +22,6 @@ import {
 import squirrelStartup from "electron-squirrel-startup";
 
 import {
-  CONTRACT_MANIFEST,
-  ContractManifestSchema,
-  DEFAULT_NOTIFICATION_PREFERENCES,
-  RuntimeInfoSchema,
   STUDI_SCHEMA_VERSION,
   browserDriver,
   AGENT_PROVIDERS,
@@ -38,10 +32,8 @@ import {
   projectProtectedAuthState,
   studiIpcMethods,
   studiIpcRegistry,
-  type ContractManifest,
   type AuthState,
   type LifecycleState,
-  type RuntimeInfo,
   type SchoolOnboardingState,
   type StudiIpcHandlers,
   type BrowserLayoutMode,
@@ -49,11 +41,9 @@ import {
   type LibraryState,
   type ProductSettingsState,
   type TaskDetail,
-  type Task,
   type AgentReasoningEffort,
   type UsageEventKind,
   type UsageState,
-  transitionTask,
 } from "../shared/index.js";
 import { getDevelopmentUrl } from "./development-url.js";
 import { buildDiagnosticsSnapshot, writeDiagnosticsSnapshot } from "./diagnostics.js";
@@ -87,27 +77,12 @@ const appIconPath = app.isPackaged
 const trayIconPath = app.isPackaged
   ? join(process.resourcesPath, "studi-inky.ico")
   : resolve(moduleDirectory, "..", "..", "assets", "studi-inky.ico");
-const isSelfTest = !app.isPackaged && process.env.STUDI_SELF_TEST === "1";
-const uiScenario = isSelfTest ? process.env.STUDI_UI_SCENARIO : undefined;
-const selfTestConnectedApps = [
-  ["gmail", "20260902_00"], ["googledrive", "20260902_00"], ["googledocs", "20260826_00"],
-  ["notion", "20260819_00"], ["github", "20260902_00"], ["canvas", "20260729_00"],
-  ["googlecalendar", "20260902_00"], ["googlesheets", "20260902_00"], ["outlook", "20260903_00"],
-  ["dropbox", "20260903_00"], ["slack", "20260826_00"], ["discord", "20260826_00"], ["todoist", "20260731_00"],
-] as const;
-const selfTestDirectory = resolve(
-  process.env.STUDI_SELF_TEST_USER_DATA ?? join(tmpdir(), `studi-wp00-self-test-${process.pid}`),
-);
 const startupProfileConfigured = configureStartupProfile();
 // The installed app owns a single-instance lock. Unpackaged development and QA
 // runs use isolated profiles and must be able to coexist with that installation.
 const ownsSingleInstance = !app.isPackaged || app.requestSingleInstanceLock();
 const canStart = startupProfileConfigured && !squirrelStartup && ownsSingleInstance;
-let selfTestFinished = false;
 let localStore: LocalStore | null = null;
-let storageSelfTestObservation: StorageSelfTestObservation | null = null;
-let agentSelfTestObservation: AgentSelfTestObservation | null = null;
-let browserSelfTestObservation: BrowserSelfTestObservation | null = null;
 let browserController: BrowserController | null = null;
 let browserView: WebContentsView | null = null;
 const browserPages = new Map<string, {view:WebContentsView; controller:BrowserController}>();
@@ -131,67 +106,10 @@ let telemetryService: TelemetryService | null = null;
 let gateTray: Tray | null = null;
 let gateQuitting = false;
 let updateService: UpdateService | null = null;
-let pendingDesktopConnect = !isSelfTest && Boolean(findDesktopConnectUrl(process.argv));
+let pendingDesktopConnect = Boolean(findDesktopConnectUrl(process.argv));
 let telemetryShutdownFinished = false;
 const pendingNotifications: ExecutionNotification[] = [];
 let assignmentRunStartedAt: number | null = null;
-
-const selfTestAuthState: AuthState = {
-  status: "approved",
-  user: { subject: "self-test-user", email: "self-test@studi.local", name: "Self test" },
-  entitlement: { plan: "beta", credits: 0 },
-  deviceId: "00000000-0000-4000-8000-000000000010",
-  secureStorage: true,
-};
-
-const selfTestUsageState: UsageState = {
-  schemaVersion: STUDI_SCHEMA_VERSION,
-  period: "2026-09",
-  plan: "beta",
-  tokenAllowance: 1_000_000,
-  totalTokens: 284_600,
-  inputTokens: 136_400,
-  outputTokens: 71_200,
-  cachedTokens: 77_000,
-  toolCalls: 42,
-  inkyTurns: 12,
-  assignmentsWorked: 3,
-  days: [
-    { date: "2026-09-01", tokens: 48_200 },
-    { date: "2026-09-02", tokens: 91_700 },
-    { date: "2026-09-03", tokens: 62_300 },
-    { date: "2026-09-04", tokens: 82_400 },
-  ],
-  updatedAt: "2026-09-04T16:00:00.000Z",
-};
-
-interface StorageSelfTestObservation {
-  readonly driver: "node:sqlite";
-  readonly node: string;
-  readonly schemaVersion: 8;
-  readonly fileBacked: boolean;
-  readonly reopened: boolean;
-  readonly artifactRoundTrip: boolean;
-  readonly backupValidated: boolean;
-  readonly backupArtifactCount: number;
-}
-
-interface AgentSelfTestObservation {
-  readonly runtime: "pi-agent-session";
-  readonly sdkVersion: string;
-  readonly sessionPersisted: boolean;
-  readonly sessionResumed: boolean;
-  readonly probeCompleted: boolean;
-  readonly activeTools: readonly string[];
-  readonly providerStatus: {
-    readonly schemaVersion: 1;
-    readonly providerId: string;
-    readonly providerName: string;
-    readonly state: "ready" | "needs_login" | "unavailable";
-    readonly loginMethods: readonly ("api_key" | "oauth")[];
-    readonly reason: string;
-  };
-}
 
 function updates(): UpdateService {
   if (!updateService) {
@@ -221,40 +139,20 @@ const ipcHandlers: StudiIpcHandlers = {
   getUpdateState: () => updates().state(),
   checkForUpdates: () => updates().check(),
   installUpdate: () => updates().install(),
-  getRuntimeInfo: () => {
-    if (isSelfTest && process.env.STUDI_SELF_TEST_MALFORMED_RUNTIME_RESULT === "1") {
-      return {
-        app: app.getVersion(),
-        electron: process.versions.electron,
-        chrome: process.versions.chrome,
-      } as unknown as RuntimeInfo;
-    }
-    return {
-      app: app.getVersion(),
-      electron: process.versions.electron,
-      chrome: process.versions.chrome,
-      node: process.versions.node,
-    };
-  },
-  getContractManifest: () => {
-    if (isSelfTest && process.env.STUDI_SELF_TEST_MALFORMED_MANIFEST_RESULT === "1") {
-      return {
-        ...CONTRACT_MANIFEST,
-        schemaVersion: 999,
-      } as unknown as ContractManifest;
-    }
-    return CONTRACT_MANIFEST;
-  },
+  getRuntimeInfo: () => ({
+    app: app.getVersion(),
+    electron: process.versions.electron,
+    chrome: process.versions.chrome,
+    node: process.versions.node,
+  }),
   getAuthState: () => currentAuthState(),
   signIn: async () => {
-    if (isSelfTest) return selfTestAuthState;
     const state = await requireAuthCoordinator().signIn();
     observeAuthState(state);
     await synchronizeProtectedRuntime(state);
     return state;
   },
   signOut: async () => {
-    if (isSelfTest) return selfTestAuthState;
     disposeProtectedRuntime();
     ensureGateTray();
     const state = await requireAuthCoordinator().signOut();
@@ -262,7 +160,6 @@ const ipcHandlers: StudiIpcHandlers = {
     return state;
   },
   retryEntitlement: async () => {
-    if (isSelfTest) return selfTestAuthState;
     const state = await requireAuthCoordinator().retryEntitlement();
     observeAuthState(state);
     await synchronizeProtectedRuntime(state);
@@ -273,20 +170,9 @@ const ipcHandlers: StudiIpcHandlers = {
     requireTelemetryService().capture("studi_feedback_sent", { channel: "beta_gate" });
     return receipt;
   },
-  getUsageState: () => isSelfTest ? selfTestUsageState : requireAuthCoordinator().usage(),
-  getConnectedApps: async () => {
-    if (isSelfTest) {
-      return {
-        configured: true,
-        toolkits: selfTestConnectedApps.map(([toolkit, version]) => ({ toolkit, version, access: "all" as const })),
-      };
-    }
-    return requireAuthCoordinator().connectedApps();
-  },
+  getUsageState: () => requireAuthCoordinator().usage(),
+  getConnectedApps: () => requireAuthCoordinator().connectedApps(),
   connectApp: async ({ toolkit }) => {
-    if (isSelfTest) {
-      return { toolkit, sessionId: "self-test", connectedAccountId: null, status: "INITIATED", redirectUrl: null };
-    }
     const startedAt = Date.now();
     const connection = await requireAuthCoordinator().authorizeConnectedApp(toolkit);
     if (!connection.redirectUrl) throw new Error(`${toolkit} did not return a connection link`);
@@ -303,9 +189,6 @@ const ipcHandlers: StudiIpcHandlers = {
     return connection;
   },
   refreshConnectedApp: async ({ toolkit }) => {
-    if (isSelfTest) {
-      return { toolkit, sessionId: "self-test", connectedAccountId: null, status: "DISCONNECTED", redirectUrl: null };
-    }
     const startedAt = Date.now();
     const connection = await requireAuthCoordinator().connectedAppConnection(toolkit);
     requireTelemetryService().capture("studi_connected_app", {
@@ -704,42 +587,17 @@ function createWindow(): BrowserWindow {
     }
   });
 
-  if (isSelfTest) {
-    window.webContents.once("did-finish-load", () => {
-      window.show();
-      window.focus();
-      process.stdout.write(`STUDI_SELF_TEST_READY ${JSON.stringify({
-        storage: storageSelfTestObservation,
-        agent: agentSelfTestObservation,
-        window: {
-          menuBarVisible: window.isMenuBarVisible(),
-        },
-      })}\n`);
-    });
-    window.webContents.on(
-      "did-fail-load",
-      (_event, errorCode, errorDescription, validatedUrl, isMainFrame) => {
-        if (isMainFrame) {
-          finishSelfTestFailure(
-            `renderer load failed (${errorCode}): ${errorDescription}; target=${validatedUrl}`,
-          );
-        }
-      },
-    );
-  } else {
-    window.once("ready-to-show", () => {
-      if (window.isDestroyed()) return;
-      window.show();
-      window.focus();
-    });
-  }
+  window.once("ready-to-show", () => {
+    if (window.isDestroyed()) return;
+    window.show();
+    window.focus();
+  });
   mainWindow = window;
 
   return window;
 }
 
 function initializeAuthCoordinator(): void {
-  if (isSelfTest) return;
   authCoordinator = new AuthCoordinator({
     vault: new AuthVault(join(app.getPath("userData"), "studi-auth"), safeStorage),
     openExternal: openAuthUrl,
@@ -756,9 +614,7 @@ function resetAnalyticsIdentity(): void {
 }
 
 function initializeTelemetry(): void {
-  const config = isSelfTest
-    ? { host: "https://us.i.posthog.com" as const }
-    : loadTelemetryPublicConfig(app.isPackaged);
+  const config = loadTelemetryPublicConfig(app.isPackaged);
   telemetryService = new TelemetryService({
     ...config,
     appVersion: app.getVersion(),
@@ -790,12 +646,11 @@ function observeAuthState(state: AuthState): void {
 }
 
 function currentAuthState(): AuthState {
-  if (isSelfTest) return selfTestAuthState;
   return projectProtectedAuthState(authCoordinator?.state() ?? { status: "checking" }, appKernel !== null);
 }
 
 function ensureGateTray(): void {
-  if (isSelfTest || gateTray) return;
+  if (gateTray) return;
   gateTray = new Tray(loadTrayIcon());
   gateTray.setToolTip("Studi sign-in");
   gateTray.on("click", openMainWindow);
@@ -821,11 +676,7 @@ function openMainWindow(): void {
 
 function startRenderer(window: BrowserWindow): void {
   void loadRenderer(window).catch((error: unknown) => {
-    if (isSelfTest) {
-      finishSelfTestFailure(`renderer load rejected: ${formatError(error)}`);
-    } else {
-      process.stderr.write(`STUDI_RENDERER_LOAD_FAILED ${formatError(error)}\n`);
-    }
+    process.stderr.write(`STUDI_RENDERER_LOAD_FAILED ${formatError(error)}\n`);
   });
 }
 
@@ -992,356 +843,11 @@ function readTaskDetail(taskId: string): TaskDetail {
 }
 
 function loadRenderer(window: BrowserWindow): Promise<void> {
-  if (isSelfTest && process.env.STUDI_SELF_TEST_RENDERER_FAILURE === "1") {
-    return window.loadFile(join(moduleDirectory, "__missing_renderer__.html"));
-  }
-
   const developmentUrl = getDevelopmentUrl({
     isPackaged: app.isPackaged,
     switchValue: app.commandLine.getSwitchValue("studi-development-url"),
   });
   return developmentUrl ? window.loadURL(developmentUrl) : window.loadFile(rendererPath);
-}
-
-async function runSelfTest(window: BrowserWindow): Promise<void> {
-  if (selfTestFinished) {
-    return;
-  }
-
-  try {
-    const rendererObservation: unknown = await window.webContents.executeJavaScript(`
-      new Promise((resolve, reject) => {
-        const timeout = window.setTimeout(() => reject(new Error("app-ready marker timed out")), 5000);
-        const inspect = async () => {
-          const marker = document.querySelector('[data-studi-app-ready="true"]');
-          if (!marker) return;
-          window.clearTimeout(timeout);
-          observer.disconnect();
-          try {
-            const [runtime, manifest] = await Promise.all([
-              window.studi.getRuntimeInfo(),
-              window.studi.getContractManifest(),
-            ]);
-            const focusTarget = document.querySelector('button:not([disabled]), input:not([disabled]), select:not([disabled])');
-            if (focusTarget instanceof HTMLElement) focusTarget.focus();
-            resolve({
-              marker: true,
-              runtime,
-              manifest,
-              onboardingUi: {
-                fableConversation: Boolean(document.querySelector('.fable-window .fable-speech')),
-                browserHandoff: Boolean(document.querySelector('.fable-stage.with-browser')),
-                scanAction: Boolean(document.querySelector('[data-app-control="start-scan"]')),
-                passwordFieldCount: document.querySelectorAll('input[type="password"]').length,
-              },
-              uiQuality: {
-                mainLandmarkCount: document.querySelectorAll('main').length,
-                interactiveCount: document.querySelectorAll('button, input, select, textarea, a[href]').length,
-                focusMoved: focusTarget instanceof HTMLElement && document.activeElement === focusTarget,
-              },
-            });
-          } catch (error) {
-            reject(error);
-          }
-        };
-        const observer = new MutationObserver(() => void inspect());
-        observer.observe(document.documentElement, { childList: true, subtree: true });
-        void inspect();
-      })
-    `);
-
-    if (!rendererObservation || typeof rendererObservation !== "object") {
-      throw new Error("self-test returned an invalid renderer observation");
-    }
-    if (process.env.STUDI_UI_CAPTURE_PATH) {
-      const viewport = /^(\d{3,4})x(\d{3,4})$/.exec(process.env.STUDI_UI_VIEWPORT ?? "1120x760");
-      if (!viewport) throw new Error("STUDI_UI_VIEWPORT must look like 1120x760");
-      window.setContentSize(Number(viewport[1]), Number(viewport[2]));
-      window.show();
-      if (process.env.STUDI_UI_CAPTURE_SCREEN) {
-        const screen = JSON.stringify(process.env.STUDI_UI_CAPTURE_SCREEN);
-        const navigated = await window.webContents.executeJavaScript(`
-          (() => {
-            const label = ${screen};
-            const button = [...document.querySelectorAll('nav button')].find((item) => item.textContent?.trim() === label);
-            if (!button) return false;
-            button.click();
-            return true;
-          })()
-        `);
-        if (!navigated) throw new Error(`Could not navigate to UI capture screen ${process.env.STUDI_UI_CAPTURE_SCREEN}`);
-      }
-      await new Promise((resolve) => setTimeout(resolve, 450));
-      const capture = await window.webContents.capturePage();
-      writeFileSync(process.env.STUDI_UI_CAPTURE_PATH, capture.toPNG());
-    }
-    const browserSnapshot = await requireBrowserController().snapshot();
-    browserSelfTestObservation = {
-      view: "web-contents-view",
-      source: "visible-school-browser",
-      url: "about:blank",
-      bounded: browserSnapshot.elements.length <= 80 && browserSnapshot.text.length <= 8_000,
-      revision: browserSnapshot.revision,
-      telemetryIsolated: await requireSchoolBrowserTelemetryIsolation(),
-    };
-    const notifications = await collectNotificationReceipt();
-    const closeCount = requireAppKernel().lifecycleReceipt().closeInterceptions;
-    window.close();
-    const hiddenAfterClose = await waitForWindowVisibility(window, false);
-    const closeHides = hiddenAfterClose && !window.isDestroyed() && requireAppKernel().lifecycleReceipt().closeInterceptions === closeCount + 1;
-    const openCount = requireAppKernel().lifecycleReceipt().openRequests;
-    requireAppKernel().open();
-    const trayOpenHandled = requireAppKernel().lifecycleReceipt().openRequests === openCount + 1 && !window.isDestroyed();
-    const lifecycle: LifecycleSelfTestObservation = {
-      unpackagedCoexistsWithInstalled: (!app.isPackaged && !app.hasSingleInstanceLock()) as true,
-      closeHides: closeHides as true,
-      trayOpenHandled: trayOpenHandled as true,
-    };
-    const observation: unknown = {
-      ...(rendererObservation as Record<string, unknown>),
-      storage: storageSelfTestObservation,
-      agent: agentSelfTestObservation,
-      browser: browserSelfTestObservation,
-      lifecycle,
-      notifications,
-    };
-    if (!isSuccessfulObservation(observation)) {
-      throw new Error(`self-test returned an invalid observation: ${JSON.stringify(observation)}`);
-    }
-
-    selfTestFinished = true;
-    process.stdout.write(`STUDI_SELF_TEST ${JSON.stringify(observation)}\n`);
-    app.quit();
-  } catch (error) {
-    finishSelfTestFailure(formatError(error));
-  }
-}
-
-async function waitForWindowVisibility(window: BrowserWindow, visible: boolean): Promise<boolean> {
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    if (!window.isDestroyed() && window.isVisible() === visible) return true;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  return false;
-}
-
-function isSuccessfulObservation(value: unknown): boolean {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-
-  const record = value as Record<string, unknown>;
-  return (
-    record.marker === true &&
-    RuntimeInfoSchema.safeParse(record.runtime).success &&
-    ContractManifestSchema.safeParse(record.manifest).success &&
-    isSuccessfulStorageObservation(record.storage) &&
-    isSuccessfulAgentObservation(record.agent) &&
-    isSuccessfulBrowserObservation(record.browser) &&
-    isSuccessfulLifecycleObservation(record.lifecycle) &&
-    isSuccessfulNotificationObservation(record.notifications) &&
-    isSuccessfulOnboardingUiObservation(record.onboardingUi) &&
-    isSuccessfulUiQualityObservation(record.uiQuality)
-  );
-}
-
-function isSuccessfulUiQualityObservation(value: unknown): value is UiQualitySelfTestObservation {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
-  return record.mainLandmarkCount === 1 &&
-    typeof record.interactiveCount === "number" && record.interactiveCount >= 2 &&
-    record.focusMoved === true;
-}
-
-function isSuccessfulLifecycleObservation(value: unknown): value is LifecycleSelfTestObservation {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
-  return record.unpackagedCoexistsWithInstalled === true && record.closeHides === true && record.trayOpenHandled === true;
-}
-
-function isSuccessfulNotificationObservation(value: unknown): value is NotificationSelfTestObservation {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
-  return record.persistedWhenMuted === true &&
-    record.mutedShown === false &&
-    record.mutedDelivered === false &&
-    typeof record.enabledShown === "boolean" &&
-    record.enabledDelivered === record.enabledShown &&
-    record.sound === "inky_nudge";
-}
-
-async function collectNotificationReceipt(): Promise<NotificationSelfTestObservation> {
-  const kernel = requireAppKernel();
-  const store = requireLocalStore();
-  const current = await store.productPreferences.get();
-  const enabled = await kernel.preview("handoff");
-  await store.productPreferences.put({
-    ...current,
-    notifications: {
-      ...DEFAULT_NOTIFICATION_PREFERENCES,
-      enabled: false,
-    },
-    updatedAt: new Date().toISOString(),
-  });
-  const muted = await kernel.preview("handoff");
-  await store.productPreferences.put({
-    ...current,
-    notifications: DEFAULT_NOTIFICATION_PREFERENCES,
-    updatedAt: new Date().toISOString(),
-  });
-  if (muted.shown || muted.notification.deliveredAt) {
-    throw new Error("muted notification preview still delivered a toast");
-  }
-  if (enabled.shown !== Boolean(enabled.notification.deliveredAt)) {
-    throw new Error("notification delivery flag does not match the toast receipt");
-  }
-  return {
-    persistedWhenMuted: true,
-    mutedShown: false,
-    mutedDelivered: false,
-    enabledShown: enabled.shown,
-    enabledDelivered: Boolean(enabled.notification.deliveredAt),
-    sound: "inky_nudge",
-  };
-}
-
-function isSuccessfulOnboardingUiObservation(
-  value: unknown,
-): value is OnboardingUiSelfTestObservation {
-  if (!value || typeof value !== "object") return false;
-  const record = value as Record<string, unknown>;
-  if (record.passwordFieldCount !== 0) return false;
-  if (uiScenario === "partial-dashboard" || uiScenario === "desk-handoff") return true;
-  if (uiScenario === "onboarding-welcome") return record.fableConversation === true && record.browserHandoff === false && record.scanAction === false;
-  return record.fableConversation === true && record.browserHandoff === true && record.scanAction === true;
-}
-
-function seedProductUiScenario(store: LocalStore, scenario: "partial-dashboard" | "desk-handoff"): void {
-  const now = "2026-09-01T14:00:00.000Z";
-  const scanId = "ui-scenario-partial-scan";
-  const source = "https://school.example.edu/courses/calculus";
-  const evidence = {
-    schemaVersion: STUDI_SCHEMA_VERSION,
-    evidenceId: "ui-scenario-evidence",
-    reference: "ui-scenario-evidence",
-    kind: "text_snapshot" as const,
-    sourceTarget: source,
-    capturedAt: now,
-    summary: "Visible controlled school page retained for UI verification.",
-  };
-  store.school.putScan({
-    schemaVersion: STUDI_SCHEMA_VERSION,
-    scanId,
-    kind: "first_scan",
-    state: "partial",
-    startedAt: now,
-    updatedAt: now,
-    completedAt: now,
-    currentStep: "Three verified assignments retained; one linked system still needs sign-in.",
-    coverage: [
-      { target: "Calculus", status: "verified", evidence },
-      { target: "Linked homework system", status: "partial", failure: "The linked system asked for a separate sign-in." },
-    ],
-    failures: ["The linked homework system is not yet covered."],
-    handoff: null,
-    observedCourseIds: ["course-calculus"],
-    observedAssignmentIds: ["assignment-problems", "assignment-quiz", "assignment-reflection"],
-    observedLinkedSystemIds: ["linked-homework"],
-  });
-  store.school.putCourse({
-    schemaVersion: STUDI_SCHEMA_VERSION,
-    courseId: "course-calculus",
-    label: "Calculus II",
-    sourceTarget: source,
-    lastVerifiedScanId: scanId,
-    lastVerifiedAt: now,
-    evidence,
-  });
-  const assignments = [
-    ["assignment-problems", "Problem set 4", "2026-09-02T22:00:00.000Z"],
-    ["assignment-quiz", "Sequences quiz", "2026-09-03T18:30:00.000Z"],
-    ["assignment-reflection", "Weekly reflection", "2026-09-04T21:00:00.000Z"],
-  ] as const;
-  for (const [assignmentId, title, dueAt] of assignments) {
-    store.assignments.put({ schemaVersion: STUDI_SCHEMA_VERSION, assignmentId, courseId: "course-calculus", title, sourceTarget: `${source}/${assignmentId}`, dueAt, discoveredAt: now, lastVerifiedScanId: scanId, evidence: [evidence] });
-  }
-  store.permissionRules.put({ schemaVersion: STUDI_SCHEMA_VERSION, ruleId: "ui-scenario-global-rule", scope: "global", mode: "attempt", updatedAt: now });
-  const taskId = "task-problems";
-  const created = { schemaVersion: STUDI_SCHEMA_VERSION, taskId, assignmentId: "assignment-problems", state: "discovered" as const, revision: 0, createdAt: now, updatedAt: now };
-  store.tasks.append({
-    expectedRevision: null,
-    projection: created,
-    event: { schemaVersion: STUDI_SCHEMA_VERSION, eventId: "event-problems-created", aggregateType: "task", aggregateId: taskId, runId: "run-problems", sequence: 0, occurredAt: now, type: "task_created", payload: { taskId, assignmentId: created.assignmentId, state: "discovered", revision: 0, createdAt: now, updatedAt: now } },
-  });
-  let current: Task = created;
-  const transition = (to: "queued" | "working" | "needs_user", sequence: number, reason: string) => {
-    const result = transitionTask(current, { type: "transition", to, eventId: `event-problems-${to}`, runId: "run-problems", sequence, occurredAt: new Date(Date.parse(now) + sequence * 1_000).toISOString(), reason });
-    if (!result.ok) throw new Error(`UI scenario transition rejected: ${result.rejection.code}`);
-    current = result.task;
-    store.tasks.append({ expectedRevision: current.revision - 1, projection: current, event: result.event });
-  };
-  transition("queued", 1, "Queued by the deterministic UI scenario");
-  if (scenario === "desk-handoff") {
-    transition("working", 2, "Visible browser worker started");
-    transition("needs_user", 3, "The linked homework system needs the student to sign in");
-    store.lifecycle.putExecution({ schemaVersion: STUDI_SCHEMA_VERSION, taskId, assignmentId: "assignment-problems", phase: "needs_user", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 1, attemptCount: 1, returnPredicate: "The linked homework page shows the signed-in student account.", lastError: "Please sign in to the linked homework system in the visible browser.", updatedAt: "2026-09-01T14:00:03.000Z" });
-    store.lifecycle.addAttempt({ schemaVersion: STUDI_SCHEMA_VERSION, taskId, ordinal: 1, plan: "Open the linked homework page from the verified assignment.", result: "The page required a separate student sign-in.", evidence: { revision: 3, url: `${source}/assignment-problems`, title: "Linked homework sign-in", capturedAt: "2026-09-01T14:00:02.000Z", summary: "Sign-in page visible; no school credentials were read." }, recordedAt: "2026-09-01T14:00:02.000Z" });
-  }
-}
-
-function isSuccessfulBrowserObservation(value: unknown): value is BrowserSelfTestObservation {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  return (
-    record.view === "web-contents-view" &&
-    record.source === "visible-school-browser" &&
-    record.url === "about:blank" &&
-    record.bounded === true &&
-    typeof record.revision === "number" &&
-    record.revision >= 1 &&
-    record.telemetryIsolated === true
-  );
-}
-
-function isSuccessfulAgentObservation(value: unknown): value is AgentSelfTestObservation {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  const providerStatus = record.providerStatus;
-  return (
-    record.runtime === "pi-agent-session" &&
-    record.sdkVersion === "0.84.4" &&
-    record.sessionPersisted === true &&
-    record.sessionResumed === true &&
-    record.probeCompleted === true &&
-    Array.isArray(record.activeTools) &&
-    record.activeTools.length === 1 &&
-    record.activeTools[0] === "studi_probe" &&
-    !!providerStatus &&
-    typeof providerStatus === "object" &&
-    (providerStatus as Record<string, unknown>).providerId === "unknown" &&
-    (providerStatus as Record<string, unknown>).state === "unavailable"
-  );
-}
-
-function isSuccessfulStorageObservation(value: unknown): value is StorageSelfTestObservation {
-  if (!value || typeof value !== "object") {
-    return false;
-  }
-  const record = value as Record<string, unknown>;
-  return (
-    record.driver === "node:sqlite" &&
-    record.node === process.versions.node &&
-    record.schemaVersion === 7 &&
-    record.fileBacked === true &&
-    record.reopened === true &&
-    record.artifactRoundTrip === true &&
-    record.backupValidated === true &&
-    record.backupArtifactCount === 1
-  );
 }
 
 async function initializeStorage(): Promise<void> {
@@ -1352,133 +858,10 @@ async function initializeStorage(): Promise<void> {
       appVersion: app.getVersion(),
     },
   });
-  if (uiScenario === "partial-dashboard" || uiScenario === "desk-handoff") seedProductUiScenario(localStore, uiScenario);
-  if (uiScenario && uiScenario !== "onboarding-welcome") {
-    localStore.school.putProfile({
-      schemaVersion: STUDI_SCHEMA_VERSION,
-      profileId: "primary-school",
-      studentName: "Self Test",
-      schoolRoot: "https://school.example.edu",
-      defaultPermission: "attempt",
-      scanCadence: "daily",
-      onboardingState: "profile_saved",
-      missedCourseFeedback: [],
-      updatedAt: "2026-08-31T12:00:00.000Z",
-    });
-  }
-  if (!isSelfTest) {
-    return;
-  }
-
-  const assignment = {
-    schemaVersion: 1 as const,
-    assignmentId: "electron-self-test-assignment",
-    courseId: "electron-self-test-course",
-    title: "Electron storage self-test",
-    sourceTarget: "https://school.example.edu/assignments/electron-self-test",
-    discoveredAt: "2026-08-31T12:00:00.000Z",
-    evidence: [],
-  };
-  const artifact = {
-    frontmatter: {
-      schemaVersion: 1 as const,
-      kind: "preference" as const,
-      artifactId: "electron-self-test-preference",
-      updatedAt: "2026-08-31T12:00:00.000Z",
-    },
-    content: "Electron storage round trip",
-  };
-  localStore.assignments.put(assignment);
-  await localStore.artifacts.write(artifact);
-  localStore.close();
-  localStore = await openLocalStore(dataRoot);
-  const reopened = localStore.assignments.get(assignment.assignmentId);
-  const reopenedArtifact = await localStore.artifacts.read(
-    artifact.frontmatter.kind,
-    artifact.frontmatter.artifactId,
-  );
-  const backupDirectory = join(app.getPath("userData"), "studi-storage-self-test-backup");
-  const backup = await localStore.backup(backupDirectory);
-  storageSelfTestObservation = {
-    driver: "node:sqlite",
-    node: process.versions.node,
-    schemaVersion: localStore.health().schemaVersion,
-    fileBacked: localStore.databasePath !== ":memory:" && existsSync(localStore.databasePath),
-    reopened: reopened?.assignmentId === assignment.assignmentId,
-    artifactRoundTrip: reopenedArtifact?.content === artifact.content,
-    backupValidated: backup.schemaVersion === 8,
-    backupArtifactCount: backup.artifactCount,
-  };
-}
-
-async function initializeAgentSelfTest(): Promise<void> {
-  if (!isSelfTest) {
-    return;
-  }
-  const dataRoot = join(app.getPath("userData"), "studi-data");
-  const [runtimeModule, codingAgentModule, piAiModule] = await Promise.all([
-    import("./agent/runtime.js"),
-    import("@earendil-works/pi-coding-agent"),
-    import("@earendil-works/pi-ai"),
-  ]);
-  const { PiAgentRuntime } = runtimeModule;
-  const modelRuntime = await codingAgentModule.ModelRuntime.create({
-    credentials: new piAiModule.InMemoryCredentialStore(),
-    modelsPath: null,
-    refreshOnCreate: false,
-    signal: AbortSignal.timeout(3_000),
-  });
-  const faux = piAiModule.fauxProvider({
-    provider: "studi-electron-faux",
-    api: "studi-electron-faux",
-    tokenSize: { min: 100, max: 100 },
-  });
-  modelRuntime.registerNativeProvider(faux.provider);
-  faux.setResponses([
-    piAiModule.fauxAssistantMessage(
-      piAiModule.fauxToolCall("studi_probe", {}, { id: "electron-studi-probe" }),
-      { stopReason: "toolUse" },
-    ),
-    piAiModule.fauxAssistantMessage("Electron probe complete."),
-  ]);
-  const runtime = await PiAgentRuntime.create({
-    cwd: dataRoot,
-    agentDir: join(dataRoot, "pi"),
-    modelRuntime,
-    model: faux.getModel(),
-  });
-  const session = await runtime.createSession();
-  try {
-    const events: Array<{ readonly type: string; readonly outcome?: string }> = [];
-    session.subscribe((event) => {
-      events.push(event);
-    });
-    await session.prompt("Run the Electron self-test probe.");
-    const originalId = session.sessionId;
-    const sessionPath = session.sessionPath;
-    if (!sessionPath) {
-      throw new Error("Pi did not persist the Electron self-test session");
-    }
-    await session.replace({ resumeSessionPath: sessionPath });
-    agentSelfTestObservation = {
-      runtime: "pi-agent-session",
-      sdkVersion: PiAgentRuntime.sdkVersion,
-      sessionPersisted: true,
-      sessionResumed: session.sessionId === originalId,
-      probeCompleted:
-        events.some((event) => event.type === "tool_started") &&
-        events.some((event) => event.type === "tool_finished") &&
-        events.some((event) => event.type === "terminal" && event.outcome === "completed"),
-      activeTools: session.toolNames,
-      providerStatus: await runtime.getProviderStatus("studi-self-test-missing-provider"),
-    };
-  } finally {
-    session.dispose();
-  }
 }
 
 async function initializeDesktopAgent(): Promise<void> {
-  const identity = isSelfTest ? selfTestAuthState : authCoordinator?.state();
+  const identity = authCoordinator?.state();
   const ownerSubject = identity && (identity.status === "approved" || identity.status === "offline") ? identity.user.subject : undefined;
   const dataRoot = join(app.getPath("userData"), "studi-data");
   agentRuntime = await PiAgentRuntime.create({
@@ -1583,7 +966,6 @@ function disposeProtectedRuntime(): void {
 }
 
 function loadConnectedAppTools() {
-  if (isSelfTest) return Promise.resolve([]);
   return createConnectedAppTools(requireAuthCoordinator(), {
     observeExecution: (observation) => {
       requireTelemetryService().capture("studi_composio_tool", {
@@ -1851,24 +1233,6 @@ function assignmentLabels(assignmentId?: string): { assignment_title?: string; c
 
 async function readWorkspaceState() {
   const runtime = requireAgentRuntime();
-  if (uiScenario === "onboarding-ready" || uiScenario === "onboarding-welcome") {
-    return {
-      browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
-      providers: AGENT_PROVIDERS.map((provider) => ({
-        schemaVersion: STUDI_SCHEMA_VERSION,
-        providerId: provider.id,
-        providerName: provider.name,
-        state: provider.id === runtime.selectedProviderId ? "ready" as const : "needs_login" as const,
-        loginMethods: ["oauth" as const],
-        reason: "Deterministic UI scenario is using the same typed provider projection.",
-      })),
-      selectedProviderId: runtime.selectedProviderId,
-      providerLogin: null,
-      models: [{ providerId: runtime.selectedProviderId, id: runtime.selectedModelId, name: runtime.selectedModelId }],
-      selectedModelId: runtime.selectedModelId,
-      selectedReasoningEffort: runtime.selectedReasoningEffort,
-    };
-  }
   return {
     browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
     providers: await Promise.all(AGENT_PROVIDERS.map((provider) => runtime.getProviderStatus(provider.id))),
@@ -1949,43 +1313,6 @@ function requireManagerCoordinator(): ManagerCoordinator {
     throw new Error("The Studi manager is not ready");
   }
   return managerCoordinator;
-}
-
-interface BrowserSelfTestObservation {
-  readonly view: "web-contents-view";
-  readonly source: "visible-school-browser";
-  readonly url: "about:blank";
-  readonly bounded: boolean;
-  readonly revision: number;
-  readonly telemetryIsolated: boolean;
-}
-
-interface OnboardingUiSelfTestObservation {
-  readonly fableConversation: boolean;
-  readonly browserHandoff: boolean;
-  readonly scanAction: boolean;
-  readonly passwordFieldCount: number;
-}
-
-interface UiQualitySelfTestObservation {
-  readonly mainLandmarkCount: number;
-  readonly interactiveCount: number;
-  readonly focusMoved: true;
-}
-
-interface LifecycleSelfTestObservation {
-  readonly unpackagedCoexistsWithInstalled: true;
-  readonly closeHides: true;
-  readonly trayOpenHandled: true;
-}
-
-interface NotificationSelfTestObservation {
-  readonly persistedWhenMuted: true;
-  readonly mutedShown: false;
-  readonly mutedDelivered: false;
-  readonly enabledShown: boolean;
-  readonly enabledDelivered: boolean;
-  readonly sound: "inky_nudge";
 }
 
 function requireConversationCoordinator(): ConversationCoordinator {
@@ -2082,13 +1409,6 @@ function loadTrayIcon() {
   return loadAppIcon().resize({ width: 32, height: 32, quality: "best" });
 }
 
-async function requireSchoolBrowserTelemetryIsolation(): Promise<boolean> {
-  if (!browserView || browserView.webContents.isDestroyed()) return false;
-  return browserView.webContents.executeJavaScript(
-    "typeof globalThis.posthog === 'undefined' && typeof globalThis.studi === 'undefined'",
-  ) as Promise<boolean>;
-}
-
 async function requireReadyProviderForScan(): Promise<void> {
   await requireReadyProvider("scanning the school");
 }
@@ -2110,37 +1430,13 @@ async function requireReadyProvider(purpose: string): Promise<void> {
   }
 }
 
-function finishSelfTestFailure(message: string): void {
-  if (selfTestFinished) {
-    return;
-  }
-  selfTestFinished = true;
-  process.exitCode = 1;
-  process.stderr.write(`STUDI_SELF_TEST_FAILED ${message}\n`);
-  app.exit(1);
-}
-
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function assertOwnedSelfTestDirectory(directory: string): void {
-  const temporaryRoot = resolve(tmpdir());
-  const isOwnedDirectory =
-    dirname(directory) === temporaryRoot && basename(directory).startsWith("studi-wp00-self-test-");
-
-  if (!isOwnedDirectory) {
-    throw new Error("Self-test userData must be an owned directory under the system temp folder");
-  }
-}
-
 function configureStartupProfile(): boolean {
   try {
-    if (isSelfTest) {
-      assertOwnedSelfTestDirectory(selfTestDirectory);
-      app.disableHardwareAcceleration();
-      app.setPath("userData", selfTestDirectory);
-    } else if (
+    if (
       !app.isPackaged
       && app.commandLine.hasSwitch("studi-development-url")
       && !app.commandLine.hasSwitch("user-data-dir")
@@ -2149,10 +1445,7 @@ function configureStartupProfile(): boolean {
     }
     return true;
   } catch (error) {
-    const failurePrefix = isSelfTest
-      ? "STUDI_SELF_TEST_CONFIGURATION_FAILED"
-      : "STUDI_STARTUP_PROFILE_FAILED";
-    process.stderr.write(`${failurePrefix} ${formatError(error)}\n`);
+    process.stderr.write(`STUDI_STARTUP_PROFILE_FAILED ${formatError(error)}\n`);
     app.exit(1);
     return false;
   }
@@ -2166,32 +1459,19 @@ if (canStart) {
       registerDesktopConnectProtocol();
       initializeTelemetry();
       await initializeStorage();
-      await initializeAgentSelfTest();
       const window = createWindow();
       initializeAuthCoordinator();
-      if (isSelfTest) {
-        createSchoolBrowser(window);
-        await initializeDesktopAgent();
-        await initializeAppKernel(window);
-      } else {
-        ensureGateTray();
-      }
+      ensureGateTray();
       registerIpcHandlers();
       updates().start();
       startRenderer(window);
-      if (!isSelfTest) {
-        const state = await requireAuthCoordinator().start();
-        observeAuthState(state);
-        await synchronizeProtectedRuntime(state);
-        await finishPendingDesktopConnect();
-      }
+      const state = await requireAuthCoordinator().start();
+      observeAuthState(state);
+      await synchronizeProtectedRuntime(state);
+      await finishPendingDesktopConnect();
     } catch (error) {
-      if (isSelfTest) {
-        finishSelfTestFailure(`startup initialization failed: ${formatError(error)}`);
-      } else {
-        process.stderr.write(`STUDI_STORAGE_START_FAILED ${formatError(error)}\n`);
-        app.exit(1);
-      }
+      process.stderr.write(`STUDI_STORAGE_START_FAILED ${formatError(error)}\n`);
+      app.exit(1);
     }
   });
 }
@@ -2242,7 +1522,6 @@ app.on("will-quit", () => {
 });
 
 function registerDesktopConnectProtocol(): void {
-  if (isSelfTest) return;
   if (app.isPackaged) {
     app.setAsDefaultProtocolClient(STUDI_CONNECT_PROTOCOL);
     return;
