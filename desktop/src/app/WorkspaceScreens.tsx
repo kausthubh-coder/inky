@@ -959,11 +959,10 @@ function ProviderCard({ entry, provider, workspace, busy, onSelect, onConnect, o
         <div><h3>{entry.name}</h3><small>{entry.plan}</small></div>
         <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
       </div>
-      <ProviderLoginHandoffView login={login} busy={busy} onCompleteLogin={onCompleteLogin} onCancelLogin={onCancelLogin} />
+      <ProviderLoginHandoffView login={login} busy={busy} onCompleteLogin={onCompleteLogin} onCancelLogin={onCancelLogin} onRetryLogin={onConnect} />
       <div className="provider-card-actions">
         {ready && !selected && <button className="button button--yellow" type="button" onClick={onSelect} disabled={busy}>Use {entry.name}</button>}
         {!ready && !login && <button className="button button--yellow" type="button" onClick={onConnect} disabled={busy || anyLoginActive}>Connect {entry.name}</button>}
-        {(login?.phase === "failed" || login?.phase === "expired") && <button className="button button--yellow" type="button" onClick={onConnect} disabled={busy}>Try again</button>}
         {ready && !login && <button className="button" type="button" onClick={onConnect} disabled={busy || anyLoginActive}>Use another account</button>}
         {ready && !login && <button className="button" type="button" onClick={onDisconnect} disabled={busy || anyLoginActive}>Disconnect</button>}
       </div>
