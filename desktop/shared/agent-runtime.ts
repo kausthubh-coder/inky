@@ -85,7 +85,6 @@ export const AgentRunEventSchema = z.union([
 ]);
 
 export const AgentReasoningEffortSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]);
-export const DEFAULT_AGENT_MODEL_ID = "gpt-6-astra";
 export const DEFAULT_AGENT_REASONING_EFFORT = "medium" as const;
 
 export const ProviderLoginMethodSchema = z.enum(["api_key", "oauth"]);
@@ -133,7 +132,10 @@ const LOGIN_MARKERS = [
   "refresh token",
   "sign in to chatgpt",
   "sign in to openai",
+  "sign in to claude",
   "codex needs",
+  "claude needs",
+  "chatgpt needs",
   "re-auth",
   "reauth",
 ] as const;
@@ -151,23 +153,26 @@ export function classifyAgentRuntimeAttention(
   return "none";
 }
 
-export function agentRuntimeAttentionCopy(kind: AgentRuntimeAttention): { title: string; body: string } | null {
+export function agentRuntimeAttentionCopy(
+  kind: AgentRuntimeAttention,
+  providerName = "ChatGPT",
+): { title: string; body: string } | null {
   if (kind === "usage") {
     return {
-      title: "ChatGPT usage ran out.",
-      body: "I can't type in the school browser until that plan has usage again. Wait a bit, or connect another ChatGPT.",
+      title: `${providerName} usage ran out.`,
+      body: `I can't do the work until that plan has usage again. Wait a bit, or switch to another subscription.`,
     };
   }
   if (kind === "needs_login") {
     return {
-      title: "Codex needs you again.",
-      body: "That ChatGPT login expired or switched. Open the page, enter this code. I never see your password.",
+      title: `${providerName} needs you again.`,
+      body: `That ${providerName} sign-in expired or switched. Connect it again. I never see your password.`,
     };
   }
   if (kind === "unavailable") {
     return {
-      title: "Codex isn't reachable.",
-      body: "I couldn't check the ChatGPT connection. Try again in a moment, or reconnect Codex.",
+      title: `${providerName} isn't reachable.`,
+      body: `I couldn't check the ${providerName} connection. Try again in a moment, or reconnect it.`,
     };
   }
   return null;

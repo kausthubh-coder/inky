@@ -477,3 +477,6 @@ body{background:radial-gradient(circle at 1px 1px,#e9e0cd 1.1px,transparent 1.2p
   .workspace-drawer,.workspace-drawer.is-desk{width:calc(100% - 24px);max-height:70vh;top:auto}
   .browser-modal-backdrop{padding:10px}
 }
+
+.provider-cards{display:grid;gap:10px}.provider-card{display:grid;gap:8px;padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--panel)}.provider-card--selected{border-color:var(--ink);box-shadow:2px 2px 0 var(--ink)}.provider-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.provider-card-head h3{margin:0}.provider-card-head small{color:var(--muted);font-weight:700}.provider-card-actions{display:flex;flex-wrap:wrap;gap:6px}.provider-paste{display:grid;gap:6px;justify-items:start}.provider-paste label{display:grid;gap:4px;width:100%;font-size:.78rem;font-weight:700}.provider-paste input{width:100%;padding:8px 10px;border:1.5px solid var(--line);border-radius:8px;font:inherit}
+.fable-paste{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.fable-paste input{flex:1;min-width:160px;padding:7px 10px;border:2px solid var(--ink);border-radius:10px;font:inherit;font-size:12.5px}

@@ -39,6 +39,13 @@ import {
   type TaskSummary,
   type TelemetryState,
   type UsageState,
+  AGENT_PROVIDERS,
+  defaultModelFor,
+  providerLoginActive,
+  selectedProvider,
+  type AgentProviderEntry,
+  type AgentProviderId,
+  type ProviderStatus,
 } from "../../shared/index.js";
 import {
   DeskDrawer,
@@ -53,6 +60,7 @@ import {
   type SettingsLanding,
   Field,
   PaperCard,
+  ProviderLoginHandoffView,
   RuntimeAttentionBanner,
   StatusPill,
   TelemetryControls,
@@ -102,6 +110,9 @@ export function DashboardScreen({
   onCheckAssignment,
   onStopAndScan,
   onConnectRuntime,
+  onCompleteRuntimeLogin,
+  onCancelRuntimeLogin,
+  onSwitchProvider,
   onFeedback,
   onSchoolSlot,
 }: {
@@ -132,6 +143,9 @@ export function DashboardScreen({
   onCheckAssignment: (assignmentId: string) => void;
   onStopAndScan: (taskId: string) => void;
   onConnectRuntime: () => void;
+  onCompleteRuntimeLogin: (code: string) => void;
+  onCancelRuntimeLogin: () => void;
+  onSwitchProvider: () => void;
   onFeedback: (context: string, message: string) => Promise<boolean>;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
 }) {
@@ -175,7 +189,7 @@ export function DashboardScreen({
       localDateKey(new Date(assignment.dueAt)) === localDateKey(clock),
   ).length;
   const runtimeAttention = classifyAgentRuntimeAttention(
-    workspace?.provider,
+    workspace ? selectedProvider(workspace) : null,
     scan?.state === "failed" ? (scan.failures[0] ?? scan.currentStep) : null,
   );
   const inkyState = deskInkyState({
@@ -234,6 +248,9 @@ export function DashboardScreen({
           workspace={workspace}
           busy={busy !== null}
           onConnect={onConnectRuntime}
+          onCompleteLogin={onCompleteRuntimeLogin}
+          onCancelLogin={onCancelRuntimeLogin}
+          onSwitchProvider={onSwitchProvider}
         />
 
         <ScanStatus state={onboarding} lifecycle={lifecycle} busy={busy}
@@ -668,6 +685,9 @@ export function SettingsScreen({
   onSchedule,
   onSelectAgentRuntime,
   onConnectRuntime,
+  onCompleteRuntimeLogin,
+  onCancelRuntimeLogin,
+  onDisconnectRuntime,
   onConnectApp,
   onRefreshConnectedApp,
   onTelemetry,
@@ -697,8 +717,11 @@ export function SettingsScreen({
   onSaveRule: (input: SaveRuleInput) => void;
   onDeleteRule: (ruleId: string) => void;
   onSchedule: (cadence: "manual" | "daily" | "weekly", localTime: string, weekday?: number) => void;
-  onSelectAgentRuntime: (modelId: string, reasoningEffort: AgentReasoningEffort) => void;
-  onConnectRuntime: () => void;
+  onSelectAgentRuntime: (providerId: AgentProviderId, modelId: string, reasoningEffort: AgentReasoningEffort) => void;
+  onConnectRuntime: (providerId: AgentProviderId) => void;
+  onCompleteRuntimeLogin: (code: string) => void;
+  onCancelRuntimeLogin: () => void;
+  onDisconnectRuntime: (providerId: AgentProviderId) => void;
   onConnectApp: (toolkit: string) => void;
   onRefreshConnectedApp: (toolkit: string) => void;
   onTelemetry: (enabled: boolean, replayEnabled: boolean) => void;
@@ -753,14 +776,21 @@ export function SettingsScreen({
           {query.trim() && matches.length === 0 && <div className="settings-no-results"><h3>No settings found.</h3><p>Try “sound”, “model”, or “school”.</p><button className="button" onClick={() => setQuery("")}>Clear search</button></div>}
             {visible("inky") && (
             <PaperCard className="settings-card">
-              <p className="eyebrow">How I think</p>
-              <h2>{workspace?.provider.providerName ?? "ChatGPT"}</h2>
-              <p>{workspace?.provider.reason}</p>
-              <RuntimeAttentionBanner attention={classifyAgentRuntimeAttention(workspace?.provider)} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />
-              <button className="button button--yellow" type="button" onClick={onConnectRuntime} disabled={busy !== null}>{workspace?.provider.state === "ready" ? "Use another ChatGPT" : "Connect ChatGPT"}</button>
+              <p className="eyebrow">Your subscription</p>
+              <h2>Which AI does the work</h2>
+              <p>Bring the one you already pay for. I use the one you pick here.</p>
+              <div className="provider-cards" data-settings-providers="true">
+                {workspace && AGENT_PROVIDERS.map((entry) => {
+                  const provider = workspace.providers.find((status) => status.providerId === entry.id);
+                  if (!provider) return null;
+                  return <ProviderCard key={entry.id} entry={entry} provider={provider} workspace={workspace} busy={busy !== null}
+                    onSelect={() => { const model = defaultModelFor(workspace.models, entry.id); if (model) onSelectAgentRuntime(entry.id, model.id, workspace.selectedReasoningEffort); }}
+                    onConnect={() => onConnectRuntime(entry.id)} onCompleteLogin={onCompleteRuntimeLogin} onCancelLogin={onCancelRuntimeLogin} onDisconnect={() => onDisconnectRuntime(entry.id)} />;
+                })}
+              </div>
               <div className="form-grid form-grid--two">
-                <Field label="Model"><select value={workspace?.selectedModelId ?? ""} onChange={(event) => onSelectAgentRuntime(event.target.value, workspace?.selectedReasoningEffort ?? "medium")} disabled={!workspace || busy !== null}>{workspace?.models.map((model) => <option value={model.id} key={model.id}>{model.name}</option>)}</select></Field>
-                <Field label="How hard I think"><select value={workspace?.selectedReasoningEffort ?? "medium"} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedModelId, event.target.value as AgentReasoningEffort)} disabled={!workspace || busy !== null}><option value="off">Off</option><option value="minimal">Minimal</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option></select></Field>
+                <Field label="Model"><select value={workspace?.selectedModelId ?? ""} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedProviderId, event.target.value, workspace.selectedReasoningEffort)} disabled={!workspace || busy !== null}>{workspace?.models.filter((model) => model.providerId === workspace.selectedProviderId).map((model) => <option value={model.id} key={model.id}>{model.name}</option>)}</select></Field>
+                <Field label="How hard I think"><select value={workspace?.selectedReasoningEffort ?? "medium"} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedProviderId, workspace.selectedModelId, event.target.value as AgentReasoningEffort)} disabled={!workspace || busy !== null}><option value="off">Off</option><option value="minimal">Minimal</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option></select></Field>
               </div>
               <small>New chats use the pair you save here.</small>
             </PaperCard>
@@ -900,3 +930,43 @@ export function SettingsScreen({
 }
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
+
+/** One subscription the student can bring: its state, and the one action that makes sense right now. */
+function ProviderCard({ entry, provider, workspace, busy, onSelect, onConnect, onCompleteLogin, onCancelLogin, onDisconnect }: {
+  entry: AgentProviderEntry;
+  provider: ProviderStatus;
+  workspace: StudiWorkspaceState;
+  busy: boolean;
+  onSelect: () => void;
+  onConnect: () => void;
+  onCompleteLogin: (code: string) => void;
+  onCancelLogin: () => void;
+  onDisconnect: () => void;
+}) {
+  const selected = entry.id === workspace.selectedProviderId;
+  const ready = provider.state === "ready";
+  const attention = classifyAgentRuntimeAttention(provider);
+  const login = workspace.providerLogin?.providerId === entry.id ? workspace.providerLogin : null;
+  const anyLoginActive = providerLoginActive(workspace.providerLogin);
+  const pill = attention === "usage" ? { tone: "coral" as const, label: "Ran out of usage" }
+    : selected && ready ? { tone: "mint" as const, label: "Inky uses this" }
+    : ready ? { tone: "sky" as const, label: "Connected" }
+    : provider.state === "needs_login" ? { tone: "yellow" as const, label: "Not connected" }
+    : { tone: "coral" as const, label: "Can't check" };
+  return (
+    <div className={`provider-card ${selected ? "provider-card--selected" : ""}`} data-provider={entry.id}>
+      <div className="provider-card-head">
+        <div><h3>{entry.name}</h3><small>{entry.plan}</small></div>
+        <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
+      </div>
+      <ProviderLoginHandoffView login={login} busy={busy} onCompleteLogin={onCompleteLogin} onCancelLogin={onCancelLogin} />
+      <div className="provider-card-actions">
+        {ready && !selected && <button className="button button--yellow" type="button" onClick={onSelect} disabled={busy}>Use {entry.name}</button>}
+        {!ready && !login && <button className="button button--yellow" type="button" onClick={onConnect} disabled={busy || anyLoginActive}>Connect {entry.name}</button>}
+        {(login?.phase === "failed" || login?.phase === "expired") && <button className="button button--yellow" type="button" onClick={onConnect} disabled={busy}>Try again</button>}
+        {ready && !login && <button className="button" type="button" onClick={onConnect} disabled={busy || anyLoginActive}>Use another account</button>}
+        {ready && !login && <button className="button" type="button" onClick={onDisconnect} disabled={busy || anyLoginActive}>Disconnect</button>}
+      </div>
+    </div>
+  );
+}

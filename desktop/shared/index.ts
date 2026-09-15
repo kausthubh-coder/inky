@@ -17,6 +17,7 @@ export * from "./manager.js";
 export * from "./note.js";
 export * from "./permission.js";
 export * from "./product.js";
+export * from "./providers.js";
 export * from "./run.js";
 export * from "./school-scan.js";
 export * from "./schema-version.js";

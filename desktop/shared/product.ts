@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { AgentReasoningEffortSchema, AgentRunEventSchema, DEFAULT_AGENT_MODEL_ID, DEFAULT_AGENT_REASONING_EFFORT } from "./agent-runtime.js";
+import { AgentReasoningEffortSchema, AgentRunEventSchema, DEFAULT_AGENT_REASONING_EFFORT } from "./agent-runtime.js";
+import { AgentProviderIdSchema, DEFAULT_AGENT_MODEL_ID, DEFAULT_AGENT_PROVIDER_ID } from "./providers.js";
 import { ArtifactFrontmatterSchema, ArtifactKindSchema } from "./artifact.js";
 import { AssignmentSchema } from "./assignment.js";
 import { AutomationScheduleSchema, AssignmentExecutionSchema, ExecutionAttemptSchema, NotificationIntentSchema, SubmissionReceiptSchema } from "./lifecycle.js";
@@ -95,6 +96,7 @@ export const ProductPreferencesSchema = z.strictObject({
   memoryVisibility: z.enum(["none", "selected", "all"]),
   workStartMode: z.enum(["manual", "automatic"]).optional(),
   homeworkRoot: z.string().trim().min(1).max(1_024).nullable().default(null),
+  agentProviderId: AgentProviderIdSchema.default(DEFAULT_AGENT_PROVIDER_ID),
   agentModelId: z.string().min(1).max(128).default(DEFAULT_AGENT_MODEL_ID),
   agentReasoningEffort: AgentReasoningEffortSchema.default(DEFAULT_AGENT_REASONING_EFFORT),
   notifications: NotificationPreferencesSchema.default(DEFAULT_NOTIFICATION_PREFERENCES),
