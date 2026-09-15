@@ -36,7 +36,9 @@ test("real Pi sessions send Astra medium priority, including after resume, witho
   let session;
   try {
     const runtime = await PiAgentRuntime.create({ cwd: root, agentDir: join(root, "agent"), modelRuntime, onDiagnostic: event => diagnostics.push(event) });
+    assert.equal(runtime.selectedProviderId, "openai-codex");
     assert.equal(runtime.selectedModelId, "gpt-6-astra");
+    assert.ok(runtime.getProviderModels("anthropic").some((model) => model.id === "claude-fable-5-1" && model.providerId === "anthropic"));
     assert.equal(runtime.selectedReasoningEffort, "medium");
     assert.ok(runtime.getProviderModels("openai-codex").some((model) => model.id === "gpt-6-astra"));
     session = await runtime.createSession();

@@ -159,16 +159,20 @@ export function installDevPreview(): void {
   };
 
   let settings: ProductSettingsState = {
-    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "selected", homeworkRoot: null, agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
+    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "selected", homeworkRoot: null, agentProviderId: "openai-codex", agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
     permissionRules: [{ schemaVersion: 1, ruleId: "preview-global", scope: "global", mode: "attempt", updatedAt: now }],
     schedule: lifecycle.schedule,
   };
 
   const workspace = (): StudiWorkspaceState => ({
     browser: { url: "https://school.example.edu", title: "School", revision: 1, driver: lifecycle.execution?.phase === "working" ? "inky" : "none" },
-    provider: { schemaVersion: 1, providerId: "openai-codex", providerName: "Codex", state: "ready", loginMethods: ["oauth"], reason: "ChatGPT is connected." },
+    providers: [
+      { schemaVersion: 1, providerId: "openai-codex", providerName: "ChatGPT", state: "ready", loginMethods: ["oauth"], reason: "ChatGPT is ready to use." },
+      { schemaVersion: 1, providerId: "anthropic", providerName: "Claude", state: "needs_login", loginMethods: ["oauth"], reason: "Claude needs authentication." },
+    ],
+    selectedProviderId: settings.preferences.agentProviderId,
     providerLogin: null,
-    models: [{ id: DEFAULT_AGENT_MODEL_ID, name: "GPT-6 Astra" }],
+    models: [{ providerId: "openai-codex", id: DEFAULT_AGENT_MODEL_ID, name: "GPT-6 Astra" }, { providerId: "anthropic", id: "claude-fable-5-1", name: "Claude Fable 5.1" }],
     selectedModelId: settings.preferences.agentModelId,
     selectedReasoningEffort: settings.preferences.agentReasoningEffort,
   });
@@ -298,9 +302,11 @@ export function installDevPreview(): void {
     openAssignmentFolder: async () => true,
     selectBrowserPage: async () => workspace(),
     navigateBrowser: async () => workspace(),
-    loginOpenAiCodex: async () => workspace(),
-    cancelOpenAiCodexLogin: async () => workspace(),
-    selectAgentModel: async ({ modelId, reasoningEffort }) => { settings = { ...settings, preferences: { ...settings.preferences, agentModelId: modelId, agentReasoningEffort: reasoningEffort, updatedAt: new Date().toISOString() } }; return workspace(); },
+    loginProvider: async () => workspace(),
+    completeProviderLogin: async () => workspace(),
+    cancelProviderLogin: async () => workspace(),
+    logoutProvider: async () => workspace(),
+    selectAgentModel: async ({ providerId, modelId, reasoningEffort }) => { settings = { ...settings, preferences: { ...settings.preferences, agentProviderId: providerId, agentModelId: modelId, agentReasoningEffort: reasoningEffort, updatedAt: new Date().toISOString() } }; return workspace(); },
     getUpdateState: async () => updateState,
     checkForUpdates: async () => {updateState={...updateState,phase:'checking',error:null};setTimeout(()=>{updateState={...updateState,phase:'ready',targetVersion:nextPreviewVersion};},1000);return updateState;},
     installUpdate: async () => ({...await api.getUpdateState(),error:'Preview only — no installer is run.'}),

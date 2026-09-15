@@ -20,11 +20,15 @@ import { Type } from "typebox";
 
 import { buildRuntimeInstructions } from "../../agent-system/turn-builder.js";
 import {
+  AGENT_PROVIDERS,
   AgentRunEventSchema,
-  DEFAULT_AGENT_MODEL_ID,
+  DEFAULT_AGENT_PROVIDER_ID,
   DEFAULT_AGENT_REASONING_EFFORT,
   ProviderStatusSchema,
   STUDI_SCHEMA_VERSION,
+  agentProvider,
+  agentProviderName,
+  type AgentProviderId,
   type AgentReasoningEffort,
   type AgentRunEvent,
   type AgentModel,
@@ -93,9 +97,9 @@ export interface AgentRuntime {
 export interface ProviderLoginCallbacks {
   openExternal(url: string): Promise<void>;
   notify?(event: AuthEvent): void;
+  /** Supplies the code a student pasted when the browser could not hand the sign-in back. */
+  awaitManualCode?(signal?: AbortSignal): Promise<string>;
 }
-
-export type OpenAiCodexLoginMethod = "browser" | "device_code";
 
 export interface PiAgentRuntimeOptions {
   readonly cwd: string;
@@ -159,7 +163,7 @@ export class PiAgentRuntime implements AgentRuntime {
     const scanBrowser = options.scanBrowserController ?? options.browserController;
     this.#scanBrowserTools = scanBrowser ? createBrowserTools(scanBrowser, { includeSubmit: false, readOnly: true }) : null;
     this.#workerTools = this.#browserTools ?? [studiProbe];
-    const initialModel = options.model ?? selectDefaultModel(modelRuntime);
+    const initialModel = options.model ?? selectDefaultModel(modelRuntime, DEFAULT_AGENT_PROVIDER_ID);
     if (initialModel) {
       this.#model = initialModel;
     }
@@ -269,6 +273,7 @@ export class PiAgentRuntime implements AgentRuntime {
 
   async getProviderStatus(providerId: string): Promise<ProviderStatus> {
     const provider = this.#modelRuntime.getProvider(providerId);
+    const providerName = agentProviderName(providerId, provider?.name ?? "Unknown provider");
     if (!provider) {
       return ProviderStatusSchema.parse({
         schemaVersion: STUDI_SCHEMA_VERSION,
@@ -296,10 +301,10 @@ export class PiAgentRuntime implements AgentRuntime {
         return ProviderStatusSchema.parse({
           schemaVersion: STUDI_SCHEMA_VERSION,
           providerId: provider.id,
-          providerName: provider.name,
+          providerName,
           state: "ready",
           loginMethods,
-          reason: `${provider.name} is ready to use.`,
+          reason: `${providerName} is ready to use.`,
         });
       }
 
@@ -307,37 +312,39 @@ export class PiAgentRuntime implements AgentRuntime {
       return ProviderStatusSchema.parse({
         schemaVersion: STUDI_SCHEMA_VERSION,
         providerId: provider.id,
-        providerName: provider.name,
+        providerName,
         state: canLogin ? "needs_login" : "unavailable",
         loginMethods,
         reason: canLogin
-          ? `${provider.name} needs authentication.`
-          : `${provider.name} has no usable authentication configured.`,
+          ? `${providerName} needs authentication.`
+          : `${providerName} has no usable authentication configured.`,
       });
     } catch {
       return ProviderStatusSchema.parse({
         schemaVersion: STUDI_SCHEMA_VERSION,
         providerId: provider.id,
-        providerName: provider.name,
+        providerName,
         state: "unavailable",
         loginMethods,
-        reason: `Studi could not check ${provider.name} authentication.`,
+        reason: `Studi could not check ${providerName} authentication.`,
       });
     }
   }
 
   getProviderModels(providerId: string): readonly AgentModel[] {
     return this.#modelRuntime.getModels(providerId).map((model) => ({
+      providerId: model.provider as AgentProviderId,
       id: model.id,
       name: model.name,
     }));
   }
 
   get selectedModelId(): string {
-    if (!this.#model) {
-      throw new Error("Pi has no model available for a Studi session");
-    }
-    return this.#model.id;
+    return this.#requireModel().id;
+  }
+
+  get selectedProviderId(): AgentProviderId {
+    return this.#requireModel().provider as AgentProviderId;
   }
 
   get selectedReasoningEffort(): AgentReasoningEffort {
@@ -348,6 +355,15 @@ export class PiAgentRuntime implements AgentRuntime {
     const model = this.#modelRuntime.getModel(providerId, modelId);
     if (!model) {
       throw new Error(`Unknown ${providerId} model: ${modelId}`);
+    }
+    this.#model = model;
+  }
+
+  /** Switches to a subscription using its preferred installed model. */
+  selectProvider(providerId: AgentProviderId): void {
+    const model = selectDefaultModel(this.#modelRuntime, providerId);
+    if (!model || model.provider !== providerId) {
+      throw new Error(`No ${agentProviderName(providerId)} model is installed`);
     }
     this.#model = model;
   }
@@ -367,27 +383,39 @@ export class PiAgentRuntime implements AgentRuntime {
     this.#onUsage?.(usage, kind);
   }
 
-  async loginOpenAiCodex(
-    method: OpenAiCodexLoginMethod,
+  async loginProvider(
+    providerId: AgentProviderId,
     signal: AbortSignal,
     callbacks: ProviderLoginCallbacks,
   ): Promise<void> {
-    await this.#modelRuntime.login("openai-codex", "oauth", {
+    const provider = agentProvider(providerId);
+    await this.#modelRuntime.login(providerId, "oauth", {
       signal,
-      prompt: (prompt) => answerCodexPrompt(prompt, method),
+      prompt: (prompt) => answerLoginPrompt(prompt, provider.signIn, callbacks),
       notify: (event) => {
         if (event.type === "auth_url" || event.type === "device_code") {
           const url = new URL(
             event.type === "auth_url" ? event.url : event.verificationUri,
           );
           if (url.protocol !== "https:") {
-            throw new Error("OpenAI returned an unsafe authorization URL");
+            throw new Error(`${provider.name} returned an unsafe authorization URL`);
           }
           void callbacks.openExternal(url.href).catch(() => undefined);
         }
         callbacks.notify?.(event);
       },
     });
+  }
+
+  async logoutProvider(providerId: AgentProviderId): Promise<void> {
+    await this.#modelRuntime.logout(providerId, { signal: AbortSignal.timeout(5_000) });
+  }
+
+  #requireModel(): PiModel {
+    if (!this.#model) {
+      throw new Error("Pi has no model available for a Studi session");
+    }
+    return this.#model;
   }
 
   async #createPiSession(
@@ -472,20 +500,26 @@ export class PiAgentRuntime implements AgentRuntime {
   }
 }
 
-async function answerCodexPrompt(
+/**
+ * Pi asks how to sign in and, for browser flows, offers a pasted code as a fallback. Studi picks
+ * the catalogued sign-in style and routes the paste to the renderer; it never types for the student.
+ */
+async function answerLoginPrompt(
   prompt: AuthPrompt,
-  method: OpenAiCodexLoginMethod,
+  signIn: "device_code" | "browser",
+  callbacks: ProviderLoginCallbacks,
 ): Promise<string> {
   if (prompt.type === "select") {
-    const selectedOption = prompt.options.find((option) => option.id === method);
+    const selectedOption = prompt.options.find((option) => option.id === signIn);
     if (!selectedOption) {
-      throw new Error(`OpenAI Codex ${method} login is unavailable`);
+      throw new Error(`The ${signIn} sign-in is unavailable`);
     }
     return selectedOption.id;
   }
   if (prompt.type !== "manual_code") {
-    throw new Error("OpenAI Codex requested unsupported interactive input");
+    throw new Error("The subscription sign-in requested unsupported interactive input");
   }
+  if (callbacks.awaitManualCode) return callbacks.awaitManualCode(prompt.signal);
   return new Promise<string>((_resolve, reject) => {
     const signal = prompt.signal;
     if (signal?.aborted) {
@@ -506,14 +540,17 @@ function sameNames(actual: readonly string[], expected: readonly string[]): bool
     && new Set(expected).size === expected.length && expected.every((name) => names.has(name));
 }
 
-function selectDefaultModel(modelRuntime: ModelRuntime): PiModel | undefined {
+function selectDefaultModel(modelRuntime: ModelRuntime, providerId: AgentProviderId): PiModel | undefined {
   if (typeof modelRuntime.getModel !== "function" || typeof modelRuntime.getModels !== "function") {
     return undefined;
   }
+  for (const modelId of agentProvider(providerId).preferredModelIds) {
+    const model = modelRuntime.getModel(providerId, modelId);
+    if (model) return model;
+  }
   return (
-    modelRuntime.getModel("openai-codex", DEFAULT_AGENT_MODEL_ID) ??
-    modelRuntime.getModel("openai-codex", "gpt-5.6-terra") ??
-    modelRuntime.getModels("openai-codex")[0] ??
+    modelRuntime.getModels(providerId)[0] ??
+    AGENT_PROVIDERS.map((provider) => modelRuntime.getModels(provider.id)[0]).find(Boolean) ??
     modelRuntime.getModels()[0]
   );
 }
