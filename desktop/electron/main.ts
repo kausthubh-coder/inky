@@ -85,7 +85,7 @@ const canStart = startupProfileConfigured && !squirrelStartup && ownsSingleInsta
 let localStore: LocalStore | null = null;
 let browserController: BrowserController | null = null;
 let browserView: WebContentsView | null = null;
-const browserPages = new Map<string, {view:WebContentsView; controller:BrowserController}>();
+const browserPages = new Map<string, { view: WebContentsView; controller: BrowserController }>();
 let selectedBrowserPage = "school";
 let browserDriverTimer: ReturnType<typeof setInterval> | null = null;
 let driveOverlay: DriveOverlay | null = null;
@@ -113,25 +113,48 @@ let assignmentRunStartedAt: number | null = null;
 
 function updates(): UpdateService {
   if (!updateService) {
-    updateService = new UpdateService({platform:process.platform,arch:process.arch,packaged:app.isPackaged,version:app.getVersion(),firstRun:process.argv.includes('--squirrel-firstrun'),native:autoUpdater,
+    updateService = new UpdateService({
+      platform: process.platform,
+      arch: process.arch,
+      packaged: app.isPackaged,
+      version: app.getVersion(),
+      firstRun: process.argv.includes("--squirrel-firstrun"),
+      native: autoUpdater,
       blocked: () => {
-        if (conversationCoordinator?.isBusy) return 'Finish or stop your reply before restarting.';
+        if (conversationCoordinator?.isBusy) return "Finish or stop your reply before restarting.";
         const scan = localStore?.school.latestScan();
         const execution = localStore?.lifecycle.getActiveExecution();
-        if (scan?.state === 'running' || scan?.state === 'needs_user') return 'Finish checking your school before restarting.';
-        if (execution && ['working','submitting','needs_user','ready_review'].includes(execution.phase)) return 'Finish your current assignment or browser handoff before restarting.';
+        if (scan?.state === "running" || scan?.state === "needs_user")
+          return "Finish checking your school before restarting.";
+        if (execution && ["working", "submitting", "needs_user", "ready_review"].includes(execution.phase))
+          return "Finish your current assignment or browser handoff before restarting.";
         return null;
       },
       prepare: async () => {
         // Acquire service gate synchronously, then stop the scheduler before any await.
         appKernel?.prepareUpdate();
         // Drafts are synchronously persisted on each edit. Ask the renderer to verify storage before quitting.
-        await mainWindow?.webContents.executeJavaScript('(() => { const event = new Event("studi:before-update", {cancelable:true}); if(!window.dispatchEvent(event))throw new Error("Your draft could not be saved."); })()');
-        const block=updates().state().restartBlock;
-        if(block)throw new Error(block);
-        if (telemetryService) await Promise.race([telemetryService.flush(),new Promise<void>(resolve=>setTimeout(resolve,3000))]);
-        telemetryShutdownFinished = true; gateQuitting = true;
-      },recover:()=>{gateQuitting=false;telemetryShutdownFinished=false;appKernel?.cancelUpdate();},openDownload: url => shell.openExternal(url),report: error=>telemetryService?.captureError(error,'ipc','ipc_request')});
+        await mainWindow?.webContents.executeJavaScript(
+          '(() => { const event = new Event("studi:before-update", {cancelable:true}); if(!window.dispatchEvent(event))throw new Error("Your draft could not be saved."); })()',
+        );
+        const block = updates().state().restartBlock;
+        if (block) throw new Error(block);
+        if (telemetryService)
+          await Promise.race([
+            telemetryService.flush(),
+            new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+          ]);
+        telemetryShutdownFinished = true;
+        gateQuitting = true;
+      },
+      recover: () => {
+        gateQuitting = false;
+        telemetryShutdownFinished = false;
+        appKernel?.cancelUpdate();
+      },
+      openDownload: (url) => shell.openExternal(url),
+      report: (error) => telemetryService?.captureError(error, "ipc", "ipc_request"),
+    });
   }
   return updateService;
 }
@@ -202,8 +225,13 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   getWorkspaceState: () => readWorkspaceState(),
   navigateBrowser: async ({ url, target }) => {
-    const key = target ? target.kind === "assignment" ? `assignment:${target.assignmentId}` : target.kind : selectedBrowserPage;
-    if (target?.kind === "assignment" && !requireLocalStore().assignments.get(target.assignmentId)) throw new Error("That assignment no longer exists");
+    const key = target
+      ? target.kind === "assignment"
+        ? `assignment:${target.assignmentId}`
+        : target.kind
+      : selectedBrowserPage;
+    if (target?.kind === "assignment" && !requireLocalStore().assignments.get(target.assignmentId))
+      throw new Error("That assignment no longer exists");
     if (browserPageBusy(key)) throw new Error("Pause this activity before navigating its page.");
     await schoolBrowserPage(key).controller.navigate(url);
     requireTelemetryService().capture("studi_onboarding_step", { step: "school_browser_opened" });
@@ -224,7 +252,10 @@ const ipcHandlers: StudiIpcHandlers = {
   logoutProvider: async ({ providerId }) => {
     requireRuntimeLoginAttempt().cancel();
     await requireAgentRuntime().logoutProvider(providerId);
-    requireTelemetryService().capture("studi_provider_connection", { provider: providerId, state: "disconnected" });
+    requireTelemetryService().capture("studi_provider_connection", {
+      provider: providerId,
+      state: "disconnected",
+    });
     return readWorkspaceState();
   },
   selectAgentModel: async ({ providerId, modelId, reasoningEffort }) => {
@@ -232,40 +263,65 @@ const ipcHandlers: StudiIpcHandlers = {
     runtime.selectModel(providerId, modelId);
     runtime.setReasoningEffort(reasoningEffort);
     await persistAgentRuntimeChoice();
-    requireTelemetryService().capture("studi_model_selected", { provider: providerId, model: modelId, reasoning_effort: reasoningEffort });
-    requireTelemetryService().setPerson({ selected_provider: providerId, selected_model: modelId, selected_reasoning: reasoningEffort });
+    requireTelemetryService().capture("studi_model_selected", {
+      provider: providerId,
+      model: modelId,
+      reasoning_effort: reasoningEffort,
+    });
+    requireTelemetryService().setPerson({
+      selected_provider: providerId,
+      selected_model: modelId,
+      selected_reasoning: reasoningEffort,
+    });
     await requireConversationCoordinator().replaceSessions();
     return readWorkspaceState();
   },
-  getAssignmentFiles: ({assignmentId}) => requireAssignmentExecutionCoordinator().assignmentFiles(assignmentId),
-  readAssignmentFile: ({assignmentId,path}) => requireAssignmentExecutionCoordinator().readAssignmentFile(assignmentId,path),
-  importAssignmentFiles: async ({assignmentId}) => {
+  getAssignmentFiles: ({ assignmentId }) =>
+    requireAssignmentExecutionCoordinator().assignmentFiles(assignmentId),
+  readAssignmentFile: ({ assignmentId, path }) =>
+    requireAssignmentExecutionCoordinator().readAssignmentFile(assignmentId, path),
+  importAssignmentFiles: async ({ assignmentId }) => {
     const coordinator = requireAssignmentExecutionCoordinator();
     await coordinator.assignmentDirectory(assignmentId);
     if (!mainWindow || mainWindow.isDestroyed()) throw new Error("Open Studi before adding files.");
-    const result = await dialog.showOpenDialog(mainWindow, { title: "Add files to this assignment", buttonLabel: "Add files", properties: ["openFile", "multiSelections"] });
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: "Add files to this assignment",
+      buttonLabel: "Add files",
+      properties: ["openFile", "multiSelections"],
+    });
     const imported: string[] = [];
     const errors: Array<{ name: string; message: string }> = [];
     if (result.canceled) return { imported, errors };
     if (result.filePaths.length > 12) throw new Error("Add up to 12 files at a time.");
     for (const source of result.filePaths) {
-      try { imported.push(await coordinator.importAssignmentFile(assignmentId, source)); }
-      catch (cause) { errors.push({ name: source.split(/[\\/]/).pop() ?? "File", message: cause instanceof Error ? cause.message : "Couldn’t add this file. Try again." }); }
+      try {
+        imported.push(await coordinator.importAssignmentFile(assignmentId, source));
+      } catch (cause) {
+        errors.push({
+          name: source.split(/[\\/]/).pop() ?? "File",
+          message: cause instanceof Error ? cause.message : "Couldn’t add this file. Try again.",
+        });
+      }
     }
     return { imported, errors };
   },
-  openAssignmentFolder: async ({assignmentId,path}) => {
+  openAssignmentFolder: async ({ assignmentId, path }) => {
     if (path) {
-      shell.showItemInFolder(await requireAssignmentExecutionCoordinator().revealAssignmentFile(assignmentId, path));
+      shell.showItemInFolder(
+        await requireAssignmentExecutionCoordinator().revealAssignmentFile(assignmentId, path),
+      );
       return true;
     }
-    const error = await shell.openPath(await requireAssignmentExecutionCoordinator().assignmentDirectory(assignmentId));
-    if(error) throw new Error(error);
+    const error = await shell.openPath(
+      await requireAssignmentExecutionCoordinator().assignmentDirectory(assignmentId),
+    );
+    if (error) throw new Error(error);
     return true;
   },
-  selectBrowserPage: async target => {
+  selectBrowserPage: async (target) => {
     const key = target.kind === "assignment" ? `assignment:${target.assignmentId}` : target.kind;
-    const assignment = target.kind === "assignment" ? requireLocalStore().assignments.get(target.assignmentId) : null;
+    const assignment =
+      target.kind === "assignment" ? requireLocalStore().assignments.get(target.assignmentId) : null;
     if (target.kind === "assignment" && !assignment) throw new Error("That assignment no longer exists");
     const page = schoolBrowserPage(key);
     selectedBrowserPage = key;
@@ -274,20 +330,26 @@ const ipcHandlers: StudiIpcHandlers = {
     layoutSchoolBrowser();
     return readWorkspaceState();
   },
-  getScopedConversation: target => requireConversationCoordinator().state(target),
-  stopScopedConversation: async target => {
-    const taskId = target.kind === "assignment" ? requireManagerCoordinator().activeTaskForAssignment(target.assignmentId) : null;
-    if (taskId && requireManagerCoordinator().isWorkerRunning) await requireAssignmentExecutionCoordinator().requestTakeover(taskId);
+  getScopedConversation: (target) => requireConversationCoordinator().state(target),
+  stopScopedConversation: async (target) => {
+    const taskId =
+      target.kind === "assignment"
+        ? requireManagerCoordinator().activeTaskForAssignment(target.assignmentId)
+        : null;
+    if (taskId && requireManagerCoordinator().isWorkerRunning)
+      await requireAssignmentExecutionCoordinator().requestTakeover(taskId);
     return requireConversationCoordinator().stop(target);
   },
-  sendScanMessage: input => requireSchoolScanCoordinator().sendMessage(input),
+  sendScanMessage: (input) => requireSchoolScanCoordinator().sendMessage(input),
   pauseSchoolScan: () => requireSchoolScanCoordinator().requestTakeover(),
   getConversationState: () => requireConversationCoordinator().state(),
   stopConversation: () => requireConversationCoordinator().stop(),
   getNotifications: () => requireLocalStore().lifecycle.listNotifications(),
-  readNotification: ({notificationId}) => {
-    const store = requireLocalStore(); const note = store.lifecycle.getNotification(notificationId);
-    if (note && !note.clickedAt) store.lifecycle.putNotification({...note, clickedAt:new Date().toISOString()});
+  readNotification: ({ notificationId }) => {
+    const store = requireLocalStore();
+    const note = store.lifecycle.getNotification(notificationId);
+    if (note && !note.clickedAt)
+      store.lifecycle.putNotification({ ...note, clickedAt: new Date().toISOString() });
     return store.lifecycle.listNotifications();
   },
   getManagerState: () => requireManagerCoordinator().state(),
@@ -373,7 +435,9 @@ const ipcHandlers: StudiIpcHandlers = {
   openAnswerArtifact: async ({ taskId }) => {
     const execution = requireLocalStore().lifecycle.getExecution(taskId);
     if (!execution?.answerArtifactId) throw new Error(`Task ${taskId} has no preserved answer artifact`);
-    const result = await shell.openPath(requireLocalStore().artifacts.path("answer", execution.answerArtifactId));
+    const result = await shell.openPath(
+      requireLocalStore().artifacts.path("answer", execution.answerArtifactId),
+    );
     requireTelemetryService().capture("studi_fallback", { kind: "answer_markdown", task_id: taskId });
     return result === "";
   },
@@ -389,7 +453,10 @@ const ipcHandlers: StudiIpcHandlers = {
       workStartMode: input.workStartMode ?? current.workStartMode ?? "manual",
       updatedAt: new Date().toISOString(),
     });
-    requireAssignmentExecutionCoordinator().configureReviewHandoff(preferences.reviewMinutes, preferences.handoffMinutes);
+    requireAssignmentExecutionCoordinator().configureReviewHandoff(
+      preferences.reviewMinutes,
+      preferences.handoffMinutes,
+    );
     requireManagerCoordinator().setWorkStartMode(preferences.workStartMode ?? "manual");
     return preferences;
   },
@@ -397,8 +464,16 @@ const ipcHandlers: StudiIpcHandlers = {
     const current = await requireLocalStore().productPreferences.get();
     const owner = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
     const result = owner
-      ? await dialog.showOpenDialog(owner, { title: "Choose an empty folder just for Studi", buttonLabel: "Use this empty folder", properties: ["openDirectory", "createDirectory"] })
-      : await dialog.showOpenDialog({ title: "Choose an empty folder just for Studi", buttonLabel: "Use this empty folder", properties: ["openDirectory", "createDirectory"] });
+      ? await dialog.showOpenDialog(owner, {
+          title: "Choose an empty folder just for Studi",
+          buttonLabel: "Use this empty folder",
+          properties: ["openDirectory", "createDirectory"],
+        })
+      : await dialog.showOpenDialog({
+          title: "Choose an empty folder just for Studi",
+          buttonLabel: "Use this empty folder",
+          properties: ["openDirectory", "createDirectory"],
+        });
     if (result.canceled || !result.filePaths[0]) return current;
     const homeworkRoot = await initializeHomeworkWorkspace(result.filePaths[0]);
     await syncHomeworkClassFolders(homeworkRoot, requireLocalStore().school.listCourses());
@@ -443,7 +518,10 @@ const ipcHandlers: StudiIpcHandlers = {
   getLibraryState: () => readLibraryState(),
   getTaskDetail: ({ taskId }) => readTaskDetail(taskId),
   readArtifact: async ({ kind, artifactId }) => {
-    if (kind === "memory" && (await requireLocalStore().productPreferences.get()).memoryVisibility === "none") {
+    if (
+      kind === "memory" &&
+      (await requireLocalStore().productPreferences.get()).memoryVisibility === "none"
+    ) {
       throw new Error("Local memories are hidden by the current memory visibility setting");
     }
     return requireLocalStore().artifacts.read(kind, artifactId);
@@ -485,16 +563,24 @@ const ipcHandlers: StudiIpcHandlers = {
     return service.state();
   },
   captureUiTelemetry: (input) => {
-    if (input.event === "replay_context") return requireTelemetryService().setReplayContext(input.distinctId, input.sessionId, input.windowId);
-    if(input.event==='ui_error'){const error=new Error(input.message);if(input.stack)error.stack=input.stack;return requireTelemetryService().captureError(error,'ipc','ipc_request');}
-    return requireTelemetryService().capture("studi_dashboard_viewed",{section:input.section});
+    if (input.event === "replay_context")
+      return requireTelemetryService().setReplayContext(input.distinctId, input.sessionId, input.windowId);
+    if (input.event === "ui_error") {
+      const error = new Error(input.message);
+      if (input.stack) error.stack = input.stack;
+      return requireTelemetryService().captureError(error, "ipc", "ipc_request");
+    }
+    return requireTelemetryService().capture("studi_dashboard_viewed", { section: input.section });
   },
   exportDiagnostics: async () => {
     const window = requireMainWindow();
     const exportedAt = new Date();
     const choice = await dialog.showSaveDialog(window, {
       title: "Export safe Studi diagnostics",
-      defaultPath: join(app.getPath("documents"), `studi-diagnostics-${exportedAt.toISOString().slice(0, 10)}.json`),
+      defaultPath: join(
+        app.getPath("documents"),
+        `studi-diagnostics-${exportedAt.toISOString().slice(0, 10)}.json`,
+      ),
       filters: [{ name: "JSON diagnostic bundle", extensions: ["json"] }],
       properties: ["showOverwriteConfirmation", "createDirectory"],
     });
@@ -527,25 +613,42 @@ const ipcHandlers: StudiIpcHandlers = {
 function registerIpcHandlers(): void {
   for (const registration of createIpcHandlerRegistrations(studiIpcRegistry, ipcHandlers)) {
     ipcMain.handle(registration.channel, async (_event, rawRequest: unknown) => {
-      const method = Object.entries(studiIpcRegistry).find(([, contract]) => contract.channel === registration.channel)?.[0] ?? registration.channel;
-      const tracked = !/^(get|setBrowserLayout|captureUiTelemetry|setTelemetry|signIn|signOut|loginProvider|completeProviderLogin|cancelProviderLogin|retryEntitlement)/.test(method);
+      const method =
+        Object.entries(studiIpcRegistry).find(
+          ([, contract]) => contract.channel === registration.channel,
+        )?.[0] ?? registration.channel;
+      const tracked =
+        !/^(get|setBrowserLayout|captureUiTelemetry|setTelemetry|signIn|signOut|loginProvider|completeProviderLogin|cancelProviderLogin|retryEntitlement)/.test(
+          method,
+        );
       const startedAt = Date.now();
       const owner = telemetryService?.state().distinctId;
       const actionId = randomUUID();
       const recordAction = (phase: string) => {
         if (!tracked || telemetryService?.state().distinctId !== owner) return;
-        telemetryService?.captureDiagnostic({ source: "action", kind: method, run_id: actionId,
-          at: new Date().toISOString(), payload: { phase, duration_ms: Date.now() - startedAt, ...(phase === "started" ? { request: rawRequest } : {}) } });
+        telemetryService?.captureDiagnostic({
+          source: "action",
+          kind: method,
+          run_id: actionId,
+          at: new Date().toISOString(),
+          payload: {
+            phase,
+            duration_ms: Date.now() - startedAt,
+            ...(phase === "started" ? { request: rawRequest } : {}),
+          },
+        });
       };
       recordAction("started");
       try {
-        if (updateService?.restarting && !registration.channel.startsWith('studi:update-')) throw new Error('Studi is saving your place for an update.');
+        if (updateService?.restarting && !registration.channel.startsWith("studi:update-"))
+          throw new Error("Studi is saving your place for an update.");
         const result = await registration.handle(rawRequest);
         recordAction("succeeded");
         return result;
       } catch (error) {
         recordAction("failed");
-        const request = rawRequest && typeof rawRequest === "object" ? rawRequest as Record<string, unknown> : {};
+        const request =
+          rawRequest && typeof rawRequest === "object" ? (rawRequest as Record<string, unknown>) : {};
         telemetryService?.captureError(error, "ipc", "ipc_request", {
           ipc_channel: registration.channel,
           ...(typeof request.taskId === "string" ? { task_id: request.taskId.slice(0, 256) } : {}),
@@ -579,7 +682,7 @@ function createWindow(): BrowserWindow {
   window.setMenu(null);
   window.setMenuBarVisibility(false);
 
-  configureAppNavigation(window.webContents, url => shell.openExternal(url));
+  configureAppNavigation(window.webContents, (url) => shell.openExternal(url));
   window.on("close", (event) => {
     if (!appKernel && !gateQuitting) {
       event.preventDefault();
@@ -654,11 +757,19 @@ function ensureGateTray(): void {
   gateTray = new Tray(loadTrayIcon());
   gateTray.setToolTip("Studi sign-in");
   gateTray.on("click", openMainWindow);
-  gateTray.setContextMenu(Menu.buildFromTemplate([
-    { label: "Open Studi", click: openMainWindow },
-    { type: "separator" },
-    { label: "Quit Studi", click: () => { gateQuitting = true; app.quit(); } },
-  ]));
+  gateTray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Open Studi", click: openMainWindow },
+      { type: "separator" },
+      {
+        label: "Quit Studi",
+        click: () => {
+          gateQuitting = true;
+          app.quit();
+        },
+      },
+    ]),
+  );
 }
 
 function disposeGateTray(): void {
@@ -695,34 +806,57 @@ function createSchoolBrowser(window: BrowserWindow): void {
     if (browserLayoutMode === "hidden") return;
     driveOverlay?.setDriver(currentBrowserDriver());
   }, 80);
-
 }
 
-function schoolBrowserPage(key: string): {view:WebContentsView;controller:BrowserController} {
+function schoolBrowserPage(key: string): { view: WebContentsView; controller: BrowserController } {
   const existing = browserPages.get(key);
   if (existing) return existing;
   const window = mainWindow;
   if (!window || window.isDestroyed()) throw new Error("The school browser is unavailable");
-  const view = new WebContentsView({webPreferences:{session:electronSession.fromPartition("persist:studi-school",{cache:true}),nodeIntegration:false,contextIsolation:true,sandbox:true}});
+  const view = new WebContentsView({
+    webPreferences: {
+      session: electronSession.fromPartition("persist:studi-school", { cache: true }),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: true,
+    },
+  });
   const controller = new BrowserController(view.webContents);
-  browserPages.set(key,{view,controller});
+  browserPages.set(key, { view, controller });
   view.setVisible(false);
   window.contentView.addChildView(view);
   driveOverlay?.raise();
-  view.webContents.on("did-start-navigation",(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame) controller.pageChanged();});
-  view.webContents.on("did-fail-load",(_event,code,description,url,isMainFrame)=>{if(isMainFrame) recordBrowserDiagnostic("load_failed",{page:key,code,description,url});});
-  view.webContents.on("render-process-gone",(_event,details)=>recordBrowserDiagnostic("process_gone",{page:key,...details}));
-  view.webContents.setWindowOpenHandler(({url})=>{
-    if (/^https?:/i.test(url)) void controller.navigate(url).catch(error=>recordBrowserDiagnostic("popup_failed",{page:key,message:formatError(error)}));
-    return {action:"deny"};
+  view.webContents.on("did-start-navigation", (_event, _url, _inPlace, isMainFrame) => {
+    if (isMainFrame) controller.pageChanged();
   });
-  void view.webContents.loadURL("about:blank").catch(error => recordBrowserDiagnostic("page_start_failed",{page:key,message:formatError(error)}));
-  return {view,controller};
+  view.webContents.on("did-fail-load", (_event, code, description, url, isMainFrame) => {
+    if (isMainFrame) recordBrowserDiagnostic("load_failed", { page: key, code, description, url });
+  });
+  view.webContents.on("render-process-gone", (_event, details) =>
+    recordBrowserDiagnostic("process_gone", { page: key, ...details }),
+  );
+  view.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url))
+      void controller
+        .navigate(url)
+        .catch((error) =>
+          recordBrowserDiagnostic("popup_failed", { page: key, message: formatError(error) }),
+        );
+    return { action: "deny" };
+  });
+  void view.webContents
+    .loadURL("about:blank")
+    .catch((error) =>
+      recordBrowserDiagnostic("page_start_failed", { page: key, message: formatError(error) }),
+    );
+  return { view, controller };
 }
 
 function recordBrowserDiagnostic(kind: string, payload: unknown): void {
   telemetryService?.captureDiagnostic({
-    source: "browser", kind, at: new Date().toISOString(),
+    source: "browser",
+    kind,
+    at: new Date().toISOString(),
     payload: { driver: currentBrowserDriver(), details: payload },
   });
 }
@@ -748,7 +882,11 @@ function layoutSchoolBrowser(): void {
 async function takeOverVisibleBrowser(): Promise<void> {
   try {
     const execution = localStore?.lifecycle.getActiveExecution();
-    if (execution?.phase === "working" && selectedBrowserPage === `assignment:${execution.assignmentId}` && assignmentExecutionCoordinator) {
+    if (
+      execution?.phase === "working" &&
+      selectedBrowserPage === `assignment:${execution.assignmentId}` &&
+      assignmentExecutionCoordinator
+    ) {
       await assignmentExecutionCoordinator.requestTakeover(execution.taskId);
       driveOverlay?.setDriver(currentBrowserDriver());
       return;
@@ -773,10 +911,17 @@ function visibleSchoolBounds(window: BrowserWindow): Electron.Rectangle | null {
   return { x, y, width: Math.max(300, width - x - 10), height: Math.max(300, height - y - 10) };
 }
 
-function browserPageBusy(key:string): boolean {
+function browserPageBusy(key: string): boolean {
   const scan = localStore?.school.latestScan();
   const execution = localStore?.lifecycle.getActiveExecution();
-  return (key === "school" && scan?.state === "running") || Boolean(execution && key === `assignment:${execution.assignmentId}` && ["working","submitting"].includes(execution.phase));
+  return (
+    (key === "school" && scan?.state === "running") ||
+    Boolean(
+      execution &&
+        key === `assignment:${execution.assignmentId}` &&
+        ["working", "submitting"].includes(execution.phase),
+    )
+  );
 }
 
 function currentBrowserDriver() {
@@ -785,7 +930,9 @@ function currentBrowserDriver() {
   return browserDriver({
     layout: browserLayoutMode,
     ...(selectedBrowserPage === "school" && scan ? { scanState: scan.state } : {}),
-    ...(execution && selectedBrowserPage === `assignment:${execution.assignmentId}` ? { executionPhase: execution.phase } : {}),
+    ...(execution && selectedBrowserPage === `assignment:${execution.assignmentId}`
+      ? { executionPhase: execution.phase }
+      : {}),
   });
 }
 
@@ -803,20 +950,24 @@ async function readLibraryState(): Promise<LibraryState> {
   const tasks = store.tasks.listAll().flatMap((task) => {
     const assignment = store.assignments.get(task.assignmentId);
     if (!assignment) return [];
-    return [{
-      task,
-      assignment,
-      execution: store.lifecycle.getExecution(task.taskId),
-      permission: requireManagerCoordinator().resolvePermission(assignment.assignmentId, assignment.courseId),
-    }];
+    return [
+      {
+        task,
+        assignment,
+        execution: store.lifecycle.getExecution(task.taskId),
+        permission: requireManagerCoordinator().resolvePermission(
+          assignment.assignmentId,
+          assignment.courseId,
+        ),
+      },
+    ];
   });
   const memoryVisibility = (await store.productPreferences.get()).memoryVisibility;
-  const artifactKinds = memoryVisibility === "none"
-    ? (["preference", "workflow", "answer"] as const)
-    : (["preference", "memory", "workflow", "answer"] as const);
-  const documents = (await Promise.all(
-    artifactKinds.map((kind) => store.artifacts.list(kind)),
-  )).flat();
+  const artifactKinds =
+    memoryVisibility === "none"
+      ? (["preference", "workflow", "answer"] as const)
+      : (["preference", "memory", "workflow", "answer"] as const);
+  const documents = (await Promise.all(artifactKinds.map((kind) => store.artifacts.list(kind)))).flat();
   return {
     tasks,
     artifacts: documents.map((document) => ({ frontmatter: document.frontmatter })),
@@ -862,16 +1013,20 @@ async function initializeStorage(): Promise<void> {
 
 async function initializeDesktopAgent(): Promise<void> {
   const identity = authCoordinator?.state();
-  const ownerSubject = identity && (identity.status === "approved" || identity.status === "offline") ? identity.user.subject : undefined;
+  const ownerSubject =
+    identity && (identity.status === "approved" || identity.status === "offline")
+      ? identity.user.subject
+      : undefined;
   const dataRoot = join(app.getPath("userData"), "studi-data");
   agentRuntime = await PiAgentRuntime.create({
     cwd: dataRoot,
     agentDir: join(dataRoot, "pi"),
     browserController: schoolBrowserPage("home").controller,
     scanBrowserController: schoolBrowserPage("school").controller,
-    assignmentBrowser: id => schoolBrowserPage(`assignment:${id}`).controller,
+    assignmentBrowser: (id) => schoolBrowserPage(`assignment:${id}`).controller,
     onUsage: recordAgentUsage,
-    onSessionError: (error) => requireTelemetryService().captureError(error, "runtime", "session_start", currentAgentSelection()),
+    onSessionError: (error) =>
+      requireTelemetryService().captureError(error, "runtime", "session_start", currentAgentSelection()),
     onDiagnostic: (event) => {
       const telemetry = requireTelemetryService();
       if (ownerSubject && telemetry.state().distinctId === ownerSubject) {
@@ -888,15 +1043,11 @@ async function initializeDesktopAgent(): Promise<void> {
     });
     await adoptConnectedProvider(providerId);
   });
-  managerCoordinator = await ManagerCoordinator.create(
-    requireLocalStore(),
-    agentRuntime,
-    {
-      startAssignment: async (taskId) => {
-        return requireAssignmentExecutionCoordinator().start(taskId);
-      },
+  managerCoordinator = await ManagerCoordinator.create(requireLocalStore(), agentRuntime, {
+    startAssignment: async (taskId) => {
+      return requireAssignmentExecutionCoordinator().start(taskId);
     },
-  );
+  });
   conversationCoordinator = new ConversationCoordinator(
     requireLocalStore(),
     agentRuntime,
@@ -910,10 +1061,14 @@ async function initializeDesktopAgent(): Promise<void> {
     agentRuntime,
     schoolBrowserPage("school").controller,
     {
-      browserWork: requireVisibleBrowserWork(), manager: requireManagerCoordinator(),
-      onError: (error, scanId, toolName) => requireTelemetryService().captureError(error, "scan", "school_scan", {
-        ...currentAgentSelection(), scan_id: scanId, ...(toolName ? { tool_name: toolName } : {}),
-      }),
+      browserWork: requireVisibleBrowserWork(),
+      manager: requireManagerCoordinator(),
+      onError: (error, scanId, toolName) =>
+        requireTelemetryService().captureError(error, "scan", "school_scan", {
+          ...currentAgentSelection(),
+          scan_id: scanId,
+          ...(toolName ? { tool_name: toolName } : {}),
+        }),
     },
   );
 }
@@ -951,14 +1106,14 @@ function disposeProtectedRuntime(): void {
   visibleBrowserWork = null;
   agentRuntime = null;
   pendingNotifications.splice(0);
-  for (const {view:browserView} of browserPages.values()) {
+  for (const { view: browserView } of browserPages.values()) {
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.contentView.removeChildView(browserView);
     if (!browserView.webContents.isDestroyed()) browserView.webContents.close();
   }
   browserPages.clear();
   if (browserDriverTimer) clearInterval(browserDriverTimer);
   browserDriverTimer = null;
-  mainWindow?.removeListener("resize",layoutSchoolBrowser);
+  mainWindow?.removeListener("resize", layoutSchoolBrowser);
   driveOverlay?.dispose();
   driveOverlay = null;
   browserView = null;
@@ -992,7 +1147,7 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
     {
       browserWork: requireVisibleBrowserWork(),
       connectedAppTools: loadConnectedAppTools,
-      browserForAssignment: id => schoolBrowserPage(`assignment:${id}`).controller,
+      browserForAssignment: (id) => schoolBrowserPage(`assignment:${id}`).controller,
       reviewWindowMs: productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
       notify: async (intent) => {
@@ -1019,9 +1174,16 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
         const service = requireTelemetryService();
         const startedAt = Date.now();
         discardStaleAgentUsage();
-        service.capture("studi_scan_started", { mode: "scheduled", ...currentAgentSelection(), ...currentSchoolContext() });
+        service.capture("studi_scan_started", {
+          mode: "scheduled",
+          ...currentAgentSelection(),
+          ...currentSchoolContext(),
+        });
         try {
-          const result = await requireSchoolScanCoordinator().runScheduledScan(claimOccurrence, requireReadyProviderForScan);
+          const result = await requireSchoolScanCoordinator().runScheduledScan(
+            claimOccurrence,
+            requireReadyProviderForScan,
+          );
           if (result) captureScanFinished("scheduled", result.state, startedAt);
           return result;
         } catch (error) {
@@ -1053,7 +1215,8 @@ async function runScanWithTelemetry(
     const state = await run();
     await syncSelectedHomeworkClasses();
     captureScanFinished(mode, state, startedAt);
-    if (state.scan?.state === "needs_user") service.capture("studi_handoff", { kind: "scan", state: "needs_user" });
+    if (state.scan?.state === "needs_user")
+      service.capture("studi_handoff", { kind: "scan", state: "needs_user" });
     return state;
   } catch (error) {
     service.captureError(error, "scan", "school_scan", currentAgentSelection());
@@ -1080,8 +1243,14 @@ function captureScanFinished(
       scan_id: state.scan.scanId,
       failure_count: state.scan.failures.length,
       failures: state.scan.failures,
-      coverage: state.scan.coverage.map(({ target, status, failure }) => ({ target, status, ...(failure ? { failure } : {}) })),
-      handoff: state.scan.handoff ? { kind: state.scan.handoff.kind, reason: state.scan.handoff.reason } : null,
+      coverage: state.scan.coverage.map(({ target, status, failure }) => ({
+        target,
+        status,
+        ...(failure ? { failure } : {}),
+      })),
+      handoff: state.scan.handoff
+        ? { kind: state.scan.handoff.kind, reason: state.scan.handoff.reason }
+        : null,
       current_step: state.scan.currentStep,
     });
   } catch {
@@ -1090,7 +1259,13 @@ function captureScanFinished(
 }
 
 function captureQueueTransition(
-  action: "manager_turn" | "assignment_start" | "assignment_resume" | "submission_verify" | "schedule_pause" | "schedule_resume",
+  action:
+    | "manager_turn"
+    | "assignment_start"
+    | "assignment_resume"
+    | "submission_verify"
+    | "schedule_pause"
+    | "schedule_resume",
   state: LifecycleState,
 ): void {
   if ((action === "assignment_start" || action === "assignment_resume") && assignmentRunStartedAt === null) {
@@ -1107,18 +1282,22 @@ function captureQueueTransition(
 
 function observeExecutionNotification(intent: ExecutionNotification): void {
   const service = requireTelemetryService();
-  if (intent.kind === "handoff") service.capture("studi_handoff", { kind: "assignment", state: "needs_user" });
+  if (intent.kind === "handoff")
+    service.capture("studi_handoff", { kind: "assignment", state: "needs_user" });
   if (intent.kind === "review_ready") service.capture("studi_review", { state: "ready_review" });
   if (intent.kind === "failure") {
-    const execution = intent.target.type === "task" ? requireLocalStore().lifecycle.getExecution(intent.target.id) : null;
-    service.captureError(new Error(execution?.lastError ?? intent.body ?? "assignment failed"), "queue", "assignment", currentAgentSelection());
+    const execution =
+      intent.target.type === "task" ? requireLocalStore().lifecycle.getExecution(intent.target.id) : null;
+    service.captureError(
+      new Error(execution?.lastError ?? intent.body ?? "assignment failed"),
+      "queue",
+      "assignment",
+      currentAgentSelection(),
+    );
   }
   if (intent.target.type === "task") {
-    const phase = intent.kind === "review_ready"
-      ? "ready_review"
-      : intent.kind === "failure"
-        ? "failed"
-        : "needs_user";
+    const phase =
+      intent.kind === "review_ready" ? "ready_review" : intent.kind === "failure" ? "failed" : "needs_user";
     captureAssignmentFinished(intent.target.id, phase);
   }
 }
@@ -1136,16 +1315,18 @@ function captureAssignmentFinished(
     ...assignmentLabels(execution?.assignmentId),
     ...currentAgentFacts(startedAt === null ? undefined : Math.max(0, Date.now() - startedAt)),
   });
-  void authCoordinator?.recordUsage({
-    eventId: `assignment-worked/${taskId}`.slice(0, 256),
-    occurredAt: new Date().toISOString(),
-    kind: "assignment_worked",
-    inputTokens: 0,
-    outputTokens: 0,
-    cacheReadTokens: 0,
-    cacheWriteTokens: 0,
-    toolCalls: 0,
-  }).catch(() => undefined);
+  void authCoordinator
+    ?.recordUsage({
+      eventId: `assignment-worked/${taskId}`.slice(0, 256),
+      occurredAt: new Date().toISOString(),
+      kind: "assignment_worked",
+      inputTokens: 0,
+      outputTokens: 0,
+      cacheReadTokens: 0,
+      cacheWriteTokens: 0,
+      toolCalls: 0,
+    })
+    .catch(() => undefined);
 }
 
 async function syncSelectedHomeworkClasses(): Promise<void> {
@@ -1155,29 +1336,38 @@ async function syncSelectedHomeworkClasses(): Promise<void> {
   await syncHomeworkClassFolders(preferences.homeworkRoot, store.school.listCourses());
 }
 
-function recordAgentUsage(
-  usage: AgentUsageSnapshot,
-  kind: UsageEventKind,
-): void {
-  const hasUsage = usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens + usage.toolCalls > 0;
+function recordAgentUsage(usage: AgentUsageSnapshot, kind: UsageEventKind): void {
+  const hasUsage =
+    usage.inputTokens +
+      usage.outputTokens +
+      usage.cacheReadTokens +
+      usage.cacheWriteTokens +
+      usage.toolCalls >
+    0;
   if (!hasUsage) return;
-  void authCoordinator?.recordUsage({
-    eventId: randomUUID(),
-    occurredAt: new Date().toISOString(),
-    kind,
-    inputTokens: usage.inputTokens,
-    outputTokens: usage.outputTokens,
-    cacheReadTokens: usage.cacheReadTokens,
-    cacheWriteTokens: usage.cacheWriteTokens,
-    toolCalls: usage.toolCalls,
-  }).catch(() => undefined);
+  void authCoordinator
+    ?.recordUsage({
+      eventId: randomUUID(),
+      occurredAt: new Date().toISOString(),
+      kind,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheReadTokens: usage.cacheReadTokens,
+      cacheWriteTokens: usage.cacheWriteTokens,
+      toolCalls: usage.toolCalls,
+    })
+    .catch(() => undefined);
 }
 
 function discardStaleAgentUsage(): void {
   agentRuntime?.takeLastUsage();
 }
 
-function currentAgentSelection(): { provider?: string; model?: string; reasoning_effort?: AgentReasoningEffort } {
+function currentAgentSelection(): {
+  provider?: string;
+  model?: string;
+  reasoning_effort?: AgentReasoningEffort;
+} {
   if (!agentRuntime) return {};
   return {
     provider: agentRuntime.selectedProviderId,
@@ -1190,14 +1380,16 @@ function currentAgentFacts(durationMs?: number): Record<string, string | number>
   return {
     ...currentAgentSelection(),
     ...(durationMs === undefined ? {} : { duration_ms: durationMs }),
-    ...usageProperties(agentRuntime?.takeLastUsage() ?? {
-      inputTokens: 0,
-      outputTokens: 0,
-      cacheReadTokens: 0,
-      cacheWriteTokens: 0,
-      costUsd: 0,
-      toolCalls: 0,
-    }),
+    ...usageProperties(
+      agentRuntime?.takeLastUsage() ?? {
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        costUsd: 0,
+        toolCalls: 0,
+      },
+    ),
   };
 }
 
@@ -1213,9 +1405,16 @@ function schoolContextFrom(state: SchoolOnboardingState): {
   course_titles?: string;
 } {
   return {
-    ...(state.profile ? { student_name: state.profile.studentName, school_root: state.profile.schoolRoot } : {}),
+    ...(state.profile
+      ? { student_name: state.profile.studentName, school_root: state.profile.schoolRoot }
+      : {}),
     ...(state.courses.length > 0
-      ? { course_titles: state.courses.map((course) => course.label).join(" | ").slice(0, 2_000) }
+      ? {
+          course_titles: state.courses
+            .map((course) => course.label)
+            .join(" | ")
+            .slice(0, 2_000),
+        }
       : {}),
   };
 }
@@ -1264,7 +1463,11 @@ async function adoptConnectedProvider(providerId: AgentProviderId): Promise<void
   await persistAgentRuntimeChoice();
   const telemetry = requireTelemetryService();
   telemetry.capture("studi_provider_connection", { provider: providerId, state: "connected" });
-  telemetry.setPerson({ selected_provider: providerId, selected_model: runtime.selectedModelId, selected_reasoning: runtime.selectedReasoningEffort });
+  telemetry.setPerson({
+    selected_provider: providerId,
+    selected_model: runtime.selectedModelId,
+    selected_reasoning: runtime.selectedReasoningEffort,
+  });
 }
 
 async function applyPersistedAgentRuntime(): Promise<void> {
@@ -1380,7 +1583,8 @@ async function openAuthUrl(url: string): Promise<unknown> {
     headers: { "content-type": "text/plain; charset=utf-8" },
     body: url,
   });
-  if (!response.ok) throw new Error(`The isolated Clerk handoff rejected the authorization request (${response.status})`);
+  if (!response.ok)
+    throw new Error(`The isolated Clerk handoff rejected the authorization request (${response.status})`);
   return undefined;
 }
 
@@ -1390,13 +1594,13 @@ function qaClerkHandoffEndpoint(): string | null {
   if (!raw) return null;
   const endpoint = new URL(raw);
   if (
-    endpoint.protocol !== "http:"
-    || endpoint.hostname !== "127.0.0.1"
-    || endpoint.pathname !== "/publish"
-    || endpoint.username
-    || endpoint.password
-    || endpoint.search
-    || endpoint.hash
+    endpoint.protocol !== "http:" ||
+    endpoint.hostname !== "127.0.0.1" ||
+    endpoint.pathname !== "/publish" ||
+    endpoint.username ||
+    endpoint.password ||
+    endpoint.search ||
+    endpoint.hash
   ) {
     throw new Error("The QA Clerk handoff must be a credential-free 127.0.0.1 /publish URL");
   }
@@ -1420,7 +1624,9 @@ async function requireReadyProvider(purpose: string): Promise<void> {
   const name = agentProviderName(runtime.selectedProviderId);
   const attention = classifyAgentRuntimeAttention(provider);
   if (attention === "usage") {
-    throw new Error(`${name} usage ran out. Wait for more usage or switch to another subscription, then try again.`);
+    throw new Error(
+      `${name} usage ran out. Wait for more usage or switch to another subscription, then try again.`,
+    );
   }
   if (attention === "needs_login") {
     throw new Error(`${name} needs you to sign in again before ${purpose}.`);
@@ -1437,9 +1643,9 @@ function formatError(error: unknown): string {
 function configureStartupProfile(): boolean {
   try {
     if (
-      !app.isPackaged
-      && app.commandLine.hasSwitch("studi-development-url")
-      && !app.commandLine.hasSwitch("user-data-dir")
+      !app.isPackaged &&
+      app.commandLine.hasSwitch("studi-development-url") &&
+      !app.commandLine.hasSwitch("user-data-dir")
     ) {
       app.setPath("userData", join(app.getPath("appData"), "Studi Development"));
     }

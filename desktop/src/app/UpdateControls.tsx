@@ -46,9 +46,7 @@ export function UpdateControls({
     };
   }, []);
   const ready = state?.phase === "ready";
-  const pending =
-    state &&
-    ["checking", "downloading", "preparing_restart"].includes(state.phase);
+  const pending = state && ["checking", "downloading", "preparing_restart"].includes(state.phase);
   const act = async () => {
     if (!window.studi) return;
     setError("");
@@ -57,9 +55,7 @@ export function UpdateControls({
       setState(next);
       if (ready && state?.capability === "manual" && !next.error) setDownloaded(true);
     } catch (cause) {
-      setError(
-        cause instanceof Error ? cause.message : "The update could not finish.",
-      );
+      setError(cause instanceof Error ? cause.message : "The update could not finish.");
     }
   };
   const title = !state
@@ -95,11 +91,7 @@ export function UpdateControls({
         <span>Notifications</span>
         {unread > 0 && <b aria-hidden="true">{unread}</b>}
       </button>
-      <dialog
-        className="studi-update-dialog"
-        ref={update}
-        aria-labelledby="update-title"
-      >
+      <dialog className="studi-update-dialog" ref={update} aria-labelledby="update-title">
         <button
           className="chat-icon dialog-close"
           aria-label="Close updates"
@@ -108,9 +100,7 @@ export function UpdateControls({
           ×
         </button>
         <Inky
-          state={
-            pending ? "thinking" : error || state?.error ? "needs" : "idle"
-          }
+          state={pending ? "thinking" : error || state?.error ? "needs" : "idle"}
           size={76}
           label="Inky"
         />
@@ -158,9 +148,7 @@ export function UpdateControls({
             !state ||
             Boolean(pending) ||
             state.capability === "unavailable" ||
-            Boolean(
-              ready && state.capability === "native" && state.restartBlock,
-            )
+            Boolean(ready && state.capability === "native" && state.restartBlock)
           }
           onClick={() => void act()}
         >
@@ -172,10 +160,7 @@ export function UpdateControls({
                 : "Restart & update"
               : "Check for updates"}
         </button>
-        <button
-          className="quiet-button"
-          onClick={() => update.current?.close()}
-        >
+        <button className="quiet-button" onClick={() => update.current?.close()}>
           {ready ? "Later" : "Close"}
         </button>
         <small>
@@ -186,11 +171,7 @@ export function UpdateControls({
               : "Your saved work stays with you."}
         </small>
       </dialog>
-      <dialog
-        ref={notifications}
-        className="studi-notifications"
-        aria-labelledby="notifications-title"
-      >
+      <dialog ref={notifications} className="studi-notifications" aria-labelledby="notifications-title">
         <header>
           <div>
             <h2 id="notifications-title">Notifications</h2>
@@ -210,9 +191,7 @@ export function UpdateControls({
           </p>
         )}
         {notes.length === 0 && (
-          <p className="notification-empty">
-            When there’s news about your work, it’ll be here.
-          </p>
+          <p className="notification-empty">When there’s news about your work, it’ll be here.</p>
         )}
         {notes.map((note) => (
           <button
@@ -226,12 +205,13 @@ export function UpdateControls({
                   notifications.current?.close();
                   onNotification(note.target);
                 })
-                .catch(() =>
-                  setError("Couldn’t mark that notification as read."),
-                );
+                .catch(() => setError("Couldn’t mark that notification as read."));
             }}
           >
-            <span className={`notification-kind notification-kind--${note.kind}`}><Icon name={notificationKinds[note.kind].icon} size={18} />{notificationKinds[note.kind].label}</span>
+            <span className={`notification-kind notification-kind--${note.kind}`}>
+              <Icon name={notificationKinds[note.kind].icon} size={18} />
+              {notificationKinds[note.kind].label}
+            </span>
             <strong>{note.title}</strong>
             <span>{note.body}</span>
             <time>{new Date(note.createdAt).toLocaleString()}</time>

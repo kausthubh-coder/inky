@@ -42,10 +42,12 @@ export const TelemetryStateSchema = z.strictObject({
   identity: z.enum(["anonymous", "clerk"]),
   distinctId: z.string().min(1).max(256),
   debugUntil: z.string().datetime().nullable(),
-  rendererConfig: z.strictObject({
-    projectToken: z.string().startsWith("phc_").max(256),
-    host: z.enum(["https://us.i.posthog.com", "https://eu.i.posthog.com"]),
-  }).nullable(),
+  rendererConfig: z
+    .strictObject({
+      projectToken: z.string().startsWith("phc_").max(256),
+      host: z.enum(["https://us.i.posthog.com", "https://eu.i.posthog.com"]),
+    })
+    .nullable(),
   inspector: z.array(TelemetryInspectorEnvelopeSchema).max(30),
 });
 
@@ -65,7 +67,11 @@ export const UiTelemetryInputSchema = z.discriminatedUnion("event", [
     sessionId: z.string().min(1).max(256),
     windowId: z.string().min(1).max(256),
   }),
-  z.strictObject({event:z.literal("ui_error"),message:z.string().min(1).max(100_000),stack:z.string().max(100_000).optional()}),
+  z.strictObject({
+    event: z.literal("ui_error"),
+    message: z.string().min(1).max(100_000),
+    stack: z.string().max(100_000).optional(),
+  }),
   z.strictObject({
     event: z.literal("dashboard_viewed"),
     section: z.enum(["auth_gate", "workspace"]),

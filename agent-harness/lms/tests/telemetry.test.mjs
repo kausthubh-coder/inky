@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import {
-  telemetryBatch,
-  exportTelemetry,
-} from "../../../.studi-lms/build/telemetry.mjs";
+import { telemetryBatch, exportTelemetry } from "../../../.studi-lms/build/telemetry.mjs";
 const input = {
   runId: "test-run",
   scenarioId: "smoke",
@@ -24,10 +21,7 @@ const input = {
 };
 test("export retains correlation but excludes private details and uses stable event IDs", async () => {
   const batch = telemetryBatch(input);
-  assert.doesNotMatch(
-    JSON.stringify(batch),
-    /private-canary|private-school|secret-canary/,
-  );
+  assert.doesNotMatch(JSON.stringify(batch), /private-canary|private-school|secret-canary/);
   assert.equal(batch[0].properties.lms_run_id, input.runId);
   assert.equal(batch[0].uuid, telemetryBatch(input)[0].uuid);
   let received;
@@ -44,10 +38,7 @@ test("export retains correlation but excludes private details and uses stable ev
 });
 test("missing config and delivery failure are explicit and do not mutate local events", async () => {
   const original = structuredClone(input);
-  await assert.rejects(
-    exportTelemetry(input, { developmentProjectToken: "" }),
-    /development project/,
-  );
+  await assert.rejects(exportTelemetry(input, { developmentProjectToken: "" }), /development project/);
   await assert.rejects(
     exportTelemetry(input, {
       developmentProjectToken: "phc_test-only",

@@ -45,13 +45,20 @@ export class ProductPreferencesStore {
     await mkdir(dirname(this.path), { recursive: true });
     const temporary = `${this.path}.${process.pid}.${randomUUID()}.tmp`;
     try {
-      await writeFile(temporary, JSON.stringify(record, null, 2), { encoding: "utf8", mode: 0o600, flag: "wx" });
+      await writeFile(temporary, JSON.stringify(record, null, 2), {
+        encoding: "utf8",
+        mode: 0o600,
+        flag: "wx",
+      });
       await rename(temporary, this.path);
     } catch (error) {
-      try { await unlink(temporary); } catch { /* Best-effort cleanup retains the original record. */ }
+      try {
+        await unlink(temporary);
+      } catch {
+        /* Best-effort cleanup retains the original record. */
+      }
       throw error;
     }
     return record;
   }
 }
-

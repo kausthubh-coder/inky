@@ -69,29 +69,39 @@ export class SchoolRepository {
 
   putProfile(value: unknown): SchoolProfile {
     const profile = parseValue(SchoolProfileSchema, value, "school profile");
-    this.database.handle.prepare(`
+    this.database.handle
+      .prepare(`
       INSERT INTO school_profile(singleton_id, updated_at, record_json)
       VALUES ('primary-school', ?, ?)
       ON CONFLICT(singleton_id) DO UPDATE SET
         updated_at = excluded.updated_at,
         record_json = excluded.record_json
-    `).run(profile.updatedAt, recordJson(SchoolProfileSchema, profile));
+    `)
+      .run(profile.updatedAt, recordJson(SchoolProfileSchema, profile));
     return profile;
   }
 
   getProfile(): SchoolProfile | null {
-    const row = this.database.handle.prepare(`
+    const row = this.database.handle
+      .prepare(`
       SELECT updated_at, record_json FROM school_profile WHERE singleton_id = 'primary-school'
-    `).get() as (JsonRow & { updated_at: string }) | undefined;
+    `)
+      .get() as (JsonRow & { updated_at: string }) | undefined;
     if (!row) return null;
     const profile = parseRow(SchoolProfileSchema, row, "school profile");
-    assertColumns("school profile", profile.profileId, { updated_at: row.updated_at }, { updated_at: profile.updatedAt });
+    assertColumns(
+      "school profile",
+      profile.profileId,
+      { updated_at: row.updated_at },
+      { updated_at: profile.updatedAt },
+    );
     return profile;
   }
 
   putWorkflow(value: unknown): SchoolScanWorkflow {
     const workflow = parseValue(SchoolScanWorkflowSchema, value, "school scan workflow");
-    this.database.handle.prepare(`
+    this.database.handle
+      .prepare(`
       INSERT INTO school_scan_workflow(workflow_id, school_id, revision, updated_at, record_json)
       VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(workflow_id) DO UPDATE SET
@@ -99,34 +109,51 @@ export class SchoolRepository {
         revision = excluded.revision,
         updated_at = excluded.updated_at,
         record_json = excluded.record_json
-    `).run(workflow.workflowId, workflow.schoolId, workflow.revision, workflow.updatedAt, recordJson(SchoolScanWorkflowSchema, workflow));
+    `)
+      .run(
+        workflow.workflowId,
+        workflow.schoolId,
+        workflow.revision,
+        workflow.updatedAt,
+        recordJson(SchoolScanWorkflowSchema, workflow),
+      );
     return workflow;
   }
 
   getWorkflow(): SchoolScanWorkflow | null {
-    const row = this.database.handle.prepare(`
+    const row = this.database.handle
+      .prepare(`
       SELECT workflow_id, school_id, revision, updated_at, record_json
       FROM school_scan_workflow WHERE workflow_id = 'school-scan'
-    `).get() as (JsonRow & { workflow_id: string; school_id: string; revision: number; updated_at: string }) | undefined;
+    `)
+      .get() as
+      | (JsonRow & { workflow_id: string; school_id: string; revision: number; updated_at: string })
+      | undefined;
     if (!row) return null;
     const workflow = parseRow(SchoolScanWorkflowSchema, row, "school scan workflow");
-    assertColumns("school scan workflow", workflow.workflowId, {
-      workflow_id: row.workflow_id,
-      school_id: row.school_id,
-      revision: String(row.revision),
-      updated_at: row.updated_at,
-    }, {
-      workflow_id: workflow.workflowId,
-      school_id: workflow.schoolId,
-      revision: String(workflow.revision),
-      updated_at: workflow.updatedAt,
-    });
+    assertColumns(
+      "school scan workflow",
+      workflow.workflowId,
+      {
+        workflow_id: row.workflow_id,
+        school_id: row.school_id,
+        revision: String(row.revision),
+        updated_at: row.updated_at,
+      },
+      {
+        workflow_id: workflow.workflowId,
+        school_id: workflow.schoolId,
+        revision: String(workflow.revision),
+        updated_at: workflow.updatedAt,
+      },
+    );
     return workflow;
   }
 
   putScan(value: unknown): SchoolScan {
     const scan = this.#canonicalScan(parseValue(SchoolScanSchema, value, "school scan"));
-    this.database.handle.prepare(`
+    this.database.handle
+      .prepare(`
       INSERT INTO school_scans(scan_id, state, started_at, updated_at, completed_at, record_json)
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(scan_id) DO UPDATE SET
@@ -135,49 +162,69 @@ export class SchoolRepository {
         updated_at = excluded.updated_at,
         completed_at = excluded.completed_at,
         record_json = excluded.record_json
-    `).run(
-      scan.scanId,
-      scan.state,
-      scan.startedAt,
-      scan.updatedAt,
-      scan.completedAt ?? null,
-      recordJson(SchoolScanSchema, scan),
-    );
+    `)
+      .run(
+        scan.scanId,
+        scan.state,
+        scan.startedAt,
+        scan.updatedAt,
+        scan.completedAt ?? null,
+        recordJson(SchoolScanSchema, scan),
+      );
     return scan;
   }
 
   getScan(scanId: string): SchoolScan | null {
-    const row = this.database.handle.prepare(`
+    const row = this.database.handle
+      .prepare(`
       SELECT state, started_at, updated_at, completed_at, record_json
       FROM school_scans WHERE scan_id = ?
-    `).get(scanId) as (JsonRow & {
-      state: string;
-      started_at: string;
-      updated_at: string;
-      completed_at: string | null;
-    }) | undefined;
+    `)
+      .get(scanId) as
+      | (JsonRow & {
+          state: string;
+          started_at: string;
+          updated_at: string;
+          completed_at: string | null;
+        })
+      | undefined;
     return row ? this.#canonicalScan(parseScanRow(scanId, row)) : null;
   }
 
   latestScan(): SchoolScan | null {
-    const row = this.database.handle.prepare(`
+    const row = this.database.handle
+      .prepare(`
       SELECT scan_id, state, started_at, updated_at, completed_at, record_json
       FROM school_scans ORDER BY rowid DESC LIMIT 1
-    `).get() as (JsonRow & {
-      scan_id: string;
-      state: string;
-      started_at: string;
-      updated_at: string;
-      completed_at: string | null;
-    }) | undefined;
+    `)
+      .get() as
+      | (JsonRow & {
+          scan_id: string;
+          state: string;
+          started_at: string;
+          updated_at: string;
+          completed_at: string | null;
+        })
+      | undefined;
     return row ? this.#canonicalScan(parseScanRow(row.scan_id, row)) : null;
   }
 
   completedOnboardingAt(schoolRoot: string): string | undefined {
-    const rows = this.database.handle.prepare("SELECT record_json FROM school_scans WHERE state IN ('succeeded', 'partial') AND completed_at IS NOT NULL ORDER BY rowid DESC").all() as JsonRow[];
+    const rows = this.database.handle
+      .prepare(
+        "SELECT record_json FROM school_scans WHERE state IN ('succeeded', 'partial') AND completed_at IS NOT NULL ORDER BY rowid DESC",
+      )
+      .all() as JsonRow[];
     for (const row of rows) {
       const scan = parseRow(SchoolScanSchema, row, "school scan");
-      if (!scan.targetAssignmentId && scan.coverage.some(item => item.evidence && new URL(item.evidence.sourceTarget).origin === new URL(schoolRoot).origin)) return scan.completedAt;
+      if (
+        !scan.targetAssignmentId &&
+        scan.coverage.some(
+          (item) =>
+            item.evidence && new URL(item.evidence.sourceTarget).origin === new URL(schoolRoot).origin,
+        )
+      )
+        return scan.completedAt;
     }
     return undefined;
   }
@@ -187,15 +234,25 @@ export class SchoolRepository {
   }
 
   #canonicalScan(scan: SchoolScan): SchoolScan {
-    const ids = (kind: "course" | "assignment", values: string[]) => [...new Set(values.map(id => resolveRecordId(this.database, kind, id)))];
-    return { ...scan, observedCourseIds: ids("course", scan.observedCourseIds),
-      sourceCheckpoints: scan.sourceCheckpoints.map(source => ({ ...source,
+    const ids = (kind: "course" | "assignment", values: string[]) => [
+      ...new Set(values.map((id) => resolveRecordId(this.database, kind, id))),
+    ];
+    return {
+      ...scan,
+      observedCourseIds: ids("course", scan.observedCourseIds),
+      sourceCheckpoints: scan.sourceCheckpoints.map((source) => ({
+        ...source,
         courseId: source.courseId ? this.resolveCourseId(source.courseId) : undefined,
-        courseIds: ids("course", source.courseIds), assignmentIds: ids("assignment", source.assignmentIds),
+        courseIds: ids("course", source.courseIds),
+        assignmentIds: ids("assignment", source.assignmentIds),
       })),
       observedAssignmentIds: ids("assignment", scan.observedAssignmentIds),
-      changes: scan.changes.map(change => ({ ...change, assignmentId: resolveRecordId(this.database, "assignment", change.assignmentId) })),
-      inventories: scan.inventories.map(inventory => ({ ...inventory,
+      changes: scan.changes.map((change) => ({
+        ...change,
+        assignmentId: resolveRecordId(this.database, "assignment", change.assignmentId),
+      })),
+      inventories: scan.inventories.map((inventory) => ({
+        ...inventory,
         ...(inventory.courseId ? { courseId: this.resolveCourseId(inventory.courseId) } : {}),
         itemIds: ids(inventory.kind === "courses" ? "course" : "assignment", inventory.itemIds),
       })),
@@ -204,55 +261,65 @@ export class SchoolRepository {
 
   putCourse(value: unknown): Course {
     const course = parseValue(CourseSchema, value, "course");
-    if (this.resolveCourseId(course.courseId) !== course.courseId) throw new Error("This course was merged; refresh its canonical record before saving");
-    this.database.handle.prepare(`
+    if (this.resolveCourseId(course.courseId) !== course.courseId)
+      throw new Error("This course was merged; refresh its canonical record before saving");
+    this.database.handle
+      .prepare(`
       INSERT INTO courses(course_id, last_verified_scan_id, last_verified_at, record_json)
       VALUES (?, ?, ?, ?)
       ON CONFLICT(course_id) DO UPDATE SET
         last_verified_scan_id = excluded.last_verified_scan_id,
         last_verified_at = excluded.last_verified_at,
         record_json = excluded.record_json
-    `).run(
-      course.courseId,
-      course.lastVerifiedScanId,
-      course.lastVerifiedAt,
-      recordJson(CourseSchema, course),
-    );
+    `)
+      .run(
+        course.courseId,
+        course.lastVerifiedScanId,
+        course.lastVerifiedAt,
+        recordJson(CourseSchema, course),
+      );
     return course;
   }
 
   listCourses(): Course[] {
-    const rows = this.database.handle.prepare(`
+    const rows = this.database.handle
+      .prepare(`
       SELECT course_id, last_verified_scan_id, last_verified_at, record_json
       FROM courses ORDER BY course_id
-    `).all() as unknown as Array<JsonRow & {
-      course_id: string;
-      last_verified_scan_id: string;
-      last_verified_at: string;
-    }>;
-    return rows.map((row) => {
-      const course = parseRow(CourseSchema, row, "course");
-      assertColumns(
-        "course",
-        course.courseId,
-        {
-          course_id: row.course_id,
-          last_verified_scan_id: row.last_verified_scan_id,
-          last_verified_at: row.last_verified_at,
-        },
-        {
-          course_id: course.courseId,
-          last_verified_scan_id: course.lastVerifiedScanId,
-          last_verified_at: course.lastVerifiedAt,
-        },
-      );
-      return course;
-    }).sort((left, right) => left.label.localeCompare(right.label));
+    `)
+      .all() as unknown as Array<
+      JsonRow & {
+        course_id: string;
+        last_verified_scan_id: string;
+        last_verified_at: string;
+      }
+    >;
+    return rows
+      .map((row) => {
+        const course = parseRow(CourseSchema, row, "course");
+        assertColumns(
+          "course",
+          course.courseId,
+          {
+            course_id: row.course_id,
+            last_verified_scan_id: row.last_verified_scan_id,
+            last_verified_at: row.last_verified_at,
+          },
+          {
+            course_id: course.courseId,
+            last_verified_scan_id: course.lastVerifiedScanId,
+            last_verified_at: course.lastVerifiedAt,
+          },
+        );
+        return course;
+      })
+      .sort((left, right) => left.label.localeCompare(right.label));
   }
 
   putLinkedSystem(value: unknown): LinkedSystem {
     const system = parseValue(LinkedSystemSchema, value, "linked system");
-    this.database.handle.prepare(`
+    this.database.handle
+      .prepare(`
       INSERT INTO linked_systems(
         linked_system_id, state, last_observed_scan_id, last_verified_scan_id,
         last_observed_at, record_json
@@ -263,58 +330,67 @@ export class SchoolRepository {
         last_verified_scan_id = excluded.last_verified_scan_id,
         last_observed_at = excluded.last_observed_at,
         record_json = excluded.record_json
-    `).run(
-      system.linkedSystemId,
-      system.state,
-      system.lastObservedScanId,
-      system.lastVerifiedScanId ?? null,
-      system.lastObservedAt,
-      recordJson(LinkedSystemSchema, system),
-    );
+    `)
+      .run(
+        system.linkedSystemId,
+        system.state,
+        system.lastObservedScanId,
+        system.lastVerifiedScanId ?? null,
+        system.lastObservedAt,
+        recordJson(LinkedSystemSchema, system),
+      );
     return system;
   }
 
   getLinkedSystem(linkedSystemId: string): LinkedSystem | null {
-    const row = this.database.handle.prepare(`
+    const row = this.database.handle
+      .prepare(`
       SELECT record_json FROM linked_systems WHERE linked_system_id = ?
-    `).get(linkedSystemId) as JsonRow | undefined;
+    `)
+      .get(linkedSystemId) as JsonRow | undefined;
     return row ? parseRow(LinkedSystemSchema, row, "linked system") : null;
   }
 
   listLinkedSystems(): LinkedSystem[] {
-    const rows = this.database.handle.prepare(`
+    const rows = this.database.handle
+      .prepare(`
       SELECT linked_system_id, state, last_observed_scan_id, last_verified_scan_id,
         last_observed_at, record_json
       FROM linked_systems ORDER BY linked_system_id
-    `).all() as unknown as Array<JsonRow & {
-      linked_system_id: string;
-      state: string;
-      last_observed_scan_id: string;
-      last_verified_scan_id: string | null;
-      last_observed_at: string;
-    }>;
-    return rows.map((row) => {
-      const system = parseRow(LinkedSystemSchema, row, "linked system");
-      assertColumns(
-        "linked system",
-        system.linkedSystemId,
-        {
-          linked_system_id: row.linked_system_id,
-          state: row.state,
-          last_observed_scan_id: row.last_observed_scan_id,
-          last_verified_scan_id: row.last_verified_scan_id,
-          last_observed_at: row.last_observed_at,
-        },
-        {
-          linked_system_id: system.linkedSystemId,
-          state: system.state,
-          last_observed_scan_id: system.lastObservedScanId,
-          last_verified_scan_id: system.lastVerifiedScanId ?? null,
-          last_observed_at: system.lastObservedAt,
-        },
-      );
-      return system;
-    }).sort((left, right) => left.label.localeCompare(right.label));
+    `)
+      .all() as unknown as Array<
+      JsonRow & {
+        linked_system_id: string;
+        state: string;
+        last_observed_scan_id: string;
+        last_verified_scan_id: string | null;
+        last_observed_at: string;
+      }
+    >;
+    return rows
+      .map((row) => {
+        const system = parseRow(LinkedSystemSchema, row, "linked system");
+        assertColumns(
+          "linked system",
+          system.linkedSystemId,
+          {
+            linked_system_id: row.linked_system_id,
+            state: row.state,
+            last_observed_scan_id: row.last_observed_scan_id,
+            last_verified_scan_id: row.last_verified_scan_id,
+            last_observed_at: row.last_observed_at,
+          },
+          {
+            linked_system_id: system.linkedSystemId,
+            state: system.state,
+            last_observed_scan_id: system.lastObservedScanId,
+            last_verified_scan_id: system.lastVerifiedScanId ?? null,
+            last_observed_at: system.lastObservedAt,
+          },
+        );
+        return system;
+      })
+      .sort((left, right) => left.label.localeCompare(right.label));
   }
 }
 
@@ -352,7 +428,9 @@ export function validateSchoolRecords(database: StudiSqliteDatabase): void {
   repository.getProfile();
   repository.getWorkflow();
   repository.latestScan();
-  const scanRows = database.handle.prepare("SELECT scan_id FROM school_scans").all() as unknown as Array<{ scan_id: string }>;
+  const scanRows = database.handle.prepare("SELECT scan_id FROM school_scans").all() as unknown as Array<{
+    scan_id: string;
+  }>;
   for (const row of scanRows) repository.getScan(row.scan_id);
   repository.listCourses();
   repository.listLinkedSystems();

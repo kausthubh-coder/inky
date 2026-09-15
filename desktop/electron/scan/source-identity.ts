@@ -5,9 +5,10 @@ import { SafeSourceTargetSchema } from "../../shared/index.js";
 // not to a course label, scan, or model-generated key.
 export function schoolIdentity(target: string, kind: "course" | "assignment"): string | null {
   const url = new URL(target);
-  const pattern = kind === "course"
-    ? /^(.*)\/(?:course\/view|mod\/assign\/index)\.php$/
-    : /^(.*)\/mod\/(assign|quiz)\/view\.php$/;
+  const pattern =
+    kind === "course"
+      ? /^(.*)\/(?:course\/view|mod\/assign\/index)\.php$/
+      : /^(.*)\/mod\/(assign|quiz)\/view\.php$/;
   const match = url.pathname.match(pattern);
   const id = url.searchParams.get("id");
   if (match && id && url.searchParams.getAll("id").length === 1 && /^\d+$/.test(id)) {
@@ -35,12 +36,17 @@ export function isMoodleIndex(target: string): boolean {
 // Only a fresh matching link, or the currently open detail page, can name a
 // destination. A suggested key or an arbitrary URL supplied by the model cannot.
 export function observedTarget(snapshot: BrowserSnapshot, label: string, ref?: string): string {
-  const matches = snapshot.elements.filter(element => element.role === "link" && element.href &&
-    (normalize(element.name) === normalize(label) ||
-      (element.ref === ref && normalize(element.name).includes(normalize(label)))));
-  const selected = matches.find(element => element.ref === ref);
-  const targets = [...new Set((selected ? [selected] : matches).map(element => element.href!))];
-  if (targets.length > 1) throw new Error(`Several links match ${label}; open its detail page before recording it`);
+  const matches = snapshot.elements.filter(
+    (element) =>
+      element.role === "link" &&
+      element.href &&
+      (normalize(element.name) === normalize(label) ||
+        (element.ref === ref && normalize(element.name).includes(normalize(label)))),
+  );
+  const selected = matches.find((element) => element.ref === ref);
+  const targets = [...new Set((selected ? [selected] : matches).map((element) => element.href!))];
+  if (targets.length > 1)
+    throw new Error(`Several links match ${label}; open its detail page before recording it`);
   return SafeSourceTargetSchema.parse(targets[0] ?? snapshot.url);
 }
 

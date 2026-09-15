@@ -35,7 +35,10 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
     });
     coordinator.enqueue({ taskId: "task-a" });
     coordinator.enqueue({ taskId: "task-b" });
-    assert.deepEqual(coordinator.state().entries.map((entry) => entry.taskId), ["task-a", "task-b"]);
+    assert.deepEqual(
+      coordinator.state().entries.map((entry) => entry.taskId),
+      ["task-a", "task-b"],
+    );
     coordinator.steerNext("task-b");
     assert.equal(coordinator.state().entries[0].taskId, "task-b");
     const steeredPriority = coordinator.state().entries[0].priority;
@@ -46,14 +49,22 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
       "re-enqueue without an explicit priority keeps manual steering",
     );
     await coordinator.startFromConversation("task-b");
-    assert.deepEqual(delegatedStarts, ["task-b"], "the manager delegates a verified queued task to the configured execution owner");
+    assert.deepEqual(
+      delegatedStarts,
+      ["task-b"],
+      "the manager delegates a verified queued task to the configured execution owner",
+    );
 
     store.permissionRules.put({
       ...rule("deny-b", "assignment", "do_not_attempt", "2026-09-01T12:02:00.000Z"),
       assignmentId: "assignment-b",
     });
     const lease = await coordinator.startNext();
-    assert.equal(store.tasks.get("task-b").state, "discovered", "revoked unstarted work returns to discovery");
+    assert.equal(
+      store.tasks.get("task-b").state,
+      "discovered",
+      "revoked unstarted work returns to discovery",
+    );
     assert.equal(lease.taskId, "task-a");
     assert.equal(coordinator.state().lease.taskId, "task-a");
     const claimedJob = store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" });
@@ -103,8 +114,14 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
     coordinator.finish("task-a", "ready_review");
     assert.equal(coordinator.state().lease, null);
     assert.equal(store.tasks.get("task-a").state, "ready_review");
-    assert.equal(store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" }).job.claim, null);
-    assert.equal(store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" }).job.phase, "review");
+    assert.equal(
+      store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" }).job.claim,
+      null,
+    );
+    assert.equal(
+      store.agentJobs.getByTarget({ kind: "assignment", assignmentId: "assignment-a" }).job.phase,
+      "review",
+    );
     assert.equal(coordinator.state().entries[0].taskId, "task-pattern");
     coordinator.dispose();
     store.close();
@@ -165,7 +182,10 @@ test("a selected manager start cannot fall through when its permission is revoke
     assert.equal(store.tasks.get("task-selected").state, "discovered");
     assert.equal(store.tasks.get("task-other").state, "queued");
     assert.equal(coordinator.state().lease, null, "no other task acquires the browser lease");
-    assert.deepEqual(coordinator.state().entries.map((entry) => entry.taskId), ["task-other"]);
+    assert.deepEqual(
+      coordinator.state().entries.map((entry) => entry.taskId),
+      ["task-other"],
+    );
   } finally {
     coordinator?.dispose();
     store?.close();
@@ -188,13 +208,21 @@ class RecordingRuntime {
     let sessionPath = resumePath ?? `${kind}-${this.sessionNumber}.jsonl`;
     const listeners = new Set();
     return {
-      get sessionId() { return sessionId; },
-      get sessionPath() { return sessionPath; },
+      get sessionId() {
+        return sessionId;
+      },
+      get sessionPath() {
+        return sessionPath;
+      },
       toolNames,
-      subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
+      },
       prompt: async (prompt) => {
         for (const listener of listeners) listener({ schemaVersion: 1, type: "text", delta: "Done." });
-        for (const listener of listeners) listener({ schemaVersion: 1, type: "terminal", outcome: "completed" });
+        for (const listener of listeners)
+          listener({ schemaVersion: 1, type: "terminal", outcome: "completed" });
       },
       compact: async () => {},
       abort: async () => {},
@@ -212,7 +240,14 @@ function seedTask(store, suffix, dueAt) {
   const assignmentId = `assignment-${suffix}`;
   const taskId = `task-${suffix}`;
   const courseId = `course-${suffix}`;
-  const evidence = { schemaVersion: 1, evidenceId: `evidence-${suffix}`, reference: `evidence-${suffix}`, kind: "text_snapshot", sourceTarget: `https://school.example.edu/assignments/${suffix}`, capturedAt: now };
+  const evidence = {
+    schemaVersion: 1,
+    evidenceId: `evidence-${suffix}`,
+    reference: `evidence-${suffix}`,
+    kind: "text_snapshot",
+    sourceTarget: `https://school.example.edu/assignments/${suffix}`,
+    capturedAt: now,
+  };
   store.assignments.put({
     schemaVersion: 1,
     assignmentId,
@@ -220,21 +255,24 @@ function seedTask(store, suffix, dueAt) {
     title: `Assignment ${suffix}`,
     sourceTarget: `https://school.example.edu/assignments/${suffix}`,
     dueAt,
-    deadlinePrecision: "datetime", deadlineEvidence: evidence,
+    deadlinePrecision: "datetime",
+    deadlineEvidence: evidence,
     schoolStatus: { state: "not_submitted", text: "Not submitted", evidence },
     requirementEvidence: [{ text: "Solve the assigned exercises and upload a PDF.", evidence }],
     requirementsState: "complete",
     discoveredAt: now,
     lastVerifiedScanId: "scan-manager-test",
-    evidence: [{
-      schemaVersion: 1,
-      evidenceId: `evidence-${suffix}`,
-      reference: `evidence-${suffix}`,
-      kind: "agent_observation",
-      sourceTarget: `https://school.example.edu/assignments/${suffix}`,
-      capturedAt: now,
-      summary: `Observed Assignment ${suffix}.`,
-    }],
+    evidence: [
+      {
+        schemaVersion: 1,
+        evidenceId: `evidence-${suffix}`,
+        reference: `evidence-${suffix}`,
+        kind: "agent_observation",
+        sourceTarget: `https://school.example.edu/assignments/${suffix}`,
+        capturedAt: now,
+        summary: `Observed Assignment ${suffix}.`,
+      },
+    ],
   });
   const task = {
     schemaVersion: 1,
@@ -273,7 +311,6 @@ function rule(ruleId, scope, mode, updatedAt) {
   return { schemaVersion: 1, ruleId, scope, mode, updatedAt };
 }
 
-
 test("cancelled work retries only after an explicit request and a fresh permission check", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-retry-")));
   const store = await openLocalStore(root);
@@ -285,14 +322,18 @@ test("cancelled work retries only after an explicit request and a fresh permissi
     manager.cancel("task-retry");
     assert.throws(() => manager.enqueue({ taskId: "task-retry" }), /cannot be queued from cancelled/);
     store.permissionRules.put(rule("global-attempt", "global", "do_not_attempt", now));
-    assert.throws(() => manager.enqueue({ taskId: "task-retry", retry: true }), /blocked by stored permission/);
+    assert.throws(
+      () => manager.enqueue({ taskId: "task-retry", retry: true }),
+      /blocked by stored permission/,
+    );
     assert.equal(store.tasks.get("task-retry").state, "cancelled");
     store.permissionRules.put(rule("global-attempt", "global", "attempt", now));
     manager.enqueue({ taskId: "task-retry", retry: true });
     assert.equal(store.tasks.get("task-retry").state, "queued");
     assert.equal((await manager.startNext()).taskId, "task-retry");
   } finally {
-    manager.dispose(); store.close();
+    manager.dispose();
+    store.close();
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
 });

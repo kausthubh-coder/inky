@@ -1,6 +1,17 @@
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { access, glob, lstat, mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
+import {
+  access,
+  glob,
+  lstat,
+  mkdir,
+  readFile,
+  readdir,
+  rename,
+  stat,
+  unlink,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 
 import {
@@ -69,9 +80,10 @@ export function createWorkspaceCodingTools(workspaceDirectory: string): ToolDefi
     },
   });
   const shellOptions = { operations: restrictedShell(boundary.root), exposeSessionEnvironment: false };
-  const shell = process.platform === "win32"
-    ? createPowerShellToolDefinition(boundary.root, shellOptions)
-    : createBashToolDefinition(boundary.root, shellOptions);
+  const shell =
+    process.platform === "win32"
+      ? createPowerShellToolDefinition(boundary.root, shellOptions)
+      : createBashToolDefinition(boundary.root, shellOptions);
   // Pi tools can prefer the session context's cwd over their construction cwd.
   // Assignment tools always resolve relative paths inside their assigned folder.
   const tools = [read, write, edit, grep, find, ls, shell] as unknown as ToolDefinition[];
@@ -110,7 +122,8 @@ class WorkspaceBoundary {
     await this.assertNoLinks(dirname(target));
     try {
       const existing = await lstat(target);
-      if (existing.isSymbolicLink() || !existing.isFile()) throw new TypeError("Workspace writes may replace only regular files");
+      if (existing.isSymbolicLink() || !existing.isFile())
+        throw new TypeError("Workspace writes may replace only regular files");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
@@ -120,15 +133,16 @@ class WorkspaceBoundary {
       try {
         await rename(temporary, target);
       } catch (error) {
-        if (![
-          "EEXIST",
-          "EPERM",
-        ].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
+        if (!["EEXIST", "EPERM"].includes((error as NodeJS.ErrnoException).code ?? "")) throw error;
         await unlink(target);
         await rename(temporary, target);
       }
     } catch (error) {
-      try { await unlink(temporary); } catch { /* best effort */ }
+      try {
+        await unlink(temporary);
+      } catch {
+        /* best effort */
+      }
       throw error;
     }
   }
@@ -162,7 +176,8 @@ class WorkspaceBoundary {
 
   async glob(pattern: string, cwd: string, ignore: string[], limit: number): Promise<string[]> {
     const searchRoot = await this.existing(cwd);
-    if (!(await stat(searchRoot)).isDirectory()) throw new TypeError("The workspace search path is not a directory");
+    if (!(await stat(searchRoot)).isDirectory())
+      throw new TypeError("The workspace search path is not a directory");
     const matches: string[] = [];
     for await (const match of glob(pattern, { cwd: searchRoot, exclude: ignore })) {
       const target = await this.existing(resolve(searchRoot, match));
@@ -174,8 +189,11 @@ class WorkspaceBoundary {
 
   imageMimeType(path: string): string | null {
     const mime = new Map([
-      [".png", "image/png"], [".jpg", "image/jpeg"], [".jpeg", "image/jpeg"],
-      [".gif", "image/gif"], [".webp", "image/webp"],
+      [".png", "image/png"],
+      [".jpg", "image/jpeg"],
+      [".jpeg", "image/jpeg"],
+      [".gif", "image/gif"],
+      [".webp", "image/webp"],
     ]).get(extname(path).toLowerCase());
     return mime ?? null;
   }
@@ -189,7 +207,10 @@ class WorkspaceBoundary {
   private inside(path: string): string {
     const target = isAbsolute(path) ? resolve(path) : resolve(this.root, path);
     const relativePath = relative(this.root, target);
-    if (relativePath === "" || (!relativePath.startsWith(`..${sep}`) && relativePath !== ".." && !isAbsolute(relativePath))) {
+    if (
+      relativePath === "" ||
+      (!relativePath.startsWith(`..${sep}`) && relativePath !== ".." && !isAbsolute(relativePath))
+    ) {
       return target;
     }
     throw new TypeError("Workspace path escaped the active assignment folder");
@@ -202,7 +223,8 @@ class WorkspaceBoundary {
     for (const segment of relativePath.split(sep).filter(Boolean)) {
       cursor = resolve(cursor, segment);
       try {
-        if ((await lstat(cursor)).isSymbolicLink()) throw new TypeError("Symbolic links are not allowed in assignment workspaces");
+        if ((await lstat(cursor)).isSymbolicLink())
+          throw new TypeError("Symbolic links are not allowed in assignment workspaces");
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
         throw error;
@@ -217,9 +239,10 @@ function restrictedShell(workspaceDirectory: string): BashOperations {
       validateShellCommand(command);
       const timeout = Math.min(Math.max(options.timeout ?? SHELL_TIMEOUT_MS, 1_000), SHELL_TIMEOUT_MS);
       const executable = process.platform === "win32" ? "powershell.exe" : "/bin/bash";
-      const args = process.platform === "win32"
-        ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
-        : ["--noprofile", "--norc", "-c", command];
+      const args =
+        process.platform === "win32"
+          ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
+          : ["--noprofile", "--norc", "-c", command];
       const env = restrictedEnvironment(options.env);
       return new Promise<{ exitCode: number | null }>((resolvePromise, reject) => {
         const child = spawn(executable, args, {
@@ -250,7 +273,8 @@ function restrictedShell(workspaceDirectory: string): BashOperations {
 
 function validateShellCommand(command: string): void {
   const normalized = command.trim();
-  if (!normalized || normalized.length > 20_000) throw new TypeError("Workspace shell commands must contain 1 to 20,000 characters");
+  if (!normalized || normalized.length > 20_000)
+    throw new TypeError("Workspace shell commands must contain 1 to 20,000 characters");
   for (const blocked of BLOCKED_SHELL) {
     if (blocked.test(normalized)) {
       throw new TypeError("That command is outside this assignment's private workspace boundary");
@@ -262,7 +286,18 @@ function validateShellCommand(command: string): void {
 }
 
 function restrictedEnvironment(source: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
-  const allowed = ["PATH", "Path", "PATHEXT", "SYSTEMROOT", "SystemRoot", "COMSPEC", "TMP", "TEMP", "LANG", "LC_ALL"];
+  const allowed = [
+    "PATH",
+    "Path",
+    "PATHEXT",
+    "SYSTEMROOT",
+    "SystemRoot",
+    "COMSPEC",
+    "TMP",
+    "TEMP",
+    "LANG",
+    "LC_ALL",
+  ];
   const env: NodeJS.ProcessEnv = {};
   for (const key of allowed) {
     const value = source?.[key] ?? process.env[key];

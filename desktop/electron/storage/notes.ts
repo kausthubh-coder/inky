@@ -80,7 +80,8 @@ export class NoteStore {
     const input = parseUpsert(value);
     assertSafeContent(input.content);
     const prior = this.#findIdentity(input);
-    const noteId = prior?.noteId ?? `note-${createHash("sha256").update(identityKey(input)).digest("hex").slice(0, 24)}`;
+    const noteId =
+      prior?.noteId ?? `note-${createHash("sha256").update(identityKey(input)).digest("hex").slice(0, 24)}`;
     const document = NoteDocumentSchema.parse({
       frontmatter: {
         schemaVersion: 1,
@@ -111,12 +112,25 @@ export class NoteStore {
       this.database.transaction(() => this.#putIndex(entry));
       return document;
     } catch (error) {
-      try { await handle?.close(); } catch { /* preserve original error */ }
-      try { await unlink(temporary); } catch (cleanupError) {
-        if ((cleanupError as NodeJS.ErrnoException).code !== "ENOENT") { /* repaired on startup */ }
+      try {
+        await handle?.close();
+      } catch {
+        /* preserve original error */
+      }
+      try {
+        await unlink(temporary);
+      } catch (cleanupError) {
+        if ((cleanupError as NodeJS.ErrnoException).code !== "ENOENT") {
+          /* repaired on startup */
+        }
       }
       if (isStorageError(error)) throw error;
-      throw new StorageError("artifact_write_failed", `Atomic note write failed; startup reconciliation will repair committed Markdown: ${errorMessage(error)}`, { target }, { cause: error });
+      throw new StorageError(
+        "artifact_write_failed",
+        `Atomic note write failed; startup reconciliation will repair committed Markdown: ${errorMessage(error)}`,
+        { target },
+        { cause: error },
+      );
     }
   }
 
@@ -137,7 +151,11 @@ export class NoteStore {
     const document = parseNote(source, path);
     this.#assertPathIdentity(document, path);
     const actual = this.#entry(document, path);
-    if (actual.noteId !== entry.noteId || actual.contentHash !== entry.contentHash || actual.revision !== entry.revision) {
+    if (
+      actual.noteId !== entry.noteId ||
+      actual.contentHash !== entry.contentHash ||
+      actual.revision !== entry.revision
+    ) {
       this.database.transaction(() => this.#putIndex(actual));
     }
     return document;
@@ -146,16 +164,40 @@ export class NoteStore {
   list(filter: NoteListFilter = {}): NoteIndexEntry[] {
     const clauses: string[] = [];
     const values: string[] = [];
-    if (filter.scope) { clauses.push("scope = ?"); values.push(filter.scope); }
-    if (filter.subjectId) { clauses.push("subject_id = ?"); values.push(filter.subjectId); }
-    if (filter.about) { clauses.push("about = ?"); values.push(filter.about); }
+    if (filter.scope) {
+      clauses.push("scope = ?");
+      values.push(filter.scope);
+    }
+    if (filter.subjectId) {
+      clauses.push("subject_id = ?");
+      values.push(filter.subjectId);
+    }
+    if (filter.about) {
+      clauses.push("about = ?");
+      values.push(filter.about);
+    }
     const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
-    const rows = this.database.handle.prepare(`SELECT record_json FROM note_index ${where} ORDER BY scope, subject_id, about, note_key, updated_at, note_id`).all(...values) as unknown as Array<{ record_json: string }>;
+    const rows = this.database.handle
+      .prepare(
+        `SELECT record_json FROM note_index ${where} ORDER BY scope, subject_id, about, note_key, updated_at, note_id`,
+      )
+      .all(...values) as unknown as Array<{ record_json: string }>;
     return rows.map((row) => parseIndex(row.record_json));
   }
 
-  async search(query: string, allowed: readonly NoteListFilter[], limit = NOTE_SEARCH_LIMIT): Promise<Array<{ entry: NoteIndexEntry; preview: string }>> {
-    const terms = [...new Set(query.toLocaleLowerCase().split(/[^\p{L}\p{N}._-]+/u).filter((term) => term.length > 1))];
+  async search(
+    query: string,
+    allowed: readonly NoteListFilter[],
+    limit = NOTE_SEARCH_LIMIT,
+  ): Promise<Array<{ entry: NoteIndexEntry; preview: string }>> {
+    const terms = [
+      ...new Set(
+        query
+          .toLocaleLowerCase()
+          .split(/[^\p{L}\p{N}._-]+/u)
+          .filter((term) => term.length > 1),
+      ),
+    ];
     if (terms.length === 0) return [];
     const candidates = uniqueEntries(allowed.flatMap((filter) => this.list(filter)));
     const matches: Array<{ entry: NoteIndexEntry; preview: string; score: number }> = [];
@@ -166,24 +208,35 @@ export class NoteStore {
       const score = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0), 0);
       if (score) matches.push({ entry, preview: document.content.slice(0, 500), score });
     }
-    return matches.sort((left, right) => right.score - left.score || compareEntries(left.entry, right.entry)).slice(0, Math.max(1, Math.min(limit, NOTE_SEARCH_LIMIT))).map(({ entry, preview }) => ({ entry, preview }));
+    return matches
+      .sort((left, right) => right.score - left.score || compareEntries(left.entry, right.entry))
+      .slice(0, Math.max(1, Math.min(limit, NOTE_SEARCH_LIMIT)))
+      .map(({ entry, preview }) => ({ entry, preview }));
   }
 
   #walk(directory: string, depth: number, entries: NoteIndexEntry[], noteIds: Set<string>): void {
-    for (const child of readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const child of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
       const path = join(directory, child.name);
       const metadata = lstatSync(path);
       if (metadata.isSymbolicLink()) throw invalidTree("Note storage contains a symbolic link", path);
       if (child.isDirectory()) {
-        if (depth >= 3 || !safeSegment.test(child.name)) throw invalidTree("Note storage contains an invalid directory", path);
+        if (depth >= 3 || !safeSegment.test(child.name))
+          throw invalidTree("Note storage contains an invalid directory", path);
         this.#walk(path, depth + 1, entries, noteIds);
         continue;
       }
-      if (child.name.endsWith(".tmp")) { unlinkSync(path); continue; }
-      if (!child.isFile() || depth !== 3 || !markdownFile.test(child.name)) throw invalidTree("Note storage contains an unexpected file", path);
+      if (child.name.endsWith(".tmp")) {
+        unlinkSync(path);
+        continue;
+      }
+      if (!child.isFile() || depth !== 3 || !markdownFile.test(child.name))
+        throw invalidTree("Note storage contains an unexpected file", path);
       const document = parseNote(readFileSync(path, "utf8"), path);
       this.#assertPathIdentity(document, path);
-      if (noteIds.has(document.frontmatter.noteId)) throw invalidTree("Two note files claim the same note id", path);
+      if (noteIds.has(document.frontmatter.noteId))
+        throw invalidTree("Two note files claim the same note id", path);
       noteIds.add(document.frontmatter.noteId);
       entries.push(this.#entry(document, path));
     }
@@ -198,41 +251,81 @@ export class NoteStore {
 
   #assertPathIdentity(document: NoteDocument, path: string): void {
     const parts = relative(this.rootDirectory, path).split(sep);
-    const expected = [document.frontmatter.scope, document.frontmatter.subjectId, document.frontmatter.about, `${document.frontmatter.key}.md`];
-    if (parts.length !== 4 || parts.some((part, index) => part !== expected[index])) throw invalidTree("Note frontmatter identity does not match its path", path);
+    const expected = [
+      document.frontmatter.scope,
+      document.frontmatter.subjectId,
+      document.frontmatter.about,
+      `${document.frontmatter.key}.md`,
+    ];
+    if (parts.length !== 4 || parts.some((part, index) => part !== expected[index]))
+      throw invalidTree("Note frontmatter identity does not match its path", path);
   }
 
   #pathFor(identity: NoteIdentity): string {
     const parsed = parseIdentity(identity);
-    const target = resolve(this.rootDirectory, parsed.scope, parsed.subjectId, parsed.about, `${parsed.key}.md`);
-    if (!target.toLocaleLowerCase().startsWith(`${this.rootDirectory}${sep}`.toLocaleLowerCase())) throw invalidTree("Note path escaped its owned directory", target);
+    const target = resolve(
+      this.rootDirectory,
+      parsed.scope,
+      parsed.subjectId,
+      parsed.about,
+      `${parsed.key}.md`,
+    );
+    if (!target.toLocaleLowerCase().startsWith(`${this.rootDirectory}${sep}`.toLocaleLowerCase()))
+      throw invalidTree("Note path escaped its owned directory", target);
     return target;
   }
 
   #resolveIndexedPath(markdownPath: string): string {
     const target = resolve(this.rootDirectory, markdownPath);
-    if (!target.toLocaleLowerCase().startsWith(`${this.rootDirectory}${sep}`.toLocaleLowerCase())) throw invalidTree("Indexed note path escaped its owned directory", target);
+    if (!target.toLocaleLowerCase().startsWith(`${this.rootDirectory}${sep}`.toLocaleLowerCase()))
+      throw invalidTree("Indexed note path escaped its owned directory", target);
     return target;
   }
 
   #entry(document: NoteDocument, path: string): NoteIndexEntry {
-    return NoteIndexEntrySchema.parse({ ...document.frontmatter, markdownPath: relative(this.rootDirectory, path).split(sep).join("/"), contentHash: createHash("sha256").update(document.content).digest("hex") });
+    return NoteIndexEntrySchema.parse({
+      ...document.frontmatter,
+      markdownPath: relative(this.rootDirectory, path).split(sep).join("/"),
+      contentHash: createHash("sha256").update(document.content).digest("hex"),
+    });
   }
 
   #findIdentity(identity: NoteIdentity): NoteIndexEntry | null {
     const parsed = parseIdentity(identity);
-    const row = this.database.handle.prepare("SELECT record_json FROM note_index WHERE scope = ? AND subject_id = ? AND about = ? AND note_key = ?").get(parsed.scope, parsed.subjectId, parsed.about, parsed.key) as { record_json: string } | undefined;
+    const row = this.database.handle
+      .prepare(
+        "SELECT record_json FROM note_index WHERE scope = ? AND subject_id = ? AND about = ? AND note_key = ?",
+      )
+      .get(parsed.scope, parsed.subjectId, parsed.about, parsed.key) as { record_json: string } | undefined;
     return row ? parseIndex(row.record_json) : null;
   }
 
   #getIndex(noteId: string): NoteIndexEntry | null {
-    const row = this.database.handle.prepare("SELECT record_json FROM note_index WHERE note_id = ?").get(noteId) as { record_json: string } | undefined;
+    const row = this.database.handle
+      .prepare("SELECT record_json FROM note_index WHERE note_id = ?")
+      .get(noteId) as { record_json: string } | undefined;
     return row ? parseIndex(row.record_json) : null;
   }
 
   #putIndex(entry: NoteIndexEntry): void {
     const record = NoteIndexEntrySchema.parse(entry);
-    this.database.handle.prepare(`INSERT INTO note_index(note_id, scope, subject_id, about, note_key, title, markdown_path, revision, content_hash, updated_at, record_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(scope, subject_id, about, note_key) DO UPDATE SET note_id = excluded.note_id, title = excluded.title, markdown_path = excluded.markdown_path, revision = excluded.revision, content_hash = excluded.content_hash, updated_at = excluded.updated_at, record_json = excluded.record_json`).run(record.noteId, record.scope, record.subjectId, record.about, record.key, record.title, record.markdownPath, record.revision, record.contentHash, record.updatedAt, JSON.stringify(record));
+    this.database.handle
+      .prepare(
+        `INSERT INTO note_index(note_id, scope, subject_id, about, note_key, title, markdown_path, revision, content_hash, updated_at, record_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(scope, subject_id, about, note_key) DO UPDATE SET note_id = excluded.note_id, title = excluded.title, markdown_path = excluded.markdown_path, revision = excluded.revision, content_hash = excluded.content_hash, updated_at = excluded.updated_at, record_json = excluded.record_json`,
+      )
+      .run(
+        record.noteId,
+        record.scope,
+        record.subjectId,
+        record.about,
+        record.key,
+        record.title,
+        record.markdownPath,
+        record.revision,
+        record.contentHash,
+        record.updatedAt,
+        JSON.stringify(record),
+      );
   }
 }
 
@@ -242,21 +335,26 @@ function parseUpsert(value: unknown): NoteUpsertInput {
   const title = typeof input.title === "string" ? input.title.trim() : "";
   const content = typeof input.content === "string" ? escapeHtmlTags(input.content.trim()) : "";
   if (!title || title.length > 200) throw new TypeError("Note title must be between 1 and 200 characters");
-  if (!content || content.length > NOTE_BODY_LIMIT) throw new TypeError(`Note content must be between 1 and ${NOTE_BODY_LIMIT} characters`);
-  if (input.updatedAt !== undefined && Number.isNaN(Date.parse(input.updatedAt))) throw new TypeError("Note updatedAt must be an ISO timestamp");
+  if (!content || content.length > NOTE_BODY_LIMIT)
+    throw new TypeError(`Note content must be between 1 and ${NOTE_BODY_LIMIT} characters`);
+  if (input.updatedAt !== undefined && Number.isNaN(Date.parse(input.updatedAt)))
+    throw new TypeError("Note updatedAt must be an ISO timestamp");
   return { ...identity, title, content, ...(input.updatedAt ? { updatedAt: input.updatedAt } : {}) };
 }
 
 function assertSafeContent(content: string): void {
   if (/<\/?[A-Za-z][^>]*>/.test(content)) throw new TypeError("Notes may contain Markdown but not HTML");
-  if (credentialCanaries.some((pattern) => pattern.test(content))) throw new TypeError("Credential-bearing values cannot be saved in notes");
+  if (credentialCanaries.some((pattern) => pattern.test(content)))
+    throw new TypeError("Credential-bearing values cannot be saved in notes");
 }
 
 function escapeHtmlTags(content: string): string {
   return content.replace(/<\/?[A-Za-z][^>]*>/g, (tag) => tag.replaceAll("<", "&lt;").replaceAll(">", "&gt;"));
 }
 
-function serializeNote(document: NoteDocument): string { return `---\n${stringify(document.frontmatter, { lineWidth: 0 })}---\n${document.content.trim()}\n`; }
+function serializeNote(document: NoteDocument): string {
+  return `---\n${stringify(document.frontmatter, { lineWidth: 0 })}---\n${document.content.trim()}\n`;
+}
 
 function parseNote(source: string, path: string): NoteDocument {
   try {
@@ -270,25 +368,52 @@ function parseNote(source: string, path: string): NoteDocument {
     assertSafeContent(content);
     return NoteDocumentSchema.parse({ frontmatter, content });
   } catch (error) {
-    throw new StorageError("malformed_frontmatter", `Malformed note in ${path}: ${errorMessage(error)}`, { path }, { cause: error });
+    throw new StorageError(
+      "malformed_frontmatter",
+      `Malformed note in ${path}: ${errorMessage(error)}`,
+      { path },
+      { cause: error },
+    );
   }
 }
 
 function parseIndex(source: string): NoteIndexEntry {
-  try { return NoteIndexEntrySchema.parse(JSON.parse(source)); }
-  catch (error) { throw new StorageError("record_validation_failed", `Stored note index failed validation: ${errorMessage(error)}`, {}, { cause: error }); }
+  try {
+    return NoteIndexEntrySchema.parse(JSON.parse(source));
+  } catch (error) {
+    throw new StorageError(
+      "record_validation_failed",
+      `Stored note index failed validation: ${errorMessage(error)}`,
+      {},
+      { cause: error },
+    );
+  }
 }
 
-function identityKey(identity: NoteIdentity): string { return `${identity.scope}/${identity.subjectId}/${identity.about}/${identity.key}`; }
-function parseIdentity(identity: Partial<NoteIdentity>): NoteIdentity {
-  return NoteIdentitySchema.parse({ scope: identity.scope, subjectId: identity.subjectId, about: identity.about, key: identity.key });
+function identityKey(identity: NoteIdentity): string {
+  return `${identity.scope}/${identity.subjectId}/${identity.about}/${identity.key}`;
 }
-function compareEntries(left: NoteIndexEntry, right: NoteIndexEntry): number { return identityKey(left).localeCompare(identityKey(right)) || left.noteId.localeCompare(right.noteId); }
-function uniqueEntries(entries: readonly NoteIndexEntry[]): NoteIndexEntry[] { return [...new Map(entries.map((entry) => [entry.noteId, entry])).values()]; }
-function invalidTree(message: string, path: string): StorageError { return new StorageError("backup_invalid", message, { path }); }
+function parseIdentity(identity: Partial<NoteIdentity>): NoteIdentity {
+  return NoteIdentitySchema.parse({
+    scope: identity.scope,
+    subjectId: identity.subjectId,
+    about: identity.about,
+    key: identity.key,
+  });
+}
+function compareEntries(left: NoteIndexEntry, right: NoteIndexEntry): number {
+  return identityKey(left).localeCompare(identityKey(right)) || left.noteId.localeCompare(right.noteId);
+}
+function uniqueEntries(entries: readonly NoteIndexEntry[]): NoteIndexEntry[] {
+  return [...new Map(entries.map((entry) => [entry.noteId, entry])).values()];
+}
+function invalidTree(message: string, path: string): StorageError {
+  return new StorageError("backup_invalid", message, { path });
+}
 function readdirSafe(path: string): boolean {
-  try { return lstatSync(path).isDirectory(); }
-  catch (error) {
+  try {
+    return lstatSync(path).isDirectory();
+  } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
     throw error;
   }

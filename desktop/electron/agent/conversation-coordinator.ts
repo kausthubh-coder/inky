@@ -1,20 +1,10 @@
 import { randomUUID } from "node:crypto";
 
-import {
-  defineTool,
-  type ToolDefinition,
-} from "@earendil-works/pi-coding-agent";
+import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
-import {
-  buildAgentTurn,
-  buildAgentTurnForTools,
-} from "../../agent-system/turn-builder.js";
-import {
-  noteIsAllowed,
-  retrieveNoteIndex,
-  type NoteRetrievalContext,
-} from "../../agent-system/retrieve.js";
+import { buildAgentTurn, buildAgentTurnForTools } from "../../agent-system/turn-builder.js";
+import { noteIsAllowed, retrieveNoteIndex, type NoteRetrievalContext } from "../../agent-system/retrieve.js";
 import { AgentTrace } from "../../agent-system/trace.js";
 import {
   AddressedSendResultSchema,
@@ -32,11 +22,7 @@ import {
 } from "../../shared/index.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
-import {
-  addUsage,
-  emptyUsage,
-  type AgentUsageSnapshot,
-} from "../telemetry/usage.js";
+import { addUsage, emptyUsage, type AgentUsageSnapshot } from "../telemetry/usage.js";
 import type { AgentSession, AgentSessionTarget } from "./runtime.js";
 
 export interface ConversationRuntime {
@@ -110,9 +96,7 @@ export class ConversationCoordinator {
 
   selectAssignment(assignmentId: string | null): SelectedConversation {
     this.#assertUsable();
-    const target: ConversationTarget = assignmentId
-      ? { kind: "assignment", assignmentId }
-      : { kind: "home" };
+    const target: ConversationTarget = assignmentId ? { kind: "assignment", assignmentId } : { kind: "home" };
     return SelectedConversationSchema.parse({
       target,
       job: this.#requiredJob(target),
@@ -126,7 +110,15 @@ export class ConversationCoordinator {
   state(target: ConversationTarget = { kind: "home" }): ConversationState {
     this.#assertUsable();
     let job = this.#requiredJob(ConversationTargetSchema.parse(target));
-    if (!this.#running.has(job.jobId) && !(target.kind === "assignment" && this.#manager.isWorkerRunning && this.#manager.activeTaskForAssignment(target.assignmentId)) && job.messages.at(-1)?.role === "user") {
+    if (
+      !this.#running.has(job.jobId) &&
+      !(
+        target.kind === "assignment" &&
+        this.#manager.isWorkerRunning &&
+        this.#manager.activeTaskForAssignment(target.assignmentId)
+      ) &&
+      job.messages.at(-1)?.role === "user"
+    ) {
       job = this.#save({
         ...job,
         phase: "aborted",
@@ -176,15 +168,10 @@ export class ConversationCoordinator {
     if (text.length > 100_000) throw new TypeError("The message is too long");
     let job = this.#requiredJob(target);
     if (metadata.clientMessageId) {
-      const prior = job.messages.find(
-        (m) => m.clientMessageId === metadata.clientMessageId,
-      );
+      const prior = job.messages.find((m) => m.clientMessageId === metadata.clientMessageId);
       if (prior) {
-        if (this.#running.has(job.jobId))
-          throw new Error("Inky is still answering that message.");
-        const reply = job.messages.find(
-          (m) => m.role === "assistant" && m.turnIndex === prior.turnIndex,
-        );
+        if (this.#running.has(job.jobId)) throw new Error("Inky is still answering that message.");
+        const reply = job.messages.find((m) => m.role === "assistant" && m.turnIndex === prior.turnIndex);
         return AddressedSendResultSchema.parse({
           job,
           text: reply?.text ?? "",
@@ -195,9 +182,7 @@ export class ConversationCoordinator {
     const refs = (metadata.assignmentRefs ?? []).map((ref) => {
       const assignment = this.#store.assignments.get(ref.assignmentId);
       if (!assignment)
-        throw new Error(
-          "That assignment is no longer available. Remove its reference and try again.",
-        );
+        throw new Error("That assignment is no longer available. Remove its reference and try again.");
       return { assignmentId: assignment.assignmentId, title: assignment.title };
     });
     if (target.kind === "assignment" && this.#manager.isWorkerRunning) {
@@ -206,15 +191,32 @@ export class ConversationCoordinator {
         if (this.#steering.has(job.jobId)) throw new Error("Your previous message is still being delivered.");
         this.#steering.add(job.jobId);
         try {
-          await this.#manager.steerWorker(taskId,text);
+          await this.#manager.steerWorker(taskId, text);
           job = this.#store.agentJobs.get(job.jobId)?.job ?? job;
-          job = this.#save({...job,turnIndex:job.turnIndex+1,updatedAt:this.#now(),messages:[...job.messages,AgentMessageSchema.parse({messageId:randomUUID(),role:"user",text,...metadata,assignmentRefs:refs,createdAt:this.#now(),turnIndex:job.turnIndex+1})]});
-          return AddressedSendResultSchema.parse({job,text:"",outcome:"completed"});
-        } finally { this.#steering.delete(job.jobId); }
+          job = this.#save({
+            ...job,
+            turnIndex: job.turnIndex + 1,
+            updatedAt: this.#now(),
+            messages: [
+              ...job.messages,
+              AgentMessageSchema.parse({
+                messageId: randomUUID(),
+                role: "user",
+                text,
+                ...metadata,
+                assignmentRefs: refs,
+                createdAt: this.#now(),
+                turnIndex: job.turnIndex + 1,
+              }),
+            ],
+          });
+          return AddressedSendResultSchema.parse({ job, text: "", outcome: "completed" });
+        } finally {
+          this.#steering.delete(job.jobId);
+        }
       }
     }
-    if (this.#running.has(job.jobId))
-      throw new Error("Inky is already answering in this conversation");
+    if (this.#running.has(job.jobId)) throw new Error("Inky is already answering in this conversation");
     this.#running.add(job.jobId);
     this.#activity.set(job.jobId, "thinking");
     this.#cancelled.delete(job.jobId);
@@ -232,8 +234,7 @@ export class ConversationCoordinator {
     });
     let startingAssignment = false;
     try {
-      const hasBrowserClaim =
-        target.kind === "assignment" && Boolean(job.claim);
+      const hasBrowserClaim = target.kind === "assignment" && Boolean(job.claim);
       job = this.#save({
         ...job,
         phase: hasBrowserClaim ? job.phase : "conversing",
@@ -254,11 +255,12 @@ export class ConversationCoordinator {
           ? this.#manager.activeTaskForAssignment(target.assignmentId)
           : null;
       const executionPhase = claimedTaskId ? this.#store.lifecycle.getExecution(claimedTaskId)?.phase : null;
-      const activeTaskId = claimedTaskId && (!executionPhase || ["working", "needs_user"].includes(executionPhase)) ? claimedTaskId : null;
+      const activeTaskId =
+        claimedTaskId && (!executionPhase || ["working", "needs_user"].includes(executionPhase))
+          ? claimedTaskId
+          : null;
       if (job.claim && !claimedTaskId) {
-        throw new Error(
-          "This assignment's browser claim is stale; reopen Studi so it can recover safely",
-        );
+        throw new Error("This assignment's browser claim is stale; reopen Studi so it can recover safely");
       }
       let connectedTools: readonly ToolDefinition[] = [];
       if (!activeTaskId) {
@@ -268,9 +270,7 @@ export class ConversationCoordinator {
           /* Connected apps cannot disable local conversation tools. */
         }
       }
-      const tools = activeTaskId
-        ? []
-        : [...this.#tools(target), ...connectedTools];
+      const tools = activeTaskId ? [] : [...this.#tools(target), ...connectedTools];
       const actualToolNames = activeTaskId
         ? [...this.#manager.workerToolNames()]
         : tools.map((tool) => tool.name);
@@ -286,9 +286,7 @@ export class ConversationCoordinator {
           },
           {
             title: "Assignments mentioned by the student",
-            content: JSON.stringify(
-              refs.map((ref) => this.#store.assignments.get(ref.assignmentId)),
-            ),
+            content: JSON.stringify(refs.map((ref) => this.#store.assignments.get(ref.assignmentId))),
           },
           {
             title: "Relevant notes",
@@ -308,13 +306,8 @@ export class ConversationCoordinator {
             text,
             brief,
           );
-      if (
-        !activeTaskId &&
-        JSON.stringify(turn.toolNames) !== JSON.stringify(actualToolNames)
-      ) {
-        throw new Error(
-          "The conversation tools do not match the selected capability packs",
-        );
+      if (!activeTaskId && JSON.stringify(turn.toolNames) !== JSON.stringify(actualToolNames)) {
+        throw new Error("The conversation tools do not match the selected capability packs");
       }
       await this.#emit(job, "turn_built", {
         prompt: turn.prompt,
@@ -331,8 +324,7 @@ export class ConversationCoordinator {
       const runtimeEvents: AgentRunEvent[] = [];
       const session = activeTaskId ? null : await this.#session(job, tools);
       const sessionId = session?.sessionId ?? job.sessionId;
-      if (!sessionId)
-        throw new Error("The assignment job has no persisted worker session");
+      if (!sessionId) throw new Error("The assignment job has no persisted worker session");
       this.#runtime.takeLastUsage?.();
       await this.#emit(job, "model_started", {
         sessionId,
@@ -346,8 +338,7 @@ export class ConversationCoordinator {
       const observeRuntimeEvent = (event: AgentRunEvent) => {
         const observedAt = Date.now();
         if (event.type === "text") this.#activity.set(job.jobId, "typing");
-        if (event.type === "text" && firstTokenAt === null)
-          firstTokenAt = observedAt;
+        if (event.type === "text" && firstTokenAt === null) firstTokenAt = observedAt;
         if (event.type === "tool_finished") {
           toolDurationMs += event.durationMs ?? 0;
           if (event.outcome === "failed") errorCount += 1;
@@ -355,13 +346,8 @@ export class ConversationCoordinator {
         runtimeEvents.push(event);
       };
       if (activeTaskId) {
-        if (!this.#assignmentWorkRunner)
-          throw new Error("Assignment work is not ready");
-        const result = await this.#assignmentWorkRunner(
-          activeTaskId,
-          turn.prompt,
-          observeRuntimeEvent,
-        );
+        if (!this.#assignmentWorkRunner) throw new Error("Assignment work is not ready");
+        const result = await this.#assignmentWorkRunner(activeTaskId, turn.prompt, observeRuntimeEvent);
         reply = result.text;
         observedOutcome = result.outcome;
       } else {
@@ -377,8 +363,7 @@ export class ConversationCoordinator {
           unsubscribe();
         }
       }
-      for (const event of runtimeEvents)
-        await this.#recordRuntimeEvent(job, event);
+      for (const event of runtimeEvents) await this.#recordRuntimeEvent(job, event);
       const outcome = AddressedSendResultSchema.shape.outcome.parse(
         this.#cancelled.has(job.jobId) ? "aborted" : observedOutcome,
       );
@@ -395,8 +380,7 @@ export class ConversationCoordinator {
         outcome,
         durationMs: totalDurationMs,
         totalDurationMs,
-        firstTokenMs:
-          firstTokenAt === null ? null : Math.max(0, firstTokenAt - startedAt),
+        firstTokenMs: firstTokenAt === null ? null : Math.max(0, firstTokenAt - startedAt),
         toolDurationMs,
         modelDurationMs: Math.max(0, totalDurationMs - toolDurationMs),
         errorCount,
@@ -427,28 +411,24 @@ export class ConversationCoordinator {
               : outcome === "aborted"
                 ? "aborted"
                 : "failed",
-          messages: assistantMessage
-            ? [...latest.messages, assistantMessage]
-            : latest.messages,
+          messages: assistantMessage ? [...latest.messages, assistantMessage] : latest.messages,
           updatedAt: this.#now(),
         },
         session?.sessionPath,
       );
-      const failure = [...runtimeEvents].reverse().find(
-        (event) => event.type === "terminal" && event.outcome === "failed",
-      );
+      const failure = [...runtimeEvents]
+        .reverse()
+        .find((event) => event.type === "terminal" && event.outcome === "failed");
       if (outcome === "failed")
         await this.#emit(job, "error", {
           message:
-            failure?.type === "terminal"
-              ? (failure.reason ?? "Model reply failed")
-              : "Model reply failed",
+            failure?.type === "terminal" ? (failure.reason ?? "Model reply failed") : "Model reply failed",
           outcome,
         });
-      if (assistantMessage)
-        await this.#emit(job, "reply_recorded", { text: reply });
+      if (assistantMessage) await this.#emit(job, "reply_recorded", { text: reply });
       await this.#emit(job, "phase_changed", { phase: job.phase });
-      const requestedTaskId = target.kind === "assignment" ? this.#requestedStarts.get(target.assignmentId) : undefined;
+      const requestedTaskId =
+        target.kind === "assignment" ? this.#requestedStarts.get(target.assignmentId) : undefined;
       if (requestedTaskId && outcome === "completed" && !this.#cancelled.has(job.jobId)) {
         // The worker reuses this job's session file. Finish and persist the chat
         // turn before disposing its session and transferring it to the worker.
@@ -459,9 +439,7 @@ export class ConversationCoordinator {
       return AddressedSendResultSchema.parse({ outcome, text: reply, job });
     } catch (error) {
       const latest = this.#store.agentJobs.get(job.jobId)?.job ?? job;
-      job = latest.claim
-        ? latest
-        : this.#save({ ...latest, phase: "failed", updatedAt: this.#now() });
+      job = latest.claim ? latest : this.#save({ ...latest, phase: "failed", updatedAt: this.#now() });
       const message = AgentMessageSchema.parse({
         messageId: randomUUID(),
         role: "assistant",
@@ -474,8 +452,7 @@ export class ConversationCoordinator {
       });
       job = this.#save({ ...job, messages: [...job.messages, message] });
       await this.#emit(job, "error", {
-        message:
-          error instanceof Error ? error.message : "The conversation failed",
+        message: error instanceof Error ? error.message : "The conversation failed",
         stack: error instanceof Error ? error.stack : null,
         messageId: message.messageId,
         clientMessageId: metadata.clientMessageId,
@@ -520,29 +497,19 @@ export class ConversationCoordinator {
   }
 
   #requiredJob(target: ConversationTarget): AgentJob {
-    if (
-      target.kind === "assignment" &&
-      !this.#store.assignments.get(target.assignmentId)
-    ) {
+    if (target.kind === "assignment" && !this.#store.assignments.get(target.assignmentId)) {
       throw new Error(`Assignment ${target.assignmentId} does not exist`);
     }
-    const existing = this.#store.agentJobs.getByTarget(
-      target,
-      this.#ownerSubject,
-    );
+    const existing = this.#store.agentJobs.getByTarget(target, this.#ownerSubject);
     if (existing) return existing.job;
     const now = this.#now();
     const legacyHome =
-      target.kind === "home" && !this.#ownerSubject
-        ? this.#store.manager.getManagerSession()
-        : null;
+      target.kind === "home" && !this.#ownerSubject ? this.#store.manager.getManagerSession() : null;
     const job = AgentJobSchema.parse({
       schemaVersion: 1,
       jobId: randomUUID(),
       target,
-      ...(target.kind === "home" && this.#ownerSubject
-        ? { ownerSubject: this.#ownerSubject }
-        : {}),
+      ...(target.kind === "home" && this.#ownerSubject ? { ownerSubject: this.#ownerSubject } : {}),
       phase: "idle",
       turnIndex: 0,
       runId: randomUUID(),
@@ -560,10 +527,7 @@ export class ConversationCoordinator {
     return job;
   }
 
-  async #session(
-    job: AgentJob,
-    tools: readonly ToolDefinition[],
-  ): Promise<AgentSession> {
+  async #session(job: AgentJob, tools: readonly ToolDefinition[]): Promise<AgentSession> {
     const active = this.#sessions.get(job.jobId);
     if (active) return active;
     const persisted = this.#store.agentJobs.get(job.jobId);
@@ -574,25 +538,19 @@ export class ConversationCoordinator {
     const session = await this.#runtime.createJobSession(
       ConversationTargetSchema.parse(job.target),
       tools,
-      resumePath
-        ? { resumeSessionPath: resumePath }
-        : {},
+      resumePath ? { resumeSessionPath: resumePath } : {},
     );
     if (!session.sessionPath) {
       session.dispose();
       throw new Error("Pi did not persist the Inky job session");
     }
     this.#sessions.set(job.jobId, session);
-    this.#save(
-      { ...job, sessionId: session.sessionId, updatedAt: this.#now() },
-      session.sessionPath,
-    );
+    this.#save({ ...job, sessionId: session.sessionId, updatedAt: this.#now() }, session.sessionPath);
     return session;
   }
 
   #save(job: AgentJob, sessionPath?: string | null): AgentJob {
-    const previousPath =
-      this.#store.agentJobs.get(job.jobId)?.sessionPath ?? null;
+    const previousPath = this.#store.agentJobs.get(job.jobId)?.sessionPath ?? null;
     return this.#store.agentJobs.put(
       AgentJobSchema.parse(job),
       sessionPath === undefined ? previousPath : sessionPath,
@@ -609,25 +567,24 @@ export class ConversationCoordinator {
     const assignment = this.#store.assignments.get(target.assignmentId);
     return {
       assignment,
-      executions: this.#store.tasks.listAll().filter(task => task.assignmentId === target.assignmentId).map(task => this.#store.lifecycle.getExecution(task.taskId)).filter(Boolean),
-      tasks: this.#store.tasks
+      executions: this.#store.tasks
         .listAll()
-        .filter((task) => task.assignmentId === target.assignmentId),
+        .filter((task) => task.assignmentId === target.assignmentId)
+        .map((task) => this.#store.lifecycle.getExecution(task.taskId))
+        .filter(Boolean),
+      tasks: this.#store.tasks.listAll().filter((task) => task.assignmentId === target.assignmentId),
     };
   }
 
   #tools(target: ConversationTarget): readonly ToolDefinition[] {
-    return target.kind === "home"
-      ? this.#homeTools()
-      : this.#assignmentTools(target.assignmentId);
+    return target.kind === "home" ? this.#homeTools() : this.#assignmentTools(target.assignmentId);
   }
 
   #homeTools(): readonly ToolDefinition[] {
     const status = defineTool({
       name: "home_status",
       label: "Read Studi status",
-      description:
-        "Read the current Studi queue and visible browser work state.",
+      description: "Read the current Studi queue and visible browser work state.",
       parameters: Type.Object({}, { additionalProperties: false }),
       execute: async () => toolResult(this.#brief({ kind: "home" })),
     });
@@ -641,8 +598,7 @@ export class ConversationCoordinator {
     const start = defineTool({
       name: "queue_start",
       label: "Start assignment",
-      description:
-        "Start one verified assignment after the student clearly asks Inky to do it.",
+      description: "Start one verified assignment after the student clearly asks Inky to do it.",
       parameters: Type.Object(
         { taskId: Type.String({ minLength: 1, maxLength: 256 }) },
         { additionalProperties: false },
@@ -653,8 +609,7 @@ export class ConversationCoordinator {
     const cancel = defineTool({
       name: "queue_cancel",
       label: "Cancel assignment",
-      description:
-        "Cancel one queued or active assignment after the student asks.",
+      description: "Cancel one queued or active assignment after the student asks.",
       parameters: Type.Object(
         { taskId: Type.String({ minLength: 1, maxLength: 256 }) },
         { additionalProperties: false },
@@ -684,42 +639,55 @@ export class ConversationCoordinator {
       label: "Read assignment",
       description: "Read the verified details for this addressed assignment.",
       parameters: Type.Object({}, { additionalProperties: false }),
-      execute: async () =>
-        toolResult(this.#brief({ kind: "assignment", assignmentId })),
+      execute: async () => toolResult(this.#brief({ kind: "assignment", assignmentId })),
     });
     const startAssignment = defineTool({
       name: "assignment_start",
       label: "Start this assignment",
-      description: "Ask Studi's homework worker to complete this assignment using its saved source. Use when the student says do it, start, or finish it. End this conversation turn after acceptance so the worker can take over.",
+      description:
+        "Ask Studi's homework worker to complete this assignment using its saved source. Use when the student says do it, start, or finish it. End this conversation turn after acceptance so the worker can take over.",
       parameters: Type.Object({}, { additionalProperties: false }),
       execute: async () => {
         const assignment = this.#store.assignments.get(assignmentId)!;
         if (!this.#manager.resolvePermission(assignmentId, assignment.courseId).mayAttempt) {
-          throw new Error("Your homework rules don't allow Inky to work on this assignment. Change its homework rule to allow an attempt first.");
+          throw new Error(
+            "Your homework rules don't allow Inky to work on this assignment. Change its homework rule to allow an attempt first.",
+          );
         }
-        if (this.#manager.state().lease) throw new Error("Inky is already working in the school browser. Pause that work before starting this assignment.");
-        const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId && ["discovered", "queued", "failed", "cancelled"].includes(task.state));
-        if (tasks.length !== 1) throw new Error("This assignment has no single task ready to start. Check its current work status first.");
+        if (this.#manager.state().lease)
+          throw new Error(
+            "Inky is already working in the school browser. Pause that work before starting this assignment.",
+          );
+        const tasks = this.#store.tasks
+          .listAll()
+          .filter(
+            (task) =>
+              task.assignmentId === assignmentId &&
+              ["discovered", "queued", "failed", "cancelled"].includes(task.state),
+          );
+        if (tasks.length !== 1)
+          throw new Error(
+            "This assignment has no single task ready to start. Check its current work status first.",
+          );
         this.#requestedStarts.set(assignmentId, tasks[0]!.taskId);
-        return toolResult({ status: "requested", assignmentId, message: "The homework worker will start after this reply ends, using the saved assignment source and current homework rules." });
+        return toolResult({
+          status: "requested",
+          assignmentId,
+          message:
+            "The homework worker will start after this reply ends, using the saved assignment source and current homework rules.",
+        });
       },
     });
     const search = defineTool({
       name: "note_search",
       label: "Search assignment notes",
-      description:
-        "Search local notes available to this assignment conversation.",
+      description: "Search local notes available to this assignment conversation.",
       parameters: Type.Object(
         { query: Type.String({ minLength: 1, maxLength: 500 }) },
         { additionalProperties: false },
       ),
       execute: async (_toolCallId, input) =>
-        toolResult(
-          await this.#searchNotes(
-            { kind: "assignment", assignmentId },
-            input.query,
-          ),
-        ),
+        toolResult(await this.#searchNotes({ kind: "assignment", assignmentId }, input.query)),
     });
     const read = defineTool({
       name: "note_read",
@@ -731,13 +699,9 @@ export class ConversationCoordinator {
       ),
       execute: async (_toolCallId, input) => {
         const context = this.#noteContext({ kind: "assignment", assignmentId });
-        const entry = this.#store.notes
-          .list()
-          .find((candidate) => candidate.noteId === input.noteId);
+        const entry = this.#store.notes.list().find((candidate) => candidate.noteId === input.noteId);
         if (!entry || !noteIsAllowed(entry, context, "search"))
-          throw new Error(
-            `Note ${input.noteId} is not available to this assignment`,
-          );
+          throw new Error(`Note ${input.noteId} is not available to this assignment`);
         const note = await this.#store.notes.read(input.noteId);
         if (!note) throw new Error(`Note ${input.noteId} does not exist`);
         return toolResult(note);
@@ -747,11 +711,7 @@ export class ConversationCoordinator {
   }
 
   async #automaticNotes(target: ConversationTarget): Promise<unknown[]> {
-    const entries = retrieveNoteIndex(
-      this.#store.notes.list(),
-      this.#noteContext(target),
-      "automatic",
-    );
+    const entries = retrieveNoteIndex(this.#store.notes.list(), this.#noteContext(target), "automatic");
     return Promise.all(
       entries.map(async (entry) => ({
         entry,
@@ -760,17 +720,9 @@ export class ConversationCoordinator {
     );
   }
 
-  async #searchNotes(
-    target: ConversationTarget,
-    query: string,
-  ): Promise<unknown[]> {
+  async #searchNotes(target: ConversationTarget, query: string): Promise<unknown[]> {
     const context = this.#noteContext(target);
-    const allowed = retrieveNoteIndex(
-      this.#store.notes.list(),
-      context,
-      "search",
-      64,
-    );
+    const allowed = retrieveNoteIndex(this.#store.notes.list(), context, "search", 64);
     const terms = query
       .trim()
       .toLocaleLowerCase()
@@ -788,12 +740,8 @@ export class ConversationCoordinator {
     for (const entry of allowed) {
       const document = await this.#store.notes.read(entry.noteId);
       if (!document) continue;
-      const haystack =
-        `${entry.title}\n${entry.key}\n${document.content}`.toLocaleLowerCase();
-      const score = terms.reduce(
-        (total, term) => total + (haystack.includes(term) ? 1 : 0),
-        0,
-      );
+      const haystack = `${entry.title}\n${entry.key}\n${document.content}`.toLocaleLowerCase();
+      const score = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0), 0);
       if (score)
         matches.push({
           noteId: entry.noteId,
@@ -806,10 +754,7 @@ export class ConversationCoordinator {
         });
     }
     return matches
-      .sort(
-        (left, right) =>
-          right.score - left.score || left.noteId.localeCompare(right.noteId),
-      )
+      .sort((left, right) => right.score - left.score || left.noteId.localeCompare(right.noteId))
       .slice(0, 25)
       .map(({ score: _score, ...match }) => match);
   }
@@ -817,8 +762,7 @@ export class ConversationCoordinator {
   #noteContext(target: ConversationTarget): NoteRetrievalContext {
     if (target.kind === "home") return { kind: "home" };
     const assignment = this.#store.assignments.get(target.assignmentId);
-    if (!assignment)
-      throw new Error(`Assignment ${target.assignmentId} does not exist`);
+    if (!assignment) throw new Error(`Assignment ${target.assignmentId} does not exist`);
     return {
       kind: "assignment",
       assignmentId: assignment.assignmentId,
@@ -832,10 +776,7 @@ export class ConversationCoordinator {
     };
   }
 
-  async #recordRuntimeEvent(
-    job: AgentJob,
-    event: AgentRunEvent,
-  ): Promise<void> {
+  async #recordRuntimeEvent(job: AgentJob, event: AgentRunEvent): Promise<void> {
     if (event.type === "tool_started") {
       await this.#emit(job, "tool_started", {
         toolCallId: event.toolCallId,
@@ -881,15 +822,9 @@ function toolResult(value: unknown) {
   };
 }
 
-function withTotalTokens(
-  usage: AgentUsageSnapshot,
-): AgentUsageSnapshot & { readonly totalTokens: number } {
+function withTotalTokens(usage: AgentUsageSnapshot): AgentUsageSnapshot & { readonly totalTokens: number } {
   return {
     ...usage,
-    totalTokens:
-      usage.inputTokens +
-      usage.outputTokens +
-      usage.cacheReadTokens +
-      usage.cacheWriteTokens,
+    totalTokens: usage.inputTokens + usage.outputTokens + usage.cacheReadTokens + usage.cacheWriteTokens,
   };
 }

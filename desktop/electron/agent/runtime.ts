@@ -39,12 +39,7 @@ import {
 } from "../../shared/index.js";
 import type { BrowserController } from "../browser/controller.js";
 import { createBrowserTools } from "../browser/tools.js";
-import {
-  addUsage,
-  emptyUsage,
-  readMessageUsage,
-  type AgentUsageSnapshot,
-} from "../telemetry/usage.js";
+import { addUsage, emptyUsage, readMessageUsage, type AgentUsageSnapshot } from "../telemetry/usage.js";
 
 type PiSessionOptions = NonNullable<Parameters<typeof createAgentSession>[0]>;
 type PiModel = NonNullable<PiSessionOptions["model"]>;
@@ -109,7 +104,7 @@ export interface PiAgentRuntimeOptions {
   readonly model?: PiModel;
   readonly browserController?: BrowserController;
   readonly scanBrowserController?: BrowserController;
-  readonly assignmentBrowser?: (assignmentId:string) => BrowserController;
+  readonly assignmentBrowser?: (assignmentId: string) => BrowserController;
   readonly onUsage?: (usage: AgentUsageSnapshot, kind: UsageEventKind) => void;
   readonly onSessionError?: (error: unknown) => void;
   readonly onDiagnostic?: (event: RuntimeDiagnostic) => void;
@@ -135,7 +130,7 @@ export class PiAgentRuntime implements AgentRuntime {
   readonly #modelRuntime: ModelRuntime;
   readonly #workerTools: ToolDefinition[];
   readonly #scanBrowserTools: ToolDefinition[] | null;
-  readonly #assignmentBrowser: ((assignmentId:string) => BrowserController) | undefined;
+  readonly #assignmentBrowser: ((assignmentId: string) => BrowserController) | undefined;
   readonly #browserTools: ToolDefinition[] | null;
   readonly #assignmentBrowserTools: ToolDefinition[] | null;
   readonly #onUsage: ((usage: AgentUsageSnapshot, kind: UsageEventKind) => void) | null;
@@ -153,15 +148,15 @@ export class PiAgentRuntime implements AgentRuntime {
     this.#onUsage = options.onUsage ?? null;
     this.#onSessionError = options.onSessionError ?? (() => undefined);
     this.#onDiagnostic = options.onDiagnostic ?? (() => undefined);
-    this.#browserTools = options.browserController
-      ? createBrowserTools(options.browserController)
-      : null;
+    this.#browserTools = options.browserController ? createBrowserTools(options.browserController) : null;
     this.#assignmentBrowserTools = options.browserController
       ? createBrowserTools(options.browserController, { includeSubmit: false })
       : null;
     this.#assignmentBrowser = options.assignmentBrowser;
     const scanBrowser = options.scanBrowserController ?? options.browserController;
-    this.#scanBrowserTools = scanBrowser ? createBrowserTools(scanBrowser, { includeSubmit: false, readOnly: true }) : null;
+    this.#scanBrowserTools = scanBrowser
+      ? createBrowserTools(scanBrowser, { includeSubmit: false, readOnly: true })
+      : null;
     this.#workerTools = this.#browserTools ?? [studiProbe];
     const initialModel = options.model ?? selectDefaultModel(modelRuntime, DEFAULT_AGENT_PROVIDER_ID);
     if (initialModel) {
@@ -192,9 +187,16 @@ export class PiAgentRuntime implements AgentRuntime {
       this.#createPiSession(
         nextTarget,
         this.#workerTools,
-        (await buildRuntimeInstructions("assignment", this.#workerTools.map((tool) => tool.name))).text,
+        (
+          await buildRuntimeInstructions(
+            "assignment",
+            this.#workerTools.map((tool) => tool.name),
+          )
+        ).text,
       );
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "assignment_turn"));
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) =>
+      this.addUsage(usage, "assignment_turn"),
+    );
   }
 
   async createAssignmentSession(
@@ -204,7 +206,10 @@ export class PiAgentRuntime implements AgentRuntime {
     if (!this.#assignmentBrowserTools) {
       throw new Error("The Studi assignment session requires the visible school browser");
     }
-    const browserTools = target.assignmentId && this.#assignmentBrowser ? createBrowserTools(this.#assignmentBrowser(target.assignmentId), {includeSubmit:false}) : this.#assignmentBrowserTools;
+    const browserTools =
+      target.assignmentId && this.#assignmentBrowser
+        ? createBrowserTools(this.#assignmentBrowser(target.assignmentId), { includeSubmit: false })
+        : this.#assignmentBrowserTools;
     const tools = [...browserTools, ...recordingTools];
     if (new Set(tools.map((tool) => tool.name)).size !== tools.length) {
       throw new Error("The Studi assignment session received a duplicate tool name");
@@ -213,9 +218,16 @@ export class PiAgentRuntime implements AgentRuntime {
       this.#createPiSession(
         nextTarget,
         tools,
-        (await buildRuntimeInstructions("assignment", tools.map((tool) => tool.name))).text,
+        (
+          await buildRuntimeInstructions(
+            "assignment",
+            tools.map((tool) => tool.name),
+          )
+        ).text,
       );
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "assignment_turn"));
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) =>
+      this.addUsage(usage, "assignment_turn"),
+    );
   }
 
   async createScanSession(
@@ -241,9 +253,16 @@ export class PiAgentRuntime implements AgentRuntime {
       this.#createPiSession(
         nextTarget,
         tools,
-        (await buildRuntimeInstructions("scan", tools.map((tool) => tool.name))).text,
+        (
+          await buildRuntimeInstructions(
+            "scan",
+            tools.map((tool) => tool.name),
+          )
+        ).text,
       );
-    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "scan"));
+    return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) =>
+      this.addUsage(usage, "scan"),
+    );
   }
 
   async createJobSession(
@@ -262,12 +281,15 @@ export class PiAgentRuntime implements AgentRuntime {
       this.#createPiSession(
         nextTarget,
         tools,
-        (await buildRuntimeInstructions(role, tools.map((tool) => tool.name))).text,
+        (
+          await buildRuntimeInstructions(
+            role,
+            tools.map((tool) => tool.name),
+          )
+        ).text,
       );
-    return new PiBackedAgentSession(
-      await createPiSession(sessionTarget),
-      createPiSession,
-      (usage) => this.addUsage(usage, "conversation"),
+    return new PiBackedAgentSession(await createPiSession(sessionTarget), createPiSession, (usage) =>
+      this.addUsage(usage, "conversation"),
     );
   }
 
@@ -394,9 +416,7 @@ export class PiAgentRuntime implements AgentRuntime {
       prompt: (prompt) => answerLoginPrompt(prompt, provider.signIn, callbacks),
       notify: (event) => {
         if (event.type === "auth_url" || event.type === "device_code") {
-          const url = new URL(
-            event.type === "auth_url" ? event.url : event.verificationUri,
-          );
+          const url = new URL(event.type === "auth_url" ? event.url : event.verificationUri);
           if (url.protocol !== "https:") {
             throw new Error(`${provider.name} returned an unsafe authorization URL`);
           }
@@ -466,16 +486,27 @@ export class PiAgentRuntime implements AgentRuntime {
     // final Codex payload so it survives retries and both supported transports.
     const diagnostics = new RuntimeDiagnostics(session.sessionId, this.#onDiagnostic);
     diagnostics.record("session_created", {
-      system_prompt: systemPrompt, model: this.#model.id, provider: this.#model.provider,
-      reasoning_effort: this.#thinkingLevel, tools: tools.map(tool => ({ name: tool.name, description: tool.description, parameters: tool.parameters })),
+      system_prompt: systemPrompt,
+      model: this.#model.id,
+      provider: this.#model.provider,
+      reasoning_effort: this.#thinkingLevel,
+      tools: tools.map((tool) => ({
+        name: tool.name,
+        description: tool.description,
+        parameters: tool.parameters,
+      })),
       resumed: !!target.resumeSessionPath,
     });
-    session.subscribe(event => diagnostics.accept(event));
+    session.subscribe((event) => diagnostics.accept(event));
     const onPayload = session.agent.onPayload;
     session.agent.onPayload = async (payload, model) => {
       let prepared = (await onPayload?.(payload, model)) ?? payload;
-      if (model.provider === "openai-codex" && model.id === "gpt-6-astra"
-        && prepared !== null && typeof prepared === "object") {
+      if (
+        model.provider === "openai-codex" &&
+        model.id === "gpt-6-astra" &&
+        prepared !== null &&
+        typeof prepared === "object"
+      ) {
         prepared = { ...prepared, service_tier: "priority" };
       }
       diagnostics.providerRequest(model.id, model.provider, prepared);
@@ -496,7 +527,11 @@ export class PiAgentRuntime implements AgentRuntime {
   }
 
   #reportSessionError(error: unknown): void {
-    try { this.#onSessionError(error); } catch { /* Keep the original runtime error. */ }
+    try {
+      this.#onSessionError(error);
+    } catch {
+      /* Keep the original runtime error. */
+    }
   }
 }
 
@@ -526,18 +561,18 @@ async function answerLoginPrompt(
       reject(new Error("Login callback completed"));
       return;
     }
-    signal?.addEventListener(
-      "abort",
-      () => reject(new Error("Login callback completed")),
-      { once: true },
-    );
+    signal?.addEventListener("abort", () => reject(new Error("Login callback completed")), { once: true });
   });
 }
 
 function sameNames(actual: readonly string[], expected: readonly string[]): boolean {
   const names = new Set(actual);
-  return actual.length === expected.length && names.size === actual.length
-    && new Set(expected).size === expected.length && expected.every((name) => names.has(name));
+  return (
+    actual.length === expected.length &&
+    names.size === actual.length &&
+    new Set(expected).size === expected.length &&
+    expected.every((name) => names.has(name))
+  );
 }
 
 function selectDefaultModel(modelRuntime: ModelRuntime, providerId: AgentProviderId): PiModel | undefined {
@@ -680,8 +715,7 @@ class PiBackedAgentSession implements AgentSession {
 }
 
 export class PiEventNormalizer {
-  #lastStopReason: "stop" | "length" | "toolUse" | "error" | "aborted" | "deferred" | null =
-    null;
+  #lastStopReason: "stop" | "length" | "toolUse" | "error" | "aborted" | "deferred" | null = null;
   #lastProviderError: string | null = null;
   #hasTerminalEvent = false;
   #hasAbortEvent = false;
@@ -731,7 +765,10 @@ export class PiEventNormalizer {
         const stopReason = readAssistantStopReason(event.message);
         if (stopReason) {
           this.#lastStopReason = stopReason;
-          this.#lastProviderError = "errorMessage" in event.message && typeof event.message.errorMessage === "string" ? stripSecrets(event.message.errorMessage) : null;
+          this.#lastProviderError =
+            "errorMessage" in event.message && typeof event.message.errorMessage === "string"
+              ? stripSecrets(event.message.errorMessage)
+              : null;
         }
         if (stopReason === "aborted" && !this.#hasAbortEvent) {
           this.#hasAbortEvent = true;
@@ -825,7 +862,9 @@ export class PiEventNormalizer {
             schemaVersion: STUDI_SCHEMA_VERSION,
             type: "terminal",
             outcome,
-            ...(outcome === "failed" ? { reason: this.#lastProviderError || "The provider returned an error." } : {}),
+            ...(outcome === "failed"
+              ? { reason: this.#lastProviderError || "The provider returned an error." }
+              : {}),
           }),
         ];
       }
@@ -839,13 +878,7 @@ export class PiEventNormalizer {
   }
 }
 
-type NormalizedStopReason =
-  | "stop"
-  | "length"
-  | "toolUse"
-  | "error"
-  | "aborted"
-  | "deferred";
+type NormalizedStopReason = "stop" | "length" | "toolUse" | "error" | "aborted" | "deferred";
 
 function readAssistantStopReason(message: unknown): NormalizedStopReason | null {
   if (!message || typeof message !== "object") {
@@ -1056,8 +1089,7 @@ class FakeAgentSession implements AgentSession {
     this.#assertUsable();
     this.#replacementNumber += 1;
     this.#sessionId = `fake-replacement-${this.#replacementNumber}`;
-    this.#sessionPath =
-      target.resumeSessionPath ?? `fake-replacement-${this.#replacementNumber}.jsonl`;
+    this.#sessionPath = target.resumeSessionPath ?? `fake-replacement-${this.#replacementNumber}.jsonl`;
   }
 
   dispose(): void {

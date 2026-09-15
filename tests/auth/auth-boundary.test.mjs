@@ -39,7 +39,10 @@ test("PKCE transactions use independent 256-bit values and the exact S256 challe
   assert.equal(new Set(transactions.map(({ nonce }) => nonce)).size, transactions.length);
   for (const transaction of transactions) {
     assert.equal(transaction.verifier.length, 43);
-    assert.equal(transaction.challenge, createHash("sha256").update(transaction.verifier).digest("base64url"));
+    assert.equal(
+      transaction.challenge,
+      createHash("sha256").update(transaction.verifier).digest("base64url"),
+    );
     assert.equal(transaction.state.length, 43);
     assert.equal(transaction.nonce.length, 43);
   }
@@ -51,7 +54,9 @@ test("loopback callback binds an ephemeral 127.0.0.1 port and consumes one valid
   const first = await fetch(`${callback.redirectUri}?code=first-code&state=expected-state`);
   assert.equal(first.status, 200);
   assert.equal(await callback.code, "first-code");
-  const duplicate = await fetch(`${callback.redirectUri}?code=second-code&state=expected-state`).catch(() => null);
+  const duplicate = await fetch(`${callback.redirectUri}?code=second-code&state=expected-state`).catch(
+    () => null,
+  );
   assert.ok(duplicate === null || duplicate.status === 410);
   await callback.close();
 });
@@ -87,7 +92,14 @@ test("offline approval is bound to one device and never exceeds 24 hours", () =>
   );
   assert.deepEqual(validOfflineCache(cache, cache.deviceId, checkedAt + 1_000), cache);
   assert.equal(validOfflineCache(cache, "00000000-0000-4000-8000-000000000011", checkedAt + 1_000), null);
-  assert.equal(validOfflineCache({ ...cache, expiresAt: new Date(checkedAt + 24 * 60 * 60_000 + 1).toISOString() }, cache.deviceId, checkedAt + 1_000), null);
+  assert.equal(
+    validOfflineCache(
+      { ...cache, expiresAt: new Date(checkedAt + 24 * 60 * 60_000 + 1).toISOString() },
+      cache.deviceId,
+      checkedAt + 1_000,
+    ),
+    null,
+  );
   assert.equal(validOfflineCache(cache, cache.deviceId, Date.parse(cache.expiresAt)), null);
 });
 
@@ -144,7 +156,11 @@ test("OIDC nonce mismatch is rejected before any Convex account call", async () 
             new URLSearchParams(init.body).get("redirect_uri"),
             /^http:\/\/localhost:\d+\/callback$/,
           );
-          const idToken = await new SignJWT({ nonce: "wrong-nonce", email: "student@example.com", name: "Student" })
+          const idToken = await new SignJWT({
+            nonce: "wrong-nonce",
+            email: "student@example.com",
+            name: "Student",
+          })
             .setProtectedHeader({ alg: "RS256", kid: jwk.kid })
             .setIssuer(issuer)
             .setAudience(clientId)
@@ -152,7 +168,12 @@ test("OIDC nonce mismatch is rejected before any Convex account call", async () 
             .setIssuedAt()
             .setExpirationTime("5m")
             .sign(privateKey);
-          return jsonResponse({ access_token: "access", refresh_token: "refresh", id_token: idToken, expires_in: 300 });
+          return jsonResponse({
+            access_token: "access",
+            refresh_token: "refresh",
+            id_token: idToken,
+            expires_in: 300,
+          });
         }
         throw new Error(`Unexpected request: ${url}`);
       },
@@ -173,8 +194,12 @@ function memoryVault() {
   testRoots.push(root);
   return new AuthVault(root, {
     isEncryptionAvailable: () => false,
-    encryptString: () => { throw new Error("memory fallback must not encrypt"); },
-    decryptString: () => { throw new Error("memory fallback must not decrypt"); },
+    encryptString: () => {
+      throw new Error("memory fallback must not encrypt");
+    },
+    decryptString: () => {
+      throw new Error("memory fallback must not decrypt");
+    },
   });
 }
 

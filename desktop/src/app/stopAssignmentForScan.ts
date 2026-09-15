@@ -6,7 +6,13 @@ export function canStopAssignmentForScan(busy: string | null): boolean {
 
 // Takeover waits for the worker to abort before cancellation releases its lease.
 // A new owner or a failed stop must never turn into a scan request.
-export async function stopAssignmentForScan(studi: Pick<StudiRendererApi, "getLifecycleState" | "requestAssignmentTakeover" | "cancelAssignment" | "getManagerState">, taskId: string): Promise<void> {
+export async function stopAssignmentForScan(
+  studi: Pick<
+    StudiRendererApi,
+    "getLifecycleState" | "requestAssignmentTakeover" | "cancelAssignment" | "getManagerState"
+  >,
+  taskId: string,
+): Promise<void> {
   const current = await studi.getLifecycleState();
   if (current.manager.lease?.taskId !== taskId || current.execution?.taskId !== taskId) {
     throw new Error("The browser’s work changed. Check what Inky is doing before scanning.");
@@ -17,6 +23,8 @@ export async function stopAssignmentForScan(studi: Pick<StudiRendererApi, "getLi
   }
   await studi.cancelAssignment({ taskId });
   if ((await studi.getManagerState()).lease) {
-    throw new Error("The school browser is still in use. Your scan hasn’t started. Try again when it’s free.");
+    throw new Error(
+      "The school browser is still in use. Your scan hasn’t started. Try again when it’s free.",
+    );
   }
 }

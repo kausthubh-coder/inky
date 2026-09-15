@@ -1,10 +1,6 @@
 import { z } from "zod";
 
-import {
-  createIpcApi,
-  createIpcHandlerRegistrations,
-  type IpcHandlers,
-} from "../../desktop/shared/ipc.js";
+import { createIpcApi, createIpcHandlerRegistrations, type IpcHandlers } from "../../desktop/shared/ipc.js";
 
 const registry = Object.freeze({
   measure: Object.freeze({

@@ -1,7 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { agentRuntimeAttentionCopy, classifyAgentRuntimeAttention, defaultModelFor, hasCompletedSchoolOnboarding, nextSchoolScanAction, presentSchoolOnboardingScan, projectProtectedAuthState, selectedProvider } from "../../dist/shared/index.js";
+import {
+  agentRuntimeAttentionCopy,
+  classifyAgentRuntimeAttention,
+  defaultModelFor,
+  hasCompletedSchoolOnboarding,
+  nextSchoolScanAction,
+  presentSchoolOnboardingScan,
+  projectProtectedAuthState,
+  selectedProvider,
+} from "../../dist/shared/index.js";
 
 const approved = {
   status: "approved",
@@ -23,13 +32,22 @@ test("retained workflow keeps the dashboard route after a later scan failure", (
     coverage: [],
     completedAt: "2026-09-01T12:00:00.000Z",
   };
-  assert.equal(hasCompletedSchoolOnboarding({ profile: {}, scan: failedLatestScan, workflowRevision: 2 }), true);
-  assert.equal(hasCompletedSchoolOnboarding({ profile: {}, scan: failedLatestScan, workflowRevision: null }), false);
-  assert.equal(hasCompletedSchoolOnboarding({
-    profile: {},
-    scan: { state: "partial", coverage: [{}], completedAt: "2026-09-01T12:00:00.000Z" },
-    workflowRevision: null,
-  }), true);
+  assert.equal(
+    hasCompletedSchoolOnboarding({ profile: {}, scan: failedLatestScan, workflowRevision: 2 }),
+    true,
+  );
+  assert.equal(
+    hasCompletedSchoolOnboarding({ profile: {}, scan: failedLatestScan, workflowRevision: null }),
+    false,
+  );
+  assert.equal(
+    hasCompletedSchoolOnboarding({
+      profile: {},
+      scan: { state: "partial", coverage: [{}], completedAt: "2026-09-01T12:00:00.000Z" },
+      workflowRevision: null,
+    }),
+    true,
+  );
 });
 
 test("manual scan retries are fresh until a successful workflow exists", () => {
@@ -40,59 +58,121 @@ test("manual scan retries are fresh until a successful workflow exists", () => {
 test("returning from a browser handoff resumes the scan even when a saved workflow exists", () => {
   for (const workflowRevision of [null, 1]) {
     assert.equal(nextSchoolScanAction({ scan: { state: "needs_user" }, workflowRevision }), "resume");
-    for (const state of ["partial", "failed"]) assert.equal(nextSchoolScanAction({ scan: { state }, workflowRevision }), "resume");
-    assert.equal(nextSchoolScanAction({ scan: { state: "succeeded" }, workflowRevision }), workflowRevision === null ? "scan" : "replay");
+    for (const state of ["partial", "failed"])
+      assert.equal(nextSchoolScanAction({ scan: { state }, workflowRevision }), "resume");
+    assert.equal(
+      nextSchoolScanAction({ scan: { state: "succeeded" }, workflowRevision }),
+      workflowRevision === null ? "scan" : "replay",
+    );
   }
 });
 
 test("runtime attention distinguishes usage, Codex reauth, and ordinary scan failure", () => {
-  assert.equal(classifyAgentRuntimeAttention({ state: "ready", reason: "OpenAI Codex is ready to use." }), "none");
-  assert.equal(classifyAgentRuntimeAttention({ state: "needs_login", reason: "OpenAI Codex needs authentication." }), "needs_login");
-  assert.equal(classifyAgentRuntimeAttention({ state: "ready", reason: "OpenAI Codex is ready to use." }, "The scan agent stopped: rate limit"), "usage");
-  assert.equal(classifyAgentRuntimeAttention({ state: "unavailable", reason: "Studi could not check OpenAI Codex authentication." }), "unavailable");
-  assert.deepEqual(presentSchoolOnboardingScan({
-    profile: {},
-    scan: { state: "failed", coverage: [], completedAt: "2026-09-02T19:23:04.569Z", failures: ["The scan agent stopped: quota exceeded"] },
-    workflowRevision: null,
-  }, { state: "ready", reason: "OpenAI Codex is ready to use." }), { step: 7, kind: "runtime_usage" });
-  assert.deepEqual(presentSchoolOnboardingScan({
-    profile: {},
-    scan: { state: "partial", coverage: [{}], completedAt: "2026-09-02T19:23:04.569Z", handoff: null },
-    workflowRevision: null,
-  }, { state: "needs_login", reason: "OpenAI Codex needs authentication." }), { step: 1, kind: "runtime_login" });
+  assert.equal(
+    classifyAgentRuntimeAttention({ state: "ready", reason: "OpenAI Codex is ready to use." }),
+    "none",
+  );
+  assert.equal(
+    classifyAgentRuntimeAttention({ state: "needs_login", reason: "OpenAI Codex needs authentication." }),
+    "needs_login",
+  );
+  assert.equal(
+    classifyAgentRuntimeAttention(
+      { state: "ready", reason: "OpenAI Codex is ready to use." },
+      "The scan agent stopped: rate limit",
+    ),
+    "usage",
+  );
+  assert.equal(
+    classifyAgentRuntimeAttention({
+      state: "unavailable",
+      reason: "Studi could not check OpenAI Codex authentication.",
+    }),
+    "unavailable",
+  );
+  assert.deepEqual(
+    presentSchoolOnboardingScan(
+      {
+        profile: {},
+        scan: {
+          state: "failed",
+          coverage: [],
+          completedAt: "2026-09-02T19:23:04.569Z",
+          failures: ["The scan agent stopped: quota exceeded"],
+        },
+        workflowRevision: null,
+      },
+      { state: "ready", reason: "OpenAI Codex is ready to use." },
+    ),
+    { step: 7, kind: "runtime_usage" },
+  );
+  assert.deepEqual(
+    presentSchoolOnboardingScan(
+      {
+        profile: {},
+        scan: { state: "partial", coverage: [{}], completedAt: "2026-09-02T19:23:04.569Z", handoff: null },
+        workflowRevision: null,
+      },
+      { state: "needs_login", reason: "OpenAI Codex needs authentication." },
+    ),
+    { step: 1, kind: "runtime_login" },
+  );
 });
 
 test("onboarding chat only asks for another login when a scan is actually waiting", () => {
   const profile = {};
-  assert.deepEqual(presentSchoolOnboardingScan({ profile, scan: { state: "running" }, workflowRevision: null }), {
-    step: 6,
-    kind: "scanning",
-  });
-  assert.deepEqual(presentSchoolOnboardingScan({ profile, scan: { state: "needs_user" }, workflowRevision: null }), {
-    step: 7,
-    kind: "handoff",
-  });
-  assert.deepEqual(presentSchoolOnboardingScan({
-    profile,
-    scan: {
-      state: "partial",
-      coverage: [{}],
-      completedAt: "2026-09-02T19:23:04.569Z",
-      handoff: null,
+  assert.deepEqual(
+    presentSchoolOnboardingScan({ profile, scan: { state: "running" }, workflowRevision: null }),
+    {
+      step: 6,
+      kind: "scanning",
     },
-    workflowRevision: null,
-  }), { step: 8, kind: "ready" });
-  assert.deepEqual(presentSchoolOnboardingScan({
-    profile,
-    scan: { state: "failed", coverage: [], completedAt: "2026-09-02T19:23:04.569Z", handoff: null },
-    workflowRevision: null,
-  }), { step: 7, kind: "retry" });
+  );
+  assert.deepEqual(
+    presentSchoolOnboardingScan({ profile, scan: { state: "needs_user" }, workflowRevision: null }),
+    {
+      step: 7,
+      kind: "handoff",
+    },
+  );
+  assert.deepEqual(
+    presentSchoolOnboardingScan({
+      profile,
+      scan: {
+        state: "partial",
+        coverage: [{}],
+        completedAt: "2026-09-02T19:23:04.569Z",
+        handoff: null,
+      },
+      workflowRevision: null,
+    }),
+    { step: 8, kind: "ready" },
+  );
+  assert.deepEqual(
+    presentSchoolOnboardingScan({
+      profile,
+      scan: { state: "failed", coverage: [], completedAt: "2026-09-02T19:23:04.569Z", handoff: null },
+      workflowRevision: null,
+    }),
+    { step: 7, kind: "retry" },
+  );
 });
 
-
 test("a failed assignment details check retains completed onboarding", () => {
-  const scan = { state: "failed", targetAssignmentId: "assignment", coverage: [], completedAt: "2026-09-14T12:00:00.000Z" };
-  assert.equal(hasCompletedSchoolOnboarding({ profile: { onboardingCompletedAt: "2026-09-13T12:00:00.000Z" }, scan, workflowRevision: null }), true);
+  const scan = {
+    state: "failed",
+    targetAssignmentId: "assignment",
+    coverage: [],
+    completedAt: "2026-09-14T12:00:00.000Z",
+  };
+  assert.equal(
+    hasCompletedSchoolOnboarding({
+      profile: { onboardingCompletedAt: "2026-09-13T12:00:00.000Z" },
+      scan,
+      workflowRevision: null,
+    }),
+    true,
+  );
   assert.equal(hasCompletedSchoolOnboarding({ profile: {}, scan, workflowRevision: null }), false);
 });
 
@@ -101,13 +181,33 @@ test("runtime attention copy names the subscription the student brought", () => 
   assert.match(agentRuntimeAttentionCopy("needs_login", "Claude").body, /Claude sign-in/);
   assert.match(agentRuntimeAttentionCopy("unavailable").title, /^ChatGPT/);
   assert.equal(agentRuntimeAttentionCopy("none", "Claude"), null);
-  assert.equal(classifyAgentRuntimeAttention({ state: "ready", reason: "Claude is ready to use." }, "Please sign in to Claude again"), "needs_login");
+  assert.equal(
+    classifyAgentRuntimeAttention(
+      { state: "ready", reason: "Claude is ready to use." },
+      "Please sign in to Claude again",
+    ),
+    "needs_login",
+  );
 });
 
 test("the workspace projection resolves the selected subscription and its preferred model", () => {
   const providers = [
-    { schemaVersion: 1, providerId: "openai-codex", providerName: "ChatGPT", state: "needs_login", loginMethods: ["oauth"], reason: "ChatGPT needs authentication." },
-    { schemaVersion: 1, providerId: "anthropic", providerName: "Claude", state: "ready", loginMethods: ["oauth"], reason: "Claude is ready to use." },
+    {
+      schemaVersion: 1,
+      providerId: "openai-codex",
+      providerName: "ChatGPT",
+      state: "needs_login",
+      loginMethods: ["oauth"],
+      reason: "ChatGPT needs authentication.",
+    },
+    {
+      schemaVersion: 1,
+      providerId: "anthropic",
+      providerName: "Claude",
+      state: "ready",
+      loginMethods: ["oauth"],
+      reason: "Claude is ready to use.",
+    },
   ];
   const models = [
     { providerId: "openai-codex", id: "gpt-5.6-sol", name: "Sol" },
@@ -116,7 +216,15 @@ test("the workspace projection resolves the selected subscription and its prefer
   ];
   assert.equal(selectedProvider({ providers, selectedProviderId: "anthropic" }).providerName, "Claude");
   assert.equal(selectedProvider({ providers, selectedProviderId: "openai-codex" }).state, "needs_login");
-  assert.equal(defaultModelFor(models, "anthropic")?.id, "claude-fable-5-1", "the catalog preference wins over list order");
-  assert.equal(defaultModelFor(models, "openai-codex")?.id, "gpt-5.6-sol", "falls back to the first installed model");
+  assert.equal(
+    defaultModelFor(models, "anthropic")?.id,
+    "claude-fable-5-1",
+    "the catalog preference wins over list order",
+  );
+  assert.equal(
+    defaultModelFor(models, "openai-codex")?.id,
+    "gpt-5.6-sol",
+    "falls back to the first installed model",
+  );
   assert.equal(defaultModelFor([], "anthropic"), undefined);
 });

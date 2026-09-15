@@ -33,7 +33,8 @@ export function viewingLiveDesk(
   return Boolean(
     execution &&
       isLivePhase(execution.phase) &&
-      (panel.kind === "desk" || (panel.kind === "assignment" && panel.assignmentId === execution.assignmentId)),
+      (panel.kind === "desk" ||
+        (panel.kind === "assignment" && panel.assignmentId === execution.assignmentId)),
   );
 }
 
@@ -71,7 +72,13 @@ export function deskInkyState({
     if (execution.phase === "working" || execution.phase === "submitting") return "working";
     if (execution.phase === "ready_review") return "waiting";
   }
-  if (runtimeAttention !== "none" || scanState === "partial" || scanState === "failed" || scanState === "needs_user") return "needs";
+  if (
+    runtimeAttention !== "none" ||
+    scanState === "partial" ||
+    scanState === "failed" ||
+    scanState === "needs_user"
+  )
+    return "needs";
   if (scanState === "running") return "scanning";
   if (scanState === "succeeded") return "done";
   return "idle";
@@ -132,14 +139,19 @@ export function DeskDrawer({
   const [confirmation, setConfirmation] = useState("");
   const [browserExpanded, setBrowserExpanded] = useState(false);
   const slotRef = useRef<HTMLDivElement>(null);
-  const execution = lifecycle.execution && (
-    panel.kind === "desk" || lifecycle.execution.assignmentId === assignment?.assignmentId
-  ) ? lifecycle.execution : null;
+  const execution =
+    lifecycle.execution &&
+    (panel.kind === "desk" || lifecycle.execution.assignmentId === assignment?.assignmentId)
+      ? lifecycle.execution
+      : null;
   const live = Boolean(execution && isLivePhase(execution.phase));
   const anyLive = Boolean(lifecycle.execution && isLivePhase(lifecycle.execution.phase));
   const desk = showingLiveDesk;
   const course = onboarding.courses.find((item) => item.courseId === assignment?.courseId);
-  const runtimeAttention = classifyAgentRuntimeAttention(workspace ? selectedProvider(workspace) : null, execution?.lastError ?? (onboarding.scan?.state === "failed" ? onboarding.scan.failures[0] : null));
+  const runtimeAttention = classifyAgentRuntimeAttention(
+    workspace ? selectedProvider(workspace) : null,
+    execution?.lastError ?? (onboarding.scan?.state === "failed" ? onboarding.scan.failures[0] : null),
+  );
   const inkyState = deskInkyState({
     ...(execution ? { execution } : {}),
     ...(workspace ? { driver: workspace.browser.driver } : {}),
@@ -148,13 +160,19 @@ export function DeskDrawer({
   });
   const currentTool = useMemo(() => currentToolName(detail), [detail]);
   const done = task && ["submitted", "preserved"].includes(task.task.state);
-  const canStart = Boolean(task && ["discovered", "queued", "failed", "cancelled"].includes(task.task.state) && task.permission.mayAttempt && !anyLive);
+  const canStart = Boolean(
+    task &&
+      ["discovered", "queued", "failed", "cancelled"].includes(task.task.state) &&
+      task.permission.mayAttempt &&
+      !anyLive,
+  );
   const title = assignment?.title ?? (desk ? "Inky’s desk" : "Assignment");
-  const visibleDetail = detail && assignment && detail.assignment.assignmentId === assignment.assignmentId
-    ? detail
-    : detail && desk && !assignment && detail.assignment.assignmentId === execution?.assignmentId
+  const visibleDetail =
+    detail && assignment && detail.assignment.assignmentId === assignment.assignmentId
       ? detail
-      : null;
+      : detail && desk && !assignment && detail.assignment.assignmentId === execution?.assignmentId
+        ? detail
+        : null;
 
   useLayoutEffect(() => {
     if (!showingLiveDesk) {
@@ -218,13 +236,18 @@ export function DeskDrawer({
   const status = task ? taskStatusCopy(task.task.state, assignment ?? undefined) : null;
 
   return (
-    <aside className={`workspace-drawer ${desk ? "is-desk" : "is-peek"}`} aria-label={desk ? "Inky’s desk" : title}>
+    <aside
+      className={`workspace-drawer ${desk ? "is-desk" : "is-peek"}`}
+      aria-label={desk ? "Inky’s desk" : title}
+    >
       <header className="drawer-head">
         <div className="drawer-who">
           <Inky state={inkyState} size={56} label={`Inky is ${inkyState}`} />
           <p className="drawer-speech">{inkyLine({ assignment, live, execution, currentTool, desk })}</p>
         </div>
-        <button className="drawer-close" type="button" onClick={onClose} aria-label="Close">Close</button>
+        <button className="drawer-close" type="button" onClick={onClose} aria-label="Close">
+          Close
+        </button>
       </header>
 
       {assignment && (live || course) && (
@@ -233,7 +256,7 @@ export function DeskDrawer({
 
       {assignment && (
         <div className="drawer-facts">
-          <p>{assignment.dueAt ? dueSentence(assignment.dueAt) : assignment.dueText ?? "No due date."}</p>
+          <p>{assignment.dueAt ? dueSentence(assignment.dueAt) : (assignment.dueText ?? "No due date.")}</p>
           {task && <p>{permissionLine(task)}</p>}
           {!live && assignment.evidence.length > 0 && <p>I already looked at the page.</p>}
         </div>
@@ -241,41 +264,102 @@ export function DeskDrawer({
 
       {status && (
         <div className="drawer-status">
-          <StatusPill tone={live && execution?.phase === "ready_review" ? "coral" : live && execution?.phase === "needs_user" ? "coral" : live ? "yellow" : status.tone}>
-            {live && execution?.phase === "ready_review" ? "Look this over" : live && execution?.phase === "needs_user" ? "Need you" : live ? "I’m on it" : status.label}
+          <StatusPill
+            tone={
+              live && execution?.phase === "ready_review"
+                ? "coral"
+                : live && execution?.phase === "needs_user"
+                  ? "coral"
+                  : live
+                    ? "yellow"
+                    : status.tone
+            }
+          >
+            {live && execution?.phase === "ready_review"
+              ? "Look this over"
+              : live && execution?.phase === "needs_user"
+                ? "Need you"
+                : live
+                  ? "I’m on it"
+                  : status.label}
           </StatusPill>
         </div>
       )}
 
       {live && execution && (
         <div className="drawer-actions">
-          {execution.phase === "working" && <button className="button button--coral" type="button" onClick={() => onTakeover(execution.taskId)} disabled={busy !== null}>I’ll take over</button>}
-          {execution.phase === "needs_user" && <button className="button button--yellow" type="button" onClick={() => onResume(execution.taskId)} disabled={busy !== null}>Inky, keep going</button>}
-          <button className="button button--paper" type="button" onClick={() => onCancel(execution.taskId)} disabled={busy !== null || execution.phase === "submitting"}>Stop this</button>
+          {execution.phase === "working" && (
+            <button
+              className="button button--coral"
+              type="button"
+              onClick={() => onTakeover(execution.taskId)}
+              disabled={busy !== null}
+            >
+              I’ll take over
+            </button>
+          )}
+          {execution.phase === "needs_user" && (
+            <button
+              className="button button--yellow"
+              type="button"
+              onClick={() => onResume(execution.taskId)}
+              disabled={busy !== null}
+            >
+              Inky, keep going
+            </button>
+          )}
+          <button
+            className="button button--paper"
+            type="button"
+            onClick={() => onCancel(execution.taskId)}
+            disabled={busy !== null || execution.phase === "submitting"}
+          >
+            Stop this
+          </button>
         </div>
       )}
 
       {!live && canStart && task && (
-        <button className="button button--yellow drawer-start" type="button" onClick={() => onStart(task.task.taskId)} disabled={busy !== null}>
+        <button
+          className="button button--yellow drawer-start"
+          type="button"
+          onClick={() => onStart(task.task.taskId)}
+          disabled={busy !== null}
+        >
           {busy === "assignment" ? "Inky is starting…" : "Make Inky do this"}
         </button>
       )}
-      {!live && task && ["discovered", "queued", "failed", "cancelled"].includes(task.task.state) && task.permission.mayAttempt && anyLive && (
-        <p className="drawer-note">I’m already on another page.</p>
-      )}
+      {!live &&
+        task &&
+        ["discovered", "queued", "failed", "cancelled"].includes(task.task.state) &&
+        task.permission.mayAttempt &&
+        anyLive && <p className="drawer-note">I’m already on another page.</p>}
       {!live && task && !task.permission.mayAttempt && (
         <p className="drawer-note">You haven’t let me try this yet. That’s in Settings.</p>
       )}
       {!live && !task && assignment && (
-        <p className="drawer-note">I saw this page, but I don’t have a task for it yet. Tell me if something’s missing.</p>
+        <p className="drawer-note">
+          I saw this page, but I don’t have a task for it yet. Tell me if something’s missing.
+        </p>
       )}
       {!assignment && !live && (
         <p className="drawer-note">Nothing’s on the desk. Open a week card, or tell me what to start.</p>
       )}
 
-      <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} onCompleteLogin={onCompleteRuntimeLogin} onCancelLogin={onCancelRuntimeLogin} onSwitchProvider={onSwitchProvider} />
+      <RuntimeAttentionBanner
+        attention={runtimeAttention}
+        workspace={workspace}
+        busy={busy !== null}
+        onConnect={onConnectRuntime}
+        onCompleteLogin={onCompleteRuntimeLogin}
+        onCancelLogin={onCancelRuntimeLogin}
+        onSwitchProvider={onSwitchProvider}
+      />
       {execution?.returnPredicate && runtimeAttention === "none" && (
-        <div className="truth-banner truth-banner--partial"><strong>I need you here.</strong><span>{execution.lastError ?? execution.returnPredicate}</span></div>
+        <div className="truth-banner truth-banner--partial">
+          <strong>I need you here.</strong>
+          <span>{execution.lastError ?? execution.returnPredicate}</span>
+        </div>
       )}
 
       {showingLiveDesk && !browserExpanded && (
@@ -290,44 +374,93 @@ export function DeskDrawer({
             }}
           >
             <span className={execution?.phase === "working" ? "live-dot" : "live-dot is-paused"} />
-            <span><strong>{liveChipLine(execution?.phase ?? "working", currentTool)}</strong><small>The page I’m on</small></span>
+            <span>
+              <strong>{liveChipLine(execution?.phase ?? "working", currentTool)}</strong>
+              <small>The page I’m on</small>
+            </span>
             <span className="live-chip__action">Expand ↗</span>
           </button>
-          <div ref={slotRef} className="drawer-school-slot" data-school-slot="true" aria-label="Live school page">{readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}</div>
+          <div
+            ref={slotRef}
+            className="drawer-school-slot"
+            data-school-slot="true"
+            aria-label="Live school page"
+          >
+            {readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}
+          </div>
         </div>
       )}
 
-      {showingLiveDesk && browserExpanded && createPortal(
-        <div className="browser-modal-backdrop">
-          <section className="browser-modal" role="dialog" aria-modal="true" aria-label="School browser">
-            <header className="browser-modal__head">
-              <div>
-                <span className={execution?.phase === "working" || execution?.phase === "submitting" ? "live-dot" : "live-dot is-paused"} />
-                <span>
-                  <strong>{execution?.phase === "working" ? "Pausing Inky…" : "The browser is yours"}</strong>
-                  <small>{assignment?.title ?? "School page"}</small>
-                </span>
+      {showingLiveDesk &&
+        browserExpanded &&
+        createPortal(
+          <div className="browser-modal-backdrop">
+            <section className="browser-modal" role="dialog" aria-modal="true" aria-label="School browser">
+              <header className="browser-modal__head">
+                <div>
+                  <span
+                    className={
+                      execution?.phase === "working" || execution?.phase === "submitting"
+                        ? "live-dot"
+                        : "live-dot is-paused"
+                    }
+                  />
+                  <span>
+                    <strong>
+                      {execution?.phase === "working" ? "Pausing Inky…" : "The browser is yours"}
+                    </strong>
+                    <small>{assignment?.title ?? "School page"}</small>
+                  </span>
+                </div>
+                <button
+                  className="button button--paper"
+                  type="button"
+                  autoFocus
+                  onClick={() => setBrowserExpanded(false)}
+                >
+                  Back to Inky
+                </button>
+              </header>
+              <div
+                ref={slotRef}
+                className="browser-modal__slot"
+                data-school-slot="true"
+                aria-label="Expanded live school page"
+              >
+                {readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}
               </div>
-              <button className="button button--paper" type="button" autoFocus onClick={() => setBrowserExpanded(false)}>Back to Inky</button>
-            </header>
-            <div ref={slotRef} className="browser-modal__slot" data-school-slot="true" aria-label="Expanded live school page">
-              {readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}
-            </div>
-          </section>
-        </div>,
-        document.body,
-      )}
+            </section>
+          </div>,
+          document.body,
+        )}
 
       <div className="drawer-scroll">
         {visibleDetail && (done || (visibleDetail.attempts.length > 0 && !live)) && (
           <PaperCard className="drawer-card">
             <p className="eyebrow">Already did this</p>
-            <h3>{visibleDetail.submissionReceipt?.verifiedStatus ?? (visibleDetail.attempts.length === 1 ? "I saved a checkpoint" : `I saved ${visibleDetail.attempts.length} checkpoints`)}</h3>
-            {visibleDetail.submissionReceipt && <p>Checked on the page at {formatDateTime(visibleDetail.submissionReceipt.submittedAt)}.</p>}
+            <h3>
+              {visibleDetail.submissionReceipt?.verifiedStatus ??
+                (visibleDetail.attempts.length === 1
+                  ? "I saved a checkpoint"
+                  : `I saved ${visibleDetail.attempts.length} checkpoints`)}
+            </h3>
+            {visibleDetail.submissionReceipt && (
+              <p>Checked on the page at {formatDateTime(visibleDetail.submissionReceipt.submittedAt)}.</p>
+            )}
             {visibleDetail.attempts.slice(-2).map((attempt) => (
-              <p key={attempt.ordinal}><strong>{attempt.plan}</strong> {attempt.result}</p>
+              <p key={attempt.ordinal}>
+                <strong>{attempt.plan}</strong> {attempt.result}
+              </p>
             ))}
-            {visibleDetail.execution?.answerArtifactId && <button className="button button--mint" type="button" onClick={() => onOpenArtifact(visibleDetail.task.taskId)}>Open saved answers</button>}
+            {visibleDetail.execution?.answerArtifactId && (
+              <button
+                className="button button--mint"
+                type="button"
+                onClick={() => onOpenArtifact(visibleDetail.task.taskId)}
+              >
+                Open saved answers
+              </button>
+            )}
           </PaperCard>
         )}
 
@@ -335,7 +468,11 @@ export function DeskDrawer({
           <PaperCard className="drawer-card drawer-card--nudge">
             <p className="eyebrow">Your turn</p>
             <h3>The answers are still on the page.</h3>
-            <p>{execution.reviewDeadline ? `Look before ${formatDateTime(execution.reviewDeadline)}.` : "Look over the page before you submit."}</p>
+            <p>
+              {execution.reviewDeadline
+                ? `Look before ${formatDateTime(execution.reviewDeadline)}.`
+                : "Look over the page before you submit."}
+            </p>
             {execution.completionChecklist && (
               <div className="completion-checklist" data-completion-checklist="true">
                 {execution.completionChecklist.map((item, index) => (
@@ -346,9 +483,22 @@ export function DeskDrawer({
                 ))}
               </div>
             )}
-            <form onSubmit={(event) => { event.preventDefault(); if (confirmation.trim()) onVerifySubmission(execution.taskId, confirmation.trim()); }}>
-              <Field label="Words you see after you submit"><input value={confirmation} onChange={(event) => setConfirmation(event.target.value)} placeholder="Submitted" /></Field>
-              <button className="button button--mint" disabled={!confirmation.trim() || busy !== null}>I submitted it</button>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (confirmation.trim()) onVerifySubmission(execution.taskId, confirmation.trim());
+              }}
+            >
+              <Field label="Words you see after you submit">
+                <input
+                  value={confirmation}
+                  onChange={(event) => setConfirmation(event.target.value)}
+                  placeholder="Submitted"
+                />
+              </Field>
+              <button className="button button--mint" disabled={!confirmation.trim() || busy !== null}>
+                I submitted it
+              </button>
             </form>
           </PaperCard>
         )}
@@ -372,9 +522,15 @@ export function DeskDrawer({
           placeholder={assignment ? "I’m listening…" : "Tell me what to do…"}
           maxLength={20_000}
         />
-        <button className="manager-send" disabled={busy !== null || !prompt.trim()}>{busy === "manager" ? "…" : "say it"}</button>
+        <button className="manager-send" disabled={busy !== null || !prompt.trim()}>
+          {busy === "manager" ? "…" : "say it"}
+        </button>
       </form>
-      {error && <p className="error-note" role="alert">{error}</p>}
+      {error && (
+        <p className="error-note" role="alert">
+          {error}
+        </p>
+      )}
     </aside>
   );
 }

@@ -1,13 +1,15 @@
 import { z } from "zod";
 
-export const ConnectedAppToolkitSchema = z.strictObject({
-  toolkit: z.string().min(1).max(128),
-  version: z.string().regex(/^[0-9]{8}_[0-9]{2}$/),
-  access: z.literal("all").optional(),
-  tools: z.array(z.string().min(1).max(256)).min(1).optional(),
-}).refine((value) => value.access === "all" || Boolean(value.tools?.length), {
-  message: "A connected app must expose all or selected actions",
-});
+export const ConnectedAppToolkitSchema = z
+  .strictObject({
+    toolkit: z.string().min(1).max(128),
+    version: z.string().regex(/^[0-9]{8}_[0-9]{2}$/),
+    access: z.literal("all").optional(),
+    tools: z.array(z.string().min(1).max(256)).min(1).optional(),
+  })
+  .refine((value) => value.access === "all" || Boolean(value.tools?.length), {
+    message: "A connected app must expose all or selected actions",
+  });
 
 export const ConnectedAppsStateSchema = z.strictObject({
   configured: z.boolean(),
@@ -70,6 +72,7 @@ export function connectedAppIsPending(connection: ConnectedAppConnection | null)
 export function connectedAppStatusLabel(connection: ConnectedAppConnection | null): string {
   if (connectedAppIsActive(connection)) return "Connected";
   if (connectedAppIsPending(connection)) return "Waiting for browser sign-in";
-  if (["FAILED", "EXPIRED", "INACTIVE"].includes(connection?.status.toUpperCase() ?? "")) return "Connection needs attention — reconnect";
+  if (["FAILED", "EXPIRED", "INACTIVE"].includes(connection?.status.toUpperCase() ?? ""))
+    return "Connection needs attention — reconnect";
   return "Not connected";
 }

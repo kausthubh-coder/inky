@@ -1,9 +1,4 @@
-import {
-  type Activity,
-  type Asset,
-  type SchoolState,
-  validateState,
-} from "./domain.js";
+import { type Activity, type Asset, type SchoolState, validateState } from "./domain.js";
 
 export const SCENARIO_IDS = [
   "semester",
@@ -18,12 +13,7 @@ export const SCENARIO_IDS = [
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 const future = "2026-09-15T03:59:00.000Z";
-function activity(
-  id: string,
-  courseId: string,
-  title: string,
-  changes: Partial<Activity> = {},
-): Activity {
+function activity(id: string, courseId: string, title: string, changes: Partial<Activity> = {}): Activity {
   return {
     id,
     courseId,
@@ -38,8 +28,7 @@ function activity(
     grade: null,
     gradeVisible: true,
     submissionChannel: "lms",
-    instructions:
-      "Read the instructions and every required attachment before completing this activity.",
+    instructions: "Read the instructions and every required attachment before completing this activity.",
     requirements: ["Write an original response and save your work."],
     requiredFiles: [],
     attachments: [],
@@ -48,12 +37,8 @@ function activity(
     ...changes,
   };
 }
-export function createScenario(
-  scenarioId: string = "semester",
-  seed = 42,
-): SchoolState {
-  if (!SCENARIO_IDS.includes(scenarioId as ScenarioId))
-    throw new Error(`Unknown scenario: ${scenarioId}`);
+export function createScenario(scenarioId: string = "semester", seed = 42): SchoolState {
+  if (!SCENARIO_IDS.includes(scenarioId as ScenarioId)) throw new Error(`Unknown scenario: ${scenarioId}`);
   if (!Number.isSafeInteger(seed)) throw new Error("Seed must be an integer");
   const courses = [
     {
@@ -196,26 +181,15 @@ export function createScenario(
       kind: "quiz",
       dueAt: null,
       dueText: "September 16, 2026 (time not specified)",
-      requirements: [
-        "Give a base case and recurrence.",
-        "Explain the running time.",
-      ],
+      requirements: ["Give a base case and recurrence.", "Explain the running time."],
     }),
-    activity(
-      "build-check",
-      "structures",
-      "Coding submission and build report",
-      {
-        service: "builds",
-        kind: "external",
-        submissionChannel: "repository",
-        requirements: [
-          "Confirm the reported build revision matches the submitted revision.",
-        ],
-        instructions:
-          "A successful older build is not evidence that the latest revision passed.",
-      },
-    ),
+    activity("build-check", "structures", "Coding submission and build report", {
+      service: "builds",
+      kind: "external",
+      submissionChannel: "repository",
+      requirements: ["Confirm the reported build revision matches the submitted revision."],
+      instructions: "A successful older build is not evidence that the latest revision passed.",
+    }),
     activity("hidden-feedback", "structures", "Workshop 2 feedback", {
       service: "feedback",
       status: "submitted",
@@ -232,10 +206,7 @@ export function createScenario(
       announcement:
         "Extension approved. One extension has now been used. Do not request the same extension again.",
       attachments: ["observations", "statistics-guide"],
-      requirements: [
-        "Calculate the mean rainfall from observations.csv.",
-        "Explain the calculation.",
-      ],
+      requirements: ["Calculate the mean rainfall from observations.csv.", "Explain the calculation."],
       maxAttempts: 3,
     }),
     activity("hw6", "statistics", "Homework 6", {
@@ -267,18 +238,14 @@ export function createScenario(
     }),
     activity("project-proposal", "statistics", "Project proposal", {
       dueAt: null,
-      dueText:
-        "Conflicting dates: October 13 in schedule; November 13 in copied note",
+      dueText: "Conflicting dates: October 13 in schedule; November 13 in copied note",
       closeAt: null,
       announcement:
         "The proposal date needs instructor confirmation. Do not silently choose one of the two dates.",
     }),
     activity("game-pitch", "games", "Puzzle game pitch", {
       kind: "forum",
-      requirements: [
-        "Describe the core mechanic.",
-        "Describe three supporting mechanics.",
-      ],
+      requirements: ["Describe the core mechanic.", "Describe three supporting mechanics."],
       attachments: ["games-guide"],
     }),
     activity("final-game", "games", "Final puzzle game", {
@@ -307,10 +274,7 @@ export function createScenario(
       dueAt: "2026-09-15T12:20:00.000Z",
       dueText: "September 15 at 8:20 AM America/New_York",
       requiredFiles: [".java", ".pdf"],
-      requirements: [
-        "Upload the source file.",
-        "Upload the completed test plan as PDF.",
-      ],
+      requirements: ["Upload the source file.", "Upload the completed test plan as PDF."],
       attachments: ["lab-guide"],
     }),
     activity("lab-demo", "lab", "Instructor demonstration", {
@@ -321,14 +285,10 @@ export function createScenario(
       status: "graded",
       grade: 0,
       submissionChannel: "none",
-      instructions:
-        "This diagnostic has an explicit score of zero. It is not an ungraded assignment.",
+      instructions: "This diagnostic has an explicit score of zero. It is not an ungraded assignment.",
     }),
     activity("observation", "writing", "Observation paragraph", {
-      requirements: [
-        "Write three sentences about a rainy afternoon.",
-        "Include a sound and a color.",
-      ],
+      requirements: ["Write three sentences about a rainy afternoon.", "Include a sound and a color."],
       attachments: ["writing-guide", "writing-rubric"],
     }),
     activity("reading", "writing", "Read the short essay", {
@@ -373,22 +333,16 @@ export function createScenario(
   for (const course of courses)
     for (let week = 1; week <= 2; week++) {
       state.activities.push(
-        activity(
-          `${course.id}-reading-${week}`,
-          course.id,
-          `Week ${week} reading`,
-          {
-            kind: "lesson",
-            module: `Week ${week}`,
-            dueAt: null,
-            dueText: "No submission deadline",
-            closeAt: null,
-            status: "submitted",
-            submissionChannel: "none",
-            instructions:
-              "This reading has already been completed. There is no submission form.",
-          },
-        ),
+        activity(`${course.id}-reading-${week}`, course.id, `Week ${week} reading`, {
+          kind: "lesson",
+          module: `Week ${week}`,
+          dueAt: null,
+          dueText: "No submission deadline",
+          closeAt: null,
+          status: "submitted",
+          submissionChannel: "none",
+          instructions: "This reading has already been completed. There is no submission form.",
+        }),
       );
     }
   if (scenarioId === "partial-login") {
@@ -402,9 +356,7 @@ export function createScenario(
       revision: 1,
     };
   if (scenarioId === "deadline-change")
-    state.activities.find(
-      (item) => item.id === "exercise-05",
-    )!.dashboardDueText = "September 12 at 11:59 PM";
+    state.activities.find((item) => item.id === "exercise-05")!.dashboardDueText = "September 12 at 11:59 PM";
   if (scenarioId === "smoke") {
     state.courses = courses.filter((item) => item.id === "writing");
     state.activities = activities.filter((item) => item.id === "observation");
@@ -422,9 +374,7 @@ export function createScenario(
       "grade-zero",
     ]);
     state.activities = activities.filter((item) => ids.has(item.id));
-    state.courses = courses.filter((course) =>
-      state.activities.some((item) => item.courseId === course.id),
-    );
+    state.courses = courses.filter((course) => state.activities.some((item) => item.courseId === course.id));
   }
   // Seed controls presentation order without changing canonical identities or facts.
   if (Math.abs(seed) % 2 === 1) state.courses.reverse();

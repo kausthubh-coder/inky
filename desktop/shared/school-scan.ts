@@ -31,10 +31,18 @@ export const SchoolScanCoverageSchema = z
   })
   .superRefine((coverage, context) => {
     if (coverage.status === "verified" && !coverage.evidence) {
-      context.addIssue({ code: "custom", path: ["evidence"], message: "Verified coverage requires browser evidence" });
+      context.addIssue({
+        code: "custom",
+        path: ["evidence"],
+        message: "Verified coverage requires browser evidence",
+      });
     }
     if (coverage.status !== "verified" && !coverage.failure) {
-      context.addIssue({ code: "custom", path: ["failure"], message: "Incomplete coverage requires a failure reason" });
+      context.addIssue({
+        code: "custom",
+        path: ["failure"],
+        message: "Incomplete coverage requires a failure reason",
+      });
     }
   });
 
@@ -85,23 +93,56 @@ export const SchoolScanSchema = z.strictObject({
   observedAssignmentIds: z.array(z.string().min(1).max(256)).max(10_000),
   observedLinkedSystemIds: z.array(z.string().min(1).max(256)).max(1_000),
   sourceCheckpoints: z.array(ScanSourceCheckpointSchema).max(2000).default([]),
-  messages: z.array(z.strictObject({ messageId:z.string(), role:z.enum(["user","assistant"]), text:z.string().max(100000), createdAt:IsoTimestampSchema, clientMessageId:z.string().optional() })).max(1000).default([]),
-  changes: z.array(z.strictObject({
-    assignmentId: z.string(),
-    kind: z.enum(["new", "updated"]),
-    fields: z.array(z.string()),
-    dueChange: z.strictObject({
-      before: z.strictObject({ dueAt: IsoTimestampSchema.optional(), dueText: z.string().max(200).optional() }),
-      after: z.strictObject({ dueAt: IsoTimestampSchema.optional(), dueText: z.string().max(200).optional() }),
-    }).optional(),
-  })).max(10000).default([]),
+  messages: z
+    .array(
+      z.strictObject({
+        messageId: z.string(),
+        role: z.enum(["user", "assistant"]),
+        text: z.string().max(100000),
+        createdAt: IsoTimestampSchema,
+        clientMessageId: z.string().optional(),
+      }),
+    )
+    .max(1000)
+    .default([]),
+  changes: z
+    .array(
+      z.strictObject({
+        assignmentId: z.string(),
+        kind: z.enum(["new", "updated"]),
+        fields: z.array(z.string()),
+        dueChange: z
+          .strictObject({
+            before: z.strictObject({
+              dueAt: IsoTimestampSchema.optional(),
+              dueText: z.string().max(200).optional(),
+            }),
+            after: z.strictObject({
+              dueAt: IsoTimestampSchema.optional(),
+              dueText: z.string().max(200).optional(),
+            }),
+          })
+          .optional(),
+      }),
+    )
+    .max(10000)
+    .default([]),
   inventories: z.array(SchoolScanInventorySchema).max(1_001).default([]),
 });
 
 export const SCAN_TOOL_NAMES = [
-  "scan_status", "scan_record_course", "scan_record_assignment", "scan_record_assignments",
-  "scan_record_linked_system", "scan_record_inventory", "scan_request_handoff", "scan_finish",
-  "scan_check_source", "scan_record_source", "scan_read_assignment", "scan_read_material",
+  "scan_status",
+  "scan_record_course",
+  "scan_record_assignment",
+  "scan_record_assignments",
+  "scan_record_linked_system",
+  "scan_record_inventory",
+  "scan_request_handoff",
+  "scan_finish",
+  "scan_check_source",
+  "scan_record_source",
+  "scan_read_assignment",
+  "scan_read_material",
 ] as const;
 
 export const CourseSchema = z.strictObject({
@@ -110,7 +151,10 @@ export const CourseSchema = z.strictObject({
   label: z.string().trim().min(1).max(300),
   sourceTarget: SafeSourceTargetSchema,
   sourceIdentity: z.string().min(1).max(4000).optional(),
-  sourceAliases: z.array(z.strictObject({ label: z.string().min(1).max(300), sourceTarget: SafeSourceTargetSchema })).max(100).optional(),
+  sourceAliases: z
+    .array(z.strictObject({ label: z.string().min(1).max(300), sourceTarget: SafeSourceTargetSchema }))
+    .max(100)
+    .optional(),
   lastVerifiedScanId: z.string().min(1).max(256),
   lastVerifiedAt: IsoTimestampSchema,
   evidence: EvidenceReferenceSchema,
@@ -147,15 +191,23 @@ export const SchoolScanWorkflowSchema = z.strictObject({
 });
 
 export const SchoolOnboardingStateSchema = z.strictObject({
-  courseConflicts: z.array(z.strictObject({
-    kind: z.enum(["permissions", "references"]).optional(),
-    courseIds: z.array(z.string()),
-    reason: z.string(),
-  })).optional(),
-  assignmentConflicts: z.array(z.strictObject({
-    assignmentIds: z.array(z.string()),
-    reason: z.string(),
-  })).optional(),
+  courseConflicts: z
+    .array(
+      z.strictObject({
+        kind: z.enum(["permissions", "references"]).optional(),
+        courseIds: z.array(z.string()),
+        reason: z.string(),
+      }),
+    )
+    .optional(),
+  assignmentConflicts: z
+    .array(
+      z.strictObject({
+        assignmentIds: z.array(z.string()),
+        reason: z.string(),
+      }),
+    )
+    .optional(),
   profile: SchoolProfileSchema.nullable(),
   scan: SchoolScanSchema.nullable(),
   courses: z.array(CourseSchema),
@@ -202,9 +254,10 @@ export function hasCompletedSchoolOnboarding(
   if (!state.profile) return false;
   if (state.profile.onboardingCompletedAt || state.workflowRevision !== null) return true;
   return Boolean(
-    state.scan?.completedAt && !state.scan.targetAssignmentId &&
-    (state.scan.state === "succeeded" || state.scan.state === "partial") &&
-    state.scan.coverage.length > 0,
+    state.scan?.completedAt &&
+      !state.scan.targetAssignmentId &&
+      (state.scan.state === "succeeded" || state.scan.state === "partial") &&
+      state.scan.coverage.length > 0,
   );
 }
 
@@ -214,7 +267,7 @@ export function presentSchoolOnboardingScan(
 ): SchoolOnboardingScanPresentation {
   const scan = state?.scan;
   if (scan?.state === "running") return { step: 6, kind: "scanning" };
-  const failureText = scan?.state === "failed" ? scan.failures?.[0] ?? scan.currentStep : null;
+  const failureText = scan?.state === "failed" ? (scan.failures?.[0] ?? scan.currentStep) : null;
   const attention = classifyAgentRuntimeAttention(provider, failureText);
   if (attention === "needs_login") return { step: 1, kind: "runtime_login" };
   if (attention === "usage") return { step: 7, kind: "runtime_usage" };
@@ -225,7 +278,9 @@ export function presentSchoolOnboardingScan(
   return { step: 5, kind: "sign_in" };
 }
 
-export function nextSchoolScanAction(state: Pick<SchoolOnboardingState, "scan" | "workflowRevision">): "scan" | "resume" | "replay" {
+export function nextSchoolScanAction(
+  state: Pick<SchoolOnboardingState, "scan" | "workflowRevision">,
+): "scan" | "resume" | "replay" {
   if (state.scan && ["needs_user", "partial", "failed"].includes(state.scan.state)) return "resume";
   return state.workflowRevision === null ? "scan" : "replay";
 }

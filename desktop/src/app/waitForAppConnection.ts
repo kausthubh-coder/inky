@@ -1,7 +1,13 @@
 import type { ConnectedAppConnection } from "../../shared/composio.js";
 
 // The browser sign-in can finish at any point. Only one status request runs at a time.
-export async function waitForAppConnection({ initial, read, signal, intervalMs = 2_000, timeoutMs = 180_000 }: {
+export async function waitForAppConnection({
+  initial,
+  read,
+  signal,
+  intervalMs = 2_000,
+  timeoutMs = 180_000,
+}: {
   initial: ConnectedAppConnection | null | Promise<ConnectedAppConnection | null>;
   read: () => Promise<ConnectedAppConnection | null>;
   signal: AbortSignal;
@@ -23,8 +29,11 @@ export async function waitForAppConnection({ initial, read, signal, intervalMs =
     while (!stopped && !signal.aborted) {
       if (connection?.status.toUpperCase() === "ACTIVE") return connection;
       const status = connection?.status.toUpperCase();
-      if (status && status !== "INITIATED" && status !== "INITIALIZING" && status !== "DISCONNECTED") throw new Error("Connection failed");
-      await new Promise<void>(resolve => { pause = setTimeout(resolve, intervalMs); });
+      if (status && status !== "INITIATED" && status !== "INITIALIZING" && status !== "DISCONNECTED")
+        throw new Error("Connection failed");
+      await new Promise<void>((resolve) => {
+        pause = setTimeout(resolve, intervalMs);
+      });
       if (stopped || signal.aborted) break;
       connection = await read();
     }

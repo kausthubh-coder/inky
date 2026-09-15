@@ -92,7 +92,9 @@ export class ProviderLoginAttemptOwner {
       if (this.#active !== attempt) return;
       this.#finish(attempt);
       this.#active = null;
-      this.#handoff = attempt.controller.signal.aborted ? null : { phase: "failed", providerId: attempt.providerId };
+      this.#handoff = attempt.controller.signal.aborted
+        ? null
+        : { phase: "failed", providerId: attempt.providerId };
     }
   }
 
@@ -126,10 +128,14 @@ export class ProviderLoginAttemptOwner {
         return;
       }
       attempt.manualCode = { resolve, reject };
-      signal?.addEventListener("abort", () => {
-        if (attempt.manualCode?.resolve === resolve) attempt.manualCode = undefined;
-        reject(new Error("Login callback completed"));
-      }, { once: true });
+      signal?.addEventListener(
+        "abort",
+        () => {
+          if (attempt.manualCode?.resolve === resolve) attempt.manualCode = undefined;
+          reject(new Error("Login callback completed"));
+        },
+        { once: true },
+      );
     });
   }
 

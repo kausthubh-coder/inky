@@ -1,14 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
-import {
-  access,
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  readdir,
-  unlink,
-} from "node:fs/promises";
+import { access, lstat, mkdir, open, readFile, readdir, unlink } from "node:fs/promises";
 import { join, resolve } from "node:path";
 
 import { parseDocument, stringify } from "yaml";
@@ -64,11 +56,7 @@ export async function assertPlainArtifactTree(rootDirectoryValue: string): Promi
     for (const child of children) {
       const path = join(directory, child.name);
       const childMetadata = await lstat(path);
-      if (
-        !child.name.endsWith(".md") ||
-        !childMetadata.isFile() ||
-        childMetadata.isSymbolicLink()
-      ) {
+      if (!child.name.endsWith(".md") || !childMetadata.isFile() || childMetadata.isSymbolicLink()) {
         throw invalidArtifactTree("Artifact directory contains a non-plain Markdown file", path);
       }
     }
@@ -212,7 +200,10 @@ export class ArtifactStore {
     const documents: ArtifactDocument[] = [];
     for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
       if (!entry.isFile() || !entry.name.endsWith(".md")) {
-        throw invalidArtifactTree("Artifact directory contains a non-Markdown entry", join(directory, entry.name));
+        throw invalidArtifactTree(
+          "Artifact directory contains a non-Markdown entry",
+          join(directory, entry.name),
+        );
       }
       const artifactId = entry.name.slice(0, -3);
       const source = await readFile(join(directory, entry.name), "utf8");

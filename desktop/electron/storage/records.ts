@@ -62,11 +62,7 @@ function parseJson<T>(schema: z.ZodType<T>, raw: string, recordType: string): T 
   }
 }
 
-function rowsToRecords<T>(
-  schema: z.ZodType<T>,
-  rows: readonly JsonRow[],
-  recordType: string,
-): T[] {
+function rowsToRecords<T>(schema: z.ZodType<T>, rows: readonly JsonRow[], recordType: string): T[] {
   return rows.map((row) => parseJson(schema, row.record_json, recordType));
 }
 
@@ -88,29 +84,36 @@ function assertStoredColumns(
 
 export function validatePersistedRecords(database: StudiSqliteDatabase): void {
   for (const row of database.handle.prepare("SELECT kind, old_id, record_json FROM record_redirects").all()) {
-    if (row.kind !== "assignment" && row.kind !== "task" && row.kind !== "course") throw new Error("Invalid redirect kind");
+    if (row.kind !== "assignment" && row.kind !== "task" && row.kind !== "course")
+      throw new Error("Invalid redirect kind");
     const original = JSON.parse(String(row.record_json));
     const id = String(row.old_id);
     const canonicalId = resolveRecordId(database, row.kind, id);
     if (row.kind === "course") {
-      if (canonicalId === id || !database.handle.prepare("SELECT course_id FROM courses WHERE course_id = ?").get(canonicalId)) throw new Error("Course redirect target is missing");
-      if (CourseSchema.parse(original).courseId !== id) throw new Error("Archived course id does not match redirect");
+      if (
+        canonicalId === id ||
+        !database.handle.prepare("SELECT course_id FROM courses WHERE course_id = ?").get(canonicalId)
+      )
+        throw new Error("Course redirect target is missing");
+      if (CourseSchema.parse(original).courseId !== id)
+        throw new Error("Archived course id does not match redirect");
       continue;
     }
-    const repository = row.kind === "assignment" ? new AssignmentRepository(database) : new TaskRepository(database);
+    const repository =
+      row.kind === "assignment" ? new AssignmentRepository(database) : new TaskRepository(database);
     if (canonicalId === id || !repository.get(canonicalId)) throw new Error("Redirect target is missing");
     if (row.kind === "assignment") {
-      if (AssignmentSchema.parse(original).assignmentId !== id) throw new Error("Archived assignment id does not match redirect");
+      if (AssignmentSchema.parse(original).assignmentId !== id)
+        throw new Error("Archived assignment id does not match redirect");
     } else {
       const task = TaskSchema.parse(original.task);
       const replayed = replayTaskEvents(id, z.array(TaskEventSchema).parse(original.events));
-      if (JSON.stringify(task) !== JSON.stringify(replayed)) throw new Error("Archived task history does not replay");
+      if (JSON.stringify(task) !== JSON.stringify(replayed))
+        throw new Error("Archived task history does not replay");
     }
   }
   const assignments = database.handle
-    .prepare(
-      "SELECT assignment_id, course_id, due_at, discovered_at, record_json FROM assignments",
-    )
+    .prepare("SELECT assignment_id, course_id, due_at, discovered_at, record_json FROM assignments")
     .all() as unknown as Array<
     JsonRow & {
       assignment_id: string;
@@ -338,13 +341,7 @@ export class AssignmentRepository {
           discovered_at = excluded.discovered_at,
           record_json = excluded.record_json
       `)
-      .run(
-        record.assignmentId,
-        record.courseId,
-        record.dueAt ?? null,
-        record.discoveredAt,
-        recordJson,
-      );
+      .run(record.assignmentId, record.courseId, record.dueAt ?? null, record.discoveredAt, recordJson);
     return record;
   }
 
@@ -359,9 +356,7 @@ export class AssignmentRepository {
   listByCourse(courseId: string): Assignment[] {
     courseId = resolveRecordId(this.database, "course", courseId);
     const rows = this.database.handle
-      .prepare(
-        "SELECT record_json FROM assignments WHERE course_id = ? ORDER BY due_at, assignment_id",
-      )
+      .prepare("SELECT record_json FROM assignments WHERE course_id = ? ORDER BY due_at, assignment_id")
       .all(courseId) as unknown as JsonRow[];
     return rowsToRecords(AssignmentSchema, rows, "assignment");
   }
@@ -388,19 +383,25 @@ export class PermissionRuleRepository {
 
   put(value: unknown): PermissionRule {
     const parsed = parseRecord(PermissionRuleSchema, value, "permission rule");
-    const record = parsed.scope === "assignment"
-      ? { ...parsed, assignmentId: resolveRecordId(this.database, "assignment", parsed.assignmentId) }
-      : "courseId" in parsed ? { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) } : parsed;
+    const record =
+      parsed.scope === "assignment"
+        ? { ...parsed, assignmentId: resolveRecordId(this.database, "assignment", parsed.assignmentId) }
+        : "courseId" in parsed
+          ? { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) }
+          : parsed;
     const recordJson = canonicalJson(PermissionRuleSchema, record, "permission rule");
     const courseId = "courseId" in record ? record.courseId : null;
     const assignmentId = "assignmentId" in record ? record.assignmentId : null;
     const patternId = "patternId" in record ? record.patternId : null;
     this.database.transaction(() => {
-      this.database.handle.prepare(`
+      this.database.handle
+        .prepare(`
         DELETE FROM permission_rules
         WHERE scope = ? AND course_id IS ? AND assignment_id IS ? AND pattern_id IS ?
-      `).run(record.scope, courseId, assignmentId, patternId);
-      this.database.handle.prepare(`
+      `)
+        .run(record.scope, courseId, assignmentId, patternId);
+      this.database.handle
+        .prepare(`
         INSERT INTO permission_rules(
           rule_id, scope, course_id, assignment_id, pattern_id, updated_at, record_json
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -412,15 +413,7 @@ export class PermissionRuleRepository {
           updated_at = excluded.updated_at,
           record_json = excluded.record_json
       `)
-      .run(
-        record.ruleId,
-        record.scope,
-        courseId,
-        assignmentId,
-        patternId,
-        record.updatedAt,
-        recordJson,
-      );
+        .run(record.ruleId, record.scope, courseId, assignmentId, patternId, record.updatedAt, recordJson);
     });
     return record;
   }
@@ -434,9 +427,7 @@ export class PermissionRuleRepository {
 
   listByScope(scope: PermissionRule["scope"]): PermissionRule[] {
     const rows = this.database.handle
-      .prepare(
-        "SELECT record_json FROM permission_rules WHERE scope = ? ORDER BY updated_at DESC, rule_id",
-      )
+      .prepare("SELECT record_json FROM permission_rules WHERE scope = ? ORDER BY updated_at DESC, rule_id")
       .all(scope) as unknown as JsonRow[];
     return currentPermissionRules(rowsToRecords(PermissionRuleSchema, rows, "permission rule"));
   }
@@ -452,11 +443,17 @@ export class PermissionRuleRepository {
     const rule = this.get(ruleId);
     if (!rule) return false;
     // Remove the whole target so an older permission can never reappear.
-    const result = this.database.handle.prepare(`
+    const result = this.database.handle
+      .prepare(`
       DELETE FROM permission_rules
       WHERE scope = ? AND course_id IS ? AND assignment_id IS ? AND pattern_id IS ?
-    `).run(rule.scope, "courseId" in rule ? rule.courseId : null,
-      "assignmentId" in rule ? rule.assignmentId : null, "patternId" in rule ? rule.patternId : null);
+    `)
+      .run(
+        rule.scope,
+        "courseId" in rule ? rule.courseId : null,
+        "assignmentId" in rule ? rule.assignmentId : null,
+        "patternId" in rule ? rule.patternId : null,
+      );
     return Number(result.changes) > 0;
   }
 }
@@ -478,21 +475,14 @@ export class RunRepository {
           updated_at = excluded.updated_at,
           record_json = excluded.record_json
       `)
-      .run(
-        record.runId,
-        record.taskId,
-        record.state,
-        record.revision,
-        record.updatedAt,
-        recordJson,
-      );
+      .run(record.runId, record.taskId, record.state, record.revision, record.updatedAt, recordJson);
     return record;
   }
 
   get(runId: string): Run | null {
-    const row = this.database.handle
-      .prepare("SELECT record_json FROM runs WHERE run_id = ?")
-      .get(runId) as JsonRow | undefined;
+    const row = this.database.handle.prepare("SELECT record_json FROM runs WHERE run_id = ?").get(runId) as
+      | JsonRow
+      | undefined;
     return row ? parseJson(RunSchema, row.record_json, "run") : null;
   }
 
@@ -530,9 +520,7 @@ export class TaskRepository {
 
   listByState(state: TaskState): Task[] {
     const rows = this.database.handle
-      .prepare(
-        "SELECT record_json FROM task_projections WHERE state = ? ORDER BY updated_at, task_id",
-      )
+      .prepare("SELECT record_json FROM task_projections WHERE state = ? ORDER BY updated_at, task_id")
       .all(state) as unknown as JsonRow[];
     return rowsToRecords(TaskSchema, rows, "task projection");
   }
@@ -682,11 +670,7 @@ export class TaskRepository {
     return row.sequence;
   }
 
-  private assertAppendMatches(
-    event: TaskEvent,
-    projection: Task,
-    expectedRevision: number | null,
-  ): void {
+  private assertAppendMatches(event: TaskEvent, projection: Task, expectedRevision: number | null): void {
     if (event.aggregateId !== projection.taskId || event.payload.taskId !== projection.taskId) {
       throw new StorageError("invalid_event_stream", "Task event identity does not match projection", {
         eventTaskId: event.aggregateId,
@@ -694,11 +678,9 @@ export class TaskRepository {
       });
     }
     if (event.payload.assignmentId !== projection.assignmentId) {
-      throw new StorageError(
-        "invalid_event_stream",
-        "Task event assignment does not match projection",
-        { taskId: projection.taskId },
-      );
+      throw new StorageError("invalid_event_stream", "Task event assignment does not match projection", {
+        taskId: projection.taskId,
+      });
     }
     if (event.type === "task_created") {
       const expected: Task = {

@@ -14,11 +14,13 @@ export function isDesktopConnectUrl(value: string): boolean {
   } catch {
     return false;
   }
-  return url.protocol === `${STUDI_CONNECT_PROTOCOL}:`
-    && url.hostname === "connect"
-    && (url.pathname === "" || url.pathname === "/")
-    && !url.username
-    && !url.password
-    && !url.search
-    && !url.hash;
+  return (
+    url.protocol === `${STUDI_CONNECT_PROTOCOL}:` &&
+    url.hostname === "connect" &&
+    (url.pathname === "" || url.pathname === "/") &&
+    !url.username &&
+    !url.password &&
+    !url.search &&
+    !url.hash
+  );
 }

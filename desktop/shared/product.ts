@@ -1,10 +1,20 @@
 import { z } from "zod";
 
-import { AgentReasoningEffortSchema, AgentRunEventSchema, DEFAULT_AGENT_REASONING_EFFORT } from "./agent-runtime.js";
+import {
+  AgentReasoningEffortSchema,
+  AgentRunEventSchema,
+  DEFAULT_AGENT_REASONING_EFFORT,
+} from "./agent-runtime.js";
 import { AgentProviderIdSchema, DEFAULT_AGENT_MODEL_ID, DEFAULT_AGENT_PROVIDER_ID } from "./providers.js";
 import { ArtifactFrontmatterSchema, ArtifactKindSchema } from "./artifact.js";
 import { AssignmentSchema } from "./assignment.js";
-import { AutomationScheduleSchema, AssignmentExecutionSchema, ExecutionAttemptSchema, NotificationIntentSchema, SubmissionReceiptSchema } from "./lifecycle.js";
+import {
+  AutomationScheduleSchema,
+  AssignmentExecutionSchema,
+  ExecutionAttemptSchema,
+  NotificationIntentSchema,
+  SubmissionReceiptSchema,
+} from "./lifecycle.js";
 import { PermissionModeSchema, PermissionResolutionSchema, PermissionRuleSchema } from "./permission.js";
 import { IsoTimestampSchema, SchemaVersionSchema } from "./schema-version.js";
 import { TaskEventSchema, TaskSchema } from "./task.js";
@@ -121,8 +131,15 @@ const PermissionRuleInputBaseSchema = z.strictObject({
 export const SavePermissionRuleInputSchema = z.discriminatedUnion("scope", [
   PermissionRuleInputBaseSchema.extend({ scope: z.literal("global") }),
   PermissionRuleInputBaseSchema.extend({ scope: z.literal("course"), courseId: z.string().min(1).max(256) }),
-  PermissionRuleInputBaseSchema.extend({ scope: z.literal("pattern"), courseId: z.string().min(1).max(256), patternId: z.string().min(1).max(256) }),
-  PermissionRuleInputBaseSchema.extend({ scope: z.literal("assignment"), assignmentId: z.string().min(1).max(256) }),
+  PermissionRuleInputBaseSchema.extend({
+    scope: z.literal("pattern"),
+    courseId: z.string().min(1).max(256),
+    patternId: z.string().min(1).max(256),
+  }),
+  PermissionRuleInputBaseSchema.extend({
+    scope: z.literal("assignment"),
+    assignmentId: z.string().min(1).max(256),
+  }),
 ]);
 
 export const ProductSettingsStateSchema = z.strictObject({
@@ -163,4 +180,3 @@ export const ReadArtifactInputSchema = z.strictObject({
   kind: ArtifactKindSchema,
   artifactId: z.string().min(1).max(128),
 });
-

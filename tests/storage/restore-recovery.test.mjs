@@ -1,15 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import {
-  cp,
-  lstat,
-  mkdir,
-  mkdtemp,
-  readFile,
-  rm,
-  symlink,
-  writeFile,
-} from "node:fs/promises";
+import { cp, lstat, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -21,12 +12,7 @@ import {
   validateLocalStoreBackup,
 } from "../../dist/electron/storage/index.js";
 import { transitionTask } from "../../dist/shared/index.js";
-import {
-  assignment,
-  task,
-  taskCreatedEvent,
-  timestamp,
-} from "../contracts/fixtures.mjs";
+import { assignment, task, taskCreatedEvent, timestamp } from "../contracts/fixtures.mjs";
 
 const storageModuleUrl = new URL("../../dist/electron/storage/index.js", import.meta.url).href;
 
@@ -170,10 +156,7 @@ test("backup validation replays task histories and checks stored projections", a
       const damagedRoot = join(workspace, `history-${name}`);
       await cp(backupRoot, damagedRoot, { recursive: true });
       mutateDatabase(damagedRoot, sql);
-      await assert.rejects(
-        validateLocalStoreBackup(damagedRoot),
-        (error) => error.code === "backup_invalid",
-      );
+      await assert.rejects(validateLocalStoreBackup(damagedRoot), (error) => error.code === "backup_invalid");
       await assert.rejects(
         restoreLocalStoreBackup(damagedRoot, targetRoot),
         (error) => error.code === "backup_invalid",
@@ -225,10 +208,7 @@ test("artifact validation and copying reject a kind-directory junction by lstat"
     await rm(linkedKind, { recursive: true });
     await symlink(external, linkedKind, process.platform === "win32" ? "junction" : "dir");
     assert.equal((await lstat(linkedKind)).isSymbolicLink(), true);
-    await assert.rejects(
-      validateLocalStoreBackup(linkedBackup),
-      (error) => error.code === "backup_invalid",
-    );
+    await assert.rejects(validateLocalStoreBackup(linkedBackup), (error) => error.code === "backup_invalid");
   });
 });
 
@@ -255,15 +235,7 @@ async function runInterruptedRestore(backupRoot, targetRoot, requestedPoint, exi
   `;
   const child = spawn(
     process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      script,
-      backupRoot,
-      targetRoot,
-      requestedPoint,
-      String(exitCode),
-    ],
+    ["--input-type=module", "-e", script, backupRoot, targetRoot, requestedPoint, String(exitCode)],
     { stdio: ["ignore", "pipe", "pipe"], windowsHide: true },
   );
   let stderr = "";

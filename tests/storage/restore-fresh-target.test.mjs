@@ -5,10 +5,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import test from "node:test";
 
-import {
-  openLocalStore,
-  restoreLocalStoreBackup,
-} from "../../dist/electron/storage/index.js";
+import { openLocalStore, restoreLocalStoreBackup } from "../../dist/electron/storage/index.js";
 import { assignment, timestamp } from "../contracts/fixtures.mjs";
 
 const storageModuleUrl = new URL("../../dist/electron/storage/index.js", import.meta.url).href;
@@ -94,15 +91,7 @@ async function interruptRestore(backupRoot, targetRoot, requestedPoint, exitCode
   `;
   const child = spawn(
     process.execPath,
-    [
-      "--input-type=module",
-      "-e",
-      script,
-      backupRoot,
-      targetRoot,
-      requestedPoint,
-      String(exitCode),
-    ],
+    ["--input-type=module", "-e", script, backupRoot, targetRoot, requestedPoint, String(exitCode)],
     { stdio: ["ignore", "ignore", "pipe"], windowsHide: true },
   );
   let stderr = "";

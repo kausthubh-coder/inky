@@ -15,36 +15,33 @@ export default function MissionPage() {
         <p className="kicker">Mission</p>
         <h1>Homework help you can see. A last click that stays yours.</h1>
         <p className="lead">
-          Studi exists so a student can finish the work on the school page,
-          watch every step, and still be the one who submits.
+          Studi exists so a student can finish the work on the school page, watch every step, and still be the
+          one who submits.
         </p>
 
         <h2>Less hiding. More agency.</h2>
         <p>
-          AI homework tools usually ask you to paste schoolwork into a mystery
-          box. Studi keeps the page in front of you. You see what Inky sees,
-          watch what Inky writes, and can take the page back whenever you want.
+          AI homework tools usually ask you to paste schoolwork into a mystery box. Studi keeps the page in
+          front of you. You see what Inky sees, watch what Inky writes, and can take the page back whenever
+          you want.
         </p>
 
         <h2>The student stays responsible.</h2>
         <p>
-          Inky does not take quizzes, tests, or exams. Inky does not know your
-          school password. Inky writes and stops before Submit, so you can read
-          the work and decide what carries your name.
+          Inky does not take quizzes, tests, or exams. Inky does not know your school password. Inky writes
+          and stops before Submit, so you can read the work and decide what carries your name.
         </p>
 
         <h2>Your schoolwork stays with you.</h2>
         <p>
-          Classes, drafts, and school pages live on your computer. The cloud
-          holds the account, beta access, and the email you use to join the
-          waitlist—not your essay or school session.
+          Classes, drafts, and school pages live on your computer. The cloud holds the account, beta access,
+          and the email you use to join the waitlist—not your essay or school session.
         </p>
 
         <h2>Your syllabus still wins.</h2>
         <p>
-          If a class bans this kind of help, don’t run Inky there. Studi should
-          make the work visible and controllable, not give anyone a reason to
-          pretend the rules disappeared.
+          If a class bans this kind of help, don’t run Inky there. Studi should make the work visible and
+          controllable, not give anyone a reason to pretend the rules disappeared.
         </p>
 
         <a className="btn primary" href="/#wait">
@@ -53,8 +50,8 @@ export default function MissionPage() {
       </main>
 
       <footer className="foot">
-        © 2026 Studi <span>·</span> Private beta <span>·</span>{" "}
-        <a href="/">Home</a> <span>·</span> <a href="/changelog">Changelog</a> <span>·</span> <a href="/#wait">Waitlist</a>
+        © 2026 Studi <span>·</span> Private beta <span>·</span> <a href="/">Home</a> <span>·</span>{" "}
+        <a href="/changelog">Changelog</a> <span>·</span> <a href="/#wait">Waitlist</a>
       </footer>
     </>
   );

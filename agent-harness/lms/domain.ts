@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-export const ServiceSchema = z.enum([
-  "school",
-  "statistics",
-  "builds",
-  "feedback",
-]);
+export const ServiceSchema = z.enum(["school", "statistics", "builds", "feedback"]);
 export type Service = z.infer<typeof ServiceSchema>;
 export const CourseSchema = z.object({
   id: z.string(),
@@ -27,13 +22,7 @@ export const ActivitySchema = z.object({
   status: z.enum(["unknown", "not_started", "draft", "submitted", "graded"]),
   grade: z.number().nullable(),
   gradeVisible: z.boolean(),
-  submissionChannel: z.enum([
-    "lms",
-    "vendor",
-    "repository",
-    "in_person",
-    "none",
-  ]),
+  submissionChannel: z.enum(["lms", "vendor", "repository", "in_person", "none"]),
   requirements: z.array(z.string()),
   requiredFiles: z.array(z.string()),
   attachments: z.array(z.string()),
@@ -119,10 +108,7 @@ export function activityById(state: SchoolState, id: string): Activity {
   if (!activity) throw new SchoolError(404, "Activity not found.");
   return activity;
 }
-export function unavailableReason(
-  state: SchoolState,
-  activity: Activity,
-): string | null {
+export function unavailableReason(state: SchoolState, activity: Activity): string | null {
   if (activity.prerequisites.some((id) => !state.completed.includes(id)))
     return "Complete the required activities to unlock this work.";
   if (activity.closeAt && state.clock > activity.closeAt)
@@ -140,12 +126,8 @@ export function unavailableReason(
 export function validateState(state: SchoolState): void {
   if (state.schemaVersion !== 1 || !Number.isFinite(Date.parse(state.clock)))
     throw new Error("Invalid school state or clock");
-  const courses = new Set(
-    state.courses.map((item) => CourseSchema.parse(item).id),
-  );
-  const activities = new Set(
-    state.activities.map((item) => ActivitySchema.parse(item).id),
-  );
+  const courses = new Set(state.courses.map((item) => CourseSchema.parse(item).id));
+  const activities = new Set(state.activities.map((item) => ActivitySchema.parse(item).id));
   const assets = new Set(state.assets.map((item) => item.id));
   if (
     courses.size !== state.courses.length ||
@@ -154,15 +136,13 @@ export function validateState(state: SchoolState): void {
   )
     throw new Error("Duplicate entity IDs");
   for (const activity of state.activities) {
-    if (!courses.has(activity.courseId))
-      throw new Error(`Missing course for ${activity.id}`);
+    if (!courses.has(activity.courseId)) throw new Error(`Missing course for ${activity.id}`);
     if (activity.attachments.some((id) => !assets.has(id)))
       throw new Error(`Missing asset for ${activity.id}`);
     if (activity.prerequisites.some((id) => !activities.has(id)))
       throw new Error(`Missing prerequisite for ${activity.id}`);
     for (const date of [activity.dueAt, activity.closeAt, activity.extensionAt])
-      if (date && !Number.isFinite(Date.parse(date)))
-        throw new Error(`Invalid date for ${activity.id}`);
+      if (date && !Number.isFinite(Date.parse(date))) throw new Error(`Invalid date for ${activity.id}`);
   }
   const visiting = new Set<string>(),
     visited = new Set<string>();

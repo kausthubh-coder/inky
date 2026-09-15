@@ -1,13 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  cp,
-  lstat,
-  mkdir,
-  open,
-  readFile,
-  rename,
-  rm,
-} from "node:fs/promises";
+import { cp, lstat, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { basename, dirname, join, parse, resolve } from "node:path";
 import { backup, DatabaseSync } from "node:sqlite";
 
@@ -15,11 +7,7 @@ import { z } from "zod";
 
 import { ArtifactStore, assertPlainArtifactTree } from "./artifacts.js";
 import { NoteStore } from "./notes.js";
-import {
-  STORAGE_SCHEMA_VERSION,
-  StudiSqliteDatabase,
-  type StorageFailureInjector,
-} from "./database.js";
+import { STORAGE_SCHEMA_VERSION, StudiSqliteDatabase, type StorageFailureInjector } from "./database.js";
 import { StorageError, errorMessage, isStorageError } from "./errors.js";
 import { validatePersistedRecords } from "./records.js";
 import { validateManagerRecords } from "./manager-records.js";
@@ -37,11 +25,17 @@ const BackupManifestSchema = z.strictObject({
   createdAt: z.iso.datetime({ offset: false, local: false }),
   artifactCount: z.number().int().nonnegative(),
   noteCount: z.number().int().nonnegative(),
-  migration: z.strictObject({
-    appVersion: z.string().min(1).max(64),
-    fromSchemaVersion: z.number().int().min(1).max(STORAGE_SCHEMA_VERSION - 1),
-    toSchemaVersion: z.literal(STORAGE_SCHEMA_VERSION),
-  }).optional(),
+  migration: z
+    .strictObject({
+      appVersion: z.string().min(1).max(64),
+      fromSchemaVersion: z
+        .number()
+        .int()
+        .min(1)
+        .max(STORAGE_SCHEMA_VERSION - 1),
+      toSchemaVersion: z.literal(STORAGE_SCHEMA_VERSION),
+    })
+    .optional(),
 });
 
 const RestoreJournalSchema = z.strictObject({
@@ -167,11 +161,9 @@ export async function createLocalStoreBackup(
   const stage = resolve(parent, `${basename(destination)}.studi-backup-${randomUUID()}`);
   assertSiblingWithPrefix(stage, parent, `${basename(destination)}.studi-backup-`);
   if (await pathExists(destination)) {
-    throw new StorageError(
-      "backup_destination_exists",
-      `Backup destination already exists: ${destination}`,
-      { destination },
-    );
+    throw new StorageError("backup_destination_exists", `Backup destination already exists: ${destination}`, {
+      destination,
+    });
   }
   await mkdir(stage, { recursive: false });
 
@@ -205,9 +197,7 @@ export async function createLocalStoreBackup(
   }
 }
 
-export async function validateLocalStoreBackup(
-  backupDirectoryValue: string,
-): Promise<BackupValidation> {
+export async function validateLocalStoreBackup(backupDirectoryValue: string): Promise<BackupValidation> {
   const backupDirectory = assertSafeRoot(backupDirectoryValue, "backup directory");
   try {
     const manifest = BackupManifestSchema.parse(
@@ -220,9 +210,13 @@ export async function validateLocalStoreBackup(
       );
     }
     if (manifest.noteCount !== validation.noteCount) {
-      throw new StorageError("backup_invalid", `Note count mismatch: manifest ${manifest.noteCount}, actual ${validation.noteCount}`, {
-        backupDirectory,
-      });
+      throw new StorageError(
+        "backup_invalid",
+        `Note count mismatch: manifest ${manifest.noteCount}, actual ${validation.noteCount}`,
+        {
+          backupDirectory,
+        },
+      );
     }
     return validation;
   } catch (error) {
@@ -280,10 +274,7 @@ export async function restoreLocalStoreBackup(
       force: false,
     });
     options.failureInjector?.("restore_during_staging_population");
-    await copyArtifacts(
-      join(backupDirectory, ARTIFACT_DIRECTORY),
-      join(paths.next, ARTIFACT_DIRECTORY),
-    );
+    await copyArtifacts(join(backupDirectory, ARTIFACT_DIRECTORY), join(paths.next, ARTIFACT_DIRECTORY));
     await copyOwnedTree(join(backupDirectory, NOTE_DIRECTORY), join(paths.next, NOTE_DIRECTORY), "Note");
     await validateDataRoot(paths.next);
     options.failureInjector?.("restore_after_staging_population");
@@ -344,9 +335,7 @@ export async function recoverInterruptedRestore(
 
   let journal;
   try {
-    journal = RestoreJournalSchema.parse(
-      JSON.parse(await readFile(paths.journal, "utf8")),
-    );
+    journal = RestoreJournalSchema.parse(JSON.parse(await readFile(paths.journal, "utf8")));
   } catch (error) {
     throw new StorageError(
       "restore_failed",
@@ -355,11 +344,7 @@ export async function recoverInterruptedRestore(
       { cause: error },
     );
   }
-  if (
-    journal.target !== paths.target ||
-    journal.next !== paths.next ||
-    journal.previous !== paths.previous
-  ) {
+  if (journal.target !== paths.target || journal.next !== paths.next || journal.previous !== paths.previous) {
     throw new StorageError("restore_failed", "Restore journal paths do not match the data root", {
       journal: paths.journal,
     });
@@ -492,7 +477,9 @@ async function copyOwnedTree(source: string, destination: string, label: string)
       filter: async (sourcePath) => {
         const metadata = await lstat(sourcePath);
         if (metadata.isSymbolicLink()) {
-          throw new StorageError("backup_invalid", `${label} copy refused a symbolic link`, { source: sourcePath });
+          throw new StorageError("backup_invalid", `${label} copy refused a symbolic link`, {
+            source: sourcePath,
+          });
         }
         return true;
       },
@@ -550,10 +537,7 @@ function restorePaths(target: string): RestorePaths {
   return paths;
 }
 
-async function writeRestoreJournal(
-  paths: RestorePaths,
-  targetExistedAtStart: boolean,
-): Promise<void> {
+async function writeRestoreJournal(paths: RestorePaths, targetExistedAtStart: boolean): Promise<void> {
   const journal = RestoreJournalSchema.parse({
     format: "studi-local-restore",
     target: paths.target,

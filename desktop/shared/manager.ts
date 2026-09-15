@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-import {
-  AssignmentIdSchema,
-  CourseIdSchema,
-  PatternIdSchema,
-  TaskIdSchema,
-} from "./ids.js";
+import { AssignmentIdSchema, CourseIdSchema, PatternIdSchema, TaskIdSchema } from "./ids.js";
 import { PermissionResolutionSchema } from "./permission.js";
 import { IsoTimestampSchema, SchemaVersionSchema } from "./schema-version.js";
 
@@ -29,28 +24,30 @@ export const ManagerQueueEntrySchema = z.strictObject({
   requestOrigin: z.enum(["student", "automatic"]).optional(),
 });
 
-export const BrowserWorkerLeaseSchema = z.strictObject({
-  schemaVersion: SchemaVersionSchema,
-  leaseId: z.literal("browser-worker"),
-  taskId: TaskIdSchema,
-  state: z.enum(["acquiring", "active"]),
-  acquiredAt: IsoTimestampSchema,
-  workerSessionId: z.string().min(1).optional(),
-  workerSessionPath: z.string().min(1).optional(),
-}).superRefine((lease, context) => {
-  if (lease.state === "active" && (!lease.workerSessionId || !lease.workerSessionPath)) {
-    context.addIssue({
-      code: "custom",
-      message: "An active browser-worker lease requires its worker session identity and path",
-    });
-  }
-  if (lease.state === "acquiring" && (lease.workerSessionId || lease.workerSessionPath)) {
-    context.addIssue({
-      code: "custom",
-      message: "An acquiring browser-worker lease cannot claim a worker session",
-    });
-  }
-});
+export const BrowserWorkerLeaseSchema = z
+  .strictObject({
+    schemaVersion: SchemaVersionSchema,
+    leaseId: z.literal("browser-worker"),
+    taskId: TaskIdSchema,
+    state: z.enum(["acquiring", "active"]),
+    acquiredAt: IsoTimestampSchema,
+    workerSessionId: z.string().min(1).optional(),
+    workerSessionPath: z.string().min(1).optional(),
+  })
+  .superRefine((lease, context) => {
+    if (lease.state === "active" && (!lease.workerSessionId || !lease.workerSessionPath)) {
+      context.addIssue({
+        code: "custom",
+        message: "An active browser-worker lease requires its worker session identity and path",
+      });
+    }
+    if (lease.state === "acquiring" && (lease.workerSessionId || lease.workerSessionPath)) {
+      context.addIssue({
+        code: "custom",
+        message: "An acquiring browser-worker lease cannot claim a worker session",
+      });
+    }
+  });
 
 export const ManagerSessionLinkSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,

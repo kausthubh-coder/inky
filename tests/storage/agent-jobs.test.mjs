@@ -24,7 +24,13 @@ test("agent jobs keep one durable thread per target and immutable ordered messag
       claim: null,
       messages: [
         { messageId: "message-user", role: "user", text: "What does this ask?", createdAt, turnIndex: 1 },
-        { messageId: "message-inky", role: "assistant", text: "It asks for a confidence interval.", createdAt: "2026-09-03T12:00:01.000Z", turnIndex: 1 },
+        {
+          messageId: "message-inky",
+          role: "assistant",
+          text: "It asks for a confidence interval.",
+          createdAt: "2026-09-03T12:00:01.000Z",
+          turnIndex: 1,
+        },
       ],
       createdAt,
       updatedAt: "2026-09-03T12:00:01.000Z",
@@ -42,10 +48,7 @@ test("agent jobs keep one durable thread per target and immutable ordered messag
       () => store.agentJobs.appendMessage("job-statistics", { ...job.messages[0], text: "changed" }),
       /immutable/,
     );
-    assert.throws(
-      () => store.agentJobs.put({ ...job, jobId: "second-job" }),
-      /UNIQUE constraint failed/,
-    );
+    assert.throws(() => store.agentJobs.put({ ...job, jobId: "second-job" }), /UNIQUE constraint failed/);
   } finally {
     store?.close();
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

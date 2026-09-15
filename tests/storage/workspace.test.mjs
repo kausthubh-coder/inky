@@ -47,7 +47,11 @@ test("Studi creates cross-platform class and assignment workspaces", async () =>
     assert.match(workspace.assignmentDirectory, /CALC 1[\\/]Problem set 4 Related rates \[[a-f0-9]{6}\]$/);
     assert.match(workspace.sandboxDirectory, /\.studi-sandbox[\\/][a-f0-9]{6}$/);
     assert.ok((await readdir(root)).includes("_CON"));
-    assert.equal(JSON.parse(await readFile(join(workspace.assignmentDirectory, ".studi-assignment.json"), "utf8")).assignmentId, "assignment-related-rates");
+    assert.equal(
+      JSON.parse(await readFile(join(workspace.assignmentDirectory, ".studi-assignment.json"), "utf8"))
+        .assignmentId,
+      "assignment-related-rates",
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }
@@ -78,10 +82,13 @@ test("classes with the same display name keep separate stable folders", async ()
     assert.equal(directories[0], join(root, "Seminar"));
     assert.match(directories[1], /Seminar \[[a-f0-9]{6}\]$/);
     assert.notEqual(directories[0], directories[1]);
-    assert.deepEqual(await syncHomeworkClassFolders(root, [
-      { courseId: "course-a", label: "Seminar" },
-      { courseId: "course-b", label: "Seminar" },
-    ]), directories);
+    assert.deepEqual(
+      await syncHomeworkClassFolders(root, [
+        { courseId: "course-a", label: "Seminar" },
+        { courseId: "course-b", label: "Seminar" },
+      ]),
+      directories,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

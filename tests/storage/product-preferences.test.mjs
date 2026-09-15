@@ -26,6 +26,7 @@ test("product preferences default safely and survive a validated atomic save", a
       handoffMinutes: 30,
       memoryVisibility: "selected",
       homeworkRoot: null,
+      agentProviderId: "openai-codex",
       agentModelId: "gpt-6-astra",
       agentReasoningEffort: "medium",
       notifications: defaultNotifications,
@@ -54,19 +55,27 @@ test("product preferences default safely and survive a validated atomic save", a
     await store.put(saved);
     assert.deepEqual(await new ProductPreferencesStore(path).get(), saved);
 
-    await writeFile(path, `${JSON.stringify({
-      schemaVersion: 1,
-      reviewMinutes: 20,
-      handoffMinutes: 30,
-      memoryVisibility: "selected",
-      updatedAt: "2026-09-01T12:00:00.000Z",
-    }, null, 2)}\n`);
+    await writeFile(
+      path,
+      `${JSON.stringify(
+        {
+          schemaVersion: 1,
+          reviewMinutes: 20,
+          handoffMinutes: 30,
+          memoryVisibility: "selected",
+          updatedAt: "2026-09-01T12:00:00.000Z",
+        },
+        null,
+        2,
+      )}\n`,
+    );
     assert.deepEqual(await new ProductPreferencesStore(path).get(), {
       schemaVersion: 1,
       reviewMinutes: 20,
       handoffMinutes: 30,
       memoryVisibility: "selected",
       homeworkRoot: null,
+      agentProviderId: "openai-codex",
       agentModelId: "gpt-6-astra",
       agentReasoningEffort: "medium",
       notifications: defaultNotifications,
@@ -76,10 +85,7 @@ test("product preferences default safely and survive a validated atomic save", a
     await store.put(saved);
     assert.deepEqual(JSON.parse(await readFile(path, "utf8")), saved);
 
-    await assert.rejects(
-      store.put({ ...saved, reviewMinutes: 0 }),
-      (error) => error?.name === "ZodError",
-    );
+    await assert.rejects(store.put({ ...saved, reviewMinutes: 0 }), (error) => error?.name === "ZodError");
     assert.deepEqual(await store.get(), saved);
   } finally {
     await rm(root, { recursive: true, force: true });

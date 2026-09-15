@@ -3,7 +3,18 @@ import { randomUUID } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { z } from "zod";
 
-import { UsageRecordInputSchema, type AuthState, type AuthUser, type ConnectedAppConnection, type ConnectedAppExecution, type ConnectedAppsState, type ConnectedAppToolSearch, type FeedbackReceipt, type UsageRecordInput, type UsageState } from "../../shared/index.js";
+import {
+  UsageRecordInputSchema,
+  type AuthState,
+  type AuthUser,
+  type ConnectedAppConnection,
+  type ConnectedAppExecution,
+  type ConnectedAppsState,
+  type ConnectedAppToolSearch,
+  type FeedbackReceipt,
+  type UsageRecordInput,
+  type UsageState,
+} from "../../shared/index.js";
 import { CloudAccountClient, type CloudAccountResult } from "./cloud.js";
 import { studiCloudConfig } from "./config.js";
 import { openLoopbackCallback } from "./loopback.js";
@@ -24,12 +35,14 @@ const MetadataSchema = z.object({
   jwks_uri: z.string().url(),
 });
 
-const TokenResponseSchema = z.object({
-  access_token: z.string().min(1),
-  refresh_token: z.string().min(1).optional(),
-  id_token: z.string().min(1),
-  expires_in: z.number().positive(),
-}).passthrough();
+const TokenResponseSchema = z
+  .object({
+    access_token: z.string().min(1),
+    refresh_token: z.string().min(1).optional(),
+    id_token: z.string().min(1),
+    expires_in: z.number().positive(),
+  })
+  .passthrough();
 
 const AUTH_REQUEST_TIMEOUT_MS = 20_000;
 const ENTITLEMENT_TIMEOUT_MS = 20_000;
@@ -107,11 +120,18 @@ export class AuthCoordinator {
     } catch (error) {
       if (isCredentialRejection(error)) {
         await this.#eraseCredentials();
-        return this.#setState({ status: "signed_out", message: "Your Studi sign-in expired. Sign in again." });
+        return this.#setState({
+          status: "signed_out",
+          message: "Your Studi sign-in expired. Sign in again.",
+        });
       }
       const offline = this.#offlineState();
       if (offline) return this.#setState(offline);
-      return this.#setState({ status: "error", message: "Studi could not check beta access. Check your connection and retry.", recoverable: true });
+      return this.#setState({
+        status: "error",
+        message: "Studi could not check beta access. Check your connection and retry.",
+        recoverable: true,
+      });
     }
   }
 
@@ -142,7 +162,8 @@ export class AuthCoordinator {
   }
 
   async submitFeedback(message: string): Promise<FeedbackReceipt> {
-    if (!this.#tokens || this.#state.status === "offline") throw new Error("Feedback needs an online signed account");
+    if (!this.#tokens || this.#state.status === "offline")
+      throw new Error("Feedback needs an online signed account");
     return this.#cloud.submitFeedback(this.#deviceId, randomUUID(), message);
   }
 
@@ -179,7 +200,11 @@ export class AuthCoordinator {
     return this.#cloud.searchConnectedAppTools(toolkit, query);
   }
 
-  async executeConnectedAppTool(toolkit: string, toolSlug: string, arguments_: Record<string, unknown>): Promise<ConnectedAppExecution> {
+  async executeConnectedAppTool(
+    toolkit: string,
+    toolSlug: string,
+    arguments_: Record<string, unknown>,
+  ): Promise<ConnectedAppExecution> {
     this.#requireOnlineApproval();
     return this.#cloud.executeConnectedAppTool(toolkit, toolSlug, arguments_);
   }
@@ -228,7 +253,8 @@ export class AuthCoordinator {
       if (credentialsPersisted && this.#tokens) {
         return this.#setState({
           status: "error",
-          message: "You're signed in, but Studi could not check beta access. Check your connection and try again.",
+          message:
+            "You're signed in, but Studi could not check beta access. Check your connection and try again.",
           recoverable: true,
         });
       }
@@ -257,9 +283,10 @@ export class AuthCoordinator {
         status: "denied",
         user: this.#tokens.user,
         reason: result.reason ?? "waitlist",
-        message: result.reason === "device_conflict"
-          ? "This beta account already has another active Studi computer."
-          : "This account is still on the Studi beta waitlist.",
+        message:
+          result.reason === "device_conflict"
+            ? "This beta account already has another active Studi computer."
+            : "This account is still on the Studi beta waitlist.",
       });
     }
     const entitlement = { plan: result.plan, credits: result.credits } as const;
@@ -277,11 +304,15 @@ export class AuthCoordinator {
 
   async #refresh(refreshToken: string): Promise<void> {
     const metadata = await this.#getMetadata();
-    const tokenResponse = await this.#requestToken(metadata.token_endpoint, {
-      grant_type: "refresh_token",
-      client_id: studiCloudConfig.clerkClientId,
-      refresh_token: refreshToken,
-    }, true);
+    const tokenResponse = await this.#requestToken(
+      metadata.token_endpoint,
+      {
+        grant_type: "refresh_token",
+        client_id: studiCloudConfig.clerkClientId,
+        refresh_token: refreshToken,
+      },
+      true,
+    );
     const verified = await this.#verifyIdentityToken(tokenResponse.id_token);
     this.#tokens = tokenSet(tokenResponse, tokenResponse.refresh_token ?? refreshToken, verified);
   }
@@ -304,7 +335,8 @@ export class AuthCoordinator {
     }
     if (!response.ok) throw new AuthUnavailableError(`Clerk metadata returned ${response.status}`);
     this.#metadata = MetadataSchema.parse(await response.json());
-    if (this.#metadata.issuer !== studiCloudConfig.clerkIssuer) throw new AuthProtocolError("Clerk issuer mismatch");
+    if (this.#metadata.issuer !== studiCloudConfig.clerkIssuer)
+      throw new AuthProtocolError("Clerk issuer mismatch");
     this.#jwks = createRemoteJWKSet(new URL(this.#metadata.jwks_uri));
     return this.#metadata;
   }
@@ -330,13 +362,17 @@ export class AuthCoordinator {
       if (refresh && (response.status === 400 || response.status === 401)) {
         throw new AuthRevokedError("Stored Clerk credential was rejected");
       }
-      if (response.status >= 500) throw new AuthUnavailableError(`Clerk token endpoint returned ${response.status}`);
+      if (response.status >= 500)
+        throw new AuthUnavailableError(`Clerk token endpoint returned ${response.status}`);
       throw new AuthProtocolError(`Clerk token exchange failed: ${errorText}`);
     }
     return TokenResponseSchema.parse(await response.json());
   }
 
-  async #verifyIdentityToken(identityToken: string, expectedNonce?: string): Promise<JWTPayload & { sub: string }> {
+  async #verifyIdentityToken(
+    identityToken: string,
+    expectedNonce?: string,
+  ): Promise<JWTPayload & { sub: string }> {
     const metadata = await this.#getMetadata();
     if (!this.#jwks) throw new AuthProtocolError("Clerk verification keys are unavailable");
     let payload: JWTPayload;
@@ -349,7 +385,8 @@ export class AuthCoordinator {
       throw new AuthProtocolError("Clerk identity token verification failed", { cause: error });
     }
     if (!payload.sub) throw new AuthProtocolError("Clerk identity token has no subject");
-    if (expectedNonce !== undefined && payload.nonce !== expectedNonce) throw new AuthProtocolError("Clerk identity nonce mismatch");
+    if (expectedNonce !== undefined && payload.nonce !== expectedNonce)
+      throw new AuthProtocolError("Clerk identity nonce mismatch");
     return payload as JWTPayload & { sub: string };
   }
 
@@ -360,7 +397,11 @@ export class AuthCoordinator {
     }
     const offline = this.#offlineState();
     if (offline) return this.#setState(offline);
-    return this.#setState({ status: "error", message: "Studi could not verify beta access. Check your connection and retry.", recoverable: true });
+    return this.#setState({
+      status: "error",
+      message: "Studi could not verify beta access. Check your connection and retry.",
+      recoverable: true,
+    });
   }
 
   #offlineState(): AuthState | null {
@@ -394,7 +435,8 @@ function tokenSet(
   return {
     refreshToken,
     identityToken: response.id_token,
-    identityExpiresAt: typeof payload.exp === "number" ? payload.exp * 1_000 : Date.now() + response.expires_in * 1_000,
+    identityExpiresAt:
+      typeof payload.exp === "number" ? payload.exp * 1_000 : Date.now() + response.expires_in * 1_000,
     user: {
       subject: payload.sub,
       email: typeof payload.email === "string" ? payload.email : null,
@@ -421,7 +463,12 @@ function isCredentialRejection(error: unknown): boolean {
 }
 
 function isProtocolFailure(error: unknown): boolean {
-  return error instanceof AuthProtocolError || /callback validation|nonce|authorization was not completed/i.test(error instanceof Error ? error.message : String(error));
+  return (
+    error instanceof AuthProtocolError ||
+    /callback validation|nonce|authorization was not completed/i.test(
+      error instanceof Error ? error.message : String(error),
+    )
+  );
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {

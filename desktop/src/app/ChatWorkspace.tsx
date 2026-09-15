@@ -22,7 +22,7 @@ import { chatTimeline } from "./chatTimeline.js";
 export type ChatView = "home" | "compact" | "expanded";
 interface ChatProps {
   schoolCheck?: boolean;
-  onAssignment?: (id:string) => void;
+  onAssignment?: (id: string) => void;
   view: ChatView;
   onView: (view: ChatView) => void;
   storageKey: string;
@@ -53,19 +53,19 @@ type Draft = {
   refs: AssignmentReference[];
   clientMessageId?: string;
 };
-function readDraft(key: string, legacyKey?:string): Draft {
+function readDraft(key: string, legacyKey?: string): Draft {
   try {
-    const saved = JSON.parse(localStorage.getItem(key) ?? (legacyKey ? localStorage.getItem(legacyKey) : null) ?? "{}");
+    const saved = JSON.parse(
+      localStorage.getItem(key) ?? (legacyKey ? localStorage.getItem(legacyKey) : null) ?? "{}",
+    );
     return {
-      ...(typeof saved.clientMessageId === "string" &&
-      /^[0-9a-f-]{36}$/i.test(saved.clientMessageId)
+      ...(typeof saved.clientMessageId === "string" && /^[0-9a-f-]{36}$/i.test(saved.clientMessageId)
         ? { clientMessageId: saved.clientMessageId }
         : {}),
       text: typeof saved.text === "string" ? saved.text : "",
       refs: Array.isArray(saved.refs)
         ? saved.refs.filter(
-            (r: AssignmentReference) =>
-              typeof r.assignmentId === "string" && typeof r.title === "string",
+            (r: AssignmentReference) => typeof r.assignmentId === "string" && typeof r.title === "string",
           )
         : [],
     };
@@ -75,13 +75,16 @@ function readDraft(key: string, legacyKey?:string): Draft {
 }
 
 export function ChatWorkspace(props: ChatProps) {
-  const { view, onView, onboarding, lifecycle, workspace, assignment, task } =
-    props;
-  const target = assignment ? {kind:"assignment" as const, assignmentId:assignment.assignmentId} : {kind:"home" as const};
+  const { view, onView, onboarding, lifecycle, workspace, assignment, task } = props;
+  const target = assignment
+    ? { kind: "assignment" as const, assignmentId: assignment.assignmentId }
+    : { kind: "home" as const };
   const school = Boolean(props.schoolCheck);
-  const scope = school ? "school" : assignment?.assignmentId ?? "home";
+  const scope = school ? "school" : (assignment?.assignmentId ?? "home");
   const key = `studi-chat-draft:${props.storageKey}:${scope}`;
-  const [draft, setDraftState] = useState(() => readDraft(key, scope === "home" ? `studi-chat-draft:${props.storageKey}` : undefined));
+  const [draft, setDraftState] = useState(() =>
+    readDraft(key, scope === "home" ? `studi-chat-draft:${props.storageKey}` : undefined),
+  );
   const [chat, setChat] = useState<ConversationState | null>(null);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
@@ -96,25 +99,26 @@ export function ChatWorkspace(props: ChatProps) {
   draftRef.current = draft;
   const mounted = useRef(true);
   const active = (chat?.activity !== "idle" && Boolean(chat)) || sending;
-  const execution = !school && assignment ? (lifecycle.execution?.assignmentId === assignment.assignmentId ? lifecycle.execution : task?.execution ?? null) : null;
+  const execution =
+    !school && assignment
+      ? lifecycle.execution?.assignmentId === assignment.assignmentId
+        ? lifecycle.execution
+        : (task?.execution ?? null)
+      : null;
   const activeExecution = lifecycle.execution;
   const workingAnywhere =
     activeExecution &&
-    ["working", "needs_user", "ready_review", "submitting"].includes(
-      activeExecution.phase,
-    );
-  const messages = school ? (onboarding.scan?.messages ?? []).map((message,index) => ({...message,turnIndex:index})) : chat?.job.messages ?? [];
+    ["working", "needs_user", "ready_review", "submitting"].includes(activeExecution.phase);
+  const messages = school
+    ? (onboarding.scan?.messages ?? []).map((message, index) => ({ ...message, turnIndex: index }))
+    : (chat?.job.messages ?? []);
   const scanActive = school && ["running", "needs_user"].includes(onboarding.scan?.state ?? "");
   const timeline = chatTimeline(school && !(scanActive && !scanDetails) ? [] : messages, []);
-  useEffect(() => { setScanDetails(false); }, [onboarding.scan?.scanId]);
+  useEffect(() => {
+    setScanDetails(false);
+  }, [onboarding.scan?.scanId]);
   const mood: InkyState =
-    chat?.activity === "typing"
-      ? "thinking"
-      : active
-        ? "thinking"
-        : workingAnywhere
-          ? props.mood
-          : "idle";
+    chat?.activity === "typing" ? "thinking" : active ? "thinking" : workingAnywhere ? props.mood : "idle";
   const status =
     chat?.activity === "typing"
       ? "Inky is typing…"
@@ -161,11 +165,7 @@ export function ChatWorkspace(props: ChatProps) {
         if (mounted.current) setChat(next);
       } catch (cause) {
         if (mounted.current)
-          setError(
-            cause instanceof Error
-              ? cause.message
-              : "Couldn’t load your conversation.",
-          );
+          setError(cause instanceof Error ? cause.message : "Couldn’t load your conversation.");
       } finally {
         reading = false;
       }
@@ -179,9 +179,7 @@ export function ChatWorkspace(props: ChatProps) {
   }, []);
   useEffect(() => {
     if (error)
-      void window.studi
-        ?.captureUiTelemetry({ event: "ui_error", message: error })
-        .catch(() => undefined);
+      void window.studi?.captureUiTelemetry({ event: "ui_error", message: error }).catch(() => undefined);
   }, [error]);
   useLayoutEffect(() => {
     const el = input.current;
@@ -227,8 +225,7 @@ export function ChatWorkspace(props: ChatProps) {
   const send = async (text = draft.text, refs = draft.refs) => {
     if (!window.studi || sendLock.current || !text.trim()) return;
     const sameDraft =
-      text === draftRef.current.text &&
-      JSON.stringify(refs) === JSON.stringify(draftRef.current.refs);
+      text === draftRef.current.text && JSON.stringify(refs) === JSON.stringify(draftRef.current.refs);
     const clientMessageId = sameDraft
       ? (draftRef.current.clientMessageId ?? crypto.randomUUID())
       : crypto.randomUUID();
@@ -241,8 +238,9 @@ export function ChatWorkspace(props: ChatProps) {
     try {
       if (school) {
         if (!onboarding.scan) throw new Error("Start a school check first.");
-        await window.studi.sendScanMessage({scanId:onboarding.scan.scanId,text,clientMessageId});
-        if (mounted.current && draftRef.current.clientMessageId === clientMessageId) saveDraft({text:"",refs:[]});
+        await window.studi.sendScanMessage({ scanId: onboarding.scan.scanId, text, clientMessageId });
+        if (mounted.current && draftRef.current.clientMessageId === clientMessageId)
+          saveDraft({ text: "", refs: [] });
         return;
       }
       const result = await window.studi.send({
@@ -253,19 +251,12 @@ export function ChatWorkspace(props: ChatProps) {
       });
       if (mounted.current) {
         setChat({ job: result.job, activity: "idle" });
-        if (
-          draftRef.current.text === text &&
-          JSON.stringify(draftRef.current.refs) === JSON.stringify(refs)
-        )
+        if (draftRef.current.text === text && JSON.stringify(draftRef.current.refs) === JSON.stringify(refs))
           saveDraft({ text: "", refs: [] });
       }
     } catch (cause) {
       if (mounted.current)
-        setError(
-          cause instanceof Error
-            ? cause.message
-            : "Your reply could not finish. Try again.",
-        );
+        setError(cause instanceof Error ? cause.message : "Your reply could not finish. Try again.");
     } finally {
       sendLock.current = false;
       if (mounted.current) setSending(false);
@@ -284,13 +275,11 @@ export function ChatWorkspace(props: ChatProps) {
     if (!el) return;
     const before = draft.text.slice(0, el.selectionStart);
     const start = before.lastIndexOf("@");
-    const text =
-      draft.text.slice(0, start) + draft.text.slice(el.selectionStart);
+    const text = draft.text.slice(0, start) + draft.text.slice(el.selectionStart);
     saveDraft({
       text,
       refs:
-        draft.refs.length >= 20 ||
-        draft.refs.some((r) => r.assignmentId === a.assignmentId)
+        draft.refs.length >= 20 || draft.refs.some((r) => r.assignmentId === a.assignmentId)
           ? draft.refs
           : [...draft.refs, { assignmentId: a.assignmentId, title: a.title }],
     });
@@ -298,74 +287,102 @@ export function ChatWorkspace(props: ChatProps) {
     el.focus();
   };
   const openBrowser = () => {
-    void window.studi?.selectBrowserPage(school ? {kind:"school"} : target).then(state => {
-      if (mounted.current) { onView("expanded"); setBrowser(true); }
-      const url = assignment?.sourceTarget ?? onboarding.profile?.schoolRoot;
-      if (url && (!state.browser.url || state.browser.url === "about:blank") && state.browser.driver !== "inky") {
-        void window.studi?.navigateBrowser({url,target:school ? {kind:"school"} : target}).catch(cause => { if(mounted.current) setError(String(cause)); });
-      }
-    }).catch(cause => setError(cause instanceof Error ? cause.message : String(cause)));
+    void window.studi
+      ?.selectBrowserPage(school ? { kind: "school" } : target)
+      .then((state) => {
+        if (mounted.current) {
+          onView("expanded");
+          setBrowser(true);
+        }
+        const url = assignment?.sourceTarget ?? onboarding.profile?.schoolRoot;
+        if (
+          url &&
+          (!state.browser.url || state.browser.url === "about:blank") &&
+          state.browser.driver !== "inky"
+        ) {
+          void window.studi
+            ?.navigateBrowser({ url, target: school ? { kind: "school" } : target })
+            .catch((cause) => {
+              if (mounted.current) setError(String(cause));
+            });
+        }
+      })
+      .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)));
   };
   const conversation = (
-          <div
-            className="conversation-log"
-            ref={log}
-            role={school ? "region" : "log"}
-            aria-label={school ? "School check report" : "Messages"}
-            aria-live={school ? "off" : "polite"}
-          >
-            {school && <SchoolCheck state={onboarding} lifecycle={lifecycle} onStopAndScan={props.onStopAndScan} onWait={() => onView("home")} onOpenWork={props.onOpenWork} browserOpen={browser} onAssignment={props.onAssignment ?? (() => {})} onCheck={props.onResumeScan} onPause={() => { void window.studi?.pauseSchoolScan().catch(cause => setError(String(cause))); }} onBrowser={() => browser ? setBrowser(false) : openBrowser()} busy={props.scanBusy} detailsOpen={scanDetails} onDetails={setScanDetails} />}
-            {!school && !assignment && !messages.length && (
-              <article className="chat-bubble inky-bubble">
-                <strong>
-                  {`Hey ${onboarding.profile?.studentName ?? "there"}.`}
-                </strong>
-                <p>
-                  What’s on your mind? We can talk through your week, or start with one assignment.
-                </p>
-              </article>
-            )}
-            {timeline.map((entry) => {
-              if (entry.kind === "message") {
-                const { message, index } = entry;
-                return (
-                  <article
-                    key={message.messageId}
-                    className={`chat-bubble ${message.role === "user" ? "student-bubble" : "inky-bubble"}`}
-                  >
-                    <small>{message.role === "user" ? "You" : "Inky"}</small>
-                    {Boolean(message.assignmentRefs?.length) && (
-                      <div className="chat-refs">
-                        {message.assignmentRefs?.map((ref) => (
-                          <span key={ref.assignmentId}>@ {ref.title}</span>
-                        ))}
-                      </div>
-                    )}
-                    {message.role === "user" ? <p>{message.text}</p> : <ChatMarkdown text={message.text} />}
-                    {message.recovery === "failed" && (
-                      <button
-                        className="button button--yellow"
-                        disabled={Boolean(active)}
-                        onClick={() => {
-                          const original = chat?.job.messages
-                            .slice(0, index)
-                            .reverse()
-                            .find((m) => m.role === "user");
-                          if (original)
-                            void send(original.text, original.assignmentRefs ?? []);
-                        }}
-                      >
-                        Try again
-                      </button>
-                    )}
-                  </article>
-                );
-              }
-              return null;
-            })}
-          </div>
+    <div
+      className="conversation-log"
+      ref={log}
+      role={school ? "region" : "log"}
+      aria-label={school ? "School check report" : "Messages"}
+      aria-live={school ? "off" : "polite"}
+    >
+      {school && (
+        <SchoolCheck
+          state={onboarding}
+          lifecycle={lifecycle}
+          onStopAndScan={props.onStopAndScan}
+          onWait={() => onView("home")}
+          onOpenWork={props.onOpenWork}
+          browserOpen={browser}
+          onAssignment={props.onAssignment ?? (() => {})}
+          onCheck={props.onResumeScan}
+          onPause={() => {
+            void window.studi?.pauseSchoolScan().catch((cause) => setError(String(cause)));
+          }}
+          onBrowser={() => (browser ? setBrowser(false) : openBrowser())}
+          busy={props.scanBusy}
+          detailsOpen={scanDetails}
+          onDetails={setScanDetails}
+        />
+      )}
+      {!school && !assignment && !messages.length && (
+        <article className="chat-bubble inky-bubble">
+          <strong>{`Hey ${onboarding.profile?.studentName ?? "there"}.`}</strong>
+          <p>What’s on your mind? We can talk through your week, or start with one assignment.</p>
+        </article>
+      )}
+      {timeline.map((entry) => {
+        if (entry.kind === "message") {
+          const { message, index } = entry;
+          return (
+            <article
+              key={message.messageId}
+              className={`chat-bubble ${message.role === "user" ? "student-bubble" : "inky-bubble"}`}
+            >
+              <small>{message.role === "user" ? "You" : "Inky"}</small>
+              {Boolean(message.assignmentRefs?.length) && (
+                <div className="chat-refs">
+                  {message.assignmentRefs?.map((ref) => (
+                    <span key={ref.assignmentId}>@ {ref.title}</span>
+                  ))}
+                </div>
+              )}
+              {message.role === "user" ? <p>{message.text}</p> : <ChatMarkdown text={message.text} />}
+              {message.recovery === "failed" && (
+                <button
+                  className="button button--yellow"
+                  disabled={Boolean(active)}
+                  onClick={() => {
+                    const original = chat?.job.messages
+                      .slice(0, index)
+                      .reverse()
+                      .find((m) => m.role === "user");
+                    if (original) void send(original.text, original.assignmentRefs ?? []);
+                  }}
+                >
+                  Try again
+                </button>
+              )}
+            </article>
+          );
+        }
+        return null;
+      })}
+    </div>
   );
-  const composer = (!school || (scanActive && !scanDetails)) ? (
+  const composer =
+    !school || (scanActive && !scanDetails) ? (
       <form
         className={`inky-composer ${view === "home" && !workingAnywhere && !active ? "has-perched-inky" : ""}`}
         onSubmit={(e) => {
@@ -394,9 +411,7 @@ export function ChatWorkspace(props: ChatProps) {
                   onClick={() =>
                     saveDraft({
                       ...draft,
-                      refs: draft.refs.filter(
-                        (r) => r.assignmentId !== ref.assignmentId,
-                      ),
+                      refs: draft.refs.filter((r) => r.assignmentId !== ref.assignmentId),
                     })
                   }
                 >
@@ -426,15 +441,8 @@ export function ChatWorkspace(props: ChatProps) {
                   >
                     <strong>{a.title}</strong>
                     <small>
-                      {
-                        onboarding.courses.find(
-                          (c) => c.courseId === a.courseId,
-                        )?.label
-                      }{" "}
-                      ·{" "}
-                      {a.dueAt
-                        ? new Date(a.dueAt).toLocaleDateString()
-                        : a.dueText ?? "No due date"}
+                      {onboarding.courses.find((c) => c.courseId === a.courseId)?.label} ·{" "}
+                      {a.dueAt ? new Date(a.dueAt).toLocaleDateString() : (a.dueText ?? "No due date")}
                     </small>
                   </button>
                 ))
@@ -446,8 +454,14 @@ export function ChatWorkspace(props: ChatProps) {
           <textarea
             ref={input}
             aria-label="Message Inky"
-            placeholder={school ? "Tell Inky something about this check…" : assignment ? "Ask about this assignment…" : "Hey Inky…"}
-            disabled={school && !["running","needs_user"].includes(onboarding.scan?.state ?? "")}
+            placeholder={
+              school
+                ? "Tell Inky something about this check…"
+                : assignment
+                  ? "Ask about this assignment…"
+                  : "Hey Inky…"
+            }
+            disabled={school && !["running", "needs_user"].includes(onboarding.scan?.state ?? "")}
             value={draft.text}
             rows={1}
             maxLength={20_000}
@@ -459,10 +473,8 @@ export function ChatWorkspace(props: ChatProps) {
               : {})}
             onChange={(e) => {
               saveDraft({ ...draft, text: e.target.value });
-              const match = e.target.value
-                .slice(0, e.target.selectionStart)
-                .match(/(?:^|\s)@([^@\n]*)$/);
-              setQuery(school ? null : match?.[1] ?? null);
+              const match = e.target.value.slice(0, e.target.selectionStart).match(/(?:^|\s)@([^@\n]*)$/);
+              setQuery(school ? null : (match?.[1] ?? null));
               setOption(0);
             }}
             onKeyDown={(e) => {
@@ -481,10 +493,7 @@ export function ChatWorkspace(props: ChatProps) {
                   } else
                     setOption(
                       (i) =>
-                        (i +
-                          (e.key === "ArrowDown" ? 1 : -1) +
-                          matches.length) %
-                        Math.max(1, matches.length),
+                        (i + (e.key === "ArrowDown" ? 1 : -1) + matches.length) % Math.max(1, matches.length),
                     );
                   return;
                 }
@@ -498,112 +507,158 @@ export function ChatWorkspace(props: ChatProps) {
           <button
             className="chat-send"
             aria-label={active ? "Stop reply" : "Send message"}
-            disabled={(!active && !draft.text.trim()) || (school && !["running","needs_user"].includes(onboarding.scan?.state ?? ""))}
+            disabled={
+              (!active && !draft.text.trim()) ||
+              (school && !["running", "needs_user"].includes(onboarding.scan?.state ?? ""))
+            }
           >
             <Icon name={active ? "stop" : "send"} size={20} />
           </button>
         </div>
       </form>
-  ) : null;
-  const schoolBrowser = browser && view === "expanded" ? (
-        <SchoolBrowser
-          onClose={() => setBrowser(false)}
-          onSlot={props.onSchoolSlot}
-          workspace={workspace}
-          status={school ? onboarding.scan?.currentStep : execution?.lastError}
-          onContinue={school && onboarding.scan?.state === "needs_user" ? props.onResumeScan : undefined}
-          busy={props.scanBusy !== null}
-          onPause={school && onboarding.scan?.state === "running" ? () => { void window.studi?.pauseSchoolScan().catch(cause => setError(String(cause))); } : execution?.phase === "working" ? () => props.onTakeover(execution.taskId) : undefined}
-        />
-      ) : null;
-  const content = assignment && view !== "home" ? (
-    <AssignmentWorkspace assignment={assignment} task={task} execution={execution} lifecycle={lifecycle} onboarding={onboarding}
-      busy={props.scanBusy} conversation={conversation} composer={composer} browser={schoolBrowser}
-      error={(error || props.actionError) && <p className="chat-error" role="alert">{error || props.actionError}</p>}
-      onClose={() => onView("home")} onBrowser={openBrowser} onCloseBrowser={() => setBrowser(false)}
-      onStart={props.onStart} onCheckAssignment={props.onCheckAssignment} onResume={props.onResume} onPause={props.onTakeover} onCancel={props.onCancel}
-      onOpenWork={props.onOpenWork} onOpenSchoolCheck={props.onOpenSchoolCheck} onOpenRules={props.onOpenRules}
-      onOpenArtifact={props.onOpenArtifact} onVerifySubmission={props.onVerifySubmission} />
-  ) : (
-    <section
-      className={`chat-workspace chat-view-${view} ${browser ? "chat-with-browser" : ""}`}
-      aria-label="Your conversation with Inky"
-    >
-      {view !== "home" && (
-        <section className="conversation-paper" aria-label="Chat with Inky">
-          <header className="conversation-header">
-            <div
-              className={`chat-presence ${chat?.activity === "typing" ? "is-typing" : ""}`}
-            >
-              <Inky
-                state={mood}
-                size={54}
-                label={status}
-              />
-              <strong>{school ? "School check" : assignment?.title ?? "Chat with Inky"}</strong>
-              <small role="status">{school ? "Your school" : status}</small>
-            </div>
-            <div className="conversation-actions">
-              {(school || assignment) && (
+    ) : null;
+  const schoolBrowser =
+    browser && view === "expanded" ? (
+      <SchoolBrowser
+        onClose={() => setBrowser(false)}
+        onSlot={props.onSchoolSlot}
+        workspace={workspace}
+        status={school ? onboarding.scan?.currentStep : execution?.lastError}
+        onContinue={school && onboarding.scan?.state === "needs_user" ? props.onResumeScan : undefined}
+        busy={props.scanBusy !== null}
+        onPause={
+          school && onboarding.scan?.state === "running"
+            ? () => {
+                void window.studi?.pauseSchoolScan().catch((cause) => setError(String(cause)));
+              }
+            : execution?.phase === "working"
+              ? () => props.onTakeover(execution.taskId)
+              : undefined
+        }
+      />
+    ) : null;
+  const content =
+    assignment && view !== "home" ? (
+      <AssignmentWorkspace
+        assignment={assignment}
+        task={task}
+        execution={execution}
+        lifecycle={lifecycle}
+        onboarding={onboarding}
+        busy={props.scanBusy}
+        conversation={conversation}
+        composer={composer}
+        browser={schoolBrowser}
+        error={
+          (error || props.actionError) && (
+            <p className="chat-error" role="alert">
+              {error || props.actionError}
+            </p>
+          )
+        }
+        onClose={() => onView("home")}
+        onBrowser={openBrowser}
+        onCloseBrowser={() => setBrowser(false)}
+        onStart={props.onStart}
+        onCheckAssignment={props.onCheckAssignment}
+        onResume={props.onResume}
+        onPause={props.onTakeover}
+        onCancel={props.onCancel}
+        onOpenWork={props.onOpenWork}
+        onOpenSchoolCheck={props.onOpenSchoolCheck}
+        onOpenRules={props.onOpenRules}
+        onOpenArtifact={props.onOpenArtifact}
+        onVerifySubmission={props.onVerifySubmission}
+      />
+    ) : (
+      <section
+        className={`chat-workspace chat-view-${view} ${browser ? "chat-with-browser" : ""}`}
+        aria-label="Your conversation with Inky"
+      >
+        {view !== "home" && (
+          <section className="conversation-paper" aria-label="Chat with Inky">
+            <header className="conversation-header">
+              <div className={`chat-presence ${chat?.activity === "typing" ? "is-typing" : ""}`}>
+                <Inky state={mood} size={54} label={status} />
+                <strong>{school ? "School check" : (assignment?.title ?? "Chat with Inky")}</strong>
+                <small role="status">{school ? "Your school" : status}</small>
+              </div>
+              <div className="conversation-actions">
+                {(school || assignment) && (
+                  <button
+                    className="chat-icon"
+                    aria-label={browser ? "Close school browser" : "Open school browser"}
+                    aria-expanded={browser}
+                    onClick={() => (browser ? setBrowser(false) : openBrowser())}
+                  >
+                    <Icon name="browser" />
+                  </button>
+                )}
                 <button
                   className="chat-icon"
-                  aria-label={browser ? "Close school browser" : "Open school browser"}
-                  aria-expanded={browser}
-                  onClick={() => browser ? setBrowser(false) : openBrowser()}
+                  aria-label={school ? "Close school check" : assignment ? "Close assignment" : "Close chat"}
+                  onClick={() => onView("home")}
                 >
-                  <Icon name="browser" />
+                  ×
                 </button>
-              )}
+              </div>
+            </header>
+            {(error || props.actionError) && (
+              <p className="chat-error assignment-action-error" role="alert">
+                {error || props.actionError}
+              </p>
+            )}
+            {conversation}
+          </section>
+        )}
+        {view === "home" && error && (
+          <p className="chat-error" role="alert">
+            {error}
+          </p>
+        )}
+        {view === "home" && (workingAnywhere || active) && (
+          <div className="chat-work-slip">
+            <button
+              onClick={() => {
+                if (workingAnywhere) props.onOpenWork();
+                onView("expanded");
+              }}
+            >
+              <Inky state={mood} size={42} label={status} />
+              <span>
+                <strong>{active ? "I’m thinking about your message." : status}</strong>
+                <small>
+                  {onboarding.assignments.find((a) => a.assignmentId === activeExecution?.assignmentId)
+                    ?.title ?? "Your conversation with Inky"}
+                </small>
+              </span>
+              <span>↗</span>
+            </button>
+            {activeExecution?.phase === "working" && (
               <button
                 className="chat-icon"
-                aria-label={school ? "Close school check" : assignment ? "Close assignment" : "Close chat"}
-                onClick={() => onView("home")}
+                aria-label="Pause assignment work"
+                onClick={() => props.onTakeover(activeExecution.taskId)}
               >
-                ×
+                Ⅱ
               </button>
-            </div>
-          </header>
-          {(error || props.actionError) && <p className="chat-error assignment-action-error" role="alert">{error || props.actionError}</p>}
-          {conversation}
-        </section>
-      )}
-      {view === "home" && error && (
-        <p className="chat-error" role="alert">
-          {error}
-        </p>
-      )}
-      {view === "home" && (workingAnywhere || active) && (
-        <div className="chat-work-slip">
-          <button onClick={() => { if (workingAnywhere) props.onOpenWork(); onView("expanded"); }}>
-            <Inky state={mood} size={42} label={status} />
-            <span>
-              <strong>
-                {active ? "I’m thinking about your message." : status}
-              </strong>
-              <small>
-                {onboarding.assignments.find(
-                  (a) => a.assignmentId === activeExecution?.assignmentId,
-                )?.title ?? "Your conversation with Inky"}
-              </small>
-            </span>
-            <span>↗</span>
-          </button>
-          {activeExecution?.phase === "working" && (
-            <button
-              className="chat-icon"
-              aria-label="Pause assignment work"
-              onClick={() => props.onTakeover(activeExecution.taskId)}
-            >
-              Ⅱ
-            </button>
-          )}
-        </div>
-      )}
-      {composer}
-      {schoolBrowser}
-    </section>
+            )}
+          </div>
+        )}
+        {composer}
+        {schoolBrowser}
+      </section>
+    );
+  return view === "home" ? (
+    content
+  ) : (
+    <WorkspaceDialog
+      label={school ? "School check" : (assignment?.title ?? "Chat with Inky")}
+      onClose={() => onView("home")}
+    >
+      {content}
+    </WorkspaceDialog>
   );
-  return view === "home" ? content : <WorkspaceDialog label={school ? "School check" : assignment?.title ?? "Chat with Inky"} onClose={() => onView("home")}>{content}</WorkspaceDialog>;
 }
 
 function SchoolBrowser({
@@ -665,20 +720,30 @@ function SchoolBrowser({
     <aside className="chat-browser">
       <header>
         <strong>School browser</strong>
-        {onContinue && <button className="button button--yellow scan-browser-continue" disabled={busy} onClick={onContinue}>Continue scan<Icon name="right" size={16} /></button>}
-        <button
-          className="chat-icon"
-          aria-label="Close browser"
-          onClick={onClose}
-        >
+        {onContinue && (
+          <button
+            className="button button--yellow scan-browser-continue"
+            disabled={busy}
+            onClick={onContinue}
+          >
+            Continue scan
+            <Icon name="right" size={16} />
+          </button>
+        )}
+        <button className="chat-icon" aria-label="Close browser" onClick={onClose}>
           ×
         </button>
       </header>
       <p className="chat-browser-owner">
-        {status ?? (workspace?.browser.driver === "inky"
-          ? "Inky is using the school page."
-          : "Your school page. Take your time.")}
-        {onPause && <button className="quiet-button" onClick={onPause}>Pause</button>}
+        {status ??
+          (workspace?.browser.driver === "inky"
+            ? "Inky is using the school page."
+            : "Your school page. Take your time.")}
+        {onPause && (
+          <button className="quiet-button" onClick={onPause}>
+            Pause
+          </button>
+        )}
       </p>
       <div className="chat-browser-slot" ref={slot}>
         {readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}

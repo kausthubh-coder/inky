@@ -96,8 +96,7 @@ test("failed restart preparation restores runtime and keeps downloaded update fo
   assert.match(f.service.state().error, /Draft/);
 });
 test("unsigned Mac opens only the official DMG and never simulates installation", async () => {
-  const url =
-    "https://github.com/kausthubh-coder/inky/releases/download/v0.1.3/Studi-macOS.dmg";
+  const url = "https://github.com/kausthubh-coder/inky/releases/download/v0.1.3/Studi-macOS.dmg";
   const f = fixture({
     platform: "darwin",
     fetchRelease: async () => ({
@@ -140,10 +139,13 @@ test("native update timeout can retry and disposed services ignore late events",
   t.mock.timers.tick(60_000);
   assert.equal(f.service.state().phase, "error");
   await f.service.check();
-  assert.equal(f.calls.filter(c => c[0] === "check").length, 2);
+  assert.equal(f.calls.filter((c) => c[0] === "check").length, 2);
   f.service.dispose();
   f.native.emit("update-downloaded", {}, "Late", "0.1.3");
   await f.service.install();
-  assert.equal(f.calls.some(c => c[0] === "install"), false);
+  assert.equal(
+    f.calls.some((c) => c[0] === "install"),
+    false,
+  );
   assert.equal(f.native.listenerCount("update-downloaded"), 0);
 });

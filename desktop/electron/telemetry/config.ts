@@ -11,10 +11,12 @@ export interface TelemetryPublicConfig {
 
 export function loadTelemetryPublicConfig(isPackaged: boolean): TelemetryPublicConfig {
   const local = isPackaged ? {} : readLocalEnvironment(resolve(process.cwd(), ".env.local"));
-  const projectToken = process.env.STUDI_POSTHOG_PROJECT_TOKEN ?? local.STUDI_POSTHOG_PROJECT_TOKEN ?? publicInkyProjectToken;
-  const candidateHost = process.env.STUDI_POSTHOG_HOST ?? local.STUDI_POSTHOG_HOST ?? "https://us.i.posthog.com";
+  const projectToken =
+    process.env.STUDI_POSTHOG_PROJECT_TOKEN ?? local.STUDI_POSTHOG_PROJECT_TOKEN ?? publicInkyProjectToken;
+  const candidateHost =
+    process.env.STUDI_POSTHOG_HOST ?? local.STUDI_POSTHOG_HOST ?? "https://us.i.posthog.com";
   const host = allowedHosts.has(candidateHost as TelemetryPublicConfig["host"])
-    ? candidateHost as TelemetryPublicConfig["host"]
+    ? (candidateHost as TelemetryPublicConfig["host"])
     : "https://us.i.posthog.com";
   if (!projectToken?.startsWith("phc_")) return { host };
   return { projectToken, host };

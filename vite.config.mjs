@@ -11,7 +11,15 @@ export default defineConfig({
   },
   server: {
     host: "0.0.0.0",
-    watch: { ignored: ["**/.agents/studi-qa/**", "**/.agents/playwright-mcp/**", "**/.studi-harness/**", "**/out/**", "**/dist/**"] },
+    watch: {
+      ignored: [
+        "**/.agents/studi-qa/**",
+        "**/.agents/playwright-mcp/**",
+        "**/.studi-harness/**",
+        "**/out/**",
+        "**/dist/**",
+      ],
+    },
     allowedHosts: ["terminal.local"],
     warmup: {
       clientFiles: ["./desktop/src/main.tsx"],

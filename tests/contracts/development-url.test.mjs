@@ -13,14 +13,8 @@ test("development URL is absent unless configured", () => {
 });
 
 test("development URL permits only credential-free local HTTP", () => {
-  assert.equal(
-    getDevelopmentUrl(context("http://127.0.0.1:5173")),
-    "http://127.0.0.1:5173/",
-  );
-  assert.equal(
-    getDevelopmentUrl(context("http://localhost:5173/app")),
-    "http://localhost:5173/app",
-  );
+  assert.equal(getDevelopmentUrl(context("http://127.0.0.1:5173")), "http://127.0.0.1:5173/");
+  assert.equal(getDevelopmentUrl(context("http://localhost:5173/app")), "http://localhost:5173/app");
 
   for (const url of [
     "https://localhost:5173",
@@ -41,12 +35,7 @@ test("malformed development URLs fail closed", () => {
 });
 
 test("packaged launches ignore the development URL switch", () => {
-  for (const switchValue of [
-    "",
-    "http://localhost:5173",
-    "https://school.example.edu",
-    "not a url",
-  ]) {
+  for (const switchValue of ["", "http://localhost:5173", "https://school.example.edu", "not a url"]) {
     assert.equal(getDevelopmentUrl(context(switchValue, true)), undefined);
   }
 });
@@ -63,10 +52,7 @@ test("Electron development renderer selection is explicit per launch", async () 
     /getDevelopmentUrl\(\{\s*isPackaged:\s*app\.isPackaged,\s*switchValue:\s*app\.commandLine\.getSwitchValue\("studi-development-url"\),\s*\}\)/s,
   );
   assert.doesNotMatch(mainSource, /STUDI_DEVELOPMENT_MODE|VITE_DEV_SERVER_URL/);
-  assert.match(
-    scripts["dev:electron"],
-    /electron \. --studi-development-url=http:\/\/127\.0\.0\.1:5173/,
-  );
+  assert.match(scripts["dev:electron"], /electron \. --studi-development-url=http:\/\/127\.0\.0\.1:5173/);
   assert.doesNotMatch(scripts["dev:electron"], /STUDI_DEVELOPMENT_MODE|VITE_DEV_SERVER_URL/);
   assert.equal(scripts.start, "bun run build && electron .");
 });

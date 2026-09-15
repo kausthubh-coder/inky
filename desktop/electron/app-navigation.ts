@@ -1,7 +1,10 @@
 import type { WebContents } from "electron";
 import { externalLinkUrl } from "../shared/external-link.js";
 
-export function configureAppNavigation(contents: WebContents, openExternal: (url: string) => Promise<unknown>): void {
+export function configureAppNavigation(
+  contents: WebContents,
+  openExternal: (url: string) => Promise<unknown>,
+): void {
   contents.setWindowOpenHandler(({ url }) => {
     const destination = externalLinkUrl(url);
     if (destination) {
@@ -9,5 +12,5 @@ export function configureAppNavigation(contents: WebContents, openExternal: (url
     }
     return { action: "deny" };
   });
-  contents.on("will-navigate", event => event.preventDefault());
+  contents.on("will-navigate", (event) => event.preventDefault());
 }

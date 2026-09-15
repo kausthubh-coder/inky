@@ -1,9 +1,6 @@
 import { writeFile } from "node:fs/promises";
 
-import {
-  TelemetryInspectorEnvelopeSchema,
-  type TelemetryInspectorEnvelope,
-} from "../shared/index.js";
+import { TelemetryInspectorEnvelopeSchema, type TelemetryInspectorEnvelope } from "../shared/index.js";
 import type { StorageHealth } from "./storage/index.js";
 import { stripSecrets, sanitizeTelemetryValue } from "../shared/telemetry-content.js";
 

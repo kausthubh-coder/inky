@@ -24,9 +24,16 @@ export const BrowserSnapshotSchema = z.strictObject({
 });
 
 export const BROWSER_TOOL_NAMES = [
-  "browser_snapshot", "browser_navigate", "browser_click", "browser_type",
-  "browser_select", "browser_press", "browser_wait", "browser_scroll",
-  "browser_link", "browser_screenshot",
+  "browser_snapshot",
+  "browser_navigate",
+  "browser_click",
+  "browser_type",
+  "browser_select",
+  "browser_press",
+  "browser_wait",
+  "browser_scroll",
+  "browser_link",
+  "browser_screenshot",
 ] as const;
 
 export const BrowserDriverSchema = z.enum(["inky", "student", "none"]);
@@ -42,7 +49,14 @@ export const BrowserStateSchema = z.strictObject({
 export function browserDriver(input: {
   readonly layout: "hidden" | "onboarding" | "desk";
   readonly scanState?: "running" | "needs_user" | "succeeded" | "partial" | "failed";
-  readonly executionPhase?: "working" | "needs_user" | "ready_review" | "submitting" | "submitted" | "preserved" | "failed";
+  readonly executionPhase?:
+    | "working"
+    | "needs_user"
+    | "ready_review"
+    | "submitting"
+    | "submitted"
+    | "preserved"
+    | "failed";
 }): BrowserDriver {
   if (input.layout === "hidden") return "none";
   if (input.executionPhase === "working" || input.executionPhase === "submitting") return "inky";
@@ -50,9 +64,7 @@ export function browserDriver(input: {
   return "student";
 }
 
-export function driveOverlayActive(input: {
-  readonly driver: BrowserDriver;
-}): boolean {
+export function driveOverlayActive(input: { readonly driver: BrowserDriver }): boolean {
   return input.driver === "inky";
 }
 
@@ -99,15 +111,21 @@ export const StudiWorkspaceStateSchema = z.strictObject({
 });
 
 /** The subscription Inky is using right now. */
-export function selectedProvider(workspace: Pick<StudiWorkspaceState, "providers" | "selectedProviderId">): ProviderStatus {
+export function selectedProvider(
+  workspace: Pick<StudiWorkspaceState, "providers" | "selectedProviderId">,
+): ProviderStatus {
   const [first] = workspace.providers;
-  const selected = workspace.providers.find((provider) => provider.providerId === workspace.selectedProviderId) ?? first;
+  const selected =
+    workspace.providers.find((provider) => provider.providerId === workspace.selectedProviderId) ?? first;
   if (!selected) throw new Error("The workspace has no subscription status");
   return selected;
 }
 
 /** The model Inky would use for a subscription: the catalog's preferred one when installed, else the first. */
-export function defaultModelFor(models: readonly AgentModel[], providerId: AgentProviderId): AgentModel | undefined {
+export function defaultModelFor(
+  models: readonly AgentModel[],
+  providerId: AgentProviderId,
+): AgentModel | undefined {
   const candidates = models.filter((model) => model.providerId === providerId);
   for (const modelId of agentProvider(providerId).preferredModelIds) {
     const preferred = candidates.find((model) => model.id === modelId);

@@ -28,7 +28,10 @@ import { createBrowserUploadTool } from "../browser/tools.js";
 import { createBrowserDownloadTool } from "../browser/downloads.js";
 import { createPdfReadTool } from "../files/pdf-tool.js";
 
-export type ExecutionNotification = Omit<NotificationIntent, "schemaVersion" | "notificationId" | "createdAt">;
+export type ExecutionNotification = Omit<
+  NotificationIntent,
+  "schemaVersion" | "notificationId" | "createdAt"
+>;
 export type ExecutionNotificationSink = (intent: ExecutionNotification) => void | Promise<void>;
 export type ConnectedAppToolProvider = () => Promise<readonly ToolDefinition[]>;
 
@@ -36,10 +39,12 @@ export class AssignmentExecutionCoordinator {
   readonly #store: LocalStore;
   readonly #manager: ManagerCoordinator;
   readonly #defaultBrowser: BrowserController;
-  readonly #browserForAssignment: ((id:string) => BrowserController) | undefined;
+  readonly #browserForAssignment: ((id: string) => BrowserController) | undefined;
   get #browser(): BrowserController {
     const execution = this.#activeExecution();
-    return execution && this.#browserForAssignment ? this.#browserForAssignment(execution.assignmentId) : this.#defaultBrowser;
+    return execution && this.#browserForAssignment
+      ? this.#browserForAssignment(execution.assignmentId)
+      : this.#defaultBrowser;
   }
   readonly #browserWork: VisibleBrowserWork;
   readonly #notify: ExecutionNotificationSink;
@@ -61,7 +66,7 @@ export class AssignmentExecutionCoordinator {
       readonly reviewWindowMs?: number;
       readonly handoffWindowMs?: number;
       readonly browserWork?: VisibleBrowserWork;
-      readonly browserForAssignment?: (id:string) => BrowserController;
+      readonly browserForAssignment?: (id: string) => BrowserController;
       readonly connectedAppTools?: ConnectedAppToolProvider;
     },
   ) {
@@ -88,7 +93,7 @@ export class AssignmentExecutionCoordinator {
       readonly reviewWindowMs?: number;
       readonly handoffWindowMs?: number;
       readonly browserWork?: VisibleBrowserWork;
-      readonly browserForAssignment?: (id:string) => BrowserController;
+      readonly browserForAssignment?: (id: string) => BrowserController;
       readonly connectedAppTools?: ConnectedAppToolProvider;
     } = {},
   ): Promise<AssignmentExecutionCoordinator> {
@@ -115,11 +120,15 @@ export class AssignmentExecutionCoordinator {
   }
 
   async startNext(): Promise<AssignmentExecution | null> {
-    return this.#start(async () => this.#manager.startNext((assignmentId) => this.#assignmentSessionPlan(assignmentId)));
+    return this.#start(async () =>
+      this.#manager.startNext((assignmentId) => this.#assignmentSessionPlan(assignmentId)),
+    );
   }
 
   async start(taskId: string): Promise<AssignmentExecution> {
-    const execution = await this.#start(async () => this.#manager.startTask(taskId, (assignmentId) => this.#assignmentSessionPlan(assignmentId)));
+    const execution = await this.#start(async () =>
+      this.#manager.startTask(taskId, (assignmentId) => this.#assignmentSessionPlan(assignmentId)),
+    );
     if (!execution) throw new Error(`Task ${taskId} could not be started`);
     return execution;
   }
@@ -160,11 +169,14 @@ export class AssignmentExecutionCoordinator {
         lastError: undefined,
         updatedAt: this.#now(),
       });
-      await this.#run(working, [
-        "The student clicked 'I’m done — check' and explicitly asked you to resume this assignment now. Do not ask for permission to resume again.",
-        `Inspect the current page to verify the remaining browser condition: ${execution.returnPredicate ?? "the blocking page state has cleared"}.`,
-        "Continue under the fresh stored assignment permission. If the answer is already complete, verify it and call assignment_start_review. Request another handoff only for a concrete unresolved blocker.",
-      ].join("\n"));
+      await this.#run(
+        working,
+        [
+          "The student clicked 'I’m done — check' and explicitly asked you to resume this assignment now. Do not ask for permission to resume again.",
+          `Inspect the current page to verify the remaining browser condition: ${execution.returnPredicate ?? "the blocking page state has cleared"}.`,
+          "Continue under the fresh stored assignment permission. If the answer is already complete, verify it and call assignment_start_review. Request another handoff only for a concrete unresolved blocker.",
+        ].join("\n"),
+      );
       return this.#requiredExecution(taskId);
     });
   }
@@ -193,17 +205,24 @@ export class AssignmentExecutionCoordinator {
       ...execution,
       phase: "needs_user",
       lastError: "The browser is yours. When you’re ready, ask me to continue.",
-      returnPredicate: "The student finished the visible browser action and explicitly asked Studi to resume.",
+      returnPredicate:
+        "The student finished the visible browser action and explicitly asked Studi to resume.",
       updatedAt: this.#now(),
     });
-    await this.#notify({ kind: "handoff", target: { type: "task", id: taskId }, title: "The browser is yours", body: "Finish the visible action, then resume Studi from the desk." });
+    await this.#notify({
+      kind: "handoff",
+      target: { type: "task", id: taskId },
+      title: "The browser is yours",
+      body: "Finish the visible action, then resume Studi from the desk.",
+    });
     return waiting;
   }
 
   cancel(taskId: string): AssignmentExecution {
     this.#assertUsable();
     const execution = this.#requiredExecution(taskId);
-    if (!["working", "needs_user", "ready_review"].includes(execution.phase)) throw new Error(`Task ${taskId} cannot be cancelled from ${execution.phase}`);
+    if (!["working", "needs_user", "ready_review"].includes(execution.phase))
+      throw new Error(`Task ${taskId} cannot be cancelled from ${execution.phase}`);
     this.#manager.cancel(taskId);
     return this.#requiredExecution(taskId);
   }
@@ -235,7 +254,11 @@ export class AssignmentExecutionCoordinator {
       submissionReceiptId: receiptId,
       updatedAt: this.#now(),
     });
-    this.#manager.completeActive(taskId, "submitted", "Student submission was verified from the visible page");
+    this.#manager.completeActive(
+      taskId,
+      "submitted",
+      "Student submission was verified from the visible page",
+    );
     return submitted;
   }
 
@@ -255,11 +278,16 @@ export class AssignmentExecutionCoordinator {
         updatedAt: this.#now(),
       });
     }
-    if (execution.phase !== "working") throw new Error(`Task ${taskId} cannot take another work turn from ${execution.phase}`);
+    if (execution.phase !== "working")
+      throw new Error(`Task ${taskId} cannot take another work turn from ${execution.phase}`);
     if (execution.turnCount >= execution.taskBudget.maxAgentTurns) {
       throw new Error(`Task ${taskId} reached its ${execution.taskBudget.maxAgentTurns}-turn safety limit`);
     }
-    this.#store.lifecycle.putExecution({ ...execution, turnCount: execution.turnCount + 1, updatedAt: this.#now() });
+    this.#store.lifecycle.putExecution({
+      ...execution,
+      turnCount: execution.turnCount + 1,
+      updatedAt: this.#now(),
+    });
     return this.#manager.runWorkerTurn(prompt, observe);
   }
 
@@ -277,20 +305,42 @@ export class AssignmentExecutionCoordinator {
   async #run(execution: AssignmentExecution, instruction: string): Promise<void> {
     const assignment = this.#requiredAssignment(execution.assignmentId);
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (this.#browserForAssignment && (!this.#browser.state.url || this.#browser.state.url === "about:blank")) await this.#browser.navigate(assignment.sourceTarget);
+    if (this.#browserForAssignment && (!this.#browser.state.url || this.#browser.state.url === "about:blank"))
+      await this.#browser.navigate(assignment.sourceTarget);
     const snapshot = await this.#browser.snapshot();
-    const noteEntries = retrieveNoteIndex(this.#store.notes.list(), this.#noteContext(assignment.assignmentId, assignment.courseId), "automatic");
-    const notes = await Promise.all(noteEntries.map(async (entry) => ({ entry, content: (await this.#store.notes.read(entry.noteId))?.content ?? null })));
+    const noteEntries = retrieveNoteIndex(
+      this.#store.notes.list(),
+      this.#noteContext(assignment.assignmentId, assignment.courseId),
+      "automatic",
+    );
+    const notes = await Promise.all(
+      noteEntries.map(async (entry) => ({
+        entry,
+        content: (await this.#store.notes.read(entry.noteId))?.content ?? null,
+      })),
+    );
     const receipt = this.#store.lifecycle.getSubmissionReceipt(execution.taskId);
     const homeworkFiles = await this.#homeworkFiles(execution.assignmentId);
     const folderListing = homeworkFiles ? await homeworkFiles.list() : [];
     const prompt = [
       "# Assignment",
-        JSON.stringify({ taskId: execution.taskId, title: assignment.title, sourceTarget: assignment.sourceTarget,
-          dueAt: assignment.dueAt ?? null, dueText: assignment.dueText, schoolStatus: assignment.schoolStatus,
-          latePolicy: assignment.latePolicy, instructions: assignment.instructions ?? null,
-          requirements: assignment.requirementEvidence, missingRequirements: assignment.missingRequirements }, null, 2),
-        "Before entering answers, inspect this assignment's current submission state and cutoff. If already submitted, graded, locked, or the allowed submission window has closed, stop and report the change; do not overwrite or repeat schoolwork.",
+      JSON.stringify(
+        {
+          taskId: execution.taskId,
+          title: assignment.title,
+          sourceTarget: assignment.sourceTarget,
+          dueAt: assignment.dueAt ?? null,
+          dueText: assignment.dueText,
+          schoolStatus: assignment.schoolStatus,
+          latePolicy: assignment.latePolicy,
+          instructions: assignment.instructions ?? null,
+          requirements: assignment.requirementEvidence,
+          missingRequirements: assignment.missingRequirements,
+        },
+        null,
+        2,
+      ),
+      "Before entering answers, inspect this assignment's current submission state and cutoff. If already submitted, graded, locked, or the allowed submission window has closed, stop and report the change; do not overwrite or repeat schoolwork.",
       "# Fresh stored permission",
       JSON.stringify(permission, null, 2),
       "# Task budget",
@@ -301,7 +351,19 @@ export class AssignmentExecutionCoordinator {
       receipt ? JSON.stringify(receipt, null, 2) : "No submission receipt exists for this task.",
       "# Homework folder",
       homeworkFiles
-        ? JSON.stringify({ available: true, entries: folderListing.map(({ path, kind, size, modifiedAt }) => ({ path, kind, size, modifiedAt })) }, null, 2)
+        ? JSON.stringify(
+            {
+              available: true,
+              entries: folderListing.map(({ path, kind, size, modifiedAt }) => ({
+                path,
+                kind,
+                size,
+                modifiedAt,
+              })),
+            },
+            null,
+            2,
+          )
         : "No homework folder is selected. File tools and shell are unavailable.",
       "# Visible browser snapshot",
       formatSnapshot(snapshot),
@@ -309,20 +371,48 @@ export class AssignmentExecutionCoordinator {
       instruction,
     ].join("\n\n");
     try {
-      const result = await this.continueTurn(execution.taskId, prompt, (event) => this.#recordActivity(execution.taskId, event));
-      const persisted = this.#store.agentJobs.getByTarget({kind:"assignment", assignmentId:execution.assignmentId});
-      if (persisted) this.#store.agentJobs.put({...persisted.job, messages:[...persisted.job.messages, {messageId:randomUUID(),role:"assistant",text:result.text || "This work turn ended. Check the assignment status below.",createdAt:this.#now(),turnIndex:persisted.job.turnIndex}]}, persisted.sessionPath);
+      const result = await this.continueTurn(execution.taskId, prompt, (event) =>
+        this.#recordActivity(execution.taskId, event),
+      );
+      const persisted = this.#store.agentJobs.getByTarget({
+        kind: "assignment",
+        assignmentId: execution.assignmentId,
+      });
+      if (persisted)
+        this.#store.agentJobs.put(
+          {
+            ...persisted.job,
+            messages: [
+              ...persisted.job.messages,
+              {
+                messageId: randomUUID(),
+                role: "assistant",
+                text: result.text || "This work turn ended. Check the assignment status below.",
+                createdAt: this.#now(),
+                turnIndex: persisted.job.turnIndex,
+              },
+            ],
+          },
+          persisted.sessionPath,
+        );
       const current = this.#store.lifecycle.getExecution(execution.taskId);
       if (current?.phase === "working") {
-        await this.#handoff(current, result.outcome === "completed"
-          ? "The assignment worker ended without recording a verified outcome."
-          : `The assignment worker ${result.outcome} before recording a verified outcome.`,
-        "The student has inspected the visible page and asked Studi to continue.");
+        await this.#handoff(
+          current,
+          result.outcome === "completed"
+            ? "The assignment worker ended without recording a verified outcome."
+            : `The assignment worker ${result.outcome} before recording a verified outcome.`,
+          "The student has inspected the visible page and asked Studi to continue.",
+        );
       }
     } catch (error) {
       const current = this.#store.lifecycle.getExecution(execution.taskId);
       if (current?.phase === "working") {
-        await this.#handoff(current, `The assignment worker stopped: ${errorMessage(error)}`, "The student has resolved the visible browser problem.");
+        await this.#handoff(
+          current,
+          `The assignment worker stopped: ${errorMessage(error)}`,
+          "The student has resolved the visible browser problem.",
+        );
       }
     }
   }
@@ -339,20 +429,33 @@ export class AssignmentExecutionCoordinator {
       name: "assignment_record_answer_snapshot",
       label: "Record assignment answers",
       description: "Persist a concise answer snapshot without claiming review or submission.",
-      parameters: Type.Object({ answers: Type.String({ minLength: 1, maxLength: 20_000 }) }, { additionalProperties: false }),
+      parameters: Type.Object(
+        { answers: Type.String({ minLength: 1, maxLength: 20_000 }) },
+        { additionalProperties: false },
+      ),
       execute: async (_id, input) => {
         const execution = this.#requiredWorkingExecution();
-        return toolResult(this.#store.lifecycle.putExecution({ ...execution, answerSnapshot: input.answers.trim(), updatedAt: this.#now() }));
+        return toolResult(
+          this.#store.lifecycle.putExecution({
+            ...execution,
+            answerSnapshot: input.answers.trim(),
+            updatedAt: this.#now(),
+          }),
+        );
       },
     });
     const recovery = defineTool({
       name: "assignment_record_recovery",
       label: "Record browser recovery",
-      description: "Record one meaningfully different browser recovery plan and its result. The second failed plan pauses for the student.",
-      parameters: Type.Object({
-        plan: Type.String({ minLength: 1, maxLength: 1_000 }),
-        result: Type.String({ minLength: 1, maxLength: 1_000 }),
-      }, { additionalProperties: false }),
+      description:
+        "Record one meaningfully different browser recovery plan and its result. The second failed plan pauses for the student.",
+      parameters: Type.Object(
+        {
+          plan: Type.String({ minLength: 1, maxLength: 1_000 }),
+          result: Type.String({ minLength: 1, maxLength: 1_000 }),
+        },
+        { additionalProperties: false },
+      ),
       execute: async (_id, input) => {
         const execution = this.#requiredWorkingExecution();
         const snapshot = await this.#browser.snapshot();
@@ -368,7 +471,11 @@ export class AssignmentExecutionCoordinator {
         });
         this.#store.lifecycle.putExecution({ ...execution, attemptCount: ordinal, updatedAt: this.#now() });
         if (ordinal === 2) {
-          await this.#handoff(this.#requiredExecution(execution.taskId), "Two different browser recovery plans failed.", "The student has resolved the browser failure and asked Studi to continue.");
+          await this.#handoff(
+            this.#requiredExecution(execution.taskId),
+            "Two different browser recovery plans failed.",
+            "The student has resolved the browser failure and asked Studi to continue.",
+          );
         }
         return toolResult(attempt);
       },
@@ -377,37 +484,66 @@ export class AssignmentExecutionCoordinator {
       name: "assignment_request_takeover",
       label: "Request student takeover",
       description: "Pause for login, CAPTCHA, or another action only the student can safely complete.",
-      parameters: Type.Object({
-        reason: Type.String({ minLength: 1, maxLength: 1_000 }),
-        returnPredicate: Type.String({ minLength: 1, maxLength: 1_000 }),
-      }, { additionalProperties: false }),
-      execute: async (_id, input) => toolResult(await this.#handoff(this.#requiredWorkingExecution(), input.reason, input.returnPredicate)),
+      parameters: Type.Object(
+        {
+          reason: Type.String({ minLength: 1, maxLength: 1_000 }),
+          returnPredicate: Type.String({ minLength: 1, maxLength: 1_000 }),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_id, input) =>
+        toolResult(
+          await this.#handoff(this.#requiredWorkingExecution(), input.reason, input.returnPredicate),
+        ),
     });
     const unsupported = defineTool({
       name: "assignment_mark_unsupported",
       label: "Mark unsupported assignment",
       description: "Truthfully stop physical, CAD, Blender, or other unsupported work.",
-      parameters: Type.Object({ reason: Type.String({ minLength: 1, maxLength: 1_000 }) }, { additionalProperties: false }),
+      parameters: Type.Object(
+        { reason: Type.String({ minLength: 1, maxLength: 1_000 }) },
+        { additionalProperties: false },
+      ),
       execute: async (_id, input) => {
         const execution = this.#requiredWorkingExecution();
-        const failed = this.#store.lifecycle.putExecution({ ...execution, phase: "failed", lastError: input.reason.trim(), updatedAt: this.#now() });
+        const failed = this.#store.lifecycle.putExecution({
+          ...execution,
+          phase: "failed",
+          lastError: input.reason.trim(),
+          updatedAt: this.#now(),
+        });
         this.#manager.completeActive(execution.taskId, "failed", input.reason.trim());
-        await this.#notify({ kind: "failure", target: { type: "task", id: execution.taskId }, title: "Assignment needs another approach", body: input.reason.trim() });
+        await this.#notify({
+          kind: "failure",
+          target: { type: "task", id: execution.taskId },
+          title: "Assignment needs another approach",
+          body: input.reason.trim(),
+        });
         return toolResult(failed);
       },
     });
     const review = defineTool({
       name: "assignment_start_review",
       label: "Start assignment review",
-      description: "After inspecting the entire assignment, list every required answer, file, graph, and other deliverable with current visible evidence. Only then retain the answers and start review without submitting.",
-      parameters: Type.Object({
-        answers: Type.Optional(Type.String({ minLength: 1, maxLength: 20_000 })),
-        completedRequirements: Type.Array(Type.Object({
-          requirement: Type.String({ minLength: 1, maxLength: 500 }),
-          evidence: Type.String({ minLength: 1, maxLength: 1_000 }),
-        }, { additionalProperties: false }), { minItems: 1, maxItems: 100 }),
-        summary: Type.String({ minLength: 1, maxLength: 1_000 }),
-      }, { additionalProperties: false }),
+      description:
+        "After inspecting the entire assignment, list every required answer, file, graph, and other deliverable with current visible evidence. Only then retain the answers and start review without submitting.",
+      parameters: Type.Object(
+        {
+          answers: Type.Optional(Type.String({ minLength: 1, maxLength: 20_000 })),
+          completedRequirements: Type.Array(
+            Type.Object(
+              {
+                requirement: Type.String({ minLength: 1, maxLength: 500 }),
+                evidence: Type.String({ minLength: 1, maxLength: 1_000 }),
+              },
+              { additionalProperties: false },
+            ),
+            { minItems: 1, maxItems: 100 },
+          ),
+          summary: Type.String({ minLength: 1, maxLength: 1_000 }),
+        },
+        { additionalProperties: false },
+      ),
       execute: async (_id, input) => {
         const execution = this.#requiredWorkingExecution();
         const answers = input.answers?.trim() ?? execution.answerSnapshot;
@@ -415,8 +551,13 @@ export class AssignmentExecutionCoordinator {
         const snapshot = await this.#browser.snapshot();
         const startedAt = Date.parse(this.#now());
         const handoffDeadline = new Date(startedAt + this.#handoffWindowMs).toISOString();
-        const reviewDeadline = new Date(Math.min(startedAt + this.#reviewWindowMs, Date.parse(handoffDeadline))).toISOString();
-        const answerArtifactId = await this.#writeAnswerArtifact({ ...execution, answerSnapshot: answers }, "Saved before starting student review.");
+        const reviewDeadline = new Date(
+          Math.min(startedAt + this.#reviewWindowMs, Date.parse(handoffDeadline)),
+        ).toISOString();
+        const answerArtifactId = await this.#writeAnswerArtifact(
+          { ...execution, answerSnapshot: answers },
+          "Saved before starting student review.",
+        );
         const ready = this.#store.lifecycle.putExecution({
           ...execution,
           answerArtifactId,
@@ -431,23 +572,36 @@ export class AssignmentExecutionCoordinator {
           reviewCheckpoint: this.#checkpoint(snapshot, input.summary.trim()),
           updatedAt: this.#now(),
         });
-        this.#manager.pause(execution.taskId, "ready_review", "Completed page state verified; waiting for student review");
-        await this.#notify({ kind: "review_ready", target: { type: "task", id: execution.taskId }, title: "Assignment ready to review", body: `Answers remain in the school page until ${handoffDeadline}.` });
+        this.#manager.pause(
+          execution.taskId,
+          "ready_review",
+          "Completed page state verified; waiting for student review",
+        );
+        await this.#notify({
+          kind: "review_ready",
+          target: { type: "task", id: execution.taskId },
+          title: "Assignment ready to review",
+          body: `Answers remain in the school page until ${handoffDeadline}.`,
+        });
         return toolResult(ready);
       },
     });
     const noteUpsert = defineTool({
       name: "note_upsert",
       label: "Save a scoped assignment note",
-      description: "After review evidence exists, save one bounded course, confirmed-pattern, or assignment note. Notes never alter permission or count as evidence.",
-      parameters: Type.Object({
-        scope: Type.Union([Type.Literal("course"), Type.Literal("pattern"), Type.Literal("assignment")]),
-        patternId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-        about: Type.Union([Type.Literal("how-to"), Type.Literal("knowledge"), Type.Literal("work")]),
-        key: Type.String({ minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }),
-        title: Type.String({ minLength: 1, maxLength: 200 }),
-        content: Type.String({ minLength: 1, maxLength: 100_000 }),
-      }, { additionalProperties: false }),
+      description:
+        "After review evidence exists, save one bounded course, confirmed-pattern, or assignment note. Notes never alter permission or count as evidence.",
+      parameters: Type.Object(
+        {
+          scope: Type.Union([Type.Literal("course"), Type.Literal("pattern"), Type.Literal("assignment")]),
+          patternId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
+          about: Type.Union([Type.Literal("how-to"), Type.Literal("knowledge"), Type.Literal("work")]),
+          key: Type.String({ minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }),
+          title: Type.String({ minLength: 1, maxLength: 200 }),
+          content: Type.String({ minLength: 1, maxLength: 100_000 }),
+        },
+        { additionalProperties: false },
+      ),
       execute: async (_id, input) => {
         const execution = this.#activeExecution();
         if (!execution || execution.phase !== "ready_review" || !execution.reviewCheckpoint) {
@@ -458,7 +612,9 @@ export class AssignmentExecutionCoordinator {
         if (input.scope === "course") subjectId = assignment.courseId;
         if (input.scope === "pattern") {
           if (!input.patternId) throw new Error("A confirmed pattern id is required for a pattern note");
-          const confirmed = this.#store.manager.listConfirmedPatterns(assignment.assignmentId, assignment.courseId).some((match) => match.patternId === input.patternId);
+          const confirmed = this.#store.manager
+            .listConfirmedPatterns(assignment.assignmentId, assignment.courseId)
+            .some((match) => match.patternId === input.patternId);
           if (!confirmed) throw new Error(`Pattern ${input.patternId} is not confirmed for this assignment`);
           subjectId = input.patternId;
         }
@@ -477,13 +633,18 @@ export class AssignmentExecutionCoordinator {
     const submit = defineTool({
       name: "browser_submit",
       label: "Submit school work",
-      description: "Re-resolve stored permission, capture pre-submit evidence, activate one submission control, and require fresh visible confirmation.",
-      parameters: Type.Object({
-        ref: Type.String({ minLength: 1, maxLength: 64 }),
-        confirmation: Type.Literal("SUBMIT"),
-        expectedConfirmationText: Type.String({ minLength: 1, maxLength: 500 }),
-      }, { additionalProperties: false }),
-      execute: async (_id, input) => toolResult(await this.#submit(input.ref, input.expectedConfirmationText)),
+      description:
+        "Re-resolve stored permission, capture pre-submit evidence, activate one submission control, and require fresh visible confirmation.",
+      parameters: Type.Object(
+        {
+          ref: Type.String({ minLength: 1, maxLength: 64 }),
+          confirmation: Type.Literal("SUBMIT"),
+          expectedConfirmationText: Type.String({ minLength: 1, maxLength: 500 }),
+        },
+        { additionalProperties: false },
+      ),
+      execute: async (_id, input) =>
+        toolResult(await this.#submit(input.ref, input.expectedConfirmationText)),
     });
     return [recordAnswer, recovery, takeover, unsupported, review, noteUpsert, submit];
   }
@@ -491,28 +652,51 @@ export class AssignmentExecutionCoordinator {
   async #submit(ref: string, expectedConfirmationText: string): Promise<AssignmentExecution> {
     const execution = this.#requiredWorkingExecution();
     if (execution.submissionAttemptedAt) {
-      throw new Error("A submission effect was already attempted for this execution; verify the visible page instead of repeating it");
+      throw new Error(
+        "A submission effect was already attempted for this execution; verify the visible page instead of repeating it",
+      );
     }
     const assignment = this.#requiredAssignment(execution.assignmentId);
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (!permission.maySubmit) throw new Error("Fresh stored assignment permission does not allow submission");
+    if (!permission.maySubmit)
+      throw new Error("Fresh stored assignment permission does not allow submission");
     const refreshed = await this.#browser.refreshRef(ref);
     const preSnapshot = refreshed.snapshot;
-    const pre = this.#checkpoint(preSnapshot, "Fresh page state immediately before the gated submission effect.");
+    const pre = this.#checkpoint(
+      preSnapshot,
+      "Fresh page state immediately before the gated submission effect.",
+    );
     const status = expectedConfirmationText.replace(/\s+/g, " ").trim();
     if (preSnapshot.text.toLowerCase().includes(status.toLowerCase())) {
-      return this.#submissionHandoff(execution, "The claimed submission confirmation was already visible before the submit control was used.", "Submission needs verification");
+      return this.#submissionHandoff(
+        execution,
+        "The claimed submission confirmation was already visible before the submit control was used.",
+        "Submission needs verification",
+      );
     }
-    const submitting = this.#store.lifecycle.putExecution({ ...execution, phase: "submitting", submissionAttemptedAt: this.#now(), updatedAt: this.#now() });
+    const submitting = this.#store.lifecycle.putExecution({
+      ...execution,
+      phase: "submitting",
+      submissionAttemptedAt: this.#now(),
+      updatedAt: this.#now(),
+    });
     this.#manager.beginSubmission(execution.taskId);
     let postSnapshot: BrowserSnapshot;
     try {
       postSnapshot = await this.#browser.click(refreshed.ref, true);
     } catch (error) {
-      return this.#submissionHandoff(submitting, `Submission effect was ambiguous: ${errorMessage(error)}`, "Check the submission");
+      return this.#submissionHandoff(
+        submitting,
+        `Submission effect was ambiguous: ${errorMessage(error)}`,
+        "Check the submission",
+      );
     }
     if (!postSnapshot.text.toLowerCase().includes(status.toLowerCase())) {
-      return this.#submissionHandoff(submitting, "The submit control changed the page, but no new expected confirmation was visible.", "Submission needs verification");
+      return this.#submissionHandoff(
+        submitting,
+        "The submit control changed the page, but no new expected confirmation was visible.",
+        "Submission needs verification",
+      );
     }
     const receiptId = `receipt-${randomUUID()}`;
     this.#store.lifecycle.putSubmissionReceipt({
@@ -524,19 +708,42 @@ export class AssignmentExecutionCoordinator {
       verifiedStatus: status,
       submittedAt: this.#now(),
     });
-    const submitted = this.#store.lifecycle.putExecution({ ...submitting, phase: "submitted", submissionReceiptId: receiptId, updatedAt: this.#now() });
+    const submitted = this.#store.lifecycle.putExecution({
+      ...submitting,
+      phase: "submitted",
+      submissionReceiptId: receiptId,
+      updatedAt: this.#now(),
+    });
     this.#manager.completeActive(execution.taskId, "submitted", `Verified submission status: ${status}`);
     return submitted;
   }
 
-  async #submissionHandoff(execution: AssignmentExecution, reason: string, title: string): Promise<AssignmentExecution> {
-    const needsUser = this.#store.lifecycle.putExecution({ ...execution, phase: "needs_user", lastError: reason, updatedAt: this.#now() });
+  async #submissionHandoff(
+    execution: AssignmentExecution,
+    reason: string,
+    title: string,
+  ): Promise<AssignmentExecution> {
+    const needsUser = this.#store.lifecycle.putExecution({
+      ...execution,
+      phase: "needs_user",
+      lastError: reason,
+      updatedAt: this.#now(),
+    });
     this.#manager.pause(execution.taskId, "needs_user", reason);
-    await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title, body: reason });
+    await this.#notify({
+      kind: "handoff",
+      target: { type: "task", id: execution.taskId },
+      title,
+      body: reason,
+    });
     return needsUser;
   }
 
-  async #handoff(execution: AssignmentExecution, reason: string, returnPredicate: string): Promise<AssignmentExecution> {
+  async #handoff(
+    execution: AssignmentExecution,
+    reason: string,
+    returnPredicate: string,
+  ): Promise<AssignmentExecution> {
     const snapshot = await this.#browser.snapshot();
     const needsUser = this.#store.lifecycle.putExecution({
       ...execution,
@@ -547,24 +754,49 @@ export class AssignmentExecutionCoordinator {
       updatedAt: this.#now(),
     });
     this.#manager.pause(execution.taskId, "needs_user", reason.trim());
-    await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "Studi needs you in the browser", body: reason.trim() });
+    await this.#notify({
+      kind: "handoff",
+      target: { type: "task", id: execution.taskId },
+      title: "Studi needs you in the browser",
+      body: reason.trim(),
+    });
     return needsUser;
   }
 
   async #preserve(execution: AssignmentExecution): Promise<void> {
     if (execution.phase !== "ready_review" || !execution.answerSnapshot) return;
-    const artifactId = await this.#writeAnswerArtifact(execution, "Saved after the submission-review handoff expired.");
-    this.#store.lifecycle.putExecution({ ...execution, phase: "preserved", answerArtifactId: artifactId, reviewDeadline: undefined, handoffDeadline: undefined, updatedAt: this.#now() });
-    this.#manager.completeActive(execution.taskId, "preserved", "Answer Markdown was saved before the review lease was released");
+    const artifactId = await this.#writeAnswerArtifact(
+      execution,
+      "Saved after the submission-review handoff expired.",
+    );
+    this.#store.lifecycle.putExecution({
+      ...execution,
+      phase: "preserved",
+      answerArtifactId: artifactId,
+      reviewDeadline: undefined,
+      handoffDeadline: undefined,
+      updatedAt: this.#now(),
+    });
+    this.#manager.completeActive(
+      execution.taskId,
+      "preserved",
+      "Answer Markdown was saved before the review lease was released",
+    );
   }
 
   async #writeAnswerArtifact(execution: AssignmentExecution, reason: string): Promise<string> {
-    if (!execution.answerSnapshot) throw new Error("An answer snapshot is required before answers can be preserved");
+    if (!execution.answerSnapshot)
+      throw new Error("An answer snapshot is required before answers can be preserved");
     const assignment = this.#requiredAssignment(execution.assignmentId);
     const artifactId = `answer-${createHash("sha256").update(execution.taskId).digest("hex").slice(0, 24)}`;
     const content = `# ${assignment.title}\n\nSource: ${assignment.sourceTarget}\n\n${reason}\n\n## Answers\n\n${execution.answerSnapshot.trim()}\n`;
     await this.#store.artifacts.write({
-      frontmatter: { schemaVersion: STUDI_SCHEMA_VERSION, kind: "answer", artifactId, updatedAt: this.#now() },
+      frontmatter: {
+        schemaVersion: STUDI_SCHEMA_VERSION,
+        kind: "answer",
+        artifactId,
+        updatedAt: this.#now(),
+      },
       content,
     });
     const files = await this.#homeworkFiles(execution.assignmentId);
@@ -581,7 +813,11 @@ export class AssignmentExecutionCoordinator {
     const execution = this.#store.lifecycle.getExecution(lease.taskId);
     if (!execution) return;
     if (execution.phase === "submitted" || execution.phase === "preserved" || execution.phase === "failed") {
-      this.#manager.completeActive(execution.taskId, execution.phase, "Recovered durable terminal execution state");
+      this.#manager.completeActive(
+        execution.taskId,
+        execution.phase,
+        "Recovered durable terminal execution state",
+      );
       return;
     }
     await this.#manager.restoreAssignmentWorker((assignmentId) => this.#assignmentSessionPlan(assignmentId));
@@ -591,8 +827,12 @@ export class AssignmentExecutionCoordinator {
         await this.reconcileDeadlines();
         return;
       }
-      const reason = "Studi restarted before review finished. The browser page could not be retained, so the answers were saved locally for the student to restore.";
-      const artifactId = await this.#writeAnswerArtifact(execution, "Saved because Studi restarted before the review page could be retained.");
+      const reason =
+        "Studi restarted before review finished. The browser page could not be retained, so the answers were saved locally for the student to restore.";
+      const artifactId = await this.#writeAnswerArtifact(
+        execution,
+        "Saved because Studi restarted before the review page could be retained.",
+      );
       this.#store.lifecycle.putExecution({
         ...execution,
         phase: "needs_user",
@@ -600,48 +840,88 @@ export class AssignmentExecutionCoordinator {
         handoffDeadline: undefined,
         answerArtifactId: artifactId,
         lastError: reason,
-        returnPredicate: "The student has reopened the assignment, restored the saved answers, and asked Studi to continue.",
+        returnPredicate:
+          "The student has reopened the assignment, restored the saved answers, and asked Studi to continue.",
         updatedAt: this.#now(),
       });
       this.#manager.pause(execution.taskId, "needs_user", reason);
-      await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "Restore saved answers", body: reason });
+      await this.#notify({
+        kind: "handoff",
+        target: { type: "task", id: execution.taskId },
+        title: "Restore saved answers",
+        body: reason,
+      });
       return;
     }
     if (execution.phase === "working" || execution.phase === "submitting") {
-      const reason = execution.phase === "submitting"
-        ? "Studi restarted after a submission effect began; the result requires student verification and will not be repeated."
-        : "Studi restarted during assignment work. Inspect the visible browser before asking Studi to resume.";
-      this.#store.lifecycle.putExecution({ ...execution, phase: "needs_user", lastError: reason, returnPredicate: "The student has inspected the visible browser and asked Studi to resume.", updatedAt: this.#now() });
+      const reason =
+        execution.phase === "submitting"
+          ? "Studi restarted after a submission effect began; the result requires student verification and will not be repeated."
+          : "Studi restarted during assignment work. Inspect the visible browser before asking Studi to resume.";
+      this.#store.lifecycle.putExecution({
+        ...execution,
+        phase: "needs_user",
+        lastError: reason,
+        returnPredicate: "The student has inspected the visible browser and asked Studi to resume.",
+        updatedAt: this.#now(),
+      });
       this.#manager.pause(execution.taskId, "needs_user", reason);
-      await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "Assignment paused after restart", body: reason });
+      await this.#notify({
+        kind: "handoff",
+        target: { type: "task", id: execution.taskId },
+        title: "Assignment paused after restart",
+        body: reason,
+      });
     }
     await this.reconcileDeadlines();
   }
 
   #activeExecution(): AssignmentExecution | null {
     const lease = this.#manager.state().lease;
-    return lease ? this.#store.lifecycle.getExecution(lease.taskId) : this.#store.lifecycle.getActiveExecution();
+    return lease
+      ? this.#store.lifecycle.getExecution(lease.taskId)
+      : this.#store.lifecycle.getActiveExecution();
   }
 
   async #assignmentSessionPlan(assignmentId: string): Promise<AssignmentSessionPlan> {
     const { workspace, files: homeworkFiles } = await this.#assignmentWorkspace(assignmentId);
     const files = createWorkspaceCodingTools(workspace.assignmentDirectory);
-    const upload = createBrowserUploadTool(this.#browserForAssignment?.(assignmentId) ?? this.#defaultBrowser, (paths) => homeworkFiles.resolveUploads(paths));
-    const download = createBrowserDownloadTool(this.#browserForAssignment?.(assignmentId) ?? this.#defaultBrowser, homeworkFiles);
+    const upload = createBrowserUploadTool(
+      this.#browserForAssignment?.(assignmentId) ?? this.#defaultBrowser,
+      (paths) => homeworkFiles.resolveUploads(paths),
+    );
+    const download = createBrowserDownloadTool(
+      this.#browserForAssignment?.(assignmentId) ?? this.#defaultBrowser,
+      homeworkFiles,
+    );
     const pdf = createPdfReadTool(homeworkFiles);
     let connected: readonly ToolDefinition[] = [];
-    try { connected = await this.#connectedAppTools(); } catch { /* Connected apps cannot disable local tools. */ }
+    try {
+      connected = await this.#connectedAppTools();
+    } catch {
+      /* Connected apps cannot disable local tools. */
+    }
     return {
       cwd: workspace.assignmentDirectory,
       tools: [...this.#tools, ...files, upload, download, pdf, ...connected],
     };
   }
 
-  async assignmentFiles(assignmentId:string) { return (await this.#assignmentWorkspace(assignmentId)).files.list(); }
-  async readAssignmentFile(assignmentId:string, path:string) { return (await this.#assignmentWorkspace(assignmentId)).files.read(path); }
-  async assignmentDirectory(assignmentId:string) { return (await this.#assignmentWorkspace(assignmentId)).workspace.assignmentDirectory; }
-  async revealAssignmentFile(assignmentId: string, path: string) { return (await this.#assignmentWorkspace(assignmentId)).files.revealPath(path); }
-  async importAssignmentFile(assignmentId: string, source: string) { return (await this.#assignmentWorkspace(assignmentId)).files.importFile(source); }
+  async assignmentFiles(assignmentId: string) {
+    return (await this.#assignmentWorkspace(assignmentId)).files.list();
+  }
+  async readAssignmentFile(assignmentId: string, path: string) {
+    return (await this.#assignmentWorkspace(assignmentId)).files.read(path);
+  }
+  async assignmentDirectory(assignmentId: string) {
+    return (await this.#assignmentWorkspace(assignmentId)).workspace.assignmentDirectory;
+  }
+  async revealAssignmentFile(assignmentId: string, path: string) {
+    return (await this.#assignmentWorkspace(assignmentId)).files.revealPath(path);
+  }
+  async importAssignmentFile(assignmentId: string, source: string) {
+    return (await this.#assignmentWorkspace(assignmentId)).files.importFile(source);
+  }
 
   async #homeworkFiles(assignmentId: string): Promise<HomeworkFiles | null> {
     try {
@@ -657,7 +937,9 @@ export class AssignmentExecutionCoordinator {
       throw new Error("Choose a new empty homework folder for Studi before starting this assignment");
     }
     const assignment = this.#requiredAssignment(assignmentId);
-    const course = this.#store.school.listCourses().find((candidate) => candidate.courseId === assignment.courseId);
+    const course = this.#store.school
+      .listCourses()
+      .find((candidate) => candidate.courseId === assignment.courseId);
     const workspace = await openAssignmentWorkspace(preferences.homeworkRoot, {
       courseId: assignment.courseId,
       courseLabel: course?.label ?? assignment.courseId,
@@ -669,7 +951,8 @@ export class AssignmentExecutionCoordinator {
 
   #requiredWorkingExecution(): AssignmentExecution {
     const execution = this.#activeExecution();
-    if (!execution || execution.phase !== "working") throw new Error("No working assignment execution owns the browser");
+    if (!execution || execution.phase !== "working")
+      throw new Error("No working assignment execution owns the browser");
     return execution;
   }
 
@@ -696,8 +979,12 @@ export class AssignmentExecutionCoordinator {
       kind: "assignment",
       assignmentId,
       courseId,
-      confirmedPatternIds: this.#store.manager.listConfirmedPatterns(assignmentId, courseId).map((match) => match.patternId),
-      courseAssignmentIds: this.#store.assignments.listByCourse(courseId).map((assignment) => assignment.assignmentId),
+      confirmedPatternIds: this.#store.manager
+        .listConfirmedPatterns(assignmentId, courseId)
+        .map((match) => match.patternId),
+      courseAssignmentIds: this.#store.assignments
+        .listByCourse(courseId)
+        .map((assignment) => assignment.assignmentId),
     };
   }
 

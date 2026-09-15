@@ -18,9 +18,16 @@ const execFileAsync = promisify(execFile);
 
 test("optional scan intent supports the existing no-argument call and validates assignment scope", async () => {
   const received = [];
-  const api = composeIpc({ startSchoolScan: { ...studiIpcRegistry.startSchoolScan, resultSchema: z.boolean() } }, {
-    startSchoolScan: input => { received.push(input); return true; },
-  }, []);
+  const api = composeIpc(
+    { startSchoolScan: { ...studiIpcRegistry.startSchoolScan, resultSchema: z.boolean() } },
+    {
+      startSchoolScan: (input) => {
+        received.push(input);
+        return true;
+      },
+    },
+    [],
+  );
   assert.equal(await api.startSchoolScan(), true);
   assert.equal(await api.startSchoolScan({ assignmentId: "assignment-1" }), true);
   assert.deepEqual(received, [undefined, { assignmentId: "assignment-1" }]);
@@ -54,16 +61,17 @@ test("composed IPC validates and forwards request-bearing and void methods", asy
       resultSchema: z.strictObject({ ready: z.boolean() }),
     }),
   });
-  const api = composeIpc(registry, {
-    findAssignment: (request) =>
-      malformedResponse ? { title: 17 } : { title: `Assignment ${request.assignmentId}` },
-    getStatus: () => ({ ready: true }),
-  }, calls);
-
-  await assert.rejects(
-    api.findAssignment(),
-    /IPC method findAssignment expects 1 argument; received 0/,
+  const api = composeIpc(
+    registry,
+    {
+      findAssignment: (request) =>
+        malformedResponse ? { title: 17 } : { title: `Assignment ${request.assignmentId}` },
+      getStatus: () => ({ ready: true }),
+    },
+    calls,
   );
+
+  await assert.rejects(api.findAssignment(), /IPC method findAssignment expects 1 argument; received 0/);
   await assert.rejects(
     api.findAssignment({ assignmentId: "assignment-1" }, "extra"),
     /IPC method findAssignment expects 1 argument; received 2/,
@@ -115,13 +123,17 @@ test("composed IPC transforms request and result exactly once at the main bounda
       }),
     }),
   });
-  const api = composeIpc(registry, {
-    measure: (request) => {
-      handlerCalls += 1;
-      handlerRequests.push(request);
-      return malformedResult ? 17 : "accepted";
+  const api = composeIpc(
+    registry,
+    {
+      measure: (request) => {
+        handlerCalls += 1;
+        handlerRequests.push(request);
+        return malformedResult ? 17 : "accepted";
+      },
     },
-  }, transportCalls);
+    transportCalls,
+  );
 
   const result = await api.measure("studi");
   assert.equal(result, 8);
@@ -210,11 +222,15 @@ test("composed IPC propagates handler errors after one request parse", async () 
       resultSchema: z.string().transform((value) => value.length),
     }),
   });
-  const api = composeIpc(registry, {
-    measure: () => {
-      throw handlerError;
+  const api = composeIpc(
+    registry,
+    {
+      measure: () => {
+        throw handlerError;
+      },
     },
-  }, calls);
+    calls,
+  );
 
   await assert.rejects(api.measure("studi"), (error) => error === handlerError);
   assert.equal(requestTransforms, 1);
@@ -222,9 +238,7 @@ test("composed IPC propagates handler errors after one request parse", async () 
 });
 
 test("IPC caller types use request schema input and result schema output", async () => {
-  const tscPath = fileURLToPath(
-    new URL("../../node_modules/typescript/bin/tsc", import.meta.url),
-  );
+  const tscPath = fileURLToPath(new URL("../../node_modules/typescript/bin/tsc", import.meta.url));
   const configPath = fileURLToPath(new URL("./tsconfig.ipc-types.json", import.meta.url));
 
   await execFileAsync(process.execPath, [tscPath, "-p", configPath], {
@@ -259,48 +273,115 @@ test("IPC request and result schemas reject malformed values", () => {
   }
   assert.equal(studiIpcRegistry.navigateBrowser.requestSchema.safeParse({ url: "" }).success, false);
   assert.equal(studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "" }).success, false);
-  assert.equal(studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "A".repeat(1_001) }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "openai-codex", modelId: "" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "cursor", modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "anthropic", modelId: "claude-fable-5-1", reasoningEffort: "high" }).success, true);
-  assert.equal(studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "openai" }).success, false);
-  assert.equal(studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "anthropic" }).success, true);
-  assert.equal(studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({ providerId: "anthropic", code: "  " }).success, false);
-  assert.equal(studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({ providerId: "anthropic", code: "abc#state" }).success, true);
-  assert.equal(studiIpcRegistry.logoutProvider.requestSchema.safeParse({ providerId: "openai-codex" }).success, true);
+  assert.equal(
+    studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "A".repeat(1_001) }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "openai-codex", modelId: "" })
+      .success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.selectAgentModel.requestSchema.safeParse({
+      modelId: "gpt-5.6-sol",
+      reasoningEffort: "high",
+    }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.selectAgentModel.requestSchema.safeParse({
+      providerId: "cursor",
+      modelId: "gpt-5.6-sol",
+      reasoningEffort: "high",
+    }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.selectAgentModel.requestSchema.safeParse({
+      providerId: "anthropic",
+      modelId: "claude-fable-5-1",
+      reasoningEffort: "high",
+    }).success,
+    true,
+  );
+  assert.equal(
+    studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "openai" }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "anthropic" }).success,
+    true,
+  );
+  assert.equal(
+    studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({ providerId: "anthropic", code: "  " })
+      .success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({
+      providerId: "anthropic",
+      code: "abc#state",
+    }).success,
+    true,
+  );
+  assert.equal(
+    studiIpcRegistry.logoutProvider.requestSchema.safeParse({ providerId: "openai-codex" }).success,
+    true,
+  );
   assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "handoff" }).success, true);
   assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "toast" }).success, false);
-  assert.equal(studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({ enabled: true }).success, false);
-  assert.equal(studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({
-    enabled: true,
-    kinds: {
-      handoff: { banner: true, sound: "inky_nudge" },
-      review_ready: { banner: true, sound: "inky_done" },
-      scan_result: { banner: true, sound: "inky_soft" },
-      failure: { banner: true, sound: "inky_uh_oh" },
-    },
-  }).success, true);
+  assert.equal(
+    studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({ enabled: true }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({
+      enabled: true,
+      kinds: {
+        handoff: { banner: true, sound: "inky_nudge" },
+        review_ready: { banner: true, sound: "inky_done" },
+        scan_result: { banner: true, sound: "inky_soft" },
+        failure: { banner: true, sound: "inky_uh_oh" },
+      },
+    }).success,
+    true,
+  );
   assert.equal(
     studiIpcRegistry.send.requestSchema.safeParse({ target: { kind: "home" }, text: "   " }).success,
     false,
   );
   assert.equal(
-    studiIpcRegistry.send.requestSchema.safeParse({ target: { kind: "assignment", assignmentId: "" }, text: "Inspect" }).success,
+    studiIpcRegistry.send.requestSchema.safeParse({
+      target: { kind: "assignment", assignmentId: "" },
+      text: "Inspect",
+    }).success,
     false,
   );
   assert.equal(
-    studiIpcRegistry.send.requestSchema.safeParse({ target: { kind: "assignment", assignmentId: "a-1" }, text: "Inspect" }).success,
+    studiIpcRegistry.send.requestSchema.safeParse({
+      target: { kind: "assignment", assignmentId: "a-1" },
+      text: "Inspect",
+    }).success,
     true,
   );
-  assert.equal(studiIpcRegistry.selectAssignment.requestSchema.safeParse({ assignmentId: null }).success, true);
+  assert.equal(
+    studiIpcRegistry.selectAssignment.requestSchema.safeParse({ assignmentId: null }).success,
+    true,
+  );
   assert.equal(studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk" }).success, true);
   assert.equal(
-    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk", bounds: { x: 10, y: 20, width: 400, height: 300 } }).success,
+    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({
+      mode: "desk",
+      bounds: { x: 10, y: 20, width: 400, height: 300 },
+    }).success,
     true,
   );
   assert.equal(
-    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk", bounds: { x: 10, y: 20, width: 0, height: 300 } }).success,
+    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({
+      mode: "desk",
+      bounds: { x: 10, y: 20, width: 0, height: 300 },
+    }).success,
     false,
   );
 
@@ -311,7 +392,10 @@ test("preload derives named methods and exposes no caller-selected channel primi
   const preload = await readFile(new URL("../../desktop/electron/preload.cts", import.meta.url), "utf8");
   const main = await readFile(new URL("../../desktop/electron/main.ts", import.meta.url), "utf8");
   const ipcSource = await readFile(new URL("../../desktop/shared/ipc.ts", import.meta.url), "utf8");
-  const rendererTypes = await readFile(new URL("../../desktop/src/types/window.d.ts", import.meta.url), "utf8");
+  const rendererTypes = await readFile(
+    new URL("../../desktop/src/types/window.d.ts", import.meta.url),
+    "utf8",
+  );
 
   assert.match(preload, /createIpcApi\(studiIpcRegistry/);
   assert.match(preload, /ipcRenderer\.invoke\(channel, request\)/);
@@ -329,9 +413,11 @@ test("preload derives named methods and exposes no caller-selected channel primi
 
 test("runtime-info shape is declared only by the shared schema", async () => {
   const sources = await Promise.all(
-    ["../../desktop/electron/main.ts", "../../desktop/electron/preload.cts", "../../desktop/src/app/StudiApp.tsx"].map((path) =>
-      readFile(new URL(path, import.meta.url), "utf8"),
-    ),
+    [
+      "../../desktop/electron/main.ts",
+      "../../desktop/electron/preload.cts",
+      "../../desktop/src/app/StudiApp.tsx",
+    ].map((path) => readFile(new URL(path, import.meta.url), "utf8")),
   );
   for (const source of sources) {
     assert.doesNotMatch(source, /interface\s+(?:Studi)?RuntimeInfo/);

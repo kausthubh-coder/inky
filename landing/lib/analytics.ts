@@ -67,7 +67,8 @@ export function initializeAnalytics() {
       maskCapturedNetworkRequestFn: (request) => ({ ...request, name: cleanAnalyticsUrl(request.name) }),
     },
     before_send(event) {
-      if (!event || (!isMarketingPath(window.location.pathname) && !accountEvents.has(event.event))) return null;
+      if (!event || (!isMarketingPath(window.location.pathname) && !accountEvents.has(event.event)))
+        return null;
       for (const property of ["$current_url", "$referrer", "$initial_current_url", "$initial_referrer"]) {
         const value = event.properties[property];
         if (typeof value === "string") event.properties[property] = cleanAnalyticsUrl(value);
@@ -84,7 +85,12 @@ export function initializeAnalytics() {
 
 export function track(event: AnalyticsEvent, properties?: AnalyticsProperties) {
   initializeAnalytics();
-  if (!analyticsEnabled || !posthog.__loaded || (!isMarketingPath(window.location.pathname) && !accountEvents.has(event))) return;
+  if (
+    !analyticsEnabled ||
+    !posthog.__loaded ||
+    (!isMarketingPath(window.location.pathname) && !accountEvents.has(event))
+  )
+    return;
   if (event === "demo_started") posthog.register({ demo_engaged: true });
   if (event === "demo_completed") posthog.register({ demo_engaged: true, demo_finished: true });
   posthog.capture(event, properties);

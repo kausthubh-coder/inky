@@ -23,20 +23,17 @@ export function DashboardOverview({ overview }: { overview: Overview }) {
   const firstName = overview.name?.trim().split(/\s+/)[0] || "there";
   const approved = overview.access === "approved";
   const waiting = overview.access === "waitlist";
-  const hasActivity =
-    overview.usage.assignments > 0 || overview.usage.browserMinutes > 0;
-  const month = new Date(
-    `${overview.usage.period}-01T00:00:00Z`,
-  ).toLocaleDateString("en-US", { month: "long", timeZone: "UTC" });
+  const hasActivity = overview.usage.assignments > 0 || overview.usage.browserMinutes > 0;
+  const month = new Date(`${overview.usage.period}-01T00:00:00Z`).toLocaleDateString("en-US", {
+    month: "long",
+    timeZone: "UTC",
+  });
 
   return (
     <div className={styles.dashboard}>
       <section className={styles.welcome} aria-labelledby="dashboard-greeting">
         <div className={styles.inky} aria-hidden="true">
-          <InkyMascot
-            state={approved ? "hello" : waiting ? "waiting" : "needs"}
-            size={190}
-          />
+          <InkyMascot state={approved ? "hello" : waiting ? "waiting" : "needs"} size={190} />
         </div>
         <div className={styles.message}>
           <h1 id="dashboard-greeting">Hey, {firstName}.</h1>

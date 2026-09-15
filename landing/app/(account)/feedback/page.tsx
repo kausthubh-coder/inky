@@ -33,7 +33,10 @@ export default function FeedbackPage() {
     <section className="dashboard-card feedback-card">
       <p className="eyebrow">A note for us</p>
       <h1>Tell Inky what felt weird.</h1>
-      <p>Missing homework, confusing words, a button that did nothing—send the messy version. It goes straight to the private beta team.</p>
+      <p>
+        Missing homework, confusing words, a button that did nothing—send the messy version. It goes straight
+        to the private beta team.
+      </p>
       <form className="account-feedback-form" onSubmit={onSubmit}>
         <label htmlFor="feedback-message">What happened?</label>
         <textarea
@@ -43,16 +46,27 @@ export default function FeedbackPage() {
           required
           placeholder="I expected… but instead…"
           value={message}
-          onChange={(event) => { setMessage(event.target.value); setSent(false); }}
+          onChange={(event) => {
+            setMessage(event.target.value);
+            setSent(false);
+          }}
           disabled={busy}
         />
         <div className="dashboard-actions">
           <button className="btn primary" disabled={busy || !message.trim()}>
             {busy ? "Sending…" : "Send note"}
           </button>
-          {sent ? <span className="feedback-sent" role="status">Got it. Thank you ♡</span> : null}
+          {sent ? (
+            <span className="feedback-sent" role="status">
+              Got it. Thank you ♡
+            </span>
+          ) : null}
         </div>
-        {error ? <p className="form-error" role="alert">{error}</p> : null}
+        {error ? (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        ) : null}
       </form>
     </section>
   );

@@ -8,14 +8,17 @@ export function useLandingAnalytics(pageRef: RefObject<HTMLDivElement | null>) {
   useEffect(() => {
     const page = pageRef.current;
     if (!page) return;
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (!entry.isIntersecting) continue;
-        const section = entry.target.id;
-        track("landing_section_viewed", { section });
-        observer.unobserve(entry.target);
-      }
-    }, { threshold: 0.25 });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const section = entry.target.id;
+          track("landing_section_viewed", { section });
+          observer.unobserve(entry.target);
+        }
+      },
+      { threshold: 0.25 },
+    );
     for (const id of ["what", "wait", "faq"]) {
       const section = page.querySelector(`#${id}`);
       if (section) observer.observe(section);
@@ -26,7 +29,7 @@ export function useLandingAnalytics(pageRef: RefObject<HTMLDivElement | null>) {
       frame = 0;
       const range = document.documentElement.scrollHeight - window.innerHeight;
       if (range <= 0) return;
-      const depth = Math.round(window.scrollY / range * 100);
+      const depth = Math.round((window.scrollY / range) * 100);
       for (const percent of [25, 50, 75, 100]) {
         if (depth >= percent && !reached.has(percent)) {
           reached.add(percent);

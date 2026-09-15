@@ -59,7 +59,13 @@ const toolsByCapability = Object.freeze({
 
 export function selectCapabilities(context: CapabilityContext): readonly CapabilityName[] {
   if (context.target.kind === "tutor") return [];
-  if (context.target.kind === "home") return ["home", "queue", "notes-search", ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : [])];
+  if (context.target.kind === "home")
+    return [
+      "home",
+      "queue",
+      "notes-search",
+      ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : []),
+    ];
 
   if (context.target.kind === "scan") {
     return context.phase === "working" && context.hasBrowserClaim
@@ -96,19 +102,30 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
   const selected = new Set<CapabilityName>();
   for (const toolName of toolNames) {
     const normalized = toolName.toLocaleLowerCase();
-    for (const [capability, names] of Object.entries(toolsByCapability) as Array<[CapabilityName, readonly string[]]>) {
+    for (const [capability, names] of Object.entries(toolsByCapability) as Array<
+      [CapabilityName, readonly string[]]
+    >) {
       if (names.includes(toolName)) selected.add(capability);
     }
     if (normalized.startsWith("manager_") || normalized.startsWith("queue_")) selected.add("queue");
     if (normalized.startsWith("browser_")) selected.add("browser");
-    if (normalized.startsWith("assignment_") && !["assignment_read", "assignment_start"].includes(normalized)) selected.add("assignment-effects");
-    if (normalized.startsWith("scan_record_") || normalized === "scan_request_handoff") selected.add("scan-record");
+    if (normalized.startsWith("assignment_") && !["assignment_read", "assignment_start"].includes(normalized))
+      selected.add("assignment-effects");
+    if (normalized.startsWith("scan_record_") || normalized === "scan_request_handoff")
+      selected.add("scan-record");
     if (normalized.startsWith("note_search")) selected.add("notes-search");
     if (normalized.startsWith("note_read")) selected.add("notes-read");
     if (normalized.startsWith("file_")) selected.add("files");
-    if (["read", "write", "edit", "grep", "find", "ls", "browser_upload"].includes(normalized)) selected.add("files");
-    if (normalized.startsWith("shell_") || normalized === "bash" || normalized === "powershell") selected.add("shell");
-    if (normalized.startsWith("composio_") || normalized.startsWith("composio:") || normalized.startsWith("connected_apps_")) selected.add("composio");
+    if (["read", "write", "edit", "grep", "find", "ls", "browser_upload"].includes(normalized))
+      selected.add("files");
+    if (normalized.startsWith("shell_") || normalized === "bash" || normalized === "powershell")
+      selected.add("shell");
+    if (
+      normalized.startsWith("composio_") ||
+      normalized.startsWith("composio:") ||
+      normalized.startsWith("connected_apps_")
+    )
+      selected.add("composio");
     if (normalized === "browser_submit") selected.add("submit");
   }
   return [...selected].sort();

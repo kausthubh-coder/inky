@@ -10,28 +10,13 @@ import {
   restoreLocalStoreBackup,
   validateLocalStoreBackup,
 } from "../../dist/electron/storage/index.js";
-import {
-  assignment,
-  run,
-  task,
-  taskCreatedEvent,
-  timestamp,
-} from "../contracts/fixtures.mjs";
+import { assignment, run, task, taskCreatedEvent, timestamp } from "../contracts/fixtures.mjs";
 
-const recordTables = [
-  "assignments",
-  "permission_rules",
-  "runs",
-  "task_events",
-  "task_projections",
-];
+const recordTables = ["assignments", "permission_rules", "runs", "task_events", "task_projections"];
 
 const indexedColumnMutations = [
   ["assignments", "UPDATE assignments SET course_id = 'course-index-mismatch'"],
-  [
-    "permission_rules",
-    "UPDATE permission_rules SET scope = 'course', course_id = 'course-index-mismatch'",
-  ],
+  ["permission_rules", "UPDATE permission_rules SET scope = 'course', course_id = 'course-index-mismatch'"],
   ["runs", "UPDATE runs SET state = 'running'"],
   ["task_events", "UPDATE task_events SET run_id = 'run-index-mismatch'"],
   ["task_projections", "UPDATE task_projections SET revision = 9"],
@@ -76,8 +61,10 @@ test("backup validation rejects query columns that disagree with valid canonical
 
     const target = await openLocalStore(targetRoot);
     try {
-      assert.equal(target.assignments.get("assignment-target-only")?.title,
-        "Target record must survive invalid backups");
+      assert.equal(
+        target.assignments.get("assignment-target-only")?.title,
+        "Target record must survive invalid backups",
+      );
     } finally {
       target.close();
     }

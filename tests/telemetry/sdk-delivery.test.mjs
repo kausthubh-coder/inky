@@ -18,40 +18,77 @@ test("the real PostHog SDK sends identities, diagnostic content, AI events and r
       const body = JSON.parse(bytes.toString());
       if (body.batch) batches.push(...body.batch);
     }
-    return new Response(JSON.stringify({ status: 1 }), { status: 200, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ status: 1 }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   };
   const service = new TelemetryService({
-    projectToken: "phc_test", host: "https://us.i.posthog.com", appVersion: "0.1.3",
-    platform: "win32", settingsPath: join(root, "settings.json"),
+    projectToken: "phc_test",
+    host: "https://us.i.posthog.com",
+    appVersion: "0.1.3",
+    platform: "win32",
+    settingsPath: join(root, "settings.json"),
   });
   try {
     service.identifyClerk({ subject: "user_delivery", email: "friend@example.test", name: "Friend" });
     service.setReplayContext("user_delivery", "replay-delivery", "window-delivery");
-    service.captureDiagnostic({ source: "runtime", kind: "provider_request", at: new Date().toISOString(), payload: { prompt: "Exact prompt", authorization: "CREDENTIAL_CANARY" } });
-    service.capture("$ai_generation", {
-      $ai_trace_id: "run", $ai_span_id: "span", $ai_session_id: "pi-session", $ai_model: "gpt-6-astra", $ai_provider: "openai-codex",
-      $ai_input: [{ role: "user", content: "Exact prompt" }], $ai_output_choices: [{ role: "assistant", content: "Exact reply" }],
-      $ai_input_tokens: 1, $ai_output_tokens: 2, $ai_cache_read_input_tokens: 0, $ai_cache_creation_input_tokens: 0,
-      $ai_total_cost_usd: 0, $ai_latency: 0.5, $ai_is_error: false, stop_reason: "stop",
+    service.captureDiagnostic({
+      source: "runtime",
+      kind: "provider_request",
+      at: new Date().toISOString(),
+      payload: { prompt: "Exact prompt", authorization: "CREDENTIAL_CANARY" },
     });
-    const runtime = new RuntimeDiagnostics("pi-cache-session", event => service.captureDiagnostic({ source: "runtime", ...event }));
+    service.capture("$ai_generation", {
+      $ai_trace_id: "run",
+      $ai_span_id: "span",
+      $ai_session_id: "pi-session",
+      $ai_model: "gpt-6-astra",
+      $ai_provider: "openai-codex",
+      $ai_input: [{ role: "user", content: "Exact prompt" }],
+      $ai_output_choices: [{ role: "assistant", content: "Exact reply" }],
+      $ai_input_tokens: 1,
+      $ai_output_tokens: 2,
+      $ai_cache_read_input_tokens: 0,
+      $ai_cache_creation_input_tokens: 0,
+      $ai_total_cost_usd: 0,
+      $ai_latency: 0.5,
+      $ai_is_error: false,
+      stop_reason: "stop",
+    });
+    const runtime = new RuntimeDiagnostics("pi-cache-session", (event) =>
+      service.captureDiagnostic({ source: "runtime", ...event }),
+    );
     runtime.providerRequest("gpt-6-astra", "openai-codex", { input: [] });
-    runtime.accept({ type: "message_end", message: {
-      role: "assistant", content: [], stopReason: "stop",
-      // Uncached input exceeds cache reads: PostHog cannot infer exclusive accounting from the counts.
-      usage: { input: 100, output: 2, cacheRead: 40, cacheWrite: 0, cost: { total: 0 } },
-    } });
+    runtime.accept({
+      type: "message_end",
+      message: {
+        role: "assistant",
+        content: [],
+        stopReason: "stop",
+        // Uncached input exceeds cache reads: PostHog cannot infer exclusive accounting from the counts.
+        usage: { input: 100, output: 2, cacheRead: 40, cacheWrite: 0, cost: { total: 0 } },
+      },
+    });
     await service.flush();
-    assert.equal(batches.find(event => event.event === "$identify").properties.$set.email, "friend@example.test");
-    const diagnostic = batches.find(event => event.event === "studi_diagnostic");
+    assert.equal(
+      batches.find((event) => event.event === "$identify").properties.$set.email,
+      "friend@example.test",
+    );
+    const diagnostic = batches.find((event) => event.event === "studi_diagnostic");
     assert.equal(diagnostic.properties.payload.prompt, "Exact prompt");
     assert.equal(diagnostic.properties.payload.authorization, "[secret]");
-    const generation = batches.find(event => event.event === "$ai_generation");
+    const generation = batches.find((event) => event.event === "$ai_generation");
     assert.equal(generation.properties.$ai_output_choices[0].content, "Exact reply");
     assert.equal(generation.properties.$session_id, "replay-delivery");
     assert.equal(generation.distinct_id, "user_delivery");
-    const cachedGeneration = batches.find(event => event.event === "$ai_generation" && event.properties.$ai_session_id === "pi-cache-session");
-    assert.ok(cachedGeneration, "runtime generation must survive the strict telemetry schema and SDK delivery");
+    const cachedGeneration = batches.find(
+      (event) => event.event === "$ai_generation" && event.properties.$ai_session_id === "pi-cache-session",
+    );
+    assert.ok(
+      cachedGeneration,
+      "runtime generation must survive the strict telemetry schema and SDK delivery",
+    );
     assert.equal(cachedGeneration.properties.$ai_input_tokens, 100);
     assert.equal(cachedGeneration.properties.$ai_cache_read_input_tokens, 40);
     assert.equal(cachedGeneration.properties.$ai_cache_reporting_exclusive, true);

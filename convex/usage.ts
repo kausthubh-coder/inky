@@ -37,7 +37,11 @@ export const current = query({
   args: { period: v.string(), throughDate: v.string() },
   returns: usageState,
   handler: async (ctx, args) => {
-    if (!monthPattern.test(args.period) || !dayPattern.test(args.throughDate) || !args.throughDate.startsWith(`${args.period}-`)) {
+    if (
+      !monthPattern.test(args.period) ||
+      !dayPattern.test(args.throughDate) ||
+      !args.throughDate.startsWith(`${args.period}-`)
+    ) {
       throw new Error("Invalid usage period");
     }
     const identity = await requireIdentity(ctx);
@@ -55,20 +59,23 @@ export const current = query({
       ctx.db
         .query("usageSummary")
         .withIndex("by_clerk_subject_and_period_and_category", (q) =>
-          q.eq("clerkSubject", identity.subject).gte("period", `${args.period}-01`).lte("period", args.throughDate),
+          q
+            .eq("clerkSubject", identity.subject)
+            .gte("period", `${args.period}-01`)
+            .lte("period", args.throughDate),
         )
         .take(256),
     ]);
     if (!entitlement) throw new Error("Approved entitlement required");
 
-    const amount = (category: typeof monthly[number]["category"]) =>
+    const amount = (category: (typeof monthly)[number]["category"]) =>
       monthly.find((entry) => entry.category === category)?.amount ?? 0;
     const lastDay = Number(args.throughDate.slice(-2));
     const dailyTokens = new Map(
       daily.filter((entry) => entry.category === "agent_tokens").map((entry) => [entry.period, entry.amount]),
     );
     const updatedAt = monthly.reduce<number | null>(
-      (latest, entry) => latest === null || entry.updatedAt > latest ? entry.updatedAt : latest,
+      (latest, entry) => (latest === null || entry.updatedAt > latest ? entry.updatedAt : latest),
       null,
     );
 
@@ -112,12 +119,20 @@ export const record = mutation({
   },
   returns: v.object({ recorded: v.boolean() }),
   handler: async (ctx, args) => {
-    const counts = [args.inputTokens, args.outputTokens, args.cacheReadTokens, args.cacheWriteTokens, args.toolCalls];
+    const counts = [
+      args.inputTokens,
+      args.outputTokens,
+      args.cacheReadTokens,
+      args.cacheWriteTokens,
+      args.toolCalls,
+    ];
     if (
-      args.eventId.length < 1 || args.eventId.length > 256 ||
+      args.eventId.length < 1 ||
+      args.eventId.length > 256 ||
       !Number.isFinite(args.occurredAt) ||
       counts.some((count) => !Number.isInteger(count) || count < 0) ||
-      args.toolCalls > 100_000 || counts.slice(0, 4).some((count) => count > 100_000_000)
+      args.toolCalls > 100_000 ||
+      counts.slice(0, 4).some((count) => count > 100_000_000)
     ) {
       throw new Error("Invalid aggregate usage event");
     }
@@ -127,13 +142,22 @@ export const record = mutation({
     const day = occurred.toISOString().slice(0, 10);
     const identity = await requireIdentity(ctx);
     const [access, device] = await Promise.all([
-      ctx.db.query("betaAccess").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject)).unique(),
-      ctx.db.query("activeDevices").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject)).unique(),
+      ctx.db
+        .query("betaAccess")
+        .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject))
+        .unique(),
+      ctx.db
+        .query("activeDevices")
+        .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject))
+        .unique(),
     ]);
-    if (!access?.approved || device?.deviceId !== args.deviceId) throw new Error("Approved active device required");
+    if (!access?.approved || device?.deviceId !== args.deviceId)
+      throw new Error("Approved active device required");
     const existing = await ctx.db
       .query("usageReceipts")
-      .withIndex("by_clerk_subject_and_event_id", (q) => q.eq("clerkSubject", identity.subject).eq("eventId", args.eventId))
+      .withIndex("by_clerk_subject_and_event_id", (q) =>
+        q.eq("clerkSubject", identity.subject).eq("eventId", args.eventId),
+      )
       .unique();
     if (existing) return { recorded: false };
 
@@ -148,7 +172,11 @@ export const record = mutation({
       ["assignments", args.kind === "assignment_worked" ? 1 : 0],
     ] as const;
     const now = Date.now();
-    await ctx.db.insert("usageReceipts", { clerkSubject: identity.subject, eventId: args.eventId, recordedAt: now });
+    await ctx.db.insert("usageReceipts", {
+      clerkSubject: identity.subject,
+      eventId: args.eventId,
+      recordedAt: now,
+    });
     for (const [category, increment] of increments) {
       if (increment === 0) continue;
       const summary = await ctx.db
@@ -158,7 +186,14 @@ export const record = mutation({
         )
         .unique();
       if (summary) await ctx.db.patch(summary._id, { amount: summary.amount + increment, updatedAt: now });
-      else await ctx.db.insert("usageSummary", { clerkSubject: identity.subject, period, category, amount: increment, updatedAt: now });
+      else
+        await ctx.db.insert("usageSummary", {
+          clerkSubject: identity.subject,
+          period,
+          category,
+          amount: increment,
+          updatedAt: now,
+        });
     }
     if (totalTokens > 0) {
       const daily = await ctx.db
@@ -168,7 +203,14 @@ export const record = mutation({
         )
         .unique();
       if (daily) await ctx.db.patch(daily._id, { amount: daily.amount + totalTokens, updatedAt: now });
-      else await ctx.db.insert("usageSummary", { clerkSubject: identity.subject, period: day, category: "agent_tokens", amount: totalTokens, updatedAt: now });
+      else
+        await ctx.db.insert("usageSummary", {
+          clerkSubject: identity.subject,
+          period: day,
+          category: "agent_tokens",
+          amount: totalTokens,
+          updatedAt: now,
+        });
     }
     return { recorded: true };
   },
@@ -183,10 +225,17 @@ export const add = mutation({
     }
     const identity = await requireIdentity(ctx);
     const [access, device] = await Promise.all([
-      ctx.db.query("betaAccess").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject)).unique(),
-      ctx.db.query("activeDevices").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject)).unique(),
+      ctx.db
+        .query("betaAccess")
+        .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject))
+        .unique(),
+      ctx.db
+        .query("activeDevices")
+        .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", identity.subject))
+        .unique(),
     ]);
-    if (!access?.approved || device?.deviceId !== args.deviceId) throw new Error("Approved active device required");
+    if (!access?.approved || device?.deviceId !== args.deviceId)
+      throw new Error("Approved active device required");
     const summary = await ctx.db
       .query("usageSummary")
       .withIndex("by_clerk_subject_and_period_and_category", (q) =>
@@ -195,7 +244,14 @@ export const add = mutation({
       .unique();
     const amount = (summary?.amount ?? 0) + args.amount;
     if (summary) await ctx.db.patch(summary._id, { amount, updatedAt: Date.now() });
-    else await ctx.db.insert("usageSummary", { clerkSubject: identity.subject, period: args.period, category: args.category, amount, updatedAt: Date.now() });
+    else
+      await ctx.db.insert("usageSummary", {
+        clerkSubject: identity.subject,
+        period: args.period,
+        category: args.category,
+        amount,
+        updatedAt: Date.now(),
+      });
     return { amount };
   },
 });

@@ -37,7 +37,17 @@ const faces: Record<string, string> = {
   done: `<g class="eyes blink"><ellipse cx="45" cy="56" rx="5" ry="7" fill="#3b342c"/><ellipse cx="75" cy="56" rx="5" ry="7" fill="#3b342c"/><circle cx="47" cy="53" r="1.8" fill="#fff"/><circle cx="77" cy="53" r="1.8" fill="#fff"/></g><path class="mouth" d="M48 72 Q60 84 72 72" stroke="#3b342c" stroke-width="3" fill="#fff" stroke-linecap="round"/><ellipse cx="33" cy="66" rx="6" ry="4" fill="#f2a8c4" opacity="0.8"/><ellipse cx="87" cy="66" rx="6" ry="4" fill="#f2a8c4" opacity="0.8"/>`,
 };
 
-export type InkyState = "idle" | "hello" | "working" | "thinking" | "scanning" | "steering" | "needs" | "waiting" | "sleep" | "done";
+export type InkyState =
+  | "idle"
+  | "hello"
+  | "working"
+  | "thinking"
+  | "scanning"
+  | "steering"
+  | "needs"
+  | "waiting"
+  | "sleep"
+  | "done";
 
 export function inkySvg(state: string, size: number): string {
   const safe = STATES.has(state) ? state : "idle";

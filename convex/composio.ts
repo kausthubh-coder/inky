@@ -7,16 +7,23 @@ import { v } from "convex/values";
 
 import { internal } from "./_generated/api.js";
 import { action, type ActionCtx } from "./_generated/server.js";
-import { boundedComposioContent, readComposioPolicy, requireAllowedComposioTool, sanitizeComposioValue } from "./composioPolicy.js";
+import {
+  boundedComposioContent,
+  readComposioPolicy,
+  requireAllowedComposioTool,
+  sanitizeComposioValue,
+} from "./composioPolicy.js";
 
 const statusResult = v.object({
   configured: v.boolean(),
-  toolkits: v.array(v.object({
-    toolkit: v.string(),
-    version: v.string(),
-    access: v.optional(v.literal("all")),
-    tools: v.optional(v.array(v.string())),
-  })),
+  toolkits: v.array(
+    v.object({
+      toolkit: v.string(),
+      version: v.string(),
+      access: v.optional(v.literal("all")),
+      tools: v.optional(v.array(v.string())),
+    }),
+  ),
 });
 
 const connectionResult = v.object({
@@ -40,14 +47,16 @@ export const search = action({
   returns: v.object({
     toolkit: v.string(),
     query: v.string(),
-    tools: v.array(v.object({
-      toolkit: v.string(),
-      slug: v.string(),
-      name: v.string(),
-      description: v.union(v.string(), v.null()),
-      version: v.string(),
-      inputParameters: v.any(),
-    })),
+    tools: v.array(
+      v.object({
+        toolkit: v.string(),
+        slug: v.string(),
+        name: v.string(),
+        description: v.union(v.string(), v.null()),
+        version: v.string(),
+        inputParameters: v.any(),
+      }),
+    ),
     guidance: v.array(v.string()),
   }),
   handler: async (ctx, args) => {
@@ -74,7 +83,9 @@ export const search = action({
     const guidance = [
       ...result.results.flatMap((item) => [item.executionGuidance, ...(item.knownPitfalls ?? [])]),
       ...result.nextStepsGuidance,
-    ].filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 24);
+    ]
+      .filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+      .slice(0, 24);
     return { toolkit, query, tools, guidance };
   },
 });
@@ -88,9 +99,11 @@ export const status = action({
     const policy = readComposioPolicy();
     return {
       configured: Boolean(process.env.COMPOSIO_API_KEY?.trim()) && Object.keys(policy).length > 0,
-      toolkits: Object.entries(policy).map(([toolkit, item]) => item.access === "all"
-        ? { toolkit, version: item.version, access: "all" as const }
-        : { toolkit, version: item.version, tools: [...item.tools] }),
+      toolkits: Object.entries(policy).map(([toolkit, item]) =>
+        item.access === "all"
+          ? { toolkit, version: item.version, access: "all" as const }
+          : { toolkit, version: item.version, tools: [...item.tools] },
+      ),
     };
   },
 });
@@ -134,7 +147,8 @@ export const connection = action({
     const states = await session.toolkits({ toolkits: [toolkit] });
     const state = states.items.find((item) => item.slug === toolkit);
     const connectedAccountId = state?.connection?.connectedAccount?.id ?? null;
-    const status = state?.connection?.connectedAccount?.status ?? (state?.isNoAuth ? "ACTIVE" : "DISCONNECTED");
+    const status =
+      state?.connection?.connectedAccount?.status ?? (state?.isNoAuth ? "ACTIVE" : "DISCONNECTED");
     await ctx.runMutation(internal.composioAccess.saveConnection, {
       clerkSubject: identity.subject,
       toolkit,
@@ -203,7 +217,11 @@ function requireApiKey(): string {
 async function createSession(
   userId: string,
   toolkit: string,
-  policy: { readonly version: string; readonly access: "all" | "selected"; readonly tools: readonly string[] },
+  policy: {
+    readonly version: string;
+    readonly access: "all" | "selected";
+    readonly tools: readonly string[];
+  },
 ) {
   const composio = createComposio(toolkit, policy.version);
   return composio.sessions.create(userId, {
@@ -240,10 +258,15 @@ function normalizeTool(value: string): string {
 
 function normalizeSearchQuery(value: string): string {
   const normalized = value.trim();
-  if (!normalized || normalized.length > 500) throw new Error("Connected app search must be 1 to 500 characters");
+  if (!normalized || normalized.length > 500)
+    throw new Error("Connected app search must be 1 to 500 characters");
   return normalized;
 }
 
 function readableToolName(slug: string): string {
-  return slug.split("_").slice(1).map((word) => word.charAt(0) + word.slice(1).toLocaleLowerCase()).join(" ");
+  return slug
+    .split("_")
+    .slice(1)
+    .map((word) => word.charAt(0) + word.slice(1).toLocaleLowerCase())
+    .join(" ");
 }

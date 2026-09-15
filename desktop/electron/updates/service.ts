@@ -24,8 +24,7 @@ export interface UpdateDependencies {
   report: (error: unknown) => void;
 }
 
-const repository =
-  "https://api.github.com/repos/kausthubh-coder/inky/releases/latest";
+const repository = "https://api.github.com/repos/kausthubh-coder/inky/releases/latest";
 export class UpdateService {
   #state: UpdateState;
   #inFlight = false;
@@ -39,8 +38,7 @@ export class UpdateService {
   readonly #deps: UpdateDependencies;
   constructor(deps: UpdateDependencies) {
     this.#deps = deps;
-    this.#allowCheckAt =
-      (deps.now?.() ?? Date.now()) + (deps.firstRun ? 10_000 : 0);
+    this.#allowCheckAt = (deps.now?.() ?? Date.now()) + (deps.firstRun ? 10_000 : 0);
     this.#state = {
       capability: !deps.packaged
         ? "unavailable"
@@ -81,9 +79,7 @@ export class UpdateService {
           ...this.#state,
           phase: "ready",
           targetVersion:
-            typeof name === "string" && newerVersion(name, deps.version)
-              ? name.replace(/^v/, "")
-              : null,
+            typeof name === "string" && newerVersion(name, deps.version) ? name.replace(/^v/, "") : null,
           notes: typeof notes === "string" ? notes.slice(0, 20_000) : "",
           error: null,
         };
@@ -108,8 +104,7 @@ export class UpdateService {
     this.#disposed = true;
     clearInterval(this.#timer);
     clearTimeout(this.#watchdog);
-    for (const [event, listener] of this.#listeners)
-      this.#deps.native.removeListener(event, listener);
+    for (const [event, listener] of this.#listeners) this.#deps.native.removeListener(event, listener);
     this.#listeners = [];
   }
   async check(): Promise<UpdateState> {
@@ -135,13 +130,11 @@ export class UpdateService {
             headers: { Accept: "application/vnd.github+json" },
             signal: AbortSignal.timeout(15_000),
           }).then((response) => {
-            if (!response.ok)
-              throw new Error("The update service could not be reached.");
+            if (!response.ok) throw new Error("The update service could not be reached.");
             return response.json();
           }));
         if (this.#disposed) return this.state();
-        if (!raw || typeof raw !== "object")
-          throw new Error("The release information is incomplete.");
+        if (!raw || typeof raw !== "object") throw new Error("The release information is incomplete.");
         const release = raw as {
           tag_name?: string;
           draft?: boolean;
@@ -151,12 +144,9 @@ export class UpdateService {
         };
         if (!release.tag_name || release.draft || release.prerelease)
           throw new Error("The release information is incomplete.");
-        if (!newerVersion(release.tag_name, this.#deps.version))
-          this.#state.phase = "idle";
+        if (!newerVersion(release.tag_name, this.#deps.version)) this.#state.phase = "idle";
         else {
-          const asset = release.assets?.find(
-            (item) => item.name === "Studi-macOS.dmg",
-          );
+          const asset = release.assets?.find((item) => item.name === "Studi-macOS.dmg");
           const expected = `https://github.com/kausthubh-coder/inky/releases/download/${encodeURIComponent(release.tag_name)}/Studi-macOS.dmg`;
           if (!asset || asset.browser_download_url !== expected)
             throw new Error("The Mac installer is not available yet.");
@@ -166,10 +156,7 @@ export class UpdateService {
             ...this.#state,
             phase: "ready",
             targetVersion: release.tag_name.replace(/^v/, ""),
-            notes:
-              typeof release.body === "string"
-                ? release.body.slice(0, 20_000)
-                : "",
+            notes: typeof release.body === "string" ? release.body.slice(0, 20_000) : "",
           };
         }
         this.#inFlight = false;
@@ -211,12 +198,7 @@ export class UpdateService {
   #armWatchdog(ms: number): void {
     clearTimeout(this.#watchdog);
     this.#watchdog = setTimeout(
-      () =>
-        this.#fail(
-          new Error(
-            "The update is taking too long. Try again when your connection is ready.",
-          ),
-        ),
+      () => this.#fail(new Error("The update is taking too long. Try again when your connection is ready.")),
       ms,
     );
     this.#watchdog.unref();
@@ -226,8 +208,7 @@ export class UpdateService {
     clearTimeout(this.#watchdog);
     this.#inFlight = false;
     this.#state.phase = this.#ready ? "ready" : "error";
-    this.#state.error =
-      error instanceof Error ? error.message : "The update could not finish.";
+    this.#state.error = error instanceof Error ? error.message : "The update could not finish.";
     this.#deps.report(error);
   }
 }

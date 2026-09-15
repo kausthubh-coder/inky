@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  const body = input && typeof input === "object" ? input as Record<string, unknown> : {};
+  const body = input && typeof input === "object" ? (input as Record<string, unknown>) : {};
   if (typeof body.company === "string" && body.company.trim()) {
     return NextResponse.json({ joined: true, alreadyJoined: true });
   }

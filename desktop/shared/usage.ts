@@ -23,12 +23,7 @@ export const UsageStateSchema = z.strictObject({
   updatedAt: z.string().datetime().nullable(),
 });
 
-export const UsageEventKindSchema = z.enum([
-  "conversation",
-  "scan",
-  "assignment_turn",
-  "assignment_worked",
-]);
+export const UsageEventKindSchema = z.enum(["conversation", "scan", "assignment_turn", "assignment_worked"]);
 
 export const UsageRecordInputSchema = z.strictObject({
   eventId: z.string().trim().min(1).max(256),

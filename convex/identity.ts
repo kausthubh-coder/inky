@@ -1,9 +1,7 @@
 import type { GenericMutationCtx, GenericQueryCtx } from "convex/server";
 import type { DataModel } from "./_generated/dataModel.js";
 
-export async function requireIdentity(
-  ctx: GenericMutationCtx<DataModel> | GenericQueryCtx<DataModel>,
-) {
+export async function requireIdentity(ctx: GenericMutationCtx<DataModel> | GenericQueryCtx<DataModel>) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Unauthenticated");
   return identity;

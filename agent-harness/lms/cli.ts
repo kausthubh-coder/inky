@@ -20,8 +20,7 @@ const { values, positionals } = parseArgs({
   },
 });
 const command = positionals[0] ?? "start";
-if (command === "list")
-  console.log(JSON.stringify({ scenarios: SCENARIO_IDS }));
+if (command === "list") console.log(JSON.stringify({ scenarios: SCENARIO_IDS }));
 else if (command === "validate") {
   const state = createScenario(values.scenario, Number(values.seed));
   console.log(
@@ -35,30 +34,18 @@ else if (command === "validate") {
   );
 } else if (command === "import") {
   if (!values.manifest || !values.library)
-    throw new Error(
-      "Import requires --manifest and --library outside the repository.",
-    );
+    throw new Error("Import requires --manifest and --library outside the repository.");
   const library = resolve(values.library),
     project = resolve(".");
-  if (
-    library === project ||
-    library.startsWith(project + "\\") ||
-    library.startsWith(project + "/")
-  )
+  if (library === project || library.startsWith(project + "\\") || library.startsWith(project + "/"))
     throw new Error("Private imports must be outside the repository.");
   const pack = await importPrivateAssets(resolve(values.manifest), library);
-  console.log(
-    JSON.stringify({ imported: pack.assets.length, library, private: true }),
-  );
+  console.log(JSON.stringify({ imported: pack.assets.length, library, private: true }));
 } else if (command === "start" || command === "resume") {
   const port = Number(values.port);
-  if (!Number.isInteger(port) || port < 0 || port > 65535)
-    throw new Error("Invalid port");
-  if (command === "resume" && !values.run)
-    throw new Error("Resume requires --run <directory>");
-  const runDirectory = resolve(
-    values.run ?? join(".studi-lms", "runs", randomUUID()),
-  );
+  if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("Invalid port");
+  if (command === "resume" && !values.run) throw new Error("Resume requires --run <directory>");
+  const runDirectory = resolve(values.run ?? join(".studi-lms", "runs", randomUUID()));
   const server = await startLms({
     scenarioId: values.scenario,
     seed: Number(values.seed),
@@ -85,9 +72,7 @@ else if (command === "validate") {
       try {
         const action = JSON.parse(line);
         if (action.command === "inspect")
-          console.log(
-            JSON.stringify({ type: "inspection", ...server.inspect() }),
-          );
+          console.log(JSON.stringify({ type: "inspection", ...server.inspect() }));
         else if (action.command === "export-telemetry") {
           const snapshot = server.inspect();
           const result = await exportTelemetry(
@@ -98,21 +83,14 @@ else if (command === "validate") {
               events: snapshot.effects,
             },
             {
-              developmentProjectToken:
-                process.env.POSTHOG_LMS_PROJECT_TOKEN ?? "",
-              ...(process.env.POSTHOG_LMS_HOST
-                ? { host: process.env.POSTHOG_LMS_HOST }
-                : {}),
+              developmentProjectToken: process.env.POSTHOG_LMS_PROJECT_TOKEN ?? "",
+              ...(process.env.POSTHOG_LMS_HOST ? { host: process.env.POSTHOG_LMS_HOST } : {}),
             },
           );
-          console.log(
-            JSON.stringify({ type: "telemetry-exported", ...result }),
-          );
+          console.log(JSON.stringify({ type: "telemetry-exported", ...result }));
         } else if (action.command === "advance") {
           server.advance(String(action.event));
-          console.log(
-            JSON.stringify({ type: "advanced", event: action.event }),
-          );
+          console.log(JSON.stringify({ type: "advanced", event: action.event }));
         } else if (action.command === "stop") {
           await server.close();
           input.close();
@@ -136,10 +114,6 @@ else if (command === "validate") {
     });
 } else if (command === "receipt") {
   if (!values.run) throw new Error("Receipt requires --run");
-  console.log(
-    await readFile(join(resolve(values.run), "receipt.json"), "utf8"),
-  );
+  console.log(await readFile(join(resolve(values.run), "receipt.json"), "utf8"));
 } else
-  throw new Error(
-    "Usage: lms start|resume|validate|list|import|receipt [--scenario name] [--run directory]",
-  );
+  throw new Error("Usage: lms start|resume|validate|list|import|receipt [--scenario name] [--run directory]");

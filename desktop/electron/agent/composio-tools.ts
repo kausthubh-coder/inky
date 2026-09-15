@@ -1,13 +1,25 @@
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Unsafe } from "typebox";
 
-import { connectedAppIsActive, type ConnectedAppConnection, type ConnectedAppExecution, type ConnectedAppToolSearch } from "../../shared/index.js";
+import {
+  connectedAppIsActive,
+  type ConnectedAppConnection,
+  type ConnectedAppExecution,
+  type ConnectedAppToolSearch,
+} from "../../shared/index.js";
 
 export interface ConnectedAppGateway {
-  connectedApps(): Promise<{ readonly configured: boolean; readonly toolkits: readonly { readonly toolkit: string }[] }>;
+  connectedApps(): Promise<{
+    readonly configured: boolean;
+    readonly toolkits: readonly { readonly toolkit: string }[];
+  }>;
   connectedAppConnection(toolkit: string): Promise<ConnectedAppConnection>;
   searchConnectedAppTools(toolkit: string, query: string): Promise<ConnectedAppToolSearch>;
-  executeConnectedAppTool(toolkit: string, toolSlug: string, arguments_: Record<string, unknown>): Promise<ConnectedAppExecution>;
+  executeConnectedAppTool(
+    toolkit: string,
+    toolSlug: string,
+    arguments_: Record<string, unknown>,
+  ): Promise<ConnectedAppExecution>;
 }
 
 export interface ConnectedAppToolObservation {
@@ -32,10 +44,12 @@ export async function createConnectedAppTools(
 ): Promise<readonly ToolDefinition[]> {
   const state = await gateway.connectedApps();
   if (!state.configured) return [];
-  const connections = await Promise.all(state.toolkits.map(async ({ toolkit }) => ({
-    toolkit,
-    connection: await gateway.connectedAppConnection(toolkit),
-  })));
+  const connections = await Promise.all(
+    state.toolkits.map(async ({ toolkit }) => ({
+      toolkit,
+      connection: await gateway.connectedAppConnection(toolkit),
+    })),
+  );
   const activeToolkits = connections
     .filter(({ connection }) => connectedAppIsActive(connection))
     .map(({ toolkit }) => toolkit);
@@ -52,7 +66,12 @@ export async function createConnectedAppTools(
       type: "object",
       properties: {
         toolkit: toolkitSchema,
-        query: { type: "string", minLength: 1, maxLength: 500, description: "Describe the concrete action to perform." },
+        query: {
+          type: "string",
+          minLength: 1,
+          maxLength: 500,
+          description: "Describe the concrete action to perform.",
+        },
       },
       required: ["toolkit", "query"],
       additionalProperties: false,
@@ -69,12 +88,17 @@ export async function createConnectedAppTools(
   const execute = defineTool({
     name: "connected_apps_execute",
     label: "Run a connected-app action",
-    description: "Run an action returned by connected_apps_search in the student's connected account. Use the exact tool slug and argument schema from search. Destructive actions still require clear intent from the student's request.",
+    description:
+      "Run an action returned by connected_apps_search in the student's connected account. Use the exact tool slug and argument schema from search. Destructive actions still require clear intent from the student's request.",
     parameters: Unsafe<{ toolkit: string; toolSlug: string; arguments: Record<string, unknown> }>({
       type: "object",
       properties: {
         toolkit: toolkitSchema,
-        toolSlug: { type: "string", pattern: "^[A-Z0-9_]+$", description: "Exact action slug returned by connected_apps_search." },
+        toolSlug: {
+          type: "string",
+          pattern: "^[A-Z0-9_]+$",
+          description: "Exact action slug returned by connected_apps_search.",
+        },
         arguments: { type: "object", additionalProperties: true },
       },
       required: ["toolkit", "toolSlug", "arguments"],

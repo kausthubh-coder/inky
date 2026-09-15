@@ -29,8 +29,7 @@
   flex-direction: column;
   height: 100dvh;
   min-height: 640px;
-  padding: calc(var(--p) * 86px)
-    calc(var(--p) * max(24px, (100vw - 1140px) / 2)) calc(var(--p) * 16px);
+  padding: calc(var(--p) * 86px) calc(var(--p) * max(24px, (100vw - 1140px) / 2)) calc(var(--p) * 16px);
 }
 .lede {
   height: calc(var(--p) * var(--lede-h));

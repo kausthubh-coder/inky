@@ -19,20 +19,30 @@ div.chat-markdown :is(h1, h2, h3, h4, h5, h6) {
   font-size: 1.1em;
   line-height: 1.4;
 }
-div.chat-markdown h1 { font-size: 1.3em; }
-div.chat-markdown h2 { font-size: 1.2em; }
+div.chat-markdown h1 {
+  font-size: 1.3em;
+}
+div.chat-markdown h2 {
+  font-size: 1.2em;
+}
 div.chat-markdown :is(ul, ol) {
   margin: 0.75em 0;
   padding-left: 1.6em;
 }
-div.chat-markdown li + li { margin-top: 0.35em; }
-div.chat-markdown li > :is(ul, ol) { margin: 0.35em 0; }
+div.chat-markdown li + li {
+  margin-top: 0.35em;
+}
+div.chat-markdown li > :is(ul, ol) {
+  margin: 0.35em 0;
+}
 div.chat-markdown a {
   color: #315b85;
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
-div.chat-markdown a:hover { color: var(--ink); }
+div.chat-markdown a:hover {
+  color: var(--ink);
+}
 div.chat-markdown a:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 3px;
@@ -55,7 +65,10 @@ div.chat-markdown pre {
   white-space: pre;
   overflow-wrap: normal;
 }
-div.chat-markdown pre code { padding: 0; background: none; }
+div.chat-markdown pre code {
+  padding: 0;
+  background: none;
+}
 div.chat-markdown blockquote {
   margin: 0.75em 0;
   padding-left: 1em;
@@ -74,8 +87,13 @@ div.chat-markdown :is(th, td) {
   border: 1px solid #d8ceba;
   text-align: left;
 }
-div.chat-markdown th { background: #f0eadf; }
-div.chat-markdown .contains-task-list { list-style: none; padding-left: 0; }
+div.chat-markdown th {
+  background: #f0eadf;
+}
+div.chat-markdown .contains-task-list {
+  list-style: none;
+  padding-left: 0;
+}
 div.chat-markdown input[type="checkbox"] {
   width: 1em;
   height: 1em;
@@ -83,6 +101,14 @@ div.chat-markdown input[type="checkbox"] {
   margin: 0 0.5em 0 0;
   vertical-align: -0.1em;
 }
-div.chat-markdown hr { margin: 1em 0; border: 0; border-top: 1px solid #d8ceba; }
-div.chat-markdown > :first-child { margin-top: 0; }
-div.chat-markdown > :last-child { margin-bottom: 0; }
+div.chat-markdown hr {
+  margin: 1em 0;
+  border: 0;
+  border-top: 1px solid #d8ceba;
+}
+div.chat-markdown > :first-child {
+  margin-top: 0;
+}
+div.chat-markdown > :last-child {
+  margin-bottom: 0;
+}

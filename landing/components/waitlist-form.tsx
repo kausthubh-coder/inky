@@ -23,18 +23,13 @@ export function WaitlistForm(props: WaitlistFormProps) {
   return <ClerkWaitlistForm {...props} />;
 }
 
-function ClerkWaitlistForm({
-  emailId,
-  finePrint,
-  joined,
-  onJoined,
-  darkButton = false,
-}: WaitlistFormProps) {
+function ClerkWaitlistForm({ emailId, finePrint, joined, onJoined, darkButton = false }: WaitlistFormProps) {
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
-  const placement = emailId === "hero-email" ? "hero" : emailId === "demo-email" ? "demo" : "waitlist_section";
+  const placement =
+    emailId === "hero-email" ? "hero" : emailId === "demo-email" ? "demo" : "waitlist_section";
 
   function onStart() {
     if (started.current) return;
@@ -59,7 +54,11 @@ function ClerkWaitlistForm({
         body: JSON.stringify({ email, company: "" }),
       });
       status = response.status;
-      const result = (await response.json().catch(() => null)) as { error?: string; alreadyJoined?: boolean; joined?: boolean } | null;
+      const result = (await response.json().catch(() => null)) as {
+        error?: string;
+        alreadyJoined?: boolean;
+        joined?: boolean;
+      } | null;
       if (!response.ok) throw new Error(result?.error ?? "Waitlist request failed");
       if (!result?.joined) throw new Error("Invalid waitlist response");
       track(result.alreadyJoined ? "waitlist_already_joined" : "waitlist_joined", {
@@ -68,7 +67,11 @@ function ClerkWaitlistForm({
       });
       onJoined();
     } catch (cause) {
-      track("waitlist_failed", { placement, status, duration_ms: Math.round(performance.now() - submittedAt) });
+      track("waitlist_failed", {
+        placement,
+        status,
+        duration_ms: Math.round(performance.now() - submittedAt),
+      });
       setError(
         cause instanceof Error && cause.message === "Enter a real email address"
           ? cause.message
@@ -106,11 +109,7 @@ function ClerkWaitlistForm({
           onFocus={onStart}
           disabled={busy}
         />
-        <button
-          type="submit"
-          className={`btn primary${darkButton ? " dark" : ""}`}
-          disabled={busy}
-        >
+        <button type="submit" className={`btn primary${darkButton ? " dark" : ""}`} disabled={busy}>
           {busy ? "Saving…" : "Save my seat"}
         </button>
       </div>

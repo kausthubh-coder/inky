@@ -9,7 +9,9 @@ test("a ChatGPT login projects the device code and clears on success", async () 
   let finishLogin;
   const owner = new ProviderLoginAttemptOwner((providerId, signal, interaction) => {
     logins.push({ providerId, signal, interaction });
-    return new Promise((resolve) => { finishLogin = resolve; });
+    return new Promise((resolve) => {
+      finishLogin = resolve;
+    });
   });
 
   assert.deepEqual(owner.start("openai-codex"), { phase: "starting", providerId: "openai-codex" });
@@ -28,7 +30,10 @@ test("a ChatGPT login projects the device code and clears on success", async () 
   assert.equal(handoff.userCode, "ABCD-EFGH");
   assert.equal(handoff.verificationUri, "https://auth.openai.com/codex/device");
   assert.ok(Date.parse(handoff.expiresAt) > Date.now());
-  assert.equal(ProviderLoginHandoffSchema.safeParse({ ...handoff, accessToken: "must-not-cross" }).success, false);
+  assert.equal(
+    ProviderLoginHandoffSchema.safeParse({ ...handoff, accessToken: "must-not-cross" }).success,
+    false,
+  );
 
   finishLogin();
   await settles();
@@ -41,10 +46,16 @@ test("a Claude login projects the browser page and hands a pasted code back to P
   let finishLogin;
   const owner = new ProviderLoginAttemptOwner(async (providerId, _signal, interaction) => {
     assert.equal(providerId, "anthropic");
-    interaction.notify({ type: "auth_url", url: "https://claude.ai/oauth/authorize?code=true", instructions: "Complete login" });
+    interaction.notify({
+      type: "auth_url",
+      url: "https://claude.ai/oauth/authorize?code=true",
+      instructions: "Complete login",
+    });
     const code = await interaction.awaitManualCode();
     prompts.push(code);
-    await new Promise((resolve) => { finishLogin = resolve; });
+    await new Promise((resolve) => {
+      finishLogin = resolve;
+    });
   });
 
   owner.start("anthropic");

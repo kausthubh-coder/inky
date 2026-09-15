@@ -12,10 +12,13 @@ test("homework files list, read, and atomically write only below the selected ro
     await mkdir(join(root, "src"));
     await writeFile(join(root, "src", "Main.java"), "class Main {}\n");
     const files = await HomeworkFiles.open(root);
-    assert.deepEqual((await files.list()).map(({ path, kind }) => ({ path, kind })), [
-      { path: "src", kind: "directory" },
-      { path: "src/Main.java", kind: "file" },
-    ]);
+    assert.deepEqual(
+      (await files.list()).map(({ path, kind }) => ({ path, kind })),
+      [
+        { path: "src", kind: "directory" },
+        { path: "src/Main.java", kind: "file" },
+      ],
+    );
     assert.equal((await files.read("src/Main.java")).content, "class Main {}\n");
     const receipt = await files.write("src/Main.java", "class Main { int answer = 42; }\n");
     assert.equal(receipt.path, "src/Main.java");
