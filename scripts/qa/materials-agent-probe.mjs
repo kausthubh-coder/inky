@@ -2,11 +2,11 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
-import { PiAgentRuntime } from '../dist/electron/agent/runtime.js';
-import { ManagerCoordinator } from '../dist/electron/manager/coordinator.js';
-import { AssignmentExecutionCoordinator } from '../dist/electron/assignment/coordinator.js';
-import { openLocalStore } from '../dist/electron/storage/index.js';
-import { initializeHomeworkWorkspace } from '../dist/electron/files/workspace.js';
+import { PiAgentRuntime } from '../../dist/electron/agent/runtime.js';
+import { ManagerCoordinator } from '../../dist/electron/manager/coordinator.js';
+import { AssignmentExecutionCoordinator } from '../../dist/electron/assignment/coordinator.js';
+import { openLocalStore } from '../../dist/electron/storage/index.js';
+import { initializeHomeworkWorkspace } from '../../dist/electron/files/workspace.js';
 
 export async function runMaterialsAgentProbe(browser, origin, root, evidence) {
   const store = await openLocalStore(join(root, 'live-store'));

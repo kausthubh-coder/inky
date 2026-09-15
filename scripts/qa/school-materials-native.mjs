@@ -3,12 +3,12 @@ import { createServer } from 'node:http';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { app, BrowserWindow, session } from 'electron';
-import { BrowserController } from '../dist/electron/browser/controller.js';
-import { createBrowserDownloadTool } from '../dist/electron/browser/downloads.js';
-import { createBrowserTools } from '../dist/electron/browser/tools.js';
-import { HomeworkFiles } from '../dist/electron/files/homework-files.js';
-import { createPdfReadTool } from '../dist/electron/files/pdf-tool.js';
-import { schoolPdf } from './fixtures/school-pdf.mjs';
+import { BrowserController } from '../../dist/electron/browser/controller.js';
+import { createBrowserDownloadTool } from '../../dist/electron/browser/downloads.js';
+import { createBrowserTools } from '../../dist/electron/browser/tools.js';
+import { HomeworkFiles } from '../../dist/electron/files/homework-files.js';
+import { createPdfReadTool } from '../../dist/electron/files/pdf-tool.js';
+import { schoolPdf } from './school-pdf.mjs';
 
 const root = process.env.STUDI_MATERIALS_QA_ROOT;
 assert.ok(root, 'Run this fixture through school-materials-native.cjs');
@@ -64,9 +64,9 @@ try {
   snapshot = await browser.snapshot();
   await assert.rejects(download.execute('login', { ref: snapshot.elements.find(e => e.name === 'Unavailable attachment').ref }), /web page/);
   await assert.rejects(download.execute('stale', { ref }), /Stale/);
-  const { createScanMaterialReader } = await import('../dist/electron/scan/materials.js');
-  const { openLocalStore } = await import('../dist/electron/storage/index.js');
-  const { initializeHomeworkWorkspace } = await import('../dist/electron/files/workspace.js');
+  const { createScanMaterialReader } = await import('../../dist/electron/scan/materials.js');
+  const { openLocalStore } = await import('../../dist/electron/storage/index.js');
+  const { initializeHomeworkWorkspace } = await import('../../dist/electron/files/workspace.js');
   const scanStore = await openLocalStore(join(root, 'scan-store'));
   try {
     const homeworkRoot = join(root, 'scan-homework');

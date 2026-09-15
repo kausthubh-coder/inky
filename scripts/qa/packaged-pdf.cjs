@@ -14,7 +14,7 @@ app.whenReady().then(async () => {
   const load = path => import(pathToFileURL(join(archive, path)).href);
   const { HomeworkFiles } = await load('dist/electron/files/homework-files.js');
   const { createPdfReadTool } = await load('dist/electron/files/pdf-tool.js');
-  const { schoolPdf } = await import(pathToFileURL(resolve('tests/fixtures/school-pdf.mjs')).href);
+  const { schoolPdf } = await import(pathToFileURL(resolve('scripts/qa/school-pdf.mjs')).href);
   writeFileSync(join(root, 'assignment.pdf'), schoolPdf());
   const reader = createPdfReadTool(await HomeworkFiles.open(root));
   const first = await reader.execute('text', { path: 'assignment.pdf', page: 1 });

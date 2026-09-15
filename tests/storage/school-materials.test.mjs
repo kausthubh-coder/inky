@@ -6,7 +6,7 @@ import test from 'node:test';
 import { HomeworkFiles } from '../../dist/electron/files/homework-files.js';
 import { createBrowserDownloadTool } from '../../dist/electron/browser/downloads.js';
 import { createPdfReadTool } from '../../dist/electron/files/pdf-tool.js';
-import { schoolPdf } from '../fixtures/school-pdf.mjs';
+import { schoolPdf } from '../../scripts/qa/school-pdf.mjs';
 
 test('download preserves exact bytes and duplicate names, then reads text and image-only PDF pages', async () => {
   const root = await mkdtemp(join(tmpdir(), 'studi-materials-'));
