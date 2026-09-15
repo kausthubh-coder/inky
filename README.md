@@ -88,7 +88,7 @@ The public site deploys from `landing/` to the Vercel project `inky`. Do not dep
 ## Project documentation
 
 - Architecture and work packages: [`.agents/plans/studi-master-plan.html`](.agents/plans/studi-master-plan.html)
-- Product decisions: [`STUDI_PRODUCT_DECISIONS.md`](STUDI_PRODUCT_DECISIONS.md)
-- Build conclusions: [`.agents/qa/conclusions/`](.agents/qa/conclusions/)
+- Feature plans and mockups: [`.agents/plans/`](.agents/plans/)
+- Testing: [`.agents/skills/test-studi/SKILL.md`](.agents/skills/test-studi/SKILL.md)
 
 This repository is an early private-beta prototype and is not licensed for redistribution.

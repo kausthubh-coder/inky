@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "playwright-electron": {
-      "command": "npx",
+      "command": "bunx",
       "args": [
         "-y",
         "@playwright/mcp@latest",
@@ -15,7 +15,7 @@
       ]
     },
     "playwright": {
-      "command": "npx",
+      "command": "bunx",
       "args": [
         "-y",
         "@playwright/mcp@latest",
