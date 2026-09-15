@@ -39,6 +39,7 @@ test("product preferences default safely and survive a validated atomic save", a
       handoffMinutes: 45,
       memoryVisibility: "all",
       homeworkRoot: null,
+      agentProviderId: "openai-codex",
       agentModelId: "gpt-5.6-sol",
       agentReasoningEffort: "high",
       notifications: {

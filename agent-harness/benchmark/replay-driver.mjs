@@ -173,13 +173,11 @@ try {
     scanState: state.scan.state,
     assignments: state.assignments,
     courses: state.courses,
-    queue: manager
-      .state()
-      .entries.map((entry) => ({
-        ...entry,
-        assignmentId: store.tasks.get(entry.taskId)?.assignmentId,
-        state: store.tasks.get(entry.taskId)?.state,
-      })),
+    queue: manager.state().entries.map((entry) => ({
+      ...entry,
+      assignmentId: store.tasks.get(entry.taskId)?.assignmentId,
+      state: store.tasks.get(entry.taskId)?.state,
+    })),
     errors,
     metrics: { durationMs: performance.now() - started, toolCalls: calls, modelCalls: null, usage: null },
     trace,

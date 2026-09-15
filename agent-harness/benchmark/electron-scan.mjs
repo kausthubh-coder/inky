@@ -227,13 +227,11 @@ async function runPhase(name) {
     assignments: state.assignments,
     courses: state.courses,
     scan: state.scan,
-    queue: manager
-      .state()
-      .entries.map((entry) => ({
-        ...entry,
-        assignmentId: store.tasks.get(entry.taskId)?.assignmentId,
-        state: store.tasks.get(entry.taskId)?.state,
-      })),
+    queue: manager.state().entries.map((entry) => ({
+      ...entry,
+      assignmentId: store.tasks.get(entry.taskId)?.assignmentId,
+      state: store.tasks.get(entry.taskId)?.state,
+    })),
     policyViolations: [...violations],
     metrics: { durationMs: performance.now() - started, toolCalls: phaseCalls, modelCalls, usage },
   };
