@@ -2,7 +2,7 @@ import { z } from "zod";
 import { BROWSER_TOOL_NAMES } from "../shared/browser-agent.js";
 import { SCAN_TOOL_NAMES } from "../shared/school-scan.js";
 
-import type { AgentJobPhase, AgentTarget } from "./contracts.js";
+import type { AgentJobPhase, AgentTarget } from "../shared/agent-job.js";
 
 export const CapabilityNameSchema = z.enum([
   "home",

@@ -6,7 +6,7 @@ import {
   toolNamesForCapabilities,
   type CapabilityContext,
 } from "./capability-registry.js";
-import type { AgentTarget } from "./contracts.js";
+import type { AgentTarget } from "../shared/agent-job.js";
 import { buildInstructions, type AgentRole, type BuiltInstructions } from "./packs.js";
 
 export interface AgentBrief {
