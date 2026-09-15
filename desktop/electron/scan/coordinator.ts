@@ -423,6 +423,7 @@ export class SchoolScanCoordinator {
     this.#rotateSession = false;
     let reply = "";
     let terminalOutcome: "completed" | "failed" | "aborted" | null = null;
+    let terminalReason: string | null = null;
     let unsubscribe: () => void = () => {};
     try {
       let session = this.#session;
@@ -446,7 +447,10 @@ export class SchoolScanCoordinator {
       this.#requiredRunningScan(scan.scanId);
       unsubscribe = session.subscribe((event: AgentRunEvent) => {
         if (event.type === "text") reply += event.delta;
-        if (event.type === "terminal") terminalOutcome = event.outcome;
+        if (event.type === "terminal") {
+          terminalOutcome = event.outcome;
+          terminalReason = event.reason ?? null;
+        }
         if (event.type === "tool_finished" && event.outcome === "failed")
           this.#reportError(event, scan.scanId, event.toolName);
         if (event.type === "terminal" && event.outcome === "failed")
@@ -507,7 +511,7 @@ export class SchoolScanCoordinator {
         terminalOutcome === "aborted"
           ? "The school scan was aborted before it recorded coverage."
           : terminalOutcome === "failed"
-            ? "The school scan agent failed before it recorded coverage."
+            ? `The school scan agent failed before it recorded coverage: ${terminalReason ? providerFailureText(terminalReason) : "the provider returned an error"}`
             : "The school scan ended without the finish tool and remains incomplete.";
       this.#fail(scan.scanId, reason);
     }
@@ -2080,4 +2084,19 @@ function toolResult(value: unknown) {
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** Pi's provider errors often end in a JSON body; keep its human message and drop the rest. */
+function providerFailureText(reason: string): string {
+  const json = reason.indexOf("{");
+  if (json === -1) return reason;
+  const prefix = reason.slice(0, json).trim();
+  try {
+    const parsed = JSON.parse(reason.slice(json)) as { error?: { message?: unknown }; message?: unknown };
+    const message = parsed.error?.message ?? parsed.message;
+    if (typeof message === "string") return `${prefix} ${message}`.trim();
+  } catch {
+    // Not JSON after all; the prefix is the best summary we have.
+  }
+  return prefix;
 }

@@ -1,7 +1,7 @@
 import { ConnectedAppRow } from "./ConnectedAppRow.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
   AGENT_PROVIDERS,
@@ -177,33 +177,22 @@ export function OnboardingScreen({
   onFinish: () => void;
 }) {
   const provider = workspace ? selectedProvider(workspace) : null;
-  const providerReady = provider?.state === "ready";
+  const presentation = presentSchoolOnboardingScan(onboarding, provider);
+  // A lapsed sign-in can still look "ready" locally; the failed scan is the truth.
+  const providerReady = provider?.state === "ready" && presentation.kind !== "runtime_login";
   const providerLogin = workspace?.providerLogin;
   const loginActive = providerLoginActive(providerLogin);
   const profile = onboarding?.profile;
-  const presentation = presentSchoolOnboardingScan(onboarding, provider);
   const [step, setStep] = useState<OnboardingStep>(
     () =>
       initialStep ??
       readDevPreviewConfig()?.onboardingStep ??
       (profile ? onboardingStepFor(presentation.step) : 0),
   );
-  const runtimeLoginRequested = useRef(false);
 
   useEffect(() => {
     if (profile) setStep(onboardingStepFor(presentation.step));
   }, [presentation.step, profile]);
-
-  // A returning student whose sign-in lapsed gets sent straight back to the subscription they chose.
-  useEffect(() => {
-    if (step !== 1 || presentation.kind !== "runtime_login") {
-      runtimeLoginRequested.current = false;
-      return;
-    }
-    if (providerReady || providerLogin || runtimeLoginRequested.current) return;
-    runtimeLoginRequested.current = true;
-    onConnectRuntime();
-  }, [onConnectRuntime, presentation.kind, providerLogin, providerReady, step]);
 
   const displayName = studentName.trim() || "Student";
   const firstName = displayName.split(/\s+/)[0] || "Student";
@@ -650,7 +639,7 @@ function stepCopy(
       inky: "needs",
       pill: `${name} again`,
       title: `I need ${name} again.`,
-      body: signInBody,
+      body: login ? signInBody : "That sign-in stopped working. Pick it again, or use the other one.",
     };
   }
   if (id === 1 && login) {

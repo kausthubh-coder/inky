@@ -132,6 +132,7 @@ const LOGIN_MARKERS = [
   "invalid token",
   "expired token",
   "refresh token",
+  "token refresh failed",
   "sign in to chatgpt",
   "sign in to openai",
   "sign in to claude",

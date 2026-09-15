@@ -8,7 +8,7 @@ import test from "node:test";
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
 import { SchoolScanCoordinator } from "../../dist/electron/scan/coordinator.js";
 import { openLocalStore } from "../../dist/electron/storage/index.js";
-import { nextSchoolScanAction } from "../../dist/shared/index.js";
+import { nextSchoolScanAction, presentSchoolOnboardingScan } from "../../dist/shared/index.js";
 
 const now = "2026-09-01T12:00:00.000Z";
 const rootUrl = "https://school.example.edu/";
@@ -1432,6 +1432,59 @@ test("school check reports only new or changed work and refuses incomplete inven
     assert.match(incomplete.scan.failures.join(" "), /inventory|directory/);
   } finally {
     coordinator.dispose();
+    store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test("a provider error ends the scan with its reason so onboarding asks for the sign-in again", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-scan-provider-error-")));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const runtime = {
+    async createScanSession(tools) {
+      const listeners = new Set();
+      return {
+        sessionId: "failing-scan",
+        sessionPath: "failing-scan.jsonl",
+        toolNames: tools.map((tool) => tool.name),
+        subscribe: (listener) => (listeners.add(listener), () => listeners.delete(listener)),
+        prompt: async () => {
+          for (const listener of listeners) {
+            listener({
+              schemaVersion: 1,
+              type: "terminal",
+              outcome: "failed",
+              reason:
+                'OAuth refresh failed for openai-codex (401): {"error":{"message":"Your refresh token has already been used. Please try signing in again.","code":"refresh_token_reused"}}',
+            });
+          }
+        },
+        compact: async () => {},
+        abort: async () => {},
+        replace: async () => {},
+        dispose() {},
+      };
+    },
+  };
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({
+      studentName: "Avery",
+      schoolRoot: rootUrl,
+      defaultPermission: "do_not_attempt",
+      scanCadence: "manual",
+    });
+    const state = await scan.startScan();
+    assert.equal(state.scan.state, "failed");
+    assert.match(state.scan.failures[0], /refresh token has already been used/);
+    assert.doesNotMatch(state.scan.failures[0], /[{}]/);
+    assert.equal(
+      presentSchoolOnboardingScan(state, { state: "ready", reason: "ChatGPT is ready." }).kind,
+      "runtime_login",
+    );
+  } finally {
+    scan.dispose();
     store.close();
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
