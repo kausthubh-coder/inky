@@ -1,4 +1,4 @@
-# Codex readiness and cache
+# Provider readiness and the QA credential cache
 
 Studi runs Inky on the subscription the student brings: Pi's `openai-codex` provider (ChatGPT, device code) or `anthropic` (Claude Pro/Max, browser sign-in with a paste-back fallback). Credentials for both live in the QA profile's `studi-data/pi/auth.json`. Check `window.studi.getWorkspaceState()`: `providers[]` carries one status per subscription and `selectedProviderId` names the one Inky uses. A scan or chat needs the selected one `ready`; that call may fail while the protected runtime is unavailable.
 
