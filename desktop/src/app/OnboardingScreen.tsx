@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   AGENT_PROVIDERS,
+  DEFAULT_AGENT_PROVIDER_ID,
   agentProvider,
   agentProviderName,
   connectedAppCatalogEntry,
@@ -22,6 +23,7 @@ import {
 import { Inky, type InkyState } from "./Inky.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
+import { ProviderLoginHandoffView } from "./Ui.js";
 
 type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
@@ -184,12 +186,10 @@ function StepExtra({ step, workspace, connectedApps, appConnections, appConnecti
   onSchoolUrl: (value: string) => void; onCadence: (value: "manual" | "daily" | "weekly") => void; onPermission: (value: PermissionMode) => void; onConnect: (providerId?: AgentProviderId) => void; onCompleteConnect: (code: string) => void; onCancelConnect: () => void; onConnectApp: (toolkit: string) => void; onRefreshConnectedApp: (toolkit: string) => void; onSelectHomeworkRoot: () => void;
 }) {
   const login = workspace?.providerLogin;
-  const [copied, setCopied] = useState(false);
-  const [pasted, setPasted] = useState("");
   if (step === 1) {
     if (providerReady && !login) {
-      const name = workspace ? selectedProvider(workspace).providerName : "ChatGPT";
-      return <div className="fable-codebox"><div><strong>Already connected</strong><small>{name} is ready.</small></div></div>;
+      const name = workspace ? selectedProvider(workspace).providerName : agentProviderName(DEFAULT_AGENT_PROVIDER_ID);
+      return <div className="provider-login"><div><strong>Already connected</strong><small>{name} is ready.</small></div></div>;
     }
     if (!login) {
       return (
@@ -198,51 +198,7 @@ function StepExtra({ step, workspace, connectedApps, appConnections, appConnecti
         </div>
       );
     }
-    const name = agentProviderName(login.providerId);
-    const code = login.phase === "waiting" ? login.userCode : null;
-    const link = login.phase === "waiting" ? login.verificationUri : login.phase === "browser" ? login.authorizationUrl : agentProvider(login.providerId).signInUrl;
-    const copyCode = async () => {
-      if (!code) return;
-      try {
-        await navigator.clipboard.writeText(code);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1200);
-      } catch { /* The student can still read the code. */ }
-    };
-    const submitPasted = (event: { preventDefault(): void }) => {
-      event.preventDefault();
-      if (!pasted.trim()) return;
-      onCompleteConnect(pasted.trim());
-      setPasted("");
-    };
-    return (
-      <div className="fable-codebox">
-        {login.phase === "waiting" && code ? (
-          <div>
-            <strong data-secret>{code}</strong>
-            <span className="fable-fallback">If the page didn't open, <a href={link} target="_blank" rel="noreferrer">click this link</a>.</span>
-          </div>
-        ) : login.phase === "browser" ? (
-          <div>
-            <strong>Sign in to {name} on the page that opened.</strong>
-            <span className="fable-fallback">If it didn't open, <a href={link} target="_blank" rel="noreferrer">click this link</a>. Didn't come back here? Paste the code from that page:</span>
-            <form className="fable-paste" onSubmit={submitPasted}>
-              <input data-secret value={pasted} onChange={(event) => setPasted(event.target.value)} placeholder="Paste the code" autoComplete="off" spellCheck={false} />
-              <button type="submit" className="fable-button" disabled={busy !== null || !pasted.trim()}>Use code</button>
-            </form>
-          </div>
-        ) : login.phase === "failed" || login.phase === "expired" ? (
-          <div><strong>{login.phase === "expired" ? "That sign-in expired" : "That sign-in didn't work"}</strong><small>Try once more, or pick the other one.</small></div>
-        ) : (
-          <div><strong>Opening {name}…</strong></div>
-        )}
-        <div className="fable-codebox-actions">
-          {code ? <button type="button" className="fable-button" onClick={() => void copyCode()}>{copied ? "Copied" : "Copy"}</button> : null}
-          {login.phase === "waiting" || login.phase === "browser" ? <button type="button" className="fable-button" onClick={onCancelConnect}>Cancel</button> : null}
-          {login.phase === "failed" || login.phase === "expired" ? <><button type="button" className="fable-button" onClick={() => onConnect(login.providerId)} disabled={busy !== null}>Try again</button><button type="button" className="fable-button" onClick={onCancelConnect} disabled={busy !== null}>Pick another</button></> : null}
-        </div>
-      </div>
-    );
+    return <ProviderLoginHandoffView login={login} busy={busy !== null} onCompleteLogin={onCompleteConnect} onCancelLogin={onCancelConnect} onRetryLogin={() => onConnect(login.providerId)} />;
   }
   if (step === 2) {
     if (!connectedApps) return <p className="fable-hint">Checking which apps are available…</p>;
@@ -287,7 +243,7 @@ function stepCopy(
   const base = STEP_COPY[id];
   const scan = onboarding?.scan;
   const login = workspace?.providerLogin;
-  const providerId = login?.providerId ?? workspace?.selectedProviderId ?? "openai-codex";
+  const providerId = login?.providerId ?? workspace?.selectedProviderId ?? DEFAULT_AGENT_PROVIDER_ID;
   const name = agentProviderName(providerId);
   const signInBody = agentProvider(providerId).signIn === "device_code"
     ? "Type this code on the page that opened."

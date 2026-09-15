@@ -3,7 +3,7 @@ import { readDevPreviewConfig } from "./devPreview.js";
 import { Icon } from "./Icon.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { agentProviderName, agentRuntimeAttentionCopy, providerLoginActive, selectedProvider, type AgentRuntimeAttention, type NotificationIntent, type ProviderLoginHandoff, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
+import { DEFAULT_AGENT_PROVIDER_ID, agentProviderName, agentRuntimeAttentionCopy, providerLoginActive, selectedProvider, type AgentRuntimeAttention, type NotificationIntent, type ProviderLoginHandoff, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
 
 export type AppScreen = "week" | "settings";
 export type SettingsLanding = "settings" | "usage" | "feedback" | "rules";
@@ -133,23 +133,41 @@ export function StatusPill({ children, tone = "plain" }: { children: ReactNode; 
 export interface ProviderLoginActions {
   /** Hands over a code the student pasted when the browser sign-in did not come back on its own. */
   onCompleteLogin?: ((code: string) => void) | undefined;
+  /** Abandons the attempt, or clears a failed one so the student can choose again. */
   onCancelLogin?: (() => void) | undefined;
+  /** Starts the same subscription's sign-in again after it failed or expired. */
+  onRetryLogin?: (() => void) | undefined;
 }
 
 /** Everything a student needs to finish one subscription sign-in. Tokens never reach this view. */
-export function ProviderLoginHandoffView({ login, busy, onCompleteLogin, onCancelLogin }: ProviderLoginActions & {
+export function ProviderLoginHandoffView({ login, busy, onCompleteLogin, onCancelLogin, onRetryLogin }: ProviderLoginActions & {
   login: ProviderLoginHandoff | null | undefined;
   busy: boolean;
 }) {
   const [code, setCode] = useState("");
+  const [copied, setCopied] = useState(false);
   if (!login) return null;
   const name = agentProviderName(login.providerId);
   if (login.phase === "starting") {
     return <div className="provider-login"><span className="spinner spinner--small" aria-hidden="true" /><div><strong>Opening the {name} sign-in…</strong></div></div>;
   }
   if (login.phase === "failed" || login.phase === "expired") {
-    return <div className="provider-login"><div><strong>{login.phase === "expired" ? "That sign-in expired." : "That sign-in didn't work."}</strong><small>Try once more.</small></div></div>;
+    return (
+      <div className="provider-login">
+        <div><strong>{login.phase === "expired" ? "That sign-in expired." : "That sign-in didn't work."}</strong><small>Try once more.</small></div>
+        {onRetryLogin && <button type="button" className="button button--yellow" onClick={onRetryLogin} disabled={busy}>Try again</button>}
+        {onCancelLogin && <button type="button" className="button" onClick={onCancelLogin} disabled={busy}>Dismiss</button>}
+      </div>
+    );
   }
+  const copyCode = async () => {
+    if (login.phase !== "waiting") return;
+    try {
+      await navigator.clipboard.writeText(login.userCode);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    } catch { /* The student can still read the code. */ }
+  };
   const submitCode = (event: { preventDefault(): void }) => {
     event.preventDefault();
     const pasted = code.trim();
@@ -177,7 +195,10 @@ export function ProviderLoginHandoffView({ login, busy, onCompleteLogin, onCance
           )}
         </>
       )}
-      {onCancelLogin && <button type="button" className="button" onClick={onCancelLogin} disabled={busy}>Cancel</button>}
+      <div className="provider-login-actions">
+        {login.phase === "waiting" && <button type="button" className="button" onClick={() => void copyCode()} disabled={busy}>{copied ? "Copied" : "Copy code"}</button>}
+        {onCancelLogin && <button type="button" className="button" onClick={onCancelLogin} disabled={busy}>Cancel</button>}
+      </div>
     </div>
   );
 }
@@ -201,7 +222,7 @@ export function RuntimeAttentionBanner({
   const login = workspace?.providerLogin;
   const loginActive = providerLoginActive(login);
   const kind = attention !== "none" ? attention : login ? "needs_login" : "none";
-  const providerName = login ? agentProviderName(login.providerId) : workspace ? selectedProvider(workspace).providerName : "ChatGPT";
+  const providerName = login ? agentProviderName(login.providerId) : workspace ? selectedProvider(workspace).providerName : agentProviderName(DEFAULT_AGENT_PROVIDER_ID);
   const copy = agentRuntimeAttentionCopy(kind, providerName);
   if (!copy) return null;
   const switching = kind === "usage" && onSwitchProvider;

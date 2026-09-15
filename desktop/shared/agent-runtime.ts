@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { DEFAULT_AGENT_PROVIDER_ID, agentProviderName } from "./providers.js";
+
 import { SchemaVersionSchema } from "./schema-version.js";
 
 const AgentTextEventSchema = z.strictObject({
@@ -155,7 +157,7 @@ export function classifyAgentRuntimeAttention(
 
 export function agentRuntimeAttentionCopy(
   kind: AgentRuntimeAttention,
-  providerName = "ChatGPT",
+  providerName = agentProviderName(DEFAULT_AGENT_PROVIDER_ID),
 ): { title: string; body: string } | null {
   if (kind === "usage") {
     return {
