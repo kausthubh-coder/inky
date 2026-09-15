@@ -29,7 +29,11 @@ export function noteIsAllowed(
 ): boolean {
   if (context.kind === "home") {
     if (mode === "search") return true;
-    return note.scope === "student" && note.subjectId === (context.studentId ?? "primary") && note.about === "preference";
+    return (
+      note.scope === "student" &&
+      note.subjectId === (context.studentId ?? "primary") &&
+      note.about === "preference"
+    );
   }
   if (context.kind === "scan") {
     return note.scope === "school" && note.subjectId === context.schoolId && note.about === "scan";
@@ -46,10 +50,12 @@ export function noteIsAllowed(
 
 function compareNotes(left: NoteIndexEntry, right: NoteIndexEntry): number {
   const scopeOrder = ["student", "school", "course", "pattern", "assignment"];
-  return scopeOrder.indexOf(left.scope) - scopeOrder.indexOf(right.scope)
-    || left.subjectId.localeCompare(right.subjectId)
-    || left.about.localeCompare(right.about)
-    || left.key.localeCompare(right.key)
-    || left.updatedAt.localeCompare(right.updatedAt)
-    || left.noteId.localeCompare(right.noteId);
+  return (
+    scopeOrder.indexOf(left.scope) - scopeOrder.indexOf(right.scope) ||
+    left.subjectId.localeCompare(right.subjectId) ||
+    left.about.localeCompare(right.about) ||
+    left.key.localeCompare(right.key) ||
+    left.updatedAt.localeCompare(right.updatedAt) ||
+    left.noteId.localeCompare(right.noteId)
+  );
 }

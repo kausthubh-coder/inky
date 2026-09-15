@@ -1,5 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { copyFile, lstat, mkdir, open, readFile, readdir, realpath, rename, stat, unlink } from "node:fs/promises";
+import {
+  copyFile,
+  lstat,
+  mkdir,
+  open,
+  readFile,
+  readdir,
+  realpath,
+  rename,
+  stat,
+  unlink,
+} from "node:fs/promises";
 import { constants } from "node:fs";
 import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 
@@ -32,7 +43,8 @@ export class HomeworkFiles {
 
   async list(rawPath = "."): Promise<HomeworkFileEntry[]> {
     const directory = await this.#existing(rawPath);
-    if (!(await stat(directory)).isDirectory()) throw new TypeError("The requested homework path is not a directory");
+    if (!(await stat(directory)).isDirectory())
+      throw new TypeError("The requested homework path is not a directory");
     const entries: HomeworkFileEntry[] = [];
     await this.#walk(directory, entries);
     return entries.sort((a, b) => a.path.localeCompare(b.path)).slice(0, LIST_LIMIT);
@@ -42,7 +54,8 @@ export class HomeworkFiles {
     const path = await this.#existing(rawPath);
     const metadata = await stat(path);
     if (!metadata.isFile()) throw new TypeError("The requested homework path is not a file");
-    if (metadata.size > READ_LIMIT) throw new TypeError(`Homework files larger than ${READ_LIMIT} bytes are not readable`);
+    if (metadata.size > READ_LIMIT)
+      throw new TypeError(`Homework files larger than ${READ_LIMIT} bytes are not readable`);
     const content = await readFile(path, "utf8");
     if (content.includes("\u0000")) throw new TypeError("Binary homework files are not readable as text");
     return { path: this.#relative(path), content, modifiedAt: metadata.mtime.toISOString() };
@@ -56,8 +69,16 @@ export class HomeworkFiles {
   // Exclusive creation preserves student work and concurrent same-name downloads.
   async saveMaterial(name: string, bytes: Uint8Array, signal?: AbortSignal): Promise<string> {
     if (bytes.byteLength > UPLOAD_FILE_LIMIT) throw new Error("School downloads are limited to 50 MB.");
-    const safeName = name.normalize("NFKC").replace(/[<>:"/\\|?*\x00-\x1f]/g, "_").replace(/[. ]+$/g, "").slice(0, 160);
-    if (!safeName || safeName.startsWith(".") || /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(safeName)) {
+    const safeName = name
+      .normalize("NFKC")
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
+      .replace(/[. ]+$/g, "")
+      .slice(0, 160);
+    if (
+      !safeName ||
+      safeName.startsWith(".") ||
+      /^(con|prn|aux|nul|com[0-9]|lpt[0-9])(?:\.|$)/i.test(safeName)
+    ) {
       throw new Error("The school file has an invalid filename.");
     }
     const directory = this.#resolve("materials");
@@ -67,10 +88,14 @@ export class HomeworkFiles {
     const extension = extname(safeName);
     for (let suffix = 0; suffix < 1000; suffix++) {
       signal?.throwIfAborted();
-      const target = resolve(directory, suffix ? `${basename(safeName, extension)} (${suffix})${extension}` : safeName);
+      const target = resolve(
+        directory,
+        suffix ? `${basename(safeName, extension)} (${suffix})${extension}` : safeName,
+      );
       let handle;
-      try { handle = await open(target, "wx", 0o600); }
-      catch (error) {
+      try {
+        handle = await open(target, "wx", 0o600);
+      } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "EEXIST") continue;
         throw error;
       }
@@ -92,7 +117,8 @@ export class HomeworkFiles {
   async readBinary(rawPath: string): Promise<Uint8Array> {
     const path = await this.#existing(rawPath);
     const metadata = await stat(path);
-    if (!metadata.isFile() || metadata.size > UPLOAD_FILE_LIMIT) throw new Error("Choose a workspace file smaller than 50 MB.");
+    if (!metadata.isFile() || metadata.size > UPLOAD_FILE_LIMIT)
+      throw new Error("Choose a workspace file smaller than 50 MB.");
     return new Uint8Array(await readFile(path));
   }
 
@@ -109,7 +135,10 @@ export class HomeworkFiles {
     await this.#assertNoLinks(directory);
     const extension = extname(name);
     for (let suffix = 0; suffix < 1000; suffix++) {
-      const target = resolve(directory, suffix ? `${basename(name, extension)} (${suffix})${extension}` : name);
+      const target = resolve(
+        directory,
+        suffix ? `${basename(name, extension)} (${suffix})${extension}` : name,
+      );
       try {
         await copyFile(source, target, constants.COPYFILE_EXCL);
         return this.#relative(target);
@@ -129,7 +158,8 @@ export class HomeworkFiles {
     await this.#assertNoLinks(dirname(target));
     try {
       const existing = await lstat(target);
-      if (existing.isSymbolicLink() || !existing.isFile()) throw new TypeError("Homework writes may replace only regular files");
+      if (existing.isSymbolicLink() || !existing.isFile())
+        throw new TypeError("Homework writes may replace only regular files");
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
@@ -143,8 +173,16 @@ export class HomeworkFiles {
       handle = undefined;
       await rename(temporary, target);
     } catch (error) {
-      try { await handle?.close(); } catch { /* keep original */ }
-      try { await unlink(temporary); } catch { /* best effort */ }
+      try {
+        await handle?.close();
+      } catch {
+        /* keep original */
+      }
+      try {
+        await unlink(temporary);
+      } catch {
+        /* best effort */
+      }
       throw error;
     }
     const metadata = await stat(target);
@@ -169,11 +207,14 @@ export class HomeworkFiles {
   }
 
   async #walk(directory: string, output: HomeworkFileEntry[]): Promise<void> {
-    for (const child of (await readdir(directory, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
+    for (const child of (await readdir(directory, { withFileTypes: true })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    )) {
       if (output.length >= LIST_LIMIT) return;
       const path = resolve(directory, child.name);
       const metadata = await lstat(path);
-      if (metadata.isSymbolicLink()) throw new TypeError(`Homework folder contains a symbolic link: ${this.#relative(path)}`);
+      if (metadata.isSymbolicLink())
+        throw new TypeError(`Homework folder contains a symbolic link: ${this.#relative(path)}`);
       if (!metadata.isFile() && !metadata.isDirectory()) continue;
       output.push({
         path: this.#relative(path),
@@ -207,7 +248,8 @@ export class HomeworkFiles {
     for (const segment of relativePath.split(sep).filter(Boolean)) {
       cursor = resolve(cursor, segment);
       try {
-        if ((await lstat(cursor)).isSymbolicLink()) throw new TypeError("Symbolic links are not allowed in the homework root");
+        if ((await lstat(cursor)).isSymbolicLink())
+          throw new TypeError("Symbolic links are not allowed in the homework root");
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === "ENOENT") return;
         throw error;

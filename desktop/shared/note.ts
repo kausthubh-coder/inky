@@ -4,7 +4,12 @@ import { IsoTimestampSchema, SchemaVersionSchema } from "./schema-version.js";
 
 export const NoteScopeSchema = z.enum(["student", "school", "course", "pattern", "assignment"]);
 export const NoteAboutSchema = z.enum(["preference", "scan", "how-to", "knowledge", "work"]);
-export const NoteSegmentSchema = z.string().trim().min(1).max(128).regex(/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,127})$/);
+export const NoteSegmentSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,127})$/);
 
 export const NoteFrontmatterSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,

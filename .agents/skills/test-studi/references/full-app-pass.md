@@ -17,6 +17,6 @@ Use the minimal local fixture for the core journey and the benchmark's richer fi
 
 ## Release and combined changes
 
-Run applicable automated suites from the current `package.json` before the integrated journey. Use `bun run test:all` for a broad release sweep when applicable, but inspect its coverage: UI logic tests and scripted harnesses do not replace visual inspection or live-provider outcomes. Investigate failures; do not hide them behind retries. Test the affected native platforms or explicitly leave those gates pending. Retest after subsequent changes only at boundaries they can invalidate.
+Run `bun run test:all` before the integrated journey and read its coverage: unit tests and the preview do not replace visual inspection or live-provider outcomes. Investigate failures; do not hide them behind retries. Test the affected native platforms or explicitly leave those gates pending. Retest after subsequent changes only at boundaries they can invalidate.
 
 Report core journey, optional integrations, live-model scenarios and installed-platform coverage separately. Do not call the complete release verified while a required gate remains untested.

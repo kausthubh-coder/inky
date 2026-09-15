@@ -41,7 +41,11 @@ export class VisibleBrowserWork {
     return this.#conflict({ kind: "scan_start" }) !== null;
   }
 
-  async #run<T>(request: BrowserWorkRequest, reservation: "assignment" | "scan", run: () => Promise<T>): Promise<T> {
+  async #run<T>(
+    request: BrowserWorkRequest,
+    reservation: "assignment" | "scan",
+    run: () => Promise<T>,
+  ): Promise<T> {
     const conflict = this.#conflict(request);
     if (conflict) throw new VisibleBrowserBusyError(conflict);
     this.#reservation = reservation;
@@ -53,14 +57,16 @@ export class VisibleBrowserWork {
   }
 
   #conflict(request: BrowserWorkRequest): string | null {
-    if (this.#reservation) return `The visible school browser is already reserved for ${this.#reservation} work`;
+    if (this.#reservation)
+      return `The visible school browser is already reserved for ${this.#reservation} work`;
 
     const assignmentLease = this.#store.manager.getLease();
     const scan = this.#store.school.latestScan();
     const scanOwnsBrowser = scan?.state === "running" || scan?.state === "needs_user";
 
     if (request.kind === "assignment_start") {
-      if (assignmentLease) return `Assignment ${assignmentLease.taskId} already owns the visible school browser`;
+      if (assignmentLease)
+        return `Assignment ${assignmentLease.taskId} already owns the visible school browser`;
       if (scanOwnsBrowser) return `School scan ${scan.scanId} must finish before an assignment can start`;
     }
 
@@ -72,12 +78,14 @@ export class VisibleBrowserWork {
     }
 
     if (request.kind === "scan_start") {
-      if (assignmentLease) return `Assignment ${assignmentLease.taskId} must finish before a school scan can start`;
+      if (assignmentLease)
+        return `Assignment ${assignmentLease.taskId} must finish before a school scan can start`;
       if (scanOwnsBrowser) return `School scan ${scan.scanId} already owns the visible school browser`;
     }
 
     if (request.kind === "scan_resume") {
-      if (assignmentLease) return `Assignment ${assignmentLease.taskId} must finish before a school scan can resume`;
+      if (assignmentLease)
+        return `Assignment ${assignmentLease.taskId} must finish before a school scan can resume`;
       if (scan?.state === "running") return `School scan ${scan.scanId} is already running`;
     }
 

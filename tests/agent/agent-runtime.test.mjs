@@ -13,11 +13,7 @@ import {
 } from "@earendil-works/pi-ai";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 
-import {
-  FakeAgentRuntime,
-  PiAgentRuntime,
-  PiEventNormalizer,
-} from "../../dist/electron/agent/runtime.js";
+import { FakeAgentRuntime, PiAgentRuntime, PiEventNormalizer } from "../../dist/electron/agent/runtime.js";
 import { AgentRunEventSchema, ProviderStatusSchema } from "../../dist/shared/index.js";
 import { createWorkspaceCodingTools } from "../../dist/electron/files/workspace-tools.js";
 
@@ -144,39 +140,34 @@ function withoutDurations(events) {
 }
 
 test("real Pi abort produces one abort event followed by an aborted terminal event", async () => {
-  await withRuntime(
-    { tokenSize: { min: 1, max: 1 }, tokensPerSecond: 10 },
-    async ({ faux, runtime }) => {
-      faux.setResponses([
-        fauxAssistantMessage("This response is long enough to abort after its first chunk."),
+  await withRuntime({ tokenSize: { min: 1, max: 1 }, tokensPerSecond: 10 }, async ({ faux, runtime }) => {
+    faux.setResponses([fauxAssistantMessage("This response is long enough to abort after its first chunk.")]);
+    const session = await runtime.createSession();
+    try {
+      const events = [];
+      let resolveFirstText;
+      const firstText = new Promise((resolveText) => {
+        resolveFirstText = resolveText;
+      });
+      session.subscribe((event) => {
+        events.push(event);
+        if (event.type === "text") {
+          resolveFirstText();
+        }
+      });
+      const prompt = session.prompt("Start a response.");
+      await firstText;
+      await session.abort();
+      await prompt;
+      assert.deepEqual(events.slice(-2), [
+        { schemaVersion: 1, type: "aborted" },
+        { schemaVersion: 1, type: "terminal", outcome: "aborted" },
       ]);
-      const session = await runtime.createSession();
-      try {
-        const events = [];
-        let resolveFirstText;
-        const firstText = new Promise((resolveText) => {
-          resolveFirstText = resolveText;
-        });
-        session.subscribe((event) => {
-          events.push(event);
-          if (event.type === "text") {
-            resolveFirstText();
-          }
-        });
-        const prompt = session.prompt("Start a response.");
-        await firstText;
-        await session.abort();
-        await prompt;
-        assert.deepEqual(events.slice(-2), [
-          { schemaVersion: 1, type: "aborted" },
-          { schemaVersion: 1, type: "terminal", outcome: "aborted" },
-        ]);
-        assert.equal(events.filter((event) => event.type === "aborted").length, 1);
-      } finally {
-        session.dispose();
-      }
-    },
-  );
+      assert.equal(events.filter((event) => event.type === "aborted").length, 1);
+    } finally {
+      session.dispose();
+    }
+  });
 });
 
 test("retry and completed compaction normalization remove upstream error text", () => {
@@ -290,7 +281,7 @@ test("provider failures and every fake operation stay inside the public contract
   }
 });
 
-test("OpenAI Codex login selects Pi device code and forwards only its handoff", async () => {
+test("ChatGPT login selects Pi device code and forwards only its handoff", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp12-login-")));
   const selected = [];
   const notifications = [];
@@ -299,14 +290,16 @@ test("OpenAI Codex login selects Pi device code and forwards only its handoff", 
     login: async (providerId, type, interaction) => {
       assert.equal(providerId, "openai-codex");
       assert.equal(type, "oauth");
-      selected.push(await interaction.prompt({
-        type: "select",
-        message: "Select OpenAI Codex login method:",
-        options: [
-          { id: "browser", label: "Browser" },
-          { id: "device_code", label: "Device code" },
-        ],
-      }));
+      selected.push(
+        await interaction.prompt({
+          type: "select",
+          message: "Select OpenAI Codex login method:",
+          options: [
+            { id: "browser", label: "Browser" },
+            { id: "device_code", label: "Device code" },
+          ],
+        }),
+      );
       interaction.notify({
         type: "device_code",
         userCode: "SAFE-CODE",
@@ -323,18 +316,65 @@ test("OpenAI Codex login selects Pi device code and forwards only its handoff", 
       modelRuntime,
       model: { id: "codex-test", name: "Codex test", provider: "openai-codex" },
     });
-    await runtime.loginOpenAiCodex("device_code", new AbortController().signal, {
-      openExternal: async (url) => { opened.push(url); },
+    await runtime.loginProvider("openai-codex", new AbortController().signal, {
+      openExternal: async (url) => {
+        opened.push(url);
+      },
       notify: (event) => notifications.push(event),
     });
     assert.deepEqual(selected, ["device_code"]);
-    assert.deepEqual(notifications, [{
-      type: "device_code",
-      userCode: "SAFE-CODE",
-      verificationUri: "https://auth.openai.com/codex/device",
-      expiresInSeconds: 900,
-    }]);
+    assert.deepEqual(notifications, [
+      {
+        type: "device_code",
+        userCode: "SAFE-CODE",
+        verificationUri: "https://auth.openai.com/codex/device",
+        expiresInSeconds: 900,
+      },
+    ]);
     assert.deepEqual(opened, ["https://auth.openai.com/codex/device"]);
+  } finally {
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test("Claude login opens the browser page and returns the student's pasted code to Pi", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-claude-login-")));
+  const opened = [];
+  const exchanged = [];
+  const modelRuntime = {
+    login: async (providerId, type, interaction) => {
+      assert.equal(providerId, "anthropic");
+      assert.equal(type, "oauth");
+      interaction.notify({
+        type: "auth_url",
+        url: "https://claude.ai/oauth/authorize?state=x",
+        instructions: "Complete login in your browser.",
+      });
+      exchanged.push(
+        await interaction.prompt({
+          type: "manual_code",
+          message: "Paste the authorization code",
+          signal: new AbortController().signal,
+        }),
+      );
+    },
+  };
+  try {
+    const runtime = await PiAgentRuntime.create({
+      cwd: root,
+      agentDir: join(root, "agent"),
+      modelRuntime,
+      model: { id: "claude-test", name: "Claude test", provider: "anthropic" },
+    });
+    assert.equal(runtime.selectedProviderId, "anthropic");
+    await runtime.loginProvider("anthropic", new AbortController().signal, {
+      openExternal: async (url) => {
+        opened.push(url);
+      },
+      awaitManualCode: async () => "pasted-code#pasted-state",
+    });
+    assert.deepEqual(opened, ["https://claude.ai/oauth/authorize?state=x"]);
+    assert.deepEqual(exchanged, ["pasted-code#pasted-state"]);
   } finally {
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
@@ -345,31 +385,59 @@ test("real Pi assignment session accepts workspace tools and preserves their fil
     const workspace = join(root, "assignment");
     await mkdir(workspace);
     const runtime = await PiAgentRuntime.create({
-      cwd: workspace, agentDir: join(root, "agent"), modelRuntime, model: faux.getModel(),
+      cwd: workspace,
+      agentDir: join(root, "agent"),
+      modelRuntime,
+      model: faux.getModel(),
       browserController: {},
     });
     const files = createWorkspaceCodingTools(workspace);
     const session = await runtime.createAssignmentSession(files, { cwd: workspace });
     try {
-      assert.deepEqual(new Set(session.toolNames), new Set([
-        "browser_snapshot", "browser_navigate", "browser_click", "browser_type",
-        "browser_select", "browser_press", "browser_wait", "browser_scroll", "browser_link", "browser_screenshot", ...files.map((tool) => tool.name),
-      ]));
+      assert.deepEqual(
+        new Set(session.toolNames),
+        new Set([
+          "browser_snapshot",
+          "browser_navigate",
+          "browser_click",
+          "browser_type",
+          "browser_select",
+          "browser_press",
+          "browser_wait",
+          "browser_scroll",
+          "browser_link",
+          "browser_screenshot",
+          ...files.map((tool) => tool.name),
+        ]),
+      );
       faux.setResponses([
-        fauxAssistantMessage(fauxToolCall("write", { path: "answer.txt", content: "42" }), { stopReason: "toolUse" }),
-        fauxAssistantMessage(fauxToolCall("write", { path: "../escaped.txt", content: "must not escape" }), { stopReason: "toolUse" }),
+        fauxAssistantMessage(fauxToolCall("write", { path: "answer.txt", content: "42" }), {
+          stopReason: "toolUse",
+        }),
+        fauxAssistantMessage(fauxToolCall("write", { path: "../escaped.txt", content: "must not escape" }), {
+          stopReason: "toolUse",
+        }),
         fauxAssistantMessage("Done."),
       ]);
       const events = [];
       session.subscribe((event) => events.push(event));
       await session.prompt("Write the fixture answer.");
-      assert.equal(events.find((event) => event.type === "tool_finished")?.outcome, "succeeded", JSON.stringify(events));
+      assert.equal(
+        events.find((event) => event.type === "tool_finished")?.outcome,
+        "succeeded",
+        JSON.stringify(events),
+      );
       assert.equal(await readFile(join(workspace, "answer.txt"), "utf8"), "42");
       assert.equal(existsSync(join(root, "escaped.txt")), false);
-      assert.deepEqual(events.filter((event) => event.type === "tool_finished").map((event) => event.outcome), ["succeeded", "failed"]);
+      assert.deepEqual(
+        events.filter((event) => event.type === "tool_finished").map((event) => event.outcome),
+        ["succeeded", "failed"],
+      );
       await session.replace({ resumeSessionPath: session.sessionPath, cwd: workspace });
       assert.equal(session.toolNames.includes("browser_submit"), false);
-    } finally { session.dispose(); }
+    } finally {
+      session.dispose();
+    }
   });
 });
 
@@ -422,12 +490,19 @@ async function withRuntime(fauxOptions, run) {
 
 test("terminal errors retain provider diagnosis without credentials and reset between turns", () => {
   const normalizer = new PiEventNormalizer();
-  normalizer.accept({type:"message_end",message:{role:"assistant",stopReason:"error",errorMessage:"Unsupported service_tier: fast; Bearer abcdefghijklm"}});
-  const [failure] = normalizer.accept({type:"agent_settled"});
+  normalizer.accept({
+    type: "message_end",
+    message: {
+      role: "assistant",
+      stopReason: "error",
+      errorMessage: "Unsupported service_tier: fast; Bearer abcdefghijklm",
+    },
+  });
+  const [failure] = normalizer.accept({ type: "agent_settled" });
   assert.match(failure.reason, /Unsupported service_tier/);
   assert.doesNotMatch(failure.reason, /abcdefghijklm/);
   normalizer.beginRun();
-  const [next] = normalizer.accept({type:"agent_settled"});
+  const [next] = normalizer.accept({ type: "agent_settled" });
   assert.equal(next.outcome, "completed");
   assert.equal(next.reason, undefined);
 });

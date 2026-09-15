@@ -20,9 +20,12 @@ test("Pi usage is summed from assistant messages and tool calls", () => {
       cost: { input: 0.01, output: 0.02, cacheRead: 0.001, cacheWrite: 0.002, total: 0.033 },
     },
   });
-  const second = addUsage(first, readMessageUsage({
-    usage: { input: 100, output: 50, cost: 0.004 },
-  }));
+  const second = addUsage(
+    first,
+    readMessageUsage({
+      usage: { input: 100, output: 50, cost: 0.004 },
+    }),
+  );
   assert.deepEqual(usageProperties(addUsage(second, { ...emptyUsage(), toolCalls: 3 })), {
     input_tokens: 1300,
     output_tokens: 450,

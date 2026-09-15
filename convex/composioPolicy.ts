@@ -33,7 +33,10 @@ export function readComposioPolicy(raw = process.env.STUDI_COMPOSIO_TOOL_POLICY_
     if (access === "all" && record.tools !== undefined) {
       throw new Error(`Composio toolkit ${toolkit} cannot combine access all with selected tools`);
     }
-    if (access === "selected" && (!Array.isArray(record.tools) || record.tools.length === 0 || record.tools.length > 100)) {
+    if (
+      access === "selected" &&
+      (!Array.isArray(record.tools) || record.tools.length === 0 || record.tools.length > 100)
+    ) {
       throw new Error(`Composio toolkit ${toolkit} requires access all or 1 to 100 selected tools`);
     }
     const tools = (Array.isArray(record.tools) ? record.tools : []).map((name) => {
@@ -61,11 +64,13 @@ export function requireAllowedComposioTool(
   return toolkitPolicy;
 }
 
-const secretKey = /^(?:authorization|password|cookie|set-cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code)$/i;
+const secretKey =
+  /^(?:authorization|password|cookie|set-cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code)$/i;
 
 export function sanitizeComposioValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sanitizeComposioValue);
-  if (!value || typeof value !== "object") return typeof value === "string" ? stripCredentialText(value) : value;
+  if (!value || typeof value !== "object")
+    return typeof value === "string" ? stripCredentialText(value) : value;
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).map(([key, item]) => [
       key,
@@ -91,7 +96,10 @@ export function boundedComposioContent(value: unknown, limit = 750_000) {
 function stripCredentialText(value: string): string {
   return value
     .replace(/\bAuthorization\s*:\s*(?:Bearer|Basic)\s+\S+/gi, "Authorization: [secret]")
-    .replace(/\b(?:password|cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code)\s*[:=]\s*\S+/gi, "[secret]")
+    .replace(
+      /\b(?:password|cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code)\s*[:=]\s*\S+/gi,
+      "[secret]",
+    )
     .replace(/\b(?:sk|ak|pk)_[A-Za-z0-9_-]{8,}\b/g, "[secret]")
     .replace(/\bsk-[A-Za-z0-9_-]{8,}\b/g, "[secret]");
 }

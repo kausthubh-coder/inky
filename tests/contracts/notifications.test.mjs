@@ -44,17 +44,26 @@ test("banner and sound resolver honor mute, silent, OS, and missing Inky files",
       failure: { banner: true, sound: "silent" },
     },
   });
-  assert.deepEqual(resolveNotificationSound(silent, "failure", () => true), {
-    silent: true,
-    playSoundId: null,
-  });
+  assert.deepEqual(
+    resolveNotificationSound(silent, "failure", () => true),
+    {
+      silent: true,
+      playSoundId: null,
+    },
+  );
 
-  assert.deepEqual(resolveNotificationSound(DEFAULT_NOTIFICATION_PREFERENCES, "handoff", () => false), {
-    silent: false,
-    playSoundId: null,
-  });
-  assert.deepEqual(resolveNotificationSound(DEFAULT_NOTIFICATION_PREFERENCES, "handoff", (id) => id === "inky_nudge"), {
-    silent: true,
-    playSoundId: "inky_nudge",
-  });
+  assert.deepEqual(
+    resolveNotificationSound(DEFAULT_NOTIFICATION_PREFERENCES, "handoff", () => false),
+    {
+      silent: false,
+      playSoundId: null,
+    },
+  );
+  assert.deepEqual(
+    resolveNotificationSound(DEFAULT_NOTIFICATION_PREFERENCES, "handoff", (id) => id === "inky_nudge"),
+    {
+      silent: true,
+      playSoundId: "inky_nudge",
+    },
+  );
 });

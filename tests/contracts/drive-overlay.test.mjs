@@ -19,7 +19,9 @@ test("takeover confirmation survives layout updates until a decision or browser 
         this.context = createContext({
           document: {
             documentElement: { dataset: this.dataset },
-            addEventListener: (name, callback) => { if (name === "click") this.clickHandler = callback; },
+            addEventListener: (name, callback) => {
+              if (name === "click") this.clickHandler = callback;
+            },
           },
           console: { info: (message) => this.webContents.emit("console-message", { message }) },
         });
@@ -30,17 +32,24 @@ test("takeover confirmation survives layout updates until a decision or browser 
     }
     setBackgroundColor() {}
     setBorderRadius() {}
-    setBounds(bounds) { this.bounds = bounds; }
-    setVisible(visible) { this.visible = visible; }
-    click(action) { this.clickHandler({ target: { closest: () => ({ dataset: { action } }) } }); }
+    setBounds(bounds) {
+      this.bounds = bounds;
+    }
+    setVisible(visible) {
+      this.visible = visible;
+    }
+    click(action) {
+      this.clickHandler({ target: { closest: () => ({ dataset: { action } }) } });
+    }
   }
   globalThis.studiOverlayTestView = OverlayView;
   const hooks = registerHooks({
     resolve(specifier, context, next) {
-      if (specifier === "electron") return {
-        url: "data:text/javascript,export const WebContentsView = globalThis.studiOverlayTestView;",
-        shortCircuit: true,
-      };
+      if (specifier === "electron")
+        return {
+          url: "data:text/javascript,export const WebContentsView = globalThis.studiOverlayTestView;",
+          shortCircuit: true,
+        };
       return next(specifier, context);
     },
   });

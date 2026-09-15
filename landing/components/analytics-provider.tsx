@@ -25,11 +25,15 @@ export function AnalyticsProvider({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <div data-analytics-private={marketing ? undefined : "true"} style={{ display: "contents" }}>{children}</div>
-      {analyticsEnabled && marketing && <>
-        <Analytics beforeSend={beforeSend} />
-        <SpeedInsights beforeSend={beforeSend} />
-      </>}
+      <div data-analytics-private={marketing ? undefined : "true"} style={{ display: "contents" }}>
+        {children}
+      </div>
+      {analyticsEnabled && marketing && (
+        <>
+          <Analytics beforeSend={beforeSend} />
+          <SpeedInsights beforeSend={beforeSend} />
+        </>
+      )}
     </>
   );
 }

@@ -29,10 +29,10 @@ jobs:
         run: node --test tests/storage/school-materials.test.mjs tests/storage/lifecycle-execution.test.mjs tests/agent/browser-controller.test.mjs tests/storage/scan-evidence.test.mjs tests/benchmark/*.test.mjs
       - run: bun run test:ui
       - name: Verify authenticated downloads and PDF rendering in Electron
-        run: bunx electron tests/school-materials-native.cjs
+        run: bunx electron scripts/qa/school-materials-native.cjs
       - run: bun run make:win
       - name: Verify PDF reading from the Windows package
-        run: bunx electron tests/packaged-pdf.cjs out/Studi-win32-x64/resources/app.asar
+        run: bunx electron scripts/qa/packaged-pdf.cjs out/Studi-win32-x64/resources/app.asar
       - name: Stage Windows installer
         shell: pwsh
         run: |
@@ -81,7 +81,7 @@ jobs:
         run: node --test tests/storage/school-materials.test.mjs tests/storage/lifecycle-execution.test.mjs tests/agent/browser-controller.test.mjs tests/storage/scan-evidence.test.mjs tests/benchmark/*.test.mjs
       - run: bun run test:ui
       - name: Verify authenticated downloads and PDF rendering in Electron
-        run: bunx electron tests/school-materials-native.cjs
+        run: bunx electron scripts/qa/school-materials-native.cjs
       - run: bun run make:mac
       - name: Verify both packaged PDF renderer architectures
         run: |
@@ -89,7 +89,7 @@ jobs:
           lipo "$native/canvas-darwin-x64/skia.darwin-x64.node" -verify_arch x86_64
           lipo "$native/canvas-darwin-arm64/skia.darwin-arm64.node" -verify_arch arm64
       - name: Verify PDF reading from the universal Mac package
-        run: bunx electron tests/packaged-pdf.cjs out/Studi-darwin-universal/Studi.app/Contents/Resources/app.asar
+        run: bunx electron scripts/qa/packaged-pdf.cjs out/Studi-darwin-universal/Studi.app/Contents/Resources/app.asar
       - name: Stage macOS disk image
         run: |
           mkdir -p release

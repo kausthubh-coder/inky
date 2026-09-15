@@ -9,9 +9,7 @@ import {
   type StudiRendererApi,
 } from "../shared/index.js";
 
-const studiApi = createIpcApi(studiIpcRegistry, (channel, request) =>
-  ipcRenderer.invoke(channel, request),
-);
+const studiApi = createIpcApi(studiIpcRegistry, (channel, request) => ipcRenderer.invoke(channel, request));
 
 const rendererApi: StudiRendererApi = Object.freeze({
   ...studiApi,

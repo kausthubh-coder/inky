@@ -1,12 +1,12 @@
 okay this project is studi2, not to be mistaken with an pervois app also called studi, this is a desktop app for student which finishes their homework for them, we use electorn, clerk, convex, pi, and vercel,
 
-we create plans in html and sace it to .agent/plans,
+we create plans in html and sace it to .agents/plans,
 
-When an HTML plan or mockup shows existing app UI, use the `existing-ui-mockups` skill (`~/.codex/skills/existing-ui-mockups/SKILL.md`). Open the relevant real UI preview first (`bun run preview:ui`, or the existing preview server). Reuse the actual React components, app CSS, fonts, Inky component, assets, and navigation; do not redraw an approximate app shell. Change only the proposed feature. Keep prototype controls outside the product UI, label simulated behavior, and compare the mockup against the existing screen at the same viewport before sharing it. Save plans under `.agent/plans`; keep mockup-only code out of production behavior. See `.agent/plans/electron-updates-preview/` for a rebuildable example.
+When an HTML plan or mockup shows existing app UI, use the `existing-ui-mockups` skill (`~/.codex/skills/existing-ui-mockups/SKILL.md`). Open the relevant real UI preview first (`bun run preview:ui`, or the existing preview server). Reuse the actual React components, app CSS, fonts, Inky component, assets, and navigation; do not redraw an approximate app shell. Change only the proposed feature. Keep prototype controls outside the product UI, label simulated behavior, and compare the mockup against the existing screen at the same viewport before sharing it. Save plans under `.agents/plans`; keep mockup-only code out of production behavior. See `.agents/plans/electron-updates-preview/` for a rebuildable example.
 
 we also test our app with test-studi skill
 
-For Studi changes, use `.agents/skills/test-studi/SKILL.md` to choose full-app or focused verification. Exercise the affected behavior, review common failure/recovery states and code maintainability, and report actual evidence and untested limits. Use full journeys for broad changes and integrated releases, not every small edit. Keep UI actions self-explanatory and code direct; fewer lines must not come at the expense of readability or meaningful safeguards.
+For Studi changes, use `.agents/skills/test-studi/SKILL.md`. It maps changed paths to tiers: check, preview, fake school, desktop, full app. Run the cheapest tiers that prove the change, build once, reuse QA profiles, and report evidence and untested limits. The full journey is for onboarding, admission, provider and release changes, not every edit. Keep UI actions self-explanatory and code direct; fewer lines must not come at the expense of readability or meaningful safeguards.
 
 try to make code as high quilty as poslsible and as mannageble as pssobile,
 

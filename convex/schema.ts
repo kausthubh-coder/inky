@@ -40,11 +40,7 @@ export default defineSchema({
     ),
     amount: v.number(),
     updatedAt: v.number(),
-  }).index("by_clerk_subject_and_period_and_category", [
-    "clerkSubject",
-    "period",
-    "category",
-  ]),
+  }).index("by_clerk_subject_and_period_and_category", ["clerkSubject", "period", "category"]),
 
   usageReceipts: defineTable({
     clerkSubject: v.string(),

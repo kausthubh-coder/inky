@@ -4,10 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 
-import {
-  buildDiagnosticsSnapshot,
-  writeDiagnosticsSnapshot,
-} from "../../dist/electron/diagnostics.js";
+import { buildDiagnosticsSnapshot, writeDiagnosticsSnapshot } from "../../dist/electron/diagnostics.js";
 
 test("diagnostic export keeps consented school facts and strips only secrets", async () => {
   const workspace = await mkdtemp(join(tmpdir(), "studi-diagnostics-"));
@@ -37,21 +34,23 @@ test("diagnostic export keeps consented school facts and strips only secrets", a
     telemetryConfigured: true,
     telemetryEnabled: true,
     replayEnabled: false,
-    diagnostics: [{
-      capturedAt: "2026-09-01T22:00:00.000Z",
-      event: "studi_error",
-      distinctId: canaries.distinctId,
-      properties: {
-        app_version: "0.1.0",
-        boundary: "ipc",
-        operation: "ipc_request",
-        code: "operation_failed",
-        task_id: canaries.task,
-        email: canaries.account,
-        school_root: canaries.school,
-        debug_summary: `${canaries.account} ${canaries.path} ${canaries.school} ${canaries.token}`,
+    diagnostics: [
+      {
+        capturedAt: "2026-09-01T22:00:00.000Z",
+        event: "studi_error",
+        distinctId: canaries.distinctId,
+        properties: {
+          app_version: "0.1.0",
+          boundary: "ipc",
+          operation: "ipc_request",
+          code: "operation_failed",
+          task_id: canaries.task,
+          email: canaries.account,
+          school_root: canaries.school,
+          debug_summary: `${canaries.account} ${canaries.path} ${canaries.school} ${canaries.token}`,
+        },
       },
-    }],
+    ],
     now: new Date("2026-09-01T22:01:00.000Z"),
   });
 

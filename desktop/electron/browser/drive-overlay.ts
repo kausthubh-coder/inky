@@ -37,7 +37,9 @@ export class DriveOverlay {
     void this.#view.webContents.loadURL(overlayDataUrl());
   }
 
-  raise(): void { this.#window.contentView.addChildView(this.#view); }
+  raise(): void {
+    this.#window.contentView.addChildView(this.#view);
+  }
 
   dispose(): void {
     if (!this.#window.isDestroyed()) this.#window.contentView.removeChildView(this.#view);

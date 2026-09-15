@@ -20,7 +20,10 @@ test("start-while-busy does not enqueue or steer another assignment", async () =
     },
   };
 
-  await assert.rejects(startSelectedAssignment(store, manager, executions, "task-waiting"), /already on another page/);
+  await assert.rejects(
+    startSelectedAssignment(store, manager, executions, "task-waiting"),
+    /already on another page/,
+  );
   assert.deepEqual(calls, []);
 });
 

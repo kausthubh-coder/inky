@@ -124,6 +124,6 @@ PostHog's [capture API](https://posthog.com/docs/api/capture) documents the batc
 
 ## Existing entry points and packaging
 
-`agent-harness/school-fixture.ts` translates the old YAML fixture through a Node child process running this shared school. The QA `school-fixture.mjs` helper is an async shared-server adapter; its CLI still prints the established `schoolUrl`, `processId`, and `simulated` receipt. Old `/health` answer flags were removed in favor of operator inspection. `agent:harness` and `test:auth` build the shared fixture first.
+The QA `school-fixture.mjs` helper in the test-studi skill starts this school in its `smoke` scenario and prints `schoolUrl`, `processId`, and `simulated`. `test:auth` builds the school first.
 
 `.studi-lms/` is ignored. Forge explicitly excludes both that directory and `agent-harness/`. Private sources must remain outside the repository. Benchmark drivers and production scanner changes are owned by the integrating manager task.

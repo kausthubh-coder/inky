@@ -25,7 +25,7 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
     const target = { kind: "assignment", assignmentId: "selected" };
     const manager = await ManagerCoordinator.create(store, base, {
       now: () => now,
-      startAssignment: async taskId => {
+      startAssignment: async (taskId) => {
         assert.equal(prompting, false, "the chat session has finished before the worker starts");
         assert.equal(taskId, "task-selected", "only the addressed assignment can start");
         starts++;
@@ -36,32 +36,47 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
       createJobSession: async (_target, tools) => {
         const listeners = new Set();
         return {
-          sessionId: "chat-session", sessionPath: join(root, "chat.jsonl"),
-          subscribe(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+          sessionId: "chat-session",
+          sessionPath: join(root, "chat.jsonl"),
+          subscribe(fn) {
+            listeners.add(fn);
+            return () => listeners.delete(fn);
+          },
           async prompt(prompt) {
             prompting = true;
             try {
               if (prompt.endsWith("do it")) {
-                const start = tools.find(tool => tool.name === "assignment_start");
+                const start = tools.find((tool) => tool.name === "assignment_start");
                 assert.ok(start, "assignment conversations need a scoped start tool");
-                assert.deepEqual(start.parameters.properties, {}, "the model cannot supply another assignment ID");
+                assert.deepEqual(
+                  start.parameters.properties,
+                  {},
+                  "the model cannot supply another assignment ID",
+                );
                 await start.execute("start-1", {});
                 await start.execute("start-2", {});
                 requestCalls += 2;
                 assert.equal(starts, 0, "tool requests defer handoff until the turn ends");
                 if (scenario === "cancel") await chat.stop(target);
-                if (scenario === "permission changed") store.permissionRules.put({ ...rule, mode: "do_not_attempt" });
+                if (scenario === "permission changed")
+                  store.permissionRules.put({ ...rule, mode: "do_not_attempt" });
                 if (scenario === "browser busy") {
                   manager.enqueue({ taskId: "task-other" });
                   await manager.startTask("task-other");
                 }
               }
-              for (const fn of listeners) fn({ schemaVersion: 1, type: "text", delta: "I’ll start this assignment." });
+              for (const fn of listeners)
+                fn({ schemaVersion: 1, type: "text", delta: "I’ll start this assignment." });
               for (const fn of listeners) fn({ schemaVersion: 1, type: "terminal", outcome: "completed" });
-            } finally { prompting = false; }
+            } finally {
+              prompting = false;
+            }
           },
-          async abort() {}, async replace() {},
-          dispose() { assert.equal(prompting, false, "do not dispose an active tool call"); },
+          async abort() {},
+          async replace() {},
+          dispose() {
+            assert.equal(prompting, false, "do not dispose an active tool call");
+          },
         };
       },
     };
@@ -88,7 +103,9 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
         if (scenario !== "cancel") assert.match(result.text, /couldn’t start this assignment/);
       }
     } finally {
-      chat.dispose(); manager.dispose(); store.close();
+      chat.dispose();
+      manager.dispose();
+      store.close();
       await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     }
   });
@@ -96,12 +113,54 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
 
 function seedTask(store, id) {
   const sourceTarget = `https://school.example.edu/assignments/${id}`;
-  const evidence = { schemaVersion: 1, evidenceId: `evidence-${id}`, reference: `evidence-${id}`, kind: "agent_observation", sourceTarget, capturedAt: now, summary: `Observed ${id}` };
-  store.assignments.put({ schemaVersion: 1, assignmentId: id, courseId: "course", title: id, sourceTarget, discoveredAt: now, lastVerifiedScanId: "scan", evidence: [evidence],
-    dueAt: "2026-09-20T23:59:00.000Z", deadlinePrecision: "datetime", deadlineEvidence: evidence,
+  const evidence = {
+    schemaVersion: 1,
+    evidenceId: `evidence-${id}`,
+    reference: `evidence-${id}`,
+    kind: "agent_observation",
+    sourceTarget,
+    capturedAt: now,
+    summary: `Observed ${id}`,
+  };
+  store.assignments.put({
+    schemaVersion: 1,
+    assignmentId: id,
+    courseId: "course",
+    title: id,
+    sourceTarget,
+    discoveredAt: now,
+    lastVerifiedScanId: "scan",
+    evidence: [evidence],
+    dueAt: "2026-09-20T23:59:00.000Z",
+    deadlinePrecision: "datetime",
+    deadlineEvidence: evidence,
     schoolStatus: { state: "not_submitted", text: "Not submitted", evidence },
-    requirementEvidence: [{ text: "Complete the exercise.", evidence }], requirementsState: "complete" });
-  const task = { schemaVersion: 1, taskId: `task-${id}`, assignmentId: id, state: "discovered", revision: 0, createdAt: now, updatedAt: now };
+    requirementEvidence: [{ text: "Complete the exercise.", evidence }],
+    requirementsState: "complete",
+  });
+  const task = {
+    schemaVersion: 1,
+    taskId: `task-${id}`,
+    assignmentId: id,
+    state: "discovered",
+    revision: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
   const { schemaVersion, ...payload } = task;
-  store.tasks.append({ expectedRevision: null, projection: task, event: { schemaVersion: 1, eventId: `event-${id}`, aggregateType: "task", aggregateId: task.taskId, runId: `run-${id}`, sequence: 0, occurredAt: now, type: "task_created", payload } });
+  store.tasks.append({
+    expectedRevision: null,
+    projection: task,
+    event: {
+      schemaVersion: 1,
+      eventId: `event-${id}`,
+      aggregateType: "task",
+      aggregateId: task.taskId,
+      runId: `run-${id}`,
+      sequence: 0,
+      occurredAt: now,
+      type: "task_created",
+      payload,
+    },
+  });
 }

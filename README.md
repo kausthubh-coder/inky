@@ -12,7 +12,7 @@ This is a Bun workspace:
 
 - Electron desktop shell with a visible `WebContentsView` school browser
 - React and Vite product UI using the Studi/Inky visual language
-- Pi `AgentSession` runtime with OpenAI Codex device authorization
+- Pi `AgentSession` runtime on the student's own ChatGPT (device code) or Claude Pro/Max (browser sign-in) subscription
 - General browser tools for inspecting and operating supported school sites
 - Local SQLite task state, Markdown artifacts, queues, permissions, and scheduling
 - Clerk authentication, Convex beta entitlement, landing waitlist emails, and privacy-controlled PostHog telemetry
@@ -44,11 +44,10 @@ The landing site can send anonymous, cookieless traffic and conversion events to
 
 The website's **Open Studi** button sends only `studi://connect`. Electron owns the PKCE verifier, state, nonce, loopback callback, code exchange, and token storage.
 
-Create a production desktop build and run the focused smoke test:
+Build and run the automated checks:
 
 ```bash
-bun run build
-node tests/electron-self-test-runner.mjs --positive-only
+bun run test
 ```
 
 Build the Windows package:
@@ -89,7 +88,7 @@ The public site deploys from `landing/` to the Vercel project `inky`. Do not dep
 ## Project documentation
 
 - Architecture and work packages: [`.agents/plans/studi-master-plan.html`](.agents/plans/studi-master-plan.html)
-- Product decisions: [`STUDI_PRODUCT_DECISIONS.md`](STUDI_PRODUCT_DECISIONS.md)
-- Build conclusions: [`.agents/qa/conclusions/`](.agents/qa/conclusions/)
+- Feature plans and mockups: [`.agents/plans/`](.agents/plans/)
+- Testing: [`.agents/skills/test-studi/SKILL.md`](.agents/skills/test-studi/SKILL.md)
 
 This repository is an early private-beta prototype and is not licensed for redistribution.

@@ -24,7 +24,7 @@ test("browser snapshot is bounded and page revisions invalidate old refs", async
   assert.equal(first.truncated, true);
   assert.equal(first.elements[0].ref, `r${first.revision}:1`);
   assert.equal(first.nextOffset, 80);
-  const continuation = await controller.snapshot({offset:first.nextOffset});
+  const continuation = await controller.snapshot({ offset: first.nextOffset });
   assert.match(continuation.text, /Page summary/);
   assert.equal(continuation.truncated, false);
 
@@ -39,7 +39,10 @@ test("browser snapshots expose observed HTTP link destinations for assignment id
   const href = "https://school.example.edu/mod/assign/view.php?id=1360376";
   const target = fakeTarget([
     { ...axNode(1, "link", "Homework 1"), properties: [{ name: "url", value: { value: href } }] },
-    { ...axNode(2, "link", "Run script"), properties: [{ name: "url", value: { value: "javascript:void(0)" } }] },
+    {
+      ...axNode(2, "link", "Run script"),
+      properties: [{ name: "url", value: { value: "javascript:void(0)" } }],
+    },
   ]);
   const snapshot = BrowserSnapshotSchema.parse(await new BrowserController(target).snapshot());
   assert.equal(snapshot.elements[0].href, href);
@@ -84,18 +87,27 @@ test("Enter cannot bypass the separate submission action", async () => {
 test("browser tools expose only named safe operations and URL validation rejects credentials", async () => {
   const target = fakeTarget([axNode(1, "link", "Course")]);
   const controller = new BrowserController(target);
-  assert.deepEqual(createBrowserTools(controller).map((tool) => tool.name), [
-    "browser_snapshot",
-    "browser_navigate",
-    "browser_click",
-    "browser_type",
-    "browser_select",
-    "browser_press",
-    "browser_wait", "browser_scroll", "browser_link", "browser_screenshot",
-    "browser_submit",
-  ]);
+  assert.deepEqual(
+    createBrowserTools(controller).map((tool) => tool.name),
+    [
+      "browser_snapshot",
+      "browser_navigate",
+      "browser_click",
+      "browser_type",
+      "browser_select",
+      "browser_press",
+      "browser_wait",
+      "browser_scroll",
+      "browser_link",
+      "browser_screenshot",
+      "browser_submit",
+    ],
+  );
   await assert.rejects(controller.navigate("javascript:alert(1)"), /HTTP or HTTPS/);
-  await assert.rejects(controller.navigate("https://student:secret@school.example"), /cannot contain credentials/);
+  await assert.rejects(
+    controller.navigate("https://student:secret@school.example"),
+    /cannot contain credentials/,
+  );
   const snapshot = await controller.navigate("school.example.edu/course");
   assert.equal(snapshot.url, "https://school.example.edu/course");
 });
@@ -139,7 +151,10 @@ test("real Pi session registers the Studi browser tools and no built-in coding t
         "browser_type",
         "browser_select",
         "browser_press",
-        "browser_wait", "browser_scroll", "browser_link", "browser_screenshot",
+        "browser_wait",
+        "browser_scroll",
+        "browser_link",
+        "browser_screenshot",
         "browser_submit",
       ]);
     } finally {
@@ -159,7 +174,7 @@ function axNode(backendDOMNodeId, role, name) {
   };
 }
 
-test("an unresponsive PDF observation returns a recovery error instead of hanging the worker", async t => {
+test("an unresponsive PDF observation returns a recovery error instead of hanging the worker", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const target = fakeTarget([]);
   target.debugger.sendCommand = async () => new Promise(() => {});
@@ -183,7 +198,9 @@ function fakeTarget(nodes, options = {}) {
     uploadBackendNodeId: null,
     debugger: {
       isAttached: () => attached,
-      attach: () => { attached = true; },
+      attach: () => {
+        attached = true;
+      },
       on: () => {},
       sendCommand: async (method, params = {}) => {
         if (method === "Accessibility.getFullAXTree") return { nodes };
@@ -200,11 +217,24 @@ function fakeTarget(nodes, options = {}) {
         }
         if (method === "Runtime.callFunctionOn") {
           if (String(params.functionDeclaration).includes("submission:")) {
-            return { result: { value: options.inspection ?? { connected: true, disabled: false, submission: false, label: "" } } };
+            return {
+              result: {
+                value: options.inspection ?? {
+                  connected: true,
+                  disabled: false,
+                  submission: false,
+                  label: "",
+                },
+              },
+            };
           }
           if (String(params.functionDeclaration).includes("this.click()")) target.clicks += 1;
           if (String(params.functionDeclaration).includes("fileInput:")) {
-            return { result: { value: options.uploadInspection ?? { connected: true, disabled: false, fileInput: false } } };
+            return {
+              result: {
+                value: options.uploadInspection ?? { connected: true, disabled: false, fileInput: false },
+              },
+            };
           }
           return { result: { value: true } };
         }
@@ -213,11 +243,12 @@ function fakeTarget(nodes, options = {}) {
     },
     getURL: () => url,
     getTitle: () => "School",
-    loadURL: async (nextUrl) => { url = nextUrl; },
+    loadURL: async (nextUrl) => {
+      url = nextUrl;
+    },
   };
   return target;
 }
-
 
 test("explicit draft-save buttons can post a form while final and ambiguous submits stay gated", async () => {
   for (const label of ["Save draft", "Save as draft", "Submit assignment", "Continue"]) {
@@ -237,18 +268,41 @@ test("explicit draft-save buttons can post a form while final and ambiguous subm
 });
 
 test("read-only scan tools deny draft saves, answer fields and keyboard activation while allowing navigation", async () => {
-  for (const label of ["Save draft", "Save as draft", "Submit assignment", "Mark as done", "Course details"]) {
-    const target = fakeTarget([axNode(1, "button", label)], { inspection: { connected: true, disabled: false, submission: label.startsWith("Save"), label } });
+  for (const label of [
+    "Save draft",
+    "Save as draft",
+    "Submit assignment",
+    "Mark as done",
+    "Course details",
+  ]) {
+    const target = fakeTarget([axNode(1, "button", label)], {
+      inspection: { connected: true, disabled: false, submission: label.startsWith("Save"), label },
+    });
     const controller = new BrowserController(target);
     const tools = createBrowserTools(controller, { readOnly: true });
-    assert.equal(tools.some(tool => tool.name === "browser_submit"), false);
+    assert.equal(
+      tools.some((tool) => tool.name === "browser_submit"),
+      false,
+    );
     const snapshot = await controller.snapshot();
-    const click = () => tools.find(tool => tool.name === "browser_click").execute("scan", { ref: snapshot.elements[0].ref });
-    if (label === "Course details") { await click(); assert.equal(target.clicks, 1); }
-    else { await assert.rejects(click(), /read-only/); assert.equal(target.clicks, 0); }
+    const click = () =>
+      tools.find((tool) => tool.name === "browser_click").execute("scan", { ref: snapshot.elements[0].ref });
+    if (label === "Course details") {
+      await click();
+      assert.equal(target.clicks, 1);
+    } else {
+      await assert.rejects(click(), /read-only/);
+      assert.equal(target.clicks, 0);
+    }
     const current = await controller.snapshot();
-    await assert.rejects(controller.type(current.elements[0].ref, "answer", true), /only identified search or filter/);
-    await assert.rejects(controller.select(current.elements[0].ref, "answer", true), /only identified search or filter/);
+    await assert.rejects(
+      controller.type(current.elements[0].ref, "answer", true),
+      /only identified search or filter/,
+    );
+    await assert.rejects(
+      controller.select(current.elements[0].ref, "answer", true),
+      /only identified search or filter/,
+    );
     await assert.rejects(controller.press("Enter", true), /read-only/);
     assert.equal(target.keyEvents, 0);
   }

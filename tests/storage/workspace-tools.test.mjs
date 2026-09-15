@@ -37,9 +37,10 @@ test("workspace coding tools create, edit, search, list, and run inside one assi
     assert.match(list.content[0].text, /notes/);
 
     const shellName = process.platform === "win32" ? "powershell" : "bash";
-    const command = process.platform === "win32"
-      ? "Set-Content -LiteralPath shell-result.txt -Value 'inside'"
-      : "printf 'inside\\n' > shell-result.txt";
+    const command =
+      process.platform === "win32"
+        ? "Set-Content -LiteralPath shell-result.txt -Value 'inside'"
+        : "printf 'inside\\n' > shell-result.txt";
     await execute(tool(tools, shellName), { command, timeout: 10 });
     assert.match(await readFile(join(root, "shell-result.txt"), "utf8"), /inside/);
   } finally {
@@ -64,7 +65,10 @@ test("workspace coding tools reject traversal, links, elevation, and global inst
 
     const shellName = process.platform === "win32" ? "powershell" : "bash";
     for (const command of ["sudo whoami", "bun add -g left-pad", "python -m pip install requests"]) {
-      await assert.rejects(execute(tool(tools, shellName), { command, timeout: 10 }), /private workspace boundary|\.venv/);
+      await assert.rejects(
+        execute(tool(tools, shellName), { command, timeout: 10 }),
+        /private workspace boundary|\.venv/,
+      );
     }
   } finally {
     await rm(root, { recursive: true, force: true });

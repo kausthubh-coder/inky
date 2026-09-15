@@ -83,7 +83,11 @@ test("evidence rejects secret-shaped fields and credential-bearing targets", () 
     "https://school.example.edu/assignment/1#authorization=secret",
     "file:///tmp/evidence.html",
   ]) {
-    assert.equal(SafeSourceTargetSchema.safeParse(target).success, false, `accepted unsafe target: ${target}`);
+    assert.equal(
+      SafeSourceTargetSchema.safeParse(target).success,
+      false,
+      `accepted unsafe target: ${target}`,
+    );
   }
 });
 
@@ -185,10 +189,8 @@ test("evidence URL key normalization does not reject unrelated parameter names",
         const target = {
           query: `https://school.example.edu/assignment/1?${key}=public-label`,
           fragment: `https://school.example.edu/assignment/1#${key}=public-label`,
-          "fragment-before-question":
-            `https://school.example.edu/assignment/1#${key}=public-label?view=1`,
-          "fragment-after-question":
-            `https://school.example.edu/assignment/1#view=1?${key}=public-label`,
+          "fragment-before-question": `https://school.example.edu/assignment/1#${key}=public-label?view=1`,
+          "fragment-after-question": `https://school.example.edu/assignment/1#view=1?${key}=public-label`,
         }[location];
         assert.equal(SafeSourceTargetSchema.safeParse(target).success, true, `rejected ${target}`);
       },

@@ -3,15 +3,7 @@ import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import {
-  Menu,
-  Notification,
-  Tray,
-  app,
-  nativeImage,
-  powerMonitor,
-  type BrowserWindow,
-} from "electron";
+import { Menu, Notification, Tray, app, nativeImage, powerMonitor, type BrowserWindow } from "electron";
 
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -39,7 +31,8 @@ const unpackedSoundDirectory = resolve(moduleDirectory, "..", "..", "..", "asset
 
 const MAX_TIMER_MS = 2_147_000_000;
 const BUSY_BROWSER_RECHECK_MS = 30_000;
-const TRAY_ICON = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAIElEQVR42mNkYGD4z0ABYBw1gGE0DBgGBoZRA0YNGAAA7v0DHbCaqwAAAABJRU5ErkJggg==";
+const TRAY_ICON =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAIElEQVR42mNkYGD4z0ABYBw1gGE0DBgGBoZRA0YNGAAA7v0DHbCaqwAAAABJRU5ErkJggg==";
 
 export class AppKernel {
   readonly #store: LocalStore;
@@ -47,7 +40,9 @@ export class AppKernel {
   readonly #execution: AssignmentExecutionCoordinator;
   readonly #browserWork: VisibleBrowserWork;
   readonly #window: BrowserWindow;
-  readonly #runScheduledScan: (claimOccurrence: () => AutomationSchedule | null) => Promise<{ readonly claim: AutomationSchedule; readonly state: SchoolOnboardingState } | null>;
+  readonly #runScheduledScan: (
+    claimOccurrence: () => AutomationSchedule | null,
+  ) => Promise<{ readonly claim: AutomationSchedule; readonly state: SchoolOnboardingState } | null>;
   readonly #focusBrowser: () => void;
   readonly #iconPath: string | undefined;
   readonly #now: () => string;
@@ -66,7 +61,9 @@ export class AppKernel {
     browserWork: VisibleBrowserWork,
     window: BrowserWindow,
     options: {
-      readonly runScheduledScan: (claimOccurrence: () => AutomationSchedule | null) => Promise<{ readonly claim: AutomationSchedule; readonly state: SchoolOnboardingState } | null>;
+      readonly runScheduledScan: (
+        claimOccurrence: () => AutomationSchedule | null,
+      ) => Promise<{ readonly claim: AutomationSchedule; readonly state: SchoolOnboardingState } | null>;
       readonly focusBrowser: () => void;
       readonly iconPath?: string;
       readonly now?: () => string;
@@ -88,7 +85,9 @@ export class AppKernel {
     this.#window.on("close", this.#hideOnClose);
     app.on("before-quit", this.#beforeQuit);
     powerMonitor.on("resume", this.#resume);
-    const bundledIcon = this.#iconPath ? nativeImage.createFromPath(this.#iconPath) : nativeImage.createFromDataURL(TRAY_ICON);
+    const bundledIcon = this.#iconPath
+      ? nativeImage.createFromPath(this.#iconPath)
+      : nativeImage.createFromDataURL(TRAY_ICON);
     const trayIcon = bundledIcon.isEmpty()
       ? nativeImage.createFromDataURL(TRAY_ICON)
       : bundledIcon.resize({ width: 32, height: 32, quality: "best" });
@@ -109,7 +108,13 @@ export class AppKernel {
     requested: { readonly localTime?: string; readonly weekday?: number } = {},
   ): LifecycleState {
     const now = this.#now();
-    const schedule = createAutomationSchedule(cadence, timezone, now, this.#store.lifecycle.getSchedule(), requested);
+    const schedule = createAutomationSchedule(
+      cadence,
+      timezone,
+      now,
+      this.#store.lifecycle.getSchedule(),
+      requested,
+    );
     this.#store.lifecycle.putSchedule(schedule);
     this.#refreshTray();
     this.#armTimer();
@@ -120,9 +125,12 @@ export class AppKernel {
     const current = this.#store.lifecycle.getSchedule();
     if (!current) throw new Error("No automation schedule is configured");
     const now = this.#now();
-    const nextRunAt = !paused && current.cadence !== "manual"
-      ? (!current.nextRunAt || current.nextRunAt <= now ? nextScheduleRun(current, now) : current.nextRunAt)
-      : current.nextRunAt;
+    const nextRunAt =
+      !paused && current.cadence !== "manual"
+        ? !current.nextRunAt || current.nextRunAt <= now
+          ? nextScheduleRun(current, now)
+          : current.nextRunAt
+        : current.nextRunAt;
     this.#store.lifecycle.putSchedule({
       ...current,
       state: paused ? "paused" : "enabled",
@@ -136,9 +144,14 @@ export class AppKernel {
 
   async notify(intent: ExecutionNotification): Promise<NotificationTestReceipt> {
     const now = this.#now();
-    const preferences = (await this.#store.productPreferences.get()).notifications ?? DEFAULT_NOTIFICATION_PREFERENCES;
+    const preferences =
+      (await this.#store.productPreferences.get()).notifications ?? DEFAULT_NOTIFICATION_PREFERENCES;
     const sound = preferences.kinds[intent.kind].sound;
-    const resolved = resolveNotificationSound(preferences, intent.kind, (soundId) => bundledNotificationSoundPath(soundId) !== null);
+    const resolved = resolveNotificationSound(
+      preferences,
+      intent.kind,
+      (soundId) => bundledNotificationSoundPath(soundId) !== null,
+    );
     const record = this.#store.lifecycle.putNotification({
       ...intent,
       schemaVersion: STUDI_SCHEMA_VERSION,
@@ -157,7 +170,11 @@ export class AppKernel {
       ...(icon && !icon.isEmpty() ? { icon } : {}),
     });
     notification.on("click", () => {
-      this.#store.lifecycle.putNotification({ ...record, deliveredAt: record.deliveredAt ?? now, clickedAt: this.#now() });
+      this.#store.lifecycle.putNotification({
+        ...record,
+        deliveredAt: record.deliveredAt ?? now,
+        clickedAt: this.#now(),
+      });
       this.#focusTarget(record);
     });
     notification.show();
@@ -174,9 +191,10 @@ export class AppKernel {
       kind,
       title: copy.title,
       body: copy.body,
-      target: kind === "scan_result"
-        ? { type: "scan", id: scanId ?? "settings-preview" }
-        : { type: "task", id: execution?.taskId ?? "settings-preview" },
+      target:
+        kind === "scan_result"
+          ? { type: "scan", id: scanId ?? "settings-preview" }
+          : { type: "task", id: execution?.taskId ?? "settings-preview" },
     });
   }
 
@@ -193,25 +211,45 @@ export class AppKernel {
     app.quit();
   }
 
-  lifecycleReceipt(): { readonly closeInterceptions: number; readonly openRequests: number; readonly quitting: boolean } {
-    return { closeInterceptions: this.#closeInterceptions, openRequests: this.#openRequests, quitting: this.#quitting };
+  lifecycleReceipt(): {
+    readonly closeInterceptions: number;
+    readonly openRequests: number;
+    readonly quitting: boolean;
+  } {
+    return {
+      closeInterceptions: this.#closeInterceptions,
+      openRequests: this.#openRequests,
+      quitting: this.#quitting,
+    };
   }
 
   async reconcile(): Promise<void> {
     this.#assertUsable();
-    if(this.#updating)return;
+    if (this.#updating) return;
     await this.#execution.reconcileDeadlines();
-    if(this.#updating)return;
+    if (this.#updating) return;
     const schedule = this.#store.lifecycle.getSchedule();
     const now = this.#now();
-    if (schedule?.state === "enabled" && schedule.cadence !== "manual" && schedule.nextRunAt && schedule.nextRunAt <= now) {
+    if (
+      schedule?.state === "enabled" &&
+      schedule.cadence !== "manual" &&
+      schedule.nextRunAt &&
+      schedule.nextRunAt <= now
+    ) {
       const nextRunAt = nextScheduleRun(schedule, now);
       try {
-        const scheduled = await this.#runScheduledScan(() => this.#store.lifecycle.claimDueSchedule(now, nextRunAt));
+        const scheduled = await this.#runScheduledScan(() =>
+          this.#store.lifecycle.claimDueSchedule(now, nextRunAt),
+        );
         if (scheduled) {
           const scan = scheduled.state.scan;
           await this.notify({
-            kind: scan?.state === "succeeded" ? "scan_result" : scan?.state === "needs_user" ? "handoff" : "failure",
+            kind:
+              scan?.state === "succeeded"
+                ? "scan_result"
+                : scan?.state === "needs_user"
+                  ? "handoff"
+                  : "failure",
             target: { type: "scan", id: scan?.scanId ?? scheduled.claim.lastClaimedOccurrence! },
             title: scan?.state === "succeeded" ? "School scan finished" : "School scan needs attention",
             body: scan?.currentStep ?? "The scheduled school scan did not return a scan record.",
@@ -233,12 +271,16 @@ export class AppKernel {
   }
 
   prepareUpdate(): void {
-    this.#updating=true;
-    this.#quitting=true;
-    if(this.#timer)clearTimeout(this.#timer);
-    this.#timer=null;
+    this.#updating = true;
+    this.#quitting = true;
+    if (this.#timer) clearTimeout(this.#timer);
+    this.#timer = null;
   }
-  cancelUpdate(): void {this.#updating=false;this.#quitting=false;this.#armTimer();}
+  cancelUpdate(): void {
+    this.#updating = false;
+    this.#quitting = false;
+    this.#armTimer();
+  }
 
   dispose(): void {
     if (this.#disposed) return;
@@ -285,22 +327,26 @@ export class AppKernel {
         : schedule?.nextRunAt
           ? `Next scan ${new Date(schedule.nextRunAt).toLocaleString()}`
           : "Ready";
-    this.#tray.setContextMenu(Menu.buildFromTemplate([
-      { label: "Open Studi", click: this.open },
-      { label: status, enabled: false },
-      { type: "separator" },
-      {
-        label: schedule?.state === "paused" ? "Resume automation" : "Pause automation",
-        enabled: Boolean(schedule),
-        click: () => { this.setAutomationPaused(schedule?.state !== "paused"); },
-      },
-      { type: "separator" },
-      { label: "Quit Studi", click: () => this.requestQuit() },
-    ]));
+    this.#tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: "Open Studi", click: this.open },
+        { label: status, enabled: false },
+        { type: "separator" },
+        {
+          label: schedule?.state === "paused" ? "Resume automation" : "Pause automation",
+          enabled: Boolean(schedule),
+          click: () => {
+            this.setAutomationPaused(schedule?.state !== "paused");
+          },
+        },
+        { type: "separator" },
+        { label: "Quit Studi", click: () => this.requestQuit() },
+      ]),
+    );
   }
 
   #armTimer(): void {
-    if(this.#updating||this.#disposed)return;
+    if (this.#updating || this.#disposed) return;
     if (this.#timer) clearTimeout(this.#timer);
     this.#timer = null;
     const candidates: number[] = [];
@@ -308,7 +354,11 @@ export class AppKernel {
     const schedule = this.#store.lifecycle.getSchedule();
     if (schedule?.state === "enabled" && schedule.nextRunAt) {
       const scheduledAt = Date.parse(schedule.nextRunAt);
-      candidates.push(scheduledAt <= now && this.#browserWork.isScanStartBlocked() ? now + BUSY_BROWSER_RECHECK_MS : scheduledAt);
+      candidates.push(
+        scheduledAt <= now && this.#browserWork.isScanStartBlocked()
+          ? now + BUSY_BROWSER_RECHECK_MS
+          : scheduledAt,
+      );
     }
     const execution = this.#store.lifecycle.getActiveExecution();
     if (execution?.phase === "ready_review") {
@@ -317,7 +367,9 @@ export class AppKernel {
     }
     if (candidates.length === 0) return;
     const delay = Math.min(MAX_TIMER_MS, Math.max(0, Math.min(...candidates) - now));
-    this.#timer = setTimeout(() => { void this.reconcile(); }, delay);
+    this.#timer = setTimeout(() => {
+      void this.reconcile();
+    }, delay);
   }
 
   #playBundledSound(soundId: NotificationSoundId | null): void {

@@ -36,7 +36,10 @@ if (mode === "discover") {
     undefined,
     { signal: AbortSignal.timeout(10_000) },
   );
-  const words = search.toLocaleLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const words = search
+    .toLocaleLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
   const toolSlug = search.toLocaleUpperCase();
   const candidates = allTools.filter((candidate) => {
     const haystack = `${candidate.slug} ${candidate.name}`.toLocaleLowerCase();
@@ -46,30 +49,37 @@ if (mode === "discover") {
   if (!tool) {
     throw new Error(`No tool matching ${search} is available for ${toolkitSlug}`);
   }
-  process.stdout.write(`${JSON.stringify({
-    ok: true,
-    toolkit: {
-      slug: toolkit.slug,
-      name: toolkit.name,
-      availableVersions: toolkit.meta.availableVersions ?? [],
-    },
-    tool: {
-      slug: tool.slug,
-      name: tool.name,
-      version: tool.version ?? null,
-      availableVersions: tool.availableVersions ?? [],
-    },
-    candidates: candidates.slice(0, 100).map((candidate) => ({
-      slug: candidate.slug,
-      name: candidate.name,
-      version: candidate.version ?? null,
-    })),
-  }, null, 2)}\n`);
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        ok: true,
+        toolkit: {
+          slug: toolkit.slug,
+          name: toolkit.name,
+          availableVersions: toolkit.meta.availableVersions ?? [],
+        },
+        tool: {
+          slug: tool.slug,
+          name: tool.name,
+          version: tool.version ?? null,
+          availableVersions: tool.availableVersions ?? [],
+        },
+        candidates: candidates.slice(0, 100).map((candidate) => ({
+          slug: candidate.slug,
+          name: candidate.name,
+          version: candidate.version ?? null,
+        })),
+      },
+      null,
+      2,
+    )}\n`,
+  );
   process.exit(0);
 }
 
-const policySource = process.env.STUDI_COMPOSIO_TOOL_POLICY_JSON
-  ?? await readFile(new URL("../config/composio-tool-policy.json", import.meta.url), "utf8");
+const policySource =
+  process.env.STUDI_COMPOSIO_TOOL_POLICY_JSON ??
+  (await readFile(new URL("../config/composio-tool-policy.json", import.meta.url), "utf8"));
 const policy = readComposioPolicy(policySource);
 if (Object.keys(policy).length === 0) {
   throw new Error("STUDI_COMPOSIO_TOOL_POLICY_JSON has no pinned toolkit allowlist");
@@ -95,8 +105,10 @@ for (const [toolkitSlug, item] of Object.entries(policy)) {
     undefined,
     { signal: AbortSignal.timeout(20_000) },
   );
-  const tools = item.access === "all" ? available : available.filter((tool) => item.tools.includes(tool.slug));
-  const writePattern = /(?:CREATE|ADD|APPEND|UPDATE|EDIT|SEND|UPLOAD|MOVE|COPY|DELETE|REMOVE|ARCHIVE|REPLY|COMMENT|PUBLISH|SUBMIT|COMPLETE|INVITE|SHARE|LABEL|STAR|TRASH|MERGE)/;
+  const tools =
+    item.access === "all" ? available : available.filter((tool) => item.tools.includes(tool.slug));
+  const writePattern =
+    /(?:CREATE|ADD|APPEND|UPDATE|EDIT|SEND|UPLOAD|MOVE|COPY|DELETE|REMOVE|ARCHIVE|REPLY|COMMENT|PUBLISH|SUBMIT|COMPLETE|INVITE|SHARE|LABEL|STAR|TRASH|MERGE)/;
   const writeTools = tools.filter((tool) => writePattern.test(tool.slug));
   if (item.access === "all" && writeTools.length === 0) {
     throw new Error(`${toolkitSlug} exposes no discoverable write actions`);
@@ -123,4 +135,6 @@ if (!search.success || !searchTools.some((slug) => /DRAFT|SEND/.test(slug))) {
   throw new Error("Full-access session search did not discover a Gmail write action");
 }
 
-process.stdout.write(`${JSON.stringify({ ok: true, toolkits, lazySearch: { toolkit: "gmail", query: "create an email draft", tools: searchTools } }, null, 2)}\n`);
+process.stdout.write(
+  `${JSON.stringify({ ok: true, toolkits, lazySearch: { toolkit: "gmail", query: "create an email draft", tools: searchTools } }, null, 2)}\n`,
+);

@@ -1,69 +1,59 @@
 ---
 name: test-studi
-description: Verify Studi changes with full app journeys or focused UI, agent harness, storage, and web checks. Review common failure states, usability, code quality, and maintainability; isolate QA profiles and distinguish live proof from controlled tests.
+description: Verify Studi changes at the cheapest tier that proves them - static checks, the UI preview, the fake school without the product UI, a desktop pass on an onboarded QA profile, or the full onboarding-to-restart journey. Review usability and maintainability, keep QA profiles isolated, and label live versus controlled evidence.
 ---
 
 # Test Studi
 
-Test the checkout the user is changing. Choose evidence proportional to the change, fix failures within scope, and review the final diff before calling the work ready. Repair routine QA setup yourself; a signed-out or missing test profile is setup work, not a reason to stop. Do not claim a full flow from screenshots, previews, or seeded state.
+Pick the smallest tier that can prove the change, run it, and report what passed, what failed, and what was not run. Build once per code change and reuse profiles and servers. Do not run the whole app for a change that never crosses its boundary, and do not call a change verified from a lower tier when it also changes a higher one. Read [review-standard.md](references/review-standard.md) for the usability and code review that applies at every tier.
 
-## Choose the proof before editing
+## Tiers
 
-State the user-visible outcome and the few likely ways it could fail. Use the smallest mode that proves that outcome; combine modes when a change crosses boundaries. Read [review-standard.md](references/review-standard.md) for the shared usability, code-quality, and completion review.
+| Tier | Cost | Proves | Guide |
+| --- | --- | --- | --- |
+| 0 Check | seconds, no app build | formatting, types, and the storage, agent, contract, telemetry and backend logic under `tests/` and `convex/` | `bun run check`, then `bun run build:electron` and `node --test tests/<area>/*.test.mjs` for the touched area, or `bun run test:backend` |
+| 1 Preview | Vite dev server, no build | the real React screens against fixture state, every visual state, copy, keyboard and layout | [preview-pass.md](references/preview-pass.md) |
+| 2 Fake school | `build:electron` and `build:lms`, no product UI | the production scan, files, manager and storage path against a school with known ground truth, with or without a real provider | [fake-school-pass.md](references/fake-school-pass.md) |
+| 3 Desktop | one `bun run build`, an onboarded QA profile | the changed feature inside the real app: IPC, school pane, native dialogs, notifications, provider sign-in, restart | [desktop-pass.md](references/desktop-pass.md) |
+| 4 Full app | one `bun run build`, a fresh QA profile | admission, onboarding, first scan, chat, homework, competing activity and restart as one connected journey | [full-app-pass.md](references/full-app-pass.md) |
 
-| Change or request | Required proof |
+Web account changes use [web-account-pass.md](references/web-account-pass.md) instead; they need neither Electron nor a provider.
+
+## Which tiers a change needs
+
+| Changed | Run |
 | --- | --- |
-| Full app test, release readiness, onboarding, or a broad cross-system change | [Full app pass](references/full-app-pass.md): fresh admission → onboarding → scan → chat → homework → restart. Include connected-app work when supported/in scope. |
-| An existing desktop feature or bug | [Feature pass](references/feature-pass.md): reproduce the trigger, exercise the fix in the real app, check its result and the adjacent common failure/recovery path. Reuse an onboarded profile. |
-| UI, copy, icons, layout, interaction | [Focused UI pass](references/focused-passes.md#ui-and-interaction): actual components, visual inspection, controls and relevant states; native verification for native behavior. |
-| Prompts, model/reasoning, memory, tools, agent harness or benchmark | [Focused agent pass](references/focused-passes.md#agent-harness-prompts-and-memory): production-path contracts plus bounded live runs when claiming agent behavior. |
-| Storage, identities, permissions, IPC, scheduling or updates | [Focused system pass](references/focused-passes.md#storage-runtime-and-native-systems): observable invariants and the affected app boundary. |
-| Documentation or skill-only edit | Validate references, commands and representative decisions. Run changed helpers if any; no unrelated full app run. |
+| `desktop/shared`, `desktop/electron/storage`, `desktop/agent-system`, `convex` | 0 |
+| `desktop/src` | 0 and 1. Add 3 when the change drives IPC, the school pane, native dialogs or notifications. |
+| `desktop/electron/scan`, `agent`, `files`, `manager`, `assignment`, or an agent pack | 0 and 2. Add 3 when the result is visible in the UI. |
+| `desktop/electron/main.ts`, `auth`, `browser`, `lifecycle`, `updates`, `preload.cts` | 0 and 3 |
+| Onboarding, admission, provider sign-in, a release candidate, or several rows at once | 0 and 4 |
+| `landing` | web account pass |
+| Docs, skills, scripts | run the changed helper; nothing else |
 
-Use a full pass again on the integrated release candidate when separately tested changes interact. A component test passing on another branch is not evidence that the combined build works. Do not repeat full onboarding for a cosmetic edit or run every suite after relevant checks already pass.
+Combine tiers when a change crosses rows. A tier passing on another branch is not evidence for the combined build; rerun the affected tiers after merging.
 
-## Setup guides
+## Build once, reuse everything
 
-- **Web account UI:** use [references/web-account-pass.md](references/web-account-pass.md) for the Next.js dashboard, settings, billing, and desktop handoff page. Test this checkout's web server in an isolated browser with the dedicated Clerk development identity. Electron and Codex are not required for a web-only UI pass.
-
-- **Feature pass:** reuse an approved, onboarded profile, then follow [feature-pass.md](references/feature-pass.md).
-- **Fresh or incomplete profile:** follow [onboarding-pass.md](references/onboarding-pass.md), including the local school fixture and real first scan.
-- **Accounts and invitations:** [clerk-electron-journey.md](references/clerk-electron-journey.md) covers lookup, creation, email-code login, acceptance, and admission diagnostics.
-- **Worktrees, attachment, cleanup, native folder chooser:** [worktrees.md](references/worktrees.md).
-- **Codex unavailable:** [codex-login.md](references/codex-login.md). Reuse the QA cache first. Human help may still be needed for OpenAI device authorization.
-
-## Before the desktop run
-
-For web-only work, follow the web account guide above. The launcher, Codex, and Electron evidence requirements below apply to desktop runs; identity and secret-handling rules apply to both surfaces.
-
-Build source changes with `bun run build`. In a new worktree, run `Setup-StudiWorktree.ps1` from this skill first.
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .agents/skills/test-studi/scripts/Start-StudiQa.ps1 -Persistent -ImportCodexAuth
-```
-
-The launcher allocates loopback ports and keeps the profile inside this worktree. Read its receipt: `profilePath`, `testEmail`, `cdpEndpoint`, `clerkClaimUrl`, and `mainInspectorEndpoint`. Receipts live in `.agents/studi-qa/runs/`. Use `-ProfileName <name>` for a separate journey in the same checkout. Never assume port 9222. Do not close another task's app or the everyday installation.
-
-Attach Microsoft's Playwright to the receipt endpoint; see the dynamic attachment example in [worktrees.md](references/worktrees.md). Check the renderer's file path matches this checkout. Read public auth, workspace, and school-onboarding state. Reuse an existing dedicated identity if already signed in; `testEmail` is the suggested identity for a fresh profile, not permission to switch an existing profile's account.
-
-If signed out, look up and prepare the dedicated test identity using the account helper. Do not ask the user to log into Clerk. Account setup must check the current state first and verify both the Clerk development instance and exact test email. A user's request to set up or run QA with test accounts authorizes the necessary dedicated test-account creation and invitation flow. Carry that authorization forward; do not ask again for each worktree. This does not authorize personal/production accounts, deletion, admin grants, credit changes, or unrelated invitations.
+- `bun run build:electron` takes seconds and refreshes `dist/electron` for node tests, the fake school runner, and the QA launcher's main process. `bun run build` adds the Vite renderer build and is needed only before launching the real app after a renderer change.
+- The preview reads source directly through Vite; it never needs a build.
+- Reuse the onboarded QA profile in this worktree for tier 3. Create a fresh named profile only for tier 4, then keep it for the restart check.
+- Keep the fake school and preview servers running across edits in the same session. Restart the QA app only after `dist` changed.
+- In a new worktree run `Setup-StudiWorktree.ps1` from `scripts/` once; it installs, imports the QA provider cache, and builds.
 
 ## Boundaries
 
-- Keep each concurrently running profile on its own dedicated Clerk identity. Separate profiles sharing one subject can conflict with the backend's device lease.
-- Automate only Studi chrome through Playwright. Pi drives the school guest. A local fixture may accept drafts/submissions as simulated actions; never submit or modify real schoolwork.
-- Do not copy personal browser cookies, Clerk tokens, device IDs, SQLite databases, or everyday Studi profiles into QA.
-- Do not reset an onboarded profile to reach a screen; use another profile. `-ResetPersistent` requires a requested wipe. `-DryRun` never changes data.
-- Do not grant temporary Convex beta access or alter admin settings to get past admission. Verify the supported invitation path and report a mismatch with current backend behavior.
-- Keep tickets, OAuth URLs, codes, cookies, tokens, and auth-file contents out of tool output, evidence, screenshots, and tracked files. The invitation helper exposes only a one-shot loopback claim URL.
-- Preview/controlled tests can proceed during a live-service failure, but label those results separately. Do not silently replace a real provider, scan, or authentication result with a fixture.
+- Each running QA profile owns one dedicated Clerk identity. Sharing a subject between profiles conflicts with the backend device lease.
+- Automate only Studi chrome through Playwright. Inky drives the school pane. The fake school accepts drafts and submissions as simulated actions; never submit or modify real schoolwork.
+- Do not copy personal browser cookies, Clerk tokens, device IDs, SQLite databases or the everyday Studi profile into QA.
+- Do not reset an onboarded profile to reach a screen; use another profile or the preview. `-ResetPersistent` requires a requested wipe. `-DryRun` never changes data.
+- Do not grant beta access, change credits or alter admin settings to get past admission. Report a mismatch with current backend behavior instead.
+- Keep tickets, OAuth URLs, device codes, cookies, tokens and auth-file contents out of tool output, evidence, screenshots and tracked files.
+- Controlled tiers may proceed during a live-service outage, but label their results separately. Never present a fixture, preview or mocked result as a live provider, scan or authentication result.
+- Keep one heavy job at a time on a limited-memory machine; see [worktrees.md](references/worktrees.md).
 
-## Completion evidence
+## Report
 
-Keep a concise receipt under ignored `.agents/studi-qa/`: selected mode, intended result, build/revision and dirty state, checks with expected/observed outcomes, evidence paths, code/UI review findings, and remaining limits. For desktop journeys include receipt/profile name and `buildTreeSha256`, screens actually exercised, public auth/provider readiness, relevant scan/work outcomes, and restart result when required. The tree hash includes imported Electron modules and renderer assets; entry-point hashes alone cannot prove a fix is loaded. Separate **passed**, **failed**, and **not run**, and label live, controlled, preview, and native evidence. Keep the smallest reproduction for each failure.
+Keep a short receipt under ignored `.agents/studi-qa/`: tiers run, build revision and dirty state, each check with expected and observed outcome, evidence paths, review findings, and untested limits. For desktop tiers add the profile name, `buildTreeSha256` from the receipt, screens exercised, auth and provider state, and the restart result.
 
-A full live pass requires approved access and provider ready, a real fixture scan, a real chat reply, scoped assignment work, and persistence after restart. A partial/empty scan or accepted invitation with waitlisted Convex access is a failure at that boundary. Stop that dependent journey, diagnose it, and continue independent checks.
-
-Run helper regressions with `node --test tests/auth/qa-tooling.test.mjs`; normal `bun run test:auth` includes them. The controlled native suite is `bun run test:electron`.
-
-The final report leads with what now works, then relevant verification and material limitations. Never replace evidence with “all tested,” a test count, or a screenshot. If a required live check is blocked, finish independent checks and identify the exact unproven boundary; mark the change implemented with verification pending, not fully verified.
+Separate **passed**, **failed** and **not run**. Label each item live, controlled, preview or native. Keep the smallest reproduction for each failure. The final message leads with what now works, then the evidence, then the material limits. A test count, "all tested", or a screenshot is not evidence. If a required live check is blocked, finish every independent tier and name the exact unproven boundary.

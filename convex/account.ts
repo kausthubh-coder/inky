@@ -40,43 +40,56 @@ export const portalOverview = query({
     const identity = await requireIdentity(ctx);
     const subject = identity.subject;
     const period = new Date().toISOString().slice(0, 7);
-    const [account, access, entitlement, desktop, agentTokens, browserMinutes, assignments] = await Promise.all([
-      ctx.db.query("accounts").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject)).unique(),
-      ctx.db.query("betaAccess").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject)).unique(),
-      ctx.db.query("entitlements").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject)).unique(),
-      ctx.db.query("activeDevices").withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject)).unique(),
-      ctx.db
-        .query("usageSummary")
-        .withIndex("by_clerk_subject_and_period_and_category", (q) =>
-          q.eq("clerkSubject", subject).eq("period", period).eq("category", "agent_tokens"),
-        )
-        .unique(),
-      ctx.db
-        .query("usageSummary")
-        .withIndex("by_clerk_subject_and_period_and_category", (q) =>
-          q.eq("clerkSubject", subject).eq("period", period).eq("category", "browser_minutes"),
-        )
-        .unique(),
-      ctx.db
-        .query("usageSummary")
-        .withIndex("by_clerk_subject_and_period_and_category", (q) =>
-          q.eq("clerkSubject", subject).eq("period", period).eq("category", "assignments"),
-        )
-        .unique(),
-    ]);
+    const [account, access, entitlement, desktop, agentTokens, browserMinutes, assignments] =
+      await Promise.all([
+        ctx.db
+          .query("accounts")
+          .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject))
+          .unique(),
+        ctx.db
+          .query("betaAccess")
+          .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject))
+          .unique(),
+        ctx.db
+          .query("entitlements")
+          .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject))
+          .unique(),
+        ctx.db
+          .query("activeDevices")
+          .withIndex("by_clerk_subject", (q) => q.eq("clerkSubject", subject))
+          .unique(),
+        ctx.db
+          .query("usageSummary")
+          .withIndex("by_clerk_subject_and_period_and_category", (q) =>
+            q.eq("clerkSubject", subject).eq("period", period).eq("category", "agent_tokens"),
+          )
+          .unique(),
+        ctx.db
+          .query("usageSummary")
+          .withIndex("by_clerk_subject_and_period_and_category", (q) =>
+            q.eq("clerkSubject", subject).eq("period", period).eq("category", "browser_minutes"),
+          )
+          .unique(),
+        ctx.db
+          .query("usageSummary")
+          .withIndex("by_clerk_subject_and_period_and_category", (q) =>
+            q.eq("clerkSubject", subject).eq("period", period).eq("category", "assignments"),
+          )
+          .unique(),
+      ]);
 
     const accessState = access?.approved
-      ? "approved" as const
+      ? ("approved" as const)
       : access?.reason === "revoked"
-        ? "revoked" as const
-        : "waitlist" as const;
+        ? ("revoked" as const)
+        : ("waitlist" as const);
 
     return {
       email: nullableText(identity.email) ?? account?.email ?? null,
       name: nullableText(identity.name) ?? account?.name ?? null,
       access: accessState,
-      plan: accessState === "approved" ? entitlement?.plan ?? null : null,
-      credits: accessState === "approved" ? entitlement?.credits ?? null : null,
+      plan: accessState === "approved" ? (entitlement?.plan ?? null) : null,
+      credits: accessState === "approved" ? (entitlement?.credits ?? null) : null,
       desktop: {
         connected: Boolean(desktop),
         registeredAt: desktop?.registeredAt ?? null,
@@ -161,7 +174,16 @@ export const bootstrap = mutation({
       access = await ctx.db.get(accessId);
     }
     if (!access?.approved) {
-      return { subject, email, name, approved: false, reason: "waitlist" as const, plan: null, credits: null, checkedAt: now };
+      return {
+        subject,
+        email,
+        name,
+        approved: false,
+        reason: "waitlist" as const,
+        plan: null,
+        credits: null,
+        checkedAt: now,
+      };
     }
 
     const activeDevice = await ctx.db
@@ -169,7 +191,16 @@ export const bootstrap = mutation({
       .withIndex("by_clerk_subject", (query) => query.eq("clerkSubject", subject))
       .unique();
     if (activeDevice && activeDevice.deviceId !== deviceId) {
-      return { subject, email, name, approved: false, reason: "device_conflict" as const, plan: null, credits: null, checkedAt: now };
+      return {
+        subject,
+        email,
+        name,
+        approved: false,
+        reason: "device_conflict" as const,
+        plan: null,
+        credits: null,
+        checkedAt: now,
+      };
     }
     if (activeDevice) {
       await ctx.db.patch(activeDevice._id, { lastSeenAt: now });
@@ -233,7 +264,7 @@ export const setBetaAccess = mutation({
     const accessValue = {
       clerkSubject: args.subject,
       approved: args.approved,
-      reason: args.approved ? "approved" as const : "revoked" as const,
+      reason: args.approved ? ("approved" as const) : ("revoked" as const),
       updatedAt: now,
       updatedBy: identity.subject,
     };

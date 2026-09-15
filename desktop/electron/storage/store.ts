@@ -8,17 +8,8 @@ import {
   type BackupValidation,
   type MigrationBackupOptions,
 } from "./backup.js";
-import {
-  StudiSqliteDatabase,
-  type StorageFailureInjector,
-  type StorageHealth,
-} from "./database.js";
-import {
-  AssignmentRepository,
-  PermissionRuleRepository,
-  RunRepository,
-  TaskRepository,
-} from "./records.js";
+import { StudiSqliteDatabase, type StorageFailureInjector, type StorageHealth } from "./database.js";
+import { AssignmentRepository, PermissionRuleRepository, RunRepository, TaskRepository } from "./records.js";
 import { ManagerStateRepository } from "./manager-records.js";
 import { LifecycleRepository } from "./lifecycle-records.js";
 import { SchoolRepository } from "./school-records.js";
@@ -55,9 +46,7 @@ export class LocalStore {
     this.rootDirectory = resolve(rootDirectory);
     this.databasePath = join(this.rootDirectory, "studi.sqlite3");
     this.database = new StudiSqliteDatabase(this.databasePath, {
-      ...(options.failureInjector === undefined
-        ? {}
-        : { failureInjector: options.failureInjector }),
+      ...(options.failureInjector === undefined ? {} : { failureInjector: options.failureInjector }),
     });
     try {
       this.assignments = new AssignmentRepository(this.database);
@@ -68,7 +57,9 @@ export class LocalStore {
       this.lifecycle = new LifecycleRepository(this.database);
       this.school = new SchoolRepository(this.database);
       this.artifacts = new ArtifactStore(join(this.rootDirectory, "artifacts"), this.database);
-      this.productPreferences = new ProductPreferencesStore(join(this.rootDirectory, "product-preferences.json"));
+      this.productPreferences = new ProductPreferencesStore(
+        join(this.rootDirectory, "product-preferences.json"),
+      );
       this.agentJobs = new AgentJobRepository(this.database);
       this.notes = new NoteStore(join(this.rootDirectory, "notes"), this.database);
       this.database.transaction(() => {

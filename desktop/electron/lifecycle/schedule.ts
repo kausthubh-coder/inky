@@ -1,4 +1,8 @@
-import { AutomationScheduleSchema, STUDI_SCHEMA_VERSION, type AutomationSchedule } from "../../shared/index.js";
+import {
+  AutomationScheduleSchema,
+  STUDI_SCHEMA_VERSION,
+  type AutomationSchedule,
+} from "../../shared/index.js";
 
 type LocalParts = { year: number; month: number; day: number; hour: number; minute: number; weekday: number };
 
@@ -12,7 +16,8 @@ export function createAutomationSchedule(
   assertTimezone(timezone);
   const local = localParts(Date.parse(now), timezone);
   const localTime = requested.localTime ?? previous?.localTime ?? `${pad(local.hour)}:${pad(local.minute)}`;
-  const weekday = cadence === "weekly" ? requested.weekday ?? previous?.weekday ?? local.weekday : undefined;
+  const weekday =
+    cadence === "weekly" ? (requested.weekday ?? previous?.weekday ?? local.weekday) : undefined;
   const draft = AutomationScheduleSchema.parse({
     schemaVersion: STUDI_SCHEMA_VERSION,
     scheduleId: "school-scan",
@@ -56,7 +61,11 @@ export function nextScheduleRun(schedule: AutomationSchedule, after: string): st
 function findWallClockInstant(target: LocalParts, timezone: string, afterMs: number): number | null {
   const center = Date.UTC(target.year, target.month - 1, target.day, target.hour, target.minute);
   const offsets = new Set<number>();
-  for (let sample = center - 48 * 60 * 60_000; sample <= center + 48 * 60 * 60_000; sample += 6 * 60 * 60_000) {
+  for (
+    let sample = center - 48 * 60 * 60_000;
+    sample <= center + 48 * 60 * 60_000;
+    sample += 6 * 60 * 60_000
+  ) {
     const parts = localParts(sample, timezone);
     offsets.add(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute) - sample);
   }
@@ -71,18 +80,32 @@ function findWallClockInstant(target: LocalParts, timezone: string, afterMs: num
   let firstAfterGap: number | null = null;
   const targetMinute = target.hour * 60 + target.minute;
   for (const candidate of [...offsets].map((offset) => center - offset)) {
-    for (let instant = candidate - 3 * 60 * 60_000; instant <= candidate + 3 * 60 * 60_000; instant += 60_000) {
+    for (
+      let instant = candidate - 3 * 60 * 60_000;
+      instant <= candidate + 3 * 60 * 60_000;
+      instant += 60_000
+    ) {
       if (instant <= afterMs) continue;
       const parts = localParts(instant, timezone);
       if (parts.year !== target.year || parts.month !== target.month || parts.day !== target.day) continue;
-      if (parts.hour * 60 + parts.minute > targetMinute && (firstAfterGap === null || instant < firstAfterGap)) firstAfterGap = instant;
+      if (
+        parts.hour * 60 + parts.minute > targetMinute &&
+        (firstAfterGap === null || instant < firstAfterGap)
+      )
+        firstAfterGap = instant;
     }
   }
   return firstAfterGap;
 }
 
 function sameWallClock(left: LocalParts, right: LocalParts): boolean {
-  return left.year === right.year && left.month === right.month && left.day === right.day && left.hour === right.hour && left.minute === right.minute;
+  return (
+    left.year === right.year &&
+    left.month === right.month &&
+    left.day === right.day &&
+    left.hour === right.hour &&
+    left.minute === right.minute
+  );
 }
 
 function localParts(instant: number, timezone: string): LocalParts {
@@ -96,7 +119,10 @@ function localParts(instant: number, timezone: string): LocalParts {
       minute: "2-digit",
       hourCycle: "h23",
       weekday: "short",
-    }).formatToParts(new Date(instant)).filter((part) => part.type !== "literal").map((part) => [part.type, part.value]),
+    })
+      .formatToParts(new Date(instant))
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
   );
   const weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(values.weekday ?? "");
   return {

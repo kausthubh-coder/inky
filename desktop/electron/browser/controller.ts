@@ -91,32 +91,45 @@ export class BrowserController {
   }
 
   fetchDownload(url: string, signal: AbortSignal): Promise<Response> {
-    if (!this.#target.session) throw new Error("School downloads are unavailable in this browser. Try reading the document with browser_screenshot.");
+    if (!this.#target.session)
+      throw new Error(
+        "School downloads are unavailable in this browser. Try reading the document with browser_screenshot.",
+      );
     return this.#target.session.fetch(parseSchoolUrl(url), {
-      method: "GET", credentials: "include", redirect: "follow", signal,
+      method: "GET",
+      credentials: "include",
+      redirect: "follow",
+      signal,
       bypassCustomProtocolHandlers: true,
     });
   }
 
   async navigate(rawUrl: string): Promise<BrowserSnapshot> {
     const url = parseSchoolUrl(rawUrl);
-    await boundedBrowserOperation(this.#target.loadURL(url), "Navigation did not finish. Inspect browser_snapshot or browser_screenshot before retrying; an open PDF can also be read with browser_download.", 15_000);
+    await boundedBrowserOperation(
+      this.#target.loadURL(url),
+      "Navigation did not finish. Inspect browser_snapshot or browser_screenshot before retrying; an open PDF can also be read with browser_download.",
+      15_000,
+    );
     this.pageChanged();
     return this.snapshot();
   }
 
   async snapshot(options: SnapshotOptions = {}): Promise<BrowserSnapshot> {
     const offset = options.offset ?? 0;
-    if (!Number.isInteger(offset) || offset < 0) throw new Error("Snapshot offset must be a nonnegative integer");
+    if (!Number.isInteger(offset) || offset < 0)
+      throw new Error("Snapshot offset must be a nonnegative integer");
     this.#lastSnapshotOptions = options;
     this.pageChanged();
-    const response = asRecord(
-      await this.#send("Accessibility.getFullAXTree", {}, true),
-    );
+    const response = asRecord(await this.#send("Accessibility.getFullAXTree", {}, true));
     const search = options.search?.trim().toLocaleLowerCase();
     const rawNodes = (Array.isArray(response.nodes) ? response.nodes : []).filter((raw) => {
       const node = raw as AxNode;
-      return !node.ignored && (!search || `${readAxString(node.name)} ${readAxString(node.value)}`.toLocaleLowerCase().includes(search));
+      return (
+        !node.ignored &&
+        (!search ||
+          `${readAxString(node.name)} ${readAxString(node.value)}`.toLocaleLowerCase().includes(search))
+      );
     });
     const elements: BrowserSnapshot["elements"] = [];
     const textParts: string[] = [];
@@ -135,7 +148,10 @@ export class BrowserController {
       const name = readAxString(node.name).trim();
       const value = readAxString(node.value).trim();
       const addedLength = [name, value].filter((part) => part && !seenText.has(part)).join("\n").length;
-      if (index > offset && (elements.length >= MAX_ELEMENTS || textParts.join("\n").length + addedLength > MAX_TEXT_LENGTH)) {
+      if (
+        index > offset &&
+        (elements.length >= MAX_ELEMENTS || textParts.join("\n").length + addedLength > MAX_TEXT_LENGTH)
+      ) {
         nextOffset = index;
         truncated = true;
         break;
@@ -163,7 +179,7 @@ export class BrowserController {
         role,
         name,
       });
-      const url = readAxString(node.properties?.find(property => property.name === "url")?.value);
+      const url = readAxString(node.properties?.find((property) => property.name === "url")?.value);
       const href = role === "link" && /^https?:\/\//i.test(url) ? url : undefined;
       elements.push({ ref, role, name, ...(value ? { value } : {}), ...(href ? { href } : {}) });
     }
@@ -201,21 +217,35 @@ export class BrowserController {
     for (const [ref, target] of previous) {
       const match = snapshot.elements.find((element) => {
         const current = this.#refs.get(element.ref);
-        return current?.backendNodeId === target.backendNodeId && current.role === target.role && current.name === target.name;
+        return (
+          current?.backendNodeId === target.backendNodeId &&
+          current.role === target.role &&
+          current.name === target.name
+        );
       });
       if (!match) throw new Error("The observed element changed. Take a new snapshot before recording.");
       aliases.set(match.ref, ref);
     }
-    return { ...snapshot, elements: snapshot.elements.map((element) => ({ ...element, ref: aliases.get(element.ref) ?? element.ref })) };
+    return {
+      ...snapshot,
+      elements: snapshot.elements.map((element) => ({
+        ...element,
+        ref: aliases.get(element.ref) ?? element.ref,
+      })),
+    };
   }
 
   async link(ref: string): Promise<string> {
     const { objectId } = await this.#resolve(ref);
-    const result = await this.#callOn(objectId, `function () {
+    const result = await this.#callOn(
+      objectId,
+      `function () {
       if (!this.isConnected) throw new Error("Link is no longer available");
       return this.closest("a[href]")?.href || "";
-    }`);
-    if (typeof result.value !== "string" || !result.value) throw new Error("The referenced element has no link destination");
+    }`,
+    );
+    if (typeof result.value !== "string" || !result.value)
+      throw new Error("The referenced element has no link destination");
     return parseSchoolUrl(result.value);
   }
 
@@ -223,23 +253,38 @@ export class BrowserController {
     const amount = direction === "down" ? 600 : -600;
     if (ref) {
       const { objectId } = await this.#resolve(ref);
-      await this.#callOn(objectId, `function (amount) { this.scrollIntoView({block:"center"}); this.scrollBy({top:amount,behavior:"instant"}); }`, [{ value: amount }]);
+      await this.#callOn(
+        objectId,
+        `function (amount) { this.scrollIntoView({block:"center"}); this.scrollBy({top:amount,behavior:"instant"}); }`,
+        [{ value: amount }],
+      );
     } else {
-      await this.#send("Runtime.evaluate", { expression: `window.scrollBy({top:${amount},behavior:"instant"})` });
+      await this.#send("Runtime.evaluate", {
+        expression: `window.scrollBy({top:${amount},behavior:"instant"})`,
+      });
     }
     return this.#afterAction();
   }
 
   async screenshot(): Promise<string> {
-    const result = asRecord(await this.#send("Page.captureScreenshot", { format: "jpeg", quality: 70, captureBeyondViewport: false }));
-    if (typeof result.data !== "string" || result.data.length > 8_000_000) throw new Error("The browser screenshot was unavailable or too large");
+    const result = asRecord(
+      await this.#send("Page.captureScreenshot", {
+        format: "jpeg",
+        quality: 70,
+        captureBeyondViewport: false,
+      }),
+    );
+    if (typeof result.data !== "string" || result.data.length > 8_000_000)
+      throw new Error("The browser screenshot was unavailable or too large");
     return result.data;
   }
 
   async click(ref: string, allowSubmission = false, readOnly = false): Promise<BrowserSnapshot> {
     const { objectId, target } = await this.#resolve(ref);
     const inspection = asRecord(
-      await this.#callOn(objectId, `function () {
+      await this.#callOn(
+        objectId,
+        `function () {
         const element = this;
         const tag = String(element.tagName || "").toLowerCase();
         const type = String(element.type || "").toLowerCase();
@@ -250,24 +295,35 @@ export class BrowserController {
           submission: (tag === "button" && (!type || type === "submit")) || type === "submit",
           label
         };
-      }`),
+      }`,
+      ),
     );
     const value = asRecord(inspection.value);
     const label = typeof value.label === "string" ? value.label : target.name;
-    if (readOnly && (/\b(save|submit|turn in|hand in|upload|delete|remove|enroll|unenroll|post|reply|send|start attempt|begin attempt|mark as done)\b/i.test(label)
-      || ["checkbox", "radio", "switch"].includes(target.role))) {
+    if (
+      readOnly &&
+      (/\b(save|submit|turn in|hand in|upload|delete|remove|enroll|unenroll|post|reply|send|start attempt|begin attempt|mark as done)\b/i.test(
+        label,
+      ) ||
+        ["checkbox", "radio", "switch"].includes(target.role))
+    ) {
       throw new Error("A read-only school check cannot activate a control that changes schoolwork");
     }
     // Saving a draft is a form POST on many school sites, but does not hand in work.
     const draftSave = /^save(?: as)? draft$/i.test(label);
     const knownSubmission = SUBMISSION_PATTERN.test(label) || (value.submission === true && !draftSave);
     if (knownSubmission && !allowSubmission) {
-      throw new Error("Ordinary click cannot activate a submission control. Use browser_submit only after the student explicitly asks to submit.");
+      throw new Error(
+        "Ordinary click cannot activate a submission control. Use browser_submit only after the student explicitly asks to submit.",
+      );
     }
     if (value.connected !== true || value.disabled === true) {
       throw new Error("The referenced element is no longer available or is disabled");
     }
-    await this.#callOn(objectId, "function () { this.scrollIntoView({ block: 'center' }); this.click(); return true; }");
+    await this.#callOn(
+      objectId,
+      "function () { this.scrollIntoView({ block: 'center' }); this.click(); return true; }",
+    );
     return this.#afterAction();
   }
 
@@ -278,22 +334,32 @@ export class BrowserController {
     if (snapshot.revision !== target.revision + 1 || snapshot.url !== url) {
       throw new Error("The page changed while refreshing the submission control");
     }
-    const matches = snapshot.elements.filter((element) => element.role === target.role && element.name === target.name);
+    const matches = snapshot.elements.filter(
+      (element) => element.role === target.role && element.name === target.name,
+    );
     if (matches.length !== 1) {
-      throw new Error("The submission control could not be uniquely re-identified in a fresh browser snapshot");
+      throw new Error(
+        "The submission control could not be uniquely re-identified in a fresh browser snapshot",
+      );
     }
     return { snapshot, ref: matches[0]!.ref };
   }
 
   async #assertScanFilter(objectId: string): Promise<void> {
-    const inspected = asRecord(await this.#callOn(objectId, `function () {
+    const inspected = asRecord(
+      await this.#callOn(
+        objectId,
+        `function () {
       const tag = String(this.tagName || "").toLowerCase();
       const type = String(this.type || "").toLowerCase();
       const label = [this.getAttribute?.("aria-label"), this.placeholder, ...(Array.from(this.labels || []).map(label => label.innerText))].filter(Boolean).join(" ");
       const safeType = tag === "select" || (tag === "input" && ["text", "search"].includes(type));
       return { scanFilter: safeType && (type === "search" || this.getAttribute?.("role") === "searchbox" || /\\b(search|filter)\\b/i.test(label)) };
-    }`));
-    if (asRecord(inspected.value).scanFilter !== true) throw new Error("A read-only school check can edit only identified search or filter controls");
+    }`,
+      ),
+    );
+    if (asRecord(inspected.value).scanFilter !== true)
+      throw new Error("A read-only school check can edit only identified search or filter controls");
   }
 
   async type(ref: string, text: string, readOnly = false): Promise<BrowserSnapshot> {
@@ -342,13 +408,16 @@ export class BrowserController {
     }
     const { objectId, target } = await this.#resolve(ref);
     const inspection = asRecord(
-      await this.#callOn(objectId, `function () {
+      await this.#callOn(
+        objectId,
+        `function () {
         return {
           connected: Boolean(this.isConnected),
           disabled: Boolean(this.disabled || this.getAttribute?.("aria-disabled") === "true"),
           fileInput: String(this.tagName || "").toLowerCase() === "input" && String(this.type || "").toLowerCase() === "file"
         };
-      }`),
+      }`,
+      ),
     );
     const value = asRecord(inspection.value);
     if (value.connected !== true || value.disabled === true || value.fileInput !== true) {
@@ -362,9 +431,14 @@ export class BrowserController {
   }
 
   async press(key: BrowserKey, readOnly = false): Promise<BrowserSnapshot> {
-    if (readOnly && !["Tab", "Escape", "PageUp", "PageDown", "Home", "End"].includes(key)) throw new Error("A read-only school check uses clicks for navigation and cannot edit or activate forms with keys");
+    if (readOnly && !["Tab", "Escape", "PageUp", "PageDown", "Home", "End"].includes(key))
+      throw new Error(
+        "A read-only school check uses clicks for navigation and cannot edit or activate forms with keys",
+      );
     if (key === "Enter" && (await this.#enterWouldSubmit())) {
-      throw new Error("Enter could submit the current form. Use browser_submit only after the student explicitly asks to submit.");
+      throw new Error(
+        "Enter could submit the current form. Use browser_submit only after the student explicitly asks to submit.",
+      );
     }
     const keyCode = KEY_CODES[key];
     await this.#send("Input.dispatchKeyEvent", {
@@ -403,9 +477,7 @@ export class BrowserController {
 
   async #resolve(ref: string): Promise<{ objectId: string; target: ElementTarget }> {
     const target = this.#targetForRef(ref);
-    const resolved = asRecord(
-      await this.#send("DOM.resolveNode", { backendNodeId: target.backendNodeId }),
-    );
+    const resolved = asRecord(await this.#send("DOM.resolveNode", { backendNodeId: target.backendNodeId }));
     const object = asRecord(resolved.object);
     if (typeof object.objectId !== "string") {
       throw new Error("The referenced element is no longer available");
@@ -471,14 +543,20 @@ export class BrowserController {
   ): Promise<unknown> {
     this.#ensureAttached();
     try {
-      return await boundedBrowserOperation(this.#target.debugger.sendCommand(method, params), "The browser operation timed out. Try a fresh snapshot, a screenshot, or download the open document instead.");
+      return await boundedBrowserOperation(
+        this.#target.debugger.sendCommand(method, params),
+        "The browser operation timed out. Try a fresh snapshot, a screenshot, or download the open document instead.",
+      );
     } catch (error) {
       if (!retryAfterDetach || this.#target.debugger.isAttached()) {
         throw error;
       }
       this.pageChanged();
       this.#ensureAttached();
-      return boundedBrowserOperation(this.#target.debugger.sendCommand(method, params), "The browser operation timed out after reconnecting. Inspect the visible page or try downloading the document.");
+      return boundedBrowserOperation(
+        this.#target.debugger.sendCommand(method, params),
+        "The browser operation timed out after reconnecting. Inspect the visible page or try downloading the document.",
+      );
     }
   }
 
@@ -526,8 +604,12 @@ export function formatSnapshot(snapshot: BrowserSnapshot): string {
     snapshot.url,
     snapshot.text,
     elementLines.length ? `Interactive elements:\n${elementLines.join("\n")}` : "Interactive elements: none",
-    snapshot.nextOffset !== undefined ? `More page content: call browser_snapshot with offset=${snapshot.nextOffset}${snapshot.search ? ` and search=${JSON.stringify(snapshot.search)}` : ""}.` : "",
-    snapshot.truncated ? "This observation is incomplete; inspect remaining content before claiming inventory coverage." : "",
+    snapshot.nextOffset !== undefined
+      ? `More page content: call browser_snapshot with offset=${snapshot.nextOffset}${snapshot.search ? ` and search=${JSON.stringify(snapshot.search)}` : ""}.`
+      : "",
+    snapshot.truncated
+      ? "This observation is incomplete; inspect remaining content before claiming inventory coverage."
+      : "",
   ]
     .filter(Boolean)
     .join("\n\n");
@@ -554,12 +636,20 @@ function delay(milliseconds: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
-async function boundedBrowserOperation<T>(operation: Promise<T>, message: string, milliseconds = 10_000): Promise<T> {
+async function boundedBrowserOperation<T>(
+  operation: Promise<T>,
+  message: string,
+  milliseconds = 10_000,
+): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     return await Promise.race([
       operation,
-      new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(new Error(message)), milliseconds); }),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), milliseconds);
+      }),
     ]);
-  } finally { clearTimeout(timer); }
+  } finally {
+    clearTimeout(timer);
+  }
 }

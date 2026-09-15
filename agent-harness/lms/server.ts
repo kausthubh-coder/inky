@@ -1,24 +1,9 @@
 import { randomUUID, createHash } from "node:crypto";
-import {
-  createServer,
-  type IncomingMessage,
-  type Server,
-  type ServerResponse,
-} from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import {
-  SchoolError,
-  activityById,
-  type Service,
-  type SchoolState,
-} from "./domain.js";
-import {
-  assetBytes,
-  readPrivateAsset,
-  storeUpload,
-  type PrivatePack,
-} from "./assets.js";
+import { SchoolError, activityById, type Service, type SchoolState } from "./domain.js";
+import { assetBytes, readPrivateAsset, storeUpload, type PrivatePack } from "./assets.js";
 import { SchoolStore } from "./store.js";
 import { renderPublic, activityUrl, type Origins } from "./web.js";
 
@@ -47,29 +32,20 @@ export async function startLms(options: StartLmsOptions) {
     feedback: "",
   };
   const servers: Server[] = [];
-  const csrf = Object.fromEntries(
-    services.map((service) => [service, randomUUID()]),
-  ) as Record<Service, string>;
+  const csrf = Object.fromEntries(services.map((service) => [service, randomUUID()])) as Record<
+    Service,
+    string
+  >;
   let privatePack: PrivatePack | undefined;
   if (options.privateLibrary) {
     try {
-      privatePack = JSON.parse(
-        await readFile(join(options.privateLibrary, "pack.json"), "utf8"),
-      );
-      if (
-        privatePack?.schemaVersion !== 1 ||
-        !Array.isArray(privatePack.assets)
-      )
+      privatePack = JSON.parse(await readFile(join(options.privateLibrary, "pack.json"), "utf8"));
+      if (privatePack?.schemaVersion !== 1 || !Array.isArray(privatePack.assets))
         throw new Error("Invalid private pack");
       const ids = new Set<string>();
       for (const asset of privatePack.assets) {
-        if (
-          ids.has(asset.id) ||
-          !store.read().assets.some((item) => item.id === asset.id)
-        )
-          throw new Error(
-            "Private asset ID must replace one known school attachment.",
-          );
+        if (ids.has(asset.id) || !store.read().assets.some((item) => item.id === asset.id))
+          throw new Error("Private asset ID must replace one known school attachment.");
         ids.add(asset.id);
         await readPrivateAsset(options.privateLibrary, asset);
       }
@@ -78,43 +54,26 @@ export async function startLms(options: StartLmsOptions) {
       throw error;
     }
   }
-  const contentManifest = store
-    .read()
-    .assets.map((asset) => ({
-      id: asset.id,
-      sha256:
-        privatePack?.assets.find((item) => item.id === asset.id)?.sha256 ??
-        createHash("sha256").update(assetBytes(asset)).digest("hex"),
-    }));
-  const contentHash = createHash("sha256")
-    .update(JSON.stringify(contentManifest))
-    .digest("hex");
+  const contentManifest = store.read().assets.map((asset) => ({
+    id: asset.id,
+    sha256:
+      privatePack?.assets.find((item) => item.id === asset.id)?.sha256 ??
+      createHash("sha256").update(assetBytes(asset)).digest("hex"),
+  }));
+  const contentHash = createHash("sha256").update(JSON.stringify(contentManifest)).digest("hex");
   if (options.resume) {
     try {
-      const previous = JSON.parse(
-        await readFile(join(options.runDirectory, "receipt.json"), "utf8"),
-      );
+      const previous = JSON.parse(await readFile(join(options.runDirectory, "receipt.json"), "utf8"));
       if (previous.contentHash && previous.contentHash !== contentHash)
-        throw new Error(
-          "Resume requires the same source material hashes as the original run.",
-        );
+        throw new Error("Resume requires the same source material hashes as the original run.");
     } catch (error) {
-      if (!(
-        error &&
-        typeof error === "object" &&
-        "code" in error &&
-        error.code === "ENOENT"
-      )) {
+      if (!(error && typeof error === "object" && "code" in error && error.code === "ENOENT")) {
         store.close();
         throw error;
       }
     }
   }
-  async function handle(
-    service: Service,
-    request: IncomingMessage,
-    response: ServerResponse,
-  ): Promise<void> {
+  async function handle(service: Service, request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = new URL(request.url ?? "/", origins[service]);
     response.setHeader("Cache-Control", "no-store");
     response.setHeader("X-Content-Type-Options", "nosniff");
@@ -139,15 +98,9 @@ export async function startLms(options: StartLmsOptions) {
         throw new SchoolError(400, "Invalid school host.");
       if (!["GET", "HEAD", "POST"].includes(request.method ?? "GET"))
         throw new SchoolError(405, "Method not allowed.");
-      if (
-        /^\/(?:_control|control|inspect|truth|state|manifest)(?:\/|$)/.test(
-          url.pathname,
-        )
-      )
+      if (/^\/(?:_control|control|inspect|truth|state|manifest)(?:\/|$)/.test(url.pathname))
         throw new SchoolError(404, "Page not found.");
-      const activityMatch = /^\/assignments\/([^/]+)(?:\/(complete))?$/.exec(
-        url.pathname,
-      );
+      const activityMatch = /^\/assignments\/([^/]+)(?:\/(complete))?$/.exec(url.pathname);
       if (activityMatch) {
         const item = activityById(state, decodeURIComponent(activityMatch[1]!));
         if (item.service !== service) {
@@ -160,10 +113,7 @@ export async function startLms(options: StartLmsOptions) {
         return;
       }
       if (request.method === "POST") {
-        if (
-          request.headers.origin &&
-          request.headers.origin !== origins[service]
-        ) {
+        if (request.headers.origin && request.headers.origin !== origins[service]) {
           store.record("origin_rejected", {
             actualOrigin: request.headers.origin,
             expectedOrigin: origins[service],
@@ -175,17 +125,12 @@ export async function startLms(options: StartLmsOptions) {
         const form = await new Request(url, {
           method: "POST",
           headers: {
-            "content-type":
-              request.headers["content-type"] ??
-              "application/x-www-form-urlencoded",
+            "content-type": request.headers["content-type"] ?? "application/x-www-form-urlencoded",
           },
           body: new Uint8Array(body),
         }).formData();
         if (form.get("csrf") !== csrf[service])
-          throw new SchoolError(
-            403,
-            "This form expired. Reload the page and try again.",
-          );
+          throw new SchoolError(403, "This form expired. Reload the page and try again.");
         if (url.pathname === "/login" || url.pathname === "/logout") {
           const signedIn = url.pathname === "/login";
           store.change("session_changed", { service, signedIn }, (current) => {
@@ -206,15 +151,10 @@ export async function startLms(options: StartLmsOptions) {
           return;
         }
         const action = form.get("action");
-        if (action !== "save" && action !== "submit")
-          throw new SchoolError(400, "Choose save or submit.");
+        if (action !== "save" && action !== "submit") throw new SchoolError(400, "Choose save or submit.");
         const answer = String(form.get("answer") ?? ""),
           revision = Number(form.get("revision"));
-        if (
-          answer.length > 100_000 ||
-          !Number.isSafeInteger(revision) ||
-          revision < 0
-        )
+        if (answer.length > 100_000 || !Number.isSafeInteger(revision) || revision < 0)
           throw new SchoolError(400, "Invalid response or draft revision.");
         const files = [];
         for (const file of form.getAll("files"))
@@ -224,34 +164,18 @@ export async function startLms(options: StartLmsOptions) {
         else {
           let result;
           try {
-            result = store.submit(
-              id,
-              answer,
-              files,
-              revision,
-              String(form.get("key") ?? ""),
-            );
+            result = store.submit(id, answer, files, revision, String(form.get("key") ?? ""));
           } catch (error) {
             if (error instanceof SchoolError && error.status === 400) {
               store.save(id, answer, files, revision);
-              throw new SchoolError(
-                400,
-                `${error.message} Your response and files were saved as a draft.`,
-              );
+              throw new SchoolError(400, `${error.message} Your response and files were saved as a draft.`);
             }
             throw error;
           }
-          if (
-            !result.repeated &&
-            store.read().faults.lostSubmitResponsePending
-          ) {
-            store.change(
-              "fault_triggered",
-              { fault: "lost-submit-response" },
-              (current) => {
-                current.faults.lostSubmitResponsePending = false;
-              },
-            );
+          if (!result.repeated && store.read().faults.lostSubmitResponsePending) {
+            store.change("fault_triggered", { fault: "lost-submit-response" }, (current) => {
+              current.faults.lostSubmitResponsePending = false;
+            });
             throw new SchoolError(
               503,
               "The response was interrupted. Reload the activity to check whether the submission was received.",
@@ -262,22 +186,13 @@ export async function startLms(options: StartLmsOptions) {
         return;
       }
       if (url.pathname === "/course/view.php") {
-        redirect(
-          `/courses/${encodeURIComponent(url.searchParams.get("id") ?? "")}`,
-        );
+        redirect(`/courses/${encodeURIComponent(url.searchParams.get("id") ?? "")}`);
         return;
       }
-      if (
-        url.pathname === "/courses/structures" &&
-        state.faults.courseFailurePending
-      ) {
-        store.change(
-          "fault_triggered",
-          { fault: "course-load-interrupted" },
-          (current) => {
-            current.faults.courseFailurePending = false;
-          },
-        );
+      if (url.pathname === "/courses/structures" && state.faults.courseFailurePending) {
+        store.change("fault_triggered", { fault: "course-load-interrupted" }, (current) => {
+          current.faults.courseFailurePending = false;
+        });
         throw new SchoolError(
           503,
           "The course could not load. Refresh to retry; other courses remain available.",
@@ -287,20 +202,13 @@ export async function startLms(options: StartLmsOptions) {
       if (fileMatch) {
         const assetId = fileMatch[1]!;
         const owners = state.activities.filter(
-          (item) =>
-            item.service === service && item.attachments.includes(assetId),
+          (item) => item.service === service && item.attachments.includes(assetId),
         );
-        if (
-          !owners.some((item) =>
-            item.prerequisites.every((id) => state.completed.includes(id)),
-          )
-        )
+        if (!owners.some((item) => item.prerequisites.every((id) => state.completed.includes(id))))
           throw new SchoolError(404, "Course file not available.");
         const asset = state.assets.find((item) => item.id === assetId);
         if (!asset) throw new SchoolError(404, "File not found.");
-        const imported = privatePack?.assets.find(
-          (item) => item.id === assetId,
-        );
+        const imported = privatePack?.assets.find((item) => item.id === assetId);
         const bytes =
           imported && options.privateLibrary
             ? await readPrivateAsset(options.privateLibrary, imported)
@@ -310,25 +218,14 @@ export async function startLms(options: StartLmsOptions) {
           bytes: bytes.length,
           service,
         });
-        sendFile(
-          response,
-          request,
-          bytes,
-          imported?.mime ?? asset.mime,
-          imported?.name ?? asset.name,
-        );
+        sendFile(response, request, bytes, imported?.mime ?? asset.mime, imported?.name ?? asset.name);
         return;
       }
-      const uploadMatch = /^\/uploads\/([a-z0-9-]+)\/([a-f0-9]{64})$/.exec(
-        url.pathname,
-      );
+      const uploadMatch = /^\/uploads\/([a-z0-9-]+)\/([a-f0-9]{64})$/.exec(url.pathname);
       if (uploadMatch) {
         const item = activityById(state, uploadMatch[1]!);
-        if (item.service !== service)
-          throw new SchoolError(404, "File not found.");
-        const file = state.drafts[item.id]?.files.find(
-          (upload) => upload.hash === uploadMatch[2],
-        );
+        if (item.service !== service) throw new SchoolError(404, "File not found.");
+        const file = state.drafts[item.id]?.files.find((upload) => upload.hash === uploadMatch[2]);
         if (!file) throw new SchoolError(404, "File not found.");
         sendFile(
           response,
@@ -341,48 +238,25 @@ export async function startLms(options: StartLmsOptions) {
       }
       store.record("page_viewed", { service, path: url.pathname });
       const known =
-        [
-          "/",
-          "/courses",
-          "/calendar",
-          "/announcements",
-          "/grades",
-          "/account",
-          "/login",
-        ].includes(url.pathname) ||
+        ["/", "/courses", "/calendar", "/announcements", "/grades", "/account", "/login"].includes(
+          url.pathname,
+        ) ||
         /^\/courses\/[^/]+$/.test(url.pathname) ||
         !!activityMatch;
       const saved = url.searchParams.get("saved");
       const current = store.read(),
         id = activityMatch ? decodeURIComponent(activityMatch[1]!) : "";
       const message =
-        saved === "save" &&
-        current.drafts[id] &&
-        !current.submissions.some((item) => item.activityId === id)
+        saved === "save" && current.drafts[id] && !current.submissions.some((item) => item.activityId === id)
           ? "Draft saved. Your work has not been submitted."
-          : saved === "submit" &&
-              current.submissions.some((item) => item.activityId === id)
+          : saved === "submit" && current.submissions.some((item) => item.activityId === id)
             ? "Submission received. See the receipt below."
             : saved === "lesson" && current.completed.includes(id)
               ? "Lesson completed."
               : undefined;
       const renderState = store.read();
-      if (
-        url.pathname === "/courses" &&
-        url.searchParams.get("state") === "empty"
-      )
-        renderState.courses = [];
-      sendHtml(
-        known ? 200 : 404,
-        renderPublic(
-          renderState,
-          origins,
-          service,
-          url,
-          csrf[service],
-          message,
-        ),
-      );
+      if (url.pathname === "/courses" && url.searchParams.get("state") === "empty") renderState.courses = [];
+      sendHtml(known ? 200 : 404, renderPublic(renderState, origins, service, url, csrf[service], message));
     } catch (error) {
       const status = error instanceof SchoolError ? error.status : 500;
       const message =
@@ -404,18 +278,13 @@ export async function startLms(options: StartLmsOptions) {
       servers.push(server);
       await new Promise<void>((resolve, reject) => {
         server.once("error", reject);
-        server.listen(
-          service === "school" ? (options.port ?? 0) : 0,
-          "127.0.0.1",
-          () => {
-            server.off("error", reject);
-            resolve();
-          },
-        );
+        server.listen(service === "school" ? (options.port ?? 0) : 0, "127.0.0.1", () => {
+          server.off("error", reject);
+          resolve();
+        });
       });
       const address = server.address();
-      if (!address || typeof address === "string")
-        throw new Error("School did not bind a TCP port");
+      if (!address || typeof address === "string") throw new Error("School did not bind a TCP port");
       origins[service] = `http://127.0.0.1:${address.port}`;
     }
   } catch (error) {
@@ -433,10 +302,7 @@ export async function startLms(options: StartLmsOptions) {
     origins,
     statePath: join(options.runDirectory, "school.sqlite"),
   };
-  await writeFile(
-    join(options.runDirectory, "receipt.json"),
-    JSON.stringify(receipt, null, 2),
-  );
+  await writeFile(join(options.runDirectory, "receipt.json"), JSON.stringify(receipt, null, 2));
   let closed = false;
   return {
     ...receipt,
@@ -469,18 +335,11 @@ export function scenarioTruth(state: SchoolState) {
     "observation",
     "reading",
   ];
-  const blocked = [
-    "stack-review",
-    "workshop-3",
-    "workshop-4",
-    "closed-exercise",
-  ];
+  const blocked = ["stack-review", "workshop-3", "workshop-4", "closed-exercise"];
   const informationalIds = ["partners", "build-check"];
-  const readingIds = state.activities
-    .filter((item) => item.id.includes("-reading-"))
-    .map((item) => item.id);
-  const expectedExcludedIds = [...informationalIds, ...readingIds].filter(
-    (id) => state.activities.some((item) => item.id === id),
+  const readingIds = state.activities.filter((item) => item.id.includes("-reading-")).map((item) => item.id);
+  const expectedExcludedIds = [...informationalIds, ...readingIds].filter((id) =>
+    state.activities.some((item) => item.id === id),
   );
   const expectedAssignmentIds = state.activities
     .filter((item) => !expectedExcludedIds.includes(item.id))
@@ -508,22 +367,16 @@ export function scenarioTruth(state: SchoolState) {
   return {
     expectedAssignmentIds,
     expectedExcludedIds,
-    informationalIds: informationalIds.filter((id) =>
-      expectedExcludedIds.includes(id),
-    ),
+    informationalIds: informationalIds.filter((id) => expectedExcludedIds.includes(id)),
     completedReadingIds: readingIds,
-    expectedSchoolActionableIds: actionable.filter((id) =>
-      state.activities.some((item) => item.id === id),
-    ),
+    expectedSchoolActionableIds: actionable.filter((id) => state.activities.some((item) => item.id === id)),
     expectedActionableIds: actionable.filter(
       (id) => id !== "hw8" && state.activities.some((item) => item.id === id),
     ),
     expectedForbiddenQueueIds: forbiddenQueueIds.filter((id) =>
       state.activities.some((item) => item.id === id),
     ),
-    expectedBlockedIds: blocked.filter((id) =>
-      state.activities.some((item) => item.id === id),
-    ),
+    expectedBlockedIds: blocked.filter((id) => state.activities.some((item) => item.id === id)),
     notes: [
       "Initial-state task eligibility only; modified school states need a fresh expected-state manifest.",
       "No submission is accepted for repository/in-person/informational activities.",
@@ -539,8 +392,7 @@ async function readBody(request: IncomingMessage): Promise<Buffer> {
   for await (const chunk of request) {
     const bytes = Buffer.from(chunk);
     size += bytes.length;
-    if (size > 20 * 1024 * 1024)
-      throw new SchoolError(413, "The form exceeds 20 MB.");
+    if (size > 20 * 1024 * 1024) throw new SchoolError(413, "The form exceeds 20 MB.");
     chunks.push(bytes);
   }
   return Buffer.concat(chunks);
@@ -562,9 +414,7 @@ function sendFile(
   if (range) {
     const match = /^bytes=(\d+)-(\d*)$/.exec(range);
     const start = match ? Number(match[1]) : -1,
-      end = match?.[2]
-        ? Math.min(Number(match[2]), bytes.length - 1)
-        : bytes.length - 1;
+      end = match?.[2] ? Math.min(Number(match[2]), bytes.length - 1) : bytes.length - 1;
     if (!match || start < 0 || start >= bytes.length || end < start) {
       response.writeHead(416, { "content-range": `bytes */${bytes.length}` });
       response.end();
@@ -574,9 +424,7 @@ function sendFile(
       "content-range": `bytes ${start}-${end}/${bytes.length}`,
       "content-length": end - start + 1,
     });
-    response.end(
-      request.method === "HEAD" ? undefined : bytes.subarray(start, end + 1),
-    );
+    response.end(request.method === "HEAD" ? undefined : bytes.subarray(start, end + 1));
     return;
   }
   response.writeHead(200, { "content-length": bytes.length });

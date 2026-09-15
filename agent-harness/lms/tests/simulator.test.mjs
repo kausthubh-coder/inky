@@ -4,10 +4,7 @@ import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startLms } from "../../../.studi-lms/build/server.mjs";
-import {
-  importPrivateAssets,
-  readPrivateAsset,
-} from "../../../.studi-lms/build/assets.mjs";
+import { importPrivateAssets, readPrivateAsset } from "../../../.studi-lms/build/assets.mjs";
 
 async function school(t, scenarioId = "smoke") {
   const runDirectory = await mkdtemp(join(tmpdir(), "studi-lms-test-"));
@@ -28,14 +25,9 @@ async function fields(url) {
 }
 async function post(url, values, files = []) {
   const body = new FormData();
-  for (const [key, value] of Object.entries(values))
-    body.append(key, String(value));
+  for (const [key, value] of Object.entries(values)) body.append(key, String(value));
   for (const file of files)
-    body.append(
-      "files",
-      new Blob([file.text], { type: file.mime ?? "text/plain" }),
-      file.name,
-    );
+    body.append("files", new Blob([file.text], { type: file.mime ?? "text/plain" }), file.name);
   return fetch(url, { method: "POST", body, redirect: "manual" });
 }
 
@@ -68,8 +60,7 @@ test("draft, response, upload and receipt survive server restart; replay submits
   const form = {
     ...saved.values,
     action: "submit",
-    answer:
-      "Rain tapped the blue window. Water rattled outside. Clouds covered the sky.",
+    answer: "Rain tapped the blue window. Water rattled outside. Clouds covered the sky.",
   };
   assert.equal((await post(url, form)).status, 303);
   assert.equal((await post(url, form)).status, 303);
@@ -96,65 +87,39 @@ test("stale drafts cannot overwrite newer work; missing deliverables preserve in
   const { server } = await school(t, "semester");
   const url = `${server.url}/assignments/final-game`,
     { values } = await fields(url);
-  const response = await post(
-    url,
-    { ...values, answer: "My completed game", action: "submit" },
-    [{ name: "game.html", text: "<h1>Local game</h1>" }],
-  );
+  const response = await post(url, { ...values, answer: "My completed game", action: "submit" }, [
+    { name: "game.html", text: "<h1>Local game</h1>" },
+  ]);
   assert.equal(response.status, 400);
   assert.equal(server.inspect().state.submissions.length, 0);
-  assert.equal(
-    server.inspect().state.drafts["final-game"].answer,
-    "My completed game",
-  );
+  assert.equal(server.inspect().state.drafts["final-game"].answer, "My completed game");
   assert.equal(server.inspect().state.drafts["final-game"].files.length, 1);
-  assert.equal(
-    (await post(url, { ...values, answer: "stale", action: "save" })).status,
-    409,
-  );
+  assert.equal((await post(url, { ...values, answer: "stale", action: "save" })).status, 409);
   const current = await fields(url);
   assert.equal(
     (
-      await post(
-        url,
-        { ...current.values, answer: "My completed game", action: "submit" },
-        [
-          {
-            name: "README.pdf",
-            mime: "application/pdf",
-            text: "%PDF-1.4 simulated upload",
-          },
-        ],
-      )
+      await post(url, { ...current.values, answer: "My completed game", action: "submit" }, [
+        {
+          name: "README.pdf",
+          mime: "application/pdf",
+          text: "%PDF-1.4 simulated upload",
+        },
+      ])
     ).status,
     303,
   );
-  const file = server
-    .inspect()
-    .state.submissions[0].files.find((item) => item.name === "game.html");
+  const file = server.inspect().state.submissions[0].files.find((item) => item.name === "game.html");
   const download = await fetch(`${server.url}/uploads/final-game/${file.hash}`);
-  assert.equal(
-    download.headers.get("content-type"),
-    "application/octet-stream",
-  );
+  assert.equal(download.headers.get("content-type"), "application/octet-stream");
   assert.match(download.headers.get("content-disposition"), /attachment/);
 });
 
 test("source cases expose statuses, requirements, date-only dates, late rules and aliases", async (t) => {
   const { server } = await school(t, "scan-regression");
   assert.equal(server.inspect().state.activities.length, 9);
-  assert.match(
-    (await fields(`${server.url}/assignments/exercise-06`)).html,
-    /Submitted; not yet graded/,
-  );
-  assert.doesNotMatch(
-    (await fields(`${server.url}/assignments/exercise-06`)).html,
-    /name="answer"/,
-  );
-  assert.match(
-    (await fields(`${server.url}/assignments/exercise-07`)).html,
-    /Graded: 92/,
-  );
+  assert.match((await fields(`${server.url}/assignments/exercise-06`)).html, /Submitted; not yet graded/);
+  assert.doesNotMatch((await fields(`${server.url}/assignments/exercise-06`)).html, /name="answer"/);
+  assert.match((await fields(`${server.url}/assignments/exercise-07`)).html, /Graded: 92/);
   assert.match(
     (await fields(`${server.url}/assignments/closed-exercise`)).html,
     /Late submissions are not accepted/,
@@ -187,10 +152,7 @@ test("vendor sign-in and runs are independent; public pages cannot inspect contr
   );
   assert.equal((await fields(`${a.server.url}/courses`)).status, 200);
   const login = await fields(`${a.server.origins.statistics}/login`);
-  assert.equal(
-    (await post(`${a.server.origins.statistics}/login`, login.values)).status,
-    303,
-  );
+  assert.equal((await post(`${a.server.origins.statistics}/login`, login.values)).status, 303);
   assert.equal(a.server.inspect().state.sessions.statistics, true);
   assert.equal(a.server.inspect().state.sessions.feedback, false);
   const fullAnnouncements = await fields(`${a.server.url}/announcements`),
@@ -204,20 +166,10 @@ test("vendor sign-in and runs are independent; public pages cannot inspect contr
   await post(`${a.server.url}/logout`, logout.values);
   assert.equal(a.server.inspect().state.sessions.school, false);
   assert.equal(b.server.inspect().state.sessions.school, true);
-  for (const path of [
-    "/truth",
-    "/inspect",
-    "/control/reset",
-    "/state",
-    "/manifest",
-    "/_control",
-  ])
+  for (const path of ["/truth", "/inspect", "/control/reset", "/state", "/manifest", "/_control"])
     assert.equal((await fetch(`${b.server.url}${path}`)).status, 404);
   const html = (await fields(b.server.url)).html;
-  assert.doesNotMatch(
-    html,
-    /expectedActionableIds|school\.sqlite|runDirectory|idempotencyKey/,
-  );
+  assert.doesNotMatch(html, /expectedActionableIds|school\.sqlite|runDirectory|idempotencyKey/);
 });
 
 test("prerequisites gate direct actions and unlock after saved completion", async (t) => {
@@ -225,15 +177,7 @@ test("prerequisites gate direct actions and unlock after saved completion", asyn
   const review = `${server.url}/assignments/stack-review`;
   assert.match((await fields(review)).html, /Locked: prerequisites incomplete/);
   const lesson = await fields(`${server.url}/assignments/stack-lesson`);
-  assert.equal(
-    (
-      await post(
-        `${server.url}/assignments/stack-lesson/complete`,
-        lesson.values,
-      )
-    ).status,
-    303,
-  );
+  assert.equal((await post(`${server.url}/assignments/stack-lesson/complete`, lesson.values)).status, 303);
   const unlocked = await fields(review);
   assert.doesNotMatch(unlocked.html, /Locked: prerequisites incomplete/);
   assert.equal(
@@ -301,27 +245,17 @@ test("synthetic PDF downloads support byte ranges and private import validates h
   await writeFile(
     manifest,
     JSON.stringify({
-      assets: [
-        { id: "writing-guide", path: "worksheet.txt", mime: "text/plain" },
-      ],
+      assets: [{ id: "writing-guide", path: "worksheet.txt", mime: "text/plain" }],
     }),
   );
   const pack = await importPrivateAssets(manifest, library);
-  assert.equal(
-    (await readPrivateAsset(library, pack.assets[0])).toString(),
-    "Private local worksheet",
-  );
+  assert.equal((await readPrivateAsset(library, pack.assets[0])).toString(), "Private local worksheet");
   await writeFile(join(library, pack.assets[0].relativePath), "tampered");
-  await assert.rejects(
-    readPrivateAsset(library, pack.assets[0]),
-    /hash mismatch/,
-  );
+  await assert.rejects(readPrivateAsset(library, pack.assets[0]), /hash mismatch/);
   await writeFile(
     manifest,
     JSON.stringify({
-      assets: [
-        { id: "bad", path: "worksheet.txt", mime: "text/plain", sha256: "bad" },
-      ],
+      assets: [{ id: "bad", path: "worksheet.txt", mime: "text/plain", sha256: "bad" }],
     }),
   );
   await assert.rejects(importPrivateAssets(manifest, library), /hash mismatch/);
@@ -348,9 +282,6 @@ test("same seed reproduces initial state; unsafe origin and fabricated success a
     ).status,
     403,
   );
-  assert.doesNotMatch(
-    (await fields(`${url}?saved=submit`)).html,
-    /Submission received/,
-  );
+  assert.doesNotMatch((await fields(`${url}?saved=submit`)).html, /Submission received/);
   assert.equal(a.server.inspect().state.submissions.length, 0);
 });

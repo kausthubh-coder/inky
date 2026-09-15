@@ -15,10 +15,7 @@ import {
   type ManagerState,
   type TaskState,
 } from "../../shared/index.js";
-import type {
-  AgentSession,
-  AgentSessionTarget,
-} from "../agent/runtime.js";
+import type { AgentSession, AgentSessionTarget } from "../agent/runtime.js";
 import type { LocalStore } from "../storage/index.js";
 
 export interface AssignmentWorkerRuntime {
@@ -135,7 +132,8 @@ export class ManagerCoordinator {
     }
     const task = this.#requiredTask(input.taskId);
     const requestOrigin = input.requestOrigin ?? "student";
-    if (requestOrigin === "automatic" && this.#workStartMode !== "automatic") throw new Error("Inky starts homework only when you ask.");
+    if (requestOrigin === "automatic" && this.#workStartMode !== "automatic")
+      throw new Error("Inky starts homework only when you ask.");
     const assignment = this.#store.assignments.get(task.assignmentId);
     if (!assignment) {
       throw new Error(`Assignment ${task.assignmentId} does not exist`);
@@ -151,7 +149,12 @@ export class ManagerCoordinator {
     const eligibility = assignmentWorkEligibility(assignment, this.#now());
     if (!eligibility.eligible) throw new Error(eligibility.reason);
     if (task.state === "discovered" || retrying) {
-      this.#transition(task.taskId, "queued", retrying ? "Retried at the student’s request" : "Queued by the Studi manager", `manager-${randomUUID()}`);
+      this.#transition(
+        task.taskId,
+        "queued",
+        retrying ? "Retried at the student’s request" : "Queued by the Studi manager",
+        `manager-${randomUUID()}`,
+      );
     }
     const existing = this.#store.manager.getQueueEntry(task.taskId);
     return this.#store.manager.putQueueEntry({
@@ -180,10 +183,15 @@ export class ManagerCoordinator {
     }
     this.#transition(taskId, "cancelled", "Cancelled by the Studi manager", `manager-${randomUUID()}`);
     const execution = this.#store.lifecycle.getExecution(taskId);
-    if (execution) this.#store.lifecycle.putExecution({
-      ...execution, phase: "failed", lastError: "Cancelled by the student.",
-      reviewDeadline: undefined, handoffDeadline: undefined, updatedAt: this.#now(),
-    });
+    if (execution)
+      this.#store.lifecycle.putExecution({
+        ...execution,
+        phase: "failed",
+        lastError: "Cancelled by the student.",
+        reviewDeadline: undefined,
+        handoffDeadline: undefined,
+        updatedAt: this.#now(),
+      });
     if (this.#store.manager.getLease()?.taskId === taskId) {
       this.#workerSession?.dispose();
       this.#workerSession = null;
@@ -227,7 +235,8 @@ export class ManagerCoordinator {
     if (this.#store.manager.getLease()) {
       throw new Error("The visible school browser already has an active worker lease");
     }
-    if (!this.#store.manager.getQueueEntry(taskId)) this.enqueue({ taskId, retry: true, requestOrigin: "student" });
+    if (!this.#store.manager.getQueueEntry(taskId))
+      this.enqueue({ taskId, retry: true, requestOrigin: "student" });
     const entry = this.#store.manager.getQueueEntry(taskId);
     if (!entry) throw new Error(`Task ${taskId} is not in the manager queue`);
     const permittedEntry = this.#refreshStartPermission(entry);
@@ -273,7 +282,12 @@ export class ManagerCoordinator {
     if (task.state !== "working" && task.state !== "ready_review") {
       throw new Error(`Task ${taskId} cannot submit from ${task.state}`);
     }
-    this.#transition(taskId, "submitting", "Fresh permission and pre-submit evidence recorded", this.#store.manager.getLease()!.workerSessionId!);
+    this.#transition(
+      taskId,
+      "submitting",
+      "Fresh permission and pre-submit evidence recorded",
+      this.#store.manager.getLease()!.workerSessionId!,
+    );
   }
 
   completeActive(taskId: string, outcome: "submitted" | "preserved" | "failed", reason: string): void {
@@ -282,11 +296,14 @@ export class ManagerCoordinator {
     this.#releaseActive(taskId);
   }
 
-  get isWorkerRunning(): boolean { return this.#workerRunning; }
+  get isWorkerRunning(): boolean {
+    return this.#workerRunning;
+  }
 
-  async steerWorker(taskId:string, text:string): Promise<void> {
+  async steerWorker(taskId: string, text: string): Promise<void> {
     this.#assertActiveLease(taskId);
-    if (!this.#workerRunning || !this.#workerSession?.steer) throw new Error("The assignment is between turns. Try your message again in a moment.");
+    if (!this.#workerRunning || !this.#workerSession?.steer)
+      throw new Error("The assignment is between turns. Try your message again in a moment.");
     await this.#workerSession.steer(text);
   }
 
@@ -395,12 +412,17 @@ export class ManagerCoordinator {
 
   #resolvePermission(assignmentId: string, courseId: string) {
     courseId = this.#store.school.resolveCourseId(courseId);
-    const conflict = this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId))
-      ?? this.#store.courseConflicts.find(item => item.courseIds.includes(courseId));
-    if (conflict) return {
-      mode: "do_not_attempt" as const, mayAttempt: false, maySubmit: false,
-      matchedRuleId: null, rationale: conflict.reason,
-    };
+    const conflict =
+      this.#store.assignmentConflicts.find((item) => item.assignmentIds.includes(assignmentId)) ??
+      this.#store.courseConflicts.find((item) => item.courseIds.includes(courseId));
+    if (conflict)
+      return {
+        mode: "do_not_attempt" as const,
+        mayAttempt: false,
+        maySubmit: false,
+        matchedRuleId: null,
+        rationale: conflict.reason,
+      };
     const matchedPatternIds = this.#store.manager
       .listConfirmedPatterns(assignmentId, courseId)
       .map((match) => match.patternId);
@@ -428,18 +450,26 @@ export class ManagerCoordinator {
     this.reconcileQueue();
   }
 
-  get allowsAutomaticWork(): boolean { return this.#workStartMode === "automatic"; }
+  get allowsAutomaticWork(): boolean {
+    return this.#workStartMode === "automatic";
+  }
 
   #refreshStartPermission(entry: ManagerQueueEntry): ManagerQueueEntry | null {
     const permission = this.#resolvePermission(entry.assignmentId, entry.courseId);
     const assignment = this.#store.assignments.get(entry.assignmentId);
-    const eligibility = assignment ? assignmentWorkEligibility(assignment, this.#now()) : { eligible: false, reason: "Assignment no longer exists." };
+    const eligibility = assignment
+      ? assignmentWorkEligibility(assignment, this.#now())
+      : { eligible: false, reason: "Assignment no longer exists." };
     const manual = entry.requestOrigin !== "student" && !this.allowsAutomaticWork;
     if (!permission.mayAttempt || !eligibility.eligible || manual) {
       this.#transition(
         entry.taskId,
         "discovered",
-        manual ? "Inky starts homework only when you ask." : permission.mayAttempt ? eligibility.reason : "Stored permission no longer allows an attempt",
+        manual
+          ? "Inky starts homework only when you ask."
+          : permission.mayAttempt
+            ? eligibility.reason
+            : "Stored permission no longer allows an attempt",
         `manager-${randomUUID()}`,
       );
       this.#store.manager.removeQueueEntry(entry.taskId);
@@ -469,22 +499,27 @@ export class ManagerCoordinator {
           ? { resumeSessionPath: agentJob.sessionPath }
           : {};
       const plan = await resolveAssignmentSessionPlan(assignmentTools, entry.assignmentId);
-      const sessionTarget = { ...target, assignmentId:entry.assignmentId, ...(plan.cwd ? { cwd: plan.cwd } : {}) };
-      worker = plan.tools.length > 0
-        ? await this.#requiredAssignmentRuntime().createAssignmentSession!(plan.tools, sessionTarget)
-        : await this.#runtime.createWorkerSession(target);
+      const sessionTarget = {
+        ...target,
+        assignmentId: entry.assignmentId,
+        ...(plan.cwd ? { cwd: plan.cwd } : {}),
+      };
+      worker =
+        plan.tools.length > 0
+          ? await this.#requiredAssignmentRuntime().createAssignmentSession!(plan.tools, sessionTarget)
+          : await this.#runtime.createWorkerSession(target);
       if (!worker.sessionPath) {
         throw new Error("Pi did not persist the assignment worker session");
       }
       const currentEntry = this.#store.manager.getQueueEntry(entry.taskId);
-      if (this.#requiredTask(entry.taskId).state !== "queued" || !currentEntry || !this.#refreshStartPermission(currentEntry)) {
+      if (
+        this.#requiredTask(entry.taskId).state !== "queued" ||
+        !currentEntry ||
+        !this.#refreshStartPermission(currentEntry)
+      ) {
         throw new Error("The assignment is no longer eligible to start.");
       }
-      const lease = this.#store.manager.activateLease(
-        entry.taskId,
-        worker.sessionId,
-        worker.sessionPath,
-      );
+      const lease = this.#store.manager.activateLease(entry.taskId, worker.sessionId, worker.sessionPath);
       this.#transition(entry.taskId, "working", "Browser worker lease acquired", worker.sessionId);
       const claim = {
         claimId: randomUUID(),
@@ -493,15 +528,18 @@ export class ManagerCoordinator {
         acquiredAt: this.#now(),
         revision: (agentJob.job.claim?.revision ?? 0) + 1,
       };
-      this.#store.agentJobs.put(AgentJobSchema.parse({
-        ...agentJob.job,
-        phase: "working",
-        turnIndex: agentJob.job.turnIndex + 1,
-        runId: randomUUID(),
-        sessionId: worker.sessionId,
-        claim,
-        updatedAt: this.#now(),
-      }), worker.sessionPath);
+      this.#store.agentJobs.put(
+        AgentJobSchema.parse({
+          ...agentJob.job,
+          phase: "working",
+          turnIndex: agentJob.job.turnIndex + 1,
+          runId: randomUUID(),
+          sessionId: worker.sessionId,
+          claim,
+          updatedAt: this.#now(),
+        }),
+        worker.sessionPath,
+      );
       this.#workerSession = worker;
       return lease;
     } catch (error) {
@@ -564,51 +602,67 @@ export class ManagerCoordinator {
     const existing = this.#store.agentJobs.getByTarget(target);
     if (existing) return existing;
     const now = this.#now();
-    return this.#store.agentJobs.put(AgentJobSchema.parse({
-      schemaVersion: 1,
-      jobId: randomUUID(),
-      target,
-      phase: "idle",
-      turnIndex: 0,
-      runId: randomUUID(),
-      sessionId: null,
-      claim: null,
-      messages: [],
-      createdAt: now,
-      updatedAt: now,
-    }));
+    return this.#store.agentJobs.put(
+      AgentJobSchema.parse({
+        schemaVersion: 1,
+        jobId: randomUUID(),
+        target,
+        phase: "idle",
+        turnIndex: 0,
+        runId: randomUUID(),
+        sessionId: null,
+        claim: null,
+        messages: [],
+        createdAt: now,
+        updatedAt: now,
+      }),
+    );
   }
 
   #releaseAgentClaim(taskId: string, phase: "review" | "completed" | "failed" | "aborted"): void {
     const task = this.#store.tasks.get(taskId);
     if (!task) return;
-    const persisted = this.#store.agentJobs.getByTarget({ kind: "assignment", assignmentId: task.assignmentId });
+    const persisted = this.#store.agentJobs.getByTarget({
+      kind: "assignment",
+      assignmentId: task.assignmentId,
+    });
     if (!persisted) return;
-    this.#store.agentJobs.put(AgentJobSchema.parse({
-      ...persisted.job,
-      phase,
-      claim: null,
-      updatedAt: this.#now(),
-    }), persisted.sessionPath);
+    this.#store.agentJobs.put(
+      AgentJobSchema.parse({
+        ...persisted.job,
+        phase,
+        claim: null,
+        updatedAt: this.#now(),
+      }),
+      persisted.sessionPath,
+    );
   }
 
   #setAgentPhase(taskId: string, phase: "working" | "needs_user" | "review"): void {
     const task = this.#store.tasks.get(taskId);
     if (!task) return;
-    const persisted = this.#store.agentJobs.getByTarget({ kind: "assignment", assignmentId: task.assignmentId });
+    const persisted = this.#store.agentJobs.getByTarget({
+      kind: "assignment",
+      assignmentId: task.assignmentId,
+    });
     if (!persisted?.job.claim) return;
-    this.#store.agentJobs.put(AgentJobSchema.parse({
-      ...persisted.job,
-      phase,
-      updatedAt: this.#now(),
-    }), persisted.sessionPath);
+    this.#store.agentJobs.put(
+      AgentJobSchema.parse({
+        ...persisted.job,
+        phase,
+        updatedAt: this.#now(),
+      }),
+      persisted.sessionPath,
+    );
   }
 
-  #requiredAssignmentRuntime(): AssignmentWorkerRuntime & Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">> {
+  #requiredAssignmentRuntime(): AssignmentWorkerRuntime &
+    Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">> {
     if (!this.#runtime.createAssignmentSession) {
       throw new Error("The agent runtime cannot create an assignment session");
     }
-    return this.#runtime as AssignmentWorkerRuntime & Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">>;
+    return this.#runtime as AssignmentWorkerRuntime &
+      Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">>;
   }
 }
 

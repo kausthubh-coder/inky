@@ -13,9 +13,7 @@ const runDirectory = resolve(".studi-lms/runs", `browser-${randomUUID()}`);
 let school = await startLms({ scenarioId: "smoke", runDirectory });
 const browser = await chromium.launch({
   headless: true,
-  ...(process.env.STUDI_CHROMIUM_PATH
-    ? { executablePath: process.env.STUDI_CHROMIUM_PATH }
-    : {}),
+  ...(process.env.STUDI_CHROMIUM_PATH ? { executablePath: process.env.STUDI_CHROMIUM_PATH } : {}),
 });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 page.setDefaultTimeout(10_000);
@@ -41,12 +39,7 @@ try {
     path: join(proofDirectory, "narrow-draft.png"),
     fullPage: true,
   });
-  assert.equal(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-    true,
-  );
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   const oldUrl = school.url;
   await school.close();
   school = await startLms({
@@ -56,25 +49,15 @@ try {
   });
   await page.goto(`${school.url}/assignments/observation`);
   assert.equal(await page.getByLabel("Your response").inputValue(), answer);
-  await page
-    .getByRole("button", { name: "Submit assignment", exact: true })
-    .click();
-  await page
-    .getByRole("heading", { name: "Submission history", exact: true })
-    .waitFor();
+  await page.getByRole("button", { name: "Submit assignment", exact: true }).click();
+  await page.getByRole("heading", { name: "Submission history", exact: true }).waitFor();
   const first = school.inspect();
   assert.equal(first.state.submissions.length, 1);
   const receiptId = first.state.submissions[0].id;
-  assert.equal(
-    await page.getByText(receiptId, { exact: true }).isVisible(),
-    true,
-  );
+  assert.equal(await page.getByText(receiptId, { exact: true }).isVisible(), true);
   await page.reload();
   assert.equal(school.inspect().state.submissions.length, 1);
-  assert.equal(
-    await page.getByText(receiptId, { exact: true }).isVisible(),
-    true,
-  );
+  assert.equal(await page.getByText(receiptId, { exact: true }).isVisible(), true);
   await page.setViewportSize({ width: 1280, height: 800 });
   await page.screenshot({
     path: join(proofDirectory, "submission.png"),
@@ -98,15 +81,9 @@ try {
     ],
     state: school.inspect(),
     screenshots: ["desktop.png", "narrow-draft.png", "submission.png"],
-    limits: [
-      "No live model or production Electron assignment execution",
-      "No live PostHog export",
-    ],
+    limits: ["No live model or production Electron assignment execution", "No live PostHog export"],
   };
-  await writeFile(
-    join(proofDirectory, "browser-receipt.json"),
-    JSON.stringify(receipt, null, 2),
-  );
+  await writeFile(join(proofDirectory, "browser-receipt.json"), JSON.stringify(receipt, null, 2));
   console.log(
     JSON.stringify({
       result: receipt.result,

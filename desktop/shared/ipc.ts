@@ -1,14 +1,5 @@
 import { z } from "zod";
-import { UpdateStateSchema } from './updates.js';
 
-import { AgentReasoningEffortSchema } from "./agent-runtime.js";
-import { SchemaVersionSchema, STUDI_SCHEMA_VERSION } from "./schema-version.js";
-import { AuthStateSchema, FeedbackReceiptSchema } from "./auth.js";
-import { UsageStateSchema } from "./usage.js";
-import { DiagnosticsExportReceiptSchema } from "./diagnostics.js";
-import { StudiWorkspaceStateSchema } from "./browser-agent.js";
-import { ConnectedAppConnectionSchema, ConnectedAppsStateSchema } from "./composio.js";
-import { ManagerStateSchema } from "./manager.js";
 import {
   AddressedSendResultSchema,
   AssignmentReferenceSchema,
@@ -16,11 +7,16 @@ import {
   ConversationTargetSchema,
   SelectedConversationSchema,
 } from "./agent-job.js";
-import { LifecycleStateSchema, NotificationIntentSchema, type NotificationIntent } from "./lifecycle.js";
+import { AgentReasoningEffortSchema } from "./agent-runtime.js";
 import { ArtifactDocumentSchema } from "./artifact.js";
+import { AuthStateSchema, FeedbackReceiptSchema } from "./auth.js";
+import { StudiWorkspaceStateSchema } from "./browser-agent.js";
+import { ConnectedAppConnectionSchema, ConnectedAppsStateSchema } from "./composio.js";
+import { DiagnosticsExportReceiptSchema } from "./diagnostics.js";
+import { LifecycleStateSchema, NotificationIntentSchema, type NotificationIntent } from "./lifecycle.js";
+import { ManagerStateSchema } from "./manager.js";
 import {
   BrowserLayoutModeSchema,
-  SchoolPageBoundsSchema,
   LibraryStateSchema,
   NotificationKindSchema,
   NotificationTestReceiptSchema,
@@ -30,121 +26,19 @@ import {
   SaveNotificationPreferencesInputSchema,
   SavePermissionRuleInputSchema,
   SaveProductPreferencesInputSchema,
+  SchoolPageBoundsSchema,
   TaskDetailSchema,
 } from "./product.js";
+import { AgentProviderIdSchema } from "./providers.js";
+import { SaveSchoolProfileInputSchema, SchoolOnboardingStateSchema } from "./school-scan.js";
 import {
   TelemetryDebugInputSchema,
   TelemetryPreferencesInputSchema,
   TelemetryStateSchema,
   UiTelemetryInputSchema,
 } from "./telemetry.js";
-import {
-  SaveSchoolProfileInputSchema,
-  SchoolOnboardingStateSchema,
-} from "./school-scan.js";
-
-const runtimeInfoMethod = "getRuntimeInfo" as const;
-const runtimeInfoChannel = "studi:runtime-info" as const;
-const contractManifestMethod = "getContractManifest" as const;
-const contractManifestChannel = "studi:contract-manifest" as const;
-const getAuthStateMethod = "getAuthState" as const;
-const getAuthStateChannel = "studi:auth-state" as const;
-const signInMethod = "signIn" as const;
-const signInChannel = "studi:sign-in" as const;
-const signOutMethod = "signOut" as const;
-const signOutChannel = "studi:sign-out" as const;
-const retryEntitlementMethod = "retryEntitlement" as const;
-const retryEntitlementChannel = "studi:retry-entitlement" as const;
-const submitFeedbackMethod = "submitFeedback" as const;
-const submitFeedbackChannel = "studi:submit-feedback" as const;
-const getUsageStateMethod = "getUsageState" as const;
-const getUsageStateChannel = "studi:usage-state" as const;
-const getConnectedAppsMethod = "getConnectedApps" as const;
-const getConnectedAppsChannel = "studi:connected-apps" as const;
-const connectAppMethod = "connectApp" as const;
-const connectAppChannel = "studi:connect-app" as const;
-const refreshConnectedAppMethod = "refreshConnectedApp" as const;
-const refreshConnectedAppChannel = "studi:refresh-connected-app" as const;
-const workspaceStateMethod = "getWorkspaceState" as const;
-const workspaceStateChannel = "studi:workspace-state" as const;
-const navigateBrowserMethod = "navigateBrowser" as const;
-const navigateBrowserChannel = "studi:navigate-browser" as const;
-const loginOpenAiCodexMethod = "loginOpenAiCodex" as const;
-const loginOpenAiCodexChannel = "studi:login-openai-codex" as const;
-const cancelOpenAiCodexLoginMethod = "cancelOpenAiCodexLogin" as const;
-const cancelOpenAiCodexLoginChannel = "studi:cancel-openai-codex-login" as const;
-const selectAgentModelMethod = "selectAgentModel" as const;
-const selectAgentModelChannel = "studi:select-agent-model" as const;
-const getManagerStateMethod = "getManagerState" as const;
-const getManagerStateChannel = "studi:manager-state" as const;
-const sendMethod = "send" as const;
-const sendChannel = "studi:send" as const;
-const selectAssignmentMethod = "selectAssignment" as const;
-const selectAssignmentChannel = "studi:select-assignment" as const;
-const getSchoolOnboardingStateMethod = "getSchoolOnboardingState" as const;
-const getSchoolOnboardingStateChannel = "studi:school-onboarding-state" as const;
-const saveSchoolProfileMethod = "saveSchoolProfile" as const;
-const saveSchoolProfileChannel = "studi:save-school-profile" as const;
-const startSchoolScanMethod = "startSchoolScan" as const;
-const startSchoolScanChannel = "studi:start-school-scan" as const;
-const resumeSchoolScanMethod = "resumeSchoolScan" as const;
-const resumeSchoolScanChannel = "studi:resume-school-scan" as const;
-const replaySchoolScanMethod = "replaySchoolScan" as const;
-const replaySchoolScanChannel = "studi:replay-school-scan" as const;
-const recordMissedCourseFeedbackMethod = "recordMissedCourseFeedback" as const;
-const recordMissedCourseFeedbackChannel = "studi:record-missed-course-feedback" as const;
-const getLifecycleStateMethod = "getLifecycleState" as const;
-const getLifecycleStateChannel = "studi:lifecycle-state" as const;
-const setAutomationPausedMethod = "setAutomationPaused" as const;
-const setAutomationPausedChannel = "studi:set-automation-paused" as const;
-const startNextAssignmentMethod = "startNextAssignment" as const;
-const startNextAssignmentChannel = "studi:start-next-assignment" as const;
-const startAssignmentMethod = "startAssignment" as const;
-const startAssignmentChannel = "studi:start-assignment" as const;
-const resumeAssignmentMethod = "resumeAssignment" as const;
-const resumeAssignmentChannel = "studi:resume-assignment" as const;
-const verifyStudentSubmissionMethod = "verifyStudentSubmission" as const;
-const verifyStudentSubmissionChannel = "studi:verify-student-submission" as const;
-const openAnswerArtifactMethod = "openAnswerArtifact" as const;
-const openAnswerArtifactChannel = "studi:open-answer-artifact" as const;
-const getProductSettingsMethod = "getProductSettings" as const;
-const getProductSettingsChannel = "studi:product-settings" as const;
-const saveProductPreferencesMethod = "saveProductPreferences" as const;
-const saveProductPreferencesChannel = "studi:save-product-preferences" as const;
-const selectHomeworkRootMethod = "selectHomeworkRoot" as const;
-const selectHomeworkRootChannel = "studi:select-homework-root" as const;
-const saveNotificationPreferencesMethod = "saveNotificationPreferences" as const;
-const saveNotificationPreferencesChannel = "studi:save-notification-preferences" as const;
-const testNotificationMethod = "testNotification" as const;
-const testNotificationChannel = "studi:test-notification" as const;
-const savePermissionRuleMethod = "savePermissionRule" as const;
-const savePermissionRuleChannel = "studi:save-permission-rule" as const;
-const deletePermissionRuleMethod = "deletePermissionRule" as const;
-const deletePermissionRuleChannel = "studi:delete-permission-rule" as const;
-const configureScanScheduleMethod = "configureScanSchedule" as const;
-const configureScanScheduleChannel = "studi:configure-scan-schedule" as const;
-const getLibraryStateMethod = "getLibraryState" as const;
-const getLibraryStateChannel = "studi:library-state" as const;
-const getTaskDetailMethod = "getTaskDetail" as const;
-const getTaskDetailChannel = "studi:task-detail" as const;
-const readArtifactMethod = "readArtifact" as const;
-const readArtifactChannel = "studi:read-artifact" as const;
-const requestAssignmentTakeoverMethod = "requestAssignmentTakeover" as const;
-const requestAssignmentTakeoverChannel = "studi:request-assignment-takeover" as const;
-const cancelAssignmentMethod = "cancelAssignment" as const;
-const cancelAssignmentChannel = "studi:cancel-assignment" as const;
-const setBrowserLayoutMethod = "setBrowserLayout" as const;
-const setBrowserLayoutChannel = "studi:set-browser-layout" as const;
-const getTelemetryStateMethod = "getTelemetryState" as const;
-const getTelemetryStateChannel = "studi:telemetry-state" as const;
-const setTelemetryPreferencesMethod = "setTelemetryPreferences" as const;
-const setTelemetryPreferencesChannel = "studi:set-telemetry-preferences" as const;
-const setTelemetryDebugMethod = "setTelemetryDebug" as const;
-const setTelemetryDebugChannel = "studi:set-telemetry-debug" as const;
-const captureUiTelemetryMethod = "captureUiTelemetry" as const;
-const captureUiTelemetryChannel = "studi:capture-ui-telemetry" as const;
-const exportDiagnosticsMethod = "exportDiagnostics" as const;
-const exportDiagnosticsChannel = "studi:export-diagnostics" as const;
+import { UpdateStateSchema } from "./updates.js";
+import { UsageStateSchema } from "./usage.js";
 
 export const RuntimeInfoSchema = z.strictObject({
   app: z.string().min(1),
@@ -154,182 +48,6 @@ export const RuntimeInfoSchema = z.strictObject({
 });
 
 export type RuntimeInfo = z.infer<typeof RuntimeInfoSchema>;
-
-const RuntimeInfoManifestEntrySchema = z.strictObject({
-  method: z.literal(runtimeInfoMethod),
-  channel: z.literal(runtimeInfoChannel),
-});
-const ContractManifestEntrySchema = z.strictObject({
-  method: z.literal(contractManifestMethod),
-  channel: z.literal(contractManifestChannel),
-});
-const GetAuthStateManifestEntrySchema = z.strictObject({ method: z.literal(getAuthStateMethod), channel: z.literal(getAuthStateChannel) });
-const SignInManifestEntrySchema = z.strictObject({ method: z.literal(signInMethod), channel: z.literal(signInChannel) });
-const SignOutManifestEntrySchema = z.strictObject({ method: z.literal(signOutMethod), channel: z.literal(signOutChannel) });
-const RetryEntitlementManifestEntrySchema = z.strictObject({ method: z.literal(retryEntitlementMethod), channel: z.literal(retryEntitlementChannel) });
-const SubmitFeedbackManifestEntrySchema = z.strictObject({ method: z.literal(submitFeedbackMethod), channel: z.literal(submitFeedbackChannel) });
-const GetUsageStateManifestEntrySchema = z.strictObject({ method: z.literal(getUsageStateMethod), channel: z.literal(getUsageStateChannel) });
-const GetConnectedAppsManifestEntrySchema = z.strictObject({ method: z.literal(getConnectedAppsMethod), channel: z.literal(getConnectedAppsChannel) });
-const ConnectAppManifestEntrySchema = z.strictObject({ method: z.literal(connectAppMethod), channel: z.literal(connectAppChannel) });
-const RefreshConnectedAppManifestEntrySchema = z.strictObject({ method: z.literal(refreshConnectedAppMethod), channel: z.literal(refreshConnectedAppChannel) });
-const WorkspaceStateManifestEntrySchema = z.strictObject({
-  method: z.literal(workspaceStateMethod),
-  channel: z.literal(workspaceStateChannel),
-});
-const NavigateBrowserManifestEntrySchema = z.strictObject({
-  method: z.literal(navigateBrowserMethod),
-  channel: z.literal(navigateBrowserChannel),
-});
-const LoginOpenAiCodexManifestEntrySchema = z.strictObject({
-  method: z.literal(loginOpenAiCodexMethod),
-  channel: z.literal(loginOpenAiCodexChannel),
-});
-const CancelOpenAiCodexLoginManifestEntrySchema = z.strictObject({
-  method: z.literal(cancelOpenAiCodexLoginMethod),
-  channel: z.literal(cancelOpenAiCodexLoginChannel),
-});
-const SelectAgentModelManifestEntrySchema = z.strictObject({
-  method: z.literal(selectAgentModelMethod),
-  channel: z.literal(selectAgentModelChannel),
-});
-const GetManagerStateManifestEntrySchema = z.strictObject({
-  method: z.literal(getManagerStateMethod),
-  channel: z.literal(getManagerStateChannel),
-});
-const SendManifestEntrySchema = z.strictObject({
-  method: z.literal(sendMethod),
-  channel: z.literal(sendChannel),
-});
-const SelectAssignmentManifestEntrySchema = z.strictObject({
-  method: z.literal(selectAssignmentMethod),
-  channel: z.literal(selectAssignmentChannel),
-});
-const GetSchoolOnboardingStateManifestEntrySchema = z.strictObject({
-  method: z.literal(getSchoolOnboardingStateMethod),
-  channel: z.literal(getSchoolOnboardingStateChannel),
-});
-const SaveSchoolProfileManifestEntrySchema = z.strictObject({
-  method: z.literal(saveSchoolProfileMethod),
-  channel: z.literal(saveSchoolProfileChannel),
-});
-const StartSchoolScanManifestEntrySchema = z.strictObject({
-  method: z.literal(startSchoolScanMethod),
-  channel: z.literal(startSchoolScanChannel),
-});
-const ResumeSchoolScanManifestEntrySchema = z.strictObject({
-  method: z.literal(resumeSchoolScanMethod),
-  channel: z.literal(resumeSchoolScanChannel),
-});
-const ReplaySchoolScanManifestEntrySchema = z.strictObject({
-  method: z.literal(replaySchoolScanMethod),
-  channel: z.literal(replaySchoolScanChannel),
-});
-const RecordMissedCourseFeedbackManifestEntrySchema = z.strictObject({
-  method: z.literal(recordMissedCourseFeedbackMethod),
-  channel: z.literal(recordMissedCourseFeedbackChannel),
-});
-const GetLifecycleStateManifestEntrySchema = z.strictObject({ method: z.literal(getLifecycleStateMethod), channel: z.literal(getLifecycleStateChannel) });
-const SetAutomationPausedManifestEntrySchema = z.strictObject({ method: z.literal(setAutomationPausedMethod), channel: z.literal(setAutomationPausedChannel) });
-const StartNextAssignmentManifestEntrySchema = z.strictObject({ method: z.literal(startNextAssignmentMethod), channel: z.literal(startNextAssignmentChannel) });
-const StartAssignmentManifestEntrySchema = z.strictObject({ method: z.literal(startAssignmentMethod), channel: z.literal(startAssignmentChannel) });
-const ResumeAssignmentManifestEntrySchema = z.strictObject({ method: z.literal(resumeAssignmentMethod), channel: z.literal(resumeAssignmentChannel) });
-const VerifyStudentSubmissionManifestEntrySchema = z.strictObject({ method: z.literal(verifyStudentSubmissionMethod), channel: z.literal(verifyStudentSubmissionChannel) });
-const OpenAnswerArtifactManifestEntrySchema = z.strictObject({ method: z.literal(openAnswerArtifactMethod), channel: z.literal(openAnswerArtifactChannel) });
-const GetProductSettingsManifestEntrySchema = z.strictObject({ method: z.literal(getProductSettingsMethod), channel: z.literal(getProductSettingsChannel) });
-const SaveProductPreferencesManifestEntrySchema = z.strictObject({ method: z.literal(saveProductPreferencesMethod), channel: z.literal(saveProductPreferencesChannel) });
-const SelectHomeworkRootManifestEntrySchema = z.strictObject({ method: z.literal(selectHomeworkRootMethod), channel: z.literal(selectHomeworkRootChannel) });
-const SaveNotificationPreferencesManifestEntrySchema = z.strictObject({ method: z.literal(saveNotificationPreferencesMethod), channel: z.literal(saveNotificationPreferencesChannel) });
-const TestNotificationManifestEntrySchema = z.strictObject({ method: z.literal(testNotificationMethod), channel: z.literal(testNotificationChannel) });
-const SavePermissionRuleManifestEntrySchema = z.strictObject({ method: z.literal(savePermissionRuleMethod), channel: z.literal(savePermissionRuleChannel) });
-const DeletePermissionRuleManifestEntrySchema = z.strictObject({ method: z.literal(deletePermissionRuleMethod), channel: z.literal(deletePermissionRuleChannel) });
-const ConfigureScanScheduleManifestEntrySchema = z.strictObject({ method: z.literal(configureScanScheduleMethod), channel: z.literal(configureScanScheduleChannel) });
-const GetLibraryStateManifestEntrySchema = z.strictObject({ method: z.literal(getLibraryStateMethod), channel: z.literal(getLibraryStateChannel) });
-const GetTaskDetailManifestEntrySchema = z.strictObject({ method: z.literal(getTaskDetailMethod), channel: z.literal(getTaskDetailChannel) });
-const ReadArtifactManifestEntrySchema = z.strictObject({ method: z.literal(readArtifactMethod), channel: z.literal(readArtifactChannel) });
-const RequestAssignmentTakeoverManifestEntrySchema = z.strictObject({ method: z.literal(requestAssignmentTakeoverMethod), channel: z.literal(requestAssignmentTakeoverChannel) });
-const CancelAssignmentManifestEntrySchema = z.strictObject({ method: z.literal(cancelAssignmentMethod), channel: z.literal(cancelAssignmentChannel) });
-const SetBrowserLayoutManifestEntrySchema = z.strictObject({ method: z.literal(setBrowserLayoutMethod), channel: z.literal(setBrowserLayoutChannel) });
-const GetTelemetryStateManifestEntrySchema = z.strictObject({ method: z.literal(getTelemetryStateMethod), channel: z.literal(getTelemetryStateChannel) });
-const SetTelemetryPreferencesManifestEntrySchema = z.strictObject({ method: z.literal(setTelemetryPreferencesMethod), channel: z.literal(setTelemetryPreferencesChannel) });
-const SetTelemetryDebugManifestEntrySchema = z.strictObject({ method: z.literal(setTelemetryDebugMethod), channel: z.literal(setTelemetryDebugChannel) });
-const CaptureUiTelemetryManifestEntrySchema = z.strictObject({ method: z.literal(captureUiTelemetryMethod), channel: z.literal(captureUiTelemetryChannel) });
-const ExportDiagnosticsManifestEntrySchema = z.strictObject({ method: z.literal(exportDiagnosticsMethod), channel: z.literal(exportDiagnosticsChannel) });
-
-export const ContractManifestSchema = z.strictObject({
-  schemaVersion: SchemaVersionSchema,
-  contractVersion: z.literal("18"),
-  ipcMethods: z.tuple([
-    z.strictObject({method:z.literal('getUpdateState'),channel:z.literal('studi:update-state')}),
-    z.strictObject({method:z.literal('checkForUpdates'),channel:z.literal('studi:update-check')}),
-    z.strictObject({method:z.literal('installUpdate'),channel:z.literal('studi:update-install')}),
-    z.strictObject({method:z.literal('getAssignmentFiles'),channel:z.literal('studi:assignment-files')}),
-    z.strictObject({method:z.literal('readAssignmentFile'),channel:z.literal('studi:assignment-file')}),
-    z.strictObject({method:z.literal('importAssignmentFiles'),channel:z.literal('studi:assignment-files-import')}),
-    z.strictObject({method:z.literal('openAssignmentFolder'),channel:z.literal('studi:assignment-folder')}),
-    z.strictObject({method:z.literal('selectBrowserPage'),channel:z.literal('studi:browser-page')}),
-    z.strictObject({method:z.literal('getScopedConversation'),channel:z.literal('studi:scoped-conversation')}),
-    z.strictObject({method:z.literal('stopScopedConversation'),channel:z.literal('studi:scoped-conversation-stop')}),
-    z.strictObject({method:z.literal('sendScanMessage'),channel:z.literal('studi:scan-message')}),
-    z.strictObject({method:z.literal('pauseSchoolScan'),channel:z.literal('studi:scan-pause')}),
-    z.strictObject({method:z.literal('getConversationState'),channel:z.literal('studi:conversation-state')}),
-    z.strictObject({method:z.literal('stopConversation'),channel:z.literal('studi:conversation-stop')}),
-    z.strictObject({method:z.literal('getNotifications'),channel:z.literal('studi:notifications')}),
-    z.strictObject({method:z.literal('readNotification'),channel:z.literal('studi:notification-read')}),
-    RuntimeInfoManifestEntrySchema,
-    ContractManifestEntrySchema,
-    GetAuthStateManifestEntrySchema,
-    SignInManifestEntrySchema,
-    SignOutManifestEntrySchema,
-    RetryEntitlementManifestEntrySchema,
-    SubmitFeedbackManifestEntrySchema,
-    GetUsageStateManifestEntrySchema,
-    GetConnectedAppsManifestEntrySchema,
-    ConnectAppManifestEntrySchema,
-    RefreshConnectedAppManifestEntrySchema,
-    WorkspaceStateManifestEntrySchema,
-    NavigateBrowserManifestEntrySchema,
-    LoginOpenAiCodexManifestEntrySchema,
-    CancelOpenAiCodexLoginManifestEntrySchema,
-    SelectAgentModelManifestEntrySchema,
-    GetManagerStateManifestEntrySchema,
-    SendManifestEntrySchema,
-    SelectAssignmentManifestEntrySchema,
-    GetSchoolOnboardingStateManifestEntrySchema,
-    SaveSchoolProfileManifestEntrySchema,
-    StartSchoolScanManifestEntrySchema,
-    ResumeSchoolScanManifestEntrySchema,
-    ReplaySchoolScanManifestEntrySchema,
-    RecordMissedCourseFeedbackManifestEntrySchema,
-    GetLifecycleStateManifestEntrySchema,
-    SetAutomationPausedManifestEntrySchema,
-    StartNextAssignmentManifestEntrySchema,
-    StartAssignmentManifestEntrySchema,
-    ResumeAssignmentManifestEntrySchema,
-    VerifyStudentSubmissionManifestEntrySchema,
-    OpenAnswerArtifactManifestEntrySchema,
-    GetProductSettingsManifestEntrySchema,
-    SaveProductPreferencesManifestEntrySchema,
-    SelectHomeworkRootManifestEntrySchema,
-    SaveNotificationPreferencesManifestEntrySchema,
-    TestNotificationManifestEntrySchema,
-    SavePermissionRuleManifestEntrySchema,
-    DeletePermissionRuleManifestEntrySchema,
-    ConfigureScanScheduleManifestEntrySchema,
-    GetLibraryStateManifestEntrySchema,
-    GetTaskDetailManifestEntrySchema,
-    ReadArtifactManifestEntrySchema,
-    RequestAssignmentTakeoverManifestEntrySchema,
-    CancelAssignmentManifestEntrySchema,
-    SetBrowserLayoutManifestEntrySchema,
-    GetTelemetryStateManifestEntrySchema,
-    SetTelemetryPreferencesManifestEntrySchema,
-    SetTelemetryDebugManifestEntrySchema,
-    CaptureUiTelemetryManifestEntrySchema,
-    ExportDiagnosticsManifestEntrySchema,
-  ]),
-});
-
-export type ContractManifest = z.infer<typeof ContractManifestSchema>;
 
 export type IpcMethodDefinition = Readonly<{
   channel: string;
@@ -346,7 +64,7 @@ type RequestArguments<Definition extends IpcMethodDefinition> =
     ? []
     : Definition["requestSchema"] extends z.ZodOptional<z.ZodType>
       ? [request?: z.input<Definition["requestSchema"]>]
-    : [request: z.input<Definition["requestSchema"]>];
+      : [request: z.input<Definition["requestSchema"]>];
 
 type IpcMethod<Definition extends IpcMethodDefinition> = (
   ...args: RequestArguments<Definition>
@@ -358,9 +76,7 @@ export type IpcApi<Registry extends IpcRegistryDefinition> = Readonly<{
 
 type IpcHandler<Definition extends IpcMethodDefinition> = (
   request: z.output<Definition["requestSchema"]>,
-) =>
-  | z.input<Definition["resultSchema"]>
-  | Promise<z.input<Definition["resultSchema"]>>;
+) => z.input<Definition["resultSchema"]> | Promise<z.input<Definition["resultSchema"]>>;
 
 export type IpcHandlers<Registry extends IpcRegistryDefinition> = Readonly<{
   [Method in keyof Registry]: IpcHandler<Registry[Method]>;
@@ -371,301 +87,238 @@ export type IpcHandlerRegistration = Readonly<{
   handle: (rawRequest: unknown) => Promise<unknown>;
 }>;
 
+function ipc<Request extends z.ZodType, Result extends z.ZodType>(
+  channel: string,
+  requestSchema: Request,
+  resultSchema: Result,
+) {
+  return Object.freeze({ channel, requestSchema, resultSchema });
+}
+
+const none = z.undefined();
+const Id = z.string().min(1).max(256);
+const TaskId = z.strictObject({ taskId: Id });
+const AssignmentId = z.strictObject({ assignmentId: Id });
+const Toolkit = z.strictObject({ toolkit: z.string().trim().min(1).max(128) });
+const ProviderId = z.strictObject({ providerId: AgentProviderIdSchema });
+const BrowserPage = z.union([ConversationTargetSchema, z.strictObject({ kind: z.literal("school") })]);
+const RelativePath = z.string().min(1).max(2_048);
+
+/** Every renderer-to-main call. The key is the renderer method name; the channel is the wire name. */
 export const studiIpcRegistry = Object.freeze({
-  getUpdateState: {channel:'studi:update-state',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
-  checkForUpdates: {channel:'studi:update-check',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
-  installUpdate: {channel:'studi:update-install',requestSchema:z.undefined(),resultSchema:UpdateStateSchema},
-  getAssignmentFiles: {channel:'studi:assignment-files',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256)}),resultSchema:z.array(z.strictObject({path:z.string(),kind:z.enum(["file","directory"]),size:z.number(),modifiedAt:z.string()}))},
-  readAssignmentFile: {channel:'studi:assignment-file',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048)}),resultSchema:z.strictObject({path:z.string(),content:z.string(),modifiedAt:z.string()})},
-  importAssignmentFiles: {channel:'studi:assignment-files-import',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256)}),resultSchema:z.strictObject({imported:z.array(z.string()),errors:z.array(z.strictObject({name:z.string(),message:z.string()}))})},
-  openAssignmentFolder: {channel:'studi:assignment-folder',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048).optional()}),resultSchema:z.boolean()},
-  selectBrowserPage: { channel:'studi:browser-page', requestSchema:z.union([ConversationTargetSchema,z.strictObject({kind:z.literal("school")})]), resultSchema:StudiWorkspaceStateSchema },
-  getScopedConversation: { channel: 'studi:scoped-conversation', requestSchema: ConversationTargetSchema, resultSchema: ConversationStateSchema },
-  stopScopedConversation: { channel: 'studi:scoped-conversation-stop', requestSchema: ConversationTargetSchema, resultSchema: ConversationStateSchema },
-  sendScanMessage: { channel: 'studi:scan-message', requestSchema: z.strictObject({scanId:z.string().min(1).max(256), text:z.string().trim().min(1).max(20000), clientMessageId:z.uuid()}), resultSchema: SchoolOnboardingStateSchema },
-  pauseSchoolScan: { channel: 'studi:scan-pause', requestSchema: z.undefined(), resultSchema: SchoolOnboardingStateSchema },
-  getConversationState: { channel: 'studi:conversation-state', requestSchema: z.undefined(), resultSchema: ConversationStateSchema },
-  stopConversation: { channel: 'studi:conversation-stop', requestSchema: z.undefined(), resultSchema: ConversationStateSchema },
-  getNotifications: { channel: 'studi:notifications', requestSchema: z.undefined(), resultSchema: z.array(NotificationIntentSchema) },
-  readNotification: { channel: 'studi:notification-read', requestSchema: z.strictObject({ notificationId: z.string().min(1).max(256) }), resultSchema: z.array(NotificationIntentSchema) },
-  [runtimeInfoMethod]: Object.freeze({
-    channel: runtimeInfoChannel,
-    requestSchema: z.undefined(),
-    resultSchema: RuntimeInfoSchema,
-  }),
-  [contractManifestMethod]: Object.freeze({
-    channel: contractManifestChannel,
-    requestSchema: z.undefined(),
-    resultSchema: ContractManifestSchema,
-  }),
-  [getAuthStateMethod]: Object.freeze({
-    channel: getAuthStateChannel,
-    requestSchema: z.undefined(),
-    resultSchema: AuthStateSchema,
-  }),
-  [signInMethod]: Object.freeze({
-    channel: signInChannel,
-    requestSchema: z.undefined(),
-    resultSchema: AuthStateSchema,
-  }),
-  [signOutMethod]: Object.freeze({
-    channel: signOutChannel,
-    requestSchema: z.undefined(),
-    resultSchema: AuthStateSchema,
-  }),
-  [retryEntitlementMethod]: Object.freeze({
-    channel: retryEntitlementChannel,
-    requestSchema: z.undefined(),
-    resultSchema: AuthStateSchema,
-  }),
-  [submitFeedbackMethod]: Object.freeze({
-    channel: submitFeedbackChannel,
-    requestSchema: z.strictObject({ message: z.string().trim().min(1).max(1_000) }),
-    resultSchema: FeedbackReceiptSchema,
-  }),
-  [getUsageStateMethod]: Object.freeze({
-    channel: getUsageStateChannel,
-    requestSchema: z.undefined(),
-    resultSchema: UsageStateSchema,
-  }),
-  [getConnectedAppsMethod]: Object.freeze({
-    channel: getConnectedAppsChannel,
-    requestSchema: z.undefined(),
-    resultSchema: ConnectedAppsStateSchema,
-  }),
-  [connectAppMethod]: Object.freeze({
-    channel: connectAppChannel,
-    requestSchema: z.strictObject({ toolkit: z.string().trim().min(1).max(128) }),
-    resultSchema: ConnectedAppConnectionSchema,
-  }),
-  [refreshConnectedAppMethod]: Object.freeze({
-    channel: refreshConnectedAppChannel,
-    requestSchema: z.strictObject({ toolkit: z.string().trim().min(1).max(128) }),
-    resultSchema: ConnectedAppConnectionSchema,
-  }),
-  [workspaceStateMethod]: Object.freeze({
-    channel: workspaceStateChannel,
-    requestSchema: z.undefined(),
-    resultSchema: StudiWorkspaceStateSchema,
-  }),
-  [navigateBrowserMethod]: Object.freeze({
-    channel: navigateBrowserChannel,
-    requestSchema: z.strictObject({ url: z.string().min(1).max(2_048), target:z.union([ConversationTargetSchema,z.strictObject({kind:z.literal("school")})]).optional() }),
-    resultSchema: StudiWorkspaceStateSchema,
-  }),
-  [loginOpenAiCodexMethod]: Object.freeze({
-    channel: loginOpenAiCodexChannel,
-    requestSchema: z.undefined(),
-    resultSchema: StudiWorkspaceStateSchema,
-  }),
-  [cancelOpenAiCodexLoginMethod]: Object.freeze({
-    channel: cancelOpenAiCodexLoginChannel,
-    requestSchema: z.undefined(),
-    resultSchema: StudiWorkspaceStateSchema,
-  }),
-  [selectAgentModelMethod]: Object.freeze({
-    channel: selectAgentModelChannel,
-    requestSchema: z.strictObject({
+  getRuntimeInfo: ipc("studi:runtime-info", none, RuntimeInfoSchema),
+  getUpdateState: ipc("studi:update-state", none, UpdateStateSchema),
+  checkForUpdates: ipc("studi:update-check", none, UpdateStateSchema),
+  installUpdate: ipc("studi:update-install", none, UpdateStateSchema),
+
+  getAuthState: ipc("studi:auth-state", none, AuthStateSchema),
+  signIn: ipc("studi:sign-in", none, AuthStateSchema),
+  signOut: ipc("studi:sign-out", none, AuthStateSchema),
+  retryEntitlement: ipc("studi:retry-entitlement", none, AuthStateSchema),
+  submitFeedback: ipc(
+    "studi:submit-feedback",
+    z.strictObject({ message: z.string().trim().min(1).max(1_000) }),
+    FeedbackReceiptSchema,
+  ),
+  getUsageState: ipc("studi:usage-state", none, UsageStateSchema),
+
+  getConnectedApps: ipc("studi:connected-apps", none, ConnectedAppsStateSchema),
+  connectApp: ipc("studi:connect-app", Toolkit, ConnectedAppConnectionSchema),
+  refreshConnectedApp: ipc("studi:refresh-connected-app", Toolkit, ConnectedAppConnectionSchema),
+
+  getWorkspaceState: ipc("studi:workspace-state", none, StudiWorkspaceStateSchema),
+  navigateBrowser: ipc(
+    "studi:navigate-browser",
+    z.strictObject({ url: z.string().min(1).max(2_048), target: BrowserPage.optional() }),
+    StudiWorkspaceStateSchema,
+  ),
+  selectBrowserPage: ipc("studi:browser-page", BrowserPage, StudiWorkspaceStateSchema),
+  setBrowserLayout: ipc(
+    "studi:set-browser-layout",
+    z.strictObject({ mode: BrowserLayoutModeSchema, bounds: SchoolPageBoundsSchema.optional() }),
+    BrowserLayoutModeSchema,
+  ),
+
+  loginProvider: ipc("studi:login-provider", ProviderId, StudiWorkspaceStateSchema),
+  completeProviderLogin: ipc(
+    "studi:complete-provider-login",
+    z.strictObject({ providerId: AgentProviderIdSchema, code: z.string().trim().min(1).max(4_096) }),
+    StudiWorkspaceStateSchema,
+  ),
+  cancelProviderLogin: ipc("studi:cancel-provider-login", none, StudiWorkspaceStateSchema),
+  logoutProvider: ipc("studi:logout-provider", ProviderId, StudiWorkspaceStateSchema),
+  selectAgentModel: ipc(
+    "studi:select-agent-model",
+    z.strictObject({
+      providerId: AgentProviderIdSchema,
       modelId: z.string().min(1),
       reasoningEffort: AgentReasoningEffortSchema,
     }),
-    resultSchema: StudiWorkspaceStateSchema,
-  }),
-  [getManagerStateMethod]: Object.freeze({
-    channel: getManagerStateChannel,
-    requestSchema: z.undefined(),
-    resultSchema: ManagerStateSchema,
-  }),
-  [sendMethod]: Object.freeze({
-    channel: sendChannel,
-    requestSchema: z.strictObject({
+    StudiWorkspaceStateSchema,
+  ),
+
+  getManagerState: ipc("studi:manager-state", none, ManagerStateSchema),
+  send: ipc(
+    "studi:send",
+    z.strictObject({
       target: ConversationTargetSchema,
       text: z.string().trim().min(1).max(100_000),
       clientMessageId: z.string().uuid().optional(),
       assignmentRefs: z.array(AssignmentReferenceSchema).max(20).optional(),
     }),
-    resultSchema: AddressedSendResultSchema,
-  }),
-  [selectAssignmentMethod]: Object.freeze({
-    channel: selectAssignmentChannel,
-    requestSchema: z.strictObject({ assignmentId: z.string().trim().min(1).max(256).nullable() }),
-    resultSchema: SelectedConversationSchema,
-  }),
-  [getSchoolOnboardingStateMethod]: Object.freeze({
-    channel: getSchoolOnboardingStateChannel,
-    requestSchema: z.undefined(),
-    resultSchema: SchoolOnboardingStateSchema,
-  }),
-  [saveSchoolProfileMethod]: Object.freeze({
-    channel: saveSchoolProfileChannel,
-    requestSchema: SaveSchoolProfileInputSchema,
-    resultSchema: SchoolOnboardingStateSchema,
-  }),
-  [startSchoolScanMethod]: Object.freeze({
-    channel: startSchoolScanChannel,
-    requestSchema: z.strictObject({ assignmentId: z.string().min(1).max(256) }).optional(),
-    resultSchema: SchoolOnboardingStateSchema,
-  }),
-  [resumeSchoolScanMethod]: Object.freeze({
-    channel: resumeSchoolScanChannel,
-    requestSchema: z.undefined(),
-    resultSchema: SchoolOnboardingStateSchema,
-  }),
-  [replaySchoolScanMethod]: Object.freeze({
-    channel: replaySchoolScanChannel,
-    requestSchema: z.undefined(),
-    resultSchema: SchoolOnboardingStateSchema,
-  }),
-  [recordMissedCourseFeedbackMethod]: Object.freeze({
-    channel: recordMissedCourseFeedbackChannel,
-    requestSchema: z.strictObject({ feedback: z.string().trim().min(1).max(500) }),
-    resultSchema: SchoolOnboardingStateSchema,
-  }),
-  [getLifecycleStateMethod]: Object.freeze({
-    channel: getLifecycleStateChannel,
-    requestSchema: z.undefined(),
-    resultSchema: LifecycleStateSchema,
-  }),
-  [setAutomationPausedMethod]: Object.freeze({
-    channel: setAutomationPausedChannel,
-    requestSchema: z.strictObject({ paused: z.boolean() }),
-    resultSchema: LifecycleStateSchema,
-  }),
-  [startNextAssignmentMethod]: Object.freeze({
-    channel: startNextAssignmentChannel,
-    requestSchema: z.undefined(),
-    resultSchema: LifecycleStateSchema,
-  }),
-  [startAssignmentMethod]: Object.freeze({
-    channel: startAssignmentChannel,
-    requestSchema: z.strictObject({ taskId: z.string().min(1).max(256) }),
-    resultSchema: LifecycleStateSchema,
-  }),
-  [resumeAssignmentMethod]: Object.freeze({
-    channel: resumeAssignmentChannel,
-    requestSchema: z.strictObject({ taskId: z.string().min(1).max(256) }),
-    resultSchema: LifecycleStateSchema,
-  }),
-  [verifyStudentSubmissionMethod]: Object.freeze({
-    channel: verifyStudentSubmissionChannel,
-    requestSchema: z.strictObject({ taskId: z.string().min(1).max(256), confirmationText: z.string().trim().min(1).max(500) }),
-    resultSchema: LifecycleStateSchema,
-  }),
-  [openAnswerArtifactMethod]: Object.freeze({
-    channel: openAnswerArtifactChannel,
-    requestSchema: z.strictObject({ taskId: z.string().min(1).max(256) }),
-    resultSchema: z.boolean(),
-  }),
-  [getProductSettingsMethod]: Object.freeze({
-    channel: getProductSettingsChannel,
-    requestSchema: z.undefined(),
-    resultSchema: ProductSettingsStateSchema,
-  }),
-  [saveProductPreferencesMethod]: Object.freeze({
-    channel: saveProductPreferencesChannel,
-    requestSchema: SaveProductPreferencesInputSchema,
-    resultSchema: ProductPreferencesSchema,
-  }),
-  [selectHomeworkRootMethod]: Object.freeze({
-    channel: selectHomeworkRootChannel,
-    requestSchema: z.undefined(),
-    resultSchema: ProductPreferencesSchema,
-  }),
-  [saveNotificationPreferencesMethod]: Object.freeze({
-    channel: saveNotificationPreferencesChannel,
-    requestSchema: SaveNotificationPreferencesInputSchema,
-    resultSchema: ProductPreferencesSchema,
-  }),
-  [testNotificationMethod]: Object.freeze({
-    channel: testNotificationChannel,
-    requestSchema: z.strictObject({ kind: NotificationKindSchema }),
-    resultSchema: NotificationTestReceiptSchema,
-  }),
-  [savePermissionRuleMethod]: Object.freeze({
-    channel: savePermissionRuleChannel,
-    requestSchema: SavePermissionRuleInputSchema,
-    resultSchema: ProductSettingsStateSchema,
-  }),
-  [deletePermissionRuleMethod]: Object.freeze({
-    channel: deletePermissionRuleChannel,
-    requestSchema: z.strictObject({ ruleId: z.string().min(1).max(256) }),
-    resultSchema: ProductSettingsStateSchema,
-  }),
-  [configureScanScheduleMethod]: Object.freeze({
-    channel: configureScanScheduleChannel,
-    requestSchema: z.strictObject({
+    AddressedSendResultSchema,
+  ),
+  selectAssignment: ipc(
+    "studi:select-assignment",
+    z.strictObject({ assignmentId: z.string().trim().min(1).max(256).nullable() }),
+    SelectedConversationSchema,
+  ),
+  getConversationState: ipc("studi:conversation-state", none, ConversationStateSchema),
+  stopConversation: ipc("studi:conversation-stop", none, ConversationStateSchema),
+  getScopedConversation: ipc("studi:scoped-conversation", ConversationTargetSchema, ConversationStateSchema),
+  stopScopedConversation: ipc(
+    "studi:scoped-conversation-stop",
+    ConversationTargetSchema,
+    ConversationStateSchema,
+  ),
+
+  getSchoolOnboardingState: ipc("studi:school-onboarding-state", none, SchoolOnboardingStateSchema),
+  saveSchoolProfile: ipc(
+    "studi:save-school-profile",
+    SaveSchoolProfileInputSchema,
+    SchoolOnboardingStateSchema,
+  ),
+  startSchoolScan: ipc("studi:start-school-scan", AssignmentId.optional(), SchoolOnboardingStateSchema),
+  resumeSchoolScan: ipc("studi:resume-school-scan", none, SchoolOnboardingStateSchema),
+  replaySchoolScan: ipc("studi:replay-school-scan", none, SchoolOnboardingStateSchema),
+  pauseSchoolScan: ipc("studi:scan-pause", none, SchoolOnboardingStateSchema),
+  sendScanMessage: ipc(
+    "studi:scan-message",
+    z.strictObject({
+      scanId: Id,
+      text: z.string().trim().min(1).max(20_000),
+      clientMessageId: z.string().uuid(),
+    }),
+    SchoolOnboardingStateSchema,
+  ),
+  recordMissedCourseFeedback: ipc(
+    "studi:record-missed-course-feedback",
+    z.strictObject({ feedback: z.string().trim().min(1).max(500) }),
+    SchoolOnboardingStateSchema,
+  ),
+
+  getLifecycleState: ipc("studi:lifecycle-state", none, LifecycleStateSchema),
+  setAutomationPaused: ipc(
+    "studi:set-automation-paused",
+    z.strictObject({ paused: z.boolean() }),
+    LifecycleStateSchema,
+  ),
+  startNextAssignment: ipc("studi:start-next-assignment", none, LifecycleStateSchema),
+  startAssignment: ipc("studi:start-assignment", TaskId, LifecycleStateSchema),
+  resumeAssignment: ipc("studi:resume-assignment", TaskId, LifecycleStateSchema),
+  requestAssignmentTakeover: ipc("studi:request-assignment-takeover", TaskId, LifecycleStateSchema),
+  cancelAssignment: ipc("studi:cancel-assignment", TaskId, LifecycleStateSchema),
+  verifyStudentSubmission: ipc(
+    "studi:verify-student-submission",
+    z.strictObject({ taskId: Id, confirmationText: z.string().trim().min(1).max(500) }),
+    LifecycleStateSchema,
+  ),
+  openAnswerArtifact: ipc("studi:open-answer-artifact", TaskId, z.boolean()),
+
+  getAssignmentFiles: ipc(
+    "studi:assignment-files",
+    AssignmentId,
+    z.array(
+      z.strictObject({
+        path: z.string(),
+        kind: z.enum(["file", "directory"]),
+        size: z.number(),
+        modifiedAt: z.string(),
+      }),
+    ),
+  ),
+  readAssignmentFile: ipc(
+    "studi:assignment-file",
+    z.strictObject({ assignmentId: Id, path: RelativePath }),
+    z.strictObject({ path: z.string(), content: z.string(), modifiedAt: z.string() }),
+  ),
+  importAssignmentFiles: ipc(
+    "studi:assignment-files-import",
+    AssignmentId,
+    z.strictObject({
+      imported: z.array(z.string()),
+      errors: z.array(z.strictObject({ name: z.string(), message: z.string() })),
+    }),
+  ),
+  openAssignmentFolder: ipc(
+    "studi:assignment-folder",
+    z.strictObject({ assignmentId: Id, path: RelativePath.optional() }),
+    z.boolean(),
+  ),
+
+  getNotifications: ipc("studi:notifications", none, z.array(NotificationIntentSchema)),
+  readNotification: ipc(
+    "studi:notification-read",
+    z.strictObject({ notificationId: Id }),
+    z.array(NotificationIntentSchema),
+  ),
+  testNotification: ipc(
+    "studi:test-notification",
+    z.strictObject({ kind: NotificationKindSchema }),
+    NotificationTestReceiptSchema,
+  ),
+
+  getProductSettings: ipc("studi:product-settings", none, ProductSettingsStateSchema),
+  saveProductPreferences: ipc(
+    "studi:save-product-preferences",
+    SaveProductPreferencesInputSchema,
+    ProductPreferencesSchema,
+  ),
+  saveNotificationPreferences: ipc(
+    "studi:save-notification-preferences",
+    SaveNotificationPreferencesInputSchema,
+    ProductPreferencesSchema,
+  ),
+  selectHomeworkRoot: ipc("studi:select-homework-root", none, ProductPreferencesSchema),
+  savePermissionRule: ipc(
+    "studi:save-permission-rule",
+    SavePermissionRuleInputSchema,
+    ProductSettingsStateSchema,
+  ),
+  deletePermissionRule: ipc(
+    "studi:delete-permission-rule",
+    z.strictObject({ ruleId: Id }),
+    ProductSettingsStateSchema,
+  ),
+  configureScanSchedule: ipc(
+    "studi:configure-scan-schedule",
+    z.strictObject({
       cadence: z.enum(["manual", "daily", "weekly"]),
       localTime: z.string().regex(/^(?:[01]\d|2[0-3]):[0-5]\d$/),
       weekday: z.number().int().min(0).max(6).optional(),
     }),
-    resultSchema: ProductSettingsStateSchema,
-  }),
-  [getLibraryStateMethod]: Object.freeze({
-    channel: getLibraryStateChannel,
-    requestSchema: z.undefined(),
-    resultSchema: LibraryStateSchema,
-  }),
-  [getTaskDetailMethod]: Object.freeze({
-    channel: getTaskDetailChannel,
-    requestSchema: z.strictObject({ taskId: z.string().min(1).max(256) }),
-    resultSchema: TaskDetailSchema,
-  }),
-  [readArtifactMethod]: Object.freeze({
-    channel: readArtifactChannel,
-    requestSchema: ReadArtifactInputSchema,
-    resultSchema: ArtifactDocumentSchema.nullable(),
-  }),
-  [requestAssignmentTakeoverMethod]: Object.freeze({
-    channel: requestAssignmentTakeoverChannel,
-    requestSchema: z.strictObject({ taskId: z.string().min(1).max(256) }),
-    resultSchema: LifecycleStateSchema,
-  }),
-  [cancelAssignmentMethod]: Object.freeze({
-    channel: cancelAssignmentChannel,
-    requestSchema: z.strictObject({ taskId: z.string().min(1).max(256) }),
-    resultSchema: LifecycleStateSchema,
-  }),
-  [setBrowserLayoutMethod]: Object.freeze({
-    channel: setBrowserLayoutChannel,
-    requestSchema: z.strictObject({
-      mode: BrowserLayoutModeSchema,
-      bounds: SchoolPageBoundsSchema.optional(),
-    }),
-    resultSchema: BrowserLayoutModeSchema,
-  }),
-  [getTelemetryStateMethod]: Object.freeze({
-    channel: getTelemetryStateChannel,
-    requestSchema: z.undefined(),
-    resultSchema: TelemetryStateSchema,
-  }),
-  [setTelemetryPreferencesMethod]: Object.freeze({
-    channel: setTelemetryPreferencesChannel,
-    requestSchema: TelemetryPreferencesInputSchema,
-    resultSchema: TelemetryStateSchema,
-  }),
-  [setTelemetryDebugMethod]: Object.freeze({
-    channel: setTelemetryDebugChannel,
-    requestSchema: TelemetryDebugInputSchema,
-    resultSchema: TelemetryStateSchema,
-  }),
-  [captureUiTelemetryMethod]: Object.freeze({
-    channel: captureUiTelemetryChannel,
-    requestSchema: UiTelemetryInputSchema,
-    resultSchema: z.boolean(),
-  }),
-  [exportDiagnosticsMethod]: Object.freeze({
-    channel: exportDiagnosticsChannel,
-    requestSchema: z.undefined(),
-    resultSchema: DiagnosticsExportReceiptSchema,
-  }),
+    ProductSettingsStateSchema,
+  ),
+
+  getLibraryState: ipc("studi:library-state", none, LibraryStateSchema),
+  getTaskDetail: ipc("studi:task-detail", TaskId, TaskDetailSchema),
+  readArtifact: ipc("studi:read-artifact", ReadArtifactInputSchema, ArtifactDocumentSchema.nullable()),
+
+  getTelemetryState: ipc("studi:telemetry-state", none, TelemetryStateSchema),
+  setTelemetryPreferences: ipc(
+    "studi:set-telemetry-preferences",
+    TelemetryPreferencesInputSchema,
+    TelemetryStateSchema,
+  ),
+  setTelemetryDebug: ipc("studi:set-telemetry-debug", TelemetryDebugInputSchema, TelemetryStateSchema),
+  captureUiTelemetry: ipc("studi:capture-ui-telemetry", UiTelemetryInputSchema, z.boolean()),
+  exportDiagnostics: ipc("studi:export-diagnostics", none, DiagnosticsExportReceiptSchema),
 });
 
 export type StudiIpcRegistry = typeof studiIpcRegistry;
 export type StudiIpcMethod = keyof StudiIpcRegistry;
 
-export const studiIpcMethods = Object.freeze(
-  Object.keys(studiIpcRegistry) as StudiIpcMethod[],
-);
+export const studiIpcMethods = Object.freeze(Object.keys(studiIpcRegistry) as StudiIpcMethod[]);
 
 export type StudiApi = IpcApi<StudiIpcRegistry>;
 
@@ -687,16 +340,17 @@ function createIpcMethod<Definition extends IpcMethodDefinition>(
     const expectedArgumentCount = expectsNoArguments ? 0 : 1;
 
     const optionalRequest = contract.requestSchema instanceof z.ZodOptional;
-    if (suppliedArguments.length !== expectedArgumentCount && !(optionalRequest && suppliedArguments.length === 0)) {
+    if (
+      suppliedArguments.length !== expectedArgumentCount &&
+      !(optionalRequest && suppliedArguments.length === 0)
+    ) {
       throw new TypeError(
         `IPC method ${method} expects ${expectedArgumentCount} argument${expectedArgumentCount === 1 ? "" : "s"}; received ${suppliedArguments.length}`,
       );
     }
 
     const rawRequest = expectsNoArguments ? undefined : suppliedArguments[0];
-    return invoke(contract.channel, rawRequest) as Promise<
-      z.output<Definition["resultSchema"]>
-    >;
+    return invoke(contract.channel, rawRequest) as Promise<z.output<Definition["resultSchema"]>>;
   };
 }
 
@@ -721,9 +375,7 @@ function createIpcHandler<Definition extends IpcMethodDefinition>(
   handler: IpcHandler<Definition>,
 ): (rawRequest: unknown) => Promise<z.output<Definition["resultSchema"]>> {
   return async (rawRequest: unknown) => {
-    const request = contract.requestSchema.parse(rawRequest) as z.output<
-      Definition["requestSchema"]
-    >;
+    const request = contract.requestSchema.parse(rawRequest) as z.output<Definition["requestSchema"]>;
     const result = await handler(request);
     return contract.resultSchema.parse(result) as z.output<Definition["resultSchema"]>;
   };
@@ -748,17 +400,3 @@ export function createIpcHandlerRegistrations<Registry extends IpcRegistryDefini
 
   return Object.freeze(registrations);
 }
-
-const contractManifest = ContractManifestSchema.parse({
-  schemaVersion: STUDI_SCHEMA_VERSION,
-  contractVersion: "18",
-  ipcMethods: studiIpcMethods.map((method) => ({
-    method,
-    channel: studiIpcRegistry[method].channel,
-  })),
-});
-for (const entry of contractManifest.ipcMethods) {
-  Object.freeze(entry);
-}
-Object.freeze(contractManifest.ipcMethods);
-export const CONTRACT_MANIFEST: ContractManifest = Object.freeze(contractManifest);

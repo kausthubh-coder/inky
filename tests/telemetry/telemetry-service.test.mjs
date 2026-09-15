@@ -14,9 +14,15 @@ function mockClient() {
     captures,
     identifies,
     shutdownCalls,
-    capture(message) { captures.push(message); },
-    identify(message) { identifies.push(message); },
-    async shutdown(timeoutMs) { shutdownCalls.push(timeoutMs); },
+    capture(message) {
+      captures.push(message);
+    },
+    identify(message) {
+      identifies.push(message);
+    },
+    async shutdown(timeoutMs) {
+      shutdownCalls.push(timeoutMs);
+    },
   };
 }
 
@@ -32,15 +38,20 @@ async function withService(run) {
     now: () => new Date("2026-09-01T12:00:00.000Z"),
     client,
   });
-  try { await run({ directory, client, service }); }
-  finally { await rm(directory, { recursive: true, force: true }); }
+  try {
+    await run({ directory, client, service });
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 }
 
 test("errors keep school context and strip only secrets", async () => {
   await withService(async ({ client, service }) => {
     service.setDebug(30);
     service.captureError(
-      new Error("Calc 201 failed at https://moodle.ncsu.edu/course password=CANARY_PASSWORD cookie=CANARY_COOKIE token=CANARY_TOKEN"),
+      new Error(
+        "Calc 201 failed at https://moodle.ncsu.edu/course password=CANARY_PASSWORD cookie=CANARY_COOKIE token=CANARY_TOKEN",
+      ),
       "ipc",
       "ipc_request",
       { model: "gpt-5.6-sol", reasoning_effort: "high" },
@@ -185,7 +196,10 @@ test("agent traces retain ordinary content and remove nested credentials", async
 
     const outbound = client.captures.at(-1);
     assert.equal(outbound.event, "studi_agent_trace");
-    assert.equal(outbound.properties.payload.userMessage, "Explain token limits and keep this exact answer: 42");
+    assert.equal(
+      outbound.properties.payload.userMessage,
+      "Explain token limits and keep this exact answer: 42",
+    );
     assert.equal(outbound.properties.payload.prompt, "Use the student's CSC 316 notes.");
     assert.equal(outbound.properties.payload.reply, "The answer is 42.");
     assert.equal(outbound.properties.payload.tool.arguments.api_key, "[secret]");
@@ -197,10 +211,20 @@ test("agent traces retain ordinary content and remove nested credentials", async
 
 test("error reports include nested causes and exact operation context even without debug mode", async () => {
   await withService(async ({ service, client }) => {
-    const cause = { expectedTools: ["browser_snapshot", "write"], activeTools: ["write"], token: "CANARY_CAUSE" };
+    const cause = {
+      expectedTools: ["browser_snapshot", "write"],
+      activeTools: ["write"],
+      token: "CANARY_CAUSE",
+    };
     cause.circular = cause;
     const error = new Error("Assignment could not start", { cause });
-    assert.equal(service.captureError(error, "ipc", "ipc_request", { ipc_channel: "studi:start-assignment", task_id: "task-1" }), true);
+    assert.equal(
+      service.captureError(error, "ipc", "ipc_request", {
+        ipc_channel: "studi:start-assignment",
+        task_id: "task-1",
+      }),
+      true,
+    );
     const payload = client.captures.at(-1).properties;
     assert.equal(payload.beta_debug, false);
     assert.equal(payload.task_id, "task-1");
@@ -216,10 +240,21 @@ test("failed chat tools also produce searchable errors linked to their run", asy
   await withService(async ({ service, client }) => {
     const trace = new AgentTrace();
     service.subscribeToTrace(trace);
-    await trace.emit({ jobId: "job-home", runId: "run-1", turnIndex: 0, type: "tool_finished", payload: {
-      name: "queue_start", outcome: "failed", result: { content: [{ type: "text", text: "Tool boundary mismatch" }] },
-    } });
-    assert.deepEqual(client.captures.map((event) => event.event), ["studi_agent_trace", "studi_error"]);
+    await trace.emit({
+      jobId: "job-home",
+      runId: "run-1",
+      turnIndex: 0,
+      type: "tool_finished",
+      payload: {
+        name: "queue_start",
+        outcome: "failed",
+        result: { content: [{ type: "text", text: "Tool boundary mismatch" }] },
+      },
+    });
+    assert.deepEqual(
+      client.captures.map((event) => event.event),
+      ["studi_agent_trace", "studi_error"],
+    );
     const error = client.captures.at(-1).properties;
     assert.equal(error.message, "Tool boundary mismatch");
     assert.equal(error.run_id, "run-1");
@@ -229,13 +264,16 @@ test("failed chat tools also produce searchable errors linked to their run", asy
 
 test("connected-app telemetry keeps scoped account state and timing without credentials", async () => {
   await withService(async ({ client, service }) => {
-    assert.equal(service.capture("studi_connected_app", {
-      toolkit: "github",
-      operation: "refresh",
-      status: "ACTIVE",
-      connected_account_id: "ca_test_account",
-      duration_ms: 318,
-    }), true);
+    assert.equal(
+      service.capture("studi_connected_app", {
+        toolkit: "github",
+        operation: "refresh",
+        status: "ACTIVE",
+        connected_account_id: "ca_test_account",
+        duration_ms: 318,
+      }),
+      true,
+    );
     const outbound = client.captures.at(-1);
     assert.equal(outbound.event, "studi_connected_app");
     assert.equal(outbound.properties.toolkit, "github");
@@ -248,16 +286,19 @@ test("connected-app telemetry keeps scoped account state and timing without cred
 
 test("Composio execution telemetry is chartable without tool arguments or credentials", async () => {
   await withService(async ({ client, service }) => {
-    assert.equal(service.capture("studi_composio_tool", {
-      toolkit: "googledrive",
-      tool: "GOOGLEDRIVE_FIND_FILE",
-      status: "succeeded",
-      duration_ms: 541,
-      original_bytes: 19_210,
-      retained_bytes: 8_192,
-      truncated: true,
-      log_id: "log_drive_1",
-    }), true);
+    assert.equal(
+      service.capture("studi_composio_tool", {
+        toolkit: "googledrive",
+        tool: "GOOGLEDRIVE_FIND_FILE",
+        status: "succeeded",
+        duration_ms: 541,
+        original_bytes: 19_210,
+        retained_bytes: 8_192,
+        truncated: true,
+        log_id: "log_drive_1",
+      }),
+      true,
+    );
     const outbound = client.captures.at(-1);
     assert.equal(outbound.event, "studi_composio_tool");
     assert.equal(outbound.properties.toolkit, "googledrive");
@@ -308,8 +349,17 @@ test("the inspector is bounded to upload-eligible envelopes and shutdown is awai
 
 test("renderer replay records Studi text, still masks passwords, and never enters the school view", async () => {
   const { build } = await import("esbuild");
-  const bundled = await build({ entryPoints: ["desktop/src/telemetry/renderer.ts"], bundle: true, write: false, format: "esm", platform: "node", packages: "external" });
-  const { filterRendererTelemetryEvent } = await import(`data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString("base64")}`);
+  const bundled = await build({
+    entryPoints: ["desktop/src/telemetry/renderer.ts"],
+    bundle: true,
+    write: false,
+    format: "esm",
+    platform: "node",
+    packages: "external",
+  });
+  const { filterRendererTelemetryEvent } = await import(
+    `data:text/javascript;base64,${Buffer.from(bundled.outputFiles[0].text).toString("base64")}`
+  );
   const [renderer, main, app] = await Promise.all([
     readFile(new URL("../../desktop/src/telemetry/renderer.ts", import.meta.url), "utf8"),
     readFile(new URL("../../desktop/electron/main.ts", import.meta.url), "utf8"),
@@ -325,8 +375,12 @@ test("renderer replay records Studi text, still masks passwords, and never enter
     /capture_performance:\s*true/,
     /enable_recording_console_log:\s*false/,
     /bootstrap:\s*\{\s*distinctID:\s*state\.distinctId,\s*isIdentifiedID:/,
-  ]) assert.match(renderer, policy);
-  const schoolView = main.slice(main.indexOf("function createSchoolBrowser"), main.indexOf("function loadRenderer"));
+  ])
+    assert.match(renderer, policy);
+  const schoolView = main.slice(
+    main.indexOf("function createSchoolBrowser"),
+    main.indexOf("function loadRenderer"),
+  );
   assert.doesNotMatch(schoolView, /preload|posthog|executeJavaScript/i);
   assert.match(app, /rendererTelemetry\.reset\(\)[\s\S]*?studi\.signOut\(\)/);
   assert.match(app, /rendererTelemetry\.disable\(\)[\s\S]*?setTelemetryPreferences/);
@@ -359,11 +413,22 @@ test("renderer replay records Studi text, still masks passwords, and never enter
   assert.deepEqual(identify.$set, { email: "ada@ncsu.edu" });
   assert.deepEqual(identify.$set_once, { name: "Ada" });
   assert.equal(identify.timestamp, timestamp);
-  assert.ok(filterRendererTelemetryEvent({ event: "$identify", properties: { token: "phc_test", distinct_id: "user_wp16" } }));
-  const click = filterRendererTelemetryEvent({ event: "$autocapture", properties: {
-    token: "phc_test", distinct_id: "user_wp16", $elements: [{ tag_name: "button", $el_text: "Scan courses" }],
-    $current_url: "https://school.test/course?id=2&ticket=SECRET_TICKET", $session_id: "session-wp16",
-  } });
+  assert.ok(
+    filterRendererTelemetryEvent({
+      event: "$identify",
+      properties: { token: "phc_test", distinct_id: "user_wp16" },
+    }),
+  );
+  const click = filterRendererTelemetryEvent({
+    event: "$autocapture",
+    properties: {
+      token: "phc_test",
+      distinct_id: "user_wp16",
+      $elements: [{ tag_name: "button", $el_text: "Scan courses" }],
+      $current_url: "https://school.test/course?id=2&ticket=SECRET_TICKET",
+      $session_id: "session-wp16",
+    },
+  });
   assert.equal(click.properties.token, "phc_test");
   assert.equal(click.properties.distinct_id, "user_wp16");
   assert.equal(click.properties.$elements[0].$el_text, "Scan courses");
@@ -376,38 +441,46 @@ test("renderer replay records Studi text, still masks passwords, and never enter
     properties: { snapshot_data: "opaque" },
   };
   assert.equal(filterRendererTelemetryEvent(snapshot), snapshot);
-  assert.deepEqual(filterRendererTelemetryEvent({
-    uuid: "01991a94-4000-7000-8000-000000000004",
-    event: "$autocapture",
-    properties: {
-      $event_type: "click",
-      $session_id: "session-wp16",
-      $window_id: "window-wp16",
-      $el_text: "Start scan",
+  assert.deepEqual(
+    filterRendererTelemetryEvent({
+      uuid: "01991a94-4000-7000-8000-000000000004",
+      event: "$autocapture",
+      properties: {
+        $event_type: "click",
+        $session_id: "session-wp16",
+        $window_id: "window-wp16",
+        $el_text: "Start scan",
+      },
+    }),
+    {
+      uuid: "01991a94-4000-7000-8000-000000000004",
+      event: "$autocapture",
+      properties: {
+        $event_type: "click",
+        $session_id: "session-wp16",
+        $window_id: "window-wp16",
+        $el_text: "Start scan",
+      },
     },
-  }), {
-    uuid: "01991a94-4000-7000-8000-000000000004",
-    event: "$autocapture",
-    properties: {
-      $event_type: "click",
-      $session_id: "session-wp16",
-      $window_id: "window-wp16",
-      $el_text: "Start scan",
-    },
+  );
+});
+
+test("handled chat errors use PostHog exception tracking and retain ordinary context", async () => {
+  await withService(async ({ client, service }) => {
+    const exceptions = [];
+    client.captureException = (error, id, props) => exceptions.push({ error, id, props });
+    service.captureError(new Error("Math chat failed password=HIDDEN_CREDENTIAL"), "ipc", "ipc_request");
+    assert.equal(exceptions[0].props.app_version, "16.0.0");
+    assert.equal(exceptions[0].props.platform, "win32");
+    assert.equal(exceptions.length, 1);
+    assert.match(exceptions[0].error.message, /Math chat/);
+    assert.equal(exceptions[0].error.stack.includes("HIDDEN_CREDENTIAL"), false);
+    assert.equal(exceptions[0].id, service.state().distinctId);
+    service.setPreferences(false, false);
+    service.captureError(new Error("Muted"), "ipc", "ipc_request");
+    assert.equal(exceptions.length, 1);
   });
 });
-
-test('handled chat errors use PostHog exception tracking and retain ordinary context',async()=>{
- await withService(async({client,service})=>{
-  const exceptions=[];client.captureException=(error,id,props)=>exceptions.push({error,id,props});
-  service.captureError(new Error('Math chat failed password=HIDDEN_CREDENTIAL'),'ipc','ipc_request');
-  assert.equal(exceptions[0].props.app_version, '16.0.0');
-  assert.equal(exceptions[0].props.platform, 'win32');
-  assert.equal(exceptions.length,1);assert.match(exceptions[0].error.message,/Math chat/);assert.equal(exceptions[0].error.stack.includes('HIDDEN_CREDENTIAL'),false);assert.equal(exceptions[0].id,service.state().distinctId);
-  service.setPreferences(false,false);service.captureError(new Error('Muted'),'ipc','ipc_request');assert.equal(exceptions.length,1);
- });
-});
-
 
 test("large diagnostics preserve exact content in correlated chunks and stop at opt-out", async () => {
   await withService(async ({ service, client }) => {
@@ -415,13 +488,27 @@ test("large diagnostics preserve exact content in correlated chunks and stop at 
     assert.equal(service.setReplayContext("wrong-user", "wrong-session", "wrong-window"), false);
     assert.equal(service.setReplayContext("user_content", "replay-1", "window-1"), true);
     const text = "Exact coursework prompt and response. ".repeat(8000);
-    service.captureDiagnostic({ source: "runtime", kind: "message_end", session_id: "pi-1", run_id: "run-1",
-      at: "2026-09-07T12:00:00.000Z", payload: { text, nested: { access_token: "CREDENTIAL_CANARY" } } });
-    const chunks = client.captures.map(event => event.properties);
+    service.captureDiagnostic({
+      source: "runtime",
+      kind: "message_end",
+      session_id: "pi-1",
+      run_id: "run-1",
+      at: "2026-09-07T12:00:00.000Z",
+      payload: { text, nested: { access_token: "CREDENTIAL_CANARY" } },
+    });
+    const chunks = client.captures.map((event) => event.properties);
     assert.ok(chunks.length > 1);
-    assert.equal(new Set(chunks.map(chunk => chunk.diagnostic_id)).size, 1);
-    assert.equal(chunks.every(chunk => chunk.$session_id === "replay-1" && chunk.$window_id === "window-1"), true);
-    const reconstructed = JSON.parse(chunks.sort((a, b) => a.chunk_index - b.chunk_index).map(chunk => chunk.payload).join(""));
+    assert.equal(new Set(chunks.map((chunk) => chunk.diagnostic_id)).size, 1);
+    assert.equal(
+      chunks.every((chunk) => chunk.$session_id === "replay-1" && chunk.$window_id === "window-1"),
+      true,
+    );
+    const reconstructed = JSON.parse(
+      chunks
+        .sort((a, b) => a.chunk_index - b.chunk_index)
+        .map((chunk) => chunk.payload)
+        .join(""),
+    );
     assert.equal(reconstructed.text, text);
     assert.equal(reconstructed.nested.access_token, "[secret]");
     service.resetIdentity();
@@ -429,7 +516,15 @@ test("large diagnostics preserve exact content in correlated chunks and stop at 
     assert.equal(client.captures.at(-1).properties.$session_id, undefined);
     const count = client.captures.length;
     service.setPreferences(false, false);
-    assert.equal(service.captureDiagnostic({ source: "browser", kind: "page_loaded", at: "2026-09-07T12:00:00.000Z", payload: { url: "https://school.test" } }), false);
+    assert.equal(
+      service.captureDiagnostic({
+        source: "browser",
+        kind: "page_loaded",
+        at: "2026-09-07T12:00:00.000Z",
+        payload: { url: "https://school.test" },
+      }),
+      false,
+    );
     assert.equal(client.captures.length, count);
     assert.equal(service.setReplayContext(service.state().distinctId, "replay-2", "window-2"), false);
   });
@@ -438,13 +533,29 @@ test("large diagnostics preserve exact content in correlated chunks and stop at 
 test("native AI generation events retain replay correlation", async () => {
   await withService(async ({ service, client }) => {
     service.setReplayContext(service.state().distinctId, "replay-generation", "window-generation");
-    service.captureDiagnostic({ source: "runtime", kind: "generation", at: "2026-09-07T12:00:00.000Z", payload: {
-      $ai_trace_id: "run", $ai_span_id: "call", $ai_session_id: "pi-session", $ai_model: "gpt-6-astra", $ai_provider: "openai-codex",
-      $ai_input: [{ role: "user", content: "Explain my Math homework" }], $ai_output_choices: [{ role: "assistant", content: "Full answer" }],
-      $ai_input_tokens: 42, $ai_output_tokens: 12, $ai_cache_read_input_tokens: 0, $ai_cache_creation_input_tokens: 0,
-      $ai_total_cost_usd: 0.01, $ai_latency: 1.2, $ai_is_error: false, stop_reason: "stop",
-    } });
-    const event = client.captures.find(item => item.event === "$ai_generation");
+    service.captureDiagnostic({
+      source: "runtime",
+      kind: "generation",
+      at: "2026-09-07T12:00:00.000Z",
+      payload: {
+        $ai_trace_id: "run",
+        $ai_span_id: "call",
+        $ai_session_id: "pi-session",
+        $ai_model: "gpt-6-astra",
+        $ai_provider: "openai-codex",
+        $ai_input: [{ role: "user", content: "Explain my Math homework" }],
+        $ai_output_choices: [{ role: "assistant", content: "Full answer" }],
+        $ai_input_tokens: 42,
+        $ai_output_tokens: 12,
+        $ai_cache_read_input_tokens: 0,
+        $ai_cache_creation_input_tokens: 0,
+        $ai_total_cost_usd: 0.01,
+        $ai_latency: 1.2,
+        $ai_is_error: false,
+        stop_reason: "stop",
+      },
+    });
+    const event = client.captures.find((item) => item.event === "$ai_generation");
     assert.equal(event.properties.$ai_input[0].content, "Explain my Math homework");
     assert.equal(event.properties.$session_id, "replay-generation");
   });

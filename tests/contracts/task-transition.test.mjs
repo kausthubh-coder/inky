@@ -94,18 +94,13 @@ test("all other state pairs reject without mutating the input", () => {
 
 test("invalid transitions never mutate arbitrary valid task values", () => {
   fc.assert(
-    fc.property(
-      fc.constantFrom(...states),
-      fc.constantFrom(...states),
-      fc.nat(),
-      (from, to, revision) => {
-        fc.pre(!expectedTransitions[from].includes(to));
-        const current = { ...task, state: from, revision };
-        const before = structuredClone(current);
-        const result = transitionTask(current, command(to));
-        assert.equal(result.ok, false);
-        assert.deepEqual(current, before);
-      },
-    ),
+    fc.property(fc.constantFrom(...states), fc.constantFrom(...states), fc.nat(), (from, to, revision) => {
+      fc.pre(!expectedTransitions[from].includes(to));
+      const current = { ...task, state: from, revision };
+      const before = structuredClone(current);
+      const result = transitionTask(current, command(to));
+      assert.equal(result.ok, false);
+      assert.deepEqual(current, before);
+    }),
   );
 });

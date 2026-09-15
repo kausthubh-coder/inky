@@ -5,15 +5,15 @@ import { ConnectedAppRow } from "./ConnectedAppRow.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
 import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
 import { Icon } from "./Icon.js";
-import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
+import {
+  SettingsNavigation,
+  SETTINGS_SECTIONS,
+  matchingSettings,
+  type SettingsSectionId,
+} from "./SettingsNavigation.js";
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
 import { courseTone, taskStatusCopy } from "./assignmentPresentation.js";
-import {
-  type CSSProperties,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 
 import {
   classifyAgentRuntimeAttention,
@@ -39,12 +39,15 @@ import {
   type TaskSummary,
   type TelemetryState,
   type UsageState,
+  AGENT_PROVIDERS,
+  defaultModelFor,
+  providerLoginActive,
+  selectedProvider,
+  type AgentProviderEntry,
+  type AgentProviderId,
+  type ProviderStatus,
 } from "../../shared/index.js";
-import {
-  DeskDrawer,
-  deskInkyState,
-  type DeskPanel,
-} from "./DeskScreen.js";
+import { DeskDrawer, deskInkyState, type DeskPanel } from "./DeskScreen.js";
 import { Inky } from "./Inky.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import {
@@ -53,6 +56,7 @@ import {
   type SettingsLanding,
   Field,
   PaperCard,
+  ProviderLoginHandoffView,
   RuntimeAttentionBanner,
   StatusPill,
   TelemetryControls,
@@ -102,6 +106,9 @@ export function DashboardScreen({
   onCheckAssignment,
   onStopAndScan,
   onConnectRuntime,
+  onCompleteRuntimeLogin,
+  onCancelRuntimeLogin,
+  onSwitchProvider,
   onFeedback,
   onSchoolSlot,
 }: {
@@ -132,6 +139,9 @@ export function DashboardScreen({
   onCheckAssignment: (assignmentId: string) => void;
   onStopAndScan: (taskId: string) => void;
   onConnectRuntime: () => void;
+  onCompleteRuntimeLogin: (code: string) => void;
+  onCancelRuntimeLogin: () => void;
+  onSwitchProvider: () => void;
   onFeedback: (context: string, message: string) => Promise<boolean>;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
 }) {
@@ -141,7 +151,9 @@ export function DashboardScreen({
   const [schoolOpen, setSchoolOpen] = useState(false);
   const [clock, setClock] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
-  const [boardView, setBoardView] = useState<"week" | "undated">(() => readDevPreviewConfig()?.id === "week-undated" ? "undated" : "week");
+  const [boardView, setBoardView] = useState<"week" | "undated">(() =>
+    readDevPreviewConfig()?.id === "week-undated" ? "undated" : "week",
+  );
   useEffect(() => {
     const tick = () => setClock(new Date());
     const timer = setInterval(tick, 30_000);
@@ -152,30 +164,27 @@ export function DashboardScreen({
     };
   }, []);
   useEffect(() => {
-    if (panel.kind !== "closed") { setSchoolOpen(panel.kind === "school"); setChatView("expanded"); }
+    if (panel.kind !== "closed") {
+      setSchoolOpen(panel.kind === "school");
+      setChatView("expanded");
+    }
   }, [panel]);
   const [feedback, setFeedback] = useState("");
   const [noteOpen, setNoteOpen] = useState(false);
   const verified = onboarding.assignments.filter(
-    (assignment) =>
-      assignment.lastVerifiedScanId && assignment.evidence.length > 0,
+    (assignment) => assignment.lastVerifiedScanId && assignment.evidence.length > 0,
   );
   const taskByAssignment = new Map(
     (library?.tasks ?? []).map((item) => [item.assignment.assignmentId, item]),
   );
-  const week = useMemo(
-    () => calendarWeek(clock, weekOffset),
-    [clock, weekOffset],
-  );
+  const week = useMemo(() => calendarWeek(clock, weekOffset), [clock, weekOffset]);
   const days = week.days;
   const scan = onboarding.scan;
   const dueToday = verified.filter(
-    (assignment) =>
-      assignment.dueAt &&
-      localDateKey(new Date(assignment.dueAt)) === localDateKey(clock),
+    (assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === localDateKey(clock),
   ).length;
   const runtimeAttention = classifyAgentRuntimeAttention(
-    workspace?.provider,
+    workspace ? selectedProvider(workspace) : null,
     scan?.state === "failed" ? (scan.failures[0] ?? scan.currentStep) : null,
   );
   const inkyState = deskInkyState({
@@ -186,32 +195,22 @@ export function DashboardScreen({
   });
   const selectedAssignment =
     panel.kind === "assignment"
-      ? (onboarding.assignments.find(
-          (item) => item.assignmentId === panel.assignmentId,
-        ) ?? null)
+      ? (onboarding.assignments.find((item) => item.assignmentId === panel.assignmentId) ?? null)
       : panel.kind === "desk"
         ? (onboarding.assignments.find(
             (item) =>
-              item.assignmentId ===
-              (detail?.assignment.assignmentId ??
-                lifecycle.execution?.assignmentId),
+              item.assignmentId === (detail?.assignment.assignmentId ?? lifecycle.execution?.assignmentId),
           ) ?? null)
         : null;
   const selectedTask = selectedAssignment
     ? (taskByAssignment.get(selectedAssignment.assignmentId) ??
-      (detail &&
-      detail.assignment.assignmentId === selectedAssignment.assignmentId
-        ? detail
-        : null))
+      (detail && detail.assignment.assignmentId === selectedAssignment.assignmentId ? detail : null))
     : panel.kind === "desk" && detail
       ? detail
       : null;
 
   return (
-    <main
-      className="app-shell chat-dashboard"
-      data-studi-app-ready="true"
-    >
+    <main className="app-shell chat-dashboard" data-studi-app-ready="true">
       <AppChrome
         {...chrome}
         chatName={undefined}
@@ -226,7 +225,11 @@ export function DashboardScreen({
       <div className="page dashboard-page">
         <header className="page-hero dashboard-hero">
           <h1>Hey {chrome.studentName.trim().split(/\s+/)[0]}.</h1>
-          <p>{dueToday ? `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today. We’ll take them one at a time.` : "Nothing due today. A little room to breathe."}</p>
+          <p>
+            {dueToday
+              ? `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today. We’ll take them one at a time.`
+              : "Nothing due today. A little room to breathe."}
+          </p>
         </header>
 
         <RuntimeAttentionBanner
@@ -234,45 +237,89 @@ export function DashboardScreen({
           workspace={workspace}
           busy={busy !== null}
           onConnect={onConnectRuntime}
+          onCompleteLogin={onCompleteRuntimeLogin}
+          onCancelLogin={onCancelRuntimeLogin}
+          onSwitchProvider={onSwitchProvider}
         />
 
-        <ScanStatus state={onboarding} lifecycle={lifecycle} busy={busy}
-          onCheck={onScanAgain} onStopAndScan={onStopAndScan} onOpenWork={onOpenDesk}
-          onWait={() => { onClosePanel(); setSchoolOpen(false); setChatView("home"); }}
-          onDetails={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} />
+        <ScanStatus
+          state={onboarding}
+          lifecycle={lifecycle}
+          busy={busy}
+          onCheck={onScanAgain}
+          onStopAndScan={onStopAndScan}
+          onOpenWork={onOpenDesk}
+          onWait={() => {
+            onClosePanel();
+            setSchoolOpen(false);
+            setChatView("home");
+          }}
+          onDetails={() => {
+            onClosePanel();
+            setSchoolOpen(true);
+            setChatView("expanded");
+          }}
+        />
 
         <section className="week-section" data-studi-week-board="true">
-          {onboarding.courseConflicts?.map(conflict => (
+          {onboarding.courseConflicts?.map((conflict) => (
             <div className="week-note" role="status" key={conflict.courseIds.join(",")}>
-              <strong>I kept these classes separate: {conflict.courseIds.map(id => courseLabel(onboarding, id)).join(" · ")}.</strong>
+              <strong>
+                I kept these classes separate:{" "}
+                {conflict.courseIds.map((id) => courseLabel(onboarding, id)).join(" · ")}.
+              </strong>
               <p>{conflict.reason} Automatic work on these classes is paused.</p>
-              {conflict.kind === "permissions" && <button className="quiet-button" onClick={() => chrome.onNavigate("settings", "rules")}>Review homework rules</button>}
+              {conflict.kind === "permissions" && (
+                <button className="quiet-button" onClick={() => chrome.onNavigate("settings", "rules")}>
+                  Review homework rules
+                </button>
+              )}
             </div>
           ))}
-          {onboarding.assignmentConflicts?.map(conflict => (
+          {onboarding.assignmentConflicts?.map((conflict) => (
             <p className="week-note" role="status" key={conflict.assignmentIds.join(",")}>
-              I kept separate copies of {onboarding.assignments.find(item => item.assignmentId === conflict.assignmentIds[0])?.title ?? "this homework"}.
-              {" "}{conflict.reason} I’ve paused automatic work on these copies.
+              I kept separate copies of{" "}
+              {onboarding.assignments.find((item) => item.assignmentId === conflict.assignmentIds[0])
+                ?.title ?? "this homework"}
+              . {conflict.reason} I’ve paused automatic work on these copies.
             </p>
           ))}
           <div className="section-title">
             <div>
               <div className="board-views" aria-label="Assignment views">
-                <button aria-pressed={boardView === "week"} onClick={() => setBoardView("week")}>Your week</button>
-                <button aria-pressed={boardView === "undated"} onClick={() => setBoardView("undated")}>Without dates <span>{verified.filter(a => !a.dueAt).length}</span></button>
+                <button aria-pressed={boardView === "week"} onClick={() => setBoardView("week")}>
+                  Your week
+                </button>
+                <button aria-pressed={boardView === "undated"} onClick={() => setBoardView("undated")}>
+                  Without dates <span>{verified.filter((a) => !a.dueAt).length}</span>
+                </button>
               </div>
             </div>
             <div className="week-tools">
-              {boardView === "week" && <div className="week-navigation" aria-label="Week navigation">
-              <button className="week-arrow" onClick={() => setWeekOffset(n => n - 1)} aria-label="Previous week"><Icon name="left" /></button>
-              <div className="week-range" aria-live="polite"><strong>{week.title}</strong><small>{week.range}</small></div>
-              <button className="week-arrow" onClick={() => setWeekOffset(n => n + 1)} aria-label="Next week"><Icon name="right" /></button>
-              </div>}
+              {boardView === "week" && (
+                <div className="week-navigation" aria-label="Week navigation">
+                  <button
+                    className="week-arrow"
+                    onClick={() => setWeekOffset((n) => n - 1)}
+                    aria-label="Previous week"
+                  >
+                    <Icon name="left" />
+                  </button>
+                  <div className="week-range" aria-live="polite">
+                    <strong>{week.title}</strong>
+                    <small>{week.range}</small>
+                  </div>
+                  <button
+                    className="week-arrow"
+                    onClick={() => setWeekOffset((n) => n + 1)}
+                    aria-label="Next week"
+                  >
+                    <Icon name="right" />
+                  </button>
+                </div>
+              )}
               {boardView === "week" && weekOffset !== 0 && (
-                <button
-                  className="week-today"
-                  onClick={() => setWeekOffset(0)}
-                >
+                <button className="week-today" onClick={() => setWeekOffset(0)}>
                   This week
                 </button>
               )}
@@ -299,98 +346,89 @@ export function DashboardScreen({
                 placeholder="Which assignment is missing or incorrect?"
                 maxLength={1000}
               />
-              <button
-                className="button button--yellow"
-                disabled={!feedback.trim() || busy !== null}
-              >
+              <button className="button button--yellow" disabled={!feedback.trim() || busy !== null}>
                 Send note
               </button>
             </form>
           )}
-          {boardView === "week" && <div className="week-grid-scroll"><div className="week-grid">
-            {days.map((day, index) => {
-              const items = verified.filter(
-                (assignment) =>
-                  assignment.dueAt &&
-                  localDateKey(new Date(assignment.dueAt)) === day.key,
-              );
-              return (
-                <section
-                  className={`day-column ${day.isToday ? "is-today" : ""}`}
-                  key={day.key}
-                >
-                  <header>
-                    <strong>{day.label}</strong>
-                    <small>{day.isToday ? "today" : day.date}</small>
-                  </header>
-                  <div className="day-stack">
-                    {items.length === 0 ? (
-                      <p className="empty-day">
-                        <span aria-hidden="true">〰</span>Nothing due
-                      </p>
-                    ) : (
-                      items.map((assignment) => {
-                        const task = taskByAssignment.get(
-                          assignment.assignmentId,
-                        );
-                        const course = courseLabel(
-                          onboarding,
-                          assignment.courseId,
-                        );
-                        const selected =
-                          (panel.kind === "assignment" &&
-                            panel.assignmentId === assignment.assignmentId) ||
-                          (showingLiveDesk &&
-                            lifecycle.execution?.assignmentId ===
-                              assignment.assignmentId);
-                        return (
-                          <AssignmentCard
-                            key={assignment.assignmentId}
-                            assignmentId={assignment.assignmentId}
-                            selected={selected}
-                            {...(task ? { item: task } : {})}
-                            title={assignment.title}
-                            {...(assignment.dueAt
-                              ? { dueAt: assignment.dueAt }
-                              : {})}
-                            course={course}
-                            tone={courseTone(course)}
-                            onAssignment={onAssignment}
-                          />
-                        );
-                      })
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-          </div></div>}
+          {boardView === "week" && (
+            <div className="week-grid-scroll">
+              <div className="week-grid">
+                {days.map((day, index) => {
+                  const items = verified.filter(
+                    (assignment) => assignment.dueAt && localDateKey(new Date(assignment.dueAt)) === day.key,
+                  );
+                  return (
+                    <section className={`day-column ${day.isToday ? "is-today" : ""}`} key={day.key}>
+                      <header>
+                        <strong>{day.label}</strong>
+                        <small>{day.isToday ? "today" : day.date}</small>
+                      </header>
+                      <div className="day-stack">
+                        {items.length === 0 ? (
+                          <p className="empty-day">
+                            <span aria-hidden="true">〰</span>Nothing due
+                          </p>
+                        ) : (
+                          items.map((assignment) => {
+                            const task = taskByAssignment.get(assignment.assignmentId);
+                            const course = courseLabel(onboarding, assignment.courseId);
+                            const selected =
+                              (panel.kind === "assignment" &&
+                                panel.assignmentId === assignment.assignmentId) ||
+                              (showingLiveDesk &&
+                                lifecycle.execution?.assignmentId === assignment.assignmentId);
+                            return (
+                              <AssignmentCard
+                                key={assignment.assignmentId}
+                                assignmentId={assignment.assignmentId}
+                                selected={selected}
+                                {...(task ? { item: task } : {})}
+                                title={assignment.title}
+                                {...(assignment.dueAt ? { dueAt: assignment.dueAt } : {})}
+                                course={course}
+                                tone={courseTone(course)}
+                                onAssignment={onAssignment}
+                              />
+                            );
+                          })
+                        )}
+                      </div>
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {boardView === "undated" && (
             <div className="undated-assignments">
               <p>School hasn’t listed a due date for these yet.</p>
-              {!verified.some(a => !a.dueAt) && <p className="undated-empty">All caught up — everything has a place in your week.</p>}
-              {[...new Set(verified.filter(a => !a.dueAt).map(a => a.courseId))].map(courseId => <section className="undated-course" key={courseId}>
-              <h3>{courseLabel(onboarding, courseId)}</h3><div>
-                {verified
-                  .filter((a) => !a.dueAt && a.courseId === courseId)
-                  .map((assignment) => (
-                    <AssignmentCard
-                      key={assignment.assignmentId}
-                      assignmentId={assignment.assignmentId}
-                      title={assignment.title}
-                      {...(taskByAssignment.get(assignment.assignmentId) ? { item: taskByAssignment.get(assignment.assignmentId)! } : {})}
-                      course={courseLabel(onboarding, assignment.courseId)}
-                      tone={courseTone(
-                        courseLabel(onboarding, assignment.courseId),
-                      )}
-                      selected={
-                        selectedAssignment?.assignmentId ===
-                        assignment.assignmentId
-                      }
-                      onAssignment={onAssignment}
-                    />
-                  ))}
-              </div></section>)}
+              {!verified.some((a) => !a.dueAt) && (
+                <p className="undated-empty">All caught up — everything has a place in your week.</p>
+              )}
+              {[...new Set(verified.filter((a) => !a.dueAt).map((a) => a.courseId))].map((courseId) => (
+                <section className="undated-course" key={courseId}>
+                  <h3>{courseLabel(onboarding, courseId)}</h3>
+                  <div>
+                    {verified
+                      .filter((a) => !a.dueAt && a.courseId === courseId)
+                      .map((assignment) => (
+                        <AssignmentCard
+                          key={assignment.assignmentId}
+                          assignmentId={assignment.assignmentId}
+                          title={assignment.title}
+                          {...(taskByAssignment.get(assignment.assignmentId)
+                            ? { item: taskByAssignment.get(assignment.assignmentId)! }
+                            : {})}
+                          course={courseLabel(onboarding, assignment.courseId)}
+                          tone={courseTone(courseLabel(onboarding, assignment.courseId))}
+                          selected={selectedAssignment?.assignmentId === assignment.assignmentId}
+                          onAssignment={onAssignment}
+                        />
+                      ))}
+                  </div>
+                </section>
+              ))}
             </div>
           )}
           {verified.length === 0 && (
@@ -405,8 +443,26 @@ export function DashboardScreen({
             </PaperCard>
           )}
           <footer className="week-footer">
-            <button className="scan-refresh" onClick={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} aria-label="School check"><Icon name="refresh" size={15} /><span role="status">School scan details</span></button>
-            <button className="week-correction" onClick={() => setNoteOpen(open => !open)} aria-expanded={noteOpen}><Icon name="note" size={15} />{noteOpen ? "Close note" : "Report missing or incorrect homework"}</button>
+            <button
+              className="scan-refresh"
+              onClick={() => {
+                onClosePanel();
+                setSchoolOpen(true);
+                setChatView("expanded");
+              }}
+              aria-label="School check"
+            >
+              <Icon name="refresh" size={15} />
+              <span role="status">School scan details</span>
+            </button>
+            <button
+              className="week-correction"
+              onClick={() => setNoteOpen((open) => !open)}
+              aria-expanded={noteOpen}
+            >
+              <Icon name="note" size={15} />
+              {noteOpen ? "Close note" : "Report missing or incorrect homework"}
+            </button>
           </footer>
         </section>
         {error && panel.kind === "closed" && (
@@ -416,11 +472,20 @@ export function DashboardScreen({
         )}
       </div>
       <ChatWorkspace
-        key={`${chrome.storageKey}:${schoolOpen ? "school" : selectedAssignment?.assignmentId ?? "home"}`}
+        key={`${chrome.storageKey}:${schoolOpen ? "school" : (selectedAssignment?.assignmentId ?? "home")}`}
         schoolCheck={schoolOpen}
-        onAssignment={id => { setSchoolOpen(false); onAssignment(id); }}
+        onAssignment={(id) => {
+          setSchoolOpen(false);
+          onAssignment(id);
+        }}
         view={chatView === "home" ? "home" : "expanded"}
-        onView={view => { setChatView(view); if(view === "home") { onClosePanel(); setSchoolOpen(false); } }}
+        onView={(view) => {
+          setChatView(view);
+          if (view === "home") {
+            onClosePanel();
+            setSchoolOpen(false);
+          }
+        }}
         storageKey={chrome.storageKey ?? chrome.studentName}
         onboarding={onboarding}
         lifecycle={lifecycle}
@@ -430,9 +495,17 @@ export function DashboardScreen({
         mood={inkyState}
         actionError={error}
         onStart={onStart}
-        onCheckAssignment={id => { setSchoolOpen(true); setChatView("expanded"); onCheckAssignment(id); }}
+        onCheckAssignment={(id) => {
+          setSchoolOpen(true);
+          setChatView("expanded");
+          onCheckAssignment(id);
+        }}
         onOpenWork={onOpenDesk}
-        onOpenSchoolCheck={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }}
+        onOpenSchoolCheck={() => {
+          onClosePanel();
+          setSchoolOpen(true);
+          setChatView("expanded");
+        }}
         onOpenRules={() => chrome.onNavigate("settings", "rules")}
         onTakeover={onTakeover}
         onResume={onResume}
@@ -448,13 +521,38 @@ export function DashboardScreen({
   );
 }
 
-function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, selected, onAssignment }: { assignmentId: string; item?: TaskSummary; title: string; dueAt?: string; course: string; tone: number; selected: boolean; onAssignment: (assignmentId: string) => void }) {
+function AssignmentCard({
+  assignmentId,
+  item,
+  title,
+  dueAt,
+  course,
+  tone,
+  selected,
+  onAssignment,
+}: {
+  assignmentId: string;
+  item?: TaskSummary;
+  title: string;
+  dueAt?: string;
+  course: string;
+  tone: number;
+  selected: boolean;
+  onAssignment: (assignmentId: string) => void;
+}) {
   const status = item ? taskStatusCopy(item.task.state, item.assignment) : null;
   return (
-    <button className={`assignment-card course-accent-${tone} ${selected ? "is-selected" : ""}`} onClick={() => onAssignment(assignmentId)}>
+    <button
+      className={`assignment-card course-accent-${tone} ${selected ? "is-selected" : ""}`}
+      onClick={() => onAssignment(assignmentId)}
+    >
       <small>{course}</small>
       <strong>{title}</strong>
-      {dueAt && <span>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(dueAt))}</span>}
+      {dueAt && (
+        <span>
+          {new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(dueAt))}
+        </span>
+      )}
       {status && <StatusPill tone={status.tone}>{status.label}</StatusPill>}
     </button>
   );
@@ -521,10 +619,12 @@ function NotificationSettings({
                   type="checkbox"
                   checked={kind.banner}
                   disabled={busy || !preferences.enabled}
-                  onChange={(event) => update({
-                    ...preferences,
-                    kinds: { ...preferences.kinds, [row.kind]: { ...kind, banner: event.target.checked } },
-                  })}
+                  onChange={(event) =>
+                    update({
+                      ...preferences,
+                      kinds: { ...preferences.kinds, [row.kind]: { ...kind, banner: event.target.checked } },
+                    })
+                  }
                 />
                 <span>
                   <strong>{row.label}</strong>
@@ -535,12 +635,21 @@ function NotificationSettings({
                 <select
                   value={kind.sound}
                   disabled={busy || !preferences.enabled}
-                  onChange={(event) => update({
-                    ...preferences,
-                    kinds: { ...preferences.kinds, [row.kind]: { ...kind, sound: event.target.value as NotificationSoundId } },
-                  })}
+                  onChange={(event) =>
+                    update({
+                      ...preferences,
+                      kinds: {
+                        ...preferences.kinds,
+                        [row.kind]: { ...kind, sound: event.target.value as NotificationSoundId },
+                      },
+                    })
+                  }
                 >
-                  {SOUND_OPTIONS.map((option) => <option key={option.id} value={option.id}>{option.label}</option>)}
+                  {SOUND_OPTIONS.map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
               </Field>
               <button
@@ -563,7 +672,9 @@ function NotificationSettings({
       </div>
       <small>Inky sounds use the Windows ping until the Inky files are added.</small>
       {receipt && !receipt.shown && (
-        <small>If nothing popped up, Windows may be hiding Studi. Check Settings → System → Notifications.</small>
+        <small>
+          If nothing popped up, Windows may be hiding Studi. Check Settings → System → Notifications.
+        </small>
       )}
     </PaperCard>
   );
@@ -588,7 +699,11 @@ function UsageCard({ entitlement, usage }: { entitlement: Entitlement | null; us
   const remaining = Math.max(0, usage.tokenAllowance - usage.totalTokens);
   const percentage = Math.min(100, Math.round((usage.totalTokens / usage.tokenAllowance) * 100));
   const maximumDay = Math.max(1, ...usage.days.map((day) => day.tokens));
-  const month = new Date(`${usage.period}-01T00:00:00.000Z`).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" });
+  const month = new Date(`${usage.period}-01T00:00:00.000Z`).toLocaleDateString(undefined, {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
 
   return (
     <PaperCard className="settings-card usage-card" id="usage-settings">
@@ -621,23 +736,44 @@ function UsageCard({ entitlement, usage }: { entitlement: Entitlement | null; us
         <div className="usage-chart" aria-label={`Daily token usage for ${month}`}>
           {usage.days.map((day) => {
             const height = day.tokens === 0 ? 4 : Math.max(10, Math.round((day.tokens / maximumDay) * 100));
-            const label = new Date(`${day.date}T00:00:00.000Z`).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-            return <span key={day.date} title={`${label}: ${day.tokens.toLocaleString()} tokens`} style={{ "--usage-height": `${height}%` } as CSSProperties} />;
+            const label = new Date(`${day.date}T00:00:00.000Z`).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              timeZone: "UTC",
+            });
+            return (
+              <span
+                key={day.date}
+                title={`${label}: ${day.tokens.toLocaleString()} tokens`}
+                style={{ "--usage-height": `${height}%` } as CSSProperties}
+              />
+            );
           })}
         </div>
       </div>
 
       <div className="usage-activity">
-        <span><strong>{usage.inkyTurns.toLocaleString()}</strong> Inky turns</span>
-        <span><strong>{usage.assignmentsWorked.toLocaleString()}</strong> assignments worked</span>
+        <span>
+          <strong>{usage.inkyTurns.toLocaleString()}</strong> Inky turns
+        </span>
+        <span>
+          <strong>{usage.assignmentsWorked.toLocaleString()}</strong> assignments worked
+        </span>
       </div>
-      <p className="usage-privacy">Only these totals sync. Your prompts, answers, and school pages stay out of usage tracking.</p>
+      <p className="usage-privacy">
+        Only these totals sync. Your prompts, answers, and school pages stay out of usage tracking.
+      </p>
     </PaperCard>
   );
 }
 
 function UsageNumber({ label, value }: { label: string; value: number }) {
-  return <span><small>{label}</small><strong>{formatTokenCount(value)}</strong></span>;
+  return (
+    <span>
+      <small>{label}</small>
+      <strong>{formatTokenCount(value)}</strong>
+    </span>
+  );
 }
 
 function formatTokenCount(value: number): string {
@@ -653,7 +789,8 @@ export function SettingsScreen({
   onboarding,
   workspace,
   connectedApps,
-  appConnections, appConnectionFeedback,
+  appConnections,
+  appConnectionFeedback,
   telemetry,
   runtime,
   diagnosticsReceipt,
@@ -668,6 +805,9 @@ export function SettingsScreen({
   onSchedule,
   onSelectAgentRuntime,
   onConnectRuntime,
+  onCompleteRuntimeLogin,
+  onCancelRuntimeLogin,
+  onDisconnectRuntime,
   onConnectApp,
   onRefreshConnectedApp,
   onTelemetry,
@@ -684,21 +824,34 @@ export function SettingsScreen({
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
   connectedApps: ConnectedAppsState | null;
-  appConnections: Readonly<Record<string, ConnectedAppConnection | null>>; appConnectionFeedback: ConnectionFeedbackMap;
+  appConnections: Readonly<Record<string, ConnectedAppConnection | null>>;
+  appConnectionFeedback: ConnectionFeedbackMap;
   telemetry: TelemetryState | null;
   runtime: RuntimeInfo | null;
   diagnosticsReceipt: DiagnosticsExportReceipt | null;
   busy: string | null;
   error: string | null;
-  onSavePreferences: (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all", workStartMode?: "manual" | "automatic") => void;
+  onSavePreferences: (
+    reviewMinutes: number,
+    handoffMinutes: number,
+    memoryVisibility: "none" | "selected" | "all",
+    workStartMode?: "manual" | "automatic",
+  ) => void;
   onSelectHomeworkRoot: () => void;
   onSaveNotifications: (notifications: NotificationPreferences) => void;
   onTestNotification: (kind: NotificationKind) => Promise<NotificationTestReceipt | undefined>;
   onSaveRule: (input: SaveRuleInput) => void;
   onDeleteRule: (ruleId: string) => void;
   onSchedule: (cadence: "manual" | "daily" | "weekly", localTime: string, weekday?: number) => void;
-  onSelectAgentRuntime: (modelId: string, reasoningEffort: AgentReasoningEffort) => void;
-  onConnectRuntime: () => void;
+  onSelectAgentRuntime: (
+    providerId: AgentProviderId,
+    modelId: string,
+    reasoningEffort: AgentReasoningEffort,
+  ) => void;
+  onConnectRuntime: (providerId: AgentProviderId) => void;
+  onCompleteRuntimeLogin: (code: string) => void;
+  onCancelRuntimeLogin: () => void;
+  onDisconnectRuntime: (providerId: AgentProviderId) => void;
   onConnectApp: (toolkit: string) => void;
   onRefreshConnectedApp: (toolkit: string) => void;
   onTelemetry: (enabled: boolean, replayEnabled: boolean) => void;
@@ -709,11 +862,19 @@ export function SettingsScreen({
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
-  const [section, setSection] = useState<SettingsSectionId>(() => chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : chrome.settingsLanding === "rules" ? "rules" : readDevPreviewConfig()?.settingsSection ?? initialSection);
+  const [section, setSection] = useState<SettingsSectionId>(() =>
+    chrome.settingsLanding === "usage"
+      ? "usage"
+      : chrome.settingsLanding === "feedback"
+        ? "support"
+        : chrome.settingsLanding === "rules"
+          ? "rules"
+          : (readDevPreviewConfig()?.settingsSection ?? initialSection),
+  );
   const [query, setQuery] = useState("");
   const matches = matchingSettings(query);
-  const visible = (id: SettingsSectionId) => query.trim() ? matches.includes(id) : section === id;
-  const currentSection = SETTINGS_SECTIONS.find(item => item.id === section)!;
+  const visible = (id: SettingsSectionId) => (query.trim() ? matches.includes(id) : section === id);
+  const currentSection = SETTINGS_SECTIONS.find((item) => item.id === section)!;
   const [reviewTime, setReviewTime] = useState("30");
   const [memory, setMemory] = useState<"none" | "selected" | "all">("selected");
   const [preferencesSubmitted, setPreferencesSubmitted] = useState(false);
@@ -726,19 +887,32 @@ export function SettingsScreen({
       setMemory(preferences.memoryVisibility);
     }
   }, [preferences]);
-  useEffect(() => { if (schedule) { setCadence(schedule.cadence); setLocalTime(schedule.localTime); setWeekday(schedule.weekday ?? 1); } }, [schedule]);
   useEffect(() => {
-    const targetId = chrome.settingsLanding === "usage" ? "usage-settings" : chrome.settingsLanding === "feedback" ? "feedback-settings" : null;
+    if (schedule) {
+      setCadence(schedule.cadence);
+      setLocalTime(schedule.localTime);
+      setWeekday(schedule.weekday ?? 1);
+    }
+  }, [schedule]);
+  useEffect(() => {
+    const targetId =
+      chrome.settingsLanding === "usage"
+        ? "usage-settings"
+        : chrome.settingsLanding === "feedback"
+          ? "feedback-settings"
+          : null;
     if (!targetId) return undefined;
-    const frame = window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ block: "start" }));
+    const frame = window.requestAnimationFrame(() =>
+      document.getElementById(targetId)?.scrollIntoView({ block: "start" }),
+    );
     return () => window.cancelAnimationFrame(frame);
   }, [chrome.settingsLanding]);
   const reviewMinutes = Number(reviewTime);
   const validPreferences = Number.isInteger(reviewMinutes) && reviewMinutes >= 1 && reviewMinutes <= 240;
-  const preferencesChanged = preferences && (
-    reviewMinutes !== preferences.handoffMinutes ||
-    (memory === "none") !== (preferences.memoryVisibility === "none")
-  );
+  const preferencesChanged =
+    preferences &&
+    (reviewMinutes !== preferences.handoffMinutes ||
+      (memory === "none") !== (preferences.memoryVisibility === "none"));
 
   return (
     <main className="app-shell" data-studi-app-ready="true">
@@ -747,52 +921,149 @@ export function SettingsScreen({
         <SettingsNavigation section={section} query={query} onQuery={setQuery} onSection={setSection} />
         <div className="settings-content">
           <header className="settings-heading">
-            <div><p className="eyebrow">{query.trim() ? "Find your setting" : currentSection.group}</p><h2>{query.trim() ? "Search results" : currentSection.label}</h2><p>{query.trim() ? `${matches.length} ${matches.length === 1 ? "section" : "sections"} matching “${query.trim()}”` : currentSection.hint}</p></div>
+            <div>
+              <p className="eyebrow">{query.trim() ? "Find your setting" : currentSection.group}</p>
+              <h2>{query.trim() ? "Search results" : currentSection.label}</h2>
+              <p>
+                {query.trim()
+                  ? `${matches.length} ${matches.length === 1 ? "section" : "sections"} matching “${query.trim()}”`
+                  : currentSection.hint}
+              </p>
+            </div>
             <Inky state="idle" size={58} label="Inky" />
           </header>
-          {query.trim() && matches.length === 0 && <div className="settings-no-results"><h3>No settings found.</h3><p>Try “sound”, “model”, or “school”.</p><button className="button" onClick={() => setQuery("")}>Clear search</button></div>}
-            {visible("inky") && (
+          {query.trim() && matches.length === 0 && (
+            <div className="settings-no-results">
+              <h3>No settings found.</h3>
+              <p>Try “sound”, “model”, or “school”.</p>
+              <button className="button" onClick={() => setQuery("")}>
+                Clear search
+              </button>
+            </div>
+          )}
+          {visible("inky") && (
             <PaperCard className="settings-card">
-              <p className="eyebrow">How I think</p>
-              <h2>{workspace?.provider.providerName ?? "ChatGPT"}</h2>
-              <p>{workspace?.provider.reason}</p>
-              <RuntimeAttentionBanner attention={classifyAgentRuntimeAttention(workspace?.provider)} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />
-              <button className="button button--yellow" type="button" onClick={onConnectRuntime} disabled={busy !== null}>{workspace?.provider.state === "ready" ? "Use another ChatGPT" : "Connect ChatGPT"}</button>
+              <p className="eyebrow">Your subscription</p>
+              <h2>Which AI does the work</h2>
+              <p>Bring the one you already pay for. I use the one you pick here.</p>
+              <div className="provider-cards" data-settings-providers="true">
+                {workspace &&
+                  AGENT_PROVIDERS.map((entry) => {
+                    const provider = workspace.providers.find((status) => status.providerId === entry.id);
+                    if (!provider) return null;
+                    return (
+                      <ProviderCard
+                        key={entry.id}
+                        entry={entry}
+                        provider={provider}
+                        workspace={workspace}
+                        busy={busy !== null}
+                        onSelect={() => {
+                          const model = defaultModelFor(workspace.models, entry.id);
+                          if (model)
+                            onSelectAgentRuntime(entry.id, model.id, workspace.selectedReasoningEffort);
+                        }}
+                        onConnect={() => onConnectRuntime(entry.id)}
+                        onCompleteLogin={onCompleteRuntimeLogin}
+                        onCancelLogin={onCancelRuntimeLogin}
+                        onDisconnect={() => onDisconnectRuntime(entry.id)}
+                      />
+                    );
+                  })}
+              </div>
               <div className="form-grid form-grid--two">
-                <Field label="Model"><select value={workspace?.selectedModelId ?? ""} onChange={(event) => onSelectAgentRuntime(event.target.value, workspace?.selectedReasoningEffort ?? "medium")} disabled={!workspace || busy !== null}>{workspace?.models.map((model) => <option value={model.id} key={model.id}>{model.name}</option>)}</select></Field>
-                <Field label="How hard I think"><select value={workspace?.selectedReasoningEffort ?? "medium"} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedModelId, event.target.value as AgentReasoningEffort)} disabled={!workspace || busy !== null}><option value="off">Off</option><option value="minimal">Minimal</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option></select></Field>
+                <Field label="Model">
+                  <select
+                    value={workspace?.selectedModelId ?? ""}
+                    onChange={(event) =>
+                      workspace &&
+                      onSelectAgentRuntime(
+                        workspace.selectedProviderId,
+                        event.target.value,
+                        workspace.selectedReasoningEffort,
+                      )
+                    }
+                    disabled={!workspace || busy !== null}
+                  >
+                    {workspace?.models
+                      .filter((model) => model.providerId === workspace.selectedProviderId)
+                      .map((model) => (
+                        <option value={model.id} key={model.id}>
+                          {model.name}
+                        </option>
+                      ))}
+                  </select>
+                </Field>
+                <Field label="How hard I think">
+                  <select
+                    value={workspace?.selectedReasoningEffort ?? "medium"}
+                    onChange={(event) =>
+                      workspace &&
+                      onSelectAgentRuntime(
+                        workspace.selectedProviderId,
+                        workspace.selectedModelId,
+                        event.target.value as AgentReasoningEffort,
+                      )
+                    }
+                    disabled={!workspace || busy !== null}
+                  >
+                    <option value="off">Off</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="xhigh">Extra high</option>
+                  </select>
+                </Field>
               </div>
               <small>New chats use the pair you save here.</small>
             </PaperCard>
-            )}
-            {visible("preferences") && (
+          )}
+          {visible("preferences") && (
             <PaperCard className="settings-card">
-              <form className="review-preferences" onSubmit={(event) => {
-                event.preventDefault();
-                if (preferences && preferencesChanged && validPreferences && busy === null) {
-                  setPreferencesSubmitted(true);
-                  onSavePreferences(preferences.reviewMinutes, reviewMinutes, memory);
-                }
-              }}>
+              <form
+                className="review-preferences"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (preferences && preferencesChanged && validPreferences && busy === null) {
+                    setPreferencesSubmitted(true);
+                    onSavePreferences(preferences.reviewMinutes, reviewMinutes, memory);
+                  }
+                }}
+              >
                 <div className="review-preferences__section">
                   <h3>Time to review your answers</h3>
                   <label className="review-duration">
                     <span>Keep the assignment open for</span>
                     <span className="review-duration__value">
                       <input
-                        type="number" min={1} max={240} step={1} required
+                        type="number"
+                        min={1}
+                        max={240}
+                        step={1}
+                        required
                         aria-label="Keep the assignment open for (minutes)"
                         aria-describedby={validPreferences ? "review-time-help" : "review-time-error"}
                         aria-invalid={!validPreferences}
                         value={reviewTime}
                         disabled={!preferences || busy !== null}
-                        onChange={(event) => { setReviewTime(event.target.value); setPreferencesSubmitted(false); }}
+                        onChange={(event) => {
+                          setReviewTime(event.target.value);
+                          setPreferencesSubmitted(false);
+                        }}
                       />
                       <span>minutes</span>
                     </span>
                   </label>
-                  <p id="review-time-help">Starts when your answers are ready. When time runs out, I save your answers and move on without submitting.</p>
-                  {!validPreferences && <small id="review-time-error" role="status">Enter a whole number from 1 to 240 minutes.</small>}
+                  <p id="review-time-help">
+                    Starts when your answers are ready. When time runs out, I save your answers and move on
+                    without submitting.
+                  </p>
+                  {!validPreferences && (
+                    <small id="review-time-error" role="status">
+                      Enter a whole number from 1 to 240 minutes.
+                    </small>
+                  )}
                 </div>
                 <div className="review-preferences__section">
                   <label className="toggle-row">
@@ -802,101 +1073,315 @@ export function SettingsScreen({
                       aria-describedby="saved-memories-help"
                       checked={memory !== "none"}
                       disabled={!preferences || busy !== null}
-                      onChange={(event) => { setMemory(event.target.checked ? "all" : "none"); setPreferencesSubmitted(false); }}
+                      onChange={(event) => {
+                        setMemory(event.target.checked ? "all" : "none");
+                        setPreferencesSubmitted(false);
+                      }}
                     />
                     <span>
                       <strong>Show saved memories</strong>
-                      <small id="saved-memories-help">Hiding them doesn’t delete them or stop Inky from saving notes.</small>
+                      <small id="saved-memories-help">
+                        Hiding them doesn’t delete them or stop Inky from saving notes.
+                      </small>
                     </span>
                   </label>
                 </div>
-                <button className="button button--yellow" type="submit" disabled={!preferencesChanged || busy !== null || !validPreferences}>
+                <button
+                  className="button button--yellow"
+                  type="submit"
+                  disabled={!preferencesChanged || busy !== null || !validPreferences}
+                >
                   {busy === "settings" ? "Saving…" : "Save changes"}
                 </button>
-                {preferencesSubmitted && !preferencesChanged && busy === null && !error && <small role="status">Changes saved.</small>}
+                {preferencesSubmitted && !preferencesChanged && busy === null && !error && (
+                  <small role="status">Changes saved.</small>
+                )}
               </form>
             </PaperCard>
-            )}
-            {visible("apps") && (
+          )}
+          {visible("apps") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Connected apps</p>
               <h2>Tools I can use</h2>
-              <p>Connections happen in your browser. Studi never receives the app password or provider token.</p>
+              <p>
+                Connections happen in your browser. Studi never receives the app password or provider token.
+              </p>
               {!connectedApps && <small>Connected apps need an online Studi account.</small>}
-              {connectedApps && !connectedApps.configured && <small>Connected apps are not configured on this Studi server.</small>}
+              {connectedApps && !connectedApps.configured && (
+                <small>Connected apps are not configured on this Studi server.</small>
+              )}
               <div className="connected-app-grid">
-                {connectedApps?.configured && connectedApps.toolkits.map(({ toolkit, access, tools }) => (
-                  <ConnectedAppRow key={toolkit} toolkit={toolkit} connection={appConnections[toolkit] ?? null} feedback={appConnectionFeedback[toolkit]} access={access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`} disabled={busy !== null} onConnect={onConnectApp} onCheck={onRefreshConnectedApp} />
-                ))}
+                {connectedApps?.configured &&
+                  connectedApps.toolkits.map(({ toolkit, access, tools }) => (
+                    <ConnectedAppRow
+                      key={toolkit}
+                      toolkit={toolkit}
+                      connection={appConnections[toolkit] ?? null}
+                      feedback={appConnectionFeedback[toolkit]}
+                      access={access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`}
+                      disabled={busy !== null}
+                      onConnect={onConnectApp}
+                      onCheck={onRefreshConnectedApp}
+                    />
+                  ))}
               </div>
             </PaperCard>
-            )}
-            {visible("folder") && (
+          )}
+          {visible("folder") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Homework folder</p>
               <h2>The folder I may use</h2>
-              <p>Choose a folder just for Studi. I’ll organize your classes and keep each assignment’s files and saved answers together.</p>
+              <p>
+                Choose a folder just for Studi. I’ll organize your classes and keep each assignment’s files
+                and saved answers together.
+              </p>
               <small data-homework-root>{preferences?.homeworkRoot ?? "No folder selected"}</small>
-              <button className="button button--mint" type="button" disabled={busy !== null} onClick={onSelectHomeworkRoot}>Choose an empty folder</button>
+              <button
+                className="button button--mint"
+                type="button"
+                disabled={busy !== null}
+                onClick={onSelectHomeworkRoot}
+              >
+                Choose an empty folder
+              </button>
             </PaperCard>
-            )}
+          )}
 
-            {visible("school") && (
+          {visible("school") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Look schedule</p>
               <h2>When I check school</h2>
               <div className="form-grid form-grid--two">
-                <Field label="How often"><select value={cadence} onChange={(event) => setCadence(event.target.value as typeof cadence)}><option value="manual">Only when I ask</option><option value="daily">Every day</option><option value="weekly">Every week</option></select></Field>
-                {cadence !== "manual" && <Field label="Local time"><input type="time" value={localTime} onChange={(event) => setLocalTime(event.target.value)} /></Field>}
-                {cadence === "weekly" && <Field label="Weekday"><select value={weekday} onChange={(event) => setWeekday(Number(event.target.value))}>{["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((label, index) => <option value={index} key={label}>{label}</option>)}</select></Field>}
+                <Field label="How often">
+                  <select
+                    value={cadence}
+                    onChange={(event) => setCadence(event.target.value as typeof cadence)}
+                  >
+                    <option value="manual">Only when I ask</option>
+                    <option value="daily">Every day</option>
+                    <option value="weekly">Every week</option>
+                  </select>
+                </Field>
+                {cadence !== "manual" && (
+                  <Field label="Local time">
+                    <input
+                      type="time"
+                      value={localTime}
+                      onChange={(event) => setLocalTime(event.target.value)}
+                    />
+                  </Field>
+                )}
+                {cadence === "weekly" && (
+                  <Field label="Weekday">
+                    <select value={weekday} onChange={(event) => setWeekday(Number(event.target.value))}>
+                      {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(
+                        (label, index) => (
+                          <option value={index} key={label}>
+                            {label}
+                          </option>
+                        ),
+                      )}
+                    </select>
+                  </Field>
+                )}
               </div>
-              <button className="button button--mint" disabled={busy !== null || (cadence !== "manual" && !localTime)} onClick={() => onSchedule(cadence, localTime || "09:00", cadence === "weekly" ? weekday : undefined)}>Save schedule</button>
-              {schedule && <small>Next look: {schedule.nextRunAt ? formatDateTime(schedule.nextRunAt) : "only when you ask"}</small>}
+              <button
+                className="button button--mint"
+                disabled={busy !== null || (cadence !== "manual" && !localTime)}
+                onClick={() =>
+                  onSchedule(cadence, localTime || "09:00", cadence === "weekly" ? weekday : undefined)
+                }
+              >
+                Save schedule
+              </button>
+              {schedule && (
+                <small>
+                  Next look: {schedule.nextRunAt ? formatDateTime(schedule.nextRunAt) : "only when you ask"}
+                </small>
+              )}
             </PaperCard>
-            )}
-            {visible("rules") && <>
+          )}
+          {visible("rules") && (
+            <>
               <PaperCard className="settings-card">
                 <h2>When I start homework</h2>
                 <Field label="Start work">
-                  <select value={preferences?.workStartMode ?? "manual"} disabled={!preferences || busy !== null}
-                    onChange={event => preferences && onSavePreferences(preferences.reviewMinutes, preferences.handoffMinutes, preferences.memoryVisibility, event.target.value as "manual" | "automatic")}>
+                  <select
+                    value={preferences?.workStartMode ?? "manual"}
+                    disabled={!preferences || busy !== null}
+                    onChange={(event) =>
+                      preferences &&
+                      onSavePreferences(
+                        preferences.reviewMinutes,
+                        preferences.handoffMinutes,
+                        preferences.memoryVisibility,
+                        event.target.value as "manual" | "automatic",
+                      )
+                    }
+                  >
                     <option value="manual">Only when I ask</option>
                     <option value="automatic">Automatically, following my homework rules</option>
                   </select>
                 </Field>
-                <p>{preferences?.workStartMode === "automatic" ? "I can queue unfinished homework once I’ve checked its deadline and instructions." : "I’ll find your homework and wait for you to choose what I should work on."}</p>
+                <p>
+                  {preferences?.workStartMode === "automatic"
+                    ? "I can queue unfinished homework once I’ve checked its deadline and instructions."
+                    : "I’ll find your homework and wait for you to choose what I should work on."}
+                </p>
               </PaperCard>
-              <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={busy !== null} onSaveRule={onSaveRule} onDeleteRule={onDeleteRule} />
-            </>}
+              <HomeworkRules
+                rules={settings?.permissionRules ?? []}
+                onboarding={onboarding}
+                busy={busy !== null}
+                onSaveRule={onSaveRule}
+                onDeleteRule={onDeleteRule}
+              />
+            </>
+          )}
 
-            {visible("usage") && <UsageCard entitlement={entitlement} usage={usage} />}
-            {visible("notifications") && <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />}
-            {visible("privacy") && <TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onTelemetryDebug} />}
-            {visible("support") && (
+          {visible("usage") && <UsageCard entitlement={entitlement} usage={usage} />}
+          {visible("notifications") && (
+            <NotificationSettings
+              preferences={preferences?.notifications}
+              busy={busy !== null}
+              onSave={onSaveNotifications}
+              onPreview={onTestNotification}
+            />
+          )}
+          {visible("privacy") && (
+            <TelemetryControls
+              telemetry={telemetry}
+              busy={busy === "telemetry"}
+              onChange={onTelemetry}
+              onDebug={onTelemetryDebug}
+            />
+          )}
+          {visible("support") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">If something broke</p>
               <h2>Safe diagnostics</h2>
-              <p>Saves a short JSON file with versions and recent product events. Secrets stay out. It never copies your school folder.</p>
-              <button className="button button--lavender" onClick={onExportDiagnostics} disabled={busy !== null}>{busy === "diagnostics" ? "Preparing…" : "Export diagnostics"}</button>
+              <p>
+                Saves a short JSON file with versions and recent product events. Secrets stay out. It never
+                copies your school folder.
+              </p>
+              <button
+                className="button button--lavender"
+                onClick={onExportDiagnostics}
+                disabled={busy !== null}
+              >
+                {busy === "diagnostics" ? "Preparing…" : "Export diagnostics"}
+              </button>
               {diagnosticsReceipt?.status === "saved" && <small>Saved {diagnosticsReceipt.fileName}</small>}
               {diagnosticsReceipt?.status === "cancelled" && <small>Nothing was written.</small>}
               <small>Studi {runtime?.app ?? "—"}</small>
             </PaperCard>
-            )}
-            {visible("support") && <FeedbackSettings busy={busy !== null} onFeedback={onFeedback} />}
-            {visible("account") && (
+          )}
+          {visible("support") && <FeedbackSettings busy={busy !== null} onFeedback={onFeedback} />}
+          {visible("account") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Signed in</p>
               <h2>{chrome.studentName}</h2>
               <p>Signing out leaves your school pages and saved work on this laptop.</p>
-              <button className="button button--coral" onClick={onSignOut} disabled={busy !== null}>Sign out</button>
+              <button className="button button--coral" onClick={onSignOut} disabled={busy !== null}>
+                Sign out
+              </button>
             </PaperCard>
-            )}
+          )}
         </div>
-        {error && <p className="error-note" role="alert">{error}</p>}
+        {error && (
+          <p className="error-note" role="alert">
+            {error}
+          </p>
+        )}
       </div>
     </main>
   );
 }
 
-function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
+function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string {
+  return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId;
+}
+
+/** One subscription the student can bring: its state, and the one action that makes sense right now. */
+function ProviderCard({
+  entry,
+  provider,
+  workspace,
+  busy,
+  onSelect,
+  onConnect,
+  onCompleteLogin,
+  onCancelLogin,
+  onDisconnect,
+}: {
+  entry: AgentProviderEntry;
+  provider: ProviderStatus;
+  workspace: StudiWorkspaceState;
+  busy: boolean;
+  onSelect: () => void;
+  onConnect: () => void;
+  onCompleteLogin: (code: string) => void;
+  onCancelLogin: () => void;
+  onDisconnect: () => void;
+}) {
+  const selected = entry.id === workspace.selectedProviderId;
+  const ready = provider.state === "ready";
+  const attention = classifyAgentRuntimeAttention(provider);
+  const login = workspace.providerLogin?.providerId === entry.id ? workspace.providerLogin : null;
+  const anyLoginActive = providerLoginActive(workspace.providerLogin);
+  const pill =
+    attention === "usage"
+      ? { tone: "coral" as const, label: "Ran out of usage" }
+      : selected && ready
+        ? { tone: "mint" as const, label: "Inky uses this" }
+        : ready
+          ? { tone: "sky" as const, label: "Connected" }
+          : provider.state === "needs_login"
+            ? { tone: "yellow" as const, label: "Not connected" }
+            : { tone: "coral" as const, label: "Can't check" };
+  return (
+    <div className={`provider-card ${selected ? "provider-card--selected" : ""}`} data-provider={entry.id}>
+      <div className="provider-card-head">
+        <div>
+          <h3>{entry.name}</h3>
+          <small>{entry.plan}</small>
+        </div>
+        <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
+      </div>
+      <ProviderLoginHandoffView
+        login={login}
+        busy={busy}
+        onCompleteLogin={onCompleteLogin}
+        onCancelLogin={onCancelLogin}
+        onRetryLogin={onConnect}
+      />
+      <div className="provider-card-actions">
+        {ready && !selected && (
+          <button className="button button--yellow" type="button" onClick={onSelect} disabled={busy}>
+            Use {entry.name}
+          </button>
+        )}
+        {!ready && !login && (
+          <button
+            className="button button--yellow"
+            type="button"
+            onClick={onConnect}
+            disabled={busy || anyLoginActive}
+          >
+            Connect {entry.name}
+          </button>
+        )}
+        {ready && !login && (
+          <button className="button" type="button" onClick={onConnect} disabled={busy || anyLoginActive}>
+            Use another account
+          </button>
+        )}
+        {ready && !login && (
+          <button className="button" type="button" onClick={onDisconnect} disabled={busy || anyLoginActive}>
+            Disconnect
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

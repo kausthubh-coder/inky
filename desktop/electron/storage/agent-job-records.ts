@@ -90,7 +90,8 @@ export class AgentJobRepository {
     const stored = StoredAgentJobSchema.parse({ ...jobWithoutMessages, sessionPath });
     const target = AgentTargetSchema.parse(job.target);
     this.database.transaction(() => {
-      this.database.handle.prepare(`
+      this.database.handle
+        .prepare(`
         INSERT INTO agent_jobs(
           job_id, target_key, target_kind, subject_id, phase, turn_index, run_id,
           session_id, session_path, created_at, updated_at, record_json
@@ -107,20 +108,21 @@ export class AgentJobRepository {
           created_at = excluded.created_at,
           updated_at = excluded.updated_at,
           record_json = excluded.record_json
-      `).run(
-        job.jobId,
-        agentTargetKey(target, job.ownerSubject),
-        target.kind,
-        subjectId(target),
-        job.phase,
-        job.turnIndex,
-        job.runId,
-        job.sessionId,
-        sessionPath,
-        job.createdAt,
-        job.updatedAt,
-        JSON.stringify(stored),
-      );
+      `)
+        .run(
+          job.jobId,
+          agentTargetKey(target, job.ownerSubject),
+          target.kind,
+          subjectId(target),
+          job.phase,
+          job.turnIndex,
+          job.runId,
+          job.sessionId,
+          sessionPath,
+          job.createdAt,
+          job.updatedAt,
+          JSON.stringify(stored),
+        );
       for (const message of messages) this.#appendMessage(job.jobId, message);
     });
     return { job, sessionPath };
@@ -132,63 +134,73 @@ export class AgentJobRepository {
   }
 
   get(jobId: string): PersistedAgentJob | null {
-    const row = this.database.handle.prepare(`
+    const row = this.database.handle
+      .prepare(`
       SELECT job_id, target_key, target_kind, subject_id, phase, turn_index, run_id,
              session_id, session_path, created_at, updated_at, record_json
       FROM agent_jobs WHERE job_id = ?
-    `).get(jobId) as JobRow | undefined;
+    `)
+      .get(jobId) as JobRow | undefined;
     return row ? this.#parseJob(row) : null;
   }
 
   getByTarget(target: AgentTarget, ownerSubject?: string): PersistedAgentJob | null {
-    const row = this.database.handle.prepare(`
+    const row = this.database.handle
+      .prepare(`
       SELECT job_id, target_key, target_kind, subject_id, phase, turn_index, run_id,
              session_id, session_path, created_at, updated_at, record_json
       FROM agent_jobs WHERE target_key = ?
-    `).get(agentTargetKey(AgentTargetSchema.parse(target), ownerSubject)) as JobRow | undefined;
+    `)
+      .get(agentTargetKey(AgentTargetSchema.parse(target), ownerSubject)) as JobRow | undefined;
     return row ? this.#parseJob(row) : null;
   }
 
   list(): PersistedAgentJob[] {
-    const rows = this.database.handle.prepare(`
+    const rows = this.database.handle
+      .prepare(`
       SELECT job_id, target_key, target_kind, subject_id, phase, turn_index, run_id,
              session_id, session_path, created_at, updated_at, record_json
       FROM agent_jobs ORDER BY created_at, job_id
-    `).all() as unknown as JobRow[];
+    `)
+      .all() as unknown as JobRow[];
     return rows.map((row) => this.#parseJob(row));
   }
 
   #appendMessage(jobId: string, message: AgentMessage): AgentMessage {
-    const existing = this.database.handle.prepare(
-      "SELECT record_json FROM agent_messages WHERE message_id = ?",
-    ).get(message.messageId) as { record_json: string } | undefined;
+    const existing = this.database.handle
+      .prepare("SELECT record_json FROM agent_messages WHERE message_id = ?")
+      .get(message.messageId) as { record_json: string } | undefined;
     const json = JSON.stringify(message);
     if (existing) {
       if (existing.record_json !== json) {
-        throw new StorageError(
-          "record_validation_failed",
-          "Agent messages are immutable",
-          { recordId: message.messageId },
-        );
+        throw new StorageError("record_validation_failed", "Agent messages are immutable", {
+          recordId: message.messageId,
+        });
       }
       return message;
     }
-    const parent = this.database.handle.prepare("SELECT 1 AS found FROM agent_jobs WHERE job_id = ?").get(jobId);
+    const parent = this.database.handle
+      .prepare("SELECT 1 AS found FROM agent_jobs WHERE job_id = ?")
+      .get(jobId);
     if (!parent) throw new Error(`Agent job ${jobId} does not exist`);
-    this.database.handle.prepare(`
+    this.database.handle
+      .prepare(`
       INSERT INTO agent_messages(message_id, job_id, turn_index, role, created_at, record_json)
       VALUES (?, ?, ?, ?, ?, ?)
-    `).run(message.messageId, jobId, message.turnIndex, message.role, message.createdAt, json);
+    `)
+      .run(message.messageId, jobId, message.turnIndex, message.role, message.createdAt, json);
     return message;
   }
 
   #messages(jobId: string): AgentMessage[] {
-    const rows = this.database.handle.prepare(`
+    const rows = this.database.handle
+      .prepare(`
       SELECT message_id, job_id, turn_index, role, created_at, record_json
       FROM agent_messages
       WHERE job_id = ?
       ORDER BY turn_index, created_at, message_id
-    `).all(jobId) as unknown as MessageRow[];
+    `)
+      .all(jobId) as unknown as MessageRow[];
     return rows.map((row) => {
       const message = parseJson(AgentMessageSchema, row.record_json, "agent message");
       assertEqual("agent message", message.messageId, row.message_id, message.messageId);
@@ -202,7 +214,12 @@ export class AgentJobRepository {
   #parseJob(row: JobRow): PersistedAgentJob {
     const stored = parseJson(StoredAgentJobSchema, row.record_json, "agent job");
     assertEqual("agent job", stored.jobId, row.job_id, stored.jobId);
-    assertEqual("agent job", stored.jobId, row.target_key, agentTargetKey(stored.target, stored.ownerSubject));
+    assertEqual(
+      "agent job",
+      stored.jobId,
+      row.target_key,
+      agentTargetKey(stored.target, stored.ownerSubject),
+    );
     assertEqual("agent job", stored.jobId, row.target_kind, stored.target.kind);
     assertEqual("agent job", stored.jobId, row.subject_id, subjectId(stored.target));
     assertEqual("agent job", stored.jobId, row.phase, stored.phase);

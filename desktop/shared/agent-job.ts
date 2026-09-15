@@ -37,7 +37,10 @@ export const BrowserClaimSchema = z.strictObject({
   revision: z.number().int().positive(),
 });
 
-export const AssignmentReferenceSchema = z.strictObject({ assignmentId: AgentIdentifierSchema, title: z.string().min(1).max(1000) });
+export const AssignmentReferenceSchema = z.strictObject({
+  assignmentId: AgentIdentifierSchema,
+  title: z.string().min(1).max(1000),
+});
 export type AssignmentReference = z.infer<typeof AssignmentReferenceSchema>;
 
 export const AgentMessageSchema = z.strictObject({
@@ -48,7 +51,7 @@ export const AgentMessageSchema = z.strictObject({
   turnIndex: z.number().int().nonnegative(),
   clientMessageId: z.string().uuid().optional(),
   assignmentRefs: z.array(AssignmentReferenceSchema).max(20).optional(),
-  recovery: z.enum(["failed","aborted"]).optional(),
+  recovery: z.enum(["failed", "aborted"]).optional(),
 });
 
 export const AgentJobSchema = z.strictObject({
@@ -86,5 +89,8 @@ export type AgentJob = z.infer<typeof AgentJobSchema>;
 export type AddressedSendResult = z.infer<typeof AddressedSendResultSchema>;
 export type SelectedConversation = z.infer<typeof SelectedConversationSchema>;
 
-export const ConversationStateSchema = z.strictObject({ job: AgentJobSchema, activity: z.enum(['idle','thinking','typing']) });
+export const ConversationStateSchema = z.strictObject({
+  job: AgentJobSchema,
+  activity: z.enum(["idle", "thinking", "typing"]),
+});
 export type ConversationState = z.infer<typeof ConversationStateSchema>;

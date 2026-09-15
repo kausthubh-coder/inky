@@ -278,7 +278,9 @@ const storageMigrations = [
   { version: 4, sql: migrationFour },
   { version: 5, sql: migrationFive },
   { version: 6, sql: migrationSix },
-  { version: 7, sql: `
+  {
+    version: 7,
+    sql: `
     CREATE TABLE record_redirects (
       kind TEXT NOT NULL,
       old_id TEXT NOT NULL,
@@ -286,7 +288,8 @@ const storageMigrations = [
       record_json TEXT NOT NULL CHECK (json_valid(record_json)),
       PRIMARY KEY (kind, old_id)
     );
-  ` },
+  `,
+  },
   // Version gate: older binaries cannot validate course redirect archives.
   { version: 8, sql: "SELECT 1;" },
 ] as const;
@@ -691,7 +694,9 @@ export class StudiSqliteDatabase {
       return result;
     } catch (error) {
       try {
-        this.handle.exec(depth === 0 ? "ROLLBACK" : `ROLLBACK TO SAVEPOINT ${savepoint}; RELEASE SAVEPOINT ${savepoint}`);
+        this.handle.exec(
+          depth === 0 ? "ROLLBACK" : `ROLLBACK TO SAVEPOINT ${savepoint}; RELEASE SAVEPOINT ${savepoint}`,
+        );
       } catch {
         // Keep the operation error. The connection will not be reused if rollback failed.
       }
@@ -732,9 +737,7 @@ export class StudiSqliteDatabase {
 
   private assertIntegrity(): void {
     try {
-      const rows = this.handle.prepare("PRAGMA quick_check").all() as Array<
-        Record<string, unknown>
-      >;
+      const rows = this.handle.prepare("PRAGMA quick_check").all() as Array<Record<string, unknown>>;
       const messages = rows.flatMap((row) => Object.values(row)).map(String);
       if (messages.length !== 1 || messages[0] !== "ok") {
         throw new StorageError("corrupt_database", "SQLite quick_check reported corruption", {
@@ -847,9 +850,7 @@ export class StudiSqliteDatabase {
     const tableIndexes = this.handle.prepare(
       'SELECT name, "unique" AS is_unique, origin, partial FROM pragma_index_list(?)',
     );
-    const indexColumns = this.handle.prepare(
-      "SELECT name FROM pragma_index_info(?) ORDER BY seqno",
-    );
+    const indexColumns = this.handle.prepare("SELECT name FROM pragma_index_info(?) ORDER BY seqno");
 
     for (const [table, expected] of Object.entries(requiredTables)) {
       const actual = tableColumns.all(table).map((row) => {

@@ -7,8 +7,6 @@ import test from "node:test";
 import { z } from "zod";
 
 import {
-  CONTRACT_MANIFEST,
-  ContractManifestSchema,
   RuntimeInfoSchema,
   createIpcApi,
   createIpcHandlerRegistrations,
@@ -20,9 +18,16 @@ const execFileAsync = promisify(execFile);
 
 test("optional scan intent supports the existing no-argument call and validates assignment scope", async () => {
   const received = [];
-  const api = composeIpc({ startSchoolScan: { ...studiIpcRegistry.startSchoolScan, resultSchema: z.boolean() } }, {
-    startSchoolScan: input => { received.push(input); return true; },
-  }, []);
+  const api = composeIpc(
+    { startSchoolScan: { ...studiIpcRegistry.startSchoolScan, resultSchema: z.boolean() } },
+    {
+      startSchoolScan: (input) => {
+        received.push(input);
+        return true;
+      },
+    },
+    [],
+  );
   assert.equal(await api.startSchoolScan(), true);
   assert.equal(await api.startSchoolScan({ assignmentId: "assignment-1" }), true);
   assert.deepEqual(received, [undefined, { assignmentId: "assignment-1" }]);
@@ -56,16 +61,17 @@ test("composed IPC validates and forwards request-bearing and void methods", asy
       resultSchema: z.strictObject({ ready: z.boolean() }),
     }),
   });
-  const api = composeIpc(registry, {
-    findAssignment: (request) =>
-      malformedResponse ? { title: 17 } : { title: `Assignment ${request.assignmentId}` },
-    getStatus: () => ({ ready: true }),
-  }, calls);
-
-  await assert.rejects(
-    api.findAssignment(),
-    /IPC method findAssignment expects 1 argument; received 0/,
+  const api = composeIpc(
+    registry,
+    {
+      findAssignment: (request) =>
+        malformedResponse ? { title: 17 } : { title: `Assignment ${request.assignmentId}` },
+      getStatus: () => ({ ready: true }),
+    },
+    calls,
   );
+
+  await assert.rejects(api.findAssignment(), /IPC method findAssignment expects 1 argument; received 0/);
   await assert.rejects(
     api.findAssignment({ assignmentId: "assignment-1" }, "extra"),
     /IPC method findAssignment expects 1 argument; received 2/,
@@ -117,13 +123,17 @@ test("composed IPC transforms request and result exactly once at the main bounda
       }),
     }),
   });
-  const api = composeIpc(registry, {
-    measure: (request) => {
-      handlerCalls += 1;
-      handlerRequests.push(request);
-      return malformedResult ? 17 : "accepted";
+  const api = composeIpc(
+    registry,
+    {
+      measure: (request) => {
+        handlerCalls += 1;
+        handlerRequests.push(request);
+        return malformedResult ? 17 : "accepted";
+      },
     },
-  }, transportCalls);
+    transportCalls,
+  );
 
   const result = await api.measure("studi");
   assert.equal(result, 8);
@@ -212,11 +222,15 @@ test("composed IPC propagates handler errors after one request parse", async () 
       resultSchema: z.string().transform((value) => value.length),
     }),
   });
-  const api = composeIpc(registry, {
-    measure: () => {
-      throw handlerError;
+  const api = composeIpc(
+    registry,
+    {
+      measure: () => {
+        throw handlerError;
+      },
     },
-  }, calls);
+    calls,
+  );
 
   await assert.rejects(api.measure("studi"), (error) => error === handlerError);
   assert.equal(requestTransforms, 1);
@@ -224,9 +238,7 @@ test("composed IPC propagates handler errors after one request parse", async () 
 });
 
 test("IPC caller types use request schema input and result schema output", async () => {
-  const tscPath = fileURLToPath(
-    new URL("../../node_modules/typescript/bin/tsc", import.meta.url),
-  );
+  const tscPath = fileURLToPath(new URL("../../node_modules/typescript/bin/tsc", import.meta.url));
   const configPath = fileURLToPath(new URL("./tsconfig.ipc-types.json", import.meta.url));
 
   await execFileAsync(process.execPath, [tscPath, "-p", configPath], {
@@ -234,235 +246,16 @@ test("IPC caller types use request schema input and result schema output", async
   });
 });
 
-test("IPC registry snapshot contains the fixed desktop workspace channels", () => {
-  assert.deepEqual(studiIpcMethods, [
-    "getUpdateState",
-    "checkForUpdates",
-    "installUpdate",
-    "getAssignmentFiles",
-    "readAssignmentFile",
-    "importAssignmentFiles",
-    "openAssignmentFolder",
-    "selectBrowserPage",
-    "getScopedConversation",
-    "stopScopedConversation",
-    "sendScanMessage",
-    "pauseSchoolScan",
-    "getConversationState",
-    "stopConversation",
-    "getNotifications",
-    "readNotification",
-    "getRuntimeInfo",
-    "getContractManifest",
-    "getAuthState",
-    "signIn",
-    "signOut",
-    "retryEntitlement",
-    "submitFeedback",
-    "getUsageState",
-    "getConnectedApps",
-    "connectApp",
-    "refreshConnectedApp",
-    "getWorkspaceState",
-    "navigateBrowser",
-    "loginOpenAiCodex",
-    "cancelOpenAiCodexLogin",
-    "selectAgentModel",
-    "getManagerState",
-    "send",
-    "selectAssignment",
-    "getSchoolOnboardingState",
-    "saveSchoolProfile",
-    "startSchoolScan",
-    "resumeSchoolScan",
-    "replaySchoolScan",
-    "recordMissedCourseFeedback",
-    "getLifecycleState",
-    "setAutomationPaused",
-    "startNextAssignment",
-    "startAssignment",
-    "resumeAssignment",
-    "verifyStudentSubmission",
-    "openAnswerArtifact",
-    "getProductSettings",
-    "saveProductPreferences",
-    "selectHomeworkRoot",
-    "saveNotificationPreferences",
-    "testNotification",
-    "savePermissionRule",
-    "deletePermissionRule",
-    "configureScanSchedule",
-    "getLibraryState",
-    "getTaskDetail",
-    "readArtifact",
-    "requestAssignmentTakeover",
-    "cancelAssignment",
-    "setBrowserLayout",
-    "getTelemetryState",
-    "setTelemetryPreferences",
-    "setTelemetryDebug",
-    "captureUiTelemetry",
-    "exportDiagnostics",
-  ]);
-  assert.deepEqual(
-    Object.fromEntries(studiIpcMethods.map((method) => [method, studiIpcRegistry[method].channel])),
-    {
-      getUpdateState: "studi:update-state",
-      checkForUpdates: "studi:update-check",
-      installUpdate: "studi:update-install",
-      getAssignmentFiles: "studi:assignment-files",
-      readAssignmentFile: "studi:assignment-file",
-      importAssignmentFiles: "studi:assignment-files-import",
-      openAssignmentFolder: "studi:assignment-folder",
-      selectBrowserPage: "studi:browser-page",
-      getScopedConversation: "studi:scoped-conversation",
-      stopScopedConversation: "studi:scoped-conversation-stop",
-      sendScanMessage: "studi:scan-message",
-      pauseSchoolScan: "studi:scan-pause",
-      getConversationState: "studi:conversation-state",
-      stopConversation: "studi:conversation-stop",
-      getNotifications: "studi:notifications",
-      readNotification: "studi:notification-read",
-      getRuntimeInfo: "studi:runtime-info",
-      getContractManifest: "studi:contract-manifest",
-      getAuthState: "studi:auth-state",
-      signIn: "studi:sign-in",
-      signOut: "studi:sign-out",
-      retryEntitlement: "studi:retry-entitlement",
-      submitFeedback: "studi:submit-feedback",
-      getUsageState: "studi:usage-state",
-      getConnectedApps: "studi:connected-apps",
-      connectApp: "studi:connect-app",
-      refreshConnectedApp: "studi:refresh-connected-app",
-      getWorkspaceState: "studi:workspace-state",
-      navigateBrowser: "studi:navigate-browser",
-      loginOpenAiCodex: "studi:login-openai-codex",
-      cancelOpenAiCodexLogin: "studi:cancel-openai-codex-login",
-      selectAgentModel: "studi:select-agent-model",
-      getManagerState: "studi:manager-state",
-      send: "studi:send",
-      selectAssignment: "studi:select-assignment",
-      getSchoolOnboardingState: "studi:school-onboarding-state",
-      saveSchoolProfile: "studi:save-school-profile",
-      startSchoolScan: "studi:start-school-scan",
-      resumeSchoolScan: "studi:resume-school-scan",
-      replaySchoolScan: "studi:replay-school-scan",
-      recordMissedCourseFeedback: "studi:record-missed-course-feedback",
-      getLifecycleState: "studi:lifecycle-state",
-      setAutomationPaused: "studi:set-automation-paused",
-      startNextAssignment: "studi:start-next-assignment",
-      startAssignment: "studi:start-assignment",
-      resumeAssignment: "studi:resume-assignment",
-      verifyStudentSubmission: "studi:verify-student-submission",
-      openAnswerArtifact: "studi:open-answer-artifact",
-      getProductSettings: "studi:product-settings",
-      saveProductPreferences: "studi:save-product-preferences",
-      selectHomeworkRoot: "studi:select-homework-root",
-      saveNotificationPreferences: "studi:save-notification-preferences",
-      testNotification: "studi:test-notification",
-      savePermissionRule: "studi:save-permission-rule",
-      deletePermissionRule: "studi:delete-permission-rule",
-      configureScanSchedule: "studi:configure-scan-schedule",
-      getLibraryState: "studi:library-state",
-      getTaskDetail: "studi:task-detail",
-      readArtifact: "studi:read-artifact",
-      requestAssignmentTakeover: "studi:request-assignment-takeover",
-      cancelAssignment: "studi:cancel-assignment",
-      setBrowserLayout: "studi:set-browser-layout",
-      getTelemetryState: "studi:telemetry-state",
-      setTelemetryPreferences: "studi:set-telemetry-preferences",
-      setTelemetryDebug: "studi:set-telemetry-debug",
-      captureUiTelemetry: "studi:capture-ui-telemetry",
-      exportDiagnostics: "studi:export-diagnostics",
-    },
-  );
-  assert.deepEqual(CONTRACT_MANIFEST, {
-    schemaVersion: 1,
-    contractVersion: "18",
-    ipcMethods: [
-      { method: "getUpdateState", channel: "studi:update-state" },
-      { method: "checkForUpdates", channel: "studi:update-check" },
-      { method: "installUpdate", channel: "studi:update-install" },
-      {method:"getAssignmentFiles",channel:"studi:assignment-files"},
-      {method:"readAssignmentFile",channel:"studi:assignment-file"},
-      {method:"importAssignmentFiles",channel:"studi:assignment-files-import"},
-      {method:"openAssignmentFolder",channel:"studi:assignment-folder"},
-      {method:"selectBrowserPage",channel:"studi:browser-page"},
-      {method:"getScopedConversation",channel:"studi:scoped-conversation"},
-      {method:"stopScopedConversation",channel:"studi:scoped-conversation-stop"},
-      {method:"sendScanMessage",channel:"studi:scan-message"},
-      {method:"pauseSchoolScan",channel:"studi:scan-pause"},
-      { method: "getConversationState", channel: "studi:conversation-state" },
-      { method: "stopConversation", channel: "studi:conversation-stop" },
-      { method: "getNotifications", channel: "studi:notifications" },
-      { method: "readNotification", channel: "studi:notification-read" },
-      { method: "getRuntimeInfo", channel: "studi:runtime-info" },
-      { method: "getContractManifest", channel: "studi:contract-manifest" },
-      { method: "getAuthState", channel: "studi:auth-state" },
-      { method: "signIn", channel: "studi:sign-in" },
-      { method: "signOut", channel: "studi:sign-out" },
-      { method: "retryEntitlement", channel: "studi:retry-entitlement" },
-      { method: "submitFeedback", channel: "studi:submit-feedback" },
-      { method: "getUsageState", channel: "studi:usage-state" },
-      { method: "getConnectedApps", channel: "studi:connected-apps" },
-      { method: "connectApp", channel: "studi:connect-app" },
-      { method: "refreshConnectedApp", channel: "studi:refresh-connected-app" },
-      { method: "getWorkspaceState", channel: "studi:workspace-state" },
-      { method: "navigateBrowser", channel: "studi:navigate-browser" },
-      { method: "loginOpenAiCodex", channel: "studi:login-openai-codex" },
-      { method: "cancelOpenAiCodexLogin", channel: "studi:cancel-openai-codex-login" },
-      { method: "selectAgentModel", channel: "studi:select-agent-model" },
-      { method: "getManagerState", channel: "studi:manager-state" },
-      { method: "send", channel: "studi:send" },
-      { method: "selectAssignment", channel: "studi:select-assignment" },
-      { method: "getSchoolOnboardingState", channel: "studi:school-onboarding-state" },
-      { method: "saveSchoolProfile", channel: "studi:save-school-profile" },
-      { method: "startSchoolScan", channel: "studi:start-school-scan" },
-      { method: "resumeSchoolScan", channel: "studi:resume-school-scan" },
-      { method: "replaySchoolScan", channel: "studi:replay-school-scan" },
-      { method: "recordMissedCourseFeedback", channel: "studi:record-missed-course-feedback" },
-      { method: "getLifecycleState", channel: "studi:lifecycle-state" },
-      { method: "setAutomationPaused", channel: "studi:set-automation-paused" },
-      { method: "startNextAssignment", channel: "studi:start-next-assignment" },
-      { method: "startAssignment", channel: "studi:start-assignment" },
-      { method: "resumeAssignment", channel: "studi:resume-assignment" },
-      { method: "verifyStudentSubmission", channel: "studi:verify-student-submission" },
-      { method: "openAnswerArtifact", channel: "studi:open-answer-artifact" },
-      { method: "getProductSettings", channel: "studi:product-settings" },
-      { method: "saveProductPreferences", channel: "studi:save-product-preferences" },
-      { method: "selectHomeworkRoot", channel: "studi:select-homework-root" },
-      { method: "saveNotificationPreferences", channel: "studi:save-notification-preferences" },
-      { method: "testNotification", channel: "studi:test-notification" },
-      { method: "savePermissionRule", channel: "studi:save-permission-rule" },
-      { method: "deletePermissionRule", channel: "studi:delete-permission-rule" },
-      { method: "configureScanSchedule", channel: "studi:configure-scan-schedule" },
-      { method: "getLibraryState", channel: "studi:library-state" },
-      { method: "getTaskDetail", channel: "studi:task-detail" },
-      { method: "readArtifact", channel: "studi:read-artifact" },
-      { method: "requestAssignmentTakeover", channel: "studi:request-assignment-takeover" },
-      { method: "cancelAssignment", channel: "studi:cancel-assignment" },
-      { method: "setBrowserLayout", channel: "studi:set-browser-layout" },
-      { method: "getTelemetryState", channel: "studi:telemetry-state" },
-      { method: "setTelemetryPreferences", channel: "studi:set-telemetry-preferences" },
-      { method: "setTelemetryDebug", channel: "studi:set-telemetry-debug" },
-      { method: "captureUiTelemetry", channel: "studi:capture-ui-telemetry" },
-      { method: "exportDiagnostics", channel: "studi:export-diagnostics" },
-    ],
-  });
-});
-
 test("IPC request and result schemas reject malformed values", () => {
   for (const method of [
     "getRuntimeInfo",
-    "getContractManifest",
     "getAuthState",
     "signIn",
     "signOut",
     "retryEntitlement",
     "getUsageState",
     "getWorkspaceState",
-    "loginOpenAiCodex",
-    "cancelOpenAiCodexLogin",
+    "cancelProviderLogin",
     "getManagerState",
     "getSchoolOnboardingState",
     "startSchoolScan",
@@ -480,64 +273,129 @@ test("IPC request and result schemas reject malformed values", () => {
   }
   assert.equal(studiIpcRegistry.navigateBrowser.requestSchema.safeParse({ url: "" }).success, false);
   assert.equal(studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "" }).success, false);
-  assert.equal(studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "A".repeat(1_001) }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, true);
+  assert.equal(
+    studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "A".repeat(1_001) }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "openai-codex", modelId: "" })
+      .success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.selectAgentModel.requestSchema.safeParse({
+      modelId: "gpt-5.6-sol",
+      reasoningEffort: "high",
+    }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.selectAgentModel.requestSchema.safeParse({
+      providerId: "cursor",
+      modelId: "gpt-5.6-sol",
+      reasoningEffort: "high",
+    }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.selectAgentModel.requestSchema.safeParse({
+      providerId: "anthropic",
+      modelId: "claude-fable-5-1",
+      reasoningEffort: "high",
+    }).success,
+    true,
+  );
+  assert.equal(
+    studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "openai" }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "anthropic" }).success,
+    true,
+  );
+  assert.equal(
+    studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({ providerId: "anthropic", code: "  " })
+      .success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({
+      providerId: "anthropic",
+      code: "abc#state",
+    }).success,
+    true,
+  );
+  assert.equal(
+    studiIpcRegistry.logoutProvider.requestSchema.safeParse({ providerId: "openai-codex" }).success,
+    true,
+  );
   assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "handoff" }).success, true);
   assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "toast" }).success, false);
-  assert.equal(studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({ enabled: true }).success, false);
-  assert.equal(studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({
-    enabled: true,
-    kinds: {
-      handoff: { banner: true, sound: "inky_nudge" },
-      review_ready: { banner: true, sound: "inky_done" },
-      scan_result: { banner: true, sound: "inky_soft" },
-      failure: { banner: true, sound: "inky_uh_oh" },
-    },
-  }).success, true);
+  assert.equal(
+    studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({ enabled: true }).success,
+    false,
+  );
+  assert.equal(
+    studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({
+      enabled: true,
+      kinds: {
+        handoff: { banner: true, sound: "inky_nudge" },
+        review_ready: { banner: true, sound: "inky_done" },
+        scan_result: { banner: true, sound: "inky_soft" },
+        failure: { banner: true, sound: "inky_uh_oh" },
+      },
+    }).success,
+    true,
+  );
   assert.equal(
     studiIpcRegistry.send.requestSchema.safeParse({ target: { kind: "home" }, text: "   " }).success,
     false,
   );
   assert.equal(
-    studiIpcRegistry.send.requestSchema.safeParse({ target: { kind: "assignment", assignmentId: "" }, text: "Inspect" }).success,
+    studiIpcRegistry.send.requestSchema.safeParse({
+      target: { kind: "assignment", assignmentId: "" },
+      text: "Inspect",
+    }).success,
     false,
   );
   assert.equal(
-    studiIpcRegistry.send.requestSchema.safeParse({ target: { kind: "assignment", assignmentId: "a-1" }, text: "Inspect" }).success,
+    studiIpcRegistry.send.requestSchema.safeParse({
+      target: { kind: "assignment", assignmentId: "a-1" },
+      text: "Inspect",
+    }).success,
     true,
   );
-  assert.equal(studiIpcRegistry.selectAssignment.requestSchema.safeParse({ assignmentId: null }).success, true);
+  assert.equal(
+    studiIpcRegistry.selectAssignment.requestSchema.safeParse({ assignmentId: null }).success,
+    true,
+  );
   assert.equal(studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk" }).success, true);
   assert.equal(
-    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk", bounds: { x: 10, y: 20, width: 400, height: 300 } }).success,
+    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({
+      mode: "desk",
+      bounds: { x: 10, y: 20, width: 400, height: 300 },
+    }).success,
     true,
   );
   assert.equal(
-    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({ mode: "desk", bounds: { x: 10, y: 20, width: 0, height: 300 } }).success,
+    studiIpcRegistry.setBrowserLayout.requestSchema.safeParse({
+      mode: "desk",
+      bounds: { x: 10, y: 20, width: 0, height: 300 },
+    }).success,
     false,
   );
 
   assert.equal(RuntimeInfoSchema.safeParse({ app: "1", electron: "1", chrome: "1" }).success, false);
-  assert.equal(
-    ContractManifestSchema.safeParse({ ...CONTRACT_MANIFEST, schemaVersion: 2 }).success,
-    false,
-  );
-  assert.equal(
-    ContractManifestSchema.safeParse({
-      ...CONTRACT_MANIFEST,
-      ipcMethods: [...CONTRACT_MANIFEST.ipcMethods].reverse(),
-    }).success,
-    false,
-  );
 });
 
 test("preload derives named methods and exposes no caller-selected channel primitive", async () => {
   const preload = await readFile(new URL("../../desktop/electron/preload.cts", import.meta.url), "utf8");
   const main = await readFile(new URL("../../desktop/electron/main.ts", import.meta.url), "utf8");
   const ipcSource = await readFile(new URL("../../desktop/shared/ipc.ts", import.meta.url), "utf8");
-  const rendererTypes = await readFile(new URL("../../desktop/src/types/window.d.ts", import.meta.url), "utf8");
+  const rendererTypes = await readFile(
+    new URL("../../desktop/src/types/window.d.ts", import.meta.url),
+    "utf8",
+  );
 
   assert.match(preload, /createIpcApi\(studiIpcRegistry/);
   assert.match(preload, /ipcRenderer\.invoke\(channel, request\)/);
@@ -548,7 +406,6 @@ test("preload derives named methods and exposes no caller-selected channel primi
   assert.doesNotMatch(preload, /ipcRenderer\.on\s*\(\s*["'`]/);
   assert.doesNotMatch(preload, /\b(?:invoke|send|on)\s*:\s*\([^)]*channel/);
   assert.match(ipcSource, /getRuntimeInfo/);
-  assert.match(ipcSource, /getContractManifest/);
   assert.match(ipcSource, /createIpcHandlerRegistrations/);
   assert.match(main, /createIpcHandlerRegistrations\(studiIpcRegistry, ipcHandlers\)/);
   assert.match(rendererTypes, /shared\/index\.js/);
@@ -556,9 +413,11 @@ test("preload derives named methods and exposes no caller-selected channel primi
 
 test("runtime-info shape is declared only by the shared schema", async () => {
   const sources = await Promise.all(
-    ["../../desktop/electron/main.ts", "../../desktop/electron/preload.cts", "../../desktop/src/app/StudiApp.tsx"].map((path) =>
-      readFile(new URL(path, import.meta.url), "utf8"),
-    ),
+    [
+      "../../desktop/electron/main.ts",
+      "../../desktop/electron/preload.cts",
+      "../../desktop/src/app/StudiApp.tsx",
+    ].map((path) => readFile(new URL(path, import.meta.url), "utf8")),
   );
   for (const source of sources) {
     assert.doesNotMatch(source, /interface\s+(?:Studi)?RuntimeInfo/);

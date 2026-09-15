@@ -1,5 +1,4 @@
 import {
-  CONTRACT_MANIFEST,
   DEFAULT_AGENT_MODEL_ID,
   DEFAULT_AGENT_REASONING_EFFORT,
   DEFAULT_NOTIFICATION_PREFERENCES,
@@ -43,13 +42,27 @@ function assignment(assignmentId: string, title: string, dueAt: string): Assignm
     courseId: "course-csc316",
     title,
     sourceTarget: `https://school.example.edu/courses/csc316/${assignmentId}`,
-    dueAt: (()=>{const date=new Date(); date.setHours(19,59,0,0);date.setDate(date.getDate()-(date.getDay()+6)%7+Math.max(0,new Date(dueAt).getUTCDate()-3));return date.toISOString();})(),
+    dueAt: (() => {
+      const date = new Date();
+      date.setHours(19, 59, 0, 0);
+      date.setDate(
+        date.getDate() - ((date.getDay() + 6) % 7) + Math.max(0, new Date(dueAt).getUTCDate() - 3),
+      );
+      return date.toISOString();
+    })(),
     deadlinePrecision: "datetime",
     deadlineEvidence: currentEvidence,
     schoolStatus: { state: "not_submitted", text: "Not submitted", evidence: currentEvidence },
-    requirementEvidence: [{ text: "Complete the assignment and include your explanation.", evidence: currentEvidence }],
+    requirementEvidence: [
+      { text: "Complete the assignment and include your explanation.", evidence: currentEvidence },
+    ],
     requirementsState: "complete",
-    latePolicy: { state: "accepted", text: "Simulated school accepts late work during the preview.", until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), evidence: currentEvidence },
+    latePolicy: {
+      state: "accepted",
+      text: "Simulated school accepts late work during the preview.",
+      until: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      evidence: currentEvidence,
+    },
     discoveredAt: now,
     lastVerifiedScanId: "preview-scan",
     evidence: [evidence],
@@ -57,15 +70,29 @@ function assignment(assignmentId: string, title: string, dueAt: string): Assignm
 }
 
 const assignments = [
-  { ...assignment("assignment-sort", "IBM Sorting Machine", "2026-09-03T23:59:00.000Z"), instructions: "Trace how the IBM Sorting Machine orders a set of punched cards. Show the contents after each pass, then explain how the process relates to radix sort.\nInclude your completed trace and a short explanation of the algorithm’s time complexity." },
+  {
+    ...assignment("assignment-sort", "IBM Sorting Machine", "2026-09-03T23:59:00.000Z"),
+    instructions:
+      "Trace how the IBM Sorting Machine orders a set of punched cards. Show the contents after each pass, then explain how the process relates to radix sort.\nInclude your completed trace and a short explanation of the algorithm’s time complexity.",
+  },
   assignment("assignment-hw3", "HW 3", "2026-09-04T23:45:00.000Z"),
   assignment("assignment-hw1", "Homework 1", "2026-09-05T23:59:00.000Z"),
 ];
 // Undated work is intentional preview data, kept separate from the calendar.
-const { dueAt: _previewDueAt, ...undatedPreview } = assignment("assignment-project", "Final project · reading notes", "2026-09-05T23:59:00.000Z");
+const { dueAt: _previewDueAt, ...undatedPreview } = assignment(
+  "assignment-project",
+  "Final project · reading notes",
+  "2026-09-05T23:59:00.000Z",
+);
 assignments.push(undatedPreview);
 
-const permission = { mode: "attempt" as const, mayAttempt: true, maySubmit: false, matchedRuleId: "preview-global", rationale: "A saved rule lets Inky try this and stop before submit." };
+const permission = {
+  mode: "attempt" as const,
+  mayAttempt: true,
+  maySubmit: false,
+  matchedRuleId: "preview-global",
+  rationale: "A saved rule lets Inky try this and stop before submit.",
+};
 
 export function installDevPreview(): void {
   const preview = parsePreviewConfig(window.location.search);
@@ -85,7 +112,10 @@ export function installDevPreview(): void {
       updatedAt: now,
     },
     scan: {
-      inventories: [], messages: [], changes: [], sourceCheckpoints: [],
+      inventories: [],
+      messages: [],
+      changes: [],
+      sourceCheckpoints: [],
       schemaVersion: 1,
       scanId: "preview-scan",
       kind: "first_scan",
@@ -101,39 +131,133 @@ export function installDevPreview(): void {
       observedAssignmentIds: assignments.map((item) => item.assignmentId),
       observedLinkedSystemIds: [],
     },
-    courses: [{ schemaVersion: 1, courseId: "course-csc316", label: "CSC 316 Data Structures", sourceTarget: evidence.sourceTarget, lastVerifiedScanId: "preview-scan", lastVerifiedAt: now, evidence }],
+    courses: [
+      {
+        schemaVersion: 1,
+        courseId: "course-csc316",
+        label: "CSC 316 Data Structures",
+        sourceTarget: evidence.sourceTarget,
+        lastVerifiedScanId: "preview-scan",
+        lastVerifiedAt: now,
+        evidence,
+      },
+    ],
     assignments,
     linkedSystems: [],
     workflowRevision: 1,
   };
 
   const tasks: TaskDetail[] = assignments.map((item, index) => ({
-    task: { schemaVersion: 1, taskId: `task-${item.assignmentId}`, assignmentId: item.assignmentId, state: index === 2 ? "preserved" : "discovered", revision: index === 2 ? 2 : 0, createdAt: now, updatedAt: now },
+    task: {
+      schemaVersion: 1,
+      taskId: `task-${item.assignmentId}`,
+      assignmentId: item.assignmentId,
+      state: index === 2 ? "preserved" : "discovered",
+      revision: index === 2 ? 2 : 0,
+      createdAt: now,
+      updatedAt: now,
+    },
     assignment: item,
-    execution: index === 2 ? { schemaVersion: 1, taskId: `task-${item.assignmentId}`, assignmentId: item.assignmentId, phase: "preserved", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 1, attemptCount: 1, answerArtifactId: "preview-answer", updatedAt: now } : null,
+    execution:
+      index === 2
+        ? {
+            schemaVersion: 1,
+            taskId: `task-${item.assignmentId}`,
+            assignmentId: item.assignmentId,
+            phase: "preserved",
+            taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
+            turnCount: 1,
+            attemptCount: 1,
+            answerArtifactId: "preview-answer",
+            updatedAt: now,
+          }
+        : null,
     permission,
     events: [],
     runs: [],
-    attempts: index === 2 ? [{ schemaVersion: 1, taskId: `task-${item.assignmentId}`, ordinal: 1, plan: "Fill the visible homework from the current page.", result: "Answers stayed on the page and were saved locally.", evidence: { revision: 1, url: item.sourceTarget, title: item.title, capturedAt: now, summary: "Completed work left on the school page." }, recordedAt: now }] : [],
+    attempts:
+      index === 2
+        ? [
+            {
+              schemaVersion: 1,
+              taskId: `task-${item.assignmentId}`,
+              ordinal: 1,
+              plan: "Fill the visible homework from the current page.",
+              result: "Answers stayed on the page and were saved locally.",
+              evidence: {
+                revision: 1,
+                url: item.sourceTarget,
+                title: item.title,
+                capturedAt: now,
+                summary: "Completed work left on the school page.",
+              },
+              recordedAt: now,
+            },
+          ]
+        : [],
     submissionReceipt: null,
     activity: [],
   }));
   if (preview.id === "assignment-restricted") {
-    tasks[0]!.permission = { ...permission, mode: "do_not_attempt", mayAttempt: false, rationale: "Simulated rule: do not attempt." };
+    tasks[0]!.permission = {
+      ...permission,
+      mode: "do_not_attempt",
+      mayAttempt: false,
+      rationale: "Simulated rule: do not attempt.",
+    };
   }
   if (preview.id === "assignment-failed" || preview.id === "assignment-stopped") {
     const item = tasks[0]!;
-    item.task = { ...item.task, state: preview.id === "assignment-stopped" ? "cancelled" : "failed", revision: 2 };
-    item.execution = { schemaVersion: 1, taskId: item.task.taskId, assignmentId: item.assignment.assignmentId, phase: "failed", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 2, attemptCount: 1, lastError: preview.id === "assignment-stopped" ? "Cancelled by the student." : "The school page stopped responding. Your saved work is still here.", updatedAt: now };
+    item.task = {
+      ...item.task,
+      state: preview.id === "assignment-stopped" ? "cancelled" : "failed",
+      revision: 2,
+    };
+    item.execution = {
+      schemaVersion: 1,
+      taskId: item.task.taskId,
+      assignmentId: item.assignment.assignmentId,
+      phase: "failed",
+      taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
+      turnCount: 2,
+      attemptCount: 1,
+      lastError:
+        preview.id === "assignment-stopped"
+          ? "Cancelled by the student."
+          : "The school page stopped responding. Your saved work is still here.",
+      updatedAt: now,
+    };
   }
 
   if (preview.onboardingStep !== undefined) {
-    onboarding = { profile: null, scan: null, courses: [], assignments: [], linkedSystems: [], workflowRevision: null };
+    onboarding = {
+      profile: null,
+      scan: null,
+      courses: [],
+      assignments: [],
+      linkedSystems: [],
+      workflowRevision: null,
+    };
   } else if (preview.id === "onboarding-signin") {
     onboarding = { ...onboarding, scan: null, workflowRevision: null };
   } else if (preview.id === "onboarding-scan") {
-    onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "running", completedAt: undefined, currentStep: "Checking linked homework pages…", failures: [], handoff: null }, workflowRevision: null };
-  } else if (preview.id === "onboarding-handoff" || preview.id === "chat-handoff" || preview.id === "week-needs-user") {
+    onboarding = {
+      ...onboarding,
+      scan: {
+        ...onboarding.scan!,
+        state: "running",
+        completedAt: undefined,
+        currentStep: "Checking linked homework pages…",
+        failures: [],
+        handoff: null,
+      },
+      workflowRevision: null,
+    };
+  } else if (
+    preview.id === "onboarding-handoff" ||
+    preview.id === "chat-handoff" ||
+    preview.id === "week-needs-user"
+  ) {
     onboarding = {
       ...onboarding,
       scan: {
@@ -142,7 +266,12 @@ export function installDevPreview(): void {
         completedAt: undefined,
         currentStep: "Waiting for a linked homework sign-in.",
         failures: [],
-        handoff: { kind: "linked_system_sign_in", reason: "WebAssign needs you to sign in before I can keep checking.", requestedAt: now, evidence },
+        handoff: {
+          kind: "linked_system_sign_in",
+          reason: "WebAssign needs you to sign in before I can keep checking.",
+          requestedAt: now,
+          evidence,
+        },
       },
       workflowRevision: preview.id === "onboarding-handoff" ? null : 1,
     };
@@ -150,7 +279,16 @@ export function installDevPreview(): void {
 
   let lifecycle: LifecycleState = {
     windowVisible: true,
-    schedule: { schemaVersion: 1, scheduleId: "school-scan", cadence: "daily", state: "enabled", timezone: "America/New_York", localTime: "09:00", nextRunAt: "2026-09-04T13:00:00.000Z", updatedAt: now },
+    schedule: {
+      schemaVersion: 1,
+      scheduleId: "school-scan",
+      cadence: "daily",
+      state: "enabled",
+      timezone: "America/New_York",
+      localTime: "09:00",
+      nextRunAt: "2026-09-04T13:00:00.000Z",
+      updatedAt: now,
+    },
     execution: null,
     attempts: [],
     submissionReceipt: null,
@@ -159,22 +297,70 @@ export function installDevPreview(): void {
   };
 
   let settings: ProductSettingsState = {
-    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "selected", homeworkRoot: null, agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
-    permissionRules: [{ schemaVersion: 1, ruleId: "preview-global", scope: "global", mode: "attempt", updatedAt: now }],
+    preferences: {
+      schemaVersion: 1,
+      reviewMinutes: 15,
+      handoffMinutes: 30,
+      memoryVisibility: "selected",
+      homeworkRoot: null,
+      agentProviderId: "openai-codex",
+      agentModelId: DEFAULT_AGENT_MODEL_ID,
+      agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT,
+      notifications: DEFAULT_NOTIFICATION_PREFERENCES,
+      updatedAt: now,
+    },
+    permissionRules: [
+      { schemaVersion: 1, ruleId: "preview-global", scope: "global", mode: "attempt", updatedAt: now },
+    ],
     schedule: lifecycle.schedule,
   };
 
   const workspace = (): StudiWorkspaceState => ({
-    browser: { url: "https://school.example.edu", title: "School", revision: 1, driver: lifecycle.execution?.phase === "working" ? "inky" : "none" },
-    provider: { schemaVersion: 1, providerId: "openai-codex", providerName: "Codex", state: "ready", loginMethods: ["oauth"], reason: "ChatGPT is connected." },
+    browser: {
+      url: "https://school.example.edu",
+      title: "School",
+      revision: 1,
+      driver: lifecycle.execution?.phase === "working" ? "inky" : "none",
+    },
+    providers: [
+      {
+        schemaVersion: 1,
+        providerId: "openai-codex",
+        providerName: "ChatGPT",
+        state: "ready",
+        loginMethods: ["oauth"],
+        reason: "ChatGPT is ready to use.",
+      },
+      {
+        schemaVersion: 1,
+        providerId: "anthropic",
+        providerName: "Claude",
+        state: "needs_login",
+        loginMethods: ["oauth"],
+        reason: "Claude needs authentication.",
+      },
+    ],
+    selectedProviderId: settings.preferences.agentProviderId,
     providerLogin: null,
-    models: [{ id: DEFAULT_AGENT_MODEL_ID, name: "GPT-6 Astra" }],
+    models: [
+      { providerId: "openai-codex", id: DEFAULT_AGENT_MODEL_ID, name: "GPT-6 Astra" },
+      { providerId: "anthropic", id: "claude-fable-5-1", name: "Claude Fable 5.1" },
+    ],
     selectedModelId: settings.preferences.agentModelId,
     selectedReasoningEffort: settings.preferences.agentReasoningEffort,
   });
 
   const library = (): LibraryState => ({
-    tasks: tasks.map(({ events: _events, runs: _runs, attempts: _attempts, submissionReceipt: _receipt, activity: _activity, ...summary }) => summary),
+    tasks: tasks.map(
+      ({
+        events: _events,
+        runs: _runs,
+        attempts: _attempts,
+        submissionReceipt: _receipt,
+        activity: _activity,
+        ...summary
+      }) => summary,
+    ),
     artifacts: [],
   });
 
@@ -205,8 +391,21 @@ export function installDevPreview(): void {
 
   if (preview.id.startsWith("desk-") || preview.id === "week-browser-busy") {
     const item = tasks[0]!;
-    const phase = preview.id === "desk-needs-user" ? "needs_user" : preview.id === "desk-review" ? "ready_review" : preview.id === "desk-submitted" ? "submitted" : "working";
-    const checkpoint = { revision: 4, url: item.assignment.sourceTarget, title: item.assignment.title, capturedAt: now, summary: "All six written answers are visible on the assignment page." };
+    const phase =
+      preview.id === "desk-needs-user"
+        ? "needs_user"
+        : preview.id === "desk-review"
+          ? "ready_review"
+          : preview.id === "desk-submitted"
+            ? "submitted"
+            : "working";
+    const checkpoint = {
+      revision: 4,
+      url: item.assignment.sourceTarget,
+      title: item.assignment.title,
+      capturedAt: now,
+      summary: "All six written answers are visible on the assignment page.",
+    };
     item.task = { ...item.task, state: phase, revision: 4 };
     item.execution = {
       schemaVersion: 1,
@@ -216,56 +415,205 @@ export function installDevPreview(): void {
       taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
       turnCount: 8,
       attemptCount: 1,
-      ...(phase === "needs_user" ? { returnPredicate: "Attach the three JPG graphs in Show My Work, then tell me to keep going.", lastError: "The assignment requires graph files that are not in the homework folder." } : {}),
-      ...(phase === "ready_review" ? { reviewDeadline: "2026-09-03T16:15:00.000Z", reviewCheckpoint: checkpoint, answerSnapshot: "Six written responses filled; three graphs attached.", completionChecklist: [{ requirement: "Six written answers", evidence: "All six response boxes contain an answer." }, { requirement: "Three JPG graphs", evidence: "Three attachments are listed in Show My Work." }] } : {}),
+      ...(phase === "needs_user"
+        ? {
+            returnPredicate: "Attach the three JPG graphs in Show My Work, then tell me to keep going.",
+            lastError: "The assignment requires graph files that are not in the homework folder.",
+          }
+        : {}),
+      ...(phase === "ready_review"
+        ? {
+            reviewDeadline: "2026-09-03T16:15:00.000Z",
+            reviewCheckpoint: checkpoint,
+            answerSnapshot: "Six written responses filled; three graphs attached.",
+            completionChecklist: [
+              { requirement: "Six written answers", evidence: "All six response boxes contain an answer." },
+              { requirement: "Three JPG graphs", evidence: "Three attachments are listed in Show My Work." },
+            ],
+          }
+        : {}),
       ...(phase === "submitted" ? { submissionReceiptId: "preview-receipt" } : {}),
       updatedAt: now,
     };
-    item.activity = phase === "working" ? [
-      { schemaVersion: 1, type: "tool_started", toolCallId: "preview-read", toolName: "browser_read" },
-      { schemaVersion: 1, type: "tool_finished", toolCallId: "preview-read", toolName: "browser_read", outcome: "succeeded" },
-      { schemaVersion: 1, type: "tool_started", toolCallId: "preview-fill", toolName: "browser_fill" },
-    ] : [];
+    item.activity =
+      phase === "working"
+        ? [
+            { schemaVersion: 1, type: "tool_started", toolCallId: "preview-read", toolName: "browser_read" },
+            {
+              schemaVersion: 1,
+              type: "tool_finished",
+              toolCallId: "preview-read",
+              toolName: "browser_read",
+              outcome: "succeeded",
+            },
+            { schemaVersion: 1, type: "tool_started", toolCallId: "preview-fill", toolName: "browser_fill" },
+          ]
+        : [];
     if (phase === "submitted") {
-      const receipt = { schemaVersion: 1 as const, receiptId: "preview-receipt", taskId: item.task.taskId, preSubmit: checkpoint, postSubmit: { ...checkpoint, revision: 5, summary: "The school page shows Submitted." }, verifiedStatus: "Submitted", submittedAt: now };
+      const receipt = {
+        schemaVersion: 1 as const,
+        receiptId: "preview-receipt",
+        taskId: item.task.taskId,
+        preSubmit: checkpoint,
+        postSubmit: { ...checkpoint, revision: 5, summary: "The school page shows Submitted." },
+        verifiedStatus: "Submitted",
+        submittedAt: now,
+      };
       item.submissionReceipt = receipt;
       lifecycle = { ...lifecycle, execution: item.execution, submissionReceipt: receipt };
     } else {
-      lifecycle = { ...lifecycle, execution: item.execution, manager: { entries: [], lease: { schemaVersion: 1, leaseId: "browser-worker", taskId: item.task.taskId, state: "active", acquiredAt: now, workerSessionId: "preview-worker", workerSessionPath: "preview-session" } } };
+      lifecycle = {
+        ...lifecycle,
+        execution: item.execution,
+        manager: {
+          entries: [],
+          lease: {
+            schemaVersion: 1,
+            leaseId: "browser-worker",
+            taskId: item.task.taskId,
+            state: "active",
+            acquiredAt: now,
+            workerSessionId: "preview-worker",
+            workerSessionPath: "preview-session",
+          },
+        },
+      };
     }
   }
 
-  let chatActivity: 'idle'|'thinking'|'typing' = preview.id==='chat-thinking'?'thinking':'idle';
-  let stopRequested=false;
-  let updateState: import('../../shared/index.js').UpdateState = {
-    capability: preview.id === 'updates-mac' ? 'manual' : 'native',
+  let chatActivity: "idle" | "thinking" | "typing" = preview.id === "chat-thinking" ? "thinking" : "idle";
+  let stopRequested = false;
+  let updateState: import("../../shared/index.js").UpdateState = {
+    capability: preview.id === "updates-mac" ? "manual" : "native",
     installedVersion: version,
-    targetVersion: preview.id.startsWith('updates-') ? nextPreviewVersion : null,
-    phase: preview.id === 'updates-error' ? 'error' : preview.id.startsWith('updates-') ? 'ready' : 'idle',
-    notes: 'Sample release notes for the UI preview. No update is downloaded or installed.',
-    error: preview.id === 'updates-error' ? 'The update service could not be reached.' : null,
+    targetVersion: preview.id.startsWith("updates-") ? nextPreviewVersion : null,
+    phase: preview.id === "updates-error" ? "error" : preview.id.startsWith("updates-") ? "ready" : "idle",
+    notes: "Sample release notes for the UI preview. No update is downloaded or installed.",
+    error: preview.id === "updates-error" ? "The update service could not be reached." : null,
     restartBlock: null,
   };
-  if (preview.id==='week-error'||preview.id==='week-updating') onboarding={...onboarding,scan:onboarding.scan?{...onboarding.scan,state:preview.id==='week-error'?'failed':'running',failures:preview.id==='week-error'?['The school connection timed out.']:[]}:null};
+  if (preview.id === "week-error" || preview.id === "week-updating")
+    onboarding = {
+      ...onboarding,
+      scan: onboarding.scan
+        ? {
+            ...onboarding.scan,
+            state: preview.id === "week-error" ? "failed" : "running",
+            failures: preview.id === "week-error" ? ["The school connection timed out."] : [],
+          }
+        : null,
+    };
   if (preview.id === "week-idle") onboarding = { ...onboarding, scan: null };
-  if (preview.id === "week-complete") onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "succeeded", failures: [], currentStep: "Your homework is up to date." } };
-  if (preview.id === "week-updating") onboarding = { ...onboarding, scan: { ...onboarding.scan!, completedAt: undefined, currentStep: "Checking linked homework pages…" } };
-  if (preview.id === "week-conflicts") onboarding = { ...onboarding, courseConflicts: [{ kind: "permissions", courseIds: ["course-csc316"], reason: "These class records have different homework rules. I kept them separate so your permissions stay unchanged." }] };
+  if (preview.id === "week-complete")
+    onboarding = {
+      ...onboarding,
+      scan: {
+        ...onboarding.scan!,
+        state: "succeeded",
+        failures: [],
+        currentStep: "Your homework is up to date.",
+      },
+    };
+  if (preview.id === "week-updating")
+    onboarding = {
+      ...onboarding,
+      scan: { ...onboarding.scan!, completedAt: undefined, currentStep: "Checking linked homework pages…" },
+    };
+  if (preview.id === "week-conflicts")
+    onboarding = {
+      ...onboarding,
+      courseConflicts: [
+        {
+          kind: "permissions",
+          courseIds: ["course-csc316"],
+          reason:
+            "These class records have different homework rules. I kept them separate so your permissions stay unchanged.",
+        },
+      ],
+    };
   const startPreviewScan = async (input?: { assignmentId: string }) => {
     if (lifecycle.manager.lease) throw new Error("An assignment is using the school browser.");
-    onboarding = { ...onboarding, scan: { ...onboarding.scan!, schemaVersion: 1, scanId: "preview-scan", kind: "first_scan", targetAssignmentId: input?.assignmentId, state: "running", startedAt: now, updatedAt: now, completedAt: undefined, currentStep: input ? "Checking this assignment’s missing details…" : "Checking linked homework pages…", failures: [], handoff: null, inventories: [], messages: [], changes: [], coverage: [], observedCourseIds: [], observedAssignmentIds: [], observedLinkedSystemIds: [] } };
+    onboarding = {
+      ...onboarding,
+      scan: {
+        ...onboarding.scan!,
+        schemaVersion: 1,
+        scanId: "preview-scan",
+        kind: "first_scan",
+        targetAssignmentId: input?.assignmentId,
+        state: "running",
+        startedAt: now,
+        updatedAt: now,
+        completedAt: undefined,
+        currentStep: input
+          ? "Checking this assignment’s missing details…"
+          : "Checking linked homework pages…",
+        failures: [],
+        handoff: null,
+        inventories: [],
+        messages: [],
+        changes: [],
+        coverage: [],
+        observedCourseIds: [],
+        observedAssignmentIds: [],
+        observedLinkedSystemIds: [],
+      },
+    };
     return onboarding;
   };
-  const home = conversation({kind:'home'});
-  if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
+  const home = conversation({ kind: "home" });
+  if (preview.id.startsWith("chat-"))
+    conversations.set("home", {
+      ...home,
+      messages: [
+        ...(preview.id === "chat-error"
+          ? [
+              {
+                messageId: "preview-question",
+                role: "user" as const,
+                text: "What should I work on tonight?",
+                turnIndex: 0,
+                createdAt: now,
+              },
+            ]
+          : []),
+        {
+          messageId: "preview-welcome",
+          role: "assistant",
+          text:
+            preview.id === "chat-error"
+              ? "I couldn’t finish that reply. Your message is saved."
+              : "Hey! What would you like to work on today?",
+          turnIndex: 0,
+          createdAt: now,
+          ...(preview.id === "chat-error" ? { recovery: "failed" as const } : {}),
+        },
+      ],
+    });
   const api: StudiRendererApi = {
-    getRuntimeInfo: async () => ({ app: `${version}-preview`, electron: "simulated", chrome: "simulated", node: "simulated" }),
-    getContractManifest: async () => CONTRACT_MANIFEST,
-    getAuthState: async () => preview.id === "auth" ? { status: "signed_out" } : ({ status: "approved", user: { subject: "preview", email: "preview@studi.local", name: "kausthubh" }, entitlement: { plan: "beta", credits: 0 }, deviceId: "00000000-0000-4000-8000-000000000001", secureStorage: false }),
+    getRuntimeInfo: async () => ({
+      app: `${version}-preview`,
+      electron: "simulated",
+      chrome: "simulated",
+      node: "simulated",
+    }),
+    getAuthState: async () =>
+      preview.id === "auth"
+        ? { status: "signed_out" }
+        : {
+            status: "approved",
+            user: { subject: "preview", email: "preview@studi.local", name: "kausthubh" },
+            entitlement: { plan: "beta", credits: 0 },
+            deviceId: "00000000-0000-4000-8000-000000000001",
+            secureStorage: false,
+          },
     signIn: async () => api.getAuthState(),
     signOut: async () => ({ status: "signed_out" }),
     retryEntitlement: async () => api.getAuthState(),
-    submitFeedback: async () => ({ accepted: true as const, feedbackId: "00000000-0000-4000-8000-000000000002" }),
+    submitFeedback: async () => ({
+      accepted: true as const,
+      feedbackId: "00000000-0000-4000-8000-000000000002",
+    }),
     getUsageState: async () => ({
       schemaVersion: 1,
       period: "2026-09",
@@ -286,40 +634,142 @@ export function installDevPreview(): void {
       ],
       updatedAt: "2026-09-04T16:00:00.000Z",
     }),
-    getConnectedApps: async () => ({ configured: true, toolkits: [
-      ["gmail", "20260902_00"], ["googledrive", "20260902_00"], ["googledocs", "20260826_00"], ["notion", "20260819_00"], ["github", "20260902_00"], ["canvas", "20260729_00"], ["googlecalendar", "20260902_00"], ["googlesheets", "20260902_00"], ["outlook", "20260903_00"], ["dropbox", "20260903_00"], ["slack", "20260826_00"], ["discord", "20260826_00"], ["todoist", "20260731_00"],
-    ].map(([toolkit, version]) => ({ toolkit: toolkit!, version: version!, access: "all" as const })) }),
-    connectApp: async ({ toolkit }) => ({ toolkit, sessionId: "preview-composio", connectedAccountId: null, status: "INITIATED", redirectUrl: "https://example.com/connect" }),
-    refreshConnectedApp: async ({ toolkit }) => ({ toolkit, sessionId: "preview-composio", connectedAccountId: "preview-account", status: "ACTIVE", redirectUrl: null }),
+    getConnectedApps: async () => ({
+      configured: true,
+      toolkits: [
+        ["gmail", "20260902_00"],
+        ["googledrive", "20260902_00"],
+        ["googledocs", "20260826_00"],
+        ["notion", "20260819_00"],
+        ["github", "20260902_00"],
+        ["canvas", "20260729_00"],
+        ["googlecalendar", "20260902_00"],
+        ["googlesheets", "20260902_00"],
+        ["outlook", "20260903_00"],
+        ["dropbox", "20260903_00"],
+        ["slack", "20260826_00"],
+        ["discord", "20260826_00"],
+        ["todoist", "20260731_00"],
+      ].map(([toolkit, version]) => ({ toolkit: toolkit!, version: version!, access: "all" as const })),
+    }),
+    connectApp: async ({ toolkit }) => ({
+      toolkit,
+      sessionId: "preview-composio",
+      connectedAccountId: null,
+      status: "INITIATED",
+      redirectUrl: "https://example.com/connect",
+    }),
+    refreshConnectedApp: async ({ toolkit }) => ({
+      toolkit,
+      sessionId: "preview-composio",
+      connectedAccountId: "preview-account",
+      status: "ACTIVE",
+      redirectUrl: null,
+    }),
     getWorkspaceState: async () => workspace(),
-    getAssignmentFiles: async () => [{path:"answer.md",kind:"file",size:85,modifiedAt:now}],
-    importAssignmentFiles: async () => ({ imported: [], errors: [{ name: "Preview", message: "Adding files is available in the desktop app." }] }),
-    readAssignmentFile: async ({path}) => ({path,content:"Simulated preview file. No homework is run or saved by this preview.",modifiedAt:now}),
+    getAssignmentFiles: async () => [{ path: "answer.md", kind: "file", size: 85, modifiedAt: now }],
+    importAssignmentFiles: async () => ({
+      imported: [],
+      errors: [{ name: "Preview", message: "Adding files is available in the desktop app." }],
+    }),
+    readAssignmentFile: async ({ path }) => ({
+      path,
+      content: "Simulated preview file. No homework is run or saved by this preview.",
+      modifiedAt: now,
+    }),
     openAssignmentFolder: async () => true,
     selectBrowserPage: async () => workspace(),
     navigateBrowser: async () => workspace(),
-    loginOpenAiCodex: async () => workspace(),
-    cancelOpenAiCodexLogin: async () => workspace(),
-    selectAgentModel: async ({ modelId, reasoningEffort }) => { settings = { ...settings, preferences: { ...settings.preferences, agentModelId: modelId, agentReasoningEffort: reasoningEffort, updatedAt: new Date().toISOString() } }; return workspace(); },
+    loginProvider: async () => workspace(),
+    completeProviderLogin: async () => workspace(),
+    cancelProviderLogin: async () => workspace(),
+    logoutProvider: async () => workspace(),
+    selectAgentModel: async ({ providerId, modelId, reasoningEffort }) => {
+      settings = {
+        ...settings,
+        preferences: {
+          ...settings.preferences,
+          agentProviderId: providerId,
+          agentModelId: modelId,
+          agentReasoningEffort: reasoningEffort,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      return workspace();
+    },
     getUpdateState: async () => updateState,
-    checkForUpdates: async () => {updateState={...updateState,phase:'checking',error:null};setTimeout(()=>{updateState={...updateState,phase:'ready',targetVersion:nextPreviewVersion};},1000);return updateState;},
-    installUpdate: async () => ({...await api.getUpdateState(),error:'Preview only — no installer is run.'}),
-    getScopedConversation: async target => ({job:conversation(target),activity:chatActivity}),
-    stopScopedConversation: async target => {stopRequested=true;chatActivity='idle';return {job:conversation(target),activity:'idle'};},
-    sendScanMessage: async ({text,clientMessageId}) => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,messages:[...onboarding.scan.messages,{messageId:clientMessageId,clientMessageId,role:"user",text,createdAt:new Date().toISOString()}]}};return onboarding; },
-    pauseSchoolScan: async () => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,state:"needs_user",currentStep:"You have the page."}};return onboarding; },
-    getConversationState: async () => ({job:conversation({kind:'home'}),activity:chatActivity}),
-    stopConversation: async () => {stopRequested=true;chatActivity='idle';return {job:conversation({kind:'home'}),activity:'idle'};},
-    getNotifications: async () => lifecycle.latestNotification ? [lifecycle.latestNotification] : [],
-    readNotification: async ({ notificationId }) => { if (lifecycle.latestNotification?.notificationId === notificationId) lifecycle.latestNotification.clickedAt = new Date().toISOString(); return lifecycle.latestNotification ? [lifecycle.latestNotification] : []; },
+    checkForUpdates: async () => {
+      updateState = { ...updateState, phase: "checking", error: null };
+      setTimeout(() => {
+        updateState = { ...updateState, phase: "ready", targetVersion: nextPreviewVersion };
+      }, 1000);
+      return updateState;
+    },
+    installUpdate: async () => ({
+      ...(await api.getUpdateState()),
+      error: "Preview only — no installer is run.",
+    }),
+    getScopedConversation: async (target) => ({ job: conversation(target), activity: chatActivity }),
+    stopScopedConversation: async (target) => {
+      stopRequested = true;
+      chatActivity = "idle";
+      return { job: conversation(target), activity: "idle" };
+    },
+    sendScanMessage: async ({ text, clientMessageId }) => {
+      if (onboarding.scan)
+        onboarding = {
+          ...onboarding,
+          scan: {
+            ...onboarding.scan,
+            messages: [
+              ...onboarding.scan.messages,
+              {
+                messageId: clientMessageId,
+                clientMessageId,
+                role: "user",
+                text,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          },
+        };
+      return onboarding;
+    },
+    pauseSchoolScan: async () => {
+      if (onboarding.scan)
+        onboarding = {
+          ...onboarding,
+          scan: { ...onboarding.scan, state: "needs_user", currentStep: "You have the page." },
+        };
+      return onboarding;
+    },
+    getConversationState: async () => ({ job: conversation({ kind: "home" }), activity: chatActivity }),
+    stopConversation: async () => {
+      stopRequested = true;
+      chatActivity = "idle";
+      return { job: conversation({ kind: "home" }), activity: "idle" };
+    },
+    getNotifications: async () => (lifecycle.latestNotification ? [lifecycle.latestNotification] : []),
+    readNotification: async ({ notificationId }) => {
+      if (lifecycle.latestNotification?.notificationId === notificationId)
+        lifecycle.latestNotification.clickedAt = new Date().toISOString();
+      return lifecycle.latestNotification ? [lifecycle.latestNotification] : [];
+    },
     getManagerState: async () => lifecycle.manager,
     send: async ({ target, text, assignmentRefs, clientMessageId }) => {
-      chatActivity='thinking';stopRequested=false;await new Promise(resolve=>setTimeout(resolve,650));chatActivity=stopRequested?'idle':'typing';await new Promise(resolve=>setTimeout(resolve,650));chatActivity='idle';
+      chatActivity = "thinking";
+      stopRequested = false;
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      chatActivity = stopRequested ? "idle" : "typing";
+      await new Promise((resolve) => setTimeout(resolve, 650));
+      chatActivity = "idle";
       const current = conversation(target);
       const turnIndex = current.turnIndex + 1;
-      const reply = stopRequested ? "Paused. I’m here when you’re ready." : target.kind === "home"
-        ? `Okay, I will keep that in mind: ${text.slice(0, 140)}`
-        : `I checked this assignment: ${text.slice(0, 140)}`;
+      const reply = stopRequested
+        ? "Paused. I’m here when you’re ready."
+        : target.kind === "home"
+          ? `Okay, I will keep that in mind: ${text.slice(0, 140)}`
+          : `I checked this assignment: ${text.slice(0, 140)}`;
       const job: AgentJob = {
         ...current,
         phase: "conversing",
@@ -328,8 +778,22 @@ export function installDevPreview(): void {
         sessionId: current.sessionId ?? `preview-session-${current.jobId}`,
         messages: [
           ...current.messages,
-          { messageId: `preview-user-${current.jobId}-${turnIndex}`, role: "user", text, createdAt: new Date().toISOString(), turnIndex, ...(assignmentRefs?{assignmentRefs}:{}), ...(clientMessageId?{clientMessageId}:{}) },
-          { messageId: `preview-inky-${current.jobId}-${turnIndex}`, role: "assistant", text: reply, createdAt: new Date().toISOString(), turnIndex },
+          {
+            messageId: `preview-user-${current.jobId}-${turnIndex}`,
+            role: "user",
+            text,
+            createdAt: new Date().toISOString(),
+            turnIndex,
+            ...(assignmentRefs ? { assignmentRefs } : {}),
+            ...(clientMessageId ? { clientMessageId } : {}),
+          },
+          {
+            messageId: `preview-inky-${current.jobId}-${turnIndex}`,
+            role: "assistant",
+            text: reply,
+            createdAt: new Date().toISOString(),
+            turnIndex,
+          },
         ],
         updatedAt: now,
       };
@@ -337,13 +801,28 @@ export function installDevPreview(): void {
       return { outcome: "completed", text: reply, job };
     },
     selectAssignment: async ({ assignmentId }) => {
-      const target: ConversationTarget = assignmentId ? { kind: "assignment", assignmentId } : { kind: "home" };
+      const target: ConversationTarget = assignmentId
+        ? { kind: "assignment", assignmentId }
+        : { kind: "home" };
       return { target, job: conversation(target) };
     },
     getSchoolOnboardingState: async () => onboarding,
-    saveSchoolProfile: async (input) => { onboarding = { ...onboarding, profile: onboarding.profile ? { ...onboarding.profile, ...input, updatedAt: new Date().toISOString() } : onboarding.profile }; return onboarding; },
+    saveSchoolProfile: async (input) => {
+      onboarding = {
+        ...onboarding,
+        profile: onboarding.profile
+          ? { ...onboarding.profile, ...input, updatedAt: new Date().toISOString() }
+          : onboarding.profile,
+      };
+      return onboarding;
+    },
     startSchoolScan: startPreviewScan,
-    resumeSchoolScan: () => startPreviewScan(onboarding.scan?.targetAssignmentId ? { assignmentId: onboarding.scan.targetAssignmentId } : undefined),
+    resumeSchoolScan: () =>
+      startPreviewScan(
+        onboarding.scan?.targetAssignmentId
+          ? { assignmentId: onboarding.scan.targetAssignmentId }
+          : undefined,
+      ),
     replaySchoolScan: startPreviewScan,
     recordMissedCourseFeedback: async () => onboarding,
     getLifecycleState: async () => lifecycle,
@@ -355,26 +834,76 @@ export function installDevPreview(): void {
       }
       const item = tasks.find((task) => task.task.taskId === taskId);
       if (!item) throw new Error("That assignment is not in the preview.");
-      item.task = { ...item.task, state: "working", revision: item.task.revision + 1, updatedAt: new Date().toISOString() };
-      item.execution = { schemaVersion: 1, taskId, assignmentId: item.assignment.assignmentId, phase: "working", taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 }, turnCount: 0, attemptCount: 0, updatedAt: new Date().toISOString() };
-      item.activity = [{ schemaVersion: 1, type: "tool_started", toolCallId: "preview-click", toolName: "click" }];
+      item.task = {
+        ...item.task,
+        state: "working",
+        revision: item.task.revision + 1,
+        updatedAt: new Date().toISOString(),
+      };
+      item.execution = {
+        schemaVersion: 1,
+        taskId,
+        assignmentId: item.assignment.assignmentId,
+        phase: "working",
+        taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
+        turnCount: 0,
+        attemptCount: 0,
+        updatedAt: new Date().toISOString(),
+      };
+      item.activity = [
+        { schemaVersion: 1, type: "tool_started", toolCallId: "preview-click", toolName: "click" },
+      ];
       lifecycle = { ...lifecycle, execution: item.execution, attempts: item.attempts };
       return lifecycle;
     },
     resumeAssignment: async ({ taskId }) => {
       const item = detail(taskId);
-      if (!item?.execution || item.execution.phase !== "needs_user") throw new Error("This assignment is not paused.");
+      if (!item?.execution || item.execution.phase !== "needs_user")
+        throw new Error("This assignment is not paused.");
       item.task = { ...item.task, state: "working", revision: item.task.revision + 1 };
-      item.execution = { ...item.execution, phase: "working", lastError: undefined, returnPredicate: undefined, updatedAt: new Date().toISOString() };
+      item.execution = {
+        ...item.execution,
+        phase: "working",
+        lastError: undefined,
+        returnPredicate: undefined,
+        updatedAt: new Date().toISOString(),
+      };
       lifecycle = { ...lifecycle, execution: item.execution };
       return lifecycle;
     },
     verifyStudentSubmission: async () => lifecycle,
     openAnswerArtifact: async () => true,
     getProductSettings: async () => settings,
-    saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, workStartMode: input.workStartMode ?? settings.preferences.workStartMode, updatedAt: new Date().toISOString() } }; return settings.preferences; },
-    selectHomeworkRoot: async () => { settings = { ...settings, preferences: { ...settings.preferences, homeworkRoot: "C:\\Studi Preview Homework", updatedAt: new Date().toISOString() } }; return settings.preferences; },
-    saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    saveProductPreferences: async (input) => {
+      settings = {
+        ...settings,
+        preferences: {
+          ...settings.preferences,
+          ...input,
+          workStartMode: input.workStartMode ?? settings.preferences.workStartMode,
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      return settings.preferences;
+    },
+    selectHomeworkRoot: async () => {
+      settings = {
+        ...settings,
+        preferences: {
+          ...settings.preferences,
+          homeworkRoot: "C:\\Studi Preview Homework",
+          updatedAt: new Date().toISOString(),
+        },
+      };
+      return settings.preferences;
+    },
+    saveNotificationPreferences: async (input) => {
+      settings = {
+        ...settings,
+        preferences: { ...settings.preferences, notifications: input, updatedAt: new Date().toISOString() },
+      };
+      return settings.preferences;
+    },
     testNotification: async ({ kind }) => ({
       notification: {
         schemaVersion: 1,
@@ -390,39 +919,86 @@ export function installDevPreview(): void {
       supported: false,
     }),
     savePermissionRule: async (input) => {
-      const rule = { ...input, schemaVersion: 1 as const, ruleId: input.ruleId ?? `preview-rule-${crypto.randomUUID()}`, updatedAt: new Date().toISOString() };
-      settings = { ...settings, permissionRules: [...settings.permissionRules.filter(item => item.ruleId !== rule.ruleId && permissionRuleTargetKey(item) !== permissionRuleTargetKey(rule)), rule] };
+      const rule = {
+        ...input,
+        schemaVersion: 1 as const,
+        ruleId: input.ruleId ?? `preview-rule-${crypto.randomUUID()}`,
+        updatedAt: new Date().toISOString(),
+      };
+      settings = {
+        ...settings,
+        permissionRules: [
+          ...settings.permissionRules.filter(
+            (item) =>
+              item.ruleId !== rule.ruleId && permissionRuleTargetKey(item) !== permissionRuleTargetKey(rule),
+          ),
+          rule,
+        ],
+      };
       return settings;
     },
     deletePermissionRule: async ({ ruleId }) => {
-      settings = { ...settings, permissionRules: settings.permissionRules.filter(rule => rule.ruleId !== ruleId) };
+      settings = {
+        ...settings,
+        permissionRules: settings.permissionRules.filter((rule) => rule.ruleId !== ruleId),
+      };
       return settings;
     },
     configureScanSchedule: async () => settings,
     getLibraryState: async () => library(),
-    getTaskDetail: async ({ taskId }) => { const value = detail(taskId); if (!value) throw new Error("Missing task"); return value; },
-    readArtifact: async ({ kind, artifactId }) => kind === "answer" && artifactId === "preview-answer"
-      ? { frontmatter: { schemaVersion: 1, kind: "answer", artifactId, updatedAt: now }, content: "Simulated saved answers for UI preview. This assignment has not been submitted.\n\n1. Sort each digit in order, preserving the order within each group.\n2. Repeat for the remaining digits." }
-      : null,
+    getTaskDetail: async ({ taskId }) => {
+      const value = detail(taskId);
+      if (!value) throw new Error("Missing task");
+      return value;
+    },
+    readArtifact: async ({ kind, artifactId }) =>
+      kind === "answer" && artifactId === "preview-answer"
+        ? {
+            frontmatter: { schemaVersion: 1, kind: "answer", artifactId, updatedAt: now },
+            content:
+              "Simulated saved answers for UI preview. This assignment has not been submitted.\n\n1. Sort each digit in order, preserving the order within each group.\n2. Repeat for the remaining digits.",
+          }
+        : null,
     requestAssignmentTakeover: async ({ taskId }) => {
       if (lifecycle.execution?.taskId === taskId && lifecycle.execution) {
         const item = detail(taskId)!;
         item.task = { ...item.task, state: "needs_user", revision: item.task.revision + 1 };
-        item.execution = { ...lifecycle.execution, phase: "needs_user", lastError: "The browser is yours. Resume when you’re ready.", returnPredicate: "You have the page.", updatedAt: new Date().toISOString() };
+        item.execution = {
+          ...lifecycle.execution,
+          phase: "needs_user",
+          lastError: "The browser is yours. Resume when you’re ready.",
+          returnPredicate: "You have the page.",
+          updatedAt: new Date().toISOString(),
+        };
         lifecycle = { ...lifecycle, execution: item.execution };
       }
       return lifecycle;
     },
     cancelAssignment: async ({ taskId }) => {
       const item = detail(taskId);
-      if (!item?.execution || !["working", "needs_user", "ready_review"].includes(item.execution.phase)) throw new Error("This assignment cannot be stopped.");
+      if (!item?.execution || !["working", "needs_user", "ready_review"].includes(item.execution.phase))
+        throw new Error("This assignment cannot be stopped.");
       item.task = { ...item.task, state: "cancelled", revision: item.task.revision + 1 };
-      item.execution = { ...item.execution, phase: "failed", lastError: "Cancelled by the student.", updatedAt: new Date().toISOString() };
+      item.execution = {
+        ...item.execution,
+        phase: "failed",
+        lastError: "Cancelled by the student.",
+        updatedAt: new Date().toISOString(),
+      };
       lifecycle = { ...lifecycle, execution: item.execution, manager: { entries: [], lease: null } };
       return lifecycle;
     },
     setBrowserLayout: async ({ mode }) => mode,
-    getTelemetryState: async () => ({ configured: false, enabled: false, replayEnabled: false, identity: "anonymous", distinctId: "preview", debugUntil: null, rendererConfig: null, inspector: [] }),
+    getTelemetryState: async () => ({
+      configured: false,
+      enabled: false,
+      replayEnabled: false,
+      identity: "anonymous",
+      distinctId: "preview",
+      debugUntil: null,
+      rendererConfig: null,
+      inspector: [],
+    }),
     setTelemetryPreferences: async () => api.getTelemetryState(),
     setTelemetryDebug: async () => api.getTelemetryState(),
     captureUiTelemetry: async () => true,

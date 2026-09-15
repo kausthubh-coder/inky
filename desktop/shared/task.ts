@@ -2,11 +2,7 @@ import { z } from "zod";
 
 import { EventEnvelopeSchema } from "./event.js";
 import { AssignmentIdSchema, EventIdSchema, RunIdSchema, TaskIdSchema } from "./ids.js";
-import {
-  IsoTimestampSchema,
-  SchemaVersionSchema,
-  STUDI_SCHEMA_VERSION,
-} from "./schema-version.js";
+import { IsoTimestampSchema, SchemaVersionSchema, STUDI_SCHEMA_VERSION } from "./schema-version.js";
 
 export const TaskStateSchema = z.enum([
   "discovered",

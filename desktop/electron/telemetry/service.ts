@@ -18,25 +18,32 @@ import {
   type TelemetryState,
 } from "../../shared/index.js";
 
-const OpaqueIdSchema = z.string().min(1).max(128).regex(/^[A-Za-z0-9._:-]+$/);
+const OpaqueIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9._:-]+$/);
 const agentFacts = TelemetryAgentFactsSchema.shape;
 const PersonPropertySchema = z.union([z.string().max(2_000), z.number().finite(), z.boolean()]);
-const PersonPropertiesSchema = z.object({
-  email: z.string().max(320).optional(),
-  name: z.string().max(200).optional(),
-  student_name: z.string().max(100).optional(),
-  school_root: z.string().max(2_000).optional(),
-  selected_model: z.string().max(128).optional(),
-  selected_reasoning: AgentReasoningEffortSchema.optional(),
-  plan: z.string().max(128).optional(),
-  credits: z.number().finite().nonnegative().optional(),
-  device_id: z.string().max(256).optional(),
-  os_version: z.string().max(256).optional(),
-  locale: z.string().max(64).optional(),
-  timezone: z.string().max(128).optional(),
-  onboarding_state: z.string().max(128).optional(),
-  connected_toolkits: z.string().max(20_000).optional(),
-}).strict();
+const PersonPropertiesSchema = z
+  .object({
+    email: z.string().max(320).optional(),
+    name: z.string().max(200).optional(),
+    student_name: z.string().max(100).optional(),
+    school_root: z.string().max(2_000).optional(),
+    selected_provider: z.string().max(64).optional(),
+    selected_model: z.string().max(128).optional(),
+    selected_reasoning: AgentReasoningEffortSchema.optional(),
+    plan: z.string().max(128).optional(),
+    credits: z.number().finite().nonnegative().optional(),
+    device_id: z.string().max(256).optional(),
+    os_version: z.string().max(256).optional(),
+    locale: z.string().max(64).optional(),
+    timezone: z.string().max(128).optional(),
+    onboarding_state: z.string().max(128).optional(),
+    connected_toolkits: z.string().max(20_000).optional(),
+  })
+  .strict();
 
 export const telemetryEventSchemas = {
   studi_app_started: z.strictObject({ launch: z.literal("desktop") }),
@@ -86,14 +93,32 @@ export const telemetryEventSchemas = {
     scan_id: OpaqueIdSchema.optional(),
     failure_count: z.number().int().nonnegative().optional(),
     failures: z.array(z.string()).optional(),
-    coverage: z.array(z.object({ target: z.string(), status: z.string(), failure: z.string().optional() })).optional(),
+    coverage: z
+      .array(z.object({ target: z.string(), status: z.string(), failure: z.string().optional() }))
+      .optional(),
     handoff: z.object({ kind: z.string(), reason: z.string() }).nullable().optional(),
     current_step: z.string().max(100_000).optional(),
   }),
   studi_dashboard_viewed: z.strictObject({ section: z.enum(["auth_gate", "workspace"]) }),
   studi_queue_transition: z.strictObject({
-    action: z.enum(["manager_turn", "assignment_start", "assignment_resume", "submission_verify", "schedule_pause", "schedule_resume"]),
-    phase: z.enum(["idle", "working", "needs_user", "ready_review", "submitting", "submitted", "preserved", "failed"]),
+    action: z.enum([
+      "manager_turn",
+      "assignment_start",
+      "assignment_resume",
+      "submission_verify",
+      "schedule_pause",
+      "schedule_resume",
+    ]),
+    phase: z.enum([
+      "idle",
+      "working",
+      "needs_user",
+      "ready_review",
+      "submitting",
+      "submitted",
+      "preserved",
+      "failed",
+    ]),
     task_id: OpaqueIdSchema.optional(),
     model: agentFacts.model,
     reasoning_effort: agentFacts.reasoning_effort,
@@ -122,8 +147,13 @@ export const telemetryEventSchemas = {
     error_count: agentFacts.error_count,
   }),
   studi_model_selected: z.strictObject({
+    provider: z.string().min(1).max(64),
     model: z.string().min(1).max(128),
     reasoning_effort: AgentReasoningEffortSchema,
+  }),
+  studi_provider_connection: z.strictObject({
+    provider: z.string().min(1).max(64),
+    state: z.enum(["connected", "disconnected"]),
   }),
   studi_handoff: z.strictObject({ kind: z.enum(["scan", "assignment"]), state: z.literal("needs_user") }),
   studi_review: z.strictObject({ state: z.enum(["ready_review", "submitted"]) }),
@@ -187,15 +217,24 @@ export const telemetryEventSchemas = {
     reasoning_effort: agentFacts.reasoning_effort,
   }),
   $ai_generation: z.strictObject({
-    $ai_trace_id: z.string(), $ai_span_id: z.string(), $ai_session_id: z.string(),
-    $ai_model: z.string(), $ai_provider: z.string(),
-    $ai_input: z.unknown(), $ai_output_choices: z.unknown(),
-    $ai_input_tokens: z.number(), $ai_output_tokens: z.number(),
+    $ai_trace_id: z.string(),
+    $ai_span_id: z.string(),
+    $ai_session_id: z.string(),
+    $ai_model: z.string(),
+    $ai_provider: z.string(),
+    $ai_input: z.unknown(),
+    $ai_output_choices: z.unknown(),
+    $ai_input_tokens: z.number(),
+    $ai_output_tokens: z.number(),
     $ai_cache_reporting_exclusive: z.boolean().optional(),
-    $ai_cache_read_input_tokens: z.number(), $ai_cache_creation_input_tokens: z.number(),
-    $ai_total_cost_usd: z.number(), $ai_latency: z.number(),
+    $ai_cache_read_input_tokens: z.number(),
+    $ai_cache_creation_input_tokens: z.number(),
+    $ai_total_cost_usd: z.number(),
+    $ai_latency: z.number(),
     $ai_time_to_first_token: z.number().optional(),
-    $ai_is_error: z.boolean(), $ai_error: z.string().optional(), stop_reason: z.string(),
+    $ai_is_error: z.boolean(),
+    $ai_error: z.string().optional(),
+    stop_reason: z.string(),
     content_in_diagnostic_chunks: z.boolean().optional(),
   }),
   studi_agent_trace: AgentTraceEventSchema,
@@ -274,16 +313,18 @@ export class TelemetryService {
     this.#now = options.now ?? (() => new Date());
     this.#settings = readSettings(options.settingsPath);
     this.#distinctId = `anonymous-${this.#settings.anonymousId}`;
-    this.#client = options.client ?? (this.#projectToken
-      ? new PostHog(this.#projectToken, {
-          host: this.#host,
-          flushAt: 10,
-          flushInterval: 5_000,
-          privacyMode: false,
-          enableExceptionAutocapture: false,
-          before_send: (message) => sanitizeSdkMessage(message),
-        })
-      : null);
+    this.#client =
+      options.client ??
+      (this.#projectToken
+        ? new PostHog(this.#projectToken, {
+            host: this.#host,
+            flushAt: 10,
+            flushInterval: 5_000,
+            privacyMode: false,
+            enableExceptionAutocapture: false,
+            before_send: (message) => sanitizeSdkMessage(message),
+          })
+        : null);
   }
 
   state(): TelemetryState {
@@ -295,9 +336,8 @@ export class TelemetryService {
       identity: this.#identity,
       distinctId: this.#distinctId,
       debugUntil: this.#settings.debugUntil,
-      rendererConfig: this.#client && this.#projectToken
-        ? { projectToken: this.#projectToken, host: this.#host }
-        : null,
+      rendererConfig:
+        this.#client && this.#projectToken ? { projectToken: this.#projectToken, host: this.#host } : null,
       inspector: [...this.#inspector],
     });
   }
@@ -355,9 +395,17 @@ export class TelemetryService {
       if (input.source === "runtime" && input.kind === "generation") {
         const generation = telemetryEventSchemas.$ai_generation.safeParse(payload);
         if (generation.success) {
-          this.capture("$ai_generation", serialized.length <= 100_000 ? generation.data : {
-            ...generation.data, $ai_input: [], $ai_output_choices: [], content_in_diagnostic_chunks: true,
-          });
+          this.capture(
+            "$ai_generation",
+            serialized.length <= 100_000
+              ? generation.data
+              : {
+                  ...generation.data,
+                  $ai_input: [],
+                  $ai_output_choices: [],
+                  content_in_diagnostic_chunks: true,
+                },
+          );
         }
       }
       // Stay under ingestion limits without silently losing large prompts or tool results.
@@ -366,20 +414,26 @@ export class TelemetryService {
       const count = Math.ceil(serialized.length / chunkSize);
       let captured = true;
       for (let index = 0; index < count; index++) {
-        captured = this.capture("studi_diagnostic", {
-          ...input, payload: serialized.slice(index * chunkSize, (index + 1) * chunkSize),
-          chunk_index: index, chunk_count: count,
-        }) && captured;
+        captured =
+          this.capture("studi_diagnostic", {
+            ...input,
+            payload: serialized.slice(index * chunkSize, (index + 1) * chunkSize),
+            chunk_index: index,
+            chunk_count: count,
+          }) && captured;
       }
       return captured;
-    } catch { return false; }
+    } catch {
+      return false;
+    }
   }
 
   captureTrace(event: AgentTraceEvent): boolean {
     const captured = this.capture("studi_agent_trace", AgentTraceEventSchema.parse(event));
     if (event.type === "error" || (event.type === "tool_finished" && event.payload.outcome === "failed")) {
       this.captureError(event.payload, "queue", "manager", {
-        run_id: event.runId, job_id: event.jobId,
+        run_id: event.runId,
+        job_id: event.jobId,
         ...(typeof event.payload.name === "string" ? { tool_name: event.payload.name } : {}),
       });
     }
@@ -396,7 +450,18 @@ export class TelemetryService {
     error: unknown,
     boundary: EventProperties<"studi_error">["boundary"],
     operation: EventProperties<"studi_error">["operation"],
-    extras: Pick<EventProperties<"studi_error">, "model" | "reasoning_effort" | "ipc_channel" | "scan_id" | "task_id" | "run_id" | "job_id" | "tool_name" | "toolkit"> = {},
+    extras: Pick<
+      EventProperties<"studi_error">,
+      | "model"
+      | "reasoning_effort"
+      | "ipc_channel"
+      | "scan_id"
+      | "task_id"
+      | "run_id"
+      | "job_id"
+      | "tool_name"
+      | "toolkit"
+    > = {},
   ): boolean {
     if (this.#settings.enabled && this.#client?.captureException) {
       const safe = new Error(stripSecrets(errorMessage(error)));
@@ -404,10 +469,16 @@ export class TelemetryService {
       if (error instanceof Error && error.stack) safe.stack = stripSecrets(error.stack);
       try {
         this.#client.captureException(safe, this.#distinctId, {
-          app_version: this.#appVersion.slice(0, 64), platform: this.#platform,
-          boundary, operation, ...this.#replayContext, ...extras,
+          app_version: this.#appVersion.slice(0, 64),
+          platform: this.#platform,
+          boundary,
+          operation,
+          ...this.#replayContext,
+          ...extras,
         });
-      } catch { /* Diagnostics cannot interrupt the student. */ }
+      } catch {
+        /* Diagnostics cannot interrupt the student. */
+      }
     }
     const debugSummary = this.#isDebugActive() ? `${errorName(error)} stopped at ${boundary}` : undefined;
     return this.capture("studi_error", {
@@ -421,9 +492,18 @@ export class TelemetryService {
     });
   }
 
-  identifyClerk(user: { readonly subject: string; readonly email?: string | null; readonly name?: string | null }): void {
+  identifyClerk(user: {
+    readonly subject: string;
+    readonly email?: string | null;
+    readonly name?: string | null;
+  }): void {
     const previousId = this.#distinctId;
-    this.#distinctId = z.string().min(1).max(256).regex(/^[A-Za-z0-9._:-]+$/).parse(user.subject);
+    this.#distinctId = z
+      .string()
+      .min(1)
+      .max(256)
+      .regex(/^[A-Za-z0-9._:-]+$/)
+      .parse(user.subject);
     if (previousId !== this.#distinctId) this.#replayContext = null;
     this.#identity = "clerk";
     this.setPerson({
@@ -471,15 +551,22 @@ export class TelemetryService {
   setDebug(durationMinutes: 0 | 30): TelemetryState {
     this.#settings = {
       ...this.#settings,
-      debugUntil: durationMinutes === 0
-        ? null
-        : new Date(this.#now().getTime() + durationMinutes * 60_000).toISOString(),
+      debugUntil:
+        durationMinutes === 0
+          ? null
+          : new Date(this.#now().getTime() + durationMinutes * 60_000).toISOString(),
     };
     this.#persist();
     return this.state();
   }
 
-  async flush(): Promise<void> {try{await this.#client?.flush?.();}catch{/* Existing SDK queue owns retries. */}}
+  async flush(): Promise<void> {
+    try {
+      await this.#client?.flush?.();
+    } catch {
+      /* Existing SDK queue owns retries. */
+    }
+  }
 
   shutdown(timeoutMs = 2_000): Promise<void> {
     if (!this.#client) return Promise.resolve();
@@ -499,7 +586,10 @@ export class TelemetryService {
   }
 
   #persist(): void {
-    writeFileSync(this.#settingsPath, `${JSON.stringify(this.#settings, null, 2)}\n`, { encoding: "utf8", mode: 0o600 });
+    writeFileSync(this.#settingsPath, `${JSON.stringify(this.#settings, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
   }
 }
 
@@ -525,7 +615,8 @@ function classifyError(error: unknown): EventProperties<"studi_error">["code"] {
   if (/auth|clerk|sign.?in|entitlement/i.test(message)) return "auth_unavailable";
   if (/provider|codex subscription|model/i.test(message)) return "provider_not_ready";
   if (/needs? (?:the )?(?:student|user)|sign.?in required|waiting for/i.test(message)) return "needs_user";
-  if (/invalid|malformed|parse|schema|expects?\s+\d/i.test(message) || error instanceof z.ZodError) return "invalid_input";
+  if (/invalid|malformed|parse|schema|expects?\s+\d/i.test(message) || error instanceof z.ZodError)
+    return "invalid_input";
   if (/network|fetch|offline|unavailable|timed? out|ECONN/i.test(message)) return "network_unavailable";
   return "operation_failed";
 }
@@ -556,13 +647,17 @@ function serializeError(value: unknown, seen = new WeakSet<object>(), depth = 0)
   if (typeof value !== "object") return String(value);
   if (seen.has(value)) return "[circular]";
   seen.add(value);
-  const fields = value instanceof Error
-    ? { ...value, name: value.name, message: value.message, stack: value.stack, cause: value.cause }
-    : value;
+  const fields =
+    value instanceof Error
+      ? { ...value, name: value.name, message: value.message, stack: value.stack, cause: value.cause }
+      : value;
   const result = Array.isArray(fields)
     ? fields.map((item) => serializeError(item, seen, depth + 1))
-    : Object.fromEntries(Object.entries(fields).filter(([, item]) => item !== undefined)
-      .map(([key, item]) => [key, serializeError(item, seen, depth + 1)]));
+    : Object.fromEntries(
+        Object.entries(fields)
+          .filter(([, item]) => item !== undefined)
+          .map(([key, item]) => [key, serializeError(item, seen, depth + 1)]),
+      );
   seen.delete(value);
   return result;
 }
@@ -580,7 +675,18 @@ function sanitizeSdkMessage(message: unknown) {
     return sanitizeIdentifyMessage(distinctIdResult.data, record.properties);
   }
   // The SDK builds exception metadata; keep it intact while stripping credentials.
-  if(record.event==='$exception'&&record.properties&&typeof record.properties==='object'&&!Array.isArray(record.properties))return {distinctId:distinctIdResult.data,event:'$exception',properties:stripSecretProperties(record.properties as Record<string,unknown>),_originatedFromCaptureException:true};
+  if (
+    record.event === "$exception" &&
+    record.properties &&
+    typeof record.properties === "object" &&
+    !Array.isArray(record.properties)
+  )
+    return {
+      distinctId: distinctIdResult.data,
+      event: "$exception",
+      properties: stripSecretProperties(record.properties as Record<string, unknown>),
+      _originatedFromCaptureException: true,
+    };
   const eventResult = TelemetryEventNameSchema.safeParse(record.event);
   if (!eventResult.success) return null;
   const properties = record.properties;
@@ -590,19 +696,21 @@ function sanitizeSdkMessage(message: unknown) {
   const eventProperties = schema.safeParse(
     stripSecretProperties(pickSchemaProperties(eventResult.data, propertyRecord)),
   );
-  const common = z.strictObject({
-    app_version: z.string().max(64),
-    platform: z.string().max(32),
-    beta_debug: z.boolean(),
-    $session_id: z.string().max(256).optional(),
-    $window_id: z.string().max(256).optional(),
-  }).safeParse({
-    app_version: propertyRecord.app_version,
-    platform: propertyRecord.platform,
-    beta_debug: propertyRecord.beta_debug,
-    ...(propertyRecord.$session_id ? { $session_id: propertyRecord.$session_id } : {}),
-    ...(propertyRecord.$window_id ? { $window_id: propertyRecord.$window_id } : {}),
-  });
+  const common = z
+    .strictObject({
+      app_version: z.string().max(64),
+      platform: z.string().max(32),
+      beta_debug: z.boolean(),
+      $session_id: z.string().max(256).optional(),
+      $window_id: z.string().max(256).optional(),
+    })
+    .safeParse({
+      app_version: propertyRecord.app_version,
+      platform: propertyRecord.platform,
+      beta_debug: propertyRecord.beta_debug,
+      ...(propertyRecord.$session_id ? { $session_id: propertyRecord.$session_id } : {}),
+      ...(propertyRecord.$window_id ? { $window_id: propertyRecord.$window_id } : {}),
+    });
   if (!eventProperties.success || !common.success) return null;
   return {
     distinctId: distinctIdResult.data,
@@ -614,25 +722,29 @@ function sanitizeSdkMessage(message: unknown) {
 function sanitizeIdentifyMessage(distinctId: string, properties: unknown) {
   if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
   const record = properties as Record<string, unknown>;
-  const setSource = record.$set && typeof record.$set === "object" && !Array.isArray(record.$set)
-    ? record.$set as Record<string, unknown>
-    : record;
-  const parsed = PersonPropertiesSchema.safeParse(stripSecretProperties({
-    email: setSource.email,
-    name: setSource.name,
-    student_name: setSource.student_name,
-    school_root: setSource.school_root,
-    selected_model: setSource.selected_model,
-    selected_reasoning: setSource.selected_reasoning,
-    plan: setSource.plan,
-    credits: setSource.credits,
-    device_id: setSource.device_id,
-    os_version: setSource.os_version,
-    locale: setSource.locale,
-    timezone: setSource.timezone,
-    onboarding_state: setSource.onboarding_state,
-    connected_toolkits: setSource.connected_toolkits,
-  }));
+  const setSource =
+    record.$set && typeof record.$set === "object" && !Array.isArray(record.$set)
+      ? (record.$set as Record<string, unknown>)
+      : record;
+  const parsed = PersonPropertiesSchema.safeParse(
+    stripSecretProperties({
+      email: setSource.email,
+      name: setSource.name,
+      student_name: setSource.student_name,
+      school_root: setSource.school_root,
+      selected_provider: setSource.selected_provider,
+      selected_model: setSource.selected_model,
+      selected_reasoning: setSource.selected_reasoning,
+      plan: setSource.plan,
+      credits: setSource.credits,
+      device_id: setSource.device_id,
+      os_version: setSource.os_version,
+      locale: setSource.locale,
+      timezone: setSource.timezone,
+      onboarding_state: setSource.onboarding_state,
+      connected_toolkits: setSource.connected_toolkits,
+    }),
+  );
   if (!parsed.success) return null;
   const anon = z.string().min(1).max(256).safeParse(record.$anon_distinct_id);
   return {
@@ -646,7 +758,12 @@ function sanitizeIdentifyMessage(distinctId: string, properties: unknown) {
   };
 }
 
-function pickSchemaProperties(event: TelemetryEventName, properties: Record<string, unknown>): Record<string, unknown> {
+function pickSchemaProperties(
+  event: TelemetryEventName,
+  properties: Record<string, unknown>,
+): Record<string, unknown> {
   const keys = Object.keys((telemetryEventSchemas[event] as z.ZodObject).shape);
-  return Object.fromEntries(keys.map((key) => [key, properties[key]]).filter(([, value]) => value !== undefined));
+  return Object.fromEntries(
+    keys.map((key) => [key, properties[key]]).filter(([, value]) => value !== undefined),
+  );
 }

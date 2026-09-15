@@ -1,14 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import {
-  cp,
-  mkdir,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm,
-  writeFile,
-} from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -60,13 +52,24 @@ test("fresh migration, known repository queries, and reopen keep validated recor
     const raw = new DatabaseSync(join(root, "studi.sqlite3"));
     try {
       assert.deepEqual(
-        raw.prepare("SELECT version FROM schema_migrations").all().map((row) => ({ ...row })),
-        [{ version: 1 }, { version: 2 }, { version: 3 }, { version: 4 }, { version: 5 }, { version: 6 }, { version: 7 }, { version: 8 }],
+        raw
+          .prepare("SELECT version FROM schema_migrations")
+          .all()
+          .map((row) => ({ ...row })),
+        [
+          { version: 1 },
+          { version: 2 },
+          { version: 3 },
+          { version: 4 },
+          { version: 5 },
+          { version: 6 },
+          { version: 7 },
+          { version: 8 },
+        ],
       );
-      raw.prepare("UPDATE assignments SET record_json = ? WHERE assignment_id = ?").run(
-        JSON.stringify({ schemaVersion: 1 }),
-        assignment.assignmentId,
-      );
+      raw
+        .prepare("UPDATE assignments SET record_json = ? WHERE assignment_id = ?")
+        .run(JSON.stringify({ schemaVersion: 1 }), assignment.assignmentId);
     } finally {
       raw.close();
     }
@@ -94,10 +97,7 @@ test("migration rollback, too-new schema, and corruption fail closed", async () 
 
     const rolledBack = new DatabaseSync(join(root, "studi.sqlite3"));
     try {
-      assert.deepEqual(
-        rolledBack.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all(),
-        [],
-      );
+      assert.deepEqual(rolledBack.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all(), []);
     } finally {
       rolledBack.close();
     }
@@ -177,9 +177,7 @@ test("task append is atomic and replay reconstructs only valid streams", async (
 
     const database = new DatabaseSync(join(root, "studi.sqlite3"));
     try {
-      const row = database
-        .prepare("SELECT record_json FROM task_events WHERE sequence = 1")
-        .get();
+      const row = database.prepare("SELECT record_json FROM task_events WHERE sequence = 1").get();
       const invalid = JSON.parse(row.record_json);
       invalid.payload.from = "queued";
       invalid.payload.to = "working";
@@ -235,8 +233,7 @@ test("artifact writes reject traversal, preserve the prior file on failure, and 
     await writeFile(malformedPath, "---\nkind: [not valid\n---\nbody", "utf8");
     await assert.rejects(
       store.artifacts.read("preference", "broken"),
-      (error) =>
-        error.code === "malformed_frontmatter" && error.message.includes("broken.md"),
+      (error) => error.code === "malformed_frontmatter" && error.message.includes("broken.md"),
     );
     store.close();
   });

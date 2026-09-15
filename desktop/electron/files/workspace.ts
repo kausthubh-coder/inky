@@ -27,7 +27,9 @@ export async function initializeHomeworkWorkspace(rawRoot: string): Promise<stri
   if (entries.length > 0) {
     const isManaged = entries.every((entry) => entry === MARKER_NAME || entry === SANDBOX_NAME);
     if (!isManaged || !(await hasValidMarker(root))) {
-      throw new TypeError("Choose an empty folder made just for Studi. It must not contain other files or folders.");
+      throw new TypeError(
+        "Choose an empty folder made just for Studi. It must not contain other files or folders.",
+      );
     }
   }
 
@@ -99,11 +101,16 @@ export async function openAssignmentWorkspace(
   },
 ): Promise<AssignmentWorkspace> {
   const root = await requireHomeworkWorkspace(rawRoot);
-  const [classDirectory] = await syncHomeworkClassFolders(root, [{ courseId: input.courseId, label: input.courseLabel }]);
+  const [classDirectory] = await syncHomeworkClassFolders(root, [
+    { courseId: input.courseId, label: input.courseLabel },
+  ]);
   if (!classDirectory) throw new Error("Studi could not create the class workspace");
 
   const shortId = createHash("sha256").update(input.assignmentId).digest("hex").slice(0, 6);
-  const assignmentDirectory = join(classDirectory, `${safeSegment(input.assignmentTitle, "Assignment")} [${shortId}]`);
+  const assignmentDirectory = join(
+    classDirectory,
+    `${safeSegment(input.assignmentTitle, "Assignment")} [${shortId}]`,
+  );
   const sandboxDirectory = join(root, SANDBOX_NAME, shortId);
   await assertInside(root, assignmentDirectory);
   await assertInside(root, sandboxDirectory);
@@ -157,8 +164,10 @@ async function writeMarker(directory: string, name: string, value: object): Prom
   const temporary = join(directory, `.${basename(name)}.${process.pid}.${randomUUID()}.tmp`);
   const content = `${JSON.stringify(value, null, 2)}\n`;
   try {
-    if (await readFile(target, "utf8") === content) return;
-  } catch { /* Missing or stale markers are replaced below. */ }
+    if ((await readFile(target, "utf8")) === content) return;
+  } catch {
+    /* Missing or stale markers are replaced below. */
+  }
   try {
     await writeFile(temporary, content, { encoding: "utf8", mode: 0o600, flag: "wx" });
     try {
@@ -169,7 +178,11 @@ async function writeMarker(directory: string, name: string, value: object): Prom
       await rename(temporary, target);
     }
   } catch (error) {
-    try { await unlink(temporary); } catch { /* best effort */ }
+    try {
+      await unlink(temporary);
+    } catch {
+      /* best effort */
+    }
     throw error;
   }
 }
@@ -183,7 +196,10 @@ async function assertPlainDirectory(path: string): Promise<void> {
 
 async function assertInside(root: string, target: string): Promise<void> {
   const relativePath = relative(resolve(root), resolve(target));
-  if (relativePath === "" || (!relativePath.startsWith(`..${sep}`) && relativePath !== ".." && !isAbsolute(relativePath))) {
+  if (
+    relativePath === "" ||
+    (!relativePath.startsWith(`..${sep}`) && relativePath !== ".." && !isAbsolute(relativePath))
+  ) {
     return;
   }
   throw new TypeError("Workspace path escaped the selected Studi folder");

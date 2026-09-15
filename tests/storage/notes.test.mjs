@@ -12,8 +12,24 @@ test("scoped note upserts have a stable identity, revision, order, and searchabl
   const root = join(tmpdir(), `studi-notes-${process.pid}-${Date.now()}`);
   const store = await openLocalStore(root);
   try {
-    const first = await store.notes.upsert({ scope: "course", subjectId: "csc-316", about: "work", key: "current-project", title: "Current project", content: "Week one tree notes", updatedAt: now });
-    const second = await store.notes.upsert({ scope: "course", subjectId: "csc-316", about: "work", key: "current-project", title: "Current project", content: "Week two Huffman coding project", updatedAt: "2026-09-03T12:01:00.000Z" });
+    const first = await store.notes.upsert({
+      scope: "course",
+      subjectId: "csc-316",
+      about: "work",
+      key: "current-project",
+      title: "Current project",
+      content: "Week one tree notes",
+      updatedAt: now,
+    });
+    const second = await store.notes.upsert({
+      scope: "course",
+      subjectId: "csc-316",
+      about: "work",
+      key: "current-project",
+      title: "Current project",
+      content: "Week two Huffman coding project",
+      updatedAt: "2026-09-03T12:01:00.000Z",
+    });
     assert.equal(second.frontmatter.noteId, first.frontmatter.noteId);
     assert.equal(second.frontmatter.revision, 2);
     assert.equal(store.notes.list().length, 1);
@@ -30,10 +46,37 @@ test("note paths and credential-bearing bodies fail closed while HTML is stored 
   const root = join(tmpdir(), `studi-notes-policy-${process.pid}-${Date.now()}`);
   const store = await openLocalStore(root);
   try {
-    await assert.rejects(() => store.notes.upsert({ scope: "course", subjectId: "..", about: "work", key: "escape", title: "No", content: "No" }));
-    const html = await store.notes.upsert({ scope: "course", subjectId: "csc-316", about: "work", key: "html", title: "No", content: "Open <strong>Assignments</strong>." });
+    await assert.rejects(() =>
+      store.notes.upsert({
+        scope: "course",
+        subjectId: "..",
+        about: "work",
+        key: "escape",
+        title: "No",
+        content: "No",
+      }),
+    );
+    const html = await store.notes.upsert({
+      scope: "course",
+      subjectId: "csc-316",
+      about: "work",
+      key: "html",
+      title: "No",
+      content: "Open <strong>Assignments</strong>.",
+    });
     assert.equal(html.content, "Open &lt;strong&gt;Assignments&lt;/strong&gt;.");
-    await assert.rejects(() => store.notes.upsert({ scope: "course", subjectId: "csc-316", about: "work", key: "secret", title: "No", content: "Authorization: Bearer secret-canary" }), /Credential-bearing/);
+    await assert.rejects(
+      () =>
+        store.notes.upsert({
+          scope: "course",
+          subjectId: "csc-316",
+          about: "work",
+          key: "secret",
+          title: "No",
+          content: "Authorization: Bearer secret-canary",
+        }),
+      /Credential-bearing/,
+    );
   } finally {
     store.close();
     await rm(root, { recursive: true, force: true });
@@ -42,14 +85,33 @@ test("note paths and credential-bearing bodies fail closed while HTML is stored 
 
 test("startup reconciliation repairs a Markdown rename that committed before index update", async () => {
   const root = join(tmpdir(), `studi-notes-repair-${process.pid}-${Date.now()}`);
-  const failing = await openLocalStore(root, { failureInjector: (point) => { if (point === "note_after_rename_before_index") throw new Error("injected note crash"); } });
-  await assert.rejects(() => failing.notes.upsert({ scope: "school", subjectId: "primary-school", about: "scan", key: "navigation", title: "Navigation", content: "Labs are a second tab.", updatedAt: now }), /injected note crash/);
+  const failing = await openLocalStore(root, {
+    failureInjector: (point) => {
+      if (point === "note_after_rename_before_index") throw new Error("injected note crash");
+    },
+  });
+  await assert.rejects(
+    () =>
+      failing.notes.upsert({
+        scope: "school",
+        subjectId: "primary-school",
+        about: "scan",
+        key: "navigation",
+        title: "Navigation",
+        content: "Labs are a second tab.",
+        updatedAt: now,
+      }),
+    /injected note crash/,
+  );
   failing.close();
 
   const recovered = await openLocalStore(root);
   try {
     assert.equal(recovered.notes.list().length, 1);
-    assert.equal((await recovered.notes.read(recovered.notes.list()[0].noteId))?.content, "Labs are a second tab.");
+    assert.equal(
+      (await recovered.notes.read(recovered.notes.list()[0].noteId))?.content,
+      "Labs are a second tab.",
+    );
   } finally {
     recovered.close();
     await rm(root, { recursive: true, force: true });
@@ -59,7 +121,15 @@ test("startup reconciliation repairs a Markdown rename that committed before ind
 test("a stale index row cannot return content and malformed authoritative Markdown blocks reopen", async () => {
   const root = join(tmpdir(), `studi-notes-stale-${process.pid}-${Date.now()}`);
   const store = await openLocalStore(root);
-  const note = await store.notes.upsert({ scope: "assignment", subjectId: "assignment-1", about: "work", key: "leftover", title: "Leftover", content: "Check the Huffman edge case.", updatedAt: now });
+  const note = await store.notes.upsert({
+    scope: "assignment",
+    subjectId: "assignment-1",
+    about: "work",
+    key: "leftover",
+    title: "Leftover",
+    content: "Check the Huffman edge case.",
+    updatedAt: now,
+  });
   const path = join(store.notes.rootDirectory, "assignment", "assignment-1", "work", "leftover.md");
   await rm(path);
   assert.equal(await store.notes.read(note.frontmatter.noteId), null);

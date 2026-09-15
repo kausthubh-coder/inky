@@ -26,23 +26,37 @@ export function useConnectedApps(approved: boolean) {
     setAppConnections({});
     setFeedback({});
     if (!studi || !approved) return;
-    void studi.getConnectedApps().then(state => {
-      if (cancelled) return;
-      setConnectedApps(state);
-      if (!state.configured) return;
-      for (const { toolkit } of state.toolkits) {
-        pending.add(toolkit);
-        setFeedback(current => ({ ...current, [toolkit]: { phase: "checking", operation: "check" } }));
-        void studi.refreshConnectedApp({ toolkit }).then(connection => {
-          if (cancelled) return;
-          setAppConnections(current => ({ ...current, [toolkit]: connection }));
-          setFeedback(current => ({ ...current, [toolkit]: { phase: "idle", operation: "check" } }));
-        }).catch(() => {
-          if (!cancelled) setFeedback(current => ({ ...current, [toolkit]: { phase: "error", operation: "check" } }));
-        }).finally(() => pending.delete(toolkit));
-      }
-    }).catch(() => { /* The page explains that an online account is needed. */ });
-    return () => { cancelled = true; controller.abort(); requests.current = new Set(); };
+    void studi
+      .getConnectedApps()
+      .then((state) => {
+        if (cancelled) return;
+        setConnectedApps(state);
+        if (!state.configured) return;
+        for (const { toolkit } of state.toolkits) {
+          pending.add(toolkit);
+          setFeedback((current) => ({ ...current, [toolkit]: { phase: "checking", operation: "check" } }));
+          void studi
+            .refreshConnectedApp({ toolkit })
+            .then((connection) => {
+              if (cancelled) return;
+              setAppConnections((current) => ({ ...current, [toolkit]: connection }));
+              setFeedback((current) => ({ ...current, [toolkit]: { phase: "idle", operation: "check" } }));
+            })
+            .catch(() => {
+              if (!cancelled)
+                setFeedback((current) => ({ ...current, [toolkit]: { phase: "error", operation: "check" } }));
+            })
+            .finally(() => pending.delete(toolkit));
+        }
+      })
+      .catch(() => {
+        /* The page explains that an online account is needed. */
+      });
+    return () => {
+      cancelled = true;
+      controller.abort();
+      requests.current = new Set();
+    };
   }, [approved]);
 
   async function run(toolkit: string, operation: "check" | "connect", autoCheck = false) {
@@ -51,21 +65,36 @@ export function useConnectedApps(approved: boolean) {
     const signal = lifetime.current.signal;
     if (!studi || !approved || pending.has(toolkit)) return;
     pending.add(toolkit);
-    setFeedback(current => ({ ...current, [toolkit]: { phase: operation === "check" ? "checking" : "connecting", operation } }));
+    setFeedback((current) => ({
+      ...current,
+      [toolkit]: { phase: operation === "check" ? "checking" : "connecting", operation },
+    }));
     try {
-      const request = operation === "check" ? studi.refreshConnectedApp({ toolkit }) : studi.connectApp({ toolkit });
+      const request =
+        operation === "check" ? studi.refreshConnectedApp({ toolkit }) : studi.connectApp({ toolkit });
       const connection = autoCheck
-        ? await waitForAppConnection({ initial: request, read: () => studi.refreshConnectedApp({ toolkit }), signal })
+        ? await waitForAppConnection({
+            initial: request,
+            read: () => studi.refreshConnectedApp({ toolkit }),
+            signal,
+          })
         : await request;
       if (requests.current !== pending) return;
-      setAppConnections(current => ({ ...current, [toolkit]: connection }));
-      setFeedback(current => ({ ...current, [toolkit]: { phase: "checked", operation } }));
+      setAppConnections((current) => ({ ...current, [toolkit]: connection }));
+      setFeedback((current) => ({ ...current, [toolkit]: { phase: "checked", operation } }));
     } catch {
-      if (requests.current === pending) setFeedback(current => ({ ...current, [toolkit]: { phase: "error", operation } }));
+      if (requests.current === pending)
+        setFeedback((current) => ({ ...current, [toolkit]: { phase: "error", operation } }));
     } finally {
       pending.delete(toolkit);
     }
   }
 
-  return { connectedApps, appConnections, appConnectionFeedback, connectApp: (toolkit: string, autoCheck = false) => run(toolkit, "connect", autoCheck), refreshConnectedApp: (toolkit: string) => run(toolkit, "check") };
+  return {
+    connectedApps,
+    appConnections,
+    appConnectionFeedback,
+    connectApp: (toolkit: string, autoCheck = false) => run(toolkit, "connect", autoCheck),
+    refreshConnectedApp: (toolkit: string) => run(toolkit, "check"),
+  };
 }

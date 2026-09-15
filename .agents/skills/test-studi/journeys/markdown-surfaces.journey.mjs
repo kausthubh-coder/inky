@@ -71,7 +71,7 @@ export async function verifyMarkdownSurfaces(page, base, evidenceDirectory) {
 
     await open("week");
     await page.evaluate(async text => {
-      const fixture = await import("/tests/ui/markdown-drawer-fixture.tsx");
+      const fixture = await import("/.agents/skills/test-studi/journeys/markdown-drawer-fixture.tsx");
       await fixture.mountMarkdownDrawer(text);
     }, reply);
     await check(page.locator(".drawer-bubble--inky > .chat-markdown"));

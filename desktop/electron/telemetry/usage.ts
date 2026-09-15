@@ -39,20 +39,25 @@ export function readUsageRecord(value: unknown): AgentUsageSnapshot {
   if (!value || typeof value !== "object" || Array.isArray(value)) return emptyUsage();
   const usage = value as Record<string, unknown>;
   const cost = usage.cost;
-  const costUsd = typeof cost === "number"
-    ? cost
-    : cost && typeof cost === "object"
-      ? finiteNumber((cost as Record<string, unknown>).total)
-        ?? sumDefined([
-          (cost as Record<string, unknown>).input,
-          (cost as Record<string, unknown>).output,
-          (cost as Record<string, unknown>).cacheRead,
-          (cost as Record<string, unknown>).cacheWrite,
-        ])
-      : 0;
+  const costUsd =
+    typeof cost === "number"
+      ? cost
+      : cost && typeof cost === "object"
+        ? (finiteNumber((cost as Record<string, unknown>).total) ??
+          sumDefined([
+            (cost as Record<string, unknown>).input,
+            (cost as Record<string, unknown>).output,
+            (cost as Record<string, unknown>).cacheRead,
+            (cost as Record<string, unknown>).cacheWrite,
+          ]))
+        : 0;
   return {
-    inputTokens: integerNumber(usage.input) || integerNumber(usage.inputTokens) || integerNumber(usage.prompt_tokens),
-    outputTokens: integerNumber(usage.output) || integerNumber(usage.outputTokens) || integerNumber(usage.completion_tokens),
+    inputTokens:
+      integerNumber(usage.input) || integerNumber(usage.inputTokens) || integerNumber(usage.prompt_tokens),
+    outputTokens:
+      integerNumber(usage.output) ||
+      integerNumber(usage.outputTokens) ||
+      integerNumber(usage.completion_tokens),
     cacheReadTokens: integerNumber(usage.cacheRead) || integerNumber(usage.cache_read_input_tokens),
     cacheWriteTokens: integerNumber(usage.cacheWrite) || integerNumber(usage.cache_creation_input_tokens),
     costUsd: Math.max(0, costUsd),

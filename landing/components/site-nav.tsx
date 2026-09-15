@@ -20,12 +20,7 @@ type SiteNavProps = {
   account?: boolean;
 };
 
-export function SiteNav({
-  current = "",
-  flat = false,
-  tour = false,
-  account = false,
-}: SiteNavProps) {
+export function SiteNav({ current = "", flat = false, tour = false, account = false }: SiteNavProps) {
   const [active, setActive] = useState(current);
   const [open, setOpen] = useState(false);
 
@@ -109,11 +104,7 @@ export function SiteNav({
             </SignedOut>
             <SignedIn>
               {!account && (
-                <a
-                  className="dashboard-link"
-                  href="/dashboard"
-                  onClick={() => setOpen(false)}
-                >
+                <a className="dashboard-link" href="/dashboard" onClick={() => setOpen(false)}>
                   Dashboard
                 </a>
               )}
@@ -140,11 +131,7 @@ export function SiteNav({
           </>
         ) : (
           <>
-            <a
-              className="sign-in-link"
-              href="/sign-in"
-              onClick={() => setOpen(false)}
-            >
+            <a className="sign-in-link" href="/sign-in" onClick={() => setOpen(false)}>
               Sign in
             </a>
             <a className="cta" href={wait} onClick={() => setOpen(false)}>

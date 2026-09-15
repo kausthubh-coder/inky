@@ -1,6 +1,6 @@
 // The older drawer has no current navigation entry. Mount its actual component for QA.
 import { createRoot } from "react-dom/client";
-import { DeskDrawer } from "../../desktop/src/app/DeskScreen.js";
+import { DeskDrawer } from "../../../../desktop/src/app/DeskScreen.js";
 
 export async function mountMarkdownDrawer(text: string) {
   const api = window.studi!;

@@ -1,21 +1,12 @@
 import { createHash, randomUUID } from "node:crypto";
 import { readFile, mkdir, rename, writeFile, realpath } from "node:fs/promises";
-import {
-  basename,
-  extname,
-  isAbsolute,
-  join,
-  relative,
-  resolve,
-} from "node:path";
+import { basename, extname, isAbsolute, join, relative, resolve } from "node:path";
 import type { Asset, Upload } from "./domain.js";
 
 export function assetBytes(asset: Asset): Buffer {
   if (asset.format === "text") return Buffer.from(asset.text);
   // Deterministic, selectable-text one-page PDFs for portable synthetic fixtures.
-  const lines = asset.text
-    .split("\n")
-    .flatMap((line) => line.match(/.{1,85}(?:\s|$)|.{1,85}/g) ?? [""]);
+  const lines = asset.text.split("\n").flatMap((line) => line.match(/.{1,85}(?:\s|$)|.{1,85}/g) ?? [""]);
   const content = `BT /F1 12 Tf 48 750 Td 17 TL\n${lines.map((line) => `(${line.replaceAll("\\", "\\\\").replaceAll("(", "\\(").replaceAll(")", "\\)")}) Tj T*`).join("\n")}\nET`;
   const objects = [
     "<< /Type /Catalog /Pages 2 0 R >>",
@@ -51,18 +42,10 @@ const accepted = new Set([
   ".jpg",
   ".jpeg",
 ]);
-export async function storeUpload(
-  directory: string,
-  file: File,
-): Promise<Upload> {
-  const name = basename(file.name.replaceAll("\\", "/")).replaceAll(
-    /[\r\n\x00]/g,
-    "",
-  );
-  if (!name || !accepted.has(extname(name).toLowerCase()))
-    throw new Error("Unsupported upload file type.");
-  if (file.size > 10 * 1024 * 1024)
-    throw new Error("Each file must be smaller than 10 MB.");
+export async function storeUpload(directory: string, file: File): Promise<Upload> {
+  const name = basename(file.name.replaceAll("\\", "/")).replaceAll(/[\r\n\x00]/g, "");
+  if (!name || !accepted.has(extname(name).toLowerCase())) throw new Error("Unsupported upload file type.");
+  if (file.size > 10 * 1024 * 1024) throw new Error("Each file must be smaller than 10 MB.");
   const bytes = Buffer.from(await file.arrayBuffer()),
     hash = createHash("sha256").update(bytes).digest("hex");
   const folder = join(directory, "uploads");
@@ -90,17 +73,9 @@ export interface PrivatePack {
   schemaVersion: 1;
   assets: PrivateAsset[];
 }
-export async function importPrivateAssets(
-  manifestPath: string,
-  libraryRoot: string,
-): Promise<PrivatePack> {
+export async function importPrivateAssets(manifestPath: string, libraryRoot: string): Promise<PrivatePack> {
   const source: unknown = JSON.parse(await readFile(manifestPath, "utf8"));
-  if (
-    !source ||
-    typeof source !== "object" ||
-    !("assets" in source) ||
-    !Array.isArray(source.assets)
-  )
+  if (!source || typeof source !== "object" || !("assets" in source) || !Array.isArray(source.assets))
     throw new Error("Manifest requires an assets array.");
   const assets: PrivateAsset[] = [];
   const destination = resolve(libraryRoot);
@@ -114,34 +89,19 @@ export async function importPrivateAssets(
       typeof item.mime !== "string"
     )
       throw new Error("Invalid import entry.");
-    if (assets.some((asset) => asset.id === item.id))
-      throw new Error("Duplicate import asset ID.");
+    if (assets.some((asset) => asset.id === item.id)) throw new Error("Duplicate import asset ID.");
     const path = resolve(resolve(manifestPath, ".."), item.path),
       name = basename(path);
     if (
-      ![
-        ".pdf",
-        ".txt",
-        ".md",
-        ".csv",
-        ".zip",
-        ".docx",
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".c",
-        ".java",
-      ].includes(extname(name).toLowerCase())
+      ![".pdf", ".txt", ".md", ".csv", ".zip", ".docx", ".png", ".jpg", ".jpeg", ".c", ".java"].includes(
+        extname(name).toLowerCase(),
+      )
     )
-      throw new Error(
-        "Raw HTML is not imported. Rebuild pages using local simulator routes.",
-      );
+      throw new Error("Raw HTML is not imported. Rebuild pages using local simulator routes.");
     const bytes = await readFile(path);
-    if (bytes.length > 25 * 1024 * 1024)
-      throw new Error("Import exceeds 25 MB per file.");
+    if (bytes.length > 25 * 1024 * 1024) throw new Error("Import exceeds 25 MB per file.");
     const hash = createHash("sha256").update(bytes).digest("hex");
-    if (item.sha256 && item.sha256 !== hash)
-      throw new Error("Source hash mismatch.");
+    if (item.sha256 && item.sha256 !== hash) throw new Error("Source hash mismatch.");
     await writeFile(join(destination, "blobs", hash), bytes, { mode: 0o600 });
     assets.push({
       id: item.id,
@@ -153,22 +113,14 @@ export async function importPrivateAssets(
     });
   }
   const pack: PrivatePack = { schemaVersion: 1, assets };
-  await writeFile(
-    join(destination, "pack.json"),
-    JSON.stringify(pack, null, 2),
-    { mode: 0o600 },
-  );
+  await writeFile(join(destination, "pack.json"), JSON.stringify(pack, null, 2), { mode: 0o600 });
   return pack;
 }
-export async function readPrivateAsset(
-  root: string,
-  asset: PrivateAsset,
-): Promise<Buffer> {
+export async function readPrivateAsset(root: string, asset: PrivateAsset): Promise<Buffer> {
   const source = await realpath(root),
     target = await realpath(join(source, asset.relativePath));
   const child = relative(source, target);
-  if (child.startsWith("..") || isAbsolute(child))
-    throw new Error("Private asset escapes its library.");
+  if (child.startsWith("..") || isAbsolute(child)) throw new Error("Private asset escapes its library.");
   const bytes = await readFile(target);
   if (createHash("sha256").update(bytes).digest("hex") !== asset.sha256)
     throw new Error("Private asset hash mismatch.");

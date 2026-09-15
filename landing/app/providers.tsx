@@ -26,7 +26,12 @@ function ClerkConvexTree({ children }: { children: ReactNode }) {
 }
 
 export function Providers({ children }: { children: ReactNode }) {
-  if (!clerkKey) return <AnalyticsProvider><ConvexTree>{children}</ConvexTree></AnalyticsProvider>;
+  if (!clerkKey)
+    return (
+      <AnalyticsProvider>
+        <ConvexTree>{children}</ConvexTree>
+      </AnalyticsProvider>
+    );
   return (
     <AnalyticsProvider>
       <ClerkProvider

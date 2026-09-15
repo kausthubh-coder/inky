@@ -1,11 +1,6 @@
 import { z } from "zod";
 
-import {
-  AssignmentIdSchema,
-  CourseIdSchema,
-  PatternIdSchema,
-  RuleIdSchema,
-} from "./ids.js";
+import { AssignmentIdSchema, CourseIdSchema, PatternIdSchema, RuleIdSchema } from "./ids.js";
 import { IsoTimestampSchema, SchemaVersionSchema } from "./schema-version.js";
 
 export const PermissionModeSchema = z.enum(["do_not_attempt", "attempt", "auto_submit"]);
@@ -55,10 +50,14 @@ type PermissionTarget =
 
 export function permissionRuleTargetKey(rule: PermissionTarget): string {
   switch (rule.scope) {
-    case "global": return JSON.stringify([rule.scope]);
-    case "course": return JSON.stringify([rule.scope, rule.courseId]);
-    case "pattern": return JSON.stringify([rule.scope, rule.courseId, rule.patternId]);
-    case "assignment": return JSON.stringify([rule.scope, rule.assignmentId]);
+    case "global":
+      return JSON.stringify([rule.scope]);
+    case "course":
+      return JSON.stringify([rule.scope, rule.courseId]);
+    case "pattern":
+      return JSON.stringify([rule.scope, rule.courseId, rule.patternId]);
+    case "assignment":
+      return JSON.stringify([rule.scope, rule.assignmentId]);
   }
 }
 
@@ -80,10 +79,12 @@ export function currentPermissionRules(rules: readonly PermissionRule[]): Permis
 export const PermissionAssignmentContextSchema = z.strictObject({
   assignmentId: AssignmentIdSchema,
   courseId: CourseIdSchema,
-  matchedPatternIds: z.array(PatternIdSchema).max(1_000).refine(
-    (patternIds) => new Set(patternIds).size === patternIds.length,
-    { message: "Matched pattern IDs must be unique" },
-  ),
+  matchedPatternIds: z
+    .array(PatternIdSchema)
+    .max(1_000)
+    .refine((patternIds) => new Set(patternIds).size === patternIds.length, {
+      message: "Matched pattern IDs must be unique",
+    }),
 });
 
 export type PermissionAssignmentContext = z.infer<typeof PermissionAssignmentContextSchema>;
@@ -157,19 +158,14 @@ export function resolvePermission(
   };
 }
 
-function ruleMatches(
-  rule: PermissionRule,
-  assignment: PermissionAssignmentContext,
-): boolean {
+function ruleMatches(rule: PermissionRule, assignment: PermissionAssignmentContext): boolean {
   switch (rule.scope) {
     case "global":
       return true;
     case "course":
       return rule.courseId === assignment.courseId;
     case "pattern":
-      return (
-        rule.courseId === assignment.courseId && assignment.matchedPatternIds.includes(rule.patternId)
-      );
+      return rule.courseId === assignment.courseId && assignment.matchedPatternIds.includes(rule.patternId);
     case "assignment":
       return rule.assignmentId === assignment.assignmentId;
   }

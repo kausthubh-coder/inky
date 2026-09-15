@@ -6,17 +6,28 @@ export function aggregateMetrics(phases) {
   if (!Array.isArray(phases)) throw new TypeError("phases must be an array");
   const sum = (read, integer = true) => {
     const values = phases.map(read);
-    if (!values.length || values.some(value => typeof value !== "number" || !Number.isFinite(value)
-      || value < 0 || (integer && !Number.isSafeInteger(value)))) return null;
+    if (
+      !values.length ||
+      values.some(
+        (value) =>
+          typeof value !== "number" ||
+          !Number.isFinite(value) ||
+          value < 0 ||
+          (integer && !Number.isSafeInteger(value)),
+      )
+    )
+      return null;
     const total = values.reduce((result, value) => result + value, 0);
     return Number.isFinite(total) && (!integer || Number.isSafeInteger(total)) ? total : null;
   };
   return {
-    durationMs: sum(phase => phase?.metrics?.durationMs, false),
-    toolCalls: sum(phase => phase?.metrics?.toolCalls),
-    modelCalls: sum(phase => phase?.metrics?.modelCalls),
-    usage: phases.length && phases.every(phase => phase?.metrics?.usage && typeof phase.metrics.usage === "object")
-      ? Object.fromEntries(USAGE_FIELDS.map(field => [field, sum(phase => phase.metrics.usage[field])]))
-      : null,
+    durationMs: sum((phase) => phase?.metrics?.durationMs, false),
+    toolCalls: sum((phase) => phase?.metrics?.toolCalls),
+    modelCalls: sum((phase) => phase?.metrics?.modelCalls),
+    usage:
+      phases.length &&
+      phases.every((phase) => phase?.metrics?.usage && typeof phase.metrics.usage === "object")
+        ? Object.fromEntries(USAGE_FIELDS.map((field) => [field, sum((phase) => phase.metrics.usage[field])]))
+        : null,
   };
 }

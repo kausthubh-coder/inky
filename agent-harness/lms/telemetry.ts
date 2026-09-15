@@ -9,10 +9,7 @@ export interface TelemetryExport {
 }
 export function telemetryBatch(input: TelemetryExport) {
   return input.events.map((event) => {
-    const hash = createHash("sha256")
-      .update(`${input.runId}:${event.sequence}`)
-      .digest("hex")
-      .slice(0, 32);
+    const hash = createHash("sha256").update(`${input.runId}:${event.sequence}`).digest("hex").slice(0, 32);
     return {
       event: "studi_lms_effect",
       timestamp: event.at,
@@ -57,9 +54,7 @@ export async function exportTelemetry(
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok)
-      throw new Error(
-        `PostHog export failed (${response.status}); the local journal remains available.`,
-      );
+      throw new Error(`PostHog export failed (${response.status}); the local journal remains available.`);
   }
   return { exported: batch.length };
 }

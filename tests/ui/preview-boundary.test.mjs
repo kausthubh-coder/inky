@@ -7,7 +7,12 @@ test("production renderer excludes the preview entry, sample API, and school moc
   const root = fileURLToPath(new URL("../../", import.meta.url));
   const result = await build({ root, logLevel: "silent", build: { write: false } });
   const outputs = Array.isArray(result) ? result : [result];
-  const modules = outputs.flatMap(output => output.output.flatMap(chunk => chunk.type === "chunk" ? Object.keys(chunk.modules) : []));
-  assert.ok(modules.some(path => path.replaceAll("\\", "/").endsWith("/desktop/src/app/StudiApp.tsx")));
-  assert.deepEqual(modules.filter(path => path.replaceAll("\\", "/").includes("/desktop/src/preview/")), []);
+  const modules = outputs.flatMap((output) =>
+    output.output.flatMap((chunk) => (chunk.type === "chunk" ? Object.keys(chunk.modules) : [])),
+  );
+  assert.ok(modules.some((path) => path.replaceAll("\\", "/").endsWith("/desktop/src/app/StudiApp.tsx")));
+  assert.deepEqual(
+    modules.filter((path) => path.replaceAll("\\", "/").includes("/desktop/src/preview/")),
+    [],
+  );
 });

@@ -101,7 +101,8 @@ export class ManagerStateRepository {
   confirmPatternMatch(value: unknown): ConfirmedPatternMatch {
     const parsed = parseValue(ConfirmedPatternMatchSchema, value, "confirmed pattern match");
     const match = { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) };
-    this.database.handle.prepare(`
+    this.database.handle
+      .prepare(`
       INSERT INTO confirmed_pattern_matches(
         assignment_id, course_id, pattern_id, confirmed_at, record_json
       ) VALUES (?, ?, ?, ?, ?)
@@ -109,29 +110,34 @@ export class ManagerStateRepository {
         course_id = excluded.course_id,
         confirmed_at = excluded.confirmed_at,
         record_json = excluded.record_json
-    `).run(
-      match.assignmentId,
-      match.courseId,
-      match.patternId,
-      match.confirmedAt,
-      recordJson(ConfirmedPatternMatchSchema, match),
-    );
+    `)
+      .run(
+        match.assignmentId,
+        match.courseId,
+        match.patternId,
+        match.confirmedAt,
+        recordJson(ConfirmedPatternMatchSchema, match),
+      );
     return match;
   }
 
   listConfirmedPatterns(assignmentId: string, courseId: string): ConfirmedPatternMatch[] {
     courseId = resolveRecordId(this.database, "course", courseId);
-    const rows = this.database.handle.prepare(`
+    const rows = this.database.handle
+      .prepare(`
       SELECT assignment_id, course_id, pattern_id, confirmed_at, record_json
       FROM confirmed_pattern_matches
       WHERE assignment_id = ? AND course_id = ?
       ORDER BY confirmed_at, pattern_id
-    `).all(assignmentId, courseId) as unknown as Array<JsonRow & {
-      assignment_id: string;
-      course_id: string;
-      pattern_id: string;
-      confirmed_at: string;
-    }>;
+    `)
+      .all(assignmentId, courseId) as unknown as Array<
+      JsonRow & {
+        assignment_id: string;
+        course_id: string;
+        pattern_id: string;
+        confirmed_at: string;
+      }
+    >;
     return rows.map((row) => {
       const match = parseRow(ConfirmedPatternMatchSchema, row, "confirmed pattern match");
       assertColumns(
@@ -157,7 +163,8 @@ export class ManagerStateRepository {
   putQueueEntry(value: unknown): ManagerQueueEntry {
     const parsed = parseValue(ManagerQueueEntrySchema, value, "manager queue entry");
     const entry = { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) };
-    this.database.handle.prepare(`
+    this.database.handle
+      .prepare(`
       INSERT INTO manager_queue(
         task_id, assignment_id, course_id, due_at, priority, enqueued_at, record_json
       ) VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -168,15 +175,16 @@ export class ManagerStateRepository {
         priority = excluded.priority,
         enqueued_at = excluded.enqueued_at,
         record_json = excluded.record_json
-    `).run(
-      entry.taskId,
-      entry.assignmentId,
-      entry.courseId,
-      entry.dueAt ?? null,
-      entry.priority,
-      entry.enqueuedAt,
-      recordJson(ManagerQueueEntrySchema, entry),
-    );
+    `)
+      .run(
+        entry.taskId,
+        entry.assignmentId,
+        entry.courseId,
+        entry.dueAt ?? null,
+        entry.priority,
+        entry.enqueuedAt,
+        recordJson(ManagerQueueEntrySchema, entry),
+      );
     return entry;
   }
 
@@ -189,11 +197,13 @@ export class ManagerStateRepository {
   }
 
   listQueue(): ManagerQueueEntry[] {
-    const rows = this.database.handle.prepare(`
+    const rows = this.database.handle
+      .prepare(`
       SELECT task_id, assignment_id, course_id, due_at, priority, enqueued_at, record_json
       FROM manager_queue
       ORDER BY priority DESC, due_at IS NULL, due_at, enqueued_at, task_id
-    `).all() as unknown as QueueRow[];
+    `)
+      .all() as unknown as QueueRow[];
     return rows.map(parseQueueRow);
   }
 
@@ -224,31 +234,33 @@ export class ManagerStateRepository {
       state: "acquiring",
       acquiredAt,
     });
-    const result = this.database.handle.prepare(`
+    const result = this.database.handle
+      .prepare(`
       INSERT INTO browser_worker_lease(lease_id, task_id, state, acquired_at, record_json)
       VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(lease_id) DO NOTHING
-    `).run(
-      lease.leaseId,
-      lease.taskId,
-      lease.state,
-      lease.acquiredAt,
-      recordJson(BrowserWorkerLeaseSchema, lease),
-    );
+    `)
+      .run(
+        lease.leaseId,
+        lease.taskId,
+        lease.state,
+        lease.acquiredAt,
+        recordJson(BrowserWorkerLeaseSchema, lease),
+      );
     return Number(result.changes) === 1 ? lease : null;
   }
 
-  activateLease(
-    taskId: string,
-    workerSessionId: string,
-    workerSessionPath: string,
-  ): BrowserWorkerLease {
+  activateLease(taskId: string, workerSessionId: string, workerSessionPath: string): BrowserWorkerLease {
     return this.database.transaction(() => {
       const current = this.getLease();
       if (!current || current.taskId !== taskId || current.state !== "acquiring") {
-        throw new StorageError("optimistic_revision_conflict", "Browser worker lease changed before activation", {
-          taskId,
-        });
+        throw new StorageError(
+          "optimistic_revision_conflict",
+          "Browser worker lease changed before activation",
+          {
+            taskId,
+          },
+        );
       }
       const active = BrowserWorkerLeaseSchema.parse({
         ...current,
@@ -256,16 +268,18 @@ export class ManagerStateRepository {
         workerSessionId,
         workerSessionPath,
       });
-      this.database.handle.prepare(`
+      this.database.handle
+        .prepare(`
         UPDATE browser_worker_lease SET state = ?, record_json = ?
         WHERE lease_id = ? AND task_id = ? AND state = ?
-      `).run(
-        active.state,
-        recordJson(BrowserWorkerLeaseSchema, active),
-        active.leaseId,
-        active.taskId,
-        current.state,
-      );
+      `)
+        .run(
+          active.state,
+          recordJson(BrowserWorkerLeaseSchema, active),
+          active.leaseId,
+          active.taskId,
+          current.state,
+        );
       return active;
     });
   }
@@ -274,12 +288,14 @@ export class ManagerStateRepository {
     const row = this.database.handle
       .prepare(`SELECT lease_id, task_id, state, acquired_at, record_json
         FROM browser_worker_lease WHERE lease_id = 'browser-worker'`)
-      .get() as (JsonRow & {
-        lease_id: string;
-        task_id: string;
-        state: string;
-        acquired_at: string;
-      }) | undefined;
+      .get() as
+      | (JsonRow & {
+          lease_id: string;
+          task_id: string;
+          state: string;
+          acquired_at: string;
+        })
+      | undefined;
     if (!row) return null;
     const lease = parseRow(BrowserWorkerLeaseSchema, row, "browser worker lease");
     assertColumns(
@@ -306,22 +322,22 @@ export class ManagerStateRepository {
       ? this.database.handle.prepare(
           "DELETE FROM browser_worker_lease WHERE lease_id = 'browser-worker' AND task_id = ?",
         )
-      : this.database.handle.prepare(
-          "DELETE FROM browser_worker_lease WHERE lease_id = 'browser-worker'",
-        );
+      : this.database.handle.prepare("DELETE FROM browser_worker_lease WHERE lease_id = 'browser-worker'");
     const result = taskId ? statement.run(taskId) : statement.run();
     return Number(result.changes) === 1;
   }
 
   saveManagerSession(value: unknown): ManagerSessionLink {
     const link = parseValue(ManagerSessionLinkSchema, value, "manager session link");
-    this.database.handle.prepare(`
+    this.database.handle
+      .prepare(`
       INSERT INTO manager_session(singleton_id, updated_at, record_json)
       VALUES ('manager', ?, ?)
       ON CONFLICT(singleton_id) DO UPDATE SET
         updated_at = excluded.updated_at,
         record_json = excluded.record_json
-    `).run(link.updatedAt, recordJson(ManagerSessionLinkSchema, link));
+    `)
+      .run(link.updatedAt, recordJson(ManagerSessionLinkSchema, link));
     return link;
   }
 
@@ -347,9 +363,9 @@ export function validateManagerRecords(database: StudiSqliteDatabase): void {
   repository.listQueue();
   repository.getLease();
   repository.getManagerSession();
-  const rows = database.handle.prepare(
-    "SELECT record_json FROM confirmed_pattern_matches",
-  ).all() as unknown as JsonRow[];
+  const rows = database.handle
+    .prepare("SELECT record_json FROM confirmed_pattern_matches")
+    .all() as unknown as JsonRow[];
   for (const row of rows) {
     parseRow(ConfirmedPatternMatchSchema, row, "confirmed pattern match");
   }

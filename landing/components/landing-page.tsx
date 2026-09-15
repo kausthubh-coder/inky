@@ -103,23 +103,12 @@ export function LandingPage() {
               <h1 id="hero-title">
                 Your homework. <span>Handled.</span>
               </h1>
-              <p className={styles.intro}>
-                Meet Inky. Your homework helper, right on your desktop.
-              </p>
+              <p className={styles.intro}>Meet Inky. Your homework helper, right on your desktop.</p>
             </div>
-            <Demo
-              joined={joined}
-              onJoined={onJoined}
-              expanded={expanded}
-              onToggleDesktop={toggleDesktop}
-            />
+            <Demo joined={joined} onJoined={onJoined} expanded={expanded} onToggleDesktop={toggleDesktop} />
           </div>
         </section>
-        <section
-          className={styles.benefits}
-          id="what"
-          aria-labelledby="benefits-title"
-        >
+        <section className={styles.benefits} id="what" aria-labelledby="benefits-title">
           <div className={styles.sectionHeading}>
             <p className={styles.eyebrow}>Less homework in your head</p>
             <h2 id="benefits-title">More room for the rest of your life.</h2>
@@ -150,9 +139,7 @@ export function LandingPage() {
                 <InkyMascot state="working" size={72} />
               </div>
               <h3>No copy-and-paste routine.</h3>
-              <p>
-                The work happens on the assignment page, right where it belongs.
-              </p>
+              <p>The work happens on the assignment page, right where it belongs.</p>
             </article>
             <article>
               <div className={styles.benefitVisual} aria-hidden="true">
@@ -165,11 +152,7 @@ export function LandingPage() {
             </article>
           </div>
         </section>
-        <section
-          className={styles.invitation}
-          id="wait"
-          aria-labelledby="wait-title"
-        >
+        <section className={styles.invitation} id="wait" aria-labelledby="wait-title">
           <div>
             <p className={styles.eyebrow}>Studi private beta</p>
             <h2 id="wait-title">
@@ -177,10 +160,7 @@ export function LandingPage() {
               <br />
               He’ll take care of yours.
             </h2>
-            <p>
-              Invites go out in small batches. Join the waitlist now to hear
-              when your place opens.
-            </p>
+            <p>Invites go out in small batches. Join the waitlist now to hear when your place opens.</p>
           </div>
           <div className={styles.invitationForm}>
             <div aria-hidden="true">
@@ -194,17 +174,16 @@ export function LandingPage() {
             />
           </div>
         </section>
-        <section
-          className={styles.questions}
-          id="faq"
-          aria-labelledby="faq-title"
-        >
+        <section className={styles.questions} id="faq" aria-labelledby="faq-title">
           <h2 id="faq-title">A few things you might be wondering.</h2>
           <div>
             {FAQ.map(([question, answer]) => (
-              <details key={question} onToggle={(event) => {
-                if (event.currentTarget.open) track("faq_opened", { question });
-              }}>
+              <details
+                key={question}
+                onToggle={(event) => {
+                  if (event.currentTarget.open) track("faq_opened", { question });
+                }}
+              >
                 <summary>
                   {question}
                   <span aria-hidden="true">+</span>
@@ -240,9 +219,7 @@ function useDesktopIntro() {
     function apply() {
       frame = 0;
       const range = Math.max(1, (pin?.offsetHeight ?? 0) - window.innerHeight);
-      const progress = reduced.matches
-        ? 1
-        : Math.min(1, Math.max(0, window.scrollY / range));
+      const progress = reduced.matches ? 1 : Math.min(1, Math.max(0, window.scrollY / range));
       const eased = 1 - (1 - progress) ** 3;
       page?.style.setProperty("--p", String(eased));
       page?.style.setProperty("--lede-h", `${lede?.scrollHeight ?? 110}px`);
@@ -265,13 +242,9 @@ function useDesktopIntro() {
   function toggleDesktop() {
     track("demo_display_toggled", { expanded: !expanded });
     const pin = document.getElementById("pin");
-    const reduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    ).matches;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({
-      top: expanded
-        ? Math.max(0, (pin?.offsetHeight ?? 0) - window.innerHeight)
-        : 0,
+      top: expanded ? Math.max(0, (pin?.offsetHeight ?? 0) - window.innerHeight) : 0,
       behavior: reduced ? "auto" : "smooth",
     });
   }
@@ -299,7 +272,9 @@ function Demo({
   const stepEnteredAt = useRef(0);
   const current = STEPS[step];
 
-  useEffect(() => { stepEnteredAt.current = performance.now(); }, [step]);
+  useEffect(() => {
+    stepEnteredAt.current = performance.now();
+  }, [step]);
 
   function markViewed() {
     if (viewed.current) return;
@@ -309,12 +284,15 @@ function Demo({
   }
 
   useEffect(() => {
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        markViewed();
-        observer.disconnect();
-      }
-    }, { threshold: 0.25 });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          markViewed();
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.25 },
+    );
     if (tour.current) observer.observe(tour.current);
     return () => observer.disconnect();
   }, []);
@@ -333,7 +311,11 @@ function Demo({
       started.current = true;
       track("demo_started");
     }
-    track("demo_step_viewed", { step: next + 1, label: STEPS[next].label, direction: next > step ? "forward" : "back" });
+    track("demo_step_viewed", {
+      step: next + 1,
+      label: STEPS[next].label,
+      direction: next > step ? "forward" : "back",
+    });
     if (next === STEPS.length - 1 && !completed.current) {
       completed.current = true;
       track("demo_completed");
@@ -347,10 +329,7 @@ function Demo({
 
   return (
     <div id="tour" ref={tour} className={styles.tour}>
-      <div
-        className={styles.desktop}
-        style={{ backgroundImage: `url(${wallpaper.src})` }}
-      >
+      <div className={styles.desktop} style={{ backgroundImage: `url(${wallpaper.src})` }}>
         <section className={styles.window} aria-label="Interactive Studi tour">
           <header className={styles.titlebar}>
             <span className={styles.traffic} aria-hidden="true">
@@ -361,10 +340,7 @@ function Demo({
             <span className={styles.logo}>studi</span>
             <span className={styles.demoBadge}>Interactive demo</span>
           </header>
-          <div
-            ref={body}
-            className={`${styles.tourBody} ${step === 0 ? styles.hello : ""}`}
-          >
+          <div ref={body} className={`${styles.tourBody} ${step === 0 ? styles.hello : ""}`}>
             <div className={styles.guide}>
               <div className={styles.mascot} aria-hidden="true">
                 <InkyMascot state={current.inky} size={144} />
@@ -374,11 +350,7 @@ function Demo({
                   {current.title}
                 </h2>
                 {step === 0 ? (
-                  <button
-                    type="button"
-                    className="btn primary"
-                    onClick={() => go(1)}
-                  >
+                  <button type="button" className="btn primary" onClick={() => go(1)}>
                     Show me how →
                   </button>
                 ) : null}
@@ -424,13 +396,7 @@ function Demo({
               {STEPS.map((item, index) => (
                 <li
                   key={item.label}
-                  className={
-                    index === step
-                      ? styles.activeStep
-                      : index < step
-                        ? styles.visitedStep
-                        : ""
-                  }
+                  className={index === step ? styles.activeStep : index < step ? styles.visitedStep : ""}
                 >
                   <span aria-current={index === step ? "step" : undefined}>
                     <i aria-hidden="true">{index < step ? "✓" : index + 1}</i>
@@ -443,24 +409,15 @@ function Demo({
               {step === 4 ? "✓ Tour complete" : `${step + 1} / ${STEPS.length}`}
             </span>
             {step > 0 && step < 4 ? (
-              <button
-                type="button"
-                className={`btn primary ${styles.next}`}
-                onClick={() => go(step + 1)}
-              >
+              <button type="button" className={`btn primary ${styles.next}`} onClick={() => go(step + 1)}>
                 <span className={styles.desktopLabel}>{current.next}</span>
                 <span className={styles.mobileLabel}>Next</span>
                 <span aria-hidden="true">→</span>
               </button>
             ) : step === 4 ? (
-              <button
-                type="button"
-                className={styles.replay}
-                onClick={() => go(0)}
-              >
+              <button type="button" className={styles.replay} onClick={() => go(0)}>
                 <span className={styles.desktopLabel}>Replay tour</span>
-                <span className={styles.mobileLabel}>Replay</span>{" "}
-                <span aria-hidden="true">↻</span>
+                <span className={styles.mobileLabel}>Replay</span> <span aria-hidden="true">↻</span>
               </button>
             ) : null}
           </footer>
@@ -473,11 +430,7 @@ function Demo({
               <InkyMascot state="idle" size={32} />
             </span>
           </div>
-          <button
-            type="button"
-            className={`btn ${styles.desktopToggle}`}
-            onClick={onToggleDesktop}
-          >
+          <button type="button" className={`btn ${styles.desktopToggle}`} onClick={onToggleDesktop}>
             {expanded ? "Scroll to explore ↓" : "Open desktop ↗"}
           </button>
         </div>
@@ -499,9 +452,7 @@ function SchoolScan() {
       <div className={styles.scanList}>
         {ASSIGNMENTS.map((item) => (
           <div key={item.course}>
-            <span className={`${styles.courseIcon} ${styles[item.color]}`}>
-              {item.course.slice(0, 1)}
-            </span>
+            <span className={`${styles.courseIcon} ${styles[item.color]}`}>{item.course.slice(0, 1)}</span>
             <span>
               <strong>{item.course}</strong>
               <small>{item.title}</small>
@@ -524,10 +475,7 @@ function WeekBoard() {
       </div>
       <div className={styles.assignmentList}>
         {ASSIGNMENTS.map((item, index) => (
-          <article
-            key={item.course}
-            className={index === 0 ? styles.selectedAssignment : ""}
-          >
+          <article key={item.course} className={index === 0 ? styles.selectedAssignment : ""}>
             <div className={styles.assignmentDate}>
               {item.due}
               {index === 0 ? <span>Up next</span> : null}
@@ -556,10 +504,7 @@ function AssignmentPage() {
       return;
     }
     if (paused || answered === 3) return;
-    const timer = window.setTimeout(
-      () => setAnswered((value) => value + 1),
-      1200,
-    );
+    const timer = window.setTimeout(() => setAnswered((value) => value + 1), 1200);
     return () => window.clearTimeout(timer);
   }, [answered, paused]);
 
@@ -575,8 +520,8 @@ function AssignmentPage() {
         <div className={styles.problem}>
           <span>QUESTION 1</span>
           <p>
-            A 10 ft ladder slides away from a wall at 2 ft/s. How fast is the
-            top moving down when the base is 6 ft from the wall?
+            A 10 ft ladder slides away from a wall at 2 ft/s. How fast is the top moving down when the base is
+            6 ft from the wall?
           </p>
           <div className={styles.working}>
             {answered > 0 ? "6(2) + 8y′ = 0" : "Working through the steps…"}

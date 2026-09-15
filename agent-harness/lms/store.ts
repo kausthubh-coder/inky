@@ -27,15 +27,12 @@ export class SchoolStore {
     const path = join(directory, "school.sqlite");
     if (existsSync(path) && !resume)
       throw new Error("Run already exists. Use resume or a new run directory.");
-    if (!existsSync(path) && resume)
-      throw new Error("Cannot resume a missing run.");
+    if (!existsSync(path) && resume) throw new Error("Cannot resume a missing run.");
     this.database = new DatabaseSync(path);
     this.database.exec(
       "PRAGMA journal_mode=WAL; CREATE TABLE IF NOT EXISTS school (id INTEGER PRIMARY KEY CHECK(id=1), run_id TEXT NOT NULL, state TEXT NOT NULL); CREATE TABLE IF NOT EXISTS effects (sequence INTEGER PRIMARY KEY AUTOINCREMENT, event TEXT NOT NULL)",
     );
-    const existing = this.database
-      .prepare("SELECT run_id FROM school WHERE id=1")
-      .get();
+    const existing = this.database.prepare("SELECT run_id FROM school WHERE id=1").get();
     this.runId = existing ? String(existing.run_id) : randomUUID();
     if (!existing) {
       const initial = initialState ?? createScenario(scenarioId, seed);
@@ -47,12 +44,7 @@ export class SchoolStore {
     validateState(this.read());
   }
   read(): SchoolState {
-    return JSON.parse(
-      String(
-        this.database.prepare("SELECT state FROM school WHERE id=1").get()!
-          .state,
-      ),
-    );
+    return JSON.parse(String(this.database.prepare("SELECT state FROM school WHERE id=1").get()!.state));
   }
   effects(): Effect[] {
     return this.database
@@ -74,9 +66,7 @@ export class SchoolStore {
       const state = this.read();
       const result = mutate(state);
       state.revision++;
-      this.database
-        .prepare("UPDATE school SET state=? WHERE id=1")
-        .run(JSON.stringify(state));
+      this.database.prepare("UPDATE school SET state=? WHERE id=1").run(JSON.stringify(state));
       this.database.prepare("INSERT INTO effects (event) VALUES (?)").run(
         JSON.stringify({
           type,
@@ -92,11 +82,7 @@ export class SchoolStore {
       throw error;
     }
   }
-  record(
-    type: string,
-    detail: Record<string, unknown>,
-    activityId?: string,
-  ): void {
+  record(type: string, detail: Record<string, unknown>, activityId?: string): void {
     const state = this.read();
     this.database.prepare("INSERT INTO effects (event) VALUES (?)").run(
       JSON.stringify({
@@ -117,10 +103,7 @@ export class SchoolStore {
         if (reason) throw new SchoolError(409, reason);
         const previous = state.drafts[id];
         if ((previous?.revision ?? 0) !== revision)
-          throw new SchoolError(
-            409,
-            "This draft changed in another tab. Reload before saving again.",
-          );
+          throw new SchoolError(409, "This draft changed in another tab. Reload before saving again.");
         state.drafts[id] = {
           answer,
           files: [...(previous?.files ?? []), ...files],
@@ -138,8 +121,7 @@ export class SchoolStore {
     revision: number,
     key: string,
   ): { receiptId: string; repeated: boolean } {
-    if (!key || key.length > 200)
-      throw new SchoolError(400, "A submission key is required.");
+    if (!key || key.length > 200) throw new SchoolError(400, "A submission key is required.");
     const fingerprint = createHash("sha256")
       .update(
         JSON.stringify({
@@ -162,10 +144,7 @@ export class SchoolStore {
         );
         if (previous) {
           if (previous.fingerprint !== fingerprint)
-            throw new SchoolError(
-              409,
-              "This submission key was already used for different work.",
-            );
+            throw new SchoolError(409, "This submission key was already used for different work.");
           return { receiptId: previous.id, repeated: true };
         }
         const activity = activityById(state, id),
@@ -173,23 +152,12 @@ export class SchoolStore {
         if (reason) throw new SchoolError(409, reason);
         const draft = state.drafts[id];
         if ((draft?.revision ?? 0) !== revision)
-          throw new SchoolError(
-            409,
-            "Reload the current draft before submitting.",
-          );
-        if (!answer.trim())
-          throw new SchoolError(400, "Enter a response before submitting.");
+          throw new SchoolError(409, "Reload the current draft before submitting.");
+        if (!answer.trim()) throw new SchoolError(400, "Enter a response before submitting.");
         const submittedFiles = [...(draft?.files ?? []), ...files];
         for (const extension of activity.requiredFiles)
-          if (
-            !submittedFiles.some((file) =>
-              file.name.toLowerCase().endsWith(extension),
-            )
-          )
-            throw new SchoolError(
-              400,
-              `Upload the required ${extension} file before submitting.`,
-            );
+          if (!submittedFiles.some((file) => file.name.toLowerCase().endsWith(extension)))
+            throw new SchoolError(400, `Upload the required ${extension} file before submitting.`);
         const receiptId = randomUUID();
         state.submissions.push({
           id: receiptId,
@@ -218,11 +186,8 @@ export class SchoolStore {
       {},
       (state) => {
         const activity = activityById(state, id);
-        if (activity.kind !== "lesson")
-          throw new SchoolError(400, "Only lessons can be marked complete.");
-        if (
-          activity.prerequisites.some((key) => !state.completed.includes(key))
-        )
+        if (activity.kind !== "lesson") throw new SchoolError(400, "Only lessons can be marked complete.");
+        if (activity.prerequisites.some((key) => !state.completed.includes(key)))
           throw new SchoolError(409, "Complete the prerequisites first.");
         if (!state.completed.includes(id)) state.completed.push(id);
         activity.status = "submitted";
@@ -234,14 +199,12 @@ export class SchoolStore {
     this.change("school_advanced", { event }, (state) => {
       if (event === "next-week") {
         state.clock = "2026-09-20T16:00:00.000Z";
-        state.courses.find((course) => course.id === "programming")!.title =
-          "Programming in C (Section 01)";
+        state.courses.find((course) => course.id === "programming")!.title = "Programming in C (Section 01)";
         const changed = activityById(state, "exercise-05");
         changed.dueAt = "2026-09-23T03:59:00.000Z";
         changed.dueText = "September 22 at 11:59 PM";
         changed.closeAt = "2026-09-25T03:59:00.000Z";
-        changed.announcement =
-          "The exercise deadline was moved to September 22.";
+        changed.announcement = "The exercise deadline was moved to September 22.";
         if (!state.activities.some((item) => item.id === "exercise-08"))
           state.activities.push({
             ...changed,
@@ -249,13 +212,10 @@ export class SchoolStore {
             title: "Exercise 08",
             status: "not_started",
           });
-        state.activities = state.activities.filter(
-          (item) => item.id !== "closed-exercise",
-        );
+        state.activities = state.activities.filter((item) => item.id !== "closed-exercise");
       } else if (event === "deadline-change") {
         const changed =
-          state.activities.find((item) => item.id === "exercise-05") ??
-          activityById(state, "observation");
+          state.activities.find((item) => item.id === "exercise-05") ?? activityById(state, "observation");
         changed.dashboardDueText = changed.dueText;
         changed.dueAt = "2026-09-17T03:59:00.000Z";
         changed.dueText = "September 16, 2026 at 11:59 PM America/New_York";

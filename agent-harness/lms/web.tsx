@@ -1,12 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import type { ReactNode } from "react";
-import {
-  activityById,
-  unavailableReason,
-  type Activity,
-  type SchoolState,
-  type Service,
-} from "./domain.js";
+import { activityById, unavailableReason, type Activity, type SchoolState, type Service } from "./domain.js";
 
 export type Origins = Record<Service, string>;
 const labels: Record<Service, string> = {
@@ -43,8 +37,7 @@ export function page(
           <header>
             <strong>{labels[service]}</strong>
             <span>
-              Alex Morgan · Student &nbsp;{" "}
-              <a href={`${origins[service]}/account`}>Account</a>
+              Alex Morgan · Student &nbsp; <a href={`${origins[service]}/account`}>Account</a>
             </span>
           </header>
           <div className="shell">
@@ -60,14 +53,12 @@ export function page(
             </nav>
             <main id="main">
               <div className="eyebrow">
-                Fall 2026 · School time {state.clock.slice(0, 10)} ·{" "}
-                {state.timezone}
+                Fall 2026 · School time {state.clock.slice(0, 10)} · {state.timezone}
               </div>
               <h1>{title}</h1>
               {content}
               <p className="footer">
-                Cedar Learning is a local simulated school. All actions affect
-                this local school only.
+                Cedar Learning is a local simulated school. All actions affect this local school only.
               </p>
             </main>
           </div>
@@ -77,36 +68,25 @@ export function page(
   );
 }
 function status(state: SchoolState, item: Activity): string {
-  if (item.status === "unknown")
-    return "Submission status unknown; verify the linked system";
+  if (item.status === "unknown") return "Submission status unknown; verify the linked system";
   if (item.prerequisites.some((id) => !state.completed.includes(id)))
     return "Locked: prerequisites incomplete";
   if (item.status === "graded")
-    return item.gradeVisible
-      ? `Graded: ${item.grade ?? "not released"}`
-      : "Submitted; grade hidden";
+    return item.gradeVisible ? `Graded: ${item.grade ?? "not released"}` : "Submitted; grade hidden";
   if (item.status === "submitted") return "Submitted; not yet graded";
   if (state.drafts[item.id]) return "Draft saved; not submitted";
   return "Not submitted";
 }
-function rows(
-  state: SchoolState,
-  origins: Origins,
-  activities: Activity[],
-  dashboard = false,
-): ReactNode {
+function rows(state: SchoolState, origins: Origins, activities: Activity[], dashboard = false): ReactNode {
   return (
     <ul className="list">
       {activities.map((item) => (
         <li key={item.id}>
           <a href={activityUrl(item, origins)}>{item.title}</a>
           <span className="status">{status(state, item)}</span>
-          <div>
-            {dashboard ? (item.dashboardDueText ?? item.dueText) : item.dueText}
-          </div>
+          <div>{dashboard ? (item.dashboardDueText ?? item.dueText) : item.dueText}</div>
           <small>
-            {state.courses.find((course) => course.id === item.courseId)?.title}{" "}
-            · {item.module}
+            {state.courses.find((course) => course.id === item.courseId)?.title} · {item.module}
           </small>
         </li>
       ))}
@@ -163,10 +143,7 @@ export function renderPublic(
     return render(
       "Build reports",
       <>
-        <p>
-          Each report applies to the revision shown. The most recent revision is
-          rev-current.
-        </p>
+        <p>Each report applies to the revision shown. The most recent revision is rev-current.</p>
         <div className="table-wrap">
           <table>
             <thead>
@@ -190,9 +167,7 @@ export function renderPublic(
       </>,
     );
   if (path === "/" && service !== "school") {
-    const vendorActivities = state.activities.filter(
-      (item) => item.service === service,
-    );
+    const vendorActivities = state.activities.filter((item) => item.service === service);
     return render(
       labels[service],
       <section aria-labelledby="assignment-list-heading" data-assignment-list>
@@ -212,17 +187,14 @@ export function renderPublic(
         {path === "/" && (
           <>
             <p className="notice">
-              Find course activities below. The timeline is a summary; check
-              activity pages for detailed requirements, submission status, and
-              extensions.
+              Find course activities below. The timeline is a summary; check activity pages for detailed
+              requirements, submission status, and extensions.
             </p>
             <h2>Upcoming and recent work</h2>
             {rows(
               state,
               origins,
-              state.activities
-                .filter((item) => !item.id.includes("-reading-"))
-                .slice(0, 5),
+              state.activities.filter((item) => !item.id.includes("-reading-")).slice(0, 5),
               true,
             )}
             <a href="/calendar">View the full calendar</a>
@@ -237,17 +209,10 @@ export function renderPublic(
               <h2>
                 <a href={`/courses/${course.id}`}>{course.title}</a>
               </h2>
-              <p>
-                {
-                  state.activities.filter((item) => item.courseId === course.id)
-                    .length
-                }{" "}
-                activities
-              </p>
+              <p>{state.activities.filter((item) => item.courseId === course.id).length} activities</p>
               {course.aliases.map((alias) => (
                 <div key={alias}>
-                  <a href={`/course/view.php?id=${course.id}`}>{alias}</a>{" "}
-                  <small>same course</small>
+                  <a href={`/course/view.php?id=${course.id}`}>{alias}</a> <small>same course</small>
                 </div>
               ))}
             </article>
@@ -257,11 +222,8 @@ export function renderPublic(
     );
   const courseMatch = /^\/courses\/([^/]+)$/.exec(path);
   if (courseMatch) {
-    const course = state.courses.find(
-      (item) => item.id === decodeURIComponent(courseMatch[1]!),
-    );
-    if (!course)
-      return render("Course not found", <p>Return to the course directory.</p>);
+    const course = state.courses.find((item) => item.id === decodeURIComponent(courseMatch[1]!));
+    if (!course) return render("Course not found", <p>Return to the course directory.</p>);
     const all = state.activities.filter((item) => item.courseId === course.id),
       pageNumber = Math.max(1, Number(url.searchParams.get("page")) || 1),
       size = 5;
@@ -270,23 +232,14 @@ export function renderPublic(
       course.title,
       <>
         <p>
-          {course.code} · Activities{" "}
-          {Math.min((pageNumber - 1) * size + 1, all.length)}–
+          {course.code} · Activities {Math.min((pageNumber - 1) * size + 1, all.length)}–
           {Math.min(pageNumber * size, all.length)} of {all.length}
         </p>
         <h2>Assignments and modules</h2>
-        {entries.length ? (
-          rows(state, origins, entries)
-        ) : (
-          <p>No activities found.</p>
-        )}
+        {entries.length ? rows(state, origins, entries) : <p>No activities found.</p>}
         <div className="actions">
-          {pageNumber > 1 && (
-            <a href={`?page=${pageNumber - 1}`}>Previous page</a>
-          )}
-          {pageNumber * size < all.length && (
-            <a href={`?page=${pageNumber + 1}`}>Next page</a>
-          )}
+          {pageNumber > 1 && <a href={`?page=${pageNumber - 1}`}>Previous page</a>}
+          {pageNumber * size < all.length && <a href={`?page=${pageNumber + 1}`}>Next page</a>}
         </div>
         <details>
           <summary>Week 6 · No work posted</summary>
@@ -299,10 +252,7 @@ export function renderPublic(
     return render(
       "Course calendar",
       <>
-        <p>
-          Some activities have date-only or unresolved deadlines. Check each
-          detail page before acting.
-        </p>
+        <p>Some activities have date-only or unresolved deadlines. Check each detail page before acting.</p>
         {rows(
           state,
           origins,
@@ -312,9 +262,7 @@ export function renderPublic(
       </>,
     );
   if (path === "/announcements") {
-    const hasPartnerBoard = state.activities.some(
-      (item) => item.id === "partners",
-    );
+    const hasPartnerBoard = state.activities.some((item) => item.id === "partners");
     return render(
       "Announcements and notices",
       <>
@@ -334,9 +282,8 @@ export function renderPublic(
           <>
             <h2>Project partner board</h2>
             <p>
-              Students are looking for project partners. Maximum group size is
-              three. This notice does not assign discussion replies or
-              establish whether solo work is permitted.
+              Students are looking for project partners. Maximum group size is three. This notice does not
+              assign discussion replies or establish whether solo work is permitted.
             </p>
             <a href="/assignments/partners">Open the partner board</a>
           </>
@@ -349,8 +296,7 @@ export function renderPublic(
       "Gradebook",
       <>
         <p>
-          A blank or hidden grade is different from a score of zero. Submission
-          status is recorded separately.
+          A blank or hidden grade is different from a score of zero. Submission status is recorded separately.
         </p>
         <div className="table-wrap">
           <table>
@@ -364,9 +310,7 @@ export function renderPublic(
             <tbody>
               {state.activities
                 .filter(
-                  (item) =>
-                    ["submitted", "graded"].includes(item.status) &&
-                    !item.id.includes("-reading-"),
+                  (item) => ["submitted", "graded"].includes(item.status) && !item.id.includes("-reading-"),
                 )
                 .map((item) => (
                   <tr key={item.id}>
@@ -375,11 +319,7 @@ export function renderPublic(
                     </td>
                     <td>{status(state, item)}</td>
                     <td>
-                      {!item.gradeVisible
-                        ? "Hidden"
-                        : item.grade === null
-                          ? "— (not graded)"
-                          : item.grade}
+                      {!item.gradeVisible ? "Hidden" : item.grade === null ? "— (not graded)" : item.grade}
                     </td>
                   </tr>
                 ))}
@@ -393,9 +333,7 @@ export function renderPublic(
     const item = activityById(state, decodeURIComponent(match[1]!)),
       draft = state.drafts[item.id],
       reason = unavailableReason(state, item);
-    const submissions = state.submissions.filter(
-      (receipt) => receipt.activityId === item.id,
-    );
+    const submissions = state.submissions.filter((receipt) => receipt.activityId === item.id);
     const localTime = (value: string) =>
       new Intl.DateTimeFormat("en-US", {
         dateStyle: "long",
@@ -426,11 +364,7 @@ export function renderPublic(
         </p>
         <p>
           <strong>Due:</strong>{" "}
-          {item.dueAt ? (
-            <time dateTime={item.dueAt}>{item.dueText}</time>
-          ) : (
-            item.dueText
-          )}
+          {item.dueAt ? <time dateTime={item.dueAt}>{item.dueText}</time> : item.dueText}
         </p>
         <p>
           <strong>Late policy:</strong> {lateText}
@@ -447,9 +381,7 @@ export function renderPublic(
             }[item.submissionChannel]
           }
         </p>
-        {item.announcement && (
-          <p className="notice warning">{item.announcement}</p>
-        )}
+        {item.announcement && <p className="notice warning">{item.announcement}</p>}
         <h2>Instructions</h2>
         <p>{item.instructions}</p>
         <h3>Required work</h3>
@@ -458,18 +390,14 @@ export function renderPublic(
             {index + 1}. {requirement}
           </p>
         ))}
-        {item.requiredFiles.length > 0 && (
-          <p>Required file types: {item.requiredFiles.join(", ")}</p>
-        )}
+        {item.requiredFiles.length > 0 && <p>Required file types: {item.requiredFiles.join(", ")}</p>}
         {item.attachments.length > 0 && (
           <>
             <h3>Course files</h3>
             <ul>
               {item.attachments.map((id) => (
                 <li key={id}>
-                  <a href={`/files/${id}`}>
-                    {state.assets.find((asset) => asset.id === id)?.name ?? id}
-                  </a>
+                  <a href={`/files/${id}`}>{state.assets.find((asset) => asset.id === id)?.name ?? id}</a>
                 </li>
               ))}
             </ul>
@@ -481,9 +409,7 @@ export function renderPublic(
             <ul>
               {item.prerequisites.map((id) => (
                 <li key={id}>
-                  <a href={activityUrl(activityById(state, id), origins)}>
-                    {activityById(state, id).title}
-                  </a>{" "}
+                  <a href={activityUrl(activityById(state, id), origins)}>{activityById(state, id).title}</a>{" "}
                   — {state.completed.includes(id) ? "Complete" : "Incomplete"}
                 </li>
               ))}
@@ -500,34 +426,19 @@ export function renderPublic(
           </form>
         ) : (
           !reason && (
-            <form
-              method="post"
-              action={`/assignments/${item.id}`}
-              encType="multipart/form-data"
-            >
+            <form method="post" action={`/assignments/${item.id}`} encType="multipart/form-data">
               <input type="hidden" name="csrf" value={csrf} />
-              <input
-                type="hidden"
-                name="revision"
-                value={draft?.revision ?? 0}
-              />
+              <input type="hidden" name="revision" value={draft?.revision ?? 0} />
               <input
                 type="hidden"
                 name="key"
                 value={`${item.id}:${draft?.revision ?? 0}:${submissions.length}`}
               />
               <label htmlFor="answer">Your response</label>
-              <textarea
-                id="answer"
-                name="answer"
-                defaultValue={draft?.answer ?? ""}
-              />
+              <textarea id="answer" name="answer" defaultValue={draft?.answer ?? ""} />
               <label htmlFor="files">Attach files</label>
               <input id="files" type="file" name="files" multiple />
-              <p className="muted">
-                Maximum 10 MB per file. Saving a draft does not submit your
-                work.
-              </p>
+              <p className="muted">Maximum 10 MB per file. Saving a draft does not submit your work.</p>
               <div className="actions">
                 <button className="secondary" name="action" value="save">
                   Save draft
@@ -545,8 +456,7 @@ export function renderPublic(
             <ul>
               {draft.files.map((file, index) => (
                 <li key={`${file.hash}-${index}`}>
-                  <a href={`/uploads/${item.id}/${file.hash}`}>{file.name}</a> ·{" "}
-                  {file.bytes} bytes
+                  <a href={`/uploads/${item.id}/${file.hash}`}>{file.name}</a> · {file.bytes} bytes
                 </li>
               ))}
             </ul>
@@ -562,10 +472,7 @@ export function renderPublic(
                   Receipt: <code>{receipt.id}</code>
                 </p>
                 <p>
-                  Submitted at{" "}
-                  <time dateTime={receipt.submittedAt}>
-                    {localTime(receipt.submittedAt)}
-                  </time>
+                  Submitted at <time dateTime={receipt.submittedAt}>{localTime(receipt.submittedAt)}</time>
                 </p>
                 <p>{receipt.files.length} files attached</p>
               </article>
