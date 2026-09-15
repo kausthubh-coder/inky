@@ -12,6 +12,7 @@ import {
   type StudiWorkspaceState,
   type TaskDetail,
   type TaskSummary,
+  selectedProvider,
 } from "../../shared/index.js";
 import { Inky, type InkyState } from "./Inky.js";
 import { taskStatusCopy } from "./assignmentPresentation.js";
@@ -97,6 +98,9 @@ export function DeskDrawer({
   onVerifySubmission,
   onOpenArtifact,
   onConnectRuntime,
+  onCompleteRuntimeLogin,
+  onCancelRuntimeLogin,
+  onSwitchProvider,
   onSchoolSlot,
 }: {
   panel: Exclude<DeskPanel, { kind: "closed" }>;
@@ -119,6 +123,9 @@ export function DeskDrawer({
   onVerifySubmission: (taskId: string, confirmation: string) => void;
   onOpenArtifact: (taskId: string) => void;
   onConnectRuntime: () => void;
+  onCompleteRuntimeLogin?: (code: string) => void;
+  onCancelRuntimeLogin?: () => void;
+  onSwitchProvider?: () => void;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
 }) {
   const [prompt, setPrompt] = useState("");
@@ -132,7 +139,7 @@ export function DeskDrawer({
   const anyLive = Boolean(lifecycle.execution && isLivePhase(lifecycle.execution.phase));
   const desk = showingLiveDesk;
   const course = onboarding.courses.find((item) => item.courseId === assignment?.courseId);
-  const runtimeAttention = classifyAgentRuntimeAttention(workspace?.provider, execution?.lastError ?? (onboarding.scan?.state === "failed" ? onboarding.scan.failures[0] : null));
+  const runtimeAttention = classifyAgentRuntimeAttention(workspace ? selectedProvider(workspace) : null, execution?.lastError ?? (onboarding.scan?.state === "failed" ? onboarding.scan.failures[0] : null));
   const inkyState = deskInkyState({
     ...(execution ? { execution } : {}),
     ...(workspace ? { driver: workspace.browser.driver } : {}),
@@ -266,7 +273,7 @@ export function DeskDrawer({
         <p className="drawer-note">Nothing’s on the desk. Open a week card, or tell me what to start.</p>
       )}
 
-      <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />
+      <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} onCompleteLogin={onCompleteRuntimeLogin} onCancelLogin={onCancelRuntimeLogin} onSwitchProvider={onSwitchProvider} />
       {execution?.returnPredicate && runtimeAttention === "none" && (
         <div className="truth-banner truth-banner--partial"><strong>I need you here.</strong><span>{execution.lastError ?? execution.returnPredicate}</span></div>
       )}

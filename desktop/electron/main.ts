@@ -30,7 +30,10 @@ import {
   RuntimeInfoSchema,
   STUDI_SCHEMA_VERSION,
   browserDriver,
+  AGENT_PROVIDERS,
+  agentProviderName,
   classifyAgentRuntimeAttention,
+  type AgentProviderId,
   createIpcHandlerRegistrations,
   projectProtectedAuthState,
   studiIpcMethods,
@@ -60,7 +63,7 @@ import { AuthVault } from "./auth/vault.js";
 import { PiAgentRuntime } from "./agent/runtime.js";
 import { createConnectedAppTools } from "./agent/composio-tools.js";
 import { ConversationCoordinator } from "./agent/conversation-coordinator.js";
-import { OpenAiCodexLoginAttemptOwner } from "./agent/provider-login.js";
+import { ProviderLoginAttemptOwner } from "./agent/provider-login.js";
 import { AssignmentExecutionCoordinator, type ExecutionNotification } from "./assignment/coordinator.js";
 import { startSelectedAssignment } from "./assignment/start-selected.js";
 import { BrowserController } from "./browser/controller.js";
@@ -114,7 +117,7 @@ let driveOverlay: DriveOverlay | null = null;
 let browserLayoutMode: BrowserLayoutMode = "hidden";
 let deskSlotBounds: SchoolPageBounds | null = null;
 let agentRuntime: PiAgentRuntime | null = null;
-let runtimeLoginAttempt: OpenAiCodexLoginAttemptOwner | null = null;
+let runtimeLoginAttempt: ProviderLoginAttemptOwner | null = null;
 let managerCoordinator: ManagerCoordinator | null = null;
 let conversationCoordinator: ConversationCoordinator | null = null;
 let unsubscribeConversationTrace: (() => void) | null = null;
@@ -323,21 +326,31 @@ const ipcHandlers: StudiIpcHandlers = {
     requireTelemetryService().capture("studi_onboarding_step", { step: "school_browser_opened" });
     return readWorkspaceState();
   },
-  loginOpenAiCodex: async () => {
-    requireRuntimeLoginAttempt().start();
+  loginProvider: async ({ providerId }) => {
+    requireRuntimeLoginAttempt().start(providerId);
     return readWorkspaceState();
   },
-  cancelOpenAiCodexLogin: async () => {
+  completeProviderLogin: async ({ providerId, code }) => {
+    requireRuntimeLoginAttempt().complete(providerId, code);
+    return readWorkspaceState();
+  },
+  cancelProviderLogin: async () => {
     requireRuntimeLoginAttempt().cancel();
     return readWorkspaceState();
   },
-  selectAgentModel: async ({ modelId, reasoningEffort }) => {
+  logoutProvider: async ({ providerId }) => {
+    requireRuntimeLoginAttempt().cancel();
+    await requireAgentRuntime().logoutProvider(providerId);
+    requireTelemetryService().capture("studi_provider_connection", { provider: providerId, state: "disconnected" });
+    return readWorkspaceState();
+  },
+  selectAgentModel: async ({ providerId, modelId, reasoningEffort }) => {
     const runtime = requireAgentRuntime();
-    runtime.selectModel("openai-codex", modelId);
+    runtime.selectModel(providerId, modelId);
     runtime.setReasoningEffort(reasoningEffort);
-    await persistAgentRuntimeChoice(modelId, reasoningEffort);
-    requireTelemetryService().capture("studi_model_selected", { model: modelId, reasoning_effort: reasoningEffort });
-    requireTelemetryService().setPerson({ selected_model: modelId, selected_reasoning: reasoningEffort });
+    await persistAgentRuntimeChoice();
+    requireTelemetryService().capture("studi_model_selected", { provider: providerId, model: modelId, reasoning_effort: reasoningEffort });
+    requireTelemetryService().setPerson({ selected_provider: providerId, selected_model: modelId, selected_reasoning: reasoningEffort });
     await requireConversationCoordinator().replaceSessions();
     return readWorkspaceState();
   },
@@ -396,17 +409,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   getManagerState: () => requireManagerCoordinator().state(),
   send: async ({ target, text, ...metadata }) => {
-    const provider = await requireAgentRuntime().getProviderStatus("openai-codex");
-    const attention = classifyAgentRuntimeAttention(provider);
-    if (attention === "usage") {
-      throw new Error("ChatGPT usage ran out. Wait for more usage or connect another ChatGPT, then try again.");
-    }
-    if (attention === "needs_login") {
-      throw new Error("Codex needs another ChatGPT login before Inky can answer.");
-    }
-    if (provider.state !== "ready") {
-      throw new Error("Connect the Codex subscription before asking Inky");
-    }
+    await requireReadyProvider("Inky can answer");
     const result = await requireConversationCoordinator().send(target, text, metadata);
     return result;
   },
@@ -642,7 +645,7 @@ function registerIpcHandlers(): void {
   for (const registration of createIpcHandlerRegistrations(studiIpcRegistry, ipcHandlers)) {
     ipcMain.handle(registration.channel, async (_event, rawRequest: unknown) => {
       const method = Object.entries(studiIpcRegistry).find(([, contract]) => contract.channel === registration.channel)?.[0] ?? registration.channel;
-      const tracked = !/^(get|setBrowserLayout|captureUiTelemetry|setTelemetry|signIn|signOut|loginOpenAi|cancelOpenAi|retryEntitlement)/.test(method);
+      const tracked = !/^(get|setBrowserLayout|captureUiTelemetry|setTelemetry|signIn|signOut|loginProvider|completeProviderLogin|cancelProviderLogin|retryEntitlement)/.test(method);
       const startedAt = Date.now();
       const owner = telemetryService?.state().distinctId;
       const actionId = randomUUID();
@@ -1494,12 +1497,14 @@ async function initializeDesktopAgent(): Promise<void> {
     },
   });
   await applyPersistedAgentRuntime();
-  runtimeLoginAttempt = new OpenAiCodexLoginAttemptOwner((signal, notify) =>
-    requireAgentRuntime().loginOpenAiCodex("device_code", signal, {
+  runtimeLoginAttempt = new ProviderLoginAttemptOwner(async (providerId, signal, interaction) => {
+    await requireAgentRuntime().loginProvider(providerId, signal, {
       openExternal: (url) => shell.openExternal(url),
-      notify,
-    }),
-  );
+      notify: interaction.notify,
+      awaitManualCode: interaction.awaitManualCode,
+    });
+    await adoptConnectedProvider(providerId);
+  });
   managerCoordinator = await ManagerCoordinator.create(
     requireLocalStore(),
     agentRuntime,
@@ -1790,9 +1795,10 @@ function discardStaleAgentUsage(): void {
   agentRuntime?.takeLastUsage();
 }
 
-function currentAgentSelection(): { model?: string; reasoning_effort?: AgentReasoningEffort } {
+function currentAgentSelection(): { provider?: string; model?: string; reasoning_effort?: AgentReasoningEffort } {
   if (!agentRuntime) return {};
   return {
+    provider: agentRuntime.selectedProviderId,
     model: agentRuntime.selectedModelId,
     reasoning_effort: agentRuntime.selectedReasoningEffort,
   };
@@ -1848,59 +1854,78 @@ async function readWorkspaceState() {
   if (uiScenario === "onboarding-ready" || uiScenario === "onboarding-welcome") {
     return {
       browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
-      provider: {
+      providers: AGENT_PROVIDERS.map((provider) => ({
         schemaVersion: STUDI_SCHEMA_VERSION,
-        providerId: "openai-codex",
-        providerName: "OpenAI Codex",
-        state: "ready" as const,
+        providerId: provider.id,
+        providerName: provider.name,
+        state: provider.id === runtime.selectedProviderId ? "ready" as const : "needs_login" as const,
         loginMethods: ["oauth" as const],
         reason: "Deterministic UI scenario is using the same typed provider projection.",
-      },
+      })),
+      selectedProviderId: runtime.selectedProviderId,
       providerLogin: null,
-      models: [{ id: runtime.selectedModelId, name: runtime.selectedModelId }],
+      models: [{ providerId: runtime.selectedProviderId, id: runtime.selectedModelId, name: runtime.selectedModelId }],
       selectedModelId: runtime.selectedModelId,
       selectedReasoningEffort: runtime.selectedReasoningEffort,
     };
   }
   return {
     browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
-    provider: await runtime.getProviderStatus("openai-codex"),
+    providers: await Promise.all(AGENT_PROVIDERS.map((provider) => runtime.getProviderStatus(provider.id))),
+    selectedProviderId: runtime.selectedProviderId,
     providerLogin: runtimeLoginAttempt?.handoff ?? null,
-    models: [...runtime.getProviderModels("openai-codex")],
+    models: AGENT_PROVIDERS.flatMap((provider) => runtime.getProviderModels(provider.id)),
     selectedModelId: runtime.selectedModelId,
     selectedReasoningEffort: runtime.selectedReasoningEffort,
   };
 }
 
-async function persistAgentRuntimeChoice(modelId: string, reasoningEffort: AgentReasoningEffort): Promise<void> {
+async function persistAgentRuntimeChoice(): Promise<void> {
+  const runtime = requireAgentRuntime();
   const store = requireLocalStore().productPreferences;
   const current = await store.get();
   await store.put({
     ...current,
-    agentModelId: modelId,
-    agentReasoningEffort: reasoningEffort,
+    agentProviderId: runtime.selectedProviderId,
+    agentModelId: runtime.selectedModelId,
+    agentReasoningEffort: runtime.selectedReasoningEffort,
     updatedAt: new Date().toISOString(),
   });
+}
+
+/** A subscription the student just connected becomes the one Inky uses. */
+async function adoptConnectedProvider(providerId: AgentProviderId): Promise<void> {
+  const runtime = requireAgentRuntime();
+  if (runtime.selectedProviderId !== providerId) runtime.selectProvider(providerId);
+  await persistAgentRuntimeChoice();
+  const telemetry = requireTelemetryService();
+  telemetry.capture("studi_provider_connection", { provider: providerId, state: "connected" });
+  telemetry.setPerson({ selected_provider: providerId, selected_model: runtime.selectedModelId, selected_reasoning: runtime.selectedReasoningEffort });
 }
 
 async function applyPersistedAgentRuntime(): Promise<void> {
   const runtime = requireAgentRuntime();
   const preferences = await requireLocalStore().productPreferences.get();
   try {
-    runtime.selectModel("openai-codex", preferences.agentModelId);
+    runtime.selectModel(preferences.agentProviderId, preferences.agentModelId);
   } catch {
-    // Keep the catalog default when the saved id is not installed yet.
+    try {
+      runtime.selectProvider(preferences.agentProviderId);
+    } catch {
+      // Keep the catalog default when the saved subscription has no installed model.
+    }
   }
   runtime.setReasoningEffort(preferences.agentReasoningEffort);
   requireTelemetryService().setPerson({
+    selected_provider: runtime.selectedProviderId,
     selected_model: runtime.selectedModelId,
     selected_reasoning: runtime.selectedReasoningEffort,
   });
 }
 
-function requireRuntimeLoginAttempt(): OpenAiCodexLoginAttemptOwner {
+function requireRuntimeLoginAttempt(): ProviderLoginAttemptOwner {
   if (!runtimeLoginAttempt) {
-    throw new Error("The Codex login service is not ready");
+    throw new Error("The subscription sign-in service is not ready");
   }
   return runtimeLoginAttempt;
 }
@@ -2065,16 +2090,23 @@ async function requireSchoolBrowserTelemetryIsolation(): Promise<boolean> {
 }
 
 async function requireReadyProviderForScan(): Promise<void> {
-  const provider = await requireAgentRuntime().getProviderStatus("openai-codex");
+  await requireReadyProvider("scanning the school");
+}
+
+/** Refuses work until the selected subscription can actually answer, naming it for the student. */
+async function requireReadyProvider(purpose: string): Promise<void> {
+  const runtime = requireAgentRuntime();
+  const provider = await runtime.getProviderStatus(runtime.selectedProviderId);
+  const name = agentProviderName(runtime.selectedProviderId);
   const attention = classifyAgentRuntimeAttention(provider);
   if (attention === "usage") {
-    throw new Error("ChatGPT usage ran out. Wait for more usage or connect another ChatGPT, then try again.");
+    throw new Error(`${name} usage ran out. Wait for more usage or switch to another subscription, then try again.`);
   }
   if (attention === "needs_login") {
-    throw new Error("Codex needs another ChatGPT login before scanning.");
+    throw new Error(`${name} needs you to sign in again before ${purpose}.`);
   }
   if (provider.state !== "ready") {
-    throw new Error("Connect the Codex subscription before scanning the school");
+    throw new Error(`Connect ${name} before ${purpose}.`);
   }
 }
 

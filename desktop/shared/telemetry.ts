@@ -12,6 +12,7 @@ export const TelemetryEventNameSchema = z.enum([
   "studi_queue_transition",
   "studi_assignment_finished",
   "studi_model_selected",
+  "studi_provider_connection",
   "studi_handoff",
   "studi_review",
   "studi_fallback",
@@ -72,6 +73,7 @@ export const UiTelemetryInputSchema = z.discriminatedUnion("event", [
 ]);
 
 export const TelemetryAgentFactsSchema = z.strictObject({
+  provider: z.string().min(1).max(64).optional(),
   model: z.string().min(1).max(128).optional(),
   reasoning_effort: AgentReasoningEffortSchema.optional(),
   duration_ms: z.number().int().nonnegative().optional(),

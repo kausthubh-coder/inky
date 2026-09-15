@@ -2,6 +2,7 @@ import { z } from "zod";
 import { UpdateStateSchema } from './updates.js';
 
 import { AgentReasoningEffortSchema } from "./agent-runtime.js";
+import { AgentProviderIdSchema } from "./providers.js";
 import { SchemaVersionSchema, STUDI_SCHEMA_VERSION } from "./schema-version.js";
 import { AuthStateSchema, FeedbackReceiptSchema } from "./auth.js";
 import { UsageStateSchema } from "./usage.js";
@@ -69,10 +70,14 @@ const workspaceStateMethod = "getWorkspaceState" as const;
 const workspaceStateChannel = "studi:workspace-state" as const;
 const navigateBrowserMethod = "navigateBrowser" as const;
 const navigateBrowserChannel = "studi:navigate-browser" as const;
-const loginOpenAiCodexMethod = "loginOpenAiCodex" as const;
-const loginOpenAiCodexChannel = "studi:login-openai-codex" as const;
-const cancelOpenAiCodexLoginMethod = "cancelOpenAiCodexLogin" as const;
-const cancelOpenAiCodexLoginChannel = "studi:cancel-openai-codex-login" as const;
+const loginProviderMethod = "loginProvider" as const;
+const loginProviderChannel = "studi:login-provider" as const;
+const completeProviderLoginMethod = "completeProviderLogin" as const;
+const completeProviderLoginChannel = "studi:complete-provider-login" as const;
+const cancelProviderLoginMethod = "cancelProviderLogin" as const;
+const cancelProviderLoginChannel = "studi:cancel-provider-login" as const;
+const logoutProviderMethod = "logoutProvider" as const;
+const logoutProviderChannel = "studi:logout-provider" as const;
 const selectAgentModelMethod = "selectAgentModel" as const;
 const selectAgentModelChannel = "studi:select-agent-model" as const;
 const getManagerStateMethod = "getManagerState" as const;
@@ -180,13 +185,21 @@ const NavigateBrowserManifestEntrySchema = z.strictObject({
   method: z.literal(navigateBrowserMethod),
   channel: z.literal(navigateBrowserChannel),
 });
-const LoginOpenAiCodexManifestEntrySchema = z.strictObject({
-  method: z.literal(loginOpenAiCodexMethod),
-  channel: z.literal(loginOpenAiCodexChannel),
+const LoginProviderManifestEntrySchema = z.strictObject({
+  method: z.literal(loginProviderMethod),
+  channel: z.literal(loginProviderChannel),
 });
-const CancelOpenAiCodexLoginManifestEntrySchema = z.strictObject({
-  method: z.literal(cancelOpenAiCodexLoginMethod),
-  channel: z.literal(cancelOpenAiCodexLoginChannel),
+const CompleteProviderLoginManifestEntrySchema = z.strictObject({
+  method: z.literal(completeProviderLoginMethod),
+  channel: z.literal(completeProviderLoginChannel),
+});
+const CancelProviderLoginManifestEntrySchema = z.strictObject({
+  method: z.literal(cancelProviderLoginMethod),
+  channel: z.literal(cancelProviderLoginChannel),
+});
+const LogoutProviderManifestEntrySchema = z.strictObject({
+  method: z.literal(logoutProviderMethod),
+  channel: z.literal(logoutProviderChannel),
 });
 const SelectAgentModelManifestEntrySchema = z.strictObject({
   method: z.literal(selectAgentModelMethod),
@@ -288,8 +301,10 @@ export const ContractManifestSchema = z.strictObject({
     RefreshConnectedAppManifestEntrySchema,
     WorkspaceStateManifestEntrySchema,
     NavigateBrowserManifestEntrySchema,
-    LoginOpenAiCodexManifestEntrySchema,
-    CancelOpenAiCodexLoginManifestEntrySchema,
+    LoginProviderManifestEntrySchema,
+    CompleteProviderLoginManifestEntrySchema,
+    CancelProviderLoginManifestEntrySchema,
+    LogoutProviderManifestEntrySchema,
     SelectAgentModelManifestEntrySchema,
     GetManagerStateManifestEntrySchema,
     SendManifestEntrySchema,
@@ -453,19 +468,30 @@ export const studiIpcRegistry = Object.freeze({
     requestSchema: z.strictObject({ url: z.string().min(1).max(2_048), target:z.union([ConversationTargetSchema,z.strictObject({kind:z.literal("school")})]).optional() }),
     resultSchema: StudiWorkspaceStateSchema,
   }),
-  [loginOpenAiCodexMethod]: Object.freeze({
-    channel: loginOpenAiCodexChannel,
+  [loginProviderMethod]: Object.freeze({
+    channel: loginProviderChannel,
+    requestSchema: z.strictObject({ providerId: AgentProviderIdSchema }),
+    resultSchema: StudiWorkspaceStateSchema,
+  }),
+  [completeProviderLoginMethod]: Object.freeze({
+    channel: completeProviderLoginChannel,
+    requestSchema: z.strictObject({ providerId: AgentProviderIdSchema, code: z.string().trim().min(1).max(4_096) }),
+    resultSchema: StudiWorkspaceStateSchema,
+  }),
+  [cancelProviderLoginMethod]: Object.freeze({
+    channel: cancelProviderLoginChannel,
     requestSchema: z.undefined(),
     resultSchema: StudiWorkspaceStateSchema,
   }),
-  [cancelOpenAiCodexLoginMethod]: Object.freeze({
-    channel: cancelOpenAiCodexLoginChannel,
-    requestSchema: z.undefined(),
+  [logoutProviderMethod]: Object.freeze({
+    channel: logoutProviderChannel,
+    requestSchema: z.strictObject({ providerId: AgentProviderIdSchema }),
     resultSchema: StudiWorkspaceStateSchema,
   }),
   [selectAgentModelMethod]: Object.freeze({
     channel: selectAgentModelChannel,
     requestSchema: z.strictObject({
+      providerId: AgentProviderIdSchema,
       modelId: z.string().min(1),
       reasoningEffort: AgentReasoningEffortSchema,
     }),
