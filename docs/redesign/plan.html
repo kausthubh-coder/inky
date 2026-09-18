@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studi redesign: build plan</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:"Nunito Sans";font-weight:400;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:700;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-600-normal.woff2") format("woff2")}
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--blot2:#e9e0ce;--hl:#f6c945;--red:#b3452f;--green:#4f9a78;--blue:#5b83c4}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:70px}
+body{margin:0;background:var(--paper);color:var(--pencil);font:400 15px/1.55 "Nunito Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:"Shantell Sans",cursive;font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:38px;line-height:1.08}h2{font-size:26px;line-height:1.15;margin-top:72px}
+h3{font-size:16px;font-weight:700;margin:30px 0 8px}
+p{margin:0 0 10px;max-width:74ch;text-wrap:pretty}b{font-weight:700}
+code{font:12.5px/1.4 ui-monospace,Consolas,monospace;background:var(--blotter);border-radius:5px;padding:1px 5px;overflow-wrap:anywhere}
+a{color:var(--pencil);text-underline-offset:3px;text-decoration-color:#cfc6b6}
+nav{position:sticky;top:0;z-index:5;background:color-mix(in srgb,var(--paper) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--rule)}
+nav div{max-width:1080px;margin:0 auto;padding:12px 28px;display:flex;gap:18px;font-size:13.5px;font-weight:600;flex-wrap:wrap}
+nav a{text-decoration:none;color:var(--graphite)}nav a:hover{color:var(--pencil)}nav b{font-family:"Shantell Sans";margin-right:8px}
+main{max-width:1080px;margin:0 auto;padding:46px 28px 120px}
+.lede{font-size:18px;color:var(--graphite);max-width:66ch;margin-top:12px}
+.sub{color:var(--graphite);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0 6px}
+th{text-align:left;color:var(--graphite);font-weight:600;padding:0 14px 8px 0;border-bottom:1.5px solid var(--pencil);white-space:nowrap}
+td{padding:10px 14px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}td:first-child{font-weight:600}
+.tag{font-weight:700;white-space:nowrap}.tag::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:var(--c)}
+.ex{--c:var(--green)}.ch{--c:var(--hl)}.nw{--c:var(--red)}.ag{--c:var(--blue)}
+.key{display:flex;gap:22px;font-size:13px;color:var(--graphite);margin:10px 0 0;flex-wrap:wrap}
+.arch{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:16px 0}
+.box{background:var(--page);border-radius:14px;box-shadow:0 0 0 1.5px var(--pencil);padding:14px 16px;font-size:13.5px}
+.box b{display:block;font-size:14.5px;margin-bottom:4px}.box span{color:var(--graphite)}
+.box.soft{box-shadow:0 0 0 1.5px var(--blot2);background:var(--blotter)}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:0;margin:18px 0;counter-reset:f}
+.flow div{padding:14px 16px 14px 0;border-top:2px solid var(--pencil);font-size:13.5px;position:relative;counter-increment:f}
+.flow div::before{content:counter(f);position:absolute;top:-13px;left:0;width:24px;height:24px;border-radius:50%;background:var(--hl);box-shadow:0 0 0 1.5px var(--pencil);display:grid;place-items:center;font-weight:700;font-size:12.5px}
+.flow b{display:block;margin:8px 0 2px;font-size:14.5px}.flow span{color:var(--graphite)}.flow em{display:block;font-style:normal;font-weight:600;font-size:12.5px;margin-top:6px}
+.phase{display:grid;grid-template-columns:54px 1fr;gap:18px;padding:18px 0;border-bottom:1px solid var(--rule)}
+.phase .n{width:42px;height:42px;border-radius:50%;background:var(--hl);box-shadow:0 0 0 1.5px var(--pencil),0 2.5px 0 1.5px var(--pencil);display:grid;place-items:center;font:600 18px "Shantell Sans"}
+.phase h3{margin:4px 0 4px}.phase .meta{font-size:13px;color:var(--graphite);margin-bottom:8px}
+.phase ul{margin:6px 0 0;padding-left:18px;font-size:14px}.phase li{margin:3px 0}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.story{display:grid;grid-template-columns:22px 52px 1fr;gap:12px;padding:11px 0;border-bottom:1px solid var(--rule);font-size:14px;align-items:start}
+.story input{width:16px;height:16px;margin-top:3px;accent-color:var(--pencil)}
+.story .id{font-weight:700;color:var(--graphite);font-variant-numeric:tabular-nums}
+.story b{display:block}.story .ex2{color:var(--graphite);font-size:13px;margin-top:3px}
+.story.done{opacity:.5}
+.note{background:var(--blotter);border-radius:14px;padding:14px 18px;margin:16px 0;font-size:14px;max-width:80ch}
+.note b{font-family:"Shantell Sans"}
+pre{background:#26221d;color:#e9e1d2;border-radius:12px;padding:14px 16px;font:12.5px/1.5 ui-monospace,Consolas,monospace;overflow:auto;margin:10px 0}
+.count{font-size:13px;color:var(--graphite);font-weight:600}
+</style>
+</head>
+<body>
+<nav><div><b>Studi build plan</b><a href="#now">How it works today</a><a href="#gaps">What changes</a><a href="#learn">Learn, made real</a><a href="#lms">Fake school</a><a href="#stories">Test stories</a><a href="#phases">Phases</a><a href="#risks">Risks</a><a href="concept.html">Open the mock</a></div></nav>
+<main>
+<h1>From the mock to the real app.</h1>
+<p class="lede">What Studi does today, what each part of the new interface needs, how Learn becomes real, how the fake school has to grow, and the stories we test against.</p>
+<p class="sub">Written Sep 18, 2026 against <code>main</code> at 86feea4. Every "exists" below was checked in the code. Anything I could not verify is marked in the risks.</p>
+
+<h2 id="now">How the app works today</h2>
+<p>Studi is an Electron app. The main process owns all state and all agent work. The React renderer is a thin view that asks for state and sends commands. That split is good news: most of the redesign is renderer work.</p>
+<div class="arch">
+ <div class="box"><b>Renderer</b><span><code>desktop/src/app</code>. StudiApp, DashboardScreen, AssignmentWorkspace, DeskDrawer, ChatWorkspace, OnboardingScreen, Settings. About 4,000 lines. Polls state. Only three push events exist.</span></div>
+ <div class="box"><b>Contract</b><span><code>desktop/shared</code>. Zod schemas for every record, plus the IPC contract. About 60 renderer methods, such as <code>startAssignment</code>, <code>savePermissionRule</code>, <code>sendScanMessage</code>.</span></div>
+ <div class="box"><b>Main process</b><span><code>desktop/electron</code>. Coordinators for scan, assignment, manager queue, and conversation. A lifecycle kernel for timers and notifications. A browser controller for the school page.</span></div>
+ <div class="box"><b>Storage</b><span>Local SQLite. 24 tables, including <code>assignments</code>, <code>permission_rules</code>, <code>manager_queue</code>, <code>assignment_executions</code>, <code>task_events</code>, <code>agent_messages</code>, <code>submission_receipts</code>.</span></div>
+ <div class="box soft"><b>Agent runtime</b><span>Pi SDK sessions. Provider-generic, but only a ChatGPT (Codex) login is wired. Separate sessions for home chat, each assignment, and scans. A tutor target is declared but unused.</span></div>
+ <div class="box soft"><b>One browser</b><span>A single embedded school browser with a lease. Only one assignment or one scan can drive it at a time. This is why Today has one "Inky now" row.</span></div>
+ <div class="box soft"><b>Preview harness</b><span><code>bun run preview:ui</code>. Real components against fixtures. About 40 scenarios. This is where new screens get built and reviewed first.</span></div>
+ <div class="box soft"><b>Fake school</b><span><code>agent-harness/lms</code>. Six courses, 39 activities, 9 scenarios, fault injection, a private truth record for scoring.</span></div>
+</div>
+
+<h3>The life of one assignment today</h3>
+<div class="flow">
+ <div><b>Scan</b><span>The scan agent reads class pages and writes assignments with evidence.</span><em>school_scans, assignments</em></div>
+ <div><b>Rule</b><span><code>resolvePermission</code> picks the most specific rule. No rule means Inky won't start.</span><em>permission_rules</em></div>
+ <div><b>Queue</b><span>The manager enqueues it and takes the browser lease. Starting is manual, or automatic as one global preference.</span><em>manager_queue</em></div>
+ <div><b>Work</b><span>A worker session uses browser and file tools. Up to 24 turns and 2 attempts. It can pause for the student.</span><em>assignment_executions</em></div>
+ <div><b>Review and submit</b><span>A review window opens. The student submits, or Inky does under the auto rule. A receipt saves the page before and after.</span><em>submission_receipts</em></div>
+</div>
+
+<h2 id="gaps">What each part of the new UI needs</h2>
+<div class="key"><span class="tag ex">Exists</span><span>data and commands are already there, renderer work only</span><span class="tag ch">Change</span><span>small backend or schema change</span><span class="tag nw">New</span><span>a new system</span><span class="tag ag">Agent</span><span>change to our agent code, not the SDK</span></div>
+<table>
+<tr><th>Part of the UI</th><th>Status</th><th>What is there</th><th>What to build</th></tr>
+<tr><td>Top bar and Homework / Learn switch</td><td><span class="tag ex">Exists</span></td><td>StudiApp shell</td><td>New shell component. Learn mode hidden behind a flag until phase 7.</td></tr>
+<tr><td>Today list and its groups</td><td><span class="tag ex">Exists</span></td><td><code>getSchoolOnboardingState</code>, <code>getLifecycleState</code>, <code>getManagerState</code>, task summaries</td><td>A pure function <code>todayGroups()</code> in <code>shared</code> with the six grouping rules, unit tested. Headline templates chosen by state.</td></tr>
+<tr><td>Class colors</td><td><span class="tag ex">Exists</span></td><td><code>courseTone()</code></td><td>Reuse as the left edge.</td></tr>
+<tr><td>Row opens into a card</td><td><span class="tag ex">Exists</span></td><td><code>instructions</code>, <code>requirementEvidence</code>, source target</td><td>New <code>AssignmentRow</code> component. "Found on" links through <code>navigateBrowser</code>.</td></tr>
+<tr><td>"Inky starts Thu 7 PM"</td><td><span class="tag nw">New</span></td><td>Only <code>workStartMode</code>: manual or automatic, and <code>startNext</code></td><td>A planned start per queue entry: due date minus a lead time, inside allowed hours. The kernel timer already wakes for scans and can wake for this. Show "Waiting for you" when the mode is manual.</td></tr>
+<tr><td>Start now, Do this next</td><td><span class="tag ch">Change</span></td><td><code>startAssignment</code>, queue <code>priority</code></td><td>New <code>reorderQueue</code> method that sets priority. Start now while idle is the existing start.</td></tr>
+<tr><td>I'll do it myself</td><td><span class="tag ex">Exists</span></td><td><code>savePermissionRule</code> with assignment scope</td><td>Saves "don't start" for that one assignment. Give it back deletes the rule.</td></tr>
+<tr><td>Something wrong</td><td><span class="tag ch">Change</span></td><td>Targeted re-scan of one assignment exists. No way to edit a record.</td><td>New <code>correctAssignment</code>: student-set due date that scans may not overwrite silently, not homework, already done. Details look wrong triggers the targeted scan.</td></tr>
+<tr><td>Add homework</td><td><span class="tag ch">Change</span></td><td>Scans accept specific source targets</td><td>New <code>addAssignment</code>: a link starts a targeted scan, a title makes a manual record.</td></tr>
+<tr><td>Rules: general, class, one assignment</td><td><span class="tag ex">Exists</span></td><td>Scopes global, course, assignment. <code>resolvePermission</code>.</td><td>New editor. The rule checker calls <code>resolvePermission</code> directly, so it can never disagree with the engine.</td></tr>
+<tr><td>Rules by kind of work</td><td><span class="tag ag">Agent</span></td><td>The pattern scope and <code>confirmed_pattern_matches</code></td><td>The scan labels each assignment with a kind. The kind is used as the pattern. Seven kinds to start.</td></tr>
+<tr><td>Week view</td><td><span class="tag ex">Exists</span></td><td><code>weekCalendar.ts</code></td><td>Restyle only.</td></tr>
+<tr><td>All work</td><td><span class="tag ex">Exists</span></td><td>All assignments are already in state</td><td>New screen. Same row component.</td></tr>
+<tr><td>You and Inky sheet</td><td><span class="tag ch">Change</span></td><td><code>chatTimeline()</code> already merges messages with three kinds of card. Messages already carry <code>assignmentRefs</code>.</td><td>Replace the chat dialog with the sheet. Build cards from <code>task_events</code>, scans, and notifications. Route a tagged message to the matching session through the existing <code>send</code> target.</td></tr>
+<tr><td>Chat changes the queue</td><td><span class="tag ag">Agent</span></td><td>Tools <code>queue_start</code>, <code>queue_cancel</code>, <code>queue_inspect</code>, <code>assignment_start</code></td><td>Add <code>queue_reorder</code> and <code>assignment_set_owner</code>. The renderer flashes the rows whose records changed.</td></tr>
+<tr><td>Steer a school check</td><td><span class="tag ex">Exists</span></td><td><code>sendScanMessage</code></td><td>Context line and suggestions. Later, tools to add or skip a source.</td></tr>
+<tr><td>Live "What I've done"</td><td><span class="tag nw">New</span></td><td>The runtime emits tool and text events. The renderer never receives them. It polls, and only three push events exist.</td><td>A push channel for run events, also saved to <code>task_events</code> so the list survives a restart. Tool wrappers in <code>browser/tools.ts</code> return a short human label.</td></tr>
+<tr><td>Who is driving, and the address</td><td><span class="tag ex">Exists</span></td><td>Browser driver and URL</td><td>Display only. No step count is shown, because the agent has no fixed number of steps.</td></tr>
+<tr><td>The "Inky is working" overlay and Takeover</td><td><span class="tag ex">Exists</span></td><td><code>drive-overlay.ts</code>: the blue veil, Inky steering, the Takeover tag, and the "Want the page?" card</td><td>Keep as is. The mock copies it. The header loses Stop and Pause, because Takeover lives on the overlay.</td></tr>
+<tr><td>Stop, from the chat box</td><td><span class="tag ex">Exists</span></td><td><code>cancelAssignment</code>, <code>pauseSchoolScan</code>, <code>stopScopedConversation</code>. The current chat already swaps send for stop.</td><td>While Inky works, the empty send button is a stop button. Typing turns it back into send.</td></tr>
+<tr><td>Work that is not a web page</td><td><span class="tag ch">Change</span></td><td><code>getAssignmentFiles</code>, <code>readAssignmentFile</code>, the homework folder, file and shell tools</td><td>A second tab beside the school page, "Inky's files", with the file list, the open file, and test output. It appears only when the assignment has files. Live updates ride on the same event stream as the activity list.</td></tr>
+<tr><td>Full-bleed school browser</td><td><span class="tag ex">Exists</span></td><td><code>setBrowserLayout</code> and the slot bounds</td><td>New bounds from the new layout.</td></tr>
+<tr><td>Needs files, needs sign-in, take over</td><td><span class="tag ex">Exists</span></td><td><code>importAssignmentFiles</code>, <code>requestAssignmentTakeover</code>, <code>resumeAssignment</code>, deadlines</td><td>Phase panels.</td></tr>
+<tr><td>"I'm not sure about"</td><td><span class="tag ag">Agent</span></td><td><code>missingRequirements</code> is a list of strings</td><td>Make it <code>{ where, why }</code>, recorded when the worker starts review.</td></tr>
+<tr><td>Requirements, answers, files, receipt</td><td><span class="tag ex">Exists</span></td><td>Checklist, answer snapshot, artifacts, homework folder, receipts</td><td>Display only.</td></tr>
+<tr><td>Inky's brain: Claude</td><td><span class="tag nw">New</span></td><td>The runtime is provider-generic. Only <code>loginOpenAiCodex</code> is wired. <code>selectAgentModel</code> exists.</td><td>Register an Anthropic provider, a key entry flow, and provider choice in preferences. Import from Claude Code is unverified. See risks.</td></tr>
+<tr><td>How hard Inky thinks</td><td><span class="tag ex">Exists</span></td><td>Six reasoning levels in <code>AgentReasoningEffortSchema</code></td><td>Five labels over the six values.</td></tr>
+<tr><td>What Inky remembers</td><td><span class="tag ch">Change</span></td><td>Notes are stored and indexed. The agent has note tools. The renderer has no list or delete.</td><td><code>listMemories</code> and <code>forgetMemory</code>.</td></tr>
+<tr><td>Onboarding</td><td><span class="tag ex">Exists</span></td><td>Eleven conversational steps in <code>OnboardingScreen</code></td><td>Keep it. It already asks the rule question and ends on "Your week is ready". Only restyle it to the new tokens. Reordering it is optional and not in this plan.</td></tr>
+<tr><td>Learn and tutor sessions</td><td><span class="tag nw">New</span></td><td>A <code>tutor</code> agent target is declared. Nothing else.</td><td>Next section.</td></tr>
+</table>
+<p class="count">Of 30 parts: 17 already exist, 6 need a small change, 3 are agent changes, and 4 are new systems, counting Learn once.</p>
+
+<h2 id="learn">Learn, made real</h2>
+<p>You asked when things get generated, saved, and shown. The answer is the core design decision: <b>the model reads and teaches, and the app plans.</b> Anything shown on the Learn page is either saved data or arithmetic on saved data, so it loads instantly and never changes by surprise.</p>
+<div class="flow">
+ <div><b>Find</b><span>The school check notices syllabus files and exam pages. The student can also drop a file, paste text, or type a date.</span><em>once per file</em></div>
+ <div><b>Read</b><span>A one-off agent job extracts exams and topics into a fixed schema. It runs again only if the file's hash changes or the student says it's wrong.</span><em>model, then saved</em></div>
+ <div><b>Plan</b><span>A pure function picks the exam, today's topic, the day path, and readiness.</span><em>no model, every open</em></div>
+ <div><b>Teach</b><span>The tutor agent runs the session live through component tools. Blocks are saved as they happen.</span><em>model, live</em></div>
+ <div><b>Record</b><span><code>tutor_finish</code> writes evidence and moves a level by one step at most. The plan recomputes.</span><em>saved</em></div>
+</div>
+<div class="cols">
+<div>
+<h3>Tables to add</h3>
+<pre>learn_source   id, course_id, kind(file|paste|typed|scan),
+               file_hash, extracted_at
+exam           id, course_id, title, date, source_id
+topic          id, course_id|null, title, chapter,
+               weight, source_id
+topic_level    topic_id, level 0..4, evidence json,
+               updated_at
+session        id, topic_id, started_at, finished_at,
+               minutes, result json
+session_block  session_id, seq, tool, args json,
+               result json</pre>
+</div>
+<div>
+<h3>The planner, in <code>shared/learn.ts</code></h3>
+<pre>leadExam   = nearest exam with topics
+gap(t)     = t.weight * (4 - level(t)) / 4
+todayTopic = max gap, ties to earlier chapter
+recapDue   = last session was 2+ days ago
+readiness  = sum(weight * level / 4)
+path       = topics by gap, a recap every third
+             day, a mock exam 2 days before</pre>
+<p style="font-size:13.5px;color:var(--graphite)">All pure and unit tested like <code>weekCalendar.ts</code>.</p>
+</div>
+</div>
+<h3>A tutor session is a chat made of components</h3>
+<p>The tutor agent can only act through these tools. Each tool is one React component. The tool call does not return until the student acts, and the student's action is the result. Press "How this works" inside a session in the mock to see real calls.</p>
+<table>
+<tr><th>Tool</th><th>Component</th><th>Result sent back</th><th>Checked by</th></tr>
+<tr><td><code>tutor_say</code></td><td>Inky's handwritten line</td><td>none</td><td></td></tr>
+<tr><td><code>tutor_ask_choice</code></td><td>Option cards</td><td>picked, seconds</td><td>App, from <code>correct</code></td></tr>
+<tr><td><code>tutor_ask_typed</code></td><td>Typed answer with a hint ladder</td><td>answer, correct, hints used</td><td>App, from <code>accept</code></td></tr>
+<tr><td><code>tutor_show_model</code></td><td>One of a small registry of hand-built models</td><td>what the student explored</td><td></td></tr>
+<tr><td><code>tutor_ask_explain</code></td><td>Text box, then a written verdict</td><td>the text</td><td>The agent, against its own rubric</td></tr>
+<tr><td><code>tutor_finish</code></td><td>Summary and level change</td><td>updates levels, posts a card to You and Inky</td><td>App caps the change at one step</td></tr>
+</table>
+<p>The first version needs five components and one model (the population grid), plus flashcards. New models are added one at a time as topics demand. The app enforces the time budget, one open block at a time, and the level cap, so a bad model turn cannot corrupt what the student "knows".</p>
+<div class="note"><b>Why levels only move in sessions.</b> Inky doing HW 3 on heaps proves nothing about the student. The page says so, and the data model enforces it: only <code>tutor_finish</code> writes to <code>topic_level</code>.</div>
+
+<h2 id="lms">The fake school has to grow</h2>
+<p>Today it models assignments, quizzes, lessons, forums, and external tools, with nine scenarios and good fault injection. It has no syllabus, exam, or calendar content at all, so none of Learn can be tested against it. It also can't trigger several of the new states on purpose.</p>
+<table>
+<tr><th>Add</th><th>Why</th><th>Truth to record for scoring</th></tr>
+<tr><td>A syllabus per course, as a PDF and as a page, with exam dates and weighted topics</td><td>Find my syllabus, extraction, the planner</td><td><code>expectedExams</code>, <code>expectedTopics</code> with weights</td></tr>
+<tr><td>An exams or calendar page, and an <code>exam-moved</code> event</td><td>Exam dates that change after being saved</td><td>The new date</td></tr>
+<tr><td>A true kind for every activity</td><td>Scoring the kind labels that rules by kind depend on</td><td><code>expectedKind</code></td></tr>
+<tr><td>Scenario <code>needs-student-file</code>: a code upload that requires a data file only the student has</td><td>The Needs files phase, on purpose instead of by luck</td><td>Blocked until a file is imported</td></tr>
+<tr><td>Event <code>expire-session</code> during an assignment</td><td>The Needs sign-in phase and resuming after it</td><td>No duplicate answers after resume</td></tr>
+<tr><td>Fault <code>double-timeout</code></td><td>Couldn't finish: two attempts used, work preserved</td><td>Saved answers match the page</td></tr>
+<tr><td>Event <code>student-edit</code> while paused</td><td>Take over, then hand back. Inky must re-read the page first.</td><td>Inky does not overwrite the student's edit</td></tr>
+<tr><td>Command <code>advance-minutes</code></td><td>The review window: letting go, and auto submit under that rule</td><td>Submitted exactly once, only under the auto rule</td></tr>
+<tr><td>An undated assignment, and one announced only in Announcements</td><td>No due date group. Add homework. Something missing.</td><td>Included, with no <code>dueAt</code></td></tr>
+<tr><td>An essay with a rubric and a word limit</td><td>The requirements checklist with evidence</td><td>The rubric lines</td></tr>
+<tr><td>A late penalty shown on the page</td><td>The receipt</td><td>The penalty text</td></tr>
+</table>
+<p>The existing <code>partial-login</code> scenario already covers "I also have another site" because statistics and feedback sign in separately. The existing <code>deadline-change</code> and <code>next-week</code> events already cover "Welcome back, here's what changed".</p>
+
+<h2 id="stories">Stories to test against <span class="count" id="tally"></span></h2>
+<p>Each is a check someone can run and tick. Tier says the cheapest place it can be proven: <b>P</b> preview fixtures, <b>S</b> fake school, <b>F</b> full app with a live model. Ticks are saved in this browser.</p>
+<div id="stories-list"></div>
+
+<h2 id="phases">Phases</h2>
+<p>Ordered so the first three ship value with almost no backend risk. Sizes are relative: S is days, M is a week or two, L is more.</p>
+<div id="phases-list"></div>
+
+<h2 id="risks">Risks and open questions</h2>
+<table>
+<tr><th>Risk</th><th>Why it matters</th><th>How to settle it</th></tr>
+<tr><td>Import from Claude Code</td><td>I did not verify where Claude Code stores credentials, or whether reusing them is allowed. The mock shows the button as if it works.</td><td>Spike before promising it. A pasted API key is the safe first version.</td></tr>
+<tr><td>A tool call that waits for the student</td><td>Tutor blocks assume a tool can stay open until the student answers. I believe the SDK's async tools allow it, but did not test it.</td><td>One-day spike: a tool that resolves from an IPC call.</td></tr>
+<tr><td>Planned start times</td><td>Starting homework while the student is away is a trust decision, not only a feature. Today it is one global switch.</td><td>Ship "Waiting for you" first. Add planned starts only for "Do it and submit" rules, with a notification before each start.</td></tr>
+<tr><td>Kind labels</td><td>Rules by kind are only as good as the labels. A wrong label could auto submit an essay.</td><td>Show the kind in the row's card with a way to correct it. Score it on the fake school. Treat a low-confidence label as no label.</td></tr>
+<tr><td>Streaming events</td><td>A chatty worker could flood the renderer.</td><td>Batch on a short timer. Save to <code>task_events</code>, which already exists.</td></tr>
+<tr><td>Tutor quality</td><td>The interface is only as good as the questions. A bad question with a nice card is still bad.</td><td>Start with two topics and review transcripts by hand before widening.</td></tr>
+<tr><td>Still invented in the mock</td><td>Time estimates, time saved, and readiness numbers.</td><td>Readiness becomes real in phase 7. Drop the others unless we find an honest source.</td></tr>
+</table>
+</main>
+<script>
+const STORIES=[
+["Hands off",[
+ ["H1","A student who never opens the app still gets everything handed in.","Rule is Do it and submit. Over a simulated week every eligible assignment is submitted once, with a receipt. Studi can be closed to the tray the whole time.","S"],
+ ["H2","Inky only interrupts when it is stuck.","Notifications fire for needs you and couldn't finish. None fire for routine hand-ins unless the student turned them on.","S"],
+ ["H3","Today tells a hands-off student the truth in one glance.","Headline says nothing needs them. It lists what Inky handed in on its own, with receipts, and what it will do next.","P"]]],
+["Today",[
+ ["T1","The headline is always true.","For each state (needs you, working, scanning, signed out, all clear, back after a week) the headline matches the data. No overdue item is ever described as calm.","P"],
+ ["T2","Groups follow the six rules.","Needs you is ordered by deadline. Up next holds only overdue or due within 7 days. Later and No due date are collapsed with correct counts.","P"],
+ ["T3","Only rows that need the student carry a button.","Needs you rows have one button each. Up next rows show when Inky starts, or Waiting for you under manual.","P"],
+ ["T4","Week view shows the same truth.","Seven days, overdue items stay on their day and are marked, today is highlighted, cards open the assignment.","P"],
+ ["T5","Back after a week.","After the <code>next-week</code> event and a scan: new, moved, graded, and handed in each appear once.","S"]]],
+["Details and corrections",[
+ ["D1","Any row opens into one card.","Shows what it asks, a clickable Found on, and Inky's plan. One card open at a time.","P"],
+ ["D2","Something wrong stays hidden until asked for.","The four options appear only after pressing the red button.","P"],
+ ["D3","A student-set date survives a scan.","Set a date, run a scan, the date is unchanged and marked as set by the student.","S"],
+ ["D4","Not homework removes it everywhere.","It leaves Today and the week, shows under Done in All work, and is never started.","S"],
+ ["D5","Add homework by link.","Paste a fake school link. The row appears, shows Reading the page, then fills in class and due date.","S"]]],
+["Queue and control",[
+ ["Q1","Start now jumps the queue when Inky is idle.","Open a later item, press Start now. It becomes Inky now. The headline changes.","S"],
+ ["Q2","Do this next when Inky is busy.","The button reads Do this next. The item moves to the front and says Inky starts next. Current work is not interrupted.","S"],
+ ["Q3","I'll do it myself, and giving it back.","The row says Yours. It is never started. Give it back restores the plan.","S"],
+ ["Q4","Chat reorders the list.","Say \"do stats first\". The row moves and flashes. The reply links to it.","F"]]],
+["Rules",[
+ ["R1","The most specific rule wins.","General is Don't start, one assignment is Do it and submit. That assignment is submitted. Nothing else starts.","S"],
+ ["R2","The checker agrees with the engine.","For every assignment in the fixture, the checker's answer equals <code>resolvePermission</code>.","P"],
+ ["R3","A rule by kind.","Essays: Don't start. An essay in any class is never started. A problem set in the same class is.","S"]]],
+["Assignment view",[
+ ["A1","Every action shows up as it happens.","Actions appear within a second with a readable sentence. Show tool calls reveals the raw call. The list survives a restart.","F"],
+ ["A2","Pause and take over, then hand back.","Inky stops typing. After a <code>student-edit</code> and hand back, Inky re-reads the page and keeps the student's edit.","S"],
+ ["A3","Needs files.","In <code>needs-student-file</code> the panel names the files, accepts a drop, continues, and shows how long Inky will wait.","S"],
+ ["A4","Needs sign-in mid-assignment.","After <code>expire-session</code> the login page is on the right. After signing in, work resumes with no duplicated answers.","S"],
+ ["A5","Review works for a quiz and for a code upload.","Both show doubts, requirements with evidence, and the work, with no layout change.","S"],
+ ["A6","The review window.","After <code>advance-minutes</code>: under Do it, I submit, Inky lets go and answers are saved. Under Do it and submit, it is submitted exactly once.","S"],
+ ["A7","Steer this assignment.","Ask for a change to one answer. The page changes, a new action appears, and the reply stays in this assignment's context.","F"],
+ ["A8","Couldn't finish.","After <code>double-timeout</code>: a one sentence reason, saved answers open, Try again works.","S"],
+ ["A9","The receipt.","Shows the page before and after with the school's confirmation. <code>lost-submit-response</code> still produces exactly one submission.","S"]]],
+["School check and chat",[
+ ["C1","Steer a check.","During a scan in <code>partial-login</code>, say you have another site. It appears in the coverage list and asks for sign-in.","F"],
+ ["C2","One conversation.","Messages from Today, an assignment, and a check all appear in You and Inky, tagged. What Inky did shows only Inky's updates.","P"],
+ ["C3","The box says what it does.","The line above the box and the suggestions change on Today, in an assignment, in a check, in Learn, and in a session.","P"]]],
+["Settings",[
+ ["S1","Switch model and how hard Inky thinks.","The next assignment uses the new model and level. The record of the run shows it.","F"],
+ ["S2","Forget a memory.","Removing it in Settings means the next assignment no longer follows it.","F"]]],
+["Learn and tutor",[
+ ["L1","Find my syllabus.","On a course with a syllabus file, Find it proposes the right file, exam date, and topic count.","S"],
+ ["L2","No syllabus, honestly.","With none, Learn asks for one and lists only topics from homework Inky did, labelled as such. No invented plan.","P"],
+ ["L3","The plan is arithmetic.","With fixed fixture data, today's topic, readiness, and the day path match the planner's unit tests exactly.","P"],
+ ["L4","Homework never counts as knowing.","After Inky submits an assignment on a topic, that topic's level is unchanged.","S"],
+ ["L5","A session adapts.","A right first guess skips the model and gets a harder question. A wrong one shows it.","F"],
+ ["L6","A level moves one step at most.","Even if the agent reports a jump of two, the saved level rises by one.","P"],
+ ["L7","Learn anything.","A free topic with no exam starts with a check and produces a session.","F"],
+ ["L8","An exam date moves.","After <code>exam-moved</code> and a scan, the headline and the day path update.","S"]]]];
+const PHASES=[
+ ["Foundations","S","Renderer","Tokens, the three control tiers, the row that opens into a card, the top bar. Built in the preview harness first. New preview scenarios for every state in the mock.","None","T3, D1, D2"],
+ ["Today and All work","M","Renderer, one shared function","<code>todayGroups()</code> with tests, headline templates, list and week views, All work, the shelf. Waiting for you instead of planned start times for now.","Undated and announcement-only assignments","T1, T2, T4, T5"],
+ ["Assignment view","M","Renderer, event stream, tool labels","Phase panels, full-bleed browser under the existing overlay, the Inky's files tab for work that is not a web page, stop from the chat box, run events pushed and saved, human labels from tool wrappers, structured doubts, the receipt view.","<code>needs-student-file</code>, <code>expire-session</code>, <code>double-timeout</code>, <code>student-edit</code>, <code>advance-minutes</code>","A1 to A9"],
+ ["You and Inky","M","Renderer, timeline cards","The sheet replaces the chat dialog. Cards from task events, scans, and notifications. Tags, context line, suggestions per screen.","None","C1, C2, C3, A7"],
+ ["Corrections and queue control","M","Backend methods, two agent tools","<code>correctAssignment</code>, <code>addAssignment</code>, <code>reorderQueue</code>, <code>queue_reorder</code>, <code>assignment_set_owner</code>. Start now and Do this next.","Essay with a rubric. Link-addressable assignments.","D3, D4, D5, Q1 to Q4"],
+ ["Rules and Settings","M","Renderer, scan labels kinds","The rule editor on Today and in Settings with the checker. Kind labels from the scan. Memories list. Model and thinking level. Claude by pasted key.","A true kind per activity","R1, R2, R3, S1, S2"],
+ ["Learn: data and plan","M","New tables, one extraction job, planner","Tables, syllabus finding and reading, the planner with tests, the three Learn states, picking an exam or Learn anything.","A syllabus per course, exams page, <code>exam-moved</code>","L1, L2, L3, L4, L8"],
+ ["Tutor sessions","L","New agent, five components, one model","The tutor agent and its tools, the block components, the population grid and flashcards, session records, level updates, the result card in You and Inky.","None new","L5, L6, L7"],
+ ["Planned starts","M","Scheduler, notifications","Start times per queue entry, only under Do it and submit, with a notice before each start. This is what makes the hands-off student possible.","A clock advance across a start time","T3 revisited, H1, H2, H3"]];
+const saved=JSON.parse(localStorage.getItem("studi-plan")||"{}");
+function tally(){const all=document.querySelectorAll(".story input"),n=[...all].filter(x=>x.checked).length;document.getElementById("tally").textContent=`${n} of ${all.length} passing`}
+document.getElementById("stories-list").innerHTML=STORIES.map(g=>`<h3>${g[0]}</h3>${g[1].map(s=>`<label class="story ${saved[s[0]]?"done":""}"><input type="checkbox" data-id="${s[0]}" ${saved[s[0]]?"checked":""}><span class="id">${s[0]}</span><span><b>${s[1]}</b><span class="ex2">${s[2]} <b>Tier ${s[3]}</b></span></span></label>`).join("")}`).join("");
+document.getElementById("phases-list").innerHTML=PHASES.map((p,i)=>`<div class="phase"><div class="n">${i+1}</div><div><h3>${p[0]}</h3><div class="meta">Size ${p[1]} · ${p[2]}</div><p>${p[3]}</p><ul><li><b>Fake school:</b> ${p[4]}</li><li><b>Done when these pass:</b> ${p[5]}</li></ul></div></div>`).join("");
+document.addEventListener("change",e=>{const id=e.target.dataset.id;if(!id)return;saved[id]=e.target.checked;localStorage.setItem("studi-plan",JSON.stringify(saved));e.target.closest(".story").classList.toggle("done",e.target.checked);tally()});tally();
+</script>
+</body>
+</html>
