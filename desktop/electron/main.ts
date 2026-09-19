@@ -2528,6 +2528,8 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", (event) => {
+  // Disposal removes the kernel before windows close; do not turn that close into a tray hide.
+  gateQuitting = true;
   if (appShutdownFinished) return;
   event.preventDefault();
   if (appShutdown) return;
