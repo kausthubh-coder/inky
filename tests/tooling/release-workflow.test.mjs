@@ -97,3 +97,18 @@ test('native startup guard rejects local machines and empty/foreign/missing-prel
   assert.equal(blocked.status, 1);
   assert.match(blocked.stderr, /disposable GitHub-hosted/);
 });
+
+test('Windows upgrade uses separate disposable runners and refuses local launch probes', () => {
+  const job = workflow.jobs['windows-upgrade'];
+  assert.equal(job.if, "github.event_name == 'workflow_dispatch'");
+  assert.equal(job.needs, 'windows');
+  assert.equal(job['runs-on'], 'windows-latest');
+  assert.deepEqual(job.strategy.matrix.mode, ['setup', 'updater']);
+  assert.equal(action(job, 'actions/download-artifact')[0].with.name, 'studi-windows');
+  assert.equal(action(job, 'actions/upload-artifact')[0].if, 'always()');
+  const blocked = spawnSync(process.execPath, [fileURLToPath(new URL('../../scripts/verify-windows-launch.mjs', import.meta.url))], {
+    encoding: 'utf8', windowsHide: true, env: { ...process.env, GITHUB_ACTIONS: 'false' },
+  });
+  assert.equal(blocked.status, 1);
+  assert.match(blocked.stderr, /disposable GitHub-hosted Windows/);
+});

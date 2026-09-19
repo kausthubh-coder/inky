@@ -61,7 +61,7 @@ try {
   assertComposition(onboarding.composition);
   emitReceipt(onboarding);
 
-  const weekBoard = await runControlledScenario("partial-dashboard");
+  const weekBoard = await runControlledScenario("partial-dashboard", {}, exerciseWeekBoard);
   assert.equal(weekBoard.observation.marker, true);
   assert.equal(weekBoard.observation.weekBoard.visible, true);
   assert.equal(weekBoard.observation.weekBoard.hasCourse, true);
@@ -199,16 +199,32 @@ async function inspectPublicApp(client) {
 async function exerciseExpandedBrowser(client) {
   await client.evaluate(`(async () => {
     const click=(selector)=>{const button=document.querySelector(selector);if(!(button instanceof HTMLButtonElement))throw new Error('Missing '+selector);button.click();};
-    click('.chat-work-slip button');await new Promise(r=>setTimeout(r,100));
+    const waitFor = async (predicate) => { const deadline=Date.now()+5000; while(!predicate()){if(Date.now()>deadline)throw new Error('Assignment view did not settle');await new Promise(r=>setTimeout(r,50));} };
+    click('.chat-work-slip button');
+    await waitFor(()=>document.querySelector('[aria-label="Assignment workspace"]')&&document.querySelector('.chat-browser-slot'));
     document.body.dataset.activityCardRemoved=String(!document.querySelector('.chat-work-slip')&&!document.body.innerText.includes("What I’ve done"));
-    click('.assignment-meta button[aria-expanded]');await new Promise(r=>setTimeout(r,150));
     document.body.dataset.browserExpanded=String(Boolean(document.querySelector('.chat-browser-slot')));
-    if(document.querySelector('.assignment-meta button[aria-expanded]')?.getAttribute('aria-expanded')!=='true')throw new Error('Browser toggle did not announce expanded state');
-    click('[aria-label="Close browser"]');await new Promise(r=>setTimeout(r,100));
-    if(document.querySelector('.chat-browser-slot'))throw new Error('Browser toggle did not close the browser');
-    click('.assignment-meta button[aria-expanded]');await new Promise(r=>setTimeout(r,150));
-    click('[aria-label="Close browser"]');await new Promise(r=>setTimeout(r,100));
-    document.body.dataset.browserClosedCleanly=String(!document.querySelector('.chat-browser-slot')&&Boolean(document.querySelector('.assignment-workspace')));
+    click('[aria-label="Close browser"]');
+    await waitFor(()=>!document.querySelector('.chat-browser-slot'));
+    const reopen=[...document.querySelectorAll('.rd-stage-page button')].find(button=>button.textContent.includes('Open school page'));
+    if(!(reopen instanceof HTMLButtonElement))throw new Error('Closed browser offers no reopen action');
+    reopen.click();await waitFor(()=>document.querySelector('.chat-browser-slot'));
+    click('[aria-label="Close browser"]');await waitFor(()=>!document.querySelector('.chat-browser-slot'));
+    document.body.dataset.browserClosedCleanly=String(Boolean(document.querySelector('[aria-label="Assignment workspace"]')));
+  })()`);
+}
+
+async function exerciseWeekBoard(client) {
+  await client.evaluate(`(async () => {
+    const button = [...document.querySelectorAll('button')]
+      .find((item) => item.textContent?.trim() === 'Week');
+    if (!(button instanceof HTMLButtonElement)) throw new Error('Missing Week view action');
+    button.click();
+    const deadline=Date.now()+5000;
+    while(!document.querySelector('[data-studi-week-board="true"]')) {
+      if(Date.now()>deadline)throw new Error('Week view did not open');
+      await new Promise(resolve=>setTimeout(resolve,50));
+    }
   })()`);
 }
 
