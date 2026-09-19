@@ -11,7 +11,8 @@ import {
   fauxProvider,
   fauxToolCall,
 } from "@earendil-works/pi-ai";
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { ModelRuntime, defineTool } from "@earendil-works/pi-coding-agent";
+import { Type } from 'typebox';
 
 import {
   FakeAgentRuntime,
@@ -46,6 +47,32 @@ const expectedProbeEvents = [
   { schemaVersion: 1, type: "text", delta: "te." },
   { schemaVersion: 1, type: "terminal", outcome: "completed" },
 ];
+
+test('learning uses a real Pi session with only its bounded tools and records usage', async () => {
+  await withRuntime({}, async ({ faux, runtime }) => {
+    const calls = [];
+    const tool = defineTool({ name: 'tutor_say', label: 'Teach', description: 'Say one teaching sentence.',
+      parameters: Type.Object({ text: Type.String() }, { additionalProperties: false }),
+      execute: async (_id, input) => { calls.push(input.text); return { content: [{ type: 'text', text: 'Saved' }], details: {} }; },
+    });
+    faux.setResponses([
+      fauxAssistantMessage(fauxToolCall('tutor_say', { text: 'A half is one of two equal parts.' }, { id: 'teach' }), { stopReason: 'toolUse' }),
+      fauxAssistantMessage(''),
+    ]);
+    const session = await runtime.createLearningSession([tool], 'Teach through the supplied tools.');
+    try {
+      assert.deepEqual(session.toolNames, ['tutor_say']);
+      await session.prompt('Teach fractions.');
+      assert.deepEqual(calls, ['A half is one of two equal parts.']);
+      assert.equal(runtime.takeLastUsage().toolCalls, 1);
+      const path = session.sessionPath;
+      assert.ok(path);
+      await session.replace({ resumeSessionPath: path });
+      assert.deepEqual(session.toolNames, ['tutor_say']);
+    } finally { session.dispose(); }
+    await assert.rejects(runtime.createLearningSession([tool, tool], 'Teach'), /unique bounded tools/);
+  });
+});
 
 test("real Pi session exposes only studi_probe, resumes, and matches the deterministic fake", async () => {
   await withRuntime({ tokenSize: { min: 1, max: 1 } }, async ({ faux, runtime, root }) => {
@@ -290,7 +317,7 @@ test("provider failures and every fake operation stay inside the public contract
   }
 });
 
-test("OpenAI Codex login selects Pi device code and forwards only its handoff", async () => {
+test("ChatGPT login selects Pi device code and forwards only its handoff", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp12-login-")));
   const selected = [];
   const notifications = [];
@@ -323,7 +350,7 @@ test("OpenAI Codex login selects Pi device code and forwards only its handoff", 
       modelRuntime,
       model: { id: "codex-test", name: "Codex test", provider: "openai-codex" },
     });
-    await runtime.loginOpenAiCodex("device_code", new AbortController().signal, {
+    await runtime.loginProvider("openai-codex", new AbortController().signal, {
       openExternal: async (url) => { opened.push(url); },
       notify: (event) => notifications.push(event),
     });
@@ -335,6 +362,37 @@ test("OpenAI Codex login selects Pi device code and forwards only its handoff", 
       expiresInSeconds: 900,
     }]);
     assert.deepEqual(opened, ["https://auth.openai.com/codex/device"]);
+  } finally {
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
+});
+
+test("Claude login opens the browser page and returns the student's pasted code to Pi", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-claude-login-")));
+  const opened = [];
+  const exchanged = [];
+  const modelRuntime = {
+    login: async (providerId, type, interaction) => {
+      assert.equal(providerId, "anthropic");
+      assert.equal(type, "oauth");
+      interaction.notify({ type: "auth_url", url: "https://claude.ai/oauth/authorize?state=x", instructions: "Complete login in your browser." });
+      exchanged.push(await interaction.prompt({ type: "manual_code", message: "Paste the authorization code", signal: new AbortController().signal }));
+    },
+  };
+  try {
+    const runtime = await PiAgentRuntime.create({
+      cwd: root,
+      agentDir: join(root, "agent"),
+      modelRuntime,
+      model: { id: "claude-test", name: "Claude test", provider: "anthropic" },
+    });
+    assert.equal(runtime.selectedProviderId, "anthropic");
+    await runtime.loginProvider("anthropic", new AbortController().signal, {
+      openExternal: async (url) => { opened.push(url); },
+      awaitManualCode: async () => "pasted-code#pasted-state",
+    });
+    assert.deepEqual(opened, ["https://claude.ai/oauth/authorize?state=x"]);
+    assert.deepEqual(exchanged, ["pasted-code#pasted-state"]);
   } finally {
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }

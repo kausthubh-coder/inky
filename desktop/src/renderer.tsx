@@ -1,4 +1,5 @@
 import "@fontsource/nunito-sans/400.css";
+import "@fontsource/nunito-sans/600.css";
 import "@fontsource/nunito-sans/700.css";
 import "@fontsource/shantell-sans/600.css";
 import { StrictMode, type ReactNode } from "react";
@@ -16,3 +17,4 @@ export function mountRenderer(content: ReactNode): void {
   createRoot(rootElement).render(<StrictMode>{content}</StrictMode>);
 }
 import "./app/activity-workspace.css";
+import "./app/redesign.css";

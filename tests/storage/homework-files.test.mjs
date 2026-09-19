@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, symlink, truncate, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, realpath, rm, symlink, truncate, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -56,7 +56,7 @@ test("adding materials preserves originals and same-name files, rejects oversize
     assert.equal((await files.read("materials/notes.txt")).content, "first");
     assert.equal((await files.read("materials/notes (1).txt")).content, "second");
     assert.equal(await readFile(note, "utf8"), "second");
-    assert.equal(await files.revealPath("materials/notes.txt"), join(root, "materials", "notes.txt"));
+    assert.equal(await files.revealPath("materials/notes.txt"), join(await realpath(root), "materials", "notes.txt"));
     await assert.rejects(files.revealPath("../notes.txt"), /escaped/);
     await truncate(note, 50_000_001);
     await assert.rejects(files.importFile(note), /50 MB/);

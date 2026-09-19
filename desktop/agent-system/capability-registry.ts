@@ -9,6 +9,8 @@ export const CapabilityNameSchema = z.enum([
   "queue",
   "notes-search",
   "notes-read",
+  "preferences",
+  "learn",
   "assignment",
   "assignment-start",
   "browser",
@@ -35,9 +37,11 @@ export interface CapabilityContext {
 
 const toolsByCapability = Object.freeze({
   home: ["home_status"],
-  queue: ["queue_inspect", "queue_start", "queue_cancel"],
+  queue: ["queue_inspect", "queue_start", "queue_cancel", "queue_reorder", "assignment_set_owner"],
   "notes-search": ["note_search"],
   "notes-read": ["note_read"],
+  preferences: ["note_upsert"],
+  learn: ["learn_set_exam", "learn_start_session", "learn_import_source"],
   assignment: ["assignment_read"],
   "assignment-start": ["assignment_start"],
   browser: [...BROWSER_TOOL_NAMES],
@@ -59,7 +63,8 @@ const toolsByCapability = Object.freeze({
 
 export function selectCapabilities(context: CapabilityContext): readonly CapabilityName[] {
   if (context.target.kind === "tutor") return [];
-  if (context.target.kind === "home") return ["home", "queue", "notes-search", ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : [])];
+  if (context.target.kind === "home") return ["home", "queue", "notes-search", "notes-read", "preferences", ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : [])];
+  if (context.target.kind === "learn") return ["notes-search", "notes-read", "preferences", "learn", ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : [])];
 
   if (context.target.kind === "scan") {
     return context.phase === "working" && context.hasBrowserClaim
@@ -97,11 +102,13 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
   for (const toolName of toolNames) {
     const normalized = toolName.toLocaleLowerCase();
     for (const [capability, names] of Object.entries(toolsByCapability) as Array<[CapabilityName, readonly string[]]>) {
+      if (toolName === "note_upsert" && capability === "assignment-effects" && !toolNames.includes("assignment_start_review")) continue;
+      if (toolName === "note_upsert" && capability === "preferences" && toolNames.includes("assignment_start_review")) continue;
       if (names.includes(toolName)) selected.add(capability);
     }
     if (normalized.startsWith("manager_") || normalized.startsWith("queue_")) selected.add("queue");
     if (normalized.startsWith("browser_")) selected.add("browser");
-    if (normalized.startsWith("assignment_") && !["assignment_read", "assignment_start"].includes(normalized)) selected.add("assignment-effects");
+    if (normalized.startsWith("assignment_") && !["assignment_read", "assignment_start", "assignment_set_owner"].includes(normalized)) selected.add("assignment-effects");
     if (normalized.startsWith("scan_record_") || normalized === "scan_request_handoff") selected.add("scan-record");
     if (normalized.startsWith("note_search")) selected.add("notes-search");
     if (normalized.startsWith("note_read")) selected.add("notes-read");

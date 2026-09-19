@@ -3,14 +3,16 @@ import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { StorageError, errorMessage, isStorageError } from "./errors.js";
+import { LEARN_MIGRATION_SQL, LEARN_REQUIRED_TABLES } from "./learn-schema.js";
 
-export const STORAGE_SCHEMA_VERSION = 8 as const;
+export const STORAGE_SCHEMA_VERSION = 9 as const;
 
 export type StorageFailurePoint =
   | "migration_before_version"
   | "task_before_projection"
   | "artifact_before_rename"
   | "note_after_rename_before_index"
+  | "note_after_unlink_before_index"
   | "restore_after_journal_publish"
   | "restore_during_staging_population"
   | "restore_after_staging_population"
@@ -289,6 +291,7 @@ const storageMigrations = [
   ` },
   // Version gate: older binaries cannot validate course redirect archives.
   { version: 8, sql: "SELECT 1;" },
+  { version: 9, sql: LEARN_MIGRATION_SQL },
 ] as const;
 
 type RequiredColumn = readonly [
@@ -299,6 +302,7 @@ type RequiredColumn = readonly [
 ];
 
 const requiredTables = {
+  ...LEARN_REQUIRED_TABLES,
   record_redirects: [
     ["kind", "TEXT", 1, 1],
     ["old_id", "TEXT", 1, 2],

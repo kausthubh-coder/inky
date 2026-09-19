@@ -72,13 +72,7 @@ export function invitationUrl(state, expectedHost) {
   return url.href;
 }
 
-async function main() {
-  const { values } = parseArgs({ options: {
-    email: { type: "string" }, prepare: { type: "boolean" }, "create-user": { type: "boolean" },
-    "serve-invite": { type: "boolean" }, "dry-run": { type: "boolean" },
-  } });
-  const email = testEmail(values.email ?? "");
-  if (values["create-user"] && !values.prepare) throw new Error("--create-user requires --prepare");
+export async function developmentClient() {
   const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
   const env = {};
   // A linked worktree can read the main checkout's configured DEV key without
@@ -96,11 +90,12 @@ async function main() {
   const config = await readFile(resolve(root, "desktop/electron/auth/config.ts"), "utf8");
   const host = config.match(/clerkIssuer:\s*"https:\/\/([a-z0-9.-]+\.clerk\.accounts\.dev)"/)?.[1];
   if (!host) throw new Error("Checkout must target Clerk development");
-  const api = async (path, body) => {
+  const api = async (path, body, method = body ? "POST" : "GET") => {
     // CLI gets credentials only through its environment; capture raw responses
     // because they can contain invitation tickets. Output only summaries below.
     const args = ["--mode", "agent", "api", path];
-    if (body) args.push("--method", "POST", "--data", JSON.stringify(body), "--yes");
+    if (method !== "GET") args.push("--method", method, "--yes");
+    if (body) args.push("--data", JSON.stringify(body));
     const options = { cwd: root, env: { ...process.env, CLERK_SECRET_KEY: key }, encoding: "utf8", windowsHide: true, timeout: 30000 };
     let result = spawnSync("clerk", args, options);
     if (result.error?.code === "ENOENT") {
@@ -114,6 +109,17 @@ async function main() {
   if (!(domains.data ?? domains).some(domain => domain.name === host || domain.frontend_api_url === `https://${host}`)) {
     throw new Error("Clerk key does not match the checkout's issuer");
   }
+  return { api, host, root };
+}
+
+async function main() {
+  const { values } = parseArgs({ options: {
+    email: { type: "string" }, prepare: { type: "boolean" }, "create-user": { type: "boolean" },
+    "serve-invite": { type: "boolean" }, "dry-run": { type: "boolean" },
+  } });
+  const email = testEmail(values.email ?? "");
+  if (values["create-user"] && !values.prepare) throw new Error("--create-user requires --prepare");
+  const { api, host } = await developmentClient();
   let state = await lookup(api, email);
   console.log(JSON.stringify({ phase: "before", ...summarize(state) }));
   if (values.prepare && !values["dry-run"]) {

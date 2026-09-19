@@ -62,7 +62,7 @@ export function gradeLive(inspection, result, origins) {
 }
 
 export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSha, scenarioId = "smoke", seed = 42,
-  model = "gpt-6-astra", provider = "openai-codex", effort = "medium", budgetMs = 180000, maxToolCalls = 150, phases = ["cold"], show = false } = {}) {
+  model = "gpt-5.6-sol", provider = "openai-codex", effort = "high", budgetMs = 180000, maxToolCalls = 150, phases = ["cold"], show = false } = {}) {
   if (!Number.isSafeInteger(budgetMs) || budgetMs < 1000 || budgetMs > 3600000 || !Number.isSafeInteger(maxToolCalls) || maxToolCalls < 1 || maxToolCalls > 5000) throw new Error("Invalid benchmark budget");
   if (!phases.length || phases[0] !== "cold" || phases.some(name => !["cold", "unchanged", "changed", "resume"].includes(name)) || new Set(phases).size !== phases.length) throw new Error("Invalid phase sequence");
   const { startLms } = await import(pathToFileURL(resolve(lmsModule)).href);

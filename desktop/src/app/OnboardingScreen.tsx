@@ -1,11 +1,18 @@
 import { ConnectedAppRow } from "./ConnectedAppRow.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import {
+  AGENT_PROVIDERS,
+  DEFAULT_AGENT_PROVIDER_ID,
+  agentProvider,
+  agentProviderName,
   connectedAppCatalogEntry,
   presentSchoolOnboardingScan,
+  providerLoginActive,
+  selectedProvider,
+  type AgentProviderId,
   type ConnectedAppConnection,
   type ConnectedAppsState,
   type PermissionMode,
@@ -16,14 +23,13 @@ import {
 import { Inky, type InkyState } from "./Inky.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
+import { ProviderLoginHandoffView } from "./Ui.js";
 
 type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
-const CHATGPT_DEVICE = "https://chatgpt.com/auth/device";
-
 const STEP_COPY: Record<OnboardingStep, { inky: InkyState; pill: string; title: string; body: string; me?: string }> = {
-  0: { inky: "hello", pill: "saying hi", title: "Hey", body: "Nice. Now I need ChatGPT so I can do the work." },
-  1: { inky: "working", pill: "chatgpt", title: "I need ChatGPT.", body: "Type this code on the page that opened." },
+  0: { inky: "hello", pill: "saying hi", title: "Hey", body: "Nice. Now I need the AI you already pay for, so I can do the work." },
+  1: { inky: "working", pill: "your AI", title: "Which one do you have?", body: "ChatGPT or Claude. Pick the one you pay for and I'll do the work with it." },
   2: { inky: "idle", pill: "connected apps", title: "Bring your school apps?", body: "Connect the places where notes, files, and messages live. You can add more later." },
   3: { inky: "idle", pill: "homework folder", title: "Give me one empty folder.", body: "Make a new folder just for Studi. I’ll create a folder for every class and keep each assignment safely inside it." },
   4: { inky: "idle", pill: "class link", title: "Where's class?", body: "Paste the link you open for homework. Moodle, Canvas, Classroom, or whatever yours is." },
@@ -50,7 +56,7 @@ const CADENCES: Array<{ value: "manual" | "daily" | "weekly"; title: string }> =
 export function OnboardingScreen({
   workspace, onboarding, connectedApps, appConnections, appConnectionFeedback, studentName, schoolUrl, homeworkRoot, scanCadence, defaultPermission, busy, error,
   initialStep,
-  onSchoolUrl, onCadence, onDefaultPermission, onConnectRuntime, onCancelRuntimeLogin,
+  onSchoolUrl, onCadence, onDefaultPermission, onConnectRuntime, onCompleteRuntimeLogin, onCancelRuntimeLogin,
   onConnectApp, onRefreshConnectedApp, onSelectHomeworkRoot, onSaveProfile, onStartScan, onResumeScan, onFinish,
 }: {
   workspace: StudiWorkspaceState | null;
@@ -69,12 +75,12 @@ export function OnboardingScreen({
   onSchoolUrl: (value: string) => void;
   onCadence: (value: "manual" | "daily" | "weekly") => void;
   onDefaultPermission: (value: PermissionMode) => void;
-  onConnectRuntime: () => void;
+  onConnectRuntime: (providerId?: AgentProviderId) => void;
+  onCompleteRuntimeLogin: (code: string) => void;
   onCancelRuntimeLogin: () => void;
   onConnectApp: (toolkit: string) => void;
   onRefreshConnectedApp: (toolkit: string) => void;
   onSelectHomeworkRoot: () => void;
-  onSelectModel: (modelId: string) => void;
   onSaveProfile: () => void;
   onOpenSchool: () => void;
   onStartScan: () => void;
@@ -82,34 +88,31 @@ export function OnboardingScreen({
   onReplayScan: () => void;
   onFinish: () => void;
 }) {
-  const providerReady = workspace?.provider.state === "ready";
+  const provider = workspace ? selectedProvider(workspace) : null;
+  const presentation = presentSchoolOnboardingScan(onboarding, provider);
+  // A lapsed sign-in can still look ready locally; the failed scan is the truth.
+  const providerReady = provider?.state === "ready" && presentation.kind !== "runtime_login";
   const providerLogin = workspace?.providerLogin;
-  const providerLoginActive = providerLogin?.phase === "starting" || providerLogin?.phase === "waiting";
+  const loginActive = providerLoginActive(providerLogin);
   const profile = onboarding?.profile;
-  const presentation = presentSchoolOnboardingScan(onboarding, workspace?.provider);
   const [step, setStep] = useState<OnboardingStep>(() => initialStep ?? readDevPreviewConfig()?.onboardingStep ?? (profile ? onboardingStepFor(presentation.step) : 0));
-  const runtimeLoginRequested = useRef(false);
 
   useEffect(() => {
     if (profile) setStep(onboardingStepFor(presentation.step));
   }, [presentation.step, profile]);
 
-  useEffect(() => {
-    if (step !== 1) {
-      runtimeLoginRequested.current = false;
-      return;
-    }
-    if (providerReady || providerLogin || runtimeLoginRequested.current) return;
-    runtimeLoginRequested.current = true;
-    onConnectRuntime();
-  }, [onConnectRuntime, providerLogin, providerReady, step]);
 
   const displayName = studentName.trim() || "Student";
   const firstName = displayName.split(/\s+/)[0] || "Student";
-  const current = stepCopy(step, presentation, onboarding, firstName);
+  const current = stepCopy(step, presentation, onboarding, firstName, workspace);
   const inkyDriving = workspace?.browser.driver === "inky";
   const inkyState = inkyDriving ? "steering" : current.inky;
   const browserStage = step >= 7;
+  useEffect(() => {
+    // Native WebContentsView sits above React; hide it whenever the school pane is absent.
+    void window.studi?.setBrowserLayout({ mode: browserStage && !providerLogin ? "onboarding" : "hidden" }).catch(() => undefined);
+    return () => { void window.studi?.setBrowserLayout({ mode: "hidden" }).catch(() => undefined); };
+  }, [browserStage, providerLogin]);
   const title = current.title;
   const chat = useMemo(() => {
     const ids: OnboardingStep[] = [];
@@ -118,16 +121,8 @@ export function OnboardingScreen({
       if (id === 9 && presentation.kind === "ready") continue;
       ids.push(id);
     }
-    return ids.map((id) => ({ id, ...stepCopy(id, presentation, onboarding, firstName) }));
-  }, [firstName, onboarding, presentation, step]);
-
-  const advanceFromRuntime = () => {
-    if (!providerReady) {
-      if (!providerLoginActive) onConnectRuntime();
-      return;
-    }
-    setStep(2);
-  };
+    return ids.map((id) => ({ id, ...stepCopy(id, presentation, onboarding, firstName, workspace) }));
+  }, [firstName, onboarding, presentation, step, workspace]);
 
   return (
     <main className="fable-onboarding" data-studi-app-ready="true">
@@ -146,7 +141,7 @@ export function OnboardingScreen({
                       <h1>{message.id === step || !browserStage ? title : message.title}</h1>
                       <ChatMarkdown text={message.body} />
                       {message.id === 8 && step === 8 && onboarding?.scan?.currentStep && <div className="fable-scan-progress" role="status"><ChatMarkdown text={onboarding.scan.currentStep} /></div>}
-                      {(!browserStage || message.id === step) && <StepExtra step={step} workspace={workspace} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} providerReady={providerReady} schoolUrl={schoolUrl} homeworkRoot={homeworkRoot} cadence={scanCadence} permission={defaultPermission} busy={busy} onSchoolUrl={onSchoolUrl} onCadence={onCadence} onPermission={onDefaultPermission} onConnect={onConnectRuntime} onCancelConnect={onCancelRuntimeLogin} onConnectApp={onConnectApp} onRefreshConnectedApp={onRefreshConnectedApp} onSelectHomeworkRoot={onSelectHomeworkRoot} />}
+                      {(!browserStage || message.id === step) && <StepExtra step={step} workspace={workspace} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} providerReady={providerReady} schoolUrl={schoolUrl} homeworkRoot={homeworkRoot} cadence={scanCadence} permission={defaultPermission} busy={busy} onSchoolUrl={onSchoolUrl} onCadence={onCadence} onPermission={onDefaultPermission} onConnect={onConnectRuntime} onCompleteConnect={onCompleteRuntimeLogin} onCancelConnect={onCancelRuntimeLogin} onConnectApp={onConnectApp} onRefreshConnectedApp={onRefreshConnectedApp} onSelectHomeworkRoot={onSelectHomeworkRoot} />}
                     </article>
                   </div>
                 ))}
@@ -154,7 +149,7 @@ export function OnboardingScreen({
 
               <div className="fable-replies">
                 {step === 0 && <button className="fable-button primary" onClick={() => setStep(1)}>Let's do it</button>}
-                {step === 1 && <><button className="fable-button primary" onClick={advanceFromRuntime} disabled={busy !== null || (providerLoginActive && !providerReady)}>{providerReady ? "Let's go" : providerLoginActive ? "Waiting…" : presentation.kind === "runtime_login" ? "Try again" : "Get a code"}</button>{presentation.kind !== "runtime_login" && <button className="fable-button" onClick={() => setStep(0)}>Back</button>}</>}
+                {step === 1 && <>{providerReady ? <button className="fable-button primary" onClick={() => setStep(2)} disabled={busy !== null}>Let's go</button> : loginActive ? <button className="fable-button primary" disabled>Waiting…</button> : null}{presentation.kind !== "runtime_login" && <button className="fable-button" onClick={() => setStep(0)}>Back</button>}</>}
                 {step === 2 && <><button className="fable-button primary" onClick={() => setStep(3)}>Continue</button><button className="fable-button" onClick={() => setStep(1)}>Back</button></>}
                 {step === 3 && <><button className="fable-button primary" onClick={() => setStep(4)} disabled={!homeworkRoot}>{homeworkRoot ? "Use this Studi folder" : "Choose an empty folder first"}</button><button className="fable-button" onClick={() => setStep(2)}>Back</button></>}
                 {step === 4 && <><button className="fable-button primary" onClick={() => setStep(5)} disabled={!schoolUrl.trim()}>That's the one</button><button className="fable-button" onClick={() => setStep(3)}>Back</button></>}
@@ -163,7 +158,8 @@ export function OnboardingScreen({
                 {step === 7 && <><button className="fable-button primary" data-app-control="start-scan" onClick={onStartScan} disabled={!providerReady || busy !== null}>{busy === "scan" ? "Looking…" : "I'm signed in. Look around."}</button><button className="fable-button" onClick={() => setStep(6)}>Back</button></>}
                 {step === 8 && <button className="fable-button primary" disabled>Looking…</button>}
                 {step === 9 && presentation.kind === "handoff" && <button className="fable-button primary" onClick={onResumeScan} disabled={busy !== null}>{busy === "resume" ? "Checking…" : onboarding?.scan?.handoff?.kind === "student_takeover" ? "Keep looking" : "I'm signed in. Continue"}</button>}
-                {step === 9 && (presentation.kind === "runtime_usage" || presentation.kind === "runtime_unavailable") && <button className="fable-button primary" onClick={onConnectRuntime} disabled={busy !== null}>{presentation.kind === "runtime_usage" ? "Connect another ChatGPT" : "Try again"}</button>}
+                {step === 9 && presentation.kind === "runtime_usage" && <button className="fable-button primary" onClick={() => setStep(1)} disabled={busy !== null}>Use another subscription</button>}
+                {step === 9 && presentation.kind === "runtime_unavailable" && <button className="fable-button primary" onClick={() => onConnectRuntime()} disabled={busy !== null}>Try again</button>}
                 {step === 9 && presentation.kind === "retry" && <button className="fable-button primary" onClick={onStartScan} disabled={!providerReady || busy !== null}>{busy === "scan" ? "Looking…" : "Try again"}</button>}
                 {step === 10 && <button className="fable-button primary" onClick={onFinish}>Open my week</button>}
               </div>
@@ -180,46 +176,24 @@ export function OnboardingScreen({
   );
 }
 
-function StepExtra({ step, workspace, connectedApps, appConnections, appConnectionFeedback, providerReady, schoolUrl, homeworkRoot, cadence, permission, busy, onSchoolUrl, onCadence, onPermission, onConnect, onCancelConnect, onConnectApp, onRefreshConnectedApp, onSelectHomeworkRoot }: {
+function StepExtra({ step, workspace, connectedApps, appConnections, appConnectionFeedback, providerReady, schoolUrl, homeworkRoot, cadence, permission, busy, onSchoolUrl, onCadence, onPermission, onConnect, onCompleteConnect, onCancelConnect, onConnectApp, onRefreshConnectedApp, onSelectHomeworkRoot }: {
   step: OnboardingStep; workspace: StudiWorkspaceState | null; connectedApps: ConnectedAppsState | null; appConnections: Readonly<Record<string, ConnectedAppConnection | null>>; appConnectionFeedback: ConnectionFeedbackMap; providerReady: boolean; schoolUrl: string; homeworkRoot: string | null; cadence: "manual" | "daily" | "weekly"; permission: PermissionMode; busy: string | null;
-  onSchoolUrl: (value: string) => void; onCadence: (value: "manual" | "daily" | "weekly") => void; onPermission: (value: PermissionMode) => void; onConnect: () => void; onCancelConnect: () => void; onConnectApp: (toolkit: string) => void; onRefreshConnectedApp: (toolkit: string) => void; onSelectHomeworkRoot: () => void;
+  onSchoolUrl: (value: string) => void; onCadence: (value: "manual" | "daily" | "weekly") => void; onPermission: (value: PermissionMode) => void; onConnect: (providerId?: AgentProviderId) => void; onCompleteConnect: (code: string) => void; onCancelConnect: () => void; onConnectApp: (toolkit: string) => void; onRefreshConnectedApp: (toolkit: string) => void; onSelectHomeworkRoot: () => void;
 }) {
   const login = workspace?.providerLogin;
-  const [copied, setCopied] = useState(false);
   if (step === 1) {
-    const code = login?.phase === "waiting" ? login.userCode : null;
-    const link = login?.phase === "waiting" ? login.verificationUri : CHATGPT_DEVICE;
-    const copyCode = async () => {
-      if (!code) return;
-      try {
-        await navigator.clipboard.writeText(code);
-        setCopied(true);
-        window.setTimeout(() => setCopied(false), 1200);
-      } catch { /* The student can still read the code. */ }
-    };
-    return (
-      <div className="fable-codebox">
-        {providerReady ? (
-          <div><strong>Already connected</strong><small>ChatGPT is ready.</small></div>
-        ) : login?.phase === "waiting" && code ? (
-          <div>
-            <strong data-secret>{code}</strong>
-            <span className="fable-fallback">If the page didn't open, <a href={link} target="_blank" rel="noreferrer">click this link</a>.</span>
-          </div>
-        ) : login?.phase === "failed" || login?.phase === "expired" ? (
-          <div><strong>{login.phase === "expired" ? "That code expired" : "Couldn't get a code"}</strong><small>Try once more.</small></div>
-        ) : (
-          <div><strong>Getting your code…</strong></div>
-        )}
-        {!providerReady && (code || login?.phase === "failed" || login?.phase === "expired") ? (
-          <div className="fable-codebox-actions">
-            {code ? <button type="button" className="fable-button" onClick={() => void copyCode()}>{copied ? "Copied" : "Copy"}</button> : null}
-            {login?.phase === "waiting" ? <button type="button" className="fable-button" onClick={onCancelConnect}>Cancel</button> : null}
-            {login?.phase === "failed" || login?.phase === "expired" ? <button type="button" className="fable-button" onClick={onConnect} disabled={busy !== null}>Try again</button> : null}
-          </div>
-        ) : null}
-      </div>
-    );
+    if (providerReady && !login) {
+      const name = workspace ? selectedProvider(workspace).providerName : agentProviderName(DEFAULT_AGENT_PROVIDER_ID);
+      return <div className="provider-login"><div><strong>Already connected</strong><small>{name} is ready.</small></div></div>;
+    }
+    if (!login) {
+      return (
+        <div className="fable-picks" data-onboarding-providers="true">
+          {AGENT_PROVIDERS.map((entry) => <button type="button" className="fable-pick" onClick={() => onConnect(entry.id)} disabled={busy !== null} key={entry.id}><strong>{entry.name}</strong><span>{entry.plan}</span></button>)}
+        </div>
+      );
+    }
+    return <ProviderLoginHandoffView login={login} busy={busy !== null} onCompleteLogin={onCompleteConnect} onCancelLogin={onCancelConnect} onRetryLogin={() => onConnect(login.providerId)} />;
   }
   if (step === 2) {
     if (!connectedApps) return <p className="fable-hint">Checking which apps are available…</p>;
@@ -259,23 +233,34 @@ function stepCopy(
   presentation: SchoolOnboardingScanPresentation,
   onboarding: SchoolOnboardingState | null,
   firstName: string,
+  workspace: StudiWorkspaceState | null,
 ): (typeof STEP_COPY)[OnboardingStep] {
   const base = STEP_COPY[id];
   const scan = onboarding?.scan;
+  const login = workspace?.providerLogin;
+  const providerId = login?.providerId ?? workspace?.selectedProviderId ?? DEFAULT_AGENT_PROVIDER_ID;
+  const name = agentProviderName(providerId);
+  const signInBody = agentProvider(providerId).signIn === "device_code"
+    ? "Type this code on the page that opened."
+    : "Sign in on the page that opened. I'll notice when you're done.";
   if (id === 0) return { ...base, title: `Hey ${firstName}.` };
   if (id === 1 && presentation.kind === "runtime_login") {
-    return { ...base, inky: "needs", pill: "chatgpt again", title: "I need ChatGPT again.", body: "Type this code on the page that opened." };
+    return { ...base, inky: "needs", pill: `${name} again`, title: `I need ${name} again.`, body: login ? signInBody : "That sign-in stopped working. Pick it again, or use the other one." };
+  }
+  if (id === 1 && login) {
+    return { ...base, pill: name, title: `I need ${name}.`, body: signInBody };
   }
   if (id === 9 && (presentation.kind === "runtime_usage" || presentation.kind === "runtime_unavailable")) {
     if (presentation.kind === "runtime_usage") {
-      return { ...base, title: "ChatGPT ran out.", body: "I can't do the work until that plan has usage again." };
+      return { ...base, title: `${name} ran out.`, body: "I can't do the work until that plan has usage again. Or switch to the other one." };
     }
-    return { ...base, title: "ChatGPT isn't working.", body: "Try again in a bit." };
+    return { ...base, title: `${name} isn't working.`, body: "Try again in a bit." };
   }
   if (id === 10 && scan?.state === "partial") {
     return { ...base, body: "I found some of it. I'll keep what's missing empty." };
   }
   if (id === 9 && presentation.kind === "retry") {
+    if (scan?.runtimeLoginRecoveredAt) return { ...base, inky: "idle", title: "You're connected again.", body: "I saved where I stopped. Tell me to continue checking school." };
     return {
       ...base,
       title: "That didn't finish.",

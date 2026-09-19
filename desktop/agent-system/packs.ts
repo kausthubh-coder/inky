@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 
 import type { CapabilityName } from "./capability-registry.js";
 
-export type AgentRole = "home" | "assignment" | "scan" | "tutor";
+export type AgentRole = "home" | "learn" | "assignment" | "scan" | "tutor";
 
 export interface LoadedPack {
   readonly id: string;

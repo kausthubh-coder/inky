@@ -1,11 +1,16 @@
+import { connectedAppIsActive } from "../../shared/index.js";
+import type { TimelineContext } from "../../shared/conversation-timeline.js";
+import { MemorySettings } from "./MemorySettings.js";
 import { HomeworkRules } from "./HomeworkRules.js";
 import { FeedbackSettings } from "./FeedbackSettings.js";
 import { ScanStatus } from "./ScanStatus.js";
 import { ConnectedAppRow } from "./ConnectedAppRow.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
 import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
+import { Today } from "./Today.js";
+import type { Assignment } from "../../shared/index.js";
 import { Icon } from "./Icon.js";
-import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
+import { matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
 import { courseTone, taskStatusCopy } from "./assignmentPresentation.js";
 import {
@@ -39,6 +44,13 @@ import {
   type TaskSummary,
   type TelemetryState,
   type UsageState,
+  AGENT_PROVIDERS,
+  defaultModelFor,
+  providerLoginActive,
+  selectedProvider,
+  type AgentProviderEntry,
+  type AgentProviderId,
+  type ProviderStatus,
 } from "../../shared/index.js";
 import {
   DeskDrawer,
@@ -53,6 +65,7 @@ import {
   type SettingsLanding,
   Field,
   PaperCard,
+  ProviderLoginHandoffView,
   RuntimeAttentionBanner,
   StatusPill,
   TelemetryControls,
@@ -62,6 +75,7 @@ import {
 type SaveRuleInput = Parameters<StudiRendererApi["savePermissionRule"]>[0];
 
 export interface ChromeProps {
+  onOpenContext: (context: TimelineContext) => void;
   storageKey?: string;
   screen: AppScreen;
   settingsLanding: SettingsLanding;
@@ -75,6 +89,8 @@ export interface ChromeProps {
 }
 
 export function DashboardScreen({
+  settings,
+  onRefresh,
   chrome,
   onboarding,
   workspace,
@@ -102,9 +118,14 @@ export function DashboardScreen({
   onCheckAssignment,
   onStopAndScan,
   onConnectRuntime,
+  onCompleteRuntimeLogin,
+  onCancelRuntimeLogin,
+  onSwitchProvider,
   onFeedback,
   onSchoolSlot,
 }: {
+  settings: ProductSettingsState | null;
+  onRefresh: () => Promise<void>;
   chrome: ChromeProps;
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
@@ -132,6 +153,9 @@ export function DashboardScreen({
   onCheckAssignment: (assignmentId: string) => void;
   onStopAndScan: (taskId: string) => void;
   onConnectRuntime: () => void;
+  onCompleteRuntimeLogin: (code: string) => void;
+  onCancelRuntimeLogin: () => void;
+  onSwitchProvider: () => void;
   onFeedback: (context: string, message: string) => Promise<boolean>;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
 }) {
@@ -139,6 +163,7 @@ export function DashboardScreen({
     readDevPreviewConfig()?.id.startsWith("chat-") ? "expanded" : "home",
   );
   const [schoolOpen, setSchoolOpen] = useState(false);
+  const [askedAssignment, setAskedAssignment] = useState<Assignment | null>(null);
   const [clock, setClock] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [boardView, setBoardView] = useState<"week" | "undated">(() => readDevPreviewConfig()?.id === "week-undated" ? "undated" : "week");
@@ -175,7 +200,7 @@ export function DashboardScreen({
       localDateKey(new Date(assignment.dueAt)) === localDateKey(clock),
   ).length;
   const runtimeAttention = classifyAgentRuntimeAttention(
-    workspace?.provider,
+    workspace ? selectedProvider(workspace) : null,
     scan?.state === "failed" ? (scan.failures[0] ?? scan.currentStep) : null,
   );
   const inkyState = deskInkyState({
@@ -209,11 +234,13 @@ export function DashboardScreen({
 
   return (
     <main
-      className="app-shell chat-dashboard"
+        className="app-shell chat-dashboard redesign"
       data-studi-app-ready="true"
     >
       <AppChrome
         {...chrome}
+        schoolStatus={onboarding.scan?.state === "running" ? "Checking school now" : onboarding.scan?.state === "needs_user" ? "School needs sign-in" : "School check"}
+        onSchool={() => { setSchoolOpen(true); setChatView("expanded"); }}
         chatName={undefined}
         onNavigate={(screen, landing) => {
           if (screen === "week") {
@@ -224,203 +251,18 @@ export function DashboardScreen({
         }}
       />
       <div className="page dashboard-page">
-        <header className="page-hero dashboard-hero">
-          <h1>Hey {chrome.studentName.trim().split(/\s+/)[0]}.</h1>
-          <p>{dueToday ? `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today. We’ll take them one at a time.` : "Nothing due today. A little room to breathe."}</p>
-        </header>
-
-        <RuntimeAttentionBanner
-          attention={runtimeAttention}
-          workspace={workspace}
-          busy={busy !== null}
-          onConnect={onConnectRuntime}
-        />
-
-        <ScanStatus state={onboarding} lifecycle={lifecycle} busy={busy}
-          onCheck={onScanAgain} onStopAndScan={onStopAndScan} onOpenWork={onOpenDesk}
-          onWait={() => { onClosePanel(); setSchoolOpen(false); setChatView("home"); }}
-          onDetails={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} />
-
-        <section className="week-section" data-studi-week-board="true">
-          {onboarding.courseConflicts?.map(conflict => (
-            <div className="week-note" role="status" key={conflict.courseIds.join(",")}>
-              <strong>I kept these classes separate: {conflict.courseIds.map(id => courseLabel(onboarding, id)).join(" · ")}.</strong>
-              <p>{conflict.reason} Automatic work on these classes is paused.</p>
-              {conflict.kind === "permissions" && <button className="quiet-button" onClick={() => chrome.onNavigate("settings", "rules")}>Review homework rules</button>}
-            </div>
-          ))}
-          {onboarding.assignmentConflicts?.map(conflict => (
-            <p className="week-note" role="status" key={conflict.assignmentIds.join(",")}>
-              I kept separate copies of {onboarding.assignments.find(item => item.assignmentId === conflict.assignmentIds[0])?.title ?? "this homework"}.
-              {" "}{conflict.reason} I’ve paused automatic work on these copies.
-            </p>
-          ))}
-          <div className="section-title">
-            <div>
-              <div className="board-views" aria-label="Assignment views">
-                <button aria-pressed={boardView === "week"} onClick={() => setBoardView("week")}>Your week</button>
-                <button aria-pressed={boardView === "undated"} onClick={() => setBoardView("undated")}>Without dates <span>{verified.filter(a => !a.dueAt).length}</span></button>
-              </div>
-            </div>
-            <div className="week-tools">
-              {boardView === "week" && <div className="week-navigation" aria-label="Week navigation">
-              <button className="week-arrow" onClick={() => setWeekOffset(n => n - 1)} aria-label="Previous week"><Icon name="left" /></button>
-              <div className="week-range" aria-live="polite"><strong>{week.title}</strong><small>{week.range}</small></div>
-              <button className="week-arrow" onClick={() => setWeekOffset(n => n + 1)} aria-label="Next week"><Icon name="right" /></button>
-              </div>}
-              {boardView === "week" && weekOffset !== 0 && (
-                <button
-                  className="week-today"
-                  onClick={() => setWeekOffset(0)}
-                >
-                  This week
-                </button>
-              )}
-            </div>
-          </div>
-          {noteOpen && (
-            <form
-              className="week-note"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                if (!feedback.trim() || busy !== null) return;
-                if (await onFeedback("dashboard", feedback.trim())) {
-                  setFeedback("");
-                  setNoteOpen(false);
-                }
-              }}
-            >
-              <input
-                aria-label="Note about your assignments"
-                autoFocus
-                value={feedback}
-                disabled={busy !== null}
-                onChange={(event) => setFeedback(event.target.value)}
-                placeholder="Which assignment is missing or incorrect?"
-                maxLength={1000}
-              />
-              <button
-                className="button button--yellow"
-                disabled={!feedback.trim() || busy !== null}
-              >
-                Send note
-              </button>
-            </form>
-          )}
-          {boardView === "week" && <div className="week-grid-scroll"><div className="week-grid">
-            {days.map((day, index) => {
-              const items = verified.filter(
-                (assignment) =>
-                  assignment.dueAt &&
-                  localDateKey(new Date(assignment.dueAt)) === day.key,
-              );
-              return (
-                <section
-                  className={`day-column ${day.isToday ? "is-today" : ""}`}
-                  key={day.key}
-                >
-                  <header>
-                    <strong>{day.label}</strong>
-                    <small>{day.isToday ? "today" : day.date}</small>
-                  </header>
-                  <div className="day-stack">
-                    {items.length === 0 ? (
-                      <p className="empty-day">
-                        <span aria-hidden="true">〰</span>Nothing due
-                      </p>
-                    ) : (
-                      items.map((assignment) => {
-                        const task = taskByAssignment.get(
-                          assignment.assignmentId,
-                        );
-                        const course = courseLabel(
-                          onboarding,
-                          assignment.courseId,
-                        );
-                        const selected =
-                          (panel.kind === "assignment" &&
-                            panel.assignmentId === assignment.assignmentId) ||
-                          (showingLiveDesk &&
-                            lifecycle.execution?.assignmentId ===
-                              assignment.assignmentId);
-                        return (
-                          <AssignmentCard
-                            key={assignment.assignmentId}
-                            assignmentId={assignment.assignmentId}
-                            selected={selected}
-                            {...(task ? { item: task } : {})}
-                            title={assignment.title}
-                            {...(assignment.dueAt
-                              ? { dueAt: assignment.dueAt }
-                              : {})}
-                            course={course}
-                            tone={courseTone(course)}
-                            onAssignment={onAssignment}
-                          />
-                        );
-                      })
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-          </div></div>}
-          {boardView === "undated" && (
-            <div className="undated-assignments">
-              <p>School hasn’t listed a due date for these yet.</p>
-              {!verified.some(a => !a.dueAt) && <p className="undated-empty">All caught up — everything has a place in your week.</p>}
-              {[...new Set(verified.filter(a => !a.dueAt).map(a => a.courseId))].map(courseId => <section className="undated-course" key={courseId}>
-              <h3>{courseLabel(onboarding, courseId)}</h3><div>
-                {verified
-                  .filter((a) => !a.dueAt && a.courseId === courseId)
-                  .map((assignment) => (
-                    <AssignmentCard
-                      key={assignment.assignmentId}
-                      assignmentId={assignment.assignmentId}
-                      title={assignment.title}
-                      {...(taskByAssignment.get(assignment.assignmentId) ? { item: taskByAssignment.get(assignment.assignmentId)! } : {})}
-                      course={courseLabel(onboarding, assignment.courseId)}
-                      tone={courseTone(
-                        courseLabel(onboarding, assignment.courseId),
-                      )}
-                      selected={
-                        selectedAssignment?.assignmentId ===
-                        assignment.assignmentId
-                      }
-                      onAssignment={onAssignment}
-                    />
-                  ))}
-              </div></section>)}
-            </div>
-          )}
-          {verified.length === 0 && (
-            <PaperCard className="empty-state">
-              <p className="eyebrow">Nothing here yet</p>
-              <h3>I haven’t found homework on the school pages.</h3>
-              <p>
-                {scan?.state === "succeeded"
-                  ? "I looked, and nothing showed up. Check the school page or tell me what I missed."
-                  : "Let me look through school first."}
-              </p>
-            </PaperCard>
-          )}
-          <footer className="week-footer">
-            <button className="scan-refresh" onClick={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} aria-label="School check"><Icon name="refresh" size={15} /><span role="status">School scan details</span></button>
-            <button className="week-correction" onClick={() => setNoteOpen(open => !open)} aria-expanded={noteOpen}><Icon name="note" size={15} />{noteOpen ? "Close note" : "Report missing or incorrect homework"}</button>
-          </footer>
-        </section>
-        {error && panel.kind === "closed" && (
-          <p className="error-note" role="alert">
-            {error}
-          </p>
-        )}
+        <Today onboarding={onboarding} lifecycle={lifecycle} library={library} settings={settings} onOpen={onAssignment} onStart={onStart} onAsk={assignment => { setAskedAssignment(assignment); setChatView("compact"); }} onSchool={() => { setSchoolOpen(true); setChatView("expanded"); }} onRefresh={onRefresh} onSettings={() => chrome.onNavigate("settings", "rules")} />
+        <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} onCompleteLogin={onCompleteRuntimeLogin} onCancelLogin={onCancelRuntimeLogin} onSwitchProvider={onSwitchProvider} />
+        {error && panel.kind === "closed" && <p className="error-note" role="alert">{error}</p>}
       </div>
       <ChatWorkspace
-        key={`${chrome.storageKey}:${schoolOpen ? "school" : selectedAssignment?.assignmentId ?? "home"}`}
+        onOpenContext={chrome.onOpenContext}
+        contextAssignment={askedAssignment}
+        key={`${chrome.storageKey}:${schoolOpen ? "school" : selectedAssignment?.assignmentId ?? askedAssignment?.assignmentId ?? "home"}`}
         schoolCheck={schoolOpen}
         onAssignment={id => { setSchoolOpen(false); onAssignment(id); }}
         view={chatView === "home" ? "home" : "expanded"}
-        onView={view => { setChatView(view); if(view === "home") { onClosePanel(); setSchoolOpen(false); } }}
+        onView={view => { setChatView(view); if(view === "home") { onClosePanel(); setSchoolOpen(false); setAskedAssignment(null); } }}
         storageKey={chrome.storageKey ?? chrome.studentName}
         onboarding={onboarding}
         lifecycle={lifecycle}
@@ -461,6 +303,7 @@ function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, select
 }
 
 const NOTIFICATION_ROWS: ReadonlyArray<{ kind: NotificationKind; label: string; hint: string }> = [
+  { kind: "work_start", label: "Starting work", hint: "Inky is starting an assignment." },
   { kind: "handoff", label: "Needs you", hint: "Inky is waiting in the page." },
   { kind: "review_ready", label: "Ready to look over", hint: "An assignment is sitting for you." },
   { kind: "scan_result", label: "Scan finished", hint: "A class look-through finished." },
@@ -648,7 +491,6 @@ export function SettingsScreen({
   chrome,
   entitlement,
   usage,
-  initialSection = "inky",
   settings,
   onboarding,
   workspace,
@@ -668,6 +510,9 @@ export function SettingsScreen({
   onSchedule,
   onSelectAgentRuntime,
   onConnectRuntime,
+  onCompleteRuntimeLogin,
+  onCancelRuntimeLogin,
+  onDisconnectRuntime,
   onConnectApp,
   onRefreshConnectedApp,
   onTelemetry,
@@ -679,7 +524,6 @@ export function SettingsScreen({
   chrome: ChromeProps;
   entitlement: Entitlement | null;
   usage: UsageState | null;
-  initialSection?: "inky" | "school" | "privacy" | "account";
   settings: ProductSettingsState | null;
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
@@ -697,8 +541,11 @@ export function SettingsScreen({
   onSaveRule: (input: SaveRuleInput) => void;
   onDeleteRule: (ruleId: string) => void;
   onSchedule: (cadence: "manual" | "daily" | "weekly", localTime: string, weekday?: number) => void;
-  onSelectAgentRuntime: (modelId: string, reasoningEffort: AgentReasoningEffort) => void;
-  onConnectRuntime: () => void;
+  onSelectAgentRuntime: (providerId: AgentProviderId, modelId: string, reasoningEffort: AgentReasoningEffort) => void;
+  onConnectRuntime: (providerId: AgentProviderId) => void;
+  onCompleteRuntimeLogin: (code: string) => void;
+  onCancelRuntimeLogin: () => void;
+  onDisconnectRuntime: (providerId: AgentProviderId) => void;
   onConnectApp: (toolkit: string) => void;
   onRefreshConnectedApp: (toolkit: string) => void;
   onTelemetry: (enabled: boolean, replayEnabled: boolean) => void;
@@ -709,11 +556,9 @@ export function SettingsScreen({
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
-  const [section, setSection] = useState<SettingsSectionId>(() => chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : chrome.settingsLanding === "rules" ? "rules" : readDevPreviewConfig()?.settingsSection ?? initialSection);
   const [query, setQuery] = useState("");
   const matches = matchingSettings(query);
-  const visible = (id: SettingsSectionId) => query.trim() ? matches.includes(id) : section === id;
-  const currentSection = SETTINGS_SECTIONS.find(item => item.id === section)!;
+  const visible = (id: SettingsSectionId) => !query.trim() || matches.includes(id);
   const [reviewTime, setReviewTime] = useState("30");
   const [memory, setMemory] = useState<"none" | "selected" | "all">("selected");
   const [preferencesSubmitted, setPreferencesSubmitted] = useState(false);
@@ -728,8 +573,9 @@ export function SettingsScreen({
   }, [preferences]);
   useEffect(() => { if (schedule) { setCadence(schedule.cadence); setLocalTime(schedule.localTime); setWeekday(schedule.weekday ?? 1); } }, [schedule]);
   useEffect(() => {
-    const targetId = chrome.settingsLanding === "usage" ? "usage-settings" : chrome.settingsLanding === "feedback" ? "feedback-settings" : null;
-    if (!targetId) return undefined;
+    const landing = chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : chrome.settingsLanding === "rules" ? "rules" : readDevPreviewConfig()?.settingsSection;
+    if (!landing) return undefined;
+    const targetId = `settings-${landing}`;
     const frame = window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ block: "start" }));
     return () => window.cancelAnimationFrame(frame);
   }, [chrome.settingsLanding]);
@@ -741,32 +587,40 @@ export function SettingsScreen({
   );
 
   return (
-    <main className="app-shell" data-studi-app-ready="true">
+    <main className="app-shell rd-settings" data-studi-app-ready="true">
       <AppChrome {...chrome} />
       <div className="page settings-page">
-        <SettingsNavigation section={section} query={query} onQuery={setQuery} onSection={setSection} />
+        <div className="rd-settings-top"><button className="rd-link" onClick={() => chrome.onNavigate("week")}><Icon name="back" size={16} /> Back to your week</button><h1>Settings</h1><input type="search" aria-label="Find a setting" placeholder="Find a setting…" value={query} onChange={event => setQuery(event.target.value)} /></div>
         <div className="settings-content">
-          <header className="settings-heading">
-            <div><p className="eyebrow">{query.trim() ? "Find your setting" : currentSection.group}</p><h2>{query.trim() ? "Search results" : currentSection.label}</h2><p>{query.trim() ? `${matches.length} ${matches.length === 1 ? "section" : "sections"} matching “${query.trim()}”` : currentSection.hint}</p></div>
-            <Inky state="idle" size={58} label="Inky" />
-          </header>
+          {query.trim() && (
+            <header className="settings-heading">
+              <div><h2>Search results</h2><p>{`${matches.length} sections matching “${query.trim()}”`}</p></div>
+            </header>
+          )}
           {query.trim() && matches.length === 0 && <div className="settings-no-results"><h3>No settings found.</h3><p>Try “sound”, “model”, or “school”.</p><button className="button" onClick={() => setQuery("")}>Clear search</button></div>}
             {visible("inky") && (
-            <PaperCard className="settings-card">
-              <p className="eyebrow">How I think</p>
-              <h2>{workspace?.provider.providerName ?? "ChatGPT"}</h2>
-              <p>{workspace?.provider.reason}</p>
-              <RuntimeAttentionBanner attention={classifyAgentRuntimeAttention(workspace?.provider)} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} />
-              <button className="button button--yellow" type="button" onClick={onConnectRuntime} disabled={busy !== null}>{workspace?.provider.state === "ready" ? "Use another ChatGPT" : "Connect ChatGPT"}</button>
+            <PaperCard id="settings-inky" className="settings-card">
+              <p className="eyebrow">Your subscription</p>
+              <h2>Which AI does the work</h2>
+              <p>Bring the one you already pay for. I use the one you pick here.</p>
+              <div className="provider-cards" data-settings-providers="true">
+                {workspace && AGENT_PROVIDERS.map((entry) => {
+                  const provider = workspace.providers.find((status) => status.providerId === entry.id);
+                  if (!provider) return null;
+                  return <ProviderCard key={entry.id} entry={entry} provider={provider} workspace={workspace} busy={busy !== null}
+                    onSelect={() => { const model = defaultModelFor(workspace.models, entry.id); if (model) onSelectAgentRuntime(entry.id, model.id, workspace.selectedReasoningEffort); }}
+                    onConnect={() => onConnectRuntime(entry.id)} onCompleteLogin={onCompleteRuntimeLogin} onCancelLogin={onCancelRuntimeLogin} onDisconnect={() => onDisconnectRuntime(entry.id)} />;
+                })}
+              </div>
               <div className="form-grid form-grid--two">
-                <Field label="Model"><select value={workspace?.selectedModelId ?? ""} onChange={(event) => onSelectAgentRuntime(event.target.value, workspace?.selectedReasoningEffort ?? "medium")} disabled={!workspace || busy !== null}>{workspace?.models.map((model) => <option value={model.id} key={model.id}>{model.name}</option>)}</select></Field>
-                <Field label="How hard I think"><select value={workspace?.selectedReasoningEffort ?? "medium"} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedModelId, event.target.value as AgentReasoningEffort)} disabled={!workspace || busy !== null}><option value="off">Off</option><option value="minimal">Minimal</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option></select></Field>
+                <Field label="Model"><select value={workspace?.selectedModelId ?? ""} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedProviderId, event.target.value, workspace.selectedReasoningEffort)} disabled={!workspace || busy !== null}>{workspace?.models.filter((model) => model.providerId === workspace.selectedProviderId).map((model) => <option value={model.id} key={model.id}>{model.name}</option>)}</select></Field>
+                <Field label="How hard I think"><select value={workspace?.selectedReasoningEffort ?? "medium"} onChange={(event) => workspace && onSelectAgentRuntime(workspace.selectedProviderId, workspace.selectedModelId, event.target.value as AgentReasoningEffort)} disabled={!workspace || busy !== null}><option value="off">Off</option><option value="minimal">Minimal</option><option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="xhigh">Extra high</option></select></Field>
               </div>
               <small>New chats use the pair you save here.</small>
             </PaperCard>
             )}
             {visible("preferences") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-preferences" className="settings-card">
               <form className="review-preferences" onSubmit={(event) => {
                 event.preventDefault();
                 if (preferences && preferencesChanged && validPreferences && busy === null) {
@@ -817,22 +671,31 @@ export function SettingsScreen({
               </form>
             </PaperCard>
             )}
+            {visible("preferences") && memory !== "none" && <MemorySettings />}
             {visible("apps") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-apps" className="settings-card">
               <p className="eyebrow">Connected apps</p>
               <h2>Tools I can use</h2>
               <p>Connections happen in your browser. Studi never receives the app password or provider token.</p>
               {!connectedApps && <small>Connected apps need an online Studi account.</small>}
               {connectedApps && !connectedApps.configured && <small>Connected apps are not configured on this Studi server.</small>}
+              {connectedApps?.configured && (
+              <details className="rd-apps">
+                <summary>
+                  <span>{connectedApps.toolkits.filter(({ toolkit }) => connectedAppIsActive(appConnections[toolkit] ?? null)).length} of {connectedApps.toolkits.length} connected</span>
+                  <span className="rd-apps-manage">Manage</span>
+                </summary>
               <div className="connected-app-grid">
-                {connectedApps?.configured && connectedApps.toolkits.map(({ toolkit, access, tools }) => (
+                {connectedApps.toolkits.map(({ toolkit, access, tools }) => (
                   <ConnectedAppRow key={toolkit} toolkit={toolkit} connection={appConnections[toolkit] ?? null} feedback={appConnectionFeedback[toolkit]} access={access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`} disabled={busy !== null} onConnect={onConnectApp} onCheck={onRefreshConnectedApp} />
                 ))}
               </div>
+              </details>
+              )}
             </PaperCard>
             )}
             {visible("folder") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-folder" className="settings-card">
               <p className="eyebrow">Homework folder</p>
               <h2>The folder I may use</h2>
               <p>Choose a folder just for Studi. I’ll organize your classes and keep each assignment’s files and saved answers together.</p>
@@ -842,7 +705,7 @@ export function SettingsScreen({
             )}
 
             {visible("school") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-school" className="settings-card">
               <p className="eyebrow">Look schedule</p>
               <h2>When I check school</h2>
               <div className="form-grid form-grid--two">
@@ -855,7 +718,7 @@ export function SettingsScreen({
             </PaperCard>
             )}
             {visible("rules") && <>
-              <PaperCard className="settings-card">
+              <PaperCard id="settings-rules" className="settings-card">
                 <h2>When I start homework</h2>
                 <Field label="Start work">
                   <select value={preferences?.workStartMode ?? "manual"} disabled={!preferences || busy !== null}
@@ -869,11 +732,11 @@ export function SettingsScreen({
               <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={busy !== null} onSaveRule={onSaveRule} onDeleteRule={onDeleteRule} />
             </>}
 
-            {visible("usage") && <UsageCard entitlement={entitlement} usage={usage} />}
-            {visible("notifications") && <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />}
-            {visible("privacy") && <TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onTelemetryDebug} />}
+            {visible("usage") && <div id="settings-usage"><UsageCard entitlement={entitlement} usage={usage} /></div>}
+            {visible("notifications") && <div id="settings-notifications"><NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} /></div>}
+            {visible("privacy") && <div id="settings-privacy"><TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onTelemetryDebug} /></div>}
             {visible("support") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-support" className="settings-card">
               <p className="eyebrow">If something broke</p>
               <h2>Safe diagnostics</h2>
               <p>Saves a short JSON file with versions and recent product events. Secrets stay out. It never copies your school folder.</p>
@@ -885,7 +748,7 @@ export function SettingsScreen({
             )}
             {visible("support") && <FeedbackSettings busy={busy !== null} onFeedback={onFeedback} />}
             {visible("account") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-account" className="settings-card">
               <p className="eyebrow">Signed in</p>
               <h2>{chrome.studentName}</h2>
               <p>Signing out leaves your school pages and saved work on this laptop.</p>
@@ -900,3 +763,42 @@ export function SettingsScreen({
 }
 
 function courseLabel(onboarding: SchoolOnboardingState, courseId: string): string { return onboarding.courses.find((course) => course.courseId === courseId)?.label ?? courseId; }
+
+/** One subscription the student can bring: its state, and the one action that makes sense right now. */
+function ProviderCard({ entry, provider, workspace, busy, onSelect, onConnect, onCompleteLogin, onCancelLogin, onDisconnect }: {
+  entry: AgentProviderEntry;
+  provider: ProviderStatus;
+  workspace: StudiWorkspaceState;
+  busy: boolean;
+  onSelect: () => void;
+  onConnect: () => void;
+  onCompleteLogin: (code: string) => void;
+  onCancelLogin: () => void;
+  onDisconnect: () => void;
+}) {
+  const selected = entry.id === workspace.selectedProviderId;
+  const ready = provider.state === "ready";
+  const attention = classifyAgentRuntimeAttention(provider);
+  const login = workspace.providerLogin?.providerId === entry.id ? workspace.providerLogin : null;
+  const anyLoginActive = providerLoginActive(workspace.providerLogin);
+  const pill = attention === "usage" ? { tone: "coral" as const, label: "Ran out of usage" }
+    : selected && ready ? { tone: "mint" as const, label: "Inky uses this" }
+    : ready ? { tone: "sky" as const, label: "Connected" }
+    : provider.state === "needs_login" ? { tone: "yellow" as const, label: "Not connected" }
+    : { tone: "coral" as const, label: "Can't check" };
+  return (
+    <div className={`provider-card ${selected ? "provider-card--selected" : ""}`} data-provider={entry.id}>
+      <div className="provider-card-head">
+        <div><h3>{entry.name}</h3><small>{entry.plan}</small></div>
+        <span className={`rd-provider-state is-${pill.tone}`}>{pill.label === "Inky uses this" ? "In use" : pill.label}</span>
+      </div>
+      <ProviderLoginHandoffView login={login} busy={busy} onCompleteLogin={onCompleteLogin} onCancelLogin={onCancelLogin} onRetryLogin={onConnect} />
+      <div className="provider-card-actions">
+        {ready && !selected && <button className="button button--yellow" type="button" onClick={onSelect} disabled={busy}>Use {entry.name}</button>}
+        {!ready && !login && <button className="button button--yellow" type="button" onClick={onConnect} disabled={busy || anyLoginActive}>Connect {entry.name}</button>}
+        {ready && !login && <button className="button" type="button" onClick={onConnect} disabled={busy || anyLoginActive}>Use another account</button>}
+        {ready && !login && <button className="button" type="button" onClick={onDisconnect} disabled={busy || anyLoginActive}>Disconnect</button>}
+      </div>
+    </div>
+  );
+}

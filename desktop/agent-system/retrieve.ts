@@ -28,8 +28,7 @@ export function noteIsAllowed(
   mode: "automatic" | "search" = "automatic",
 ): boolean {
   if (context.kind === "home") {
-    if (mode === "search") return true;
-    return note.scope === "student" && note.subjectId === (context.studentId ?? "primary") && note.about === "preference";
+    return !!context.studentId && note.scope === "student" && note.subjectId === context.studentId && note.about === "preference";
   }
   if (context.kind === "scan") {
     return note.scope === "school" && note.subjectId === context.schoolId && note.about === "scan";

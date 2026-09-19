@@ -4,6 +4,7 @@ import { mkdtemp, readFile, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { startLms } from "../../../.studi-lms/build/server.mjs";
+import { gradeWork } from "../grade-work.mjs";
 import {
   importPrivateAssets,
   readPrivateAsset,
@@ -38,6 +39,66 @@ async function post(url, values, files = []) {
     );
   return fetch(url, { method: "POST", body, redirect: "manual" });
 }
+
+test("multi-file coding work rejects a missing named source, preserves drafts and survives restart", async (t) => {
+  const { server, runDirectory } = await school(t, "coding-multifile");
+  const url = `${server.url}/assignments/rainfall-project`;
+  const initial = await fields(url);
+  assert.match(initial.html, /stats\.c/);
+  assert.match(await (await fetch(`${server.url}/files/stats-header`)).text(), /double mean/);
+  const files = ['main.c', 'stats.h', 'README.md'].map(name => ({ name, text: `synthetic ${name}` }));
+  assert.equal((await post(url, { ...initial.values, action: 'submit', answer: 'My project' }, files)).status, 400);
+  assert.equal(server.inspect().state.submissions.length, 0);
+  assert.equal(server.inspect().state.drafts['rainfall-project'].files.length, 3);
+  await server.close();
+  const resumed = await startLms({ runDirectory, resume: true });
+  t.after(() => resumed.close());
+  const resumedUrl = `${resumed.url}/assignments/rainfall-project`;
+  const saved = await fields(resumedUrl);
+  assert.equal((await post(resumedUrl, { ...saved.values, action: 'submit', answer: 'My project' }, [{ name: 'stats.c', text: 'synthetic source' }])).status, 303);
+  const result = gradeWork(resumed.inspect(), 'rainfall-project');
+  assert.deepEqual(result.missing, []);
+  assert.equal(result.draftBeforeSubmit, true);
+  assert.equal(result.outcome, 'incomplete'); // Delivery cannot establish code correctness.
+});
+
+test("quiz grades committed answers independently; wrong work and exhausted attempts cannot pass", async (t) => {
+  const { server } = await school(t, 'quiz');
+  const url = `${server.url}/assignments/structures-quiz`;
+  const initial = await fields(url);
+  assert.doesNotMatch(initial.html, /expectedAnswers|answerKey|correctAnswers/);
+  assert.equal(gradeWork(server.inspect(), 'structures-quiz').outcome, 'failed');
+  const wrong = 'Q1: A\nQ2: B\nQ3: O(1)';
+  await post(url, { ...initial.values, action: 'save', answer: wrong });
+  assert.equal(server.inspect().state.submissions.length, 0);
+  let form = (await fields(url)).values;
+  assert.equal((await post(url, { ...form, action: 'submit', answer: wrong })).status, 303);
+  assert.equal(gradeWork(server.inspect(), 'structures-quiz').correct, 0);
+  form = (await fields(url)).values;
+  const answer = 'Q1: B\nQ2: A\nQ3: O(n)';
+  assert.equal((await post(url, { ...form, action: 'submit', answer })).status, 303);
+  const result = gradeWork(server.inspect(), 'structures-quiz');
+  assert.equal(result.outcome, 'passed');
+  assert.equal(result.correct, 3);
+  // Same idempotency key replays; a new third attempt is blocked.
+  assert.equal((await post(url, { ...form, action: 'submit', answer })).status, 303);
+  assert.equal((await post(url, { ...form, key: 'third-attempt', revision: '3', action: 'submit', answer })).status, 409);
+  assert.equal(server.inspect().state.submissions.length, 2);
+});
+
+test('corrected coding files replace draft versions instead of making submission unrecoverable', async (t) => {
+  const { server } = await school(t, 'coding-multifile');
+  const url = `${server.url}/assignments/rainfall-project`;
+  const initial = await fields(url);
+  const files = ['main.c', 'stats.c', 'stats.h', 'README.md'].map(name => ({ name, text: 'first draft' }));
+  assert.equal((await post(url, { ...initial.values, action: 'save', answer: 'Draft' }, files)).status, 303);
+  const form = (await fields(url)).values;
+  assert.equal((await post(url, { ...form, action: 'submit', answer: 'Corrected' }, [{ name: 'stats.c', text: 'corrected draft' }])).status, 303);
+  const submission = server.inspect().state.submissions[0];
+  assert.equal(submission.files.length, 4);
+  const source = submission.files.find(file => file.name === 'stats.c');
+  assert.equal(await (await fetch(`${server.url}/uploads/rainfall-project/${source.hash}`)).text(), 'corrected draft');
+});
 
 test("draft, response, upload and receipt survive server restart; replay submits once", async (t) => {
   const { server, runDirectory } = await school(t);
@@ -165,8 +226,11 @@ test("source cases expose statuses, requirements, date-only dates, late rules an
   );
   const dateOnly = await fields(`${server.origins.statistics}/assignments/hw8`);
   assert.match(dateOnly.html, /exact time unavailable/);
-  assert.doesNotMatch(dateOnly.html, /<time/);
+  const dueField = /<p><strong>Due:<\/strong>[\s\S]*?<\/p>/.exec(dateOnly.html)?.[0];
+  assert.ok(dueField, "The assignment must expose its due-date field");
+  assert.doesNotMatch(dueField, /<time/);
   const extended = await fields(`${server.origins.statistics}/assignments/hw5`);
+  assert.match(extended.html, /<p><strong>Due:<\/strong>\s*<time dateTime="2026-09-17T03:59:00.000Z"/);
   assert.match(extended.html, /personal extension/);
   assert.match(extended.html, /One extension has now been used/);
   assert.match(

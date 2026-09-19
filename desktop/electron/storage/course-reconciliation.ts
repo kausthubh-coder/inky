@@ -24,7 +24,7 @@ export function courseIdentity(store: LocalStore, course: Course): string | null
   const targets = [course.sourceTarget, course.evidence.sourceTarget,
     ...store.assignments.listByCourse(course.courseId).flatMap(assignment =>
       [assignment.sourceTarget, ...assignment.evidence.map(evidence => evidence.sourceTarget)])];
-  const identities = new Set(targets.map(target => schoolIdentity(target, "course")).filter(Boolean));
+  const identities = new Set(targets.flatMap(target => target ? [schoolIdentity(target, "course")] : []).filter(Boolean));
   if (course.sourceIdentity) identities.add(course.sourceIdentity);
   return identities.size === 1 ? [...identities][0]! : null;
 }

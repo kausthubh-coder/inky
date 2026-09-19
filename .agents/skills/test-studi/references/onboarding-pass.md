@@ -3,7 +3,7 @@
 Use a new named persistent profile for a fresh journey. Preserve it for restart checks. Build and launch as described in the skill, then attach using the receipt.
 
 1. **Studi login.** Look up/create the dedicated development test account and accept its linked invitation using [clerk-electron-journey.md](clerk-electron-journey.md). Click the current greeting/sign-in control, claim the OAuth handoff in isolated Chromium, and use the email-code flow. Check live `getAuthState()` for approved access.
-2. **ChatGPT.** Import the QA Codex cache before launch. Read `getWorkspaceState()`; when provider is ready, continue the connected step. Otherwise follow [codex-login.md](codex-login.md). Never report a provider turn as tested while disconnected.
+2. **Subscription.** Onboarding asks which AI the student pays for: ChatGPT or Claude. Import the QA Codex cache before launch and pick ChatGPT. Read `getWorkspaceState()`; when the selected provider is ready, continue the connected step. Otherwise follow [codex-login.md](codex-login.md). Never report a provider turn as tested while disconnected.
 3. **Connected apps.** Optional integrations may be skipped for the local school journey. Do not authorize personal third-party accounts as routine QA setup.
 4. **Homework folder.** Create an empty directory under this worktree's `.agents/studi-qa/`, separate from the Electron profile. Use the real chooser; if native dialog automation is unavailable, [worktrees.md](worktrees.md) documents a one-shot chooser simulation through the QA main inspector. Record that simulation; do not seed the database or overwrite app state.
 5. **School URL.** Start the fixture in a retained terminal session:

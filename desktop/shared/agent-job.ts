@@ -6,6 +6,7 @@ const AgentIdentifierSchema = z.string().trim().min(1).max(256);
 
 export const AgentTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("home") }),
+  z.strictObject({ kind: z.literal("learn") }),
   z.strictObject({ kind: z.literal("assignment"), assignmentId: AgentIdentifierSchema }),
   z.strictObject({ kind: z.literal("scan"), scanId: AgentIdentifierSchema }),
   z.strictObject({ kind: z.literal("tutor") }),
@@ -13,6 +14,7 @@ export const AgentTargetSchema = z.discriminatedUnion("kind", [
 
 export const ConversationTargetSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("home") }),
+  z.strictObject({ kind: z.literal("learn") }),
   z.strictObject({ kind: z.literal("assignment"), assignmentId: AgentIdentifierSchema }),
 ]);
 

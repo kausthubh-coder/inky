@@ -4,12 +4,24 @@ import { EvidenceReferenceSchema, type EvidenceReference } from "./evidence.js";
 import { AssignmentIdSchema, CourseIdSchema, SafeSourceTargetSchema } from "./ids.js";
 import { IsoTimestampSchema, SchemaVersionSchema } from "./schema-version.js";
 
+export const AssignmentKindSchema = z.enum(["quiz", "problem_set", "essay", "code", "discussion", "reading", "group_work"]);
+
 export const AssignmentSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   assignmentId: AssignmentIdSchema,
   courseId: CourseIdSchema,
   title: z.string().min(1).max(500),
-  sourceTarget: SafeSourceTargetSchema,
+  sourceTarget: SafeSourceTargetSchema.optional(),
+  origin: z.enum(["manual", "school"]).optional(),
+  owner: z.enum(["student", "inky"]).optional(),
+  ownerPreviousMode: z.enum(["do_not_attempt", "attempt", "auto_submit"]).optional(),
+  kind: AssignmentKindSchema.optional(),
+  possibleKinds: z.array(AssignmentKindSchema).max(7).optional(),
+  kindConfidence: z.enum(["explicit", "uncertain"]).optional(),
+  kindEvidence: EvidenceReferenceSchema.optional(),
+  dueDateOverride: z.strictObject({ dueAt: IsoTimestampSchema, updatedAt: IsoTimestampSchema }).optional(),
+  ignoredReason: z.enum(["not_homework", "already_done"]).optional(),
+  ignoredNote: z.string().trim().min(1).max(500).optional(),
   sourceIdentity: z.string().min(1).max(4096).optional(),
   dueAt: IsoTimestampSchema.optional(),
   dueText: z.string().min(1).max(200).optional(),
@@ -46,6 +58,9 @@ export type AssignmentWorkEligibility = { eligible: boolean; reason: string };
 // Legacy records without these facts remain discoverable but cannot auto-run.
 export function assignmentWorkEligibility(assignment: Assignment, now: string): AssignmentWorkEligibility {
   const blocked = (reason: string): AssignmentWorkEligibility => ({ eligible: false, reason });
+  if (assignment.ignoredReason) return blocked("You marked this assignment as done or not homework.");
+  if (assignment.owner === "student") return blocked("You chose to do this assignment yourself.");
+  if (!assignment.sourceTarget) return blocked("Add a school source and check the instructions before Inky starts.");
   const status = assignment.schoolStatus;
   if (!status || status.state === "unknown") return blocked("Check whether this assignment is already submitted.");
   if (status.state === "submitted" || status.state === "graded") return blocked("The school already records this work as submitted or graded.");
@@ -60,7 +75,7 @@ export function assignmentWorkEligibility(assignment: Assignment, now: string): 
     return blocked("Read the remaining assignment instructions before starting.");
   }
   if (!assignment.requirementEvidence.every(item => fresh(item.evidence))) return blocked("Refresh the assignment instructions and attached materials before starting.");
-  if (assignment.deadlinePrecision !== "datetime" || !assignment.dueAt || !fresh(assignment.deadlineEvidence)) {
+  if (!assignment.dueAt || (!assignment.dueDateOverride && (assignment.deadlinePrecision !== "datetime" || !fresh(assignment.deadlineEvidence)))) {
     return blocked("Confirm the exact deadline before starting.");
   }
   if (Date.parse(assignment.dueAt) <= currentTime) {

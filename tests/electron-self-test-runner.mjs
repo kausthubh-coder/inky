@@ -34,9 +34,31 @@ try {
   assert.equal(onboardingWelcome.observation.onboarding.passwordFieldCount, 0);
   emitReceipt(onboardingWelcome);
 
+  const reconnect = await runControlledScenario("onboarding-reconnect", {}, undefined, async (renderer, native) => {
+    const state = await renderer.evaluate(`(async()=>{
+      const onboarding=await window.studi.getSchoolOnboardingState();
+      const button=[...document.querySelectorAll('button')].find(item=>item.textContent.includes('ChatGPT'));
+      if(!(button instanceof HTMLButtonElement))throw new Error('Missing ChatGPT sign-in action');
+      button.focus();
+      return {savedProfile:!!onboarding.profile,buttonEnabled:!button.disabled,buttonFocused:document.activeElement===button};
+    })()`);
+    assert.deepEqual(state, { savedProfile: true, buttonEnabled: true, buttonFocused: true });
+    const visibility = await native.evaluate(`(async()=>{
+      const {BrowserWindow}=process.getBuiltinModule('module').createRequire(process.cwd()+'/package.json')('electron');
+      const window=BrowserWindow.getAllWindows()[0];
+      window.setSize(1040,720);
+      await new Promise(resolve=>setTimeout(resolve,1200));
+      const layers=window.contentView.children.filter(view=>view.webContents?.id!==window.webContents.id);
+      return {nativeLayers:layers.length,visible:layers.filter(view=>view.getVisible()).length};
+    })()`);
+    assert.ok(visibility.nativeLayers > 0, 'exercise real native school/overlay layers');
+    assert.equal(visibility.visible, 0, 'school browser must not cover reconnect controls, including after resize and polling');
+  });
+  emitReceipt(reconnect);
+
   const onboarding = await runControlledScenario("onboarding-ready");
   assert.equal(onboarding.observation.marker, true);
-  assert.equal(onboarding.observation.contractVersion, "18");
+  assert.equal(onboarding.observation.contractVersion, "19");
   assert.equal(onboarding.observation.runtime.electron, "37.10.3");
   assert.equal(onboarding.observation.runtime.node, "22.21.1");
   assert.deepEqual(onboarding.observation.onboarding, {
@@ -61,7 +83,7 @@ try {
   assertComposition(onboarding.composition);
   emitReceipt(onboarding);
 
-  const weekBoard = await runControlledScenario("partial-dashboard");
+  const weekBoard = await runControlledScenario("partial-dashboard", {}, exerciseWeekBoard);
   assert.equal(weekBoard.observation.marker, true);
   assert.equal(weekBoard.observation.weekBoard.visible, true);
   assert.equal(weekBoard.observation.weekBoard.hasCourse, true);
@@ -92,9 +114,12 @@ try {
 }
 
 function assertComposition(composition) {
-  assert.deepEqual(composition.window, { menuBarVisible: false });
+  assert.deepEqual(composition.window, {
+    menuBarVisible: process.platform === 'darwin' ? null : false,
+    applicationMenuAttached: false,
+  });
   assert.equal(composition.storage.driver, "node:sqlite");
-  assert.equal(composition.storage.schemaVersion, 8);
+  assert.equal(composition.storage.schemaVersion, 9);
   assert.equal(composition.storage.fileBacked, true);
   assert.equal(composition.storage.reopened, true);
   assert.equal(composition.storage.backupValidated, true);
@@ -123,12 +148,13 @@ function emitReceipt(run) {
   })}\n`);
 }
 
-async function runControlledScenario(scenario, extraEnvironment = {}, prepare) {
+async function runControlledScenario(scenario, extraEnvironment = {}, prepare, inspectNative) {
   const directory = ownedDirectory(`studi-wp00-self-test-${scenario}-${nonce}`);
   cleanupDirectories.add(directory);
   const port = await reservePort();
+  const inspectorPort = inspectNative ? await reservePort() : undefined;
   const startedAt = Date.now();
-  const child = launchElectron(directory, port, { STUDI_UI_SCENARIO: scenario, ...extraEnvironment });
+  const child = launchElectron(directory, port, { STUDI_UI_SCENARIO: scenario, ...extraEnvironment }, inspectorPort);
   try {
     const ready = await waitForReady(child, 25_000);
     const composition = JSON.parse(ready.slice(ready.indexOf("{")));
@@ -136,6 +162,13 @@ async function runControlledScenario(scenario, extraEnvironment = {}, prepare) {
     try {
       await waitForAppMarker(client, 8_000);
       await prepare?.(client);
+      if (inspectNative) {
+        const targets = await (await fetch(`http://127.0.0.1:${inspectorPort}/json/list`)).json();
+        const target = targets.find(item => item.type === 'node');
+        assert.ok(target?.webSocketDebuggerUrl, 'native main-process inspector is available');
+        const native = await CdpClient.connect(target.webSocketDebuggerUrl);
+        try { await inspectNative(client, native); } finally { native.close(); }
+      }
       const observation = await inspectPublicApp(client);
       return { scenario, observation, composition, durationMs: Date.now() - startedAt };
     } finally {
@@ -199,16 +232,32 @@ async function inspectPublicApp(client) {
 async function exerciseExpandedBrowser(client) {
   await client.evaluate(`(async () => {
     const click=(selector)=>{const button=document.querySelector(selector);if(!(button instanceof HTMLButtonElement))throw new Error('Missing '+selector);button.click();};
-    click('.chat-work-slip button');await new Promise(r=>setTimeout(r,100));
+    const waitFor = async (predicate) => { const deadline=Date.now()+5000; while(!predicate()){if(Date.now()>deadline)throw new Error('Assignment view did not settle');await new Promise(r=>setTimeout(r,50));} };
+    click('.chat-work-slip button');
+    await waitFor(()=>document.querySelector('[aria-label="Assignment workspace"]')&&document.querySelector('.chat-browser-slot'));
     document.body.dataset.activityCardRemoved=String(!document.querySelector('.chat-work-slip')&&!document.body.innerText.includes("What I’ve done"));
-    click('.assignment-meta button[aria-expanded]');await new Promise(r=>setTimeout(r,150));
     document.body.dataset.browserExpanded=String(Boolean(document.querySelector('.chat-browser-slot')));
-    if(document.querySelector('.assignment-meta button[aria-expanded]')?.getAttribute('aria-expanded')!=='true')throw new Error('Browser toggle did not announce expanded state');
-    click('[aria-label="Close browser"]');await new Promise(r=>setTimeout(r,100));
-    if(document.querySelector('.chat-browser-slot'))throw new Error('Browser toggle did not close the browser');
-    click('.assignment-meta button[aria-expanded]');await new Promise(r=>setTimeout(r,150));
-    click('[aria-label="Close browser"]');await new Promise(r=>setTimeout(r,100));
-    document.body.dataset.browserClosedCleanly=String(!document.querySelector('.chat-browser-slot')&&Boolean(document.querySelector('.assignment-workspace')));
+    click('[aria-label="Close browser"]');
+    await waitFor(()=>!document.querySelector('.chat-browser-slot'));
+    const reopen=[...document.querySelectorAll('.rd-stage-page button')].find(button=>button.textContent.includes('Open school page'));
+    if(!(reopen instanceof HTMLButtonElement))throw new Error('Closed browser offers no reopen action');
+    reopen.click();await waitFor(()=>document.querySelector('.chat-browser-slot'));
+    click('[aria-label="Close browser"]');await waitFor(()=>!document.querySelector('.chat-browser-slot'));
+    document.body.dataset.browserClosedCleanly=String(Boolean(document.querySelector('[aria-label="Assignment workspace"]')));
+  })()`);
+}
+
+async function exerciseWeekBoard(client) {
+  await client.evaluate(`(async () => {
+    const button = [...document.querySelectorAll('button')]
+      .find((item) => item.textContent?.trim() === 'Week');
+    if (!(button instanceof HTMLButtonElement)) throw new Error('Missing Week view action');
+    button.click();
+    const deadline=Date.now()+5000;
+    while(!document.querySelector('[data-studi-week-board="true"]')) {
+      if(Date.now()>deadline)throw new Error('Week view did not open');
+      await new Promise(resolve=>setTimeout(resolve,50));
+    }
   })()`);
 }
 
@@ -277,11 +326,11 @@ async function testRendererLoadFailure() {
   process.stdout.write("STUDI_SELF_TEST_REJECTION renderer-load=true timed-out=false\n");
 }
 
-function launchElectron(userDataDirectory, port, extraEnvironment) {
+function launchElectron(userDataDirectory, port, extraEnvironment, inspectorPort) {
   const environment = { ...process.env };
   delete environment.VITE_DEV_SERVER_URL;
   delete environment.STUDI_DEVELOPMENT_MODE;
-  return spawn(electronPath, [projectRoot, "--remote-debugging-address=127.0.0.1", `--remote-debugging-port=${port}`, "--remote-allow-origins=*"], {
+  return spawn(electronPath, [projectRoot, ...(inspectorPort ? [`--inspect=127.0.0.1:${inspectorPort}`] : []), "--remote-debugging-address=127.0.0.1", `--remote-debugging-port=${port}`, "--remote-allow-origins=*"], {
     cwd: projectRoot,
     env: { ...environment, STUDI_SELF_TEST: "1", STUDI_SELF_TEST_USER_DATA: userDataDirectory, ...extraEnvironment },
     stdio: ["ignore", "pipe", "pipe"],

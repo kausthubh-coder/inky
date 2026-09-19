@@ -1,9 +1,18 @@
 import { z } from "zod";
 
 import { ManagerStateSchema } from "./manager.js";
-import { TaskIdSchema } from "./ids.js";
+import { TaskIdSchema, OpaqueIdSchema } from "./ids.js";
 import { SafeSourceTargetSchema } from "./ids.js";
 import { IsoTimestampSchema, SchemaVersionSchema } from "./schema-version.js";
+import { AgentRunEventSchema } from "./agent-runtime.js";
+
+export const AssignmentDoubtSchema = z.strictObject({ where: z.string().trim().min(1).max(300), why: z.string().trim().min(1).max(1000) });
+export const AssignmentActionSchema = z.strictObject({
+  actionId: z.string().min(1), occurredAt: IsoTimestampSchema,
+  kind: z.enum(["text", "tool", "retry"]), label: z.string().min(1).max(4000),
+  outcome: z.enum(["started", "succeeded", "failed"]).optional(),
+});
+export type AssignmentAction = z.infer<typeof AssignmentActionSchema>;
 
 export const AutomationScheduleSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
@@ -51,10 +60,22 @@ export const CompletionRequirementSchema = z.strictObject({
   evidence: z.string().trim().min(1).max(1_000),
 });
 
+export const AssignmentCommandOutputSchema = z.strictObject({
+  toolCallId: z.string().min(1),
+  shell: z.enum(["bash", "powershell"]),
+  outcome: z.enum(["succeeded", "failed"]),
+  text: z.string().max(20_000),
+  truncated: z.boolean(),
+  durationMs: z.number().int().nonnegative().optional(),
+  recordedAt: IsoTimestampSchema,
+});
+export type AssignmentCommandOutput = z.infer<typeof AssignmentCommandOutputSchema>;
+
 export const AssignmentExecutionSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   taskId: TaskIdSchema,
   assignmentId: z.string().min(1).max(256),
+  ownerSubject: OpaqueIdSchema.optional(),
   phase: z.enum([
     "working",
     "needs_user",
@@ -75,10 +96,16 @@ export const AssignmentExecutionSchema = z.strictObject({
   handoffDeadline: IsoTimestampSchema.optional(),
   reviewCheckpoint: BrowserCheckpointSchema.optional(),
   answerSnapshot: z.string().trim().min(1).max(20_000).optional(),
+  doubts: z.array(AssignmentDoubtSchema).max(30).optional(),
+  actions: z.array(AssignmentActionSchema).max(160).optional(),
+  activity: z.array(AgentRunEventSchema).max(160).optional(),
+  commandOutputs: z.array(AssignmentCommandOutputSchema).max(20).optional(),
+  startedAt: IsoTimestampSchema.optional(),
   completionChecklist: z.array(CompletionRequirementSchema).min(1).max(100).optional(),
   answerArtifactId: z.string().min(1).max(128).optional(),
   submissionReceiptId: z.string().min(1).max(256).optional(),
   submissionAttemptedAt: IsoTimestampSchema.optional(),
+  reviewSubmissionRequestedAt: IsoTimestampSchema.optional(),
   workerSessionPath: z.string().min(1).optional(),
   lastError: z.string().trim().min(1).max(2_000).optional(),
   updatedAt: IsoTimestampSchema,
@@ -100,7 +127,7 @@ export const AssignmentExecutionSchema = z.strictObject({
 export const NotificationIntentSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   notificationId: z.string().min(1).max(256),
-  kind: z.enum(["handoff", "review_ready", "scan_result", "failure"]),
+  kind: z.enum(["handoff", "review_ready", "scan_result", "failure", "work_start"]),
   target: z.discriminatedUnion("type", [
     z.strictObject({ type: z.literal("task"), id: TaskIdSchema }),
     z.strictObject({ type: z.literal("scan"), id: z.string().min(1).max(256) }),

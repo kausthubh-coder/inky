@@ -17,6 +17,34 @@ import {
 } from "../../dist/shared/index.js";
 
 const execFileAsync = promisify(execFile);
+const redesignMethods = {
+  getConversationTimeline: 'studi:conversation-timeline',
+  listMemories: 'studi:memory-list',
+  readMemory: 'studi:memory-read',
+  updateMemory: 'studi:memory-update',
+  deleteMemory: 'studi:memory-delete',
+  getLearnState: 'studi:learn-state',
+  importLearnSource: 'studi:learn-source-import',
+  importLearnFile: 'studi:learn-file-import',
+  setLearnExam: 'studi:learn-exam-set',
+  findLearnSyllabus: 'studi:learn-syllabus-find',
+  retryLearnSource: 'studi:learn-source-retry',
+  getTutorSession: 'studi:tutor-session',
+  startTutorSession: 'studi:tutor-start',
+  answerTutorBlock: 'studi:tutor-answer',
+  hintTutorBlock: 'studi:tutor-hint',
+  saveTutorDraft: 'studi:tutor-draft',
+  sendTutorMessage: 'studi:tutor-message',
+  pauseTutorSession: 'studi:tutor-pause',
+  resumeTutorSession: 'studi:tutor-resume',
+  cancelTutorSession: 'studi:tutor-cancel',
+  submitAssignmentByRule: 'studi:assignment-submit-rule',
+  correctAssignment: 'studi:assignment-correct',
+  addAssignment: 'studi:assignment-add',
+  setAssignmentOwner: 'studi:assignment-owner',
+  reorderQueue: 'studi:queue-reorder',
+  queueAssignmentNext: 'studi:assignment-queue-next',
+};
 
 test("optional scan intent supports the existing no-argument call and validates assignment scope", async () => {
   const received = [];
@@ -249,6 +277,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "sendScanMessage",
     "pauseSchoolScan",
     "getConversationState",
+    ...Object.keys(redesignMethods),
     "stopConversation",
     "getNotifications",
     "readNotification",
@@ -265,8 +294,10 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "refreshConnectedApp",
     "getWorkspaceState",
     "navigateBrowser",
-    "loginOpenAiCodex",
-    "cancelOpenAiCodexLogin",
+    "loginProvider",
+    "completeProviderLogin",
+    "cancelProviderLogin",
+    "logoutProvider",
     "selectAgentModel",
     "getManagerState",
     "send",
@@ -320,6 +351,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       sendScanMessage: "studi:scan-message",
       pauseSchoolScan: "studi:scan-pause",
       getConversationState: "studi:conversation-state",
+      ...redesignMethods,
       stopConversation: "studi:conversation-stop",
       getNotifications: "studi:notifications",
       readNotification: "studi:notification-read",
@@ -336,8 +368,10 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       refreshConnectedApp: "studi:refresh-connected-app",
       getWorkspaceState: "studi:workspace-state",
       navigateBrowser: "studi:navigate-browser",
-      loginOpenAiCodex: "studi:login-openai-codex",
-      cancelOpenAiCodexLogin: "studi:cancel-openai-codex-login",
+      loginProvider: "studi:login-provider",
+      completeProviderLogin: "studi:complete-provider-login",
+      cancelProviderLogin: "studi:cancel-provider-login",
+      logoutProvider: "studi:logout-provider",
       selectAgentModel: "studi:select-agent-model",
       getManagerState: "studi:manager-state",
       send: "studi:send",
@@ -378,7 +412,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   );
   assert.deepEqual(CONTRACT_MANIFEST, {
     schemaVersion: 1,
-    contractVersion: "18",
+    contractVersion: "19",
     ipcMethods: [
       { method: "getUpdateState", channel: "studi:update-state" },
       { method: "checkForUpdates", channel: "studi:update-check" },
@@ -393,6 +427,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       {method:"sendScanMessage",channel:"studi:scan-message"},
       {method:"pauseSchoolScan",channel:"studi:scan-pause"},
       { method: "getConversationState", channel: "studi:conversation-state" },
+      ...Object.entries(redesignMethods).map(([method, channel]) => ({ method, channel })),
       { method: "stopConversation", channel: "studi:conversation-stop" },
       { method: "getNotifications", channel: "studi:notifications" },
       { method: "readNotification", channel: "studi:notification-read" },
@@ -409,8 +444,10 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       { method: "refreshConnectedApp", channel: "studi:refresh-connected-app" },
       { method: "getWorkspaceState", channel: "studi:workspace-state" },
       { method: "navigateBrowser", channel: "studi:navigate-browser" },
-      { method: "loginOpenAiCodex", channel: "studi:login-openai-codex" },
-      { method: "cancelOpenAiCodexLogin", channel: "studi:cancel-openai-codex-login" },
+      { method: "loginProvider", channel: "studi:login-provider" },
+      { method: "completeProviderLogin", channel: "studi:complete-provider-login" },
+      { method: "cancelProviderLogin", channel: "studi:cancel-provider-login" },
+      { method: "logoutProvider", channel: "studi:logout-provider" },
       { method: "selectAgentModel", channel: "studi:select-agent-model" },
       { method: "getManagerState", channel: "studi:manager-state" },
       { method: "send", channel: "studi:send" },
@@ -461,8 +498,7 @@ test("IPC request and result schemas reject malformed values", () => {
     "retryEntitlement",
     "getUsageState",
     "getWorkspaceState",
-    "loginOpenAiCodex",
-    "cancelOpenAiCodexLogin",
+    "cancelProviderLogin",
     "getManagerState",
     "getSchoolOnboardingState",
     "startSchoolScan",
@@ -481,9 +517,15 @@ test("IPC request and result schemas reject malformed values", () => {
   assert.equal(studiIpcRegistry.navigateBrowser.requestSchema.safeParse({ url: "" }).success, false);
   assert.equal(studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "" }).success, false);
   assert.equal(studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "A".repeat(1_001) }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, true);
+  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "openai-codex", modelId: "" }).success, false);
+  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, false);
+  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "cursor", modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, false);
+  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "anthropic", modelId: "claude-fable-5-1", reasoningEffort: "high" }).success, true);
+  assert.equal(studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "openai" }).success, false);
+  assert.equal(studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "anthropic" }).success, true);
+  assert.equal(studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({ providerId: "anthropic", code: "  " }).success, false);
+  assert.equal(studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({ providerId: "anthropic", code: "abc#state" }).success, true);
+  assert.equal(studiIpcRegistry.logoutProvider.requestSchema.safeParse({ providerId: "openai-codex" }).success, true);
   assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "handoff" }).success, true);
   assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "toast" }).success, false);
   assert.equal(studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({ enabled: true }).success, false);

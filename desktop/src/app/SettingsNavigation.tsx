@@ -1,7 +1,7 @@
 import { Icon } from "./Icon.js";
 
 export const SETTINGS_SECTIONS = [
-  { id: "inky", group: "Inky", label: "Thinking & ChatGPT", hint: "Choose how I think.", keywords: "model reasoning effort connect codex ai account" },
+  { id: "inky", group: "Inky", label: "Thinking & subscription", hint: "Choose which AI I use and how hard I think.", keywords: "model reasoning effort connect codex chatgpt claude anthropic openai ai account subscription" },
   { id: "preferences", group: "Inky", label: "Review & memory", hint: "Set your review time and show or hide saved memories.", keywords: "minutes timer answers wait handoff remember finish saved memories notes show hide" },
   { id: "apps", group: "Inky", label: "Connected apps", hint: "The tools we use together.", keywords: "tools gmail google drive docs notion github connections" },
   { id: "folder", group: "School", label: "Homework folder", hint: "A home for your work.", keywords: "files coding uploads local path directory" },

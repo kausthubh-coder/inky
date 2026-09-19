@@ -52,6 +52,7 @@ export function page(
               <a href={`${origins.school}/`}>Dashboard</a>
               <a href={`${origins.school}/courses`}>My courses</a>
               <a href={`${origins.school}/calendar`}>Calendar</a>
+              <a href={`${origins.school}/exams`}>Exams</a>
               <a href={`${origins.school}/announcements`}>Announcements</a>
               <a href={`${origins.school}/grades`}>Grades</a>
               <a href={`${origins.statistics}/`}>Statistics homework</a>
@@ -60,7 +61,10 @@ export function page(
             </nav>
             <main id="main">
               <div className="eyebrow">
-                Fall 2026 · School time {state.clock.slice(0, 10)} ·{" "}
+                Fall 2026 · School time{" "}
+                <time dateTime={state.clock}>
+                  {new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: state.timezone }).format(new Date(state.clock))}
+                </time> ·{" "}
                 {state.timezone}
               </div>
               <h1>{title}</h1>
@@ -221,7 +225,7 @@ export function renderPublic(
               state,
               origins,
               state.activities
-                .filter((item) => !item.id.includes("-reading-"))
+                .filter((item) => !item.id.includes("-reading-") && item.visibility !== "announcement_only")
                 .slice(0, 5),
               true,
             )}
@@ -239,7 +243,7 @@ export function renderPublic(
               </h2>
               <p>
                 {
-                  state.activities.filter((item) => item.courseId === course.id)
+                  state.activities.filter((item) => item.courseId === course.id && item.visibility !== "announcement_only")
                     .length
                 }{" "}
                 activities
@@ -262,13 +266,16 @@ export function renderPublic(
     );
     if (!course)
       return render("Course not found", <p>Return to the course directory.</p>);
-    const all = state.activities.filter((item) => item.courseId === course.id),
+    const all = state.activities.filter((item) => item.courseId === course.id && item.visibility !== "announcement_only"),
       pageNumber = Math.max(1, Number(url.searchParams.get("page")) || 1),
       size = 5;
     const entries = all.slice((pageNumber - 1) * size, pageNumber * size);
     return render(
       course.title,
       <>
+        {state.syllabi?.some((item) => item.courseId === course.id) ? (
+          <p><a href={`/courses/${course.id}/syllabus`}>Course syllabus and exam topics</a></p>
+        ) : <p>No syllabus has been published for this course.</p>}
         <p>
           {course.code} · Activities{" "}
           {Math.min((pageNumber - 1) * size + 1, all.length)}–
@@ -306,7 +313,7 @@ export function renderPublic(
         {rows(
           state,
           origins,
-          state.activities.filter((item) => !item.id.includes("-reading-")),
+          state.activities.filter((item) => !item.id.includes("-reading-") && item.visibility !== "announcement_only"),
           true,
         )}
       </>,
@@ -343,6 +350,44 @@ export function renderPublic(
         )}
       </>,
     );
+  }
+  const syllabusMatch = /^\/courses\/([^/]+)\/syllabus$/.exec(path);
+  if (syllabusMatch || path === "/exams") {
+    const courseId = syllabusMatch ? decodeURIComponent(syllabusMatch[1]!) : null;
+    const syllabus = state.syllabi?.find((item) => item.courseId === courseId);
+    const exams = (state.exams ?? []).filter((item) => !courseId || item.courseId === courseId);
+    return render(courseId ? "Course syllabus" : "Exams and weighted topics", (
+      <>
+        {courseId && !syllabus && <p>No syllabus has been published for this course.</p>}
+        {syllabus && (
+          <p>
+            <a href={`/files/${syllabus.assetId}`}>
+              {state.assets.find((item) => item.id === syllabus.assetId)?.name}
+            </a> · Updated{" "}
+            <time dateTime={syllabus.updatedAt}>{syllabus.updatedAt.slice(0, 10)}</time>
+          </p>
+        )}
+        {exams.length === 0 && <p>No exam dates or topics have been published.</p>}
+        {exams.map((exam) => (
+          <article key={exam.id}>
+            <h2>{exam.title}</h2>
+            <p>{state.courses.find((item) => item.id === exam.courseId)?.title}</p>
+            <p>
+              Exam date:{" "}
+              <time dateTime={exam.date}>
+                {new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeStyle: "short", timeZone: state.timezone }).format(new Date(exam.date))}
+              </time> ({state.timezone})
+            </p>
+            <ul>
+              {exam.topics.map((topic) => (
+                <li key={topic.id}>Chapter {topic.chapter}: {topic.title} — {topic.weight}% of exam</li>
+              ))}
+            </ul>
+            {!courseId && <a href={`/courses/${exam.courseId}/syllabus`}>Read the syllabus</a>}
+          </article>
+        ))}
+      </>
+    ));
   }
   if (path === "/grades")
     return render(
@@ -435,6 +480,7 @@ export function renderPublic(
         <p>
           <strong>Late policy:</strong> {lateText}
         </p>
+        {item.latePenalty && <p><strong>Late penalty:</strong> {item.latePenalty}</p>}
         <p>
           <strong>Submit through:</strong>{" "}
           {
@@ -451,7 +497,21 @@ export function renderPublic(
           <p className="notice warning">{item.announcement}</p>
         )}
         <h2>Instructions</h2>
+        {item.workKind && <p>Kind of work: {item.workKind.replaceAll("_", " ")}</p>}
         <p>{item.instructions}</p>
+        {item.wordLimit && <p>Word limit: {item.wordLimit} words.</p>}
+        {item.rubric?.length ? (
+          <>
+            <h3>Rubric</h3>
+            <ul>{item.rubric.map((line) => <li key={line}>{line}</li>)}</ul>
+          </>
+        ) : null}
+        {item.requiredStudentFiles?.length ? (
+          <p className="notice warning">
+            Only you have these files: {item.requiredStudentFiles.join(", ")}.
+            Attach the originals from your device; school does not provide them.
+          </p>
+        ) : null}
         <h3>Required work</h3>
         {item.requirements.map((requirement, index) => (
           <p key={index}>
@@ -568,6 +628,7 @@ export function renderPublic(
                   </time>
                 </p>
                 <p>{receipt.files.length} files attached</p>
+                {item.latePenalty && item.dueAt && receipt.submittedAt > item.dueAt && <p>Late submission. {item.latePenalty}</p>}
               </article>
             ))}
           </>

@@ -18,7 +18,7 @@ html[data-desktop] .app-chrome {
   padding-right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%) + 16px);
 }
 html[data-desktop="darwin"] .app-chrome { padding-left: 90px; }
-html[data-desktop] #root:not(:has(.app-chrome))::before {
+html[data-desktop] #root:not(:has(.app-chrome, .rd-tutor-heading))::before {
   content: "studi";
   display: flex;
   align-items: center;
@@ -29,7 +29,7 @@ html[data-desktop] #root:not(:has(.app-chrome))::before {
   font: 600 20px "Shantell Sans", cursive;
   -webkit-app-region: drag;
 }
-html[data-desktop="darwin"] #root:not(:has(.app-chrome))::before { padding-left: 90px; }
+html[data-desktop="darwin"] #root:not(:has(.app-chrome, .rd-tutor-heading))::before { padding-left: 90px; }
 html[data-desktop] .fable-window { height: calc(100dvh - 54px); }
 html[data-desktop] .fable-onboarding, html[data-desktop] .loading-screen { min-height: calc(100dvh - 54px); }
 .chrome-end { display: flex; align-items: center; gap: 6px; }

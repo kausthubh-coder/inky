@@ -43,6 +43,7 @@ const accepted = new Set([
   ".md",
   ".csv",
   ".c",
+  ".h",
   ".java",
   ".html",
   ".zip",

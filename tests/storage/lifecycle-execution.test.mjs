@@ -6,13 +6,22 @@ import test from "node:test";
 
 import { AssignmentExecutionCoordinator } from "../../dist/electron/assignment/coordinator.js";
 import { VisibleBrowserWork } from "../../dist/electron/browser/work-ownership.js";
-import { nextScheduleRun } from "../../dist/electron/lifecycle/schedule.js";
+import { nextScheduleRun, plannedAssignmentStart } from "../../dist/electron/lifecycle/schedule.js";
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
 import { SchoolScanCoordinator } from "../../dist/electron/scan/coordinator.js";
 import { openLocalStore } from "../../dist/electron/storage/index.js";
 import { initializeHomeworkWorkspace } from "../../dist/electron/files/workspace.js";
 
 const initialNow = "2026-09-01T12:00:00.000Z";
+
+test("homework planning uses real deadlines and local working hours without inventing dates", () => {
+  assert.equal(plannedAssignmentStart({}, initialNow, "America/New_York"), undefined);
+  assert.equal(plannedAssignmentStart({ dueAt: "2026-08-31T12:00:00.000Z" }, initialNow, "America/New_York"), undefined);
+  assert.equal(plannedAssignmentStart({ dueAt: "2026-09-03T18:00:00.000Z" }, initialNow, "America/New_York"), "2026-09-02T18:00:00.000Z");
+  assert.equal(plannedAssignmentStart({ dueAt: "2026-09-02T06:00:00.000Z" }, initialNow, "America/New_York"), initialNow);
+  assert.equal(plannedAssignmentStart({ dueAt: "2026-09-02T10:00:00.000Z" }, "2026-09-02T03:00:00.000Z", "America/New_York"), undefined, "a deadline before the next working window cannot promise a start");
+  assert.equal(plannedAssignmentStart({ dueAt: "2026-11-02T07:00:00.000Z" }, "2026-10-31T12:00:00.000Z", "America/New_York"), "2026-11-01T13:00:00.000Z", "daylight-saving change keeps the next 08:00 local start");
+});
 
 test("due schedules coalesce missed occurrences and preserve wall-clock time across DST", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp08-schedule-")));
@@ -186,6 +195,155 @@ test("auto-submit rechecks assignment permission and requires visible post-submi
     assert.notEqual(receipt.preSubmit.revision, receipt.postSubmit.revision);
     execution.dispose();
     manager.dispose();
+  });
+});
+
+for (const mode of ["ready", "doubts", "paused"]) test(`timed review submission respects ${mode} state and retains readable actions`, async () => {
+  await withStore(async (store, root) => {
+    let now = initialNow;
+    seedTask(store, "timer", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("auto", "auto_submit", now));
+    const browser = new FakeBrowser("Answer page", "Submitted successfully");
+    const runtime = new ScriptedRuntime([
+      async (tools, emit) => {
+        emit({ schemaVersion: 1, type: "text", delta: "Checking the answer." });
+        emit({ schemaVersion: 1, type: "tool_started", toolCallId: "inspect", toolName: "browser_snapshot", arguments: { sensitive: "RAW_TOOL_SECRET" } });
+        emit({ schemaVersion: 1, type: "tool_finished", toolCallId: "inspect", toolName: "browser_snapshot", outcome: "succeeded", durationMs: 12, result: "RAW_TOOL_SECRET" });
+        await invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve the problem", evidence: "The answer field contains x = 4" }], summary: "Answer ready", ...(mode === "doubts" ? { doubts: [{ where: "Question 1", why: "The diagram scale is unclear" }] } : {}) });
+      },
+      async tools => {
+        await browser.snapshot();
+        await invoke(tools, "browser_submit", { ref: browser.currentRef, confirmation: "SUBMIT", expectedConfirmationText: "Submitted successfully" });
+      },
+    ]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => now, reviewWindowMs: 60_000, handoffWindowMs: 180_000 });
+    try {
+      const ready = await execution.start("task-timer");
+      assert.equal(ready.phase, "ready_review");
+      assert.equal(ready.startedAt, initialNow);
+      assert.ok(ready.actions.some(action => action.label === "Checking the answer."));
+      assert.ok(ready.actions.some(action => action.kind === "tool" && action.outcome === "succeeded"));
+      assert.doesNotMatch(JSON.stringify(ready.activity), /RAW_TOOL_SECRET/);
+      const reopened = await openLocalStore(root);
+      try {
+        assert.deepEqual(reopened.lifecycle.getExecution("task-timer").actions, ready.actions);
+        assert.deepEqual(reopened.lifecycle.getExecution("task-timer").doubts, ready.doubts);
+      } finally { reopened.close(); }
+      if (mode === "paused") store.lifecycle.putSchedule({ schemaVersion: 1, scheduleId: "school-scan", state: "paused", cadence: "manual", timezone: "UTC", localTime: "08:00", updatedAt: now });
+      now = "2026-09-01T12:01:01.000Z";
+      await execution.reconcileDeadlines();
+      if (mode === "ready") {
+        assert.equal(store.tasks.get("task-timer").state, "submitted");
+        assert.equal(browser.submitClicks, 1);
+        assert.equal(store.lifecycle.getSubmissionReceipt("task-timer").verifiedStatus, "Submitted successfully");
+        await execution.reconcileDeadlines();
+        assert.equal(browser.submitClicks, 1, "a persisted receipt cannot trigger a second submission");
+      } else {
+        assert.equal(browser.submitClicks, 0);
+        assert.equal(store.lifecycle.getExecution("task-timer").phase, "ready_review");
+        if (mode === "doubts") await assert.rejects(execution.submitByRule("task-timer"), /doubt/i);
+      }
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
+
+test("editing review cancels submission before abort finishes and rechecks the rule on fresh review", async () => {
+  await withStore(async store => {
+    let now = initialNow;
+    seedTask(store, "edit-review", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("permission", "auto_submit", now));
+    const review = tools => invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer is filled in" }], summary: "Ready" });
+    const runtime = new ScriptedRuntime([review, review]);
+    let finishAbort;
+    const aborting = new Promise(resolve => { finishAbort = resolve; });
+    const create = runtime.createAssignmentSession.bind(runtime);
+    runtime.createAssignmentSession = async (...args) => ({ ...await create(...args), abort: () => aborting });
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+    const browser = new FakeBrowser("Answer page", "Submitted successfully");
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => now, reviewWindowMs: 60_000, handoffWindowMs: 180_000 });
+    try {
+      const ready = await execution.start("task-edit-review");
+      store.lifecycle.putExecution({ ...ready, reviewSubmissionRequestedAt: initialNow });
+      const takingOver = execution.requestTakeover("task-edit-review");
+      const editing = store.lifecycle.getExecution("task-edit-review");
+      assert.equal(editing.phase, "needs_user");
+      assert.equal(editing.reviewDeadline, undefined);
+      assert.equal(editing.answerSnapshot, ready.answerSnapshot);
+      assert.equal(editing.answerArtifactId, ready.answerArtifactId);
+      assert.equal(manager.state().lease.taskId, ready.taskId);
+      assert.equal(store.tasks.get(ready.taskId).state, "needs_user");
+      now = "2026-09-01T12:01:01.000Z";
+      await execution.reconcileDeadlines();
+      assert.equal(browser.submitClicks, 0);
+      await assert.rejects(execution.submitByRule(ready.taskId), /not ready for review/);
+      finishAbort(); await takingOver;
+      store.permissionRules.put(rule("permission", "attempt", now));
+      const reviewed = await execution.resume(ready.taskId);
+      assert.equal(reviewed.phase, "ready_review");
+      assert.equal(reviewed.reviewSubmissionRequestedAt, undefined, "a cancelled request without an effect does not poison a new review");
+      now = "2026-09-01T12:02:02.000Z";
+      await execution.reconcileDeadlines();
+      assert.equal(browser.submitClicks, 0, "the new attempt-only rule prevents timed submission");
+      await assert.rejects(execution.submitByRule(ready.taskId), /you submit it yourself/);
+    } finally { finishAbort(); execution.dispose(); manager.dispose(); }
+  });
+});
+
+test("new executions stamp their authenticated owner and another owner cannot resume or submit them", async () => {
+  await withStore(async store => {
+    seedTask(store, "owner", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("auto", "auto_submit", initialNow));
+    const browser = new FakeBrowser("Answer page", "Submitted successfully");
+    const runtime = new ScriptedRuntime([tools => invoke(tools, "assignment_start_review", {
+      answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer is filled in" }], summary: "Ready",
+    })]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    const first = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow, ownerSubject: "student-a" });
+    let other;
+    try {
+      const ready = await first.start("task-owner");
+      assert.equal(ready.ownerSubject, "student-a");
+      store.lifecycle.putExecution({ ...ready, ownerSubject: "student-b" });
+      assert.equal(store.lifecycle.getExecution("task-owner").ownerSubject, "student-a", "existing execution ownership cannot be rewritten by a stale save");
+      first.dispose();
+      const saved = store.lifecycle.getExecution("task-owner");
+      const sessionCount = runtime.sessionNumber;
+      other = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => "2026-09-02T12:00:00.000Z", ownerSubject: "student-b" });
+      assert.equal(runtime.sessionNumber, sessionCount, "foreign work is not restored into a worker session");
+      await assert.rejects(other.resume("task-owner"), /another signed-in student/);
+      await assert.rejects(other.continueTurn("task-owner", "Continue"), /another signed-in student/);
+      await assert.rejects(other.submitByRule("task-owner"), /another signed-in student/);
+      await assert.rejects(other.verifyStudentSubmission("task-owner", "Submitted successfully"), /another signed-in student/);
+      await assert.rejects(other.start("task-owner"), /another signed-in student/);
+      await other.reconcileDeadlines();
+      assert.deepEqual(store.lifecycle.getExecution("task-owner"), saved, "another account cannot change the record even when review has expired");
+      assert.equal(browser.submitClicks, 0);
+      assert.equal(runtime.turn, 1);
+    } finally { first.dispose(); other?.dispose(); manager.dispose(); }
+  });
+});
+
+for (const recordedOwner of [undefined, "student-a"]) test(`restart preserves ${recordedOwner ?? "legacy unowned"} execution ownership`, async () => {
+  await withStore(async store => {
+    seedTask(store, "owner-restart", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    const review = tools => invoke(tools, "assignment_start_review", {
+      answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer is filled in" }], summary: "Ready",
+    });
+    const runtime = new ScriptedRuntime([review, review]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    const browser = new FakeBrowser();
+    const first = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow, ...(recordedOwner ? { ownerSubject: recordedOwner } : {}) });
+    let restored;
+    try {
+      assert.equal((await first.start("task-owner-restart")).ownerSubject, recordedOwner);
+      first.dispose();
+      restored = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow, ownerSubject: "student-a" });
+      assert.equal(store.lifecycle.getExecution("task-owner-restart").ownerSubject, recordedOwner);
+      assert.equal((await restored.resume("task-owner-restart")).ownerSubject, recordedOwner);
+      assert.equal(runtime.turn, 2, "same-owner and legacy work may still resume");
+    } finally { first.dispose(); restored?.dispose(); manager.dispose(); }
   });
 });
 
@@ -474,7 +632,7 @@ class ScriptedRuntime {
         if (kind === "assignment") {
           const script = this.scripts[this.turn++];
           if (!script) throw new Error("No assignment script remains");
-          await script(tools);
+          await script(tools, event => { for (const listener of listeners) listener(event); });
         }
         for (const listener of listeners) listener({ schemaVersion: 1, type: "terminal", outcome: "completed" });
       },
@@ -534,7 +692,7 @@ async function withStore(run) {
   const store = await openLocalStore(root);
   try {
     await configureHomework(store, root);
-    await run(store);
+    await run(store, root);
   }
   finally {
     try { store.close(); } catch {}

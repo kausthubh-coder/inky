@@ -8,7 +8,7 @@ import test from "node:test";
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
 import { SchoolScanCoordinator } from "../../dist/electron/scan/coordinator.js";
 import { openLocalStore } from "../../dist/electron/storage/index.js";
-import { nextSchoolScanAction } from "../../dist/shared/index.js";
+import { nextSchoolScanAction, presentSchoolOnboardingScan } from "../../dist/shared/index.js";
 
 const now = "2026-09-01T12:00:00.000Z";
 const rootUrl = "https://school.example.edu/";
@@ -961,4 +961,165 @@ test("school check reports only new or changed work and refuses incomplete inven
   finally { reopened.close(); }
   const incomplete=await coordinator.replay();assert.equal(incomplete.scan.state,"partial");assert.match(incomplete.scan.failures.join(" "),/inventory|directory/);
  }finally{coordinator.dispose();store.close();await rm(root,{recursive:true,force:true,maxRetries:10,retryDelay:100});}
+});
+
+test("scanned kind evidence stays uncertain for mixed quiz/essay work and student deadlines survive replay", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-scan-kind-"));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const runtime = new ScriptedScanRuntime([0, 1].map(() => async tools => {
+    browser.showAssignments();
+    const course = await invoke(tools, "scan_record_course", { label: "Calculus" });
+    browser.url = rootUrl + "assignments/mixed";
+    browser.text = "Calculus Quiz with essay response 2026-09-03T15:00:00.000Z";
+    browser.elements = [];
+    await invoke(tools, "scan_record_assignment", { courseId: course.courseId, title: "Quiz with essay response", dueAt: "2026-09-03T15:00:00.000Z", dueText: "2026-09-03T15:00:00.000Z" });
+    await recordFixtureInventories(tools, browser);
+    await invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "verified" }], navigationHints: [] });
+  }));
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    const first = await scan.startScan();
+    assert.equal(first.scan.state, "succeeded");
+    const assignment = first.assignments[0];
+    assert.equal(assignment.kindConfidence, "uncertain");
+    assert.deepEqual(assignment.possibleKinds, ["quiz", "essay"]);
+    assert.equal(assignment.kind, undefined);
+    store.assignments.setStudentDueDate(assignment.assignmentId, "2026-09-06T15:00:00.000Z", now);
+    const second = await scan.replay();
+    assert.equal(second.scan.state, "succeeded");
+    assert.equal(second.assignments[0].dueAt, "2026-09-06T15:00:00.000Z");
+    assert.equal(second.scan.changes.length, 0, "a stale school date cannot undo or report a change to the student correction");
+    assert.equal(store.school.listScans()[0].scanId, second.scan.scanId);
+    assert.equal(store.school.listScans(1).length, 1);
+    assert.throws(() => store.school.listScans(0));
+  } finally { scan.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("syllabus transfer only saves quoted text from the observed course page", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-scan-syllabus-"));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const sources = [];
+  const runtime = new ScriptedScanRuntime([async tools => {
+    browser.url = rootUrl + "courses/calculus";
+    browser.text = "Calculus Course syllabus";
+    browser.elements = [];
+    const course = await invoke(tools, "scan_record_course", { label: "Calculus" });
+    browser.url = rootUrl + "courses/calculus/syllabus";
+    browser.text = "Calculus Course syllabus\nExam 1 covers limits and derivatives.\nExam 2 covers integration.";
+    const input = { courseId: course.courseId, title: "Course syllabus", text: "Exam 1 covers limits and derivatives.", sourceTarget: browser.url };
+    await assert.rejects(invoke(tools, "scan_record_syllabus", { ...input, courseId: "unknown-course" }), /Verify this course/);
+    await assert.rejects(invoke(tools, "scan_record_syllabus", { ...input, text: "Exam 1 is tomorrow." }), /Quote syllabus text/);
+    await assert.rejects(invoke(tools, "scan_record_syllabus", { ...input, sourceTarget: rootUrl + "courses/other/syllabus" }), /Open the course/);
+    await invoke(tools, "scan_record_syllabus", input);
+    browser.url = rootUrl + "courses/other/syllabus";
+    await assert.rejects(invoke(tools, "scan_record_syllabus", { ...input, sourceTarget: browser.url }), /another course/);
+    assert.equal(sources.length, 1);
+    assert.deepEqual(sources[0], input);
+    await recordFixtureInventories(tools, browser);
+    await invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "verified" }], navigationHints: [] });
+  }]);
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now, recordSyllabus: async source => { sources.push(source); return { saved: true }; } });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    const state = await scan.startScan();
+    assert.equal(state.scan.state, "succeeded", JSON.stringify(state.scan.failures));
+    assert.match(runtime.prompts[0], /syllabus.*exam-plan/);
+    assert.equal(sources.length, 1);
+  } finally { scan.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+for (const action of ["unchecked", "checked", "skipped"]) test(`scan steering preserves ${action} source coverage`, async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-scan-source-steer-"));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const sourceTarget = rootUrl + "extra-work";
+  const runtime = new ScriptedScanRuntime([async tools => {
+    browser.showAssignments();
+    const course = await invoke(tools, "scan_record_course", { label: "Calculus" });
+    browser.elements = [{ role: "link", ref: "extra", name: "Extra homework", href: sourceTarget }];
+    await assert.rejects(invoke(tools, "scan_add_source", { sourceTarget: "https://unobserved.example.edu/" }), /student mentioned|link on the current page/);
+    await invoke(tools, "scan_add_source", { sourceTarget });
+    if (action === "checked") {
+      browser.url = sourceTarget; browser.text = "Calculus No extra assignments"; browser.elements = [];
+      await invoke(tools, "scan_record_source", { kind: "details", courseId: course.courseId, state: "checked" });
+    }
+    if (action === "skipped") {
+      await invoke(tools, "scan_skip_source", { sourceTarget, reason: "Student asked to skip this optional source" });
+      browser.url = sourceTarget;
+      await assert.rejects(invoke(tools, "scan_record_source", { kind: "details", state: "checked" }), /skip/i);
+    }
+    await recordFixtureInventories(tools, browser);
+    await invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "verified" }], navigationHints: [] });
+  }]);
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({ studentName: "Avery", schoolRoot: rootUrl, defaultPermission: "do_not_attempt", scanCadence: "manual" });
+    const state = await scan.startScan();
+    assert.equal(state.scan.state, action === "checked" ? "succeeded" : "partial", JSON.stringify(state.scan.failures));
+    assert.deepEqual(state.scan.addedSourceTargets, [sourceTarget]);
+    if (action !== "checked") assert.match(state.scan.failures.join(" "), action === "skipped" ? /Skipped source/ : /still needs checking/);
+  } finally { scan.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("a provider error ends the scan with its reason so onboarding asks for the sign-in again", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-scan-provider-error-")));
+  const store = await openLocalStore(root);
+  const browser = new RecordingBrowser();
+  const runtime = {
+    async createScanSession(tools) {
+      const listeners = new Set();
+      return {
+        sessionId: "failing-scan",
+        sessionPath: "failing-scan.jsonl",
+        toolNames: tools.map((tool) => tool.name),
+        subscribe: (listener) => (listeners.add(listener), () => listeners.delete(listener)),
+        prompt: async () => {
+          for (const listener of listeners) {
+            listener({
+              schemaVersion: 1,
+              type: "terminal",
+              outcome: "failed",
+              reason:
+                'OAuth refresh failed for openai-codex (401): {"error":{"message":"Your refresh token has already been used. Please try signing in again.","code":"refresh_token_reused"}}',
+            });
+          }
+        },
+        compact: async () => {},
+        abort: async () => {},
+        replace: async () => {},
+        dispose() {},
+      };
+    },
+  };
+  const scan = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+  try {
+    await scan.saveProfile({
+      studentName: "Avery",
+      schoolRoot: rootUrl,
+      defaultPermission: "do_not_attempt",
+      scanCadence: "manual",
+    });
+    const state = await scan.startScan();
+    assert.equal(state.scan.state, "failed");
+    assert.match(state.scan.failures[0], /refresh token has already been used/);
+    assert.doesNotMatch(state.scan.failures[0], /[{}]/);
+    assert.equal(
+      presentSchoolOnboardingScan(state, { state: "ready", reason: "ChatGPT is ready." }).kind,
+      "runtime_login",
+    );
+    scan.providerReconnected();
+    const recovered = await scan.state();
+    assert.equal(recovered.scan.state, "failed", "reconnecting must not pretend the scan succeeded");
+    assert.deepEqual(recovered.scan.failures, state.scan.failures, "retain the original failure evidence");
+    assert.equal(presentSchoolOnboardingScan(recovered, { state: "ready", reason: "ChatGPT is ready." }).kind, "retry");
+    const failedAgain = await scan.resume();
+    assert.equal(presentSchoolOnboardingScan(failedAgain, { state: "ready", reason: "ChatGPT is ready." }).kind, "runtime_login", "a new auth failure requires a new sign-in");
+  } finally {
+    scan.dispose();
+    store.close();
+    await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+  }
 });

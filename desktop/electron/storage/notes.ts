@@ -44,6 +44,7 @@ export interface NoteListFilter {
 
 export class NoteStore {
   readonly rootDirectory: string;
+  #operations: Promise<unknown> = Promise.resolve();
 
   constructor(
     rootDirectory: string,
@@ -76,10 +77,17 @@ export class NoteStore {
     return authoritative.length;
   }
 
-  async upsert(value: unknown): Promise<NoteDocument> {
+  async upsert(value: unknown, options: { expectedRevision?: number | null; assertAuthorized?: () => unknown } = {}): Promise<NoteDocument> {
+    return this.#serialize(() => this.#upsert(value, options));
+  }
+
+  async #upsert(value: unknown, options: { expectedRevision?: number | null; assertAuthorized?: () => unknown }): Promise<NoteDocument> {
+    options.assertAuthorized?.();
     const input = parseUpsert(value);
     assertSafeContent(input.content);
-    const prior = this.#findIdentity(input);
+    let prior = this.#findIdentity(input);
+    if (prior) { await this.#read(prior.noteId); prior = this.#findIdentity(input); }
+    if (options.expectedRevision !== undefined && (prior?.revision ?? null) !== options.expectedRevision) throw new Error("This memory changed. Reload it before saving.");
     const noteId = prior?.noteId ?? `note-${createHash("sha256").update(identityKey(input)).digest("hex").slice(0, 24)}`;
     const document = NoteDocumentSchema.parse({
       frontmatter: {
@@ -105,6 +113,7 @@ export class NoteStore {
       await handle.sync();
       await handle.close();
       handle = undefined;
+      options.assertAuthorized?.();
       await rename(temporary, target);
       this.database.injectFailure("note_after_rename_before_index");
       const entry = this.#entry(document, target);
@@ -121,6 +130,10 @@ export class NoteStore {
   }
 
   async read(noteId: string): Promise<NoteDocument | null> {
+    return this.#serialize(() => this.#read(noteId));
+  }
+
+  async #read(noteId: string): Promise<NoteDocument | null> {
     const entry = this.#getIndex(noteId);
     if (!entry) return null;
     const path = this.#resolveIndexedPath(entry.markdownPath);
@@ -141,6 +154,36 @@ export class NoteStore {
       this.database.transaction(() => this.#putIndex(actual));
     }
     return document;
+  }
+
+  /** Removing authoritative Markdown first prevents reconciliation from reviving a forgotten note. */
+  async delete(noteId: string, expectedRevision: number, assertAuthorized?: () => unknown): Promise<void> {
+    return this.#serialize(async () => {
+      assertAuthorized?.();
+      const document = await this.#read(noteId);
+      if (!document) throw new Error("This memory was already removed");
+      if (!Number.isInteger(expectedRevision) || document.frontmatter.revision !== expectedRevision) throw new Error("This memory changed. Reload it before forgetting it.");
+      assertAuthorized?.();
+      const target = this.#pathFor(document.frontmatter);
+      // No await between authorization/revision checks, unlink, and index removal.
+      unlinkSync(target);
+      this.database.injectFailure("note_after_unlink_before_index");
+      this.database.handle.prepare("DELETE FROM note_index WHERE note_id = ? AND revision = ?").run(noteId, expectedRevision);
+    });
+  }
+
+  #serialize<T>(operation: () => Promise<T>): Promise<T> {
+    const result = this.#operations.then(operation);
+    this.#operations = result.catch(() => undefined);
+    return result;
+  }
+
+  async drain(): Promise<void> {
+    while (true) {
+      const pending = this.#operations;
+      await pending;
+      if (pending === this.#operations) return;
+    }
   }
 
   list(filter: NoteListFilter = {}): NoteIndexEntry[] {

@@ -4,6 +4,9 @@ import type { AppScreen } from "./Ui.js";
 import type { SettingsSectionId } from "./SettingsNavigation.js";
 
 export type DevPreviewScenarioId =
+  | "today" | "today-clear" | "today-needs" | "today-working" | "desk-submitting"
+  | "learn" | "learn-empty" | "learn-reading" | "learn-error" | "learn-partial"
+  | "tutor-choice" | "tutor-typed" | "tutor-explain" | "tutor-population" | "tutor-flashcards" | "tutor-number-line" | "tutor-function-plot" | "tutor-code" | "tutor-paused" | "tutor-finished"
   | "auth"
   | "onboarding-welcome" | "onboarding-chatgpt" | "onboarding-connections" | "onboarding-folder"
   | "onboarding-school" | "onboarding-permission" | "onboarding-schedule" | "onboarding-signin"

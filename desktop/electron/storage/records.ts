@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validateLearnRecords } from "./learn-records.js";
 
 import {
   AssignmentSchema,
@@ -87,6 +88,7 @@ function assertStoredColumns(
 }
 
 export function validatePersistedRecords(database: StudiSqliteDatabase): void {
+  validateLearnRecords(database);
   for (const row of database.handle.prepare("SELECT kind, old_id, record_json FROM record_redirects").all()) {
     if (row.kind !== "assignment" && row.kind !== "task" && row.kind !== "course") throw new Error("Invalid redirect kind");
     const original = JSON.parse(String(row.record_json));
@@ -323,7 +325,12 @@ export class AssignmentRepository {
 
   put(value: unknown): Assignment {
     const parsed = parseRecord(AssignmentSchema, value, "assignment");
-    const record = { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId) };
+    const prior = this.get(parsed.assignmentId);
+    const override = prior?.dueDateOverride ?? parsed.dueDateOverride;
+    const record = { ...parsed, courseId: resolveRecordId(this.database, "course", parsed.courseId),
+      ...(override ? { dueDateOverride: override, dueAt: override.dueAt, dueText: undefined, deadlinePrecision: "datetime" as const } : {}),
+      ...(prior?.ignoredReason ? { ignoredReason: prior.ignoredReason, ignoredNote: prior.ignoredNote } : {}),
+    };
     if (resolveRecordId(this.database, "assignment", record.assignmentId) !== record.assignmentId) {
       throw new Error("This assignment was merged; refresh its canonical record before saving");
     }
@@ -354,6 +361,17 @@ export class AssignmentRepository {
       .prepare("SELECT record_json FROM assignments WHERE assignment_id = ?")
       .get(assignmentId) as JsonRow | undefined;
     return row ? parseJson(AssignmentSchema, row.record_json, "assignment") : null;
+  }
+
+  setStudentDueDate(assignmentId: string, dueAt: string, updatedAt: string): Assignment {
+    return this.database.transaction(() => {
+      const prior = this.get(assignmentId);
+      if (!prior) throw new Error("This assignment is no longer available.");
+      const record = AssignmentSchema.parse({ ...prior, dueAt, dueText: undefined, deadlinePrecision: "datetime", dueDateOverride: { dueAt, updatedAt } });
+      this.database.handle.prepare("UPDATE assignments SET due_at = ?, record_json = ? WHERE assignment_id = ?")
+        .run(record.dueAt!, JSON.stringify(record), record.assignmentId);
+      return record;
+    });
   }
 
   listByCourse(courseId: string): Assignment[] {

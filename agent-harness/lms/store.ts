@@ -10,8 +10,22 @@ import {
   type Effect,
   type SchoolState,
   type Upload,
+  type Service,
 } from "./domain.js";
-import { createScenario } from "./scenarios.js";
+import { createScenario, refreshSyllabus } from "./scenarios.js";
+
+export interface AdvanceOptions {
+  activityId?: string;
+  service?: Service;
+  answer?: string;
+  minutes?: number;
+  examId?: string;
+}
+
+function mergeUploads(previous: Upload[], incoming: Upload[]): Upload[] {
+  // Re-uploading a corrected source file replaces that draft version.
+  return [...new Map([...previous, ...incoming].map((file) => [file.name, file])).values()];
+}
 
 export class SchoolStore {
   readonly database: DatabaseSync;
@@ -107,7 +121,7 @@ export class SchoolStore {
       }),
     );
   }
-  save(id: string, answer: string, files: Upload[], revision: number): void {
+  save(id: string, answer: string, files: Upload[], revision: number, submissionTimeout = false): void {
     this.change(
       "draft_saved",
       { fileCount: files.length, answerBytes: Buffer.byteLength(answer) },
@@ -123,10 +137,16 @@ export class SchoolStore {
           );
         state.drafts[id] = {
           answer,
-          files: [...(previous?.files ?? []), ...files],
+          files: mergeUploads(previous?.files ?? [], files),
           revision: revision + 1,
         };
         activity.status = "draft";
+        if (submissionTimeout) {
+          state.faults.assignmentTimeoutsRemaining = Math.max(0, (state.faults.assignmentTimeoutsRemaining ?? 0) - 1);
+          // record() participates in this transaction: a restart cannot retain
+          // the draft while forgetting that this timeout was consumed.
+          this.record("fault_triggered", { fault: "double-timeout", action: "submit" }, id);
+        }
       },
       id,
     );
@@ -179,7 +199,7 @@ export class SchoolStore {
           );
         if (!answer.trim())
           throw new SchoolError(400, "Enter a response before submitting.");
-        const submittedFiles = [...(draft?.files ?? []), ...files];
+        const submittedFiles = mergeUploads(draft?.files ?? [], files);
         for (const extension of activity.requiredFiles)
           if (
             !submittedFiles.some((file) =>
@@ -191,6 +211,11 @@ export class SchoolStore {
               `Upload the required ${extension} file before submitting.`,
             );
         const receiptId = randomUUID();
+        for (const name of activity.requiredFileNames ?? []) {
+          const matches = submittedFiles.filter((file) => file.name === name);
+          if (matches.length !== 1 || matches[0]!.bytes === 0)
+            throw new SchoolError(400, `Upload exactly one nonempty ${name} file before submitting.`);
+        }
         state.submissions.push({
           id: receiptId,
           activityId: id,
@@ -230,8 +255,8 @@ export class SchoolStore {
       id,
     );
   }
-  advance(event: string): void {
-    this.change("school_advanced", { event }, (state) => {
+  advance(event: string, options: AdvanceOptions = {}): void {
+    this.change("school_advanced", { event, ...options }, (state) => {
       if (event === "next-week") {
         state.clock = "2026-09-20T16:00:00.000Z";
         state.courses.find((course) => course.id === "programming")!.title =
@@ -262,8 +287,41 @@ export class SchoolStore {
         changed.announcement =
           "The due date has changed to September 16 at 11:59 PM Eastern. The dashboard may still show the old date.";
       } else if (event === "restore-access") {
+        state.sessions.school = true;
         state.sessions.statistics = true;
         state.sessions.feedback = true;
+      } else if (event === "expire-session") {
+        const service = options.service ?? "school";
+        if (!Object.hasOwn(state.sessions, service)) throw new SchoolError(400, "Unknown service.");
+        state.sessions[service] = false;
+      } else if (event === "student-edit") {
+        const id = options.activityId ?? "observation";
+        const item = activityById(state, id);
+        const reason = unavailableReason(state, item);
+        if (reason) throw new SchoolError(409, reason);
+        const previous = state.drafts[id];
+        const answer = options.answer ?? "Student edit: rain drummed on the green awning.";
+        if (typeof answer !== "string" || answer.length > 100_000)
+          throw new SchoolError(400, "Invalid student response.");
+        state.drafts[id] = { answer, files: previous?.files ?? [], revision: (previous?.revision ?? 0) + 1 };
+        item.status = "draft";
+      } else if (event === "advance-minutes") {
+        const minutes = options.minutes;
+        if (typeof minutes !== "number" || !Number.isSafeInteger(minutes) || minutes <= 0 || minutes > 525_600)
+          throw new SchoolError(400, "Minutes must be an integer from 1 to 525600.");
+        state.clock = new Date(Date.parse(state.clock) + minutes * 60_000).toISOString();
+      } else if (event === "double-timeout") {
+        state.faults.assignmentTimeoutsRemaining = 2;
+      } else if (event === "exam-moved") {
+        const exam = state.exams?.find((item) => item.id === (options.examId ?? "structures-midterm"));
+        if (!exam) throw new SchoolError(400, "Exam not found.");
+        // Fixed replacement makes operator retries idempotent.
+        exam.date = "2026-09-24T17:00:00.000Z";
+        const syllabus = state.syllabi?.find((item) => item.courseId === exam.courseId);
+        if (syllabus) {
+          syllabus.updatedAt = state.clock;
+          refreshSyllabus(state, exam.courseId);
+        }
       } else if (event === "release-feedback") {
         const item = activityById(state, "hidden-feedback");
         item.gradeVisible = true;

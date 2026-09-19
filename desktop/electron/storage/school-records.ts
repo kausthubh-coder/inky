@@ -173,11 +173,17 @@ export class SchoolRepository {
     return row ? this.#canonicalScan(parseScanRow(row.scan_id, row)) : null;
   }
 
+  listScans(limit = 100): SchoolScan[] {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("Scan history limit must be between 1 and 1000.");
+    const rows = this.database.handle.prepare("SELECT scan_id FROM school_scans ORDER BY started_at DESC, rowid DESC LIMIT ?").all(limit);
+    return rows.map(row => this.getScan(String(row.scan_id))!);
+  }
+
   completedOnboardingAt(schoolRoot: string): string | undefined {
     const rows = this.database.handle.prepare("SELECT record_json FROM school_scans WHERE state IN ('succeeded', 'partial') AND completed_at IS NOT NULL ORDER BY rowid DESC").all() as JsonRow[];
     for (const row of rows) {
       const scan = parseRow(SchoolScanSchema, row, "school scan");
-      if (!scan.targetAssignmentId && scan.coverage.some(item => item.evidence && new URL(item.evidence.sourceTarget).origin === new URL(schoolRoot).origin)) return scan.completedAt;
+      if (!scan.targetAssignmentId && !scan.sourceScanTarget && scan.coverage.some(item => item.evidence && new URL(item.evidence.sourceTarget).origin === new URL(schoolRoot).origin)) return scan.completedAt;
     }
     return undefined;
   }

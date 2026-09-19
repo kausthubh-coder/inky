@@ -1,6 +1,10 @@
 export * from "./assignment.js";
+export * from "./homework.js";
 export * from "./agent-runtime.js";
 export * from "./agent-job.js";
+export * from "./conversation-timeline.js";
+export * from "./learn.js";
+export * from "./tutor.js";
 export * from "./auth.js";
 export * from "./browser-agent.js";
 export * from "./composio.js";
@@ -17,6 +21,7 @@ export * from "./manager.js";
 export * from "./note.js";
 export * from "./permission.js";
 export * from "./product.js";
+export * from "./providers.js";
 export * from "./run.js";
 export * from "./school-scan.js";
 export * from "./schema-version.js";
@@ -26,3 +31,5 @@ export * from "./tool.js";
 export * from "./usage.js";
 
 export * from "./updates.js";
+export * from "./learn-state.js";
+export * from "./memory.js";

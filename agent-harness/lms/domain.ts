@@ -7,6 +7,16 @@ export const ServiceSchema = z.enum([
   "feedback",
 ]);
 export type Service = z.infer<typeof ServiceSchema>;
+export const WorkKindSchema = z.enum([
+  "code",
+  "discussion",
+  "essay",
+  "group_work",
+  "problem_set",
+  "quiz",
+  "reading",
+]);
+export type WorkKind = z.infer<typeof WorkKindSchema>;
 export const CourseSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -36,9 +46,16 @@ export const ActivitySchema = z.object({
   ]),
   requirements: z.array(z.string()),
   requiredFiles: z.array(z.string()),
+  requiredFileNames: z.array(z.string()).optional(),
   attachments: z.array(z.string()),
   prerequisites: z.array(z.string()),
   maxAttempts: z.number().int().positive(),
+  workKind: WorkKindSchema.optional(),
+  visibility: z.enum(["course", "announcement_only"]).optional(),
+  requiredStudentFiles: z.array(z.string()).optional(),
+  rubric: z.array(z.string()).optional(),
+  wordLimit: z.number().int().positive().optional(),
+  latePenalty: z.string().optional(),
   announcement: z.string().optional(),
   dashboardDueText: z.string().optional(),
   extensionAt: z.string().optional(),
@@ -80,6 +97,24 @@ export interface Effect {
   activityId?: string;
   detail: Record<string, unknown>;
 }
+export interface ExamTopic {
+  id: string;
+  title: string;
+  chapter: number;
+  weight: number;
+}
+export interface Exam {
+  id: string;
+  courseId: string;
+  title: string;
+  date: string;
+  topics: ExamTopic[];
+}
+export interface Syllabus {
+  courseId: string;
+  assetId: string;
+  updatedAt: string;
+}
 export interface SchoolState {
   schemaVersion: 1;
   scenarioId: string;
@@ -90,6 +125,8 @@ export interface SchoolState {
   courses: Course[];
   activities: Activity[];
   assets: Asset[];
+  exams?: Exam[];
+  syllabi?: Syllabus[];
   drafts: Record<string, Draft>;
   submissions: Submission[];
   completed: string[];
@@ -99,6 +136,7 @@ export interface SchoolState {
     courseFailurePending: boolean;
     lostSubmitResponsePending: boolean;
     downloadFailurePending: boolean;
+    assignmentTimeoutsRemaining?: number;
   };
   builds: {
     revision: string;
@@ -147,10 +185,12 @@ export function validateState(state: SchoolState): void {
     state.activities.map((item) => ActivitySchema.parse(item).id),
   );
   const assets = new Set(state.assets.map((item) => item.id));
+  const exams = new Set((state.exams ?? []).map((item) => item.id));
   if (
     courses.size !== state.courses.length ||
     activities.size !== state.activities.length ||
-    assets.size !== state.assets.length
+    assets.size !== state.assets.length ||
+    exams.size !== (state.exams ?? []).length
   )
     throw new Error("Duplicate entity IDs");
   for (const activity of state.activities) {
@@ -163,6 +203,27 @@ export function validateState(state: SchoolState): void {
     for (const date of [activity.dueAt, activity.closeAt, activity.extensionAt])
       if (date && !Number.isFinite(Date.parse(date)))
         throw new Error(`Invalid date for ${activity.id}`);
+  }
+  for (const syllabus of state.syllabi ?? []) {
+    if (!courses.has(syllabus.courseId) || !assets.has(syllabus.assetId))
+      throw new Error(`Invalid syllabus for ${syllabus.courseId}`);
+  }
+  for (const exam of state.exams ?? []) {
+    if (!courses.has(exam.courseId) || !Number.isFinite(Date.parse(exam.date)))
+      throw new Error(`Invalid exam ${exam.id}`);
+    if (
+      exam.topics.length === 0 ||
+      new Set(exam.topics.map((topic) => topic.id)).size !== exam.topics.length ||
+      exam.topics.some(
+        (topic) =>
+          !Number.isInteger(topic.chapter) ||
+          topic.chapter < 1 ||
+          !Number.isFinite(topic.weight) ||
+          topic.weight <= 0,
+      ) ||
+      exam.topics.reduce((sum, topic) => sum + topic.weight, 0) !== 100
+    )
+      throw new Error(`Invalid weighted topics for ${exam.id}`);
   }
   const visiting = new Set<string>(),
     visited = new Set<string>();
