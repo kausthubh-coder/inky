@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { assignmentWorkEligibility } from "../../shared/index.js";
 import type {
   Assignment,
   LibraryState,
@@ -548,6 +549,8 @@ function TodayRow({
   const live = ["working", "submitting"].includes(item.phase);
   const execution = item.task?.execution;
   const need = execution?.returnPredicate ?? execution?.lastError ?? "";
+  const starting = first && !done && !needs && !live;
+  const startBlocked = starting && (working || !item.task?.permission.mayAttempt || !assignmentWorkEligibility(a, now.toISOString()).eligible);
   const actionLabel =
     item.phase === "ready_review"
       ? "Review"
@@ -601,7 +604,7 @@ function TodayRow({
         {actionLabel ? (
           <button
             className={`rd-button ${item.phase === "ready_review" ? "rd-primary" : ""}`}
-            disabled={busy}
+            disabled={busy || startBlocked}
             onClick={first && !done && !needs && !live ? onStart : onOpen}
           >
             {actionLabel}

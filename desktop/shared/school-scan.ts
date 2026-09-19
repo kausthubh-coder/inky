@@ -81,6 +81,7 @@ export const SchoolScanSchema = z.strictObject({
   startedAt: IsoTimestampSchema,
   updatedAt: IsoTimestampSchema,
   completedAt: IsoTimestampSchema.optional(),
+  runtimeLoginRecoveredAt: IsoTimestampSchema.optional(),
   currentStep: z.string().trim().min(1).max(500),
   coverage: z.array(SchoolScanCoverageSchema).max(500),
   failures: z.array(z.string().trim().min(1).max(500)).max(100),
@@ -219,7 +220,7 @@ export function presentSchoolOnboardingScan(
 ): SchoolOnboardingScanPresentation {
   const scan = state?.scan;
   if (scan?.state === "running") return { step: 6, kind: "scanning" };
-  const failureText = scan?.state === "failed" ? scan.failures?.[0] ?? scan.currentStep : null;
+  const failureText = scan?.state === "failed" && !scan.runtimeLoginRecoveredAt ? scan.failures?.[0] ?? scan.currentStep : null;
   const attention = classifyAgentRuntimeAttention(provider, failureText);
   if (attention === "needs_login") return { step: 1, kind: "runtime_login" };
   if (attention === "usage") return { step: 7, kind: "runtime_usage" };

@@ -1110,6 +1110,13 @@ test("a provider error ends the scan with its reason so onboarding asks for the 
       presentSchoolOnboardingScan(state, { state: "ready", reason: "ChatGPT is ready." }).kind,
       "runtime_login",
     );
+    scan.providerReconnected();
+    const recovered = await scan.state();
+    assert.equal(recovered.scan.state, "failed", "reconnecting must not pretend the scan succeeded");
+    assert.deepEqual(recovered.scan.failures, state.scan.failures, "retain the original failure evidence");
+    assert.equal(presentSchoolOnboardingScan(recovered, { state: "ready", reason: "ChatGPT is ready." }).kind, "retry");
+    const failedAgain = await scan.resume();
+    assert.equal(presentSchoolOnboardingScan(failedAgain, { state: "ready", reason: "ChatGPT is ready." }).kind, "runtime_login", "a new auth failure requires a new sign-in");
   } finally {
     scan.dispose();
     store.close();

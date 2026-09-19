@@ -121,8 +121,10 @@ export function StudiApp() {
   useEffect(() => {
     const studi = window.studi;
     if (!studi || !authorized) return;
-    if (!onboarded) {
-      void studi.setBrowserLayout({ mode: onboarding?.profile ? "onboarding" : "hidden" }).catch(() => undefined);
+    // Onboarding owns its browser visibility because sign-in can return to an earlier step.
+    if (!onboarded) return;
+    if (workspace?.providerLogin) {
+      void studi.setBrowserLayout({ mode: "hidden" }).catch(() => undefined);
       return;
     }
     if (schoolSlot) {
@@ -130,7 +132,7 @@ export function StudiApp() {
       return;
     }
     void studi.setBrowserLayout({ mode: "hidden" }).catch(() => undefined);
-  }, [authorized, onboarded, onboarding?.profile, showingLiveDesk, schoolSlot]);
+  }, [authorized, onboarded, workspace?.providerLogin, showingLiveDesk, schoolSlot]);
 
   useEffect(() => {
     const studi = window.studi; if (!studi) return; let cancelled = false;
@@ -162,7 +164,7 @@ export function StudiApp() {
   const completeRuntimeLogin = async (code: string) => { const studi = window.studi; const providerId = workspace?.providerLogin?.providerId; if (!studi || !providerId) return; setError(null); try { setWorkspace(await studi.completeProviderLogin({ providerId, code })); } catch (cause) { setError(formatError(cause)); } };
   const cancelRuntimeLogin = async () => { const studi = window.studi; if (!studi) return; setError(null); try { setWorkspace(await studi.cancelProviderLogin()); } catch (cause) { setError(formatError(cause)); } };
   const disconnectRuntime = async (providerId: AgentProviderId) => { const studi = window.studi; if (!studi) return; await action("provider", () => studi.logoutProvider({ providerId }), setWorkspace); };
-  const selectAgentRuntime = async (providerId: AgentProviderId, modelId: string, reasoningEffort?: AgentReasoningEffort) => { const studi = window.studi; if (!studi) return; const effort = reasoningEffort ?? workspace?.selectedReasoningEffort ?? "medium"; await action("model", () => studi.selectAgentModel({ providerId, modelId, reasoningEffort: effort }), setWorkspace); };
+  const selectAgentRuntime = async (providerId: AgentProviderId, modelId: string, reasoningEffort?: AgentReasoningEffort) => { const studi = window.studi; if (!studi) return; const effort = reasoningEffort ?? workspace?.selectedReasoningEffort ?? "high"; await action("model", () => studi.selectAgentModel({ providerId, modelId, reasoningEffort: effort }), setWorkspace); };
   const switchProvider = () => { setSettingsLanding("settings"); setScreen("settings"); };
   const saveProfile = async () => { const studi = window.studi; if (!studi) return; await action("profile", () => studi.saveSchoolProfile({ studentName, schoolRoot: schoolUrl, defaultPermission, scanCadence }), async (state) => { setOnboarding(state); setLifecycle(await studi.getLifecycleState()); setWorkspace(await studi.navigateBrowser({ url: schoolUrl })); }); };
   const openSchool = async () => { const studi = window.studi; if (studi) await action("navigate", () => studi.navigateBrowser({ url: schoolUrl }), setWorkspace); };

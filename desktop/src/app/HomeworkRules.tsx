@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type {
   PermissionMode,
   PermissionRule,
@@ -60,6 +60,10 @@ export function HomeworkRules({
   const existing = rules.find(
     (rule) => permissionRuleTargetKey(rule) === permissionRuleTargetKey(input),
   );
+  const targetKey = permissionRuleTargetKey(input);
+  useEffect(() => {
+    setMode(existing?.mode ?? "attempt");
+  }, [targetKey, existing?.mode]);
   const valid =
     scope === "global" ||
     (scope === "assignment" ? !!assignmentId : !!courseId);
@@ -107,6 +111,8 @@ export function HomeworkRules({
           <label>
             For
             <select
+              aria-label="Apply this rule to"
+              disabled={busy}
               value={scope}
               onChange={(event) => setScope(event.target.value as typeof scope)}
             >
@@ -120,6 +126,8 @@ export function HomeworkRules({
             <label>
               Class
               <select
+                aria-label="Which class?"
+                disabled={busy}
                 value={courseId}
                 onChange={(event) => setCourse(event.target.value)}
               >
@@ -135,6 +143,8 @@ export function HomeworkRules({
             <label>
               Kind
               <select
+                aria-label="Which kind?"
+                disabled={busy}
                 value={kind}
                 onChange={(event) => setKind(event.target.value)}
               >
@@ -150,6 +160,8 @@ export function HomeworkRules({
             <label>
               Assignment
               <select
+                aria-label="Which assignment?"
+                disabled={busy}
                 value={assignmentId}
                 onChange={(event) => setAssignment(event.target.value)}
               >

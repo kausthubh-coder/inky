@@ -174,7 +174,7 @@ export function installDevPreview(): void {
     ],
     selectedProviderId: settings.preferences.agentProviderId,
     providerLogin: null,
-    models: [{ providerId: "openai-codex", id: DEFAULT_AGENT_MODEL_ID, name: "GPT-6 Astra" }, { providerId: "anthropic", id: "claude-fable-5-1", name: "Claude Fable 5.1" }],
+    models: [{ providerId: "openai-codex", id: DEFAULT_AGENT_MODEL_ID, name: "GPT-5.6 Sol" }, { providerId: "anthropic", id: "claude-fable-5-1", name: "Claude Fable 5.1" }],
     selectedModelId: settings.preferences.agentModelId,
     selectedReasoningEffort: settings.preferences.agentReasoningEffort,
   });

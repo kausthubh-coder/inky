@@ -58,8 +58,8 @@ export async function verifyConnectedAppsPreview(page, base = "http://127.0.0.1:
       await settle("gmail", "ACTIVE");
       await expectText("gmail", "All good · connected");
       if (route === "settings-apps") {
-        await page.getByRole("button", { name: "Homework folder", exact: true }).click();
-        await page.getByRole("button", { name: "Connected apps", exact: true }).click();
+        await page.getByRole("heading", { name: "The folder I may use", exact: true }).scrollIntoViewIfNeeded();
+        await row("gmail").scrollIntoViewIfNeeded();
         await expectText("gmail", "All good · connected");
       }
       for (const status of ["DISCONNECTED", null, "FAILED", "INACTIVE"]) {

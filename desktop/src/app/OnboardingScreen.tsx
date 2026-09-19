@@ -108,6 +108,11 @@ export function OnboardingScreen({
   const inkyDriving = workspace?.browser.driver === "inky";
   const inkyState = inkyDriving ? "steering" : current.inky;
   const browserStage = step >= 7;
+  useEffect(() => {
+    // Native WebContentsView sits above React; hide it whenever the school pane is absent.
+    void window.studi?.setBrowserLayout({ mode: browserStage && !providerLogin ? "onboarding" : "hidden" }).catch(() => undefined);
+    return () => { void window.studi?.setBrowserLayout({ mode: "hidden" }).catch(() => undefined); };
+  }, [browserStage, providerLogin]);
   const title = current.title;
   const chat = useMemo(() => {
     const ids: OnboardingStep[] = [];
@@ -255,6 +260,7 @@ function stepCopy(
     return { ...base, body: "I found some of it. I'll keep what's missing empty." };
   }
   if (id === 9 && presentation.kind === "retry") {
+    if (scan?.runtimeLoginRecoveredAt) return { ...base, inky: "idle", title: "You're connected again.", body: "I saved where I stopped. Tell me to continue checking school." };
     return {
       ...base,
       title: "That didn't finish.",

@@ -39,6 +39,7 @@ export function LearnScreen({
     [date, setDate] = useState(""),
     [examTitle, setExamTitle] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const [loadError, setLoadError] = useState("");
   const mounted = useRef(true),
     lock = useRef(false),
     previewOpened = useRef(false);
@@ -54,7 +55,7 @@ export function LearnScreen({
         );
         if (mounted.current) {
           setState(next);
-          setError("");
+          setLoadError("");
           if (
             !previewOpened.current &&
             readDevPreviewConfig()?.id.startsWith("tutor-") &&
@@ -66,7 +67,7 @@ export function LearnScreen({
         }
       } catch (cause) {
         if (mounted.current)
-          setError(cause instanceof Error ? cause.message : String(cause));
+          setLoadError(cause instanceof Error ? cause.message : String(cause));
       } finally {
         reading = false;
       }
@@ -229,15 +230,15 @@ export function LearnScreen({
               Something else
             </button>
           </nav>
-          {error && (
+          {(error || loadError) && (
             <p className="rd-error" role="alert">
-              {error}
-              <button
+              {error || loadError}
+              {!error && <button
                 className="rd-link"
                 onClick={() => setRefresh((value) => value + 1)}
               >
                 Try again
-              </button>
+              </button>}
             </p>
           )}
           {!state && !error && <p role="status">Opening your learning plan…</p>}

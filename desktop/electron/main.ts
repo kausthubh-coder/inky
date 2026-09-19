@@ -359,6 +359,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   loginProvider: async ({ providerId }) => {
     requireRuntimeLoginAttempt().start(providerId);
+    layoutSchoolBrowser();
     return readWorkspaceState();
   },
   completeProviderLogin: async ({ providerId, code }) => {
@@ -367,6 +368,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   cancelProviderLogin: async () => {
     requireRuntimeLoginAttempt().cancel();
+    layoutSchoolBrowser();
     return readWorkspaceState();
   },
   logoutProvider: async ({ providerId }) => {
@@ -1054,6 +1056,7 @@ async function takeOverVisibleBrowser(): Promise<void> {
 }
 
 function visibleSchoolBounds(window: BrowserWindow): Electron.Rectangle | null {
+  if (runtimeLoginAttempt?.handoff) return null;
   if (browserLayoutMode === "hidden") return null;
   if (browserLayoutMode === "desk") return deskSlotBounds;
   const [width = 1120, height = 760] = window.getContentSize();
@@ -1353,7 +1356,7 @@ function isSuccessfulOnboardingUiObservation(
   const record = value as Record<string, unknown>;
   if (record.passwordFieldCount !== 0) return false;
   if (uiScenario === "partial-dashboard" || uiScenario === "desk-handoff") return true;
-  if (uiScenario === "onboarding-welcome") return record.fableConversation === true && record.browserHandoff === false && record.scanAction === false;
+  if (uiScenario === "onboarding-welcome" || uiScenario === "onboarding-reconnect") return record.fableConversation === true && record.browserHandoff === false && record.scanAction === false;
   return record.fableConversation === true && record.browserHandoff === true && record.scanAction === true;
 }
 
@@ -2030,14 +2033,14 @@ function assignmentLabels(assignmentId?: string): { assignment_title?: string; c
 
 async function readWorkspaceState() {
   const runtime = requireAgentRuntime();
-  if (uiScenario === "onboarding-ready" || uiScenario === "onboarding-welcome") {
+  if (uiScenario === "onboarding-ready" || uiScenario === "onboarding-welcome" || uiScenario === "onboarding-reconnect") {
     return {
       browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
       providers: AGENT_PROVIDERS.map((provider) => ({
         schemaVersion: STUDI_SCHEMA_VERSION,
         providerId: provider.id,
         providerName: provider.name,
-        state: provider.id === runtime.selectedProviderId ? "ready" as const : "needs_login" as const,
+        state: provider.id === runtime.selectedProviderId && uiScenario !== "onboarding-reconnect" ? "ready" as const : "needs_login" as const,
         loginMethods: ["oauth" as const],
         reason: "Deterministic UI scenario is using the same typed provider projection.",
       })),
@@ -2077,6 +2080,7 @@ async function adoptConnectedProvider(providerId: AgentProviderId): Promise<void
   const runtime = requireAgentRuntime();
   if (runtime.selectedProviderId !== providerId) runtime.selectProvider(providerId);
   await persistAgentRuntimeChoice();
+  schoolScanCoordinator?.providerReconnected();
   const telemetry = requireTelemetryService();
   telemetry.capture("studi_provider_connection", { provider: providerId, state: "connected" });
   queueLearnExtraction();

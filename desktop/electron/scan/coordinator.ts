@@ -10,6 +10,7 @@ import {
   SchoolScanSchema,
   STUDI_SCHEMA_VERSION,
   assignmentWorkEligibility,
+  classifyAgentRuntimeAttention,
   type AgentRunEvent,
   type Assignment,
   type BrowserSnapshot,
@@ -98,6 +99,15 @@ export class SchoolScanCoordinator {
     if (interrupted?.state === "running") {
       this.#fail(interrupted.scanId, "Studi stopped before the school scan finished. Continue this scan from its saved source checkpoints.");
     }
+  }
+
+  providerReconnected(): void {
+    this.#assertUsable();
+    const scan = this.#store.school.latestScan();
+    if (scan?.state !== "failed" || classifyAgentRuntimeAttention(null, scan.failures[0] ?? scan.currentStep) !== "needs_login") return;
+    const now = this.#now();
+    // Keep the failure evidence while recording that a real sign-in resolved its blocker.
+    this.#store.school.putScan({ ...scan, runtimeLoginRecoveredAt: now, updatedAt: now });
   }
 
   async state(): Promise<SchoolOnboardingState> {
@@ -1241,6 +1251,7 @@ For login, request a school_sign_in handoff with the exact blocker; resume this 
     this.#store.school.putScan({
       ...scan,
       state: "failed",
+      runtimeLoginRecoveredAt: undefined,
       updatedAt: completedAt,
       completedAt,
       currentStep: reason,
