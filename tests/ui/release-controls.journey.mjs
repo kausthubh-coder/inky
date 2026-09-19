@@ -19,7 +19,7 @@ export async function verifyReleaseControls(page, base) {
     await button('List').click();
     await page.getByRole('button',{name:/No due date/}).click();
     await page.getByText('Final project · reading notes',{exact:true}).waitFor();
-    await button('All work →').click();
+    await button('All work').click();
     await button('Done').click();
     await button('To do').click();
     results.push('Week navigation, list, undated shelf and work filters');
@@ -70,7 +70,8 @@ export async function verifyReleaseControls(page, base) {
 
     const rules=page.locator('.homework-rules');
     const radio=name=>rules.getByRole('radio',{name,exact:true});
-    await radio('Do it and submit').check();
+    await rules.getByText('Do it and submit',{exact:true}).click();
+    assert.equal(await radio('Do it and submit').isChecked(),true);
     await rules.getByRole('button',{name:'Update rule',exact:true}).click();
     await rules.getByLabel('Apply this rule to',{exact:true}).selectOption('course');
     assert.equal(await radio('Do it, I submit').isChecked(),true);
@@ -78,7 +79,8 @@ export async function verifyReleaseControls(page, base) {
     await rules.getByRole('button',{name:'Remove rule for CSC 316 Data Structures',exact:true}).waitFor();
     await rules.getByLabel('Apply this rule to',{exact:true}).selectOption('global');
     assert.equal(await radio('Do it and submit').isChecked(),true);
-    await radio('Don’t start').check();
+    await rules.getByText('Don’t start',{exact:true}).click();
+    assert.equal(await radio('Don’t start').isChecked(),true);
     await page.evaluate(()=>{window.realSaveRule=window.studi.savePermissionRule;window.studi.savePermissionRule=async()=>{throw new Error('Controlled rule save failure');};});
     await rules.getByRole('button',{name:'Update rule',exact:true}).click();
     await page.getByText('Controlled rule save failure',{exact:true}).waitFor();

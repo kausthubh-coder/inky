@@ -28,11 +28,11 @@ export async function verifyReleaseLearning(page,base) {
  results.push('Source validation, retained draft on import failure, successful retry');
  for(const [route,action] of [['tutor-population','Draw a sample'],['tutor-flashcards','Flip card'],['tutor-number-line','Reset'],['tutor-function-plot','Reset']]) {
   await open(route);
-  assert.equal(await button('Try one myself →').isDisabled(),true);
+  assert.equal(await button('Try one myself').isDisabled(),true);
   await button(action).click();
-  assert.equal(await button('Try one myself →').isEnabled(),true);
-  if(route==='tutor-flashcards') {await button('Next →').click();await page.getByText('Card 2 of 2',{exact:true}).waitFor();await button('← Previous').click();await page.getByText('Card 1 of 2',{exact:true}).waitFor();}
-  await button('Try one myself →').click();
+  assert.equal(await button('Try one myself').isEnabled(),true);
+  if(route==='tutor-flashcards') {await button('Next').click();await page.getByText('Card 2 of 2',{exact:true}).waitFor();await button('Previous').click();await page.getByText('Card 1 of 2',{exact:true}).waitFor();}
+  await button('Try one myself').click();
   const session=await page.evaluate(async()=>{const state=await window.studi.getLearnState();return window.studi.getTutorSession({sessionId:state.sessions[0].sessionId});});
   assert.ok(session.blocks.some(block=>block.result),'Exploration was not saved: '+route);
  }
