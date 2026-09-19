@@ -75,6 +75,8 @@ import { ProviderLoginAttemptOwner } from "./agent/provider-login.js";
 import { AssignmentExecutionCoordinator, type ExecutionNotification } from "./assignment/coordinator.js";
 import { startSelectedAssignment } from "./assignment/start-selected.js";
 import { BrowserController } from "./browser/controller.js";
+import { installSchoolDownloads } from "./browser/native-downloads.js";
+import { HomeworkFiles } from "./files/homework-files.js";
 import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
 import { AppKernel } from "./lifecycle/kernel.js";
@@ -84,7 +86,7 @@ import { type LocalStore, openLocalStore, STORAGE_SCHEMA_VERSION } from "./stora
 import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
 import { usageProperties, type AgentUsageSnapshot } from "./telemetry/usage.js";
-import { initializeHomeworkWorkspace, syncHomeworkClassFolders } from "./files/workspace.js";
+import { initializeHomeworkWorkspace, requireHomeworkWorkspace, syncHomeworkClassFolders } from "./files/workspace.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(moduleDirectory, "preload.cjs");
@@ -119,6 +121,7 @@ let browserSelfTestObservation: BrowserSelfTestObservation | null = null;
 let browserController: BrowserController | null = null;
 let browserView: WebContentsView | null = null;
 const browserPages = new Map<string, {view:WebContentsView; controller:BrowserController}>();
+let disposeSchoolDownloads: (() => void) | null = null;
 let selectedBrowserPage = "school";
 let browserDriverTimer: ReturnType<typeof setInterval> | null = null;
 let driveOverlay: DriveOverlay | null = null;
@@ -1000,7 +1003,28 @@ function schoolBrowserPage(key: string): {view:WebContentsView;controller:Browse
   if (existing) return existing;
   const window = mainWindow;
   if (!window || window.isDestroyed()) throw new Error("The school browser is unavailable");
-  const view = new WebContentsView({webPreferences:{session:electronSession.fromPartition("persist:studi-school",{cache:true}),nodeIntegration:false,contextIsolation:true,sandbox:true}});
+  const schoolSession = electronSession.fromPartition("persist:studi-school", {cache:true});
+  disposeSchoolDownloads ??= installSchoolDownloads(schoolSession, {
+    stagingRoot: join(app.getPath("userData"), "school-downloads"),
+    destination: async contents => {
+      const page = [...browserPages].find(([, entry]) => entry.view.webContents === contents)?.[0];
+      if (!page) throw new Error("This school page is no longer open. Try downloading the file again.");
+      const store = requireLocalStore();
+      const preferences = await store.productPreferences.get();
+      if (!preferences.homeworkRoot) throw new Error("Choose your homework folder in Settings before downloading school files.");
+      const root = await requireHomeworkWorkspace(preferences.homeworkRoot);
+      const directory = page.startsWith("assignment:")
+        ? await requireAssignmentExecutionCoordinator().assignmentDirectory(page.slice("assignment:".length))
+        : root;
+      return HomeworkFiles.open(directory);
+    },
+    onError: error => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        void dialog.showMessageBox(mainWindow, {type:"error", message:"Couldn't save the school file", detail:error.message, buttons:["OK"]}).catch(() => {});
+      }
+    },
+  });
+  const view = new WebContentsView({webPreferences:{session:schoolSession,nodeIntegration:false,contextIsolation:true,sandbox:true}});
   const controller = new BrowserController(view.webContents);
   browserPages.set(key,{view,controller});
   view.setVisible(false);
@@ -1713,6 +1737,8 @@ function disposeProtectedRuntime(): Promise<void> {
 }
 
 function disposeProtectedRuntimeNow(): Promise<void> {
+  disposeSchoolDownloads?.();
+  disposeSchoolDownloads = null;
   tutorTimelineCache = null;
   const memories = memoryCoordinator;
   memoryCoordinator = null;

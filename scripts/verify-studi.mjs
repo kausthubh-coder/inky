@@ -80,6 +80,7 @@ export function makePlan({ scope = [], files = [], changedPaths = [], concurrenc
   if (selected.has('electron')) {
     add('electron', process.execPath, ['tests/electron-self-test-runner.mjs'], ['build']);
     add('native-materials', 'bun', ['x', 'electron', 'tests/school-materials-native.cjs'], ['build']);
+    add('native-downloads', 'bun', ['x', 'electron', 'tests/native-downloads.cjs'], ['build']);
   }
   return { scopes: [...selected], files: [...targets], concurrency, steps,
     pending: ['Affected visible interaction and recovery (when applicable)', 'Live admission → onboarding → scan → chat → homework → restart for a full journey', 'Installed package/upgrade on each shipping platform for release'] };

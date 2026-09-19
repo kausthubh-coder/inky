@@ -96,7 +96,7 @@ export class HomeworkFiles {
     return new Uint8Array(await readFile(path));
   }
 
-  // Sources come only from Electron's student-operated file picker.
+  // Sources come from Electron's file picker or the private native-download staging area.
   async importFile(source: string): Promise<string> {
     const metadata = await lstat(source);
     if (!metadata.isFile()) throw new Error("Choose a regular file.");

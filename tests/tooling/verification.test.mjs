@@ -23,7 +23,7 @@ test('release builds prerequisites once and includes every deterministic suite',
   assert.equal(plan.steps.filter(step => step.id === 'build-lms').length, 1);
   for (const suite of ['benchmark', 'storage', 'agent', 'auth', 'ui', 'tooling']) assert.ok(plan.files.includes(`tests/${suite}/*.test.mjs`));
   assert.ok(plan.files.includes('agent-harness/lms/tests/*.test.mjs'));
-  for (const id of ['backend', 'electron', 'native-materials', 'harness-files']) assert.ok(plan.steps.some(step => step.id === id));
+  for (const id of ['backend', 'electron', 'native-materials', 'native-downloads', 'harness-files']) assert.ok(plan.steps.some(step => step.id === id));
 });
 
 test('focused files get their prerequisites without unrelated suites', () => {
