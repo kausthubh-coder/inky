@@ -3,7 +3,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { tmpdir, release } from 'node:os';
 import { resolve, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -56,7 +56,7 @@ async function main() {
   assertNativeRunner();
   const [appArg, imageArg, outputArg] = process.argv.slice(2);
   if (!appArg || !imageArg || !outputArg) throw new Error('Supply mounted app, staged DMG and receipt directory');
-  const app = resolve(appArg), image = resolve(imageArg), output = resolve(outputArg);
+  const app = await realpath(appArg), image = resolve(imageArg), output = resolve(outputArg);
   const expectedUrl = pathToFileURL(join(app, 'Contents/Resources/app.asar/dist/client/index.html')).href;
   const profile = await mkdtemp(join(tmpdir(), 'studi-native-macos-'));
   await mkdir(output, { recursive: true });
@@ -76,9 +76,10 @@ async function main() {
   let launchError;
   child.on('error', error => { launchError = error; });
   let cdp;
+  let lastProbeError;
+  let state;
   try {
     const deadline = Date.now() + 60000;
-    let state;
     while (Date.now() < deadline) {
       if (launchError) throw launchError;
       if (child.exitCode !== null || child.signalCode !== null) throw new Error('Packaged app exited before first-launch proof');
@@ -101,7 +102,7 @@ async function main() {
         state = result.result?.value;
         assertStartup(state, expectedUrl);
         break;
-      } catch { await delay(300); }
+      } catch (error) { lastProbeError = error.message; await delay(300); }
     }
     assertStartup(state, expectedUrl);
     const screenshot = await cdp.call('Page.captureScreenshot', { format: 'png' });
@@ -115,6 +116,8 @@ async function main() {
     receipt.status = 'passed';
   } catch (error) {
     receipt.failure = error.message;
+    receipt.lastProbeError = lastProbeError;
+    receipt.startupState = state ?? null;
     throw error;
   } finally {
     cdp?.close();
@@ -122,7 +125,10 @@ async function main() {
     if (child.pid && child.exitCode === null && child.signalCode === null) {
       child.kill('SIGTERM');
       for (let i = 0; i < 30 && child.exitCode === null && child.signalCode === null; i++) await delay(100);
-      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill('SIGKILL');
+        for (let i = 0; i < 50 && child.exitCode === null && child.signalCode === null; i++) await delay(100);
+      }
     }
     await writeFile(join(output, 'macos-package-smoke.json'), JSON.stringify(receipt, null, 2) + '\n');
   }

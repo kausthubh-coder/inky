@@ -9,7 +9,7 @@ import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
 import { Today } from "./Today.js";
 import type { Assignment } from "../../shared/index.js";
 import { Icon } from "./Icon.js";
-import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
+import { matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
 import { courseTone, taskStatusCopy } from "./assignmentPresentation.js";
 import {
@@ -490,7 +490,6 @@ export function SettingsScreen({
   chrome,
   entitlement,
   usage,
-  initialSection = "inky",
   settings,
   onboarding,
   workspace,
@@ -524,7 +523,6 @@ export function SettingsScreen({
   chrome: ChromeProps;
   entitlement: Entitlement | null;
   usage: UsageState | null;
-  initialSection?: "inky" | "school" | "privacy" | "account";
   settings: ProductSettingsState | null;
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
@@ -557,11 +555,9 @@ export function SettingsScreen({
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
-  const [section, setSection] = useState<SettingsSectionId>(() => chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : chrome.settingsLanding === "rules" ? "rules" : readDevPreviewConfig()?.settingsSection ?? initialSection);
   const [query, setQuery] = useState("");
   const matches = matchingSettings(query);
   const visible = (id: SettingsSectionId) => !query.trim() || matches.includes(id);
-  const currentSection = SETTINGS_SECTIONS.find(item => item.id === section)!;
   const [reviewTime, setReviewTime] = useState("30");
   const [memory, setMemory] = useState<"none" | "selected" | "all">("selected");
   const [preferencesSubmitted, setPreferencesSubmitted] = useState(false);
@@ -576,8 +572,9 @@ export function SettingsScreen({
   }, [preferences]);
   useEffect(() => { if (schedule) { setCadence(schedule.cadence); setLocalTime(schedule.localTime); setWeekday(schedule.weekday ?? 1); } }, [schedule]);
   useEffect(() => {
-    const targetId = chrome.settingsLanding === "usage" ? "usage-settings" : chrome.settingsLanding === "feedback" ? "feedback-settings" : null;
-    if (!targetId) return undefined;
+    const landing = chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : chrome.settingsLanding === "rules" ? "rules" : readDevPreviewConfig()?.settingsSection;
+    if (!landing) return undefined;
+    const targetId = `settings-${landing}`;
     const frame = window.requestAnimationFrame(() => document.getElementById(targetId)?.scrollIntoView({ block: "start" }));
     return () => window.cancelAnimationFrame(frame);
   }, [chrome.settingsLanding]);
@@ -600,7 +597,7 @@ export function SettingsScreen({
           </header>
           {query.trim() && matches.length === 0 && <div className="settings-no-results"><h3>No settings found.</h3><p>Try “sound”, “model”, or “school”.</p><button className="button" onClick={() => setQuery("")}>Clear search</button></div>}
             {visible("inky") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-inky" className="settings-card">
               <p className="eyebrow">Your subscription</p>
               <h2>Which AI does the work</h2>
               <p>Bring the one you already pay for. I use the one you pick here.</p>
@@ -621,7 +618,7 @@ export function SettingsScreen({
             </PaperCard>
             )}
             {visible("preferences") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-preferences" className="settings-card">
               <form className="review-preferences" onSubmit={(event) => {
                 event.preventDefault();
                 if (preferences && preferencesChanged && validPreferences && busy === null) {
@@ -674,7 +671,7 @@ export function SettingsScreen({
             )}
             {visible("preferences") && memory !== "none" && <MemorySettings />}
             {visible("apps") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-apps" className="settings-card">
               <p className="eyebrow">Connected apps</p>
               <h2>Tools I can use</h2>
               <p>Connections happen in your browser. Studi never receives the app password or provider token.</p>
@@ -688,7 +685,7 @@ export function SettingsScreen({
             </PaperCard>
             )}
             {visible("folder") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-folder" className="settings-card">
               <p className="eyebrow">Homework folder</p>
               <h2>The folder I may use</h2>
               <p>Choose a folder just for Studi. I’ll organize your classes and keep each assignment’s files and saved answers together.</p>
@@ -698,7 +695,7 @@ export function SettingsScreen({
             )}
 
             {visible("school") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-school" className="settings-card">
               <p className="eyebrow">Look schedule</p>
               <h2>When I check school</h2>
               <div className="form-grid form-grid--two">
@@ -711,7 +708,7 @@ export function SettingsScreen({
             </PaperCard>
             )}
             {visible("rules") && <>
-              <PaperCard className="settings-card">
+              <PaperCard id="settings-rules" className="settings-card">
                 <h2>When I start homework</h2>
                 <Field label="Start work">
                   <select value={preferences?.workStartMode ?? "manual"} disabled={!preferences || busy !== null}
@@ -725,11 +722,11 @@ export function SettingsScreen({
               <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={busy !== null} onSaveRule={onSaveRule} onDeleteRule={onDeleteRule} />
             </>}
 
-            {visible("usage") && <UsageCard entitlement={entitlement} usage={usage} />}
-            {visible("notifications") && <NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} />}
-            {visible("privacy") && <TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onTelemetryDebug} />}
+            {visible("usage") && <div id="settings-usage"><UsageCard entitlement={entitlement} usage={usage} /></div>}
+            {visible("notifications") && <div id="settings-notifications"><NotificationSettings preferences={preferences?.notifications} busy={busy !== null} onSave={onSaveNotifications} onPreview={onTestNotification} /></div>}
+            {visible("privacy") && <div id="settings-privacy"><TelemetryControls telemetry={telemetry} busy={busy === "telemetry"} onChange={onTelemetry} onDebug={onTelemetryDebug} /></div>}
             {visible("support") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-support" className="settings-card">
               <p className="eyebrow">If something broke</p>
               <h2>Safe diagnostics</h2>
               <p>Saves a short JSON file with versions and recent product events. Secrets stay out. It never copies your school folder.</p>
@@ -741,7 +738,7 @@ export function SettingsScreen({
             )}
             {visible("support") && <FeedbackSettings busy={busy !== null} onFeedback={onFeedback} />}
             {visible("account") && (
-            <PaperCard className="settings-card">
+            <PaperCard id="settings-account" className="settings-card">
               <p className="eyebrow">Signed in</p>
               <h2>{chrome.studentName}</h2>
               <p>Signing out leaves your school pages and saved work on this laptop.</p>

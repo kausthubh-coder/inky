@@ -13,7 +13,6 @@
 .workspace-dialog .inky-composer { flex: 0 0 auto; margin: 16px 24px 24px; width: auto; border-radius: 16px; }
 .workspace-dialog .chat-browser { position: static; order: 1; flex: 1; min-height: 0; width: auto; margin: 0 24px; border-radius: 12px; box-shadow: none; }
 .workspace-dialog .chat-with-browser .conversation-paper { flex: 0 0 auto; }
-.workspace-dialog .chat-with-browser .conversation-log { display: none; }
 .workspace-dialog .chat-with-browser .inky-composer { order: 2; }
 .workspace-dialog .chat-browser-slot { min-height: 180px; }
 @media (max-height:650px) {

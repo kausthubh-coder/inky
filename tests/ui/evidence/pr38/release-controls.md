@@ -9,6 +9,7 @@ Passed:
 - `preview-routes.journey.mjs`: all 68 registered scenario URLs load, identify this
   checkout/version and expose the expected auth fixture, with no page errors.
   Settings URLs share the same redesigned settings page; these are not 68 unique screens.
+  They now scroll to the named section. Scan and update routes open the relevant view.
 - `redesign.journey.mjs`: correction persistence, receipt/session navigation,
   typed/explanation draft recovery, isolated JavaScript execution and timeout recovery,
   memory revision updates, narrow layouts and keyboard focus restoration.
@@ -29,13 +30,43 @@ The sweep uncovered and fixed the native school-pane overlap, stale reconnect
 failure, permission choices carrying across targets, Start remaining enabled for
 restricted homework, and Learn refresh erasing an action error.
 
-Older workspace, assignment, school-check, chat and Markdown journey scripts still
+Older workspace, assignment, chat and Markdown journey scripts still
 reference the previous design's selectors and require migration. Their failures
 were retained in the local QA logs; they are not counted as passing current coverage.
 The current suites above exercise replacement paths, but do not establish every
 old assertion (including dedicated historical scan details and old settings search).
 
-Remaining release gates include live scan/chat/homework/tutor completion, Claude,
-restart persistence, native installers and installed upgrades. The first live scan
-failed because the fixture process had exited; ChatGPT authorization succeeded and
-the fixture was restarted. This failed run remains part of the evidence.
+## September 19 follow-up
+
+Real ChatGPT scan recovered after the fixture server was restored, discovered one
+course and the smoke assignment, and saved them across restart. A real home chat
+answered about that assignment. Tutor generated its first real choice exercise;
+the complete tutor journey is still pending. Live homework Start was blocked by
+automatic approval review. Claude is not connected; neither boundary is passed.
+
+Native screenshots exposed a hidden school report, a blank initial school browser,
+and tutor controls under Windows caption buttons. Fixed the inherited report CSS,
+browser initialization, report width, caption insets and header spacing. The scan
+sign-in action also incorrectly toggled an already-open browser closed; it now
+opens it consistently. The School check action remains available at small sizes.
+
+The updated `school-check.journey.mjs` passes sign-in, browser close, scan results,
+details/focus, changed dates, 800px layout, discovery, pause, failure and navigation
+to assignment work. `desktop-layout.journey.mjs` passes nonoverlap/visibility checks
+for Today, Learn, school handoff, tutor and assignment review at 1120px and 800px,
+plus settings section landing. Screenshots were inspected for school report,
+tutor and small-window headers. These are renderer previews with simulated
+caption insets, not native verification. Native interaction was stopped with
+Escape after rebuilding; final desktop verification remains pending.
+
+CI on cc2e7fe passed 421/422 Windows Node tests and the Windows native checks;
+the shell timeout used milliseconds for Pi's seconds and killed a command early.
+Fixed the conversion and explicit timeout reporting. Focused tests now prove a
+1.5-second command completes with a 10-second timeout and timeout/recovery works.
+macOS controlled checks passed but packaged first-launch proof failed. The launch
+checker now resolves the mounted app's canonical path and retains the last probe
+failure/state. A fresh CI result is required; this is not a claimed macOS pass.
+
+Remaining release gates: complete live homework/tutor, Claude, final native visual
+verification, successful packaged first launch and installed Windows upgrades on
+the exact final source/artifacts. No release has been published.

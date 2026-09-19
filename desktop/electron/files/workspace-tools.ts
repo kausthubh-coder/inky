@@ -215,7 +215,9 @@ function restrictedShell(workspaceDirectory: string): BashOperations {
   return {
     exec: async (command, _cwd, options) => {
       validateShellCommand(command);
-      const timeout = Math.min(Math.max(options.timeout ?? SHELL_TIMEOUT_MS, 1_000), SHELL_TIMEOUT_MS);
+      const seconds = options.timeout ?? SHELL_TIMEOUT_MS / 1000;
+      if (!Number.isFinite(seconds) || seconds <= 0) throw new TypeError("Shell timeout must be a positive number of seconds");
+      const timeout = Math.min(seconds * 1000, SHELL_TIMEOUT_MS);
       const executable = process.platform === "win32" ? "powershell.exe" : "/bin/bash";
       const args = process.platform === "win32"
         ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
@@ -230,7 +232,8 @@ function restrictedShell(workspaceDirectory: string): BashOperations {
         });
         const onAbort = () => child.kill();
         options.signal?.addEventListener("abort", onAbort, { once: true });
-        const timer = setTimeout(() => child.kill(), timeout);
+        let timedOut = false;
+        const timer = setTimeout(() => { timedOut = true; child.kill(); }, timeout);
         child.stdout?.on("data", options.onData);
         child.stderr?.on("data", options.onData);
         child.once("error", (error) => {
@@ -241,7 +244,9 @@ function restrictedShell(workspaceDirectory: string): BashOperations {
         child.once("close", (exitCode) => {
           clearTimeout(timer);
           options.signal?.removeEventListener("abort", onAbort);
-          resolvePromise({ exitCode });
+          if (timedOut) reject(new Error(`timeout:${seconds}`));
+          else if (options.signal?.aborted) reject(new Error("aborted"));
+          else resolvePromise({ exitCode });
         });
       });
     },

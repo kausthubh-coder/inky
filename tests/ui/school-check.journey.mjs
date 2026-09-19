@@ -55,6 +55,7 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   await setScan("succeeded");
   await page.getByRole("button", { name: "Scan again", exact: true }).waitFor();
   await page.locator(".scan-change").first().click();
-  await page.getByRole("button", { name: "Close assignment", exact: true }).waitFor();
+  await page.getByRole("button", { name: "← Back", exact: true }).waitFor();
+  assert.equal(await page.locator(".rd-work-heading").getByText("IBM Sorting Machine", { exact: true }).isVisible(), true);
   return "Scan sign-in toolbar, result, details/focus, deadline change, narrow window, discovery, pause, failure and assignment navigation passed.";
 }

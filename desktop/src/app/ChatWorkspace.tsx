@@ -117,6 +117,7 @@ export function ChatWorkspace(props: ChatProps) {
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const mounted = useRef(true);
+  const initialBrowserOpened = useRef(false);
   const active = (chat?.activity !== "idle" && Boolean(chat)) || sending;
   const execution =
     !school && assignment
@@ -261,13 +262,6 @@ export function ChatWorkspace(props: ChatProps) {
     return () => window.removeEventListener("studi:before-update", persist);
   }, [key]);
   useEffect(() => {
-    if (assignment || school) {
-      void window
-        .studi!.selectBrowserPage(school ? { kind: "school" } : target)
-        .catch((cause) => setError(String(cause)));
-    }
-  }, []);
-  useEffect(() => {
     if (view === "expanded" && (assignment || school)) setBrowser(true);
     else if (view === "home") setBrowser(false);
   }, [view]);
@@ -378,10 +372,9 @@ export function ChatWorkspace(props: ChatProps) {
     void window.studi
       ?.selectBrowserPage(school ? { kind: "school" } : target)
       .then((state) => {
-        if (mounted.current) {
-          onView("expanded");
-          setBrowser(true);
-        }
+        if (!mounted.current) return;
+        onView("expanded");
+        setBrowser(true);
         const url = assignment?.sourceTarget ?? onboarding.profile?.schoolRoot;
         if (
           url &&
@@ -398,10 +391,15 @@ export function ChatWorkspace(props: ChatProps) {
             });
         }
       })
-      .catch((cause) =>
-        setError(cause instanceof Error ? cause.message : String(cause)),
-      );
+      .catch((cause) => {
+        if (mounted.current) setError(cause instanceof Error ? cause.message : String(cause));
+      });
   };
+  useEffect(() => {
+    if (initialBrowserOpened.current || (!school && !assignment)) return;
+    initialBrowserOpened.current = true;
+    openBrowser();
+  }, [school, assignment?.assignmentId]);
   const conversation = (
     <div
       className="conversation-log"
@@ -425,7 +423,7 @@ export function ChatWorkspace(props: ChatProps) {
               ?.pauseSchoolScan()
               .catch((cause) => setError(String(cause)));
           }}
-          onBrowser={() => (browser ? setBrowser(false) : openBrowser())}
+          onBrowser={openBrowser}
           busy={props.scanBusy}
           detailsOpen={scanDetails}
           onDetails={setScanDetails}

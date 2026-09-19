@@ -87,8 +87,8 @@ h2 {
     cursive;
 }
 .chrome-end {
-  width: 280px;
-  flex: 1;
+  width: auto;
+  flex: 0 0 auto;
   justify-content: flex-end;
   gap: 10px;
 }
@@ -168,6 +168,7 @@ h2 {
   margin-right: 7px;
   background: #7fbf9f;
 }
+.rd-school-status > svg { display: none; }
 .dashboard-page {
   display: flex;
   flex-direction: column;
@@ -630,8 +631,10 @@ h2 {
     width: auto;
   }
   .rd-school-status {
-    display: none;
+    padding: 6px;
   }
+  .rd-school-status > span, .rd-school-status::before { display: none; }
+  .rd-school-status > svg { display: block; }
   .rd-ruleline > span {
     display: none;
   }
@@ -1287,9 +1290,24 @@ h2 {
   padding: 0 24px;
   border-bottom: 1px solid var(--rule);
   flex: none;
+  -webkit-app-region: drag;
+}
+.rd-tutor-heading button { -webkit-app-region: no-drag; }
+html[data-desktop] {
+  --caption-left: env(titlebar-area-x, 0px);
+  --caption-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+}
+html[data-desktop="darwin"] { --caption-left: 70px; --caption-right: 0px; }
+html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-school-workspace .conversation-header) {
+  padding-left: calc(var(--caption-left) + 24px);
+  padding-right: calc(var(--caption-right) + 16px);
 }
 .rd-tutor-heading strong {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: center;
   font-size: 14px;
   font-weight: 600;
@@ -1791,20 +1809,34 @@ h2 {
   box-shadow: none;
   min-height: 0;
 }
-.rd-school-workspace .conversation-header {
+.workspace-dialog .rd-school-workspace .conversation-header {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   height: 58px;
+  min-height: 58px;
   padding: 0 24px;
   background: var(--paper);
   border: 0;
 }
-.rd-school-workspace .conversation-header .inky {
+.rd-school-workspace .conversation-header .inky-mascot {
   display: none;
 }
+.workspace-dialog .rd-school-workspace .chat-presence {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+}
+.workspace-dialog .rd-school-workspace .chat-presence > strong {
+  font-size: 20px;
+}
+.workspace-dialog .rd-school-workspace .conversation-actions {
+  align-self: center;
+}
 .rd-school-workspace .conversation-log {
+  display: block;
   padding: 10px 24px;
   overflow: auto;
 }
@@ -1829,6 +1861,18 @@ h2 {
   padding: 0;
   box-shadow: none;
 }
+.rd-school-workspace .scan-result-hero {
+  display: grid;
+  grid-template-columns: 90px minmax(0, 1fr);
+  align-items: start;
+  gap: 16px;
+}
+.rd-school-workspace .scan-result-copy h2 { font-size: 23px; }
+.rd-school-workspace .scan-hero-action { grid-column: 1 / -1; margin: 0; }
+.rd-school-workspace .scan-report .scan-change { flex-wrap: wrap; }
+.rd-school-workspace .scan-change-date { max-width: 100%; }
+.rd-school-workspace:not(.chat-with-browser) { grid-template-columns: minmax(0, 1fr); }
+.rd-school-workspace:not(.chat-with-browser) .conversation-log { width: min(752px, 100%); margin-inline: auto; }
 @media (max-width: 600px) {
   .rd-files.assignment-files {
     grid-template-columns: 130px minmax(0, 1fr);
@@ -1858,12 +1902,18 @@ h2 {
   }
 }
 .app-shell .app-chrome {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   flex: 0 0 60px;
   height: 60px;
   padding: 0 28px;
   border: 0;
   background: var(--paper);
 }
+.app-shell .brand-lockup { width: auto; }
+.app-shell .chrome-end { justify-self: end; }
+.app-chrome .update-entry { white-space: nowrap; }
 .app-shell .app-chrome .rd-mode-switch {
   display: grid;
   grid-template-columns: 132px 132px;

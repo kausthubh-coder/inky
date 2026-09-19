@@ -60,6 +60,7 @@ export function parsePreviewConfig(search: string): DevPreviewConfig | null {
   } as Partial<Record<DevPreviewScenarioId, DevPreviewConfig["onboardingStep"]>>)[id];
   const panel: DeskPanel = id === "assignment" || id.startsWith("assignment-")
     ? { kind: "assignment", assignmentId: id === "assignment-saved" ? "assignment-hw1" : "assignment-sort" }
-    : id === "chat-handoff" ? {kind:"school"} : id.startsWith("desk-") ? { kind: "desk" } : { kind: "closed" };
+    : id === "chat-handoff" || ["week-error", "week-updating", "week-conflicts", "week-needs-user", "week-complete", "week-idle", "week-browser-busy"].includes(id)
+      ? { kind: "school" } : id.startsWith("desk-") ? { kind: "desk" } : { kind: "closed" };
   return { id, screen: settingsSection ? "settings" : id.startsWith("learn") || id.startsWith("tutor-") ? "learn" : "week", panel, ...(onboardingStep === undefined ? {} : { onboardingStep }), ...(settingsSection ? { settingsSection } : {}) };
 }
