@@ -533,6 +533,11 @@ const ipcHandlers: StudiIpcHandlers = {
     requireAppKernel().requestReconcile();
     return result;
   },
+  queueAssignmentNext: ({ taskId }) => {
+    const result = requireManagerCoordinator().queueNext(taskId);
+    requireAppKernel().requestReconcile();
+    return result;
+  },
   stopConversation: () => requireConversationCoordinator().stop(),
   getNotifications: () => requireLocalStore().lifecycle.listNotifications(),
   readNotification: ({notificationId}) => {

@@ -22,6 +22,7 @@ import {
   shouldShowNotificationBanner,
   type AutomationSchedule,
   type LifecycleState,
+  type ManagerQueueEntry,
   type NotificationIntent,
   type NotificationKind,
   type NotificationSoundId,
@@ -248,11 +249,14 @@ export class AppKernel {
     }
     const workNow = this.#now();
     const workTimezone = this.#store.lifecycle.getSchedule()?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-    if (!this.#updating && !this.#disposed && this.#runScheduledAssignment && this.#manager.allowsAutomaticWork &&
-      this.#store.lifecycle.getSchedule()?.state !== "paused" && !this.#browserWork.isScanStartBlocked() &&
-      Date.parse(workNow) >= this.#assignmentRetryAt && withinHomeworkHours(workNow, workTimezone)) {
+    const readyToStart = (entry: ManagerQueueEntry, now: string) => entry.requestOrigin === "student" && entry.startRequestedAt
+      ? entry.startRequestedAt <= now
+      : this.#manager.allowsAutomaticWork && this.#store.lifecycle.getSchedule()?.state !== "paused" &&
+        withinHomeworkHours(now, workTimezone) && !!entry.scheduledStartAt && entry.scheduledStartAt <= now;
+    if (!this.#updating && !this.#disposed && this.#runScheduledAssignment && !this.#browserWork.isScanStartBlocked() &&
+      Date.parse(workNow) >= this.#assignmentRetryAt) {
       this.#manager.reconcileQueue();
-      const next = this.#manager.state().entries.find(entry => entry.scheduledStartAt && entry.scheduledStartAt <= workNow);
+      const next = this.#manager.state().entries.find(entry => readyToStart(entry, workNow));
       if (next) {
         try {
           const assignment = this.#store.assignments.get(next.assignmentId);
@@ -260,7 +264,7 @@ export class AppKernel {
           // A rule or ownership command may have arrived while the notification was being saved.
           this.#manager.reconcileQueue();
           const current = this.#manager.state().entries.find(entry => entry.taskId === next.taskId);
-          if (current?.scheduledStartAt && current.scheduledStartAt <= this.#now() && this.#store.lifecycle.getSchedule()?.state !== "paused") await this.#runScheduledAssignment(next.taskId);
+          if (current && readyToStart(current, this.#now())) await this.#runScheduledAssignment(next.taskId);
           this.#assignmentRetryAt = 0;
         }
         catch (error) {
@@ -381,13 +385,15 @@ export class AppKernel {
     const candidates: number[] = [];
     const now = Date.parse(this.#now());
     const schedule = this.#store.lifecycle.getSchedule();
-    if (this.#runScheduledAssignment && this.#manager.allowsAutomaticWork && schedule?.state !== "paused") {
+    if (this.#runScheduledAssignment) {
       for (const entry of this.#manager.state().entries) {
-        if (!entry.scheduledStartAt) continue;
-        let start = Math.max(Date.parse(entry.scheduledStartAt), this.#assignmentRetryAt);
+        const requested = entry.requestOrigin === "student" ? entry.startRequestedAt : undefined;
+        const startsAt = requested ?? (this.#manager.allowsAutomaticWork && schedule?.state !== "paused" ? entry.scheduledStartAt : undefined);
+        if (!startsAt) continue;
+        let start = Math.max(Date.parse(startsAt), this.#assignmentRetryAt);
         if (start <= now && this.#browserWork.isScanStartBlocked()) start = now + BUSY_BROWSER_RECHECK_MS;
         const timezone = schedule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-        if (start <= now && !withinHomeworkHours(this.#now(), timezone)) start = Date.parse(nextScheduleRun({ schemaVersion: 1, scheduleId: "school-scan", cadence: "daily", state: "enabled", timezone, localTime: "08:00", updatedAt: this.#now() }, this.#now()));
+        if (!requested && start <= now && !withinHomeworkHours(this.#now(), timezone)) start = Date.parse(nextScheduleRun({ schemaVersion: 1, scheduleId: "school-scan", cadence: "daily", state: "enabled", timezone, localTime: "08:00", updatedAt: this.#now() }, this.#now()));
         candidates.push(start);
       }
     }

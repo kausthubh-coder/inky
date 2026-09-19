@@ -70,3 +70,24 @@ failure/state. A fresh CI result is required; this is not a claimed macOS pass.
 Remaining release gates: complete live homework/tutor, Claude, final native visual
 verification, successful packaged first launch and installed Windows upgrades on
 the exact final source/artifacts. No release has been published.
+
+## Queue follow-up
+
+The scope audit found that "Do this next" only reordered existing queue entries
+and did not request execution in manual mode. `queueAssignmentNext` now records
+an explicit student request transactionally, using existing eligibility and rule
+checks. Higher manager priority now sorts first in Today. The lifecycle kernel
+waits for browser ownership to become free and starts only the requested work;
+other automatically queued homework stays stopped in manual mode.
+
+Controlled manager/IPC/UI/kernel checks passed in
+`.agents/studi-qa/checks/2026-09-19T16-49-26.056Z-37948/result.json`, including
+duplicate requests, permission denial without partial queue changes, saved
+priority across reopening, browser contention and manual mode. The separate
+`queue-next.journey.mjs` passes the real row interaction with controlled IPC.
+This is not a live assignment completion result.
+
+CI 35455821589 at 2afb7fe passed macOS first launch (renderer plus auth-state IPC)
+and its welcome screenshot was inspected. DMG unmount then failed because a
+process still held the image. Windows shell tests timed out at 10 seconds; local
+checks pass. These failed jobs remain failures pending fresh runner evidence.

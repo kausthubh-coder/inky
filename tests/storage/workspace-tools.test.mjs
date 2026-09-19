@@ -40,7 +40,9 @@ test("workspace coding tools create, edit, search, list, and run inside one assi
     const command = process.platform === "win32"
       ? "Start-Sleep -Milliseconds 1500; Set-Content -LiteralPath shell-result.txt -Value 'inside'"
       : "sleep 1.5; printf 'inside\\n' > shell-result.txt";
-    await execute(tool(tools, shellName), { command, timeout: 10 });
+    // Include cold PowerShell startup on shared CI hosts; the deliberate 1.5s
+    // command still catches accidentally treating this seconds value as ms.
+    await execute(tool(tools, shellName), { command, timeout: 60 });
     assert.match(await readFile(join(root, "shell-result.txt"), "utf8"), /inside/);
   } finally {
     await rm(root, { recursive: true, force: true });
@@ -54,7 +56,7 @@ test("workspace shell reports timeout and can run the next command", async () =>
     const shell = tool(createWorkspaceCodingTools(root), shellName);
     const command = process.platform === "win32" ? "Start-Sleep -Seconds 3" : "sleep 3";
     await assert.rejects(execute(shell, { command, timeout: 0.1 }), /timed out after 0.1 seconds/);
-    const next = await execute(shell, { command: "echo recovered", timeout: 10 });
+    const next = await execute(shell, { command: "echo recovered", timeout: 60 });
     assert.match(next.content[0].text, /recovered/);
   } finally {
     await rm(root, { recursive: true, force: true });

@@ -43,6 +43,7 @@ const redesignMethods = {
   addAssignment: 'studi:assignment-add',
   setAssignmentOwner: 'studi:assignment-owner',
   reorderQueue: 'studi:queue-reorder',
+  queueAssignmentNext: 'studi:assignment-queue-next',
 };
 
 test("optional scan intent supports the existing no-argument call and validates assignment scope", async () => {

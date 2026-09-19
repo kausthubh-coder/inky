@@ -30,7 +30,7 @@ function fixture(options = {}) {
   const window = Object.assign(new EventEmitter(), { isVisible: () => true, isDestroyed: () => false });
   let reconciliations = 0;
   const manager = {
-    allowsAutomaticWork: true, isWorkerRunning: false,
+    allowsAutomaticWork: options.automatic ?? true, isWorkerRunning: false,
     setSchedulingEnabled() {}, reconcileQueue() { reconciliations++; },
     state: () => ({ entries, lease: null }),
   };
@@ -41,7 +41,7 @@ function fixture(options = {}) {
       putNotification: notification => (notices.push(notification), notification) },
   };
   const kernel = new AppKernel(store, manager, { reconcileDeadlines: options.reconcileDeadlines ?? (async () => {}) },
-    { isScanStartBlocked: () => false }, window, {
+    { isScanStartBlocked: options.browserBusy ?? (() => false) }, window, {
       focusBrowser() {}, now: () => clock,
       runScheduledScan: options.runScheduledScan ?? (async () => null),
       runScheduledAssignment: options.runScheduledAssignment ?? (async () => {}),
@@ -104,5 +104,24 @@ test("requested reconciliation captures errors durably and retries with backoff"
     f.setClock("2026-09-01T12:01:00.000Z");
     t.mock.timers.tick(1); await settle();
     assert.equal(attempts, 2);
+  } finally { f.kernel.dispose(); }
+});
+
+test("explicit do-next waits for the browser and runs in manual mode without starting other homework", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const starts = [];
+  let browserBusy = true;
+  const automatic = { taskId: "task-auto", assignmentId: "assignment-auto", requestOrigin: "automatic", scheduledStartAt: "2026-09-01T11:00:00.000Z" };
+  const requested = { taskId: "task-next", assignmentId: "assignment-next", requestOrigin: "student", startRequestedAt: "2026-09-01T11:00:00.000Z" };
+  const f = fixture({ automatic: false, browserBusy: () => browserBusy, entries: [requested, automatic],
+    runScheduledAssignment: async id => { starts.push(id); f.setEntries([automatic]); } });
+  try {
+    await f.kernel.reconcile();
+    assert.deepEqual(starts, []);
+    browserBusy = false;
+    await f.kernel.reconcile();
+    assert.deepEqual(starts, ["task-next"]);
+    await f.kernel.reconcile();
+    assert.deepEqual(starts, ["task-next"], "manual mode still excludes automatic homework");
   } finally { f.kernel.dispose(); }
 });

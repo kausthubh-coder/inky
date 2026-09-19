@@ -11,6 +11,42 @@ import { openLocalStore } from "../../dist/electron/storage/index.js";
 const due = "2026-09-03T12:00:00.000Z";
 const now = "2026-09-01T12:00:00.000Z";
 
+test("do this next queues discovered homework without taking the live browser and persists priority", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-queue-next-")));
+  let store;
+  let coordinator;
+  try {
+    store = await openLocalStore(root);
+    for (const id of ["a", "b", "c"]) seedTask(store, id, due);
+    store.permissionRules.put(rule("global-attempt", "global", "attempt", now));
+    coordinator = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+    coordinator.enqueue({ taskId: "task-a" });
+    await coordinator.startNext();
+    const lease = coordinator.state().lease;
+    coordinator.queueNext("task-b");
+    coordinator.queueNext("task-b");
+    assert.equal(store.tasks.get("task-b").state, "queued");
+    assert.equal(coordinator.state().entries.filter(item => item.taskId === "task-b").length, 1);
+    assert.equal(coordinator.state().entries[0].taskId, "task-b");
+    assert.equal(coordinator.state().entries[0].requestOrigin, "student");
+    assert.equal(coordinator.state().entries[0].startRequestedAt, now);
+    assert.deepEqual(coordinator.state().lease, lease);
+    store.permissionRules.put({ ...rule("deny-c", "assignment", "do_not_attempt", now), assignmentId: "assignment-c" });
+    assert.throws(() => coordinator.queueNext("task-c"), /blocked by stored permission rules/);
+    assert.equal(store.tasks.get("task-c").state, "discovered");
+    assert.equal(store.manager.getQueueEntry("task-c"), null);
+    coordinator.dispose();
+    coordinator = null;
+    store.close();
+    store = await openLocalStore(root);
+    assert.equal(store.manager.listQueue()[0].taskId, "task-b");
+  } finally {
+    coordinator?.dispose();
+    store?.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test("manager queue refreshes permission, leases one worker, and recovers its order and sessions", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp06-manager-")));
   try {

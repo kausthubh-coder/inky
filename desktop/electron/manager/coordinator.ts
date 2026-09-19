@@ -169,12 +169,23 @@ export class ManagerCoordinator {
       permission,
       requestOrigin: existing?.requestOrigin === "student" ? "student" : requestOrigin,
       scheduledStartAt: this.#plannedStart(assignment, existing?.enqueuedAt ?? this.#now()),
+      startRequestedAt: existing?.startRequestedAt,
     });
   }
 
   steerNext(taskId: string): ManagerQueueEntry {
     this.#assertUsable();
     return this.#store.manager.steerNext(taskId);
+  }
+
+  queueNext(taskId: string): ManagerState {
+    this.#assertUsable();
+    this.#store.database.transaction(() => {
+      const entry = this.enqueue({ taskId, retry: true, requestOrigin: "student" });
+      this.#store.manager.putQueueEntry({ ...entry, startRequestedAt: this.#now() });
+      this.steerNext(taskId);
+    });
+    return this.state();
   }
 
   reorderQueue(taskIds: readonly string[]): ManagerState {

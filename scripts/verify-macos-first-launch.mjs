@@ -72,7 +72,7 @@ async function main() {
   };
   const child = spawn(join(app, 'Contents/MacOS/Studi'), [
     '--user-data-dir=' + profile, '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=0',
-  ], { stdio: 'ignore', env: { ...process.env, ELECTRON_RUN_AS_NODE: '' } });
+  ], { detached: true, stdio: 'ignore', env: { ...process.env, ELECTRON_RUN_AS_NODE: '' } });
   let launchError;
   child.on('error', error => { launchError = error; });
   let cdp;
@@ -121,13 +121,18 @@ async function main() {
     throw error;
   } finally {
     cdp?.close();
-    // Only the child launched here; no name-based kill and no everyday profile.
-    if (child.pid && child.exitCode === null && child.signalCode === null) {
-      child.kill('SIGTERM');
-      for (let i = 0; i < 30 && child.exitCode === null && child.signalCode === null; i++) await delay(100);
-      if (child.exitCode === null && child.signalCode === null) {
-        child.kill('SIGKILL');
-        for (let i = 0; i < 50 && child.exitCode === null && child.signalCode === null; i++) await delay(100);
+    // A dedicated process group includes this app's renderer/GPU children, which
+    // can otherwise keep the read-only image mounted after the parent exits.
+    if (child.pid) {
+      const signalGroup = signal => {
+        try { process.kill(-child.pid, signal); }
+        catch (error) { if (error.code !== 'ESRCH') throw error; }
+      };
+      signalGroup('SIGTERM');
+      await delay(500);
+      signalGroup('SIGKILL');
+      for (let i = 0; i < 50 && child.exitCode === null && child.signalCode === null; i++) {
+        await delay(100);
       }
     }
     await writeFile(join(output, 'macos-package-smoke.json'), JSON.stringify(receipt, null, 2) + '\n');

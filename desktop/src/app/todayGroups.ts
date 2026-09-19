@@ -92,8 +92,8 @@ export function todayGroups(
   );
   groups.next.sort(
     (a, b) =>
-      (priority.get(a.assignment.assignmentId) ?? Infinity) -
-        (priority.get(b.assignment.assignmentId) ?? Infinity) || dueOrder(a, b),
+      (priority.get(b.assignment.assignmentId) ?? -1) -
+        (priority.get(a.assignment.assignmentId) ?? -1) || dueOrder(a, b),
   );
   groups.later.sort(dueOrder);
   groups.needs.sort((a, b) => {

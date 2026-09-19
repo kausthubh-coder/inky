@@ -140,6 +140,7 @@ export function Today({
     const entry = lifecycle.manager.entries.find(
       (entry) => entry.assignmentId === item.assignment.assignmentId,
     );
+    if (entry?.startRequestedAt) return working || scanning ? "Inky starts next" : "Starting shortly";
     if (entry?.scheduledStartAt)
       return `Inky starts ${new Date(entry.scheduledStartAt).toLocaleString(undefined, { weekday: "short", hour: "numeric", minute: "2-digit" })}`;
     if (item.assignment.owner === "student") return "Yours";
@@ -658,26 +659,13 @@ function TodayRow({
             {!done &&
               !needs &&
               !live &&
-              (!working || item.phase === "queued") && (
+              item.task && (!working || ["discovered", "queued", "failed", "cancelled"].includes(item.task.task.state)) && (
                 <button
                   className="rd-button"
-                  disabled={busy}
+                  disabled={busy || !item.task.permission.mayAttempt || !assignmentWorkEligibility(a, now.toISOString()).eligible}
                   onClick={() =>
                     working && item.task
-                      ? onAction(async () => {
-                          const entries = await window.studi!.getManagerState();
-                          await window.studi!.reorderQueue({
-                            taskIds: [
-                              item.task!.task.taskId,
-                              ...entries.entries
-                                .filter(
-                                  (entry) =>
-                                    entry.taskId !== item.task!.task.taskId,
-                                )
-                                .map((entry) => entry.taskId),
-                            ],
-                          });
-                        })
+                      ? onAction(() => window.studi!.queueAssignmentNext({ taskId: item.task!.task.taskId }))
                       : onStart()
                   }
                 >

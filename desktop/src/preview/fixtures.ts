@@ -281,7 +281,30 @@ export function installDevPreview(): void {
     },
     setAssignmentOwner: async input => {onboarding={...onboarding,assignments:onboarding.assignments.map(item=>item.assignmentId===input.assignmentId?{...item,owner:input.owner}:item)};for(const task of tasks){const updated=onboarding.assignments.find(item=>item.assignmentId===task.assignment.assignmentId);if(updated)task.assignment=updated;}return onboarding;},
     addAssignment: async input => {const item={...assignment(crypto.randomUUID(),input.text,new Date().toISOString()),courseId:input.courseId??onboarding.courses[0]!.courseId,origin:"manual" as const};onboarding={...onboarding,assignments:[...onboarding.assignments,item]};return onboarding;},
-    reorderQueue: async ({taskIds}) => {lifecycle={...lifecycle,manager:{...lifecycle.manager,entries:lifecycle.manager.entries.map(item=>({...item,priority:taskIds.indexOf(item.taskId)}))}};return lifecycle.manager;},
+    reorderQueue: async ({ taskIds }) => {
+      const entries = lifecycle.manager.entries;
+      const ordered = [
+        ...taskIds.flatMap(id => entries.filter(entry => entry.taskId === id)),
+        ...entries.filter(entry => !taskIds.includes(entry.taskId)),
+      ];
+      lifecycle = { ...lifecycle, manager: { ...lifecycle.manager,
+        entries: ordered.map((entry, index) => ({ ...entry, priority: ordered.length - index })),
+      } };
+      return lifecycle.manager;
+    },
+    queueAssignmentNext: async ({ taskId }) => {
+      const item = tasks.find(item => item.task.taskId === taskId);
+      if (!item || !item.permission.mayAttempt) throw new Error("This homework cannot be queued.");
+      item.task = { ...item.task, state: "queued" };
+      const entry = {
+        schemaVersion: 1 as const, taskId, assignmentId: item.assignment.assignmentId,
+        courseId: item.assignment.courseId, dueAt: item.assignment.dueAt,
+        priority: Math.max(0, ...lifecycle.manager.entries.map(entry => entry.priority)) + 1,
+        enqueuedAt: new Date().toISOString(), startRequestedAt: new Date().toISOString(), permission: item.permission, requestOrigin: "student" as const,
+      };
+      lifecycle = { ...lifecycle, manager: { ...lifecycle.manager, entries: [entry, ...lifecycle.manager.entries.filter(entry => entry.taskId !== taskId)] } };
+      return lifecycle.manager;
+    },
     submitAssignmentByRule:async()=>{throw new Error("Preview cannot submit schoolwork.");},
 
     getRuntimeInfo: async () => ({ app: `${version}-preview`, electron: "simulated", chrome: "simulated", node: "simulated" }),

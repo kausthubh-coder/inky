@@ -10,7 +10,11 @@ mount="$(mktemp -d "${TMPDIR:-/tmp}/studi-dmg.XXXXXX")"
 mounted=false
 cleanup() {
   if "$mounted"; then
-    hdiutil detach "$mount" || return 1
+    for attempt in 1 2 3 4 5; do
+      if hdiutil detach "$mount"; then mounted=false; break; fi
+      sleep 1
+    done
+    if "$mounted"; then return 1; fi
   fi
   rmdir "$mount"
 }
