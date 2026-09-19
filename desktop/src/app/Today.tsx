@@ -596,7 +596,7 @@ function TodayRow({
                   })}
                 </span>
               ) : (
-                "No due date"
+                a.dueText ?? "No due date"
               )}
               {needs ? ` · ${need || taskStatusCopy(item.phase).label}` : ""}
               {a.dueDateOverride ? " · date set by you" : ""}

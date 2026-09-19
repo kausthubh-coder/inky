@@ -16,7 +16,8 @@ export type TodayGroups = Record<
 >;
 
 export function assignmentDue(assignment: Assignment): number | null {
-  const value = Date.parse(assignment.dueAt ?? assignment.dueText ?? "");
+  // School date text can omit the year or time; parsing it invents a deadline.
+  const value = Date.parse(assignment.dueAt ?? "");
   return Number.isFinite(value) ? value : null;
 }
 
