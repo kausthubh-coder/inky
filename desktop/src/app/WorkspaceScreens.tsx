@@ -1,3 +1,4 @@
+import { connectedAppIsActive } from "../../shared/index.js";
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
 import { MemorySettings } from "./MemorySettings.js";
 import { HomeworkRules } from "./HomeworkRules.js";
@@ -589,12 +590,13 @@ export function SettingsScreen({
     <main className="app-shell rd-settings" data-studi-app-ready="true">
       <AppChrome {...chrome} />
       <div className="page settings-page">
-        <div className="rd-settings-top"><button className="rd-link" onClick={() => chrome.onNavigate("week")}>← Back</button><h1>Settings</h1><input type="search" aria-label="Find a setting" placeholder="Find a setting…" value={query} onChange={event => setQuery(event.target.value)} /></div>
+        <div className="rd-settings-top"><button className="rd-link" onClick={() => chrome.onNavigate("week")}><Icon name="back" size={16} /> Back to your week</button><h1>Settings</h1><input type="search" aria-label="Find a setting" placeholder="Find a setting…" value={query} onChange={event => setQuery(event.target.value)} /></div>
         <div className="settings-content">
-          <header className="settings-heading">
-            <div><h2>{query.trim() ? "Search results" : "Make yourself at home."}</h2><p>{query.trim() ? `${matches.length} sections matching “${query.trim()}”` : "How I work, and what’s yours."}</p></div>
-            <Inky state="idle" size={58} label="Inky" />
-          </header>
+          {query.trim() && (
+            <header className="settings-heading">
+              <div><h2>Search results</h2><p>{`${matches.length} sections matching “${query.trim()}”`}</p></div>
+            </header>
+          )}
           {query.trim() && matches.length === 0 && <div className="settings-no-results"><h3>No settings found.</h3><p>Try “sound”, “model”, or “school”.</p><button className="button" onClick={() => setQuery("")}>Clear search</button></div>}
             {visible("inky") && (
             <PaperCard id="settings-inky" className="settings-card">
@@ -677,11 +679,19 @@ export function SettingsScreen({
               <p>Connections happen in your browser. Studi never receives the app password or provider token.</p>
               {!connectedApps && <small>Connected apps need an online Studi account.</small>}
               {connectedApps && !connectedApps.configured && <small>Connected apps are not configured on this Studi server.</small>}
+              {connectedApps?.configured && (
+              <details className="rd-apps">
+                <summary>
+                  <span>{connectedApps.toolkits.filter(({ toolkit }) => connectedAppIsActive(appConnections[toolkit] ?? null)).length} of {connectedApps.toolkits.length} connected</span>
+                  <span className="rd-apps-manage">Manage</span>
+                </summary>
               <div className="connected-app-grid">
-                {connectedApps?.configured && connectedApps.toolkits.map(({ toolkit, access, tools }) => (
+                {connectedApps.toolkits.map(({ toolkit, access, tools }) => (
                   <ConnectedAppRow key={toolkit} toolkit={toolkit} connection={appConnections[toolkit] ?? null} feedback={appConnectionFeedback[toolkit]} access={access === "all" ? "all actions" : `${tools?.length ?? 0} approved actions`} disabled={busy !== null} onConnect={onConnectApp} onCheck={onRefreshConnectedApp} />
                 ))}
               </div>
+              </details>
+              )}
             </PaperCard>
             )}
             {visible("folder") && (
@@ -780,7 +790,7 @@ function ProviderCard({ entry, provider, workspace, busy, onSelect, onConnect, o
     <div className={`provider-card ${selected ? "provider-card--selected" : ""}`} data-provider={entry.id}>
       <div className="provider-card-head">
         <div><h3>{entry.name}</h3><small>{entry.plan}</small></div>
-        <StatusPill tone={pill.tone}>{pill.label}</StatusPill>
+        <span className={`rd-provider-state is-${pill.tone}`}>{pill.label === "Inky uses this" ? "In use" : pill.label}</span>
       </div>
       <ProviderLoginHandoffView login={login} busy={busy} onCompleteLogin={onCompleteLogin} onCancelLogin={onCancelLogin} onRetryLogin={onConnect} />
       <div className="provider-card-actions">

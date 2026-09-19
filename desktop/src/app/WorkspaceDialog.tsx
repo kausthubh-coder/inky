@@ -17,6 +17,9 @@ export function WorkspaceDialog({
     const dialog = ref.current!;
     const opener = document.activeElement as HTMLElement | null;
     dialog.showModal();
+    // Focus the dialog itself. Auto-focusing the first button draws a focus ring around it
+    // on open, which read as a stray box around Back.
+    dialog.focus();
     return () => {
       dialog.close();
       // The home composer moves into the sheet while it is open. Restore its
@@ -31,6 +34,7 @@ export function WorkspaceDialog({
     <dialog
       ref={ref}
       className={`workspace-dialog ${className}`}
+      tabIndex={-1}
       aria-label={label}
       onCancel={(event) => {
         event.preventDefault();

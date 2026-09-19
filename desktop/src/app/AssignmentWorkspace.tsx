@@ -12,6 +12,7 @@ import { AssignmentSummary } from "./AssignmentSummary.js";
 import { AssignmentWork } from "./AssignmentWork.js";
 import { HomeworkFiles } from "./HomeworkFiles.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
+import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
 import "./assignment-workspace.css";
 
@@ -157,13 +158,13 @@ export function AssignmentWorkspace({
   return (
     <section className="rd-workspace" aria-label="Assignment workspace">
       <header className="rd-work-heading">
-        <button className="rd-link" onClick={onClose}>
-          ← Back
-        </button>
         <strong>{assignment.title}</strong>
         <span className={"rd-work-status progress-" + status.tone}>
           {status.label}
         </span>
+        <button className="rd-quiet rd-work-back" onClick={onClose}>
+          <Icon name="back" size={16} /> Back to your week
+        </button>
       </header>
       <div className="rd-work-body">
         <aside className="rd-work-side" aria-label="Inky’s progress">
@@ -172,9 +173,15 @@ export function AssignmentWorkspace({
               <Inky
                 size={50}
                 state={
-                  phase === "working" || phase === "submitting"
-                    ? "thinking"
-                    : "idle"
+                  phase === "working"
+                    ? "working"
+                    : phase === "submitting"
+                      ? "thinking"
+                      : phase === "needs_user" || phase === "failed"
+                        ? "needs"
+                        : phase === "submitted"
+                          ? "done"
+                          : "idle"
                 }
               />
               <h1>{headline}</h1>
@@ -183,24 +190,6 @@ export function AssignmentWorkspace({
               <p className="rd-error" role="alert">
                 {execution.lastError}
               </p>
-            )}
-            {phase === "working" && execution && (
-              <div className="rd-actions">
-                <button
-                  className="rd-link"
-                  disabled={busy !== null}
-                  onClick={() => onPause(execution.taskId)}
-                >
-                  Pause
-                </button>
-                <button
-                  className="rd-link danger"
-                  disabled={busy !== null}
-                  onClick={() => onCancel(execution.taskId)}
-                >
-                  Stop work
-                </button>
-              </div>
             )}
             {phase === "needs_user" && execution && (
               <>
@@ -226,6 +215,14 @@ export function AssignmentWorkspace({
                   {/sign.?in|log.?in/i.test(execution.returnPredicate ?? "")
                     ? "I’ve signed in. Continue"
                     : "I’m ready. Continue"}
+                </button>
+                {/* Cancelling is two steps on purpose: pause first, then stop. */}
+                <button
+                  className="rd-quiet rd-stop-assignment"
+                  disabled={busy !== null}
+                  onClick={() => onCancel(execution.taskId)}
+                >
+                  Stop this assignment
                 </button>
               </>
             )}
@@ -341,7 +338,7 @@ export function AssignmentWorkspace({
                     className="rd-link"
                     onClick={() => onOpenArtifact(execution.taskId)}
                   >
-                    Open saved work ↗
+                    Open saved work <Icon name="external" size={14} />
                   </button>
                 )}
                 <button
@@ -426,7 +423,7 @@ export function AssignmentWorkspace({
                 </section>
               </div>
               <button className="rd-link" onClick={onBrowser}>
-                View school page ↗
+                View school page <Icon name="external" size={14} />
               </button>
             </article>
           ) : (
@@ -458,7 +455,7 @@ export function AssignmentWorkspace({
                       }
                     />
                     <button className="rd-button" onClick={onBrowser}>
-                      Open school page ↗
+                      Open school page <Icon name="external" size={14} />
                     </button>
                   </div>
                 )}

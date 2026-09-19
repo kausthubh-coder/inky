@@ -32,9 +32,11 @@ export async function verifyReleaseControls(page, base) {
     await button('Starting…').waitFor();
     assert.equal(await button('Starting…').isDisabled(),true);
     await page.evaluate(()=>window.finishStart());
-    await workspace.getByLabel('Inky’s progress').getByRole('button',{name:'Pause',exact:true}).click();
+    // Pause lives on the school page overlay (mocked in previews). Stopping is pause, then stop.
+    await page.getByRole('button',{name:'Takeover',exact:true}).click();
     await page.getByRole('button',{name:/I’m ready. Continue/}).click();
-    await workspace.getByRole('button',{name:'Stop work',exact:true}).click();
+    await page.getByRole('button',{name:'Takeover',exact:true}).click();
+    await workspace.getByRole('button',{name:'Stop this assignment',exact:true}).click();
     assert.equal(await page.evaluate(()=>window.startCalls),1);
     results.push('Single start while pending, pause, resume, stop');
 
@@ -54,7 +56,7 @@ export async function verifyReleaseControls(page, base) {
     await page.getByRole('heading',{name:'Homework rules',exact:true}).waitFor();
     await open('assignment-failed');
     await button('Try again').click();
-    await page.getByLabel('Inky’s progress').getByRole('button',{name:'Pause',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Takeover',exact:true}).waitFor();
     results.push('Restricted work cannot start from either entry; failed work can retry');
 
     await open('settings-preferences');

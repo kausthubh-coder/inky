@@ -102,7 +102,7 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
           : state === "ignored" || blocked ? "Here when you need me." : "Ready when you are.";
 
   return <section className="assignment-summary" aria-label="Inky’s assignment progress">
-      <div className="assignment-inky-intro"><Inky size={72} state={state === "working" || state === "submitting" ? "thinking" : "idle"} /><span>Inky</span></div>
+      <div className="assignment-inky-intro"><Inky size={72} state={state === "working" ? "working" : state === "submitting" ? "thinking" : "idle"} /><span>Inky</span></div>
       <h2 aria-live="polite">{heading}</h2>
       <div id="assignment-action-note" className={blocked ? "assignment-action-note assignment-blocked" : "assignment-action-note"}><ChatMarkdown text={terminalSchoolStatus || canCheckDetails ? eligibility.reason : blocked ?? note} /></div>
       <button className="button button--yellow assignment-primary" autoFocus onClick={action}

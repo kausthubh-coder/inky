@@ -7,6 +7,7 @@ import type {
 } from "../../shared/tutor.js";
 import { AppChrome } from "./Ui.js";
 import type { ChromeProps } from "./WorkspaceScreens.js";
+import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { LearnConversation } from "./LearnConversation.js";
@@ -546,7 +547,7 @@ export function LearnScreen({
                         void start({ topicId: item.topicId, minutes: 10 })
                       }
                     >
-                      Learn it in 10 min →
+                      Learn it in 10 min <Icon name="forward" size={14} />
                     </button>
                   </div>
                 ))}
@@ -600,32 +601,44 @@ export function LearnScreen({
                     )}
                   </div>
                 ))}
-                <div className="rd-source-actions">
-                  <label>
-                    Class
-                    <select
-                      value={courseId}
-                      onChange={(event) => setCourseId(event.target.value)}
+                {!state?.sources.length && (
+                  <div className="rd-source-hero">
+                    <div>
+                      <strong>Find my syllabus</strong>
+                      <p>
+                        I check your class pages first, then your Drive if
+                        it’s connected.
+                      </p>
+                    </div>
+                    <button
+                      className="rd-button primary"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(() => window.studi!.findLearnSyllabus())
+                      }
                     >
-                      <option value="">Not for a class</option>
-                      {onboarding.courses.map((course) => (
-                        <option key={course.courseId} value={course.courseId}>
-                          {course.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      {busy ? "Looking…" : "Find it"}
+                    </button>
+                  </div>
+                )}
+                {/* One lead action above. These are the quieter ways in. */}
+                <div className="rd-source-actions">
+                  <span className="rd-muted">
+                    {state?.sources.length ? "Add another" : "Or"}
+                  </span>
+                  {!!state?.sources.length && (
+                    <button
+                      className="rd-quiet"
+                      disabled={busy}
+                      onClick={() =>
+                        void run(() => window.studi!.findLearnSyllabus())
+                      }
+                    >
+                      Find one
+                    </button>
+                  )}
                   <button
-                    className="rd-button primary"
-                    disabled={busy}
-                    onClick={() =>
-                      void run(() => window.studi!.findLearnSyllabus())
-                    }
-                  >
-                    Find my syllabus
-                  </button>
-                  <button
-                    className="rd-button"
+                    className="rd-quiet"
                     disabled={busy}
                     onClick={() =>
                       void run(() =>
@@ -638,21 +651,37 @@ export function LearnScreen({
                     Upload a file
                   </button>
                   <button
-                    className="rd-link"
+                    className="rd-quiet"
+                    aria-expanded={paste}
                     onClick={() => setPaste((value) => !value)}
                   >
-                    Paste it here
+                    Paste text
                   </button>
                   <button
-                    className="rd-link"
+                    className="rd-quiet"
                     onClick={() => {
                       setExamEditor(true);
                       setExamTitle("");
                       setDate("");
                     }}
                   >
-                    Enter an exam
+                    Enter an exam date
                   </button>
+                  <label className="rd-source-class">
+                    <span>for</span>
+                    <select
+                      aria-label="Class this source belongs to"
+                      value={courseId}
+                      onChange={(event) => setCourseId(event.target.value)}
+                    >
+                      <option value="">no class</option>
+                      {onboarding.courses.map((course) => (
+                        <option key={course.courseId} value={course.courseId}>
+                          {course.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                 </div>
                 {paste && (
                   <form

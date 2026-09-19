@@ -573,7 +573,7 @@ export function ChatWorkspace(props: ChatProps) {
             aria-label="Message Inky"
             placeholder={
               school
-                ? "Tell Inky something about this check…"
+                ? "Steer this check…"
                 : contextAssignment
                   ? "Ask about this assignment…"
                   : "Hey Inky…"
@@ -758,19 +758,23 @@ export function ChatWorkspace(props: ChatProps) {
                     <Icon name="browser" />
                   </button>
                 )}
-                <button
-                  className="chat-icon"
-                  aria-label={
-                    school
-                      ? "Close school check"
-                      : assignment
-                        ? "Close assignment"
-                        : "Close chat"
-                  }
-                  onClick={() => onView("home")}
-                >
-                  ×
-                </button>
+                {school || assignment ? (
+                  <button
+                    className="rd-quiet rd-work-back"
+                    aria-label={school ? "Close school check" : "Close assignment"}
+                    onClick={() => onView("home")}
+                  >
+                    <Icon name="back" size={16} /> Back to your week
+                  </button>
+                ) : (
+                  <button
+                    className="chat-icon"
+                    aria-label="Close chat"
+                    onClick={() => onView("home")}
+                  >
+                    <Icon name="close" size={18} />
+                  </button>
+                )}
               </div>
             </header>
             {(error || props.actionError) && (
@@ -919,39 +923,39 @@ function SchoolBrowser({
   }, [onSlot]);
   return (
     <aside className="chat-browser">
-      <header>
-        <strong>School browser</strong>
+      <div className={`rd-browser-bar ${onContinue ? "is-handoff" : ""}`}>
         {onContinue && (
-          <button
-            className="button button--yellow scan-browser-continue"
-            disabled={busy}
-            onClick={onContinue}
-          >
-            Continue scan
-            <Icon name="right" size={16} />
-          </button>
+          <>
+            <span role="status">
+              {status ?? "Sign in on the page, then continue."}
+            </span>
+            <button
+              className="rd-button primary"
+              disabled={busy}
+              onClick={onContinue}
+            >
+              Continue scan
+            </button>
+          </>
         )}
         <button
-          className="chat-icon"
+          className="rd-chrome-icon"
           aria-label="Close browser"
+          title="Close the school page"
           onClick={onClose}
         >
-          ×
+          <Icon name="close" size={17} />
         </button>
-      </header>
-      <p className="chat-browser-owner">
-        {status ??
-          (workspace?.browser.driver === "inky"
-            ? "Inky is using the school page."
-            : "Your school page. Take your time.")}
-        {onPause && (
-          <button className="quiet-button" onClick={onPause}>
-            Pause
-          </button>
-        )}
-      </p>
+      </div>
       <div className="chat-browser-slot" ref={slot}>
         {readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}
+        {readDevPreviewConfig() &&
+          onPause &&
+          workspace?.browser.driver === "inky" && (
+            <button className="rd-preview-takeover" onClick={onPause}>
+              Takeover
+            </button>
+          )}
       </div>
     </aside>
   );

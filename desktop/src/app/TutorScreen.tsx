@@ -7,6 +7,7 @@ import type {
 } from "../../shared/tutor.js";
 import { TutorModel } from "./TutorModels.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
+import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
@@ -201,7 +202,7 @@ export function TutorScreen({
           }
           aria-label={message.trim() ? "Send message" : "Pause session"}
         >
-          {message.trim() ? "↑" : "■"}
+          {message.trim() ? <Icon name="send" size={17} /> : <Icon name="stop" size={15} />}
         </button>
       </div>
     </form>
@@ -283,8 +284,23 @@ export function TutorScreen({
           {session.status === "paused" && (
             <div className="rd-session-notice">
               <Inky size={52} state="idle" />
-              <h1>Right where we left off.</h1>
-              <p>Your answers and drafts are saved.</p>
+              <div className="rd-session-notice-text">
+                <h1>Right where we left off.</h1>
+                <p>Your answers and drafts are saved.</p>
+              </div>
+              <button
+                className="rd-quiet"
+                disabled={busy}
+                onClick={() =>
+                  void run(() =>
+                    window.studi!.cancelTutorSession({
+                      sessionId: session.sessionId,
+                    }),
+                  )
+                }
+              >
+                End session
+              </button>
               <button
                 className="rd-button primary"
                 disabled={busy}
@@ -296,20 +312,7 @@ export function TutorScreen({
                   )
                 }
               >
-                Resume session
-              </button>
-              <button
-                className="rd-link"
-                disabled={busy}
-                onClick={() =>
-                  void run(() =>
-                    window.studi!.cancelTutorSession({
-                      sessionId: session.sessionId,
-                    }),
-                  )
-                }
-              >
-                End this session
+                Resume
               </button>
             </div>
           )}
@@ -618,7 +621,7 @@ function TutorBlockView({
             disabled={disabled || !explored.length}
             onClick={() => void submit({ kind: "model", explored })}
           >
-            Try one myself →
+            Try one myself <Icon name="forward" size={15} />
           </button>
         </>
       )}

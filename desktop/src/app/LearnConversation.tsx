@@ -3,6 +3,7 @@ import type { TimelineContext } from "../../shared/conversation-timeline.js";
 import type { ConversationState } from "../../shared/index.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
+import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
 
 export function LearnConversation({
@@ -141,7 +142,7 @@ export function LearnConversation({
             disabled={sending || (!draft.trim() && !active)}
             aria-label={draft.trim() ? "Send message" : "Stop reply"}
           >
-            {draft.trim() ? "↑" : "■"}
+            {draft.trim() ? <Icon name="send" size={17} /> : <Icon name="stop" size={15} />}
           </button>
         </div>
         <div className="rd-composer-suggestions">

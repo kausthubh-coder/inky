@@ -37,6 +37,7 @@ export function AppChrome({
   onSignOut: () => void;
 }) {
   const [accountOpen, setAccountOpen] = useState(false);
+  const [updatesSignal, setUpdatesSignal] = useState(0);
   const [accountNotice, setAccountNotice] = useState<string | null>(null);
   const accountMenuRef = useRef<HTMLDivElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
@@ -64,6 +65,7 @@ export function AppChrome({
   }, [accountOpen]);
 
   const displayName = studentName || "Student";
+  const schoolTone = schoolStatus === "Checking school now" ? "is-busy" : schoolStatus === "School needs sign-in" ? "is-attention" : "is-ok";
   const closeAccountMenu = () => {
     setAccountOpen(false);
     setAccountNotice(null);
@@ -78,8 +80,8 @@ export function AppChrome({
       <button className="brand-lockup brand-home" type="button" onClick={() => onNavigate("week")} aria-label="Open dashboard"><strong>studi</strong></button>
       <nav className={`rd-mode-switch ${screen === "learn" ? "is-learn" : ""}`} aria-label="Studi mode"><span className="rd-mode-thumb" aria-hidden="true" /><button aria-current={screen !== "learn" ? "page" : undefined} onClick={() => onNavigate("week")}>{screen !== "learn" && <Inky state="working" size={20} />}Homework</button><button aria-current={screen === "learn" ? "page" : undefined} onClick={() => onNavigate("learn")}>{screen === "learn" && <Inky state="done" size={20} />}Learn</button></nav>
       <div className="chrome-end">
-        {onSchool && <button className="rd-school-status" aria-label={schoolStatus ?? "School check"} title={schoolStatus ?? "School check"} onClick={onSchool}><Icon name="search" size={18} /><span>{schoolStatus ?? "School check"}</span></button>}
-        <UpdateControls onNotification={onNotification}/>
+        {onSchool && <button className={`rd-chrome-icon rd-school-status ${schoolTone}`} aria-label={schoolStatus ?? "School check"} title={schoolStatus ?? "School check"} onClick={onSchool}><Icon name="school" size={19} />{schoolTone !== "is-ok" && <span>{schoolStatus}</span>}<i aria-hidden="true" /></button>}
+        <UpdateControls onNotification={onNotification} openUpdates={updatesSignal}/>
         <button className="chrome-settings" type="button" aria-label="Settings" title="Settings" aria-current={screen === "settings" ? "page" : undefined} onClick={() => openSettings("settings")}><Icon name="settings" size={19} /></button>
         <div className="account-menu-wrap" ref={accountMenuRef}>
           <button ref={accountButtonRef} className="account-chip" type="button" aria-label={`Account for ${displayName}`} title={displayName} aria-haspopup="menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => { if (!open) setAccountNotice(null); return !open; })}>
@@ -88,6 +90,7 @@ export function AppChrome({
           </button>
           {accountOpen ? (
             <div className="account-menu" role="menu" aria-label="Profile menu">
+              <ProfileMenuItem icon="settings" label="App updates" onClick={() => { closeAccountMenu(); setUpdatesSignal((value) => value + 1); }} />
               <ProfileMenuItem icon="usage" label="Usage" active={screen === "settings" && settingsLanding === "usage"} onClick={() => openSettings("usage")} />
               <ProfileMenuItem icon="invite" label="Invite friend" onClick={() => setAccountNotice("Invite friends is coming soon.")} />
               <ProfileMenuItem icon="feedback" label="Feedback" active={screen === "settings" && settingsLanding === "feedback"} onClick={() => openSettings("feedback")} />

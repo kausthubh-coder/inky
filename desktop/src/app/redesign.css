@@ -2112,3 +2112,302 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 .rd-tutor-block h1 {
   font-family: "Nunito Sans", sans-serif;
 }
+
+/* ===== Audit fixes: top bar =====
+   Equal side columns keep the mode switch in the true middle. The right side is icons only,
+   so it can never grow wider than the logo side and push the switch off center. */
+.app-shell .app-chrome {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+.app-shell .chrome-end {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.rd-chrome-icon,
+.app-chrome .chrome-settings,
+.app-chrome .notification-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  box-shadow: none;
+  color: var(--graphite);
+  transition: background-color 150ms ease-out, color 150ms ease-out, transform 100ms ease-out;
+}
+.rd-chrome-icon:hover,
+.app-chrome .chrome-settings:hover,
+.app-chrome .notification-toggle:hover {
+  background: var(--blotter);
+  color: var(--pencil);
+}
+.rd-chrome-icon:active,
+.app-chrome .chrome-settings:active { transform: scale(0.96); }
+.app-chrome .chrome-settings[aria-current] { background: var(--blotter); color: var(--pencil); }
+.app-chrome .notification-toggle > span { display: none; }
+.app-chrome .notification-toggle > b {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--redpen);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.app-chrome .rd-school-status::before { content: none; }
+.app-chrome .rd-school-status > svg { display: block; }
+.app-chrome .rd-school-status > i {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7fbf9f;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.app-chrome .rd-school-status.is-busy > i { background: var(--highlighter); animation: rd-status-pulse 1.1s ease-in-out infinite alternate; }
+.app-chrome .rd-school-status.is-attention > i { background: var(--redpen); }
+/* Only a state that needs the student gets words. */
+.app-chrome .rd-school-status:not(.is-ok) {
+  width: auto;
+  padding: 0 28px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.app-chrome .rd-school-status.is-attention { color: var(--redpen); }
+.app-chrome .rd-school-status:not(.is-ok) > i { top: 14px; right: 11px; }
+@keyframes rd-status-pulse { from { opacity: 0.45; } to { opacity: 1; } }
+.app-chrome .update-entry.is-ready {
+  height: 30px;
+  padding: 0 11px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--highlighter);
+  box-shadow: 0 0 0 1.5px var(--pencil);
+  color: var(--pencil);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.app-chrome .account-chip { margin-left: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .app-chrome .rd-school-status.is-busy > i { animation: none; }
+}
+
+/* ===== Audit fixes: icons instead of typed arrows ===== */
+.rd-caret { display: inline-flex; vertical-align: -3px; color: var(--graphite); transition: transform 150ms ease-out; }
+[aria-expanded="true"] > .rd-caret, .is-open > .rd-caret { transform: rotate(180deg); }
+:is(.rd-link, .rd-quiet, .rd-button, .rd-disclosure, button) > svg { vertical-align: -3px; }
+
+/* ===== Audit fixes: assignment and school check workspace =====
+   The title leads. Back is a quiet button on the right. The school page has no title strip or
+   ownership banner, because the native overlay already says who is driving. */
+.rd-work-heading { gap: 12px; }
+.rd-work-heading > strong { flex: 0 1 auto; font-size: 15.5px; }
+.rd-work-heading > .rd-work-status { flex: 1; text-align: left; }
+.rd-work-heading > .rd-work-back { flex: none; margin-left: auto; }
+.rd-work-heading .rd-link:focus:not(:focus-visible),
+.rd-work-back:focus:not(:focus-visible) { outline: none; }
+.rd-workspace .chat-browser,
+.rd-school-workspace .chat-browser { border-radius: 22px 0 0 0; overflow: hidden; }
+.workspace-dialog:focus { outline: none; }
+.rd-school-workspace .conversation-actions { display: flex; align-items: center; gap: 6px; }
+.rd-school-workspace .conversation-actions .chat-icon {
+  width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; box-shadow: none; color: var(--graphite);
+}
+.rd-school-workspace .conversation-actions .chat-icon:hover,
+.rd-school-workspace .conversation-actions .chat-icon[aria-expanded="true"] { background: var(--blotter); color: var(--pencil); }
+/* An empty composer never needs a scrollbar. The arrows inside the box were the textarea's own. */
+.inky-composer textarea:placeholder-shown { overflow: hidden; }
+/* "What I'm doing": a real caret instead of the browser's triangle. */
+.rd-activity > summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.rd-activity > summary::-webkit-details-marker { display: none; }
+.rd-activity > summary::after {
+  content: ""; width: 7px; height: 7px; margin-left: auto; border-right: 1.7px solid var(--graphite); border-bottom: 1.7px solid var(--graphite);
+  transform: rotate(45deg) translateY(-2px); transition: transform 150ms ease-out;
+}
+.rd-activity[open] > summary::after { transform: rotate(225deg) translateY(-2px); }
+
+/* ===== Audit fixes: Learn sources =====
+   One lead action. Everything else is a quiet button of the same height, on one line. */
+.rd-source-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 18px 20px;
+  margin: 8px 0 14px;
+  border-radius: 16px;
+  background: var(--blotter);
+}
+.rd-source-hero strong { display: block; font-size: 16px; }
+.rd-source-hero p { margin: 2px 0 0; font-size: 13px; color: var(--graphite); }
+.rd-source-actions { gap: 8px; margin-top: 10px; font-size: 13px; }
+.rd-source-actions > .rd-muted { margin-right: 4px; }
+.rd-source-actions .rd-source-class {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--graphite);
+}
+.rd-source-actions .rd-source-class select {
+  display: inline-block;
+  height: 30px;
+  margin: 0;
+  padding: 0 26px 0 10px;
+  border: 0;
+  border-radius: 8px;
+  background-color: var(--blotter);
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pencil);
+  max-width: 190px;
+}
+.rd-learn-targets button { height: 30px; }
+
+/* ===== Audit fixes: tutor session =====
+   The lesson column lines up with the answer box under it. A paused session is one calm strip,
+   with the saved block dimmed beneath it, instead of two stacked Inkys. */
+.rd-tutor-column { max-width: 768px; }
+.rd-tutor-composer .rd-learn-chatbox,
+.rd-tutor-composer > * { max-width: 720px; margin-left: auto; margin-right: auto; }
+.rd-session-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 18px;
+  margin: 6px 0 22px;
+  border-radius: 16px;
+  background: var(--blotter);
+}
+.rd-session-notice h1 { font-size: 19px; line-height: 1.15; margin: 0; }
+.rd-session-notice p { margin: 2px 0 0; font-size: 13px; color: var(--graphite); }
+.rd-session-notice ~ .rd-tutor-block,
+.rd-session-notice ~ * { opacity: 0.45; pointer-events: none; }
+.rd-typed-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; max-width: 460px; }
+
+/* ===== Audit fixes: Settings =====
+   Same language as the rest of the app: bold section names, no label above every heading,
+   no pills, the active choice marked by a highlighter edge, and one button tier per job. */
+.rd-settings .settings-page { display: block; width: min(752px, calc(100% - 32px)); margin: 0 auto; padding: 22px 16px 60px; }
+.rd-settings-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; margin-bottom: 8px; }
+.rd-settings-top h1 { order: -1; margin: 0; font-size: 30px; line-height: 1.1; }
+.rd-settings-top input { height: 36px; width: 210px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--blotter); font-size: 13.5px; }
+.rd-settings-top > .rd-link { order: 3; height: 36px; padding: 0 14px; border-radius: 10px; background: var(--page); box-shadow: 0 0 0 1.5px var(--pencil); font-weight: 600; font-size: 13.5px; text-decoration: none; color: var(--pencil); }
+.rd-settings .eyebrow { display: none; }
+.rd-settings .settings-content .paper-card,
+.rd-settings .settings-card { border: 0; padding: 0; margin: 0 0 40px; gap: 10px; }
+.rd-settings .settings-content .paper-card h2,
+.rd-settings .settings-card h2 { font-family: "Nunito Sans", system-ui, sans-serif; font-size: 15px; font-weight: 700; margin: 0; }
+.rd-settings .settings-content .paper-card h3 { font-size: 14.5px; font-weight: 600; margin: 0; }
+.rd-settings .settings-content .paper-card p { font-size: 13.5px; line-height: 1.5; color: var(--graphite); max-width: 62ch; }
+.rd-settings .settings-content hr,
+.rd-settings .settings-divider { display: none; }
+
+/* buttons: yellow filled leads, everything else is quiet */
+.rd-settings .settings-content .button {
+  min-height: 34px; padding: 0 14px; border: 0; border-radius: 10px; background: var(--blotter); box-shadow: none;
+  font-size: 13.5px; font-weight: 600; color: var(--pencil); transition: transform 100ms ease-out, background-color 150ms ease-out;
+}
+.rd-settings .settings-content .button:hover:not(:disabled) { background: var(--blot2); }
+.rd-settings .settings-content .button:active:not(:disabled) { transform: scale(0.96); }
+.rd-settings .settings-content .button--yellow,
+.rd-settings .settings-content .button--coral { background: var(--highlighter); box-shadow: 0 0 0 1.5px var(--pencil), 0 2.5px 0 1.5px var(--pencil); }
+.rd-settings .settings-content .button--yellow:hover:not(:disabled),
+.rd-settings .settings-content .button--coral:hover:not(:disabled) { background: var(--highlighter); }
+.rd-settings .settings-content .button:disabled { opacity: 0.5; box-shadow: none; }
+.rd-settings .quiet-button { height: 30px; padding: 0 11px; border: 0; border-radius: 8px; background: var(--blotter); font-size: 13px; font-weight: 600; text-decoration: none; color: var(--pencil); }
+
+/* which AI does the work */
+.rd-settings .provider-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 12px 14px 12px 18px; margin: 0 -14px; border: 0; border-radius: 14px; background: none; position: relative; }
+.rd-settings .provider-card--selected { background: var(--blotter); }
+.rd-settings .provider-card--selected::before { content: ""; position: absolute; left: 7px; top: 14px; bottom: 14px; width: 4px; border-radius: 4px; background: var(--highlighter); box-shadow: 0 0 0 1px var(--pencil); }
+.rd-settings .provider-card-head { display: contents; }
+.rd-settings .provider-card-head h3 { font-size: 15px; font-weight: 700; }
+.rd-settings .provider-card-head small { font-size: 13px; color: var(--graphite); }
+.rd-settings .provider-card-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
+.rd-provider-state { font-size: 12.5px; font-weight: 600; color: var(--graphite); white-space: nowrap; }
+.rd-provider-state.is-coral { color: var(--redpen); }
+
+/* fields */
+.rd-settings .field > span, .rd-settings .field > label, .rd-settings .field { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--graphite); }
+.rd-settings .field input, .rd-settings .field select, .rd-settings select, .rd-settings input[type="number"], .rd-settings input[type="time"] {
+  height: 36px; border: 0; border-radius: 10px; background: var(--page); box-shadow: 0 0 0 1.5px var(--blot2); padding: 0 12px; font-size: 14px; font-weight: 600; color: var(--pencil);
+}
+
+/* connected apps fold away */
+.rd-apps > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; margin: 0 -14px; border-radius: 12px; font-size: 14px; font-weight: 600; }
+.rd-apps > summary::-webkit-details-marker { display: none; }
+.rd-apps > summary:hover { background: var(--blotter); }
+.rd-apps-manage { height: 30px; padding: 0 11px; border-radius: 8px; background: var(--blotter); font-size: 13px; line-height: 30px; }
+.rd-apps[open] .rd-apps-manage { background: var(--pencil); color: var(--paper); }
+.rd-settings .connected-app-grid { display: grid; gap: 2px; margin-top: 6px; }
+.rd-settings .connected-app-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 0; border: 0; }
+.rd-settings .connected-app-logo { width: 22px; height: 22px; }
+.rd-settings .connected-app-copy { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.rd-settings .connected-app-copy strong { font-size: 14px; font-weight: 600; }
+.rd-settings .connected-app-copy small { display: none; }
+.rd-settings .connection-feedback { padding: 0; border: 0; background: none; font-size: 12.5px; font-weight: 400; color: var(--graphite); text-transform: none; letter-spacing: 0; }
+.rd-settings .connection-feedback__mark { display: none; }
+.rd-settings .connection-feedback--coral { color: var(--redpen); }
+
+/* memories read as sentences with their own remove */
+.rd-memory-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 8px 0; text-align: left; font-size: 14px; }
+.rd-memory-row > :first-child { text-align: left; }
+.rd-settings .provider-card-head h3,
+.rd-settings .settings-content .paper-card .provider-card-head h3 { font-size: 15px; font-weight: 700; }
+.rd-settings .provider-card--selected .button:not(.button--yellow) { background: var(--page); }
+.rd-memory-row > .rd-link:first-child { justify-self: start; text-align: left; font-weight: 600; text-decoration: none; }
+.rd-memory-row > span { font-size: 12.5px; color: var(--graphite); }
+/* the rule picker is a row of three, like the one on Today */
+.rd-rule-modes { display: inline-flex; flex-direction: row; flex-wrap: wrap; align-items: center; min-inline-size: 0; }
+.rd-rule-modes legend { float: left; width: 100%; padding: 0; margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--graphite); }
+.rd-rule-modes legend + * { clear: left; }
+.rd-rule-modes label { display: inline-flex; width: auto; flex: none; }
+.rd-settings .homework-rules .rd-button.primary,
+.homework-rules .rd-button.primary { width: max-content; min-width: 120px; }
+.rd-rule-modes { display: block; padding: 0; background: none; width: auto; }
+.rd-rule-modes legend { float: none; width: auto; }
+.rd-rule-mode-row { display: inline-flex; gap: 0; padding: 3px; border-radius: 10px; background: var(--blotter); }
+.rd-rule-mode-row label { display: inline-flex; align-items: center; width: auto; margin: 0; padding: 5px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--graphite); cursor: pointer; white-space: nowrap; }
+.rd-rule-mode-row label.selected { background: var(--page); color: var(--pencil); box-shadow: 0 1px 2px rgb(43 38 33 / 14%); }
+.rd-rule-mode-row input { position: absolute; opacity: 0; pointer-events: none; }
+.rd-rule-mode-row label:focus-within { outline: 2px solid var(--pencil); outline-offset: 2px; }
+.rd-rule-mode-row { width: max-content; max-width: 100%; flex-wrap: wrap; }
+.rd-settings .status-pill { padding: 0; border: 0; background: none; font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--graphite); }
+.rd-session-notice .rd-quiet { background: var(--page); }
+.rd-tutor-heading > button:first-child { height: 30px; padding: 0 11px; border-radius: 8px; background: var(--blotter); font-size: 13px; font-weight: 600; text-decoration: none; }
+
+/* The native school page cannot be drawn over, so its one control sits in a slim bar above it.
+   No title and no ownership banner: the native overlay already says who is driving. */
+.rd-browser-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-height: 40px; padding: 2px 8px 2px 18px; background: var(--paper); font-size: 13.5px; }
+.rd-browser-bar.is-handoff { background: var(--blotter); padding-block: 8px; }
+.rd-browser-bar > span { flex: 1; min-width: 0; color: var(--pencil); }
+.rd-browser-bar .rd-button { height: 34px; }
+.chat-browser-slot { position: relative; }
+/* Preview only: stands in for the native overlay's Takeover tag. */
+.rd-preview-takeover { position: absolute; right: 18px; bottom: 22px; z-index: 2; background: #8ab8e8; border: 2px solid #3b342c; color: #3b342c; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 5px 11px; font-size: 12px; font-weight: 800; box-shadow: 2px 2px 0 #3b342c; }
+.rd-stop-assignment { width: max-content; margin-top: 4px; color: var(--redpen); }
+.rd-stop-assignment { margin-left: 8px; }
