@@ -144,10 +144,10 @@ export function ConversationTimeline({
                   }}
                 >
                   {entry.event === "submitted"
-                    ? "View receipt →"
+                    ? "View receipt"
                     : entry.event === "session_finished"
-                      ? "View session →"
-                      : "Open →"}
+                      ? "View session"
+                      : "Open"}
                 </button>
               )}
             </article>

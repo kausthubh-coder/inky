@@ -7,6 +7,7 @@ import type {
   ProductSettingsState,
   SchoolOnboardingState,
 } from "../../shared/index.js";
+import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import { HomeworkRules } from "./HomeworkRules.js";
@@ -324,7 +325,7 @@ export function Today({
                     aria-label="Previous week"
                     onClick={() => setWeekOffset((n) => n - 1)}
                   >
-                    ‹
+                    <Icon name="left" size={16} />
                   </button>
                   <span>{week.range}</span>
                   <button
@@ -332,7 +333,7 @@ export function Today({
                     aria-label="Next week"
                     onClick={() => setWeekOffset((n) => n + 1)}
                   >
-                    ›
+                    <Icon name="right" size={16} />
                   </button>
                 </div>
               </div>
@@ -402,7 +403,7 @@ export function Today({
                     aria-expanded={rulesOpen}
                     onClick={() => setRulesOpen(!rulesOpen)}
                   >
-                    Change <span aria-hidden="true">⌄</span>
+                    Change <span className="rd-caret" aria-hidden="true"><Icon name="down" size={15} /></span>
                   </button>
                 </div>
               </div>
@@ -444,7 +445,7 @@ export function Today({
                 onClick={() => setShelf(shelf === key ? null : key)}
               >
                 {key === "later" ? "Later" : "No due date"}{" "}
-                <em>{groups[key].length}</em> ⌄
+                <em>{groups[key].length}</em> <span className="rd-caret" aria-hidden="true"><Icon name="down" size={15} /></span>
               </button>
             ))}
           </>
@@ -460,7 +461,7 @@ export function Today({
           className="rd-link"
           onClick={() => setView(view === "all" ? "list" : "all")}
         >
-          {view === "all" ? "← Back to today" : "All work →"}
+          {view === "all" ? <><Icon name="back" size={15} /> Back to today</> : <>All work <Icon name="forward" size={15} /></>}
         </button>
       </div>
       {adding && (
@@ -619,7 +620,7 @@ function TodayRow({
           aria-expanded={open}
           onClick={onToggle}
         >
-          ⌄
+          <span className="rd-caret" aria-hidden="true"><Icon name="down" size={15} /></span>
         </button>
       </div>
       {open && (
@@ -641,7 +642,7 @@ function TodayRow({
             <dd>
               {a.sourceTarget ? (
                 <button className="rd-link" onClick={onOpen}>
-                  School page ↗
+                  School page <Icon name="external" size={14} />
                 </button>
               ) : (
                 "Added by you"
@@ -703,7 +704,7 @@ function TodayRow({
             </button>
           </div>
           <button className="rd-link rd-small" onClick={onSettings}>
-            Rule for this assignment →
+            Rule for this assignment <Icon name="forward" size={14} />
           </button>
           {wrong && (
             <div className="today-wrong">

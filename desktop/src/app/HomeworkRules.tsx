@@ -176,6 +176,7 @@ export function HomeworkRules({
         </div>
         <fieldset className="rd-rule-modes" disabled={busy}>
           <legend>Inky can</legend>
+          <div className="rd-rule-mode-row">
           {modes.map((item) => (
             <label key={item.id} className={mode === item.id ? "selected" : ""}>
               <input
@@ -187,6 +188,7 @@ export function HomeworkRules({
               <span>{item.label}</span>
             </label>
           ))}
+          </div>
         </fieldset>
         <p className="rd-rule-explanation">
           {mode === "auto_submit"

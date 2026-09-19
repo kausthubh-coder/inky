@@ -12,7 +12,7 @@ export async function verifyReleaseLearning(page,base) {
  await page.waitForFunction(async()=>(await window.studi.getLearnState()).exams.some(exam=>exam.date==='2026-10-03'));
  results.push('Exam date correction persists');
  await open('learn-empty');
- await button('Paste it here').click();
+ await button('Paste text').click();
  assert.equal(await button('Use this syllabus').isDisabled(),true);
  await page.getByLabel('Source title',{exact:true}).fill('Probability course');
  await page.getByLabel('Syllabus or exam topics',{exact:true}).fill('Final exam on October 3 covers conditional probability and Bayes theorem.');

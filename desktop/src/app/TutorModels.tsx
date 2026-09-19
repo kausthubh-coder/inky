@@ -1,3 +1,4 @@
+import { Icon } from "./Icon.js";
 import { useEffect, useRef, useState } from "react";
 import type { PublicTutorBlock } from "../../shared/tutor.js";
 import { TUTOR_CODE_SANDBOX_HTML } from "../../shared/tutor-code-sandbox.js";
@@ -163,7 +164,7 @@ function Flashcards({ model, onExplore, disabled }: Props<"flashcards">) {
             disabled={disabled}
             onClick={() => move(-1)}
           >
-            ← Previous
+            <Icon name="back" size={15} /> Previous
           </button>
         )}
         {model.controls.includes("flip") && (
@@ -184,7 +185,7 @@ function Flashcards({ model, onExplore, disabled }: Props<"flashcards">) {
             disabled={disabled}
             onClick={() => move(1)}
           >
-            Next →
+            Next <Icon name="forward" size={15} />
           </button>
         )}
       </div>

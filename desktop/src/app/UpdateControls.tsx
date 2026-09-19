@@ -13,8 +13,11 @@ const notificationKinds = {
 
 export function UpdateControls({
   onNotification,
+  openUpdates = 0,
 }: {
   onNotification: (target: NotificationIntent["target"]) => void;
+  /** Bumped by the account menu to open the updates dialog. */
+  openUpdates?: number;
 }) {
   const [state, setState] = useState<UpdateState | null>(null);
   const [notes, setNotes] = useState<NotificationIntent[]>([]);
@@ -22,6 +25,9 @@ export function UpdateControls({
   const [downloaded, setDownloaded] = useState(false);
   const update = useRef<HTMLDialogElement>(null);
   const notifications = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    if (openUpdates > 0 && !update.current?.open) update.current?.showModal();
+  }, [openUpdates]);
   useEffect(() => {
     let mounted = true;
     const read = async () => {
@@ -81,14 +87,16 @@ export function UpdateControls({
   const unread = notes.filter((note) => !note.clickedAt).length;
   return (
     <>
+      {ready && (
+        <button
+          className="update-entry is-ready"
+          onClick={() => update.current?.showModal()}
+        >
+          Update ready
+        </button>
+      )}
       <button
-        className={`update-entry ${ready ? "is-ready" : ""}`}
-        onClick={() => update.current?.showModal()}
-      >
-        {ready ? "App update ready" : "App updates"}
-      </button>
-      <button
-        className="notification-toggle"
+        className="rd-chrome-icon notification-toggle"
         aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
         onClick={() => notifications.current?.showModal()}
       >
