@@ -16,7 +16,7 @@ async function execute(definition, input) {
   return definition.execute(`workspace-${definition.name}`, input, undefined, undefined, {});
 }
 
-test("workspace coding tools create, edit, search, list, and run inside one assignment", async () => {
+test("workspace coding tools create, edit, search, list, and run inside one assignment", async (t) => {
   const root = await mkdtemp(join(tmpdir(), "studi-assignment-tools-"));
   try {
     const tools = createWorkspaceCodingTools(root);
@@ -38,11 +38,18 @@ test("workspace coding tools create, edit, search, list, and run inside one assi
 
     const shellName = process.platform === "win32" ? "powershell" : "bash";
     const command = process.platform === "win32"
-      ? "Start-Sleep -Milliseconds 1500; Set-Content -LiteralPath shell-result.txt -Value 'inside'"
+      ? "Write-Output 'shell started'; Start-Sleep -Milliseconds 1500; Write-Output 'sleep completed'; Set-Content -LiteralPath shell-result.txt -Value 'inside'; Write-Output 'file written'"
       : "sleep 1.5; printf 'inside\\n' > shell-result.txt";
-    // Include cold PowerShell startup on shared CI hosts; the deliberate 1.5s
-    // command still catches accidentally treating this seconds value as ms.
-    await execute(tool(tools, shellName), { command, timeout: 60 });
+    // The deliberate 1.5s command catches seconds accidentally treated as ms.
+    // Fixed phase markers identify runner hangs without logging its environment.
+    let progress;
+    try {
+      await tool(tools, shellName).execute("workspace-shell", { command, timeout: 60 }, undefined,
+        update => { progress = update.content; }, {});
+    } catch (error) {
+      t.diagnostic(`Shell progress: ${JSON.stringify(progress ?? [])}`);
+      throw error;
+    }
     assert.match(await readFile(join(root, "shell-result.txt"), "utf8"), /inside/);
   } finally {
     await rm(root, { recursive: true, force: true });

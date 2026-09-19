@@ -27,12 +27,11 @@ ChatGPT authorization, real smoke scan, home chat and restart persistence passed
 Tutor produced a real first exercise; complete tutoring remains pending. Live
 homework Start was blocked by automatic approval review; Claude is not connected.
 
-CI at 2afb7fe passed macOS packaged renderer/preload first launch, with an inspected
-welcome screenshot. The job failed during image cleanup, so its artifacts are not
-release-ready. Windows native checks passed, but assignment shell tests exceeded
-their 10-second startup allowance on the runner. Cleanup now targets the probe's
-own process group, and shell success tests allow 60 seconds for cold startup;
-explicit short-timeout/recovery tests remain. Fresh native CI proof is required.
+CI 35456369848 at 64ec94b still failed: macOS packaged renderer/preload first
+launch passed, but disk-image cleanup remained busy after process-group shutdown.
+Windows passed 424 of 425 Node tests plus the native checks; the assignment shell
+write command timed out even with a 60-second allowance. Cold startup alone does
+not explain that failure. Both runner failures require diagnosis and fresh proof.
 
 “Do this next” now queues discovered/failed homework at the front, retains the
 current browser lease, and records an explicit start request. The kernel starts
@@ -51,4 +50,6 @@ provided until those checks have actually succeeded.
 Known UI coverage limits: native file selection is supported; drag-and-drop is
 not implemented. Assignment receipts show recorded checkpoint summaries.
 Historical school-check links open the current check. File previews and action history are
-available; a dedicated command-output panel is not yet implemented.
+available. The Files panel now retains bounded shell results, including failed
+commands, with controlled storage and rendered-interaction evidence; live command
+execution in that panel remains unverified.

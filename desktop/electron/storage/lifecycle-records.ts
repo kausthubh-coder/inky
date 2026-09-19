@@ -13,6 +13,7 @@ import {
   type SubmissionReceipt,
   type AgentRunEvent,
   type AssignmentAction,
+  type AssignmentCommandOutput,
 } from "../../shared/index.js";
 import type { StudiSqliteDatabase } from "./database.js";
 import { StorageError, errorMessage } from "./errors.js";
@@ -123,7 +124,7 @@ export class LifecycleRepository {
     return execution;
   }
 
-  recordActivity(taskId: string, event: AgentRunEvent, action?: AssignmentAction): void {
+  recordActivity(taskId: string, event: AgentRunEvent, action?: AssignmentAction, command?: AssignmentCommandOutput): void {
     this.database.transaction(() => {
       const execution = this.getExecution(taskId);
       if (!execution) return;
@@ -137,7 +138,10 @@ export class LifecycleRepository {
         if (action.kind === "text" && last?.kind === "text") actions[actions.length - 1] = { ...last, label: (last.label + action.label).slice(-4000) };
         else actions.push(action);
       }
-      const record = AssignmentExecutionSchema.parse({ ...execution, activity: activity.slice(-160), actions: actions.slice(-160) });
+      const commandOutputs = command
+        ? [...(execution.commandOutputs ?? []).filter(item => item.toolCallId !== command.toolCallId), command].slice(-20)
+        : execution.commandOutputs;
+      const record = AssignmentExecutionSchema.parse({ ...execution, activity: activity.slice(-160), actions: actions.slice(-160), commandOutputs });
       this.database.handle.prepare("UPDATE assignment_executions SET record_json = ? WHERE task_id = ?").run(JSON.stringify(record), taskId);
     });
   }

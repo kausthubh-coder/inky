@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type { AssignmentCommandOutput } from "../../shared/index.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import { Icon } from "./Icon.js";
 
@@ -38,10 +39,12 @@ export function HomeworkFiles({
   assignmentId,
   active,
   onCount,
+  commandOutputs = [],
 }: {
   assignmentId: string;
   active: boolean;
   onCount: (count: number) => void;
+  commandOutputs?: readonly AssignmentCommandOutput[];
 }) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [opened, setOpened] = useState<FileEntry | null>(null);
@@ -256,6 +259,23 @@ export function HomeworkFiles({
               {adding ? "Adding files…" : "Choose files"}
             </button>
           </div>
+        )}
+        {commandOutputs.length > 0 && (
+          <section className="rd-command-output" aria-label="Command output">
+            {commandOutputs.map((output, index) => (
+              <details key={output.toolCallId} open={index === commandOutputs.length - 1}>
+                <summary>
+                  {output.shell === "powershell" ? "PowerShell" : "Terminal"}
+                  {" · "}{output.outcome === "succeeded" ? "Finished" : "Failed"}
+                  {output.durationMs !== undefined ? ` · ${(output.durationMs / 1000).toFixed(1)}s` : ""}
+                </summary>
+                <pre>
+                  {output.truncated ? "Earlier output omitted.\n" : ""}
+                  {output.text || "No output was recorded."}
+                </pre>
+              </details>
+            ))}
+          </section>
         )}
         {listError && (
           <div className="assignment-file-error" role="alert">

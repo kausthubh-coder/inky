@@ -221,6 +221,7 @@ export function installDevPreview(): void {
       phase,
       taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
       turnCount: 8,
+      ...(preview.id === "desk-working" ? { commandOutputs: [{ toolCallId: "preview-tests", shell: "powershell" as const, outcome: "succeeded" as const, text: "Checking assignment files…\n3 checks passed", durationMs: 1250, truncated: false, recordedAt: now }] } : {}),
       attemptCount: 1,
       ...(phase === "needs_user" ? { returnPredicate: "Attach the three JPG graphs in Show My Work, then tell me to keep going.", lastError: "The assignment requires graph files that are not in the homework folder." } : {}),
       ...(phase === "ready_review" ? { reviewDeadline: "2026-09-03T16:15:00.000Z", reviewCheckpoint: checkpoint, answerSnapshot: "Six written responses filled; three graphs attached.", completionChecklist: [{ requirement: "Six written answers", evidence: "All six response boxes contain an answer." }, { requirement: "Three JPG graphs", evidence: "Three attachments are listed in Show My Work." }] } : {}),

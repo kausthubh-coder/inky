@@ -60,6 +60,17 @@ export const CompletionRequirementSchema = z.strictObject({
   evidence: z.string().trim().min(1).max(1_000),
 });
 
+export const AssignmentCommandOutputSchema = z.strictObject({
+  toolCallId: z.string().min(1),
+  shell: z.enum(["bash", "powershell"]),
+  outcome: z.enum(["succeeded", "failed"]),
+  text: z.string().max(20_000),
+  truncated: z.boolean(),
+  durationMs: z.number().int().nonnegative().optional(),
+  recordedAt: IsoTimestampSchema,
+});
+export type AssignmentCommandOutput = z.infer<typeof AssignmentCommandOutputSchema>;
+
 export const AssignmentExecutionSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   taskId: TaskIdSchema,
@@ -88,6 +99,7 @@ export const AssignmentExecutionSchema = z.strictObject({
   doubts: z.array(AssignmentDoubtSchema).max(30).optional(),
   actions: z.array(AssignmentActionSchema).max(160).optional(),
   activity: z.array(AgentRunEventSchema).max(160).optional(),
+  commandOutputs: z.array(AssignmentCommandOutputSchema).max(20).optional(),
   startedAt: IsoTimestampSchema.optional(),
   completionChecklist: z.array(CompletionRequirementSchema).min(1).max(100).optional(),
   answerArtifactId: z.string().min(1).max(128).optional(),

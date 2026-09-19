@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { commandOutput } from "./command-output.js";
 
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -390,13 +391,14 @@ export class AssignmentExecutionCoordinator {
     if (event.type === "text") {
       this.#store.lifecycle.recordActivity(taskId, { ...event, delta: event.delta.slice(-20_000) }, { ...base, kind: "text", label: event.delta.slice(-4000) });
     } else if (event.type === "tool_started" || event.type === "tool_finished") {
-      // Keep readable actions, not raw tool arguments, page dumps, or shell output.
+      // The timeline keeps readable actions. Bounded shell text is stored
+      // separately for the assignment's file panel.
       const outcome = event.type === "tool_started" ? "started" : event.outcome;
       const label = TOOL_ACTION_LABELS[event.toolName] ?? this.#tools.find(tool => tool.name === event.toolName)?.label ?? "Working on the assignment";
       const safeEvent: AgentRunEvent = event.type === "tool_started"
         ? { schemaVersion: 1, type: event.type, toolCallId: event.toolCallId, toolName: event.toolName }
         : { schemaVersion: 1, type: event.type, toolCallId: event.toolCallId, toolName: event.toolName, outcome: event.outcome, durationMs: event.durationMs };
-      this.#store.lifecycle.recordActivity(taskId, safeEvent, { ...base, kind: "tool", label, outcome });
+      this.#store.lifecycle.recordActivity(taskId, safeEvent, { ...base, kind: "tool", label, outcome }, commandOutput(event, base.occurredAt));
     } else if (event.type === "retry") {
       this.#store.lifecycle.recordActivity(taskId, event, { ...base, kind: "retry", label: (event.reason ?? "Trying the connection again").slice(0, 4000), outcome: event.phase === "started" ? "started" : event.outcome });
     } else this.#store.lifecycle.recordActivity(taskId, event);

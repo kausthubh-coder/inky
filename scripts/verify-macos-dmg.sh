@@ -14,7 +14,12 @@ cleanup() {
       if hdiutil detach "$mount"; then mounted=false; break; fi
       sleep 1
     done
-    if "$mounted"; then return 1; fi
+    if "$mounted"; then
+      # Identify only processes holding this disposable image. Do not kill
+      # unrelated system services or hide failed cleanup with a forced detach.
+      lsof +D "$mount" || true
+      return 1
+    fi
   fi
   rmdir "$mount"
 }

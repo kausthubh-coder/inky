@@ -91,3 +91,24 @@ CI 35455821589 at 2afb7fe passed macOS first launch (renderer plus auth-state IP
 and its welcome screenshot was inspected. DMG unmount then failed because a
 process still held the image. Windows shell tests timed out at 10 seconds; local
 checks pass. These failed jobs remain failures pending fresh runner evidence.
+
+## Assignment command output
+
+The Files panel now displays saved PowerShell/bash results using the approved
+dark output area. Only shell text is retained (last 20 results, 20,000 characters
+each); browser results and tool arguments remain excluded from the view. React
+renders output as text. Storage tests cover filtering, truncation, duplicate
+events, assignment isolation and reopening the database.
+
+Focused typecheck/build/storage verification passed in
+`.agents/studi-qa/checks/2026-09-19T16-57-36.187Z-4800/result.json`.
+`command-output.journey.mjs` passed saved-success/new-failure rendering, literal
+script text and tab-switch persistence. The screenshot
+`.agents/studi-qa/assignment-command-output.png` was visually inspected at
+1120×760. This uses the actual React preview with controlled IPC, not live shell
+execution or native window proof.
+
+CI 35456369848 at 64ec94b still failed. Windows has one shell-write timeout at
+60 seconds, disproving the earlier assumption that a longer cold-start allowance
+was sufficient. Mac first launch passed but unmount stayed busy. Neither job is
+release-ready.

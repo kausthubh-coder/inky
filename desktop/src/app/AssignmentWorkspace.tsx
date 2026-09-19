@@ -473,6 +473,7 @@ export function AssignmentWorkspace({
               assignmentId={assignment.assignmentId}
               active
               onCount={setFileCount}
+              commandOutputs={detail?.execution?.commandOutputs ?? execution?.commandOutputs ?? []}
             />
           </div>
         </div>
