@@ -20,6 +20,7 @@ export function reconcileAssignments(store: LocalStore): AssignmentConflict[] {
     const parsed = AssignmentSchema.safeParse(JSON.parse(String(row.record_json)));
     if (!parsed.success) continue;
     const assignment = parsed.data;
+    if (!assignment.sourceTarget) continue;
     const identity = assignment.sourceIdentity ?? schoolIdentity(assignment.sourceTarget, "assignment");
     if (!identity) continue;
     const group = groups.get(identity) ?? [];
@@ -94,6 +95,7 @@ function archive(store: LocalStore, kind: "assignment" | "task", id: string, can
 }
 
 function hasWork(store: LocalStore, assignment: Assignment, tasks: Task[], files: string[]): boolean {
+  if (assignment.dueDateOverride || assignment.ignoredReason || assignment.origin === "manual") return true;
   if (tasks.some(task => store.manager.getQueueEntry(task.taskId)?.requestOrigin === "student")) return true;
   if (tasks.some(task => !["discovered", "queued"].includes(task.state) ||
     store.tasks.listEvents(task.taskId).some(event => event.type !== "task_created" &&

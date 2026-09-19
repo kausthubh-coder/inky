@@ -108,10 +108,17 @@ else if (command === "validate") {
           console.log(
             JSON.stringify({ type: "telemetry-exported", ...result }),
           );
-        } else if (action.command === "advance") {
-          server.advance(String(action.event));
+        } else if (action.command === "advance" || action.command === "advance-minutes") {
+          const event = action.command === "advance-minutes" ? "advance-minutes" : String(action.event);
+          const result = server.advance(event, {
+            ...(action.activityId !== undefined ? { activityId: action.activityId } : {}),
+            ...(action.service !== undefined ? { service: action.service } : {}),
+            ...(action.answer !== undefined ? { answer: action.answer } : {}),
+            ...(action.minutes !== undefined ? { minutes: action.minutes } : {}),
+            ...(action.examId !== undefined ? { examId: action.examId } : {}),
+          });
           console.log(
-            JSON.stringify({ type: "advanced", event: action.event }),
+            JSON.stringify({ type: "advanced", event, ...result }),
           );
         } else if (action.command === "stop") {
           await server.close();

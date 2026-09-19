@@ -46,6 +46,11 @@ test("returning from a browser handoff resumes the scan even when a saved workfl
 });
 
 test("runtime attention distinguishes usage, Codex reauth, and ordinary scan failure", () => {
+  assert.deepEqual(presentSchoolOnboardingScan({
+    profile: {},
+    scan: { state: "failed", coverage: [], completedAt: "2026-09-19T12:00:00.000Z", failures: ["Token refresh failed"] },
+    workflowRevision: null,
+  }, { state: "ready", reason: "ChatGPT is ready to use." }), { step: 1, kind: "runtime_login" });
   assert.equal(classifyAgentRuntimeAttention({ state: "ready", reason: "OpenAI Codex is ready to use." }), "none");
   assert.equal(classifyAgentRuntimeAttention({ state: "needs_login", reason: "OpenAI Codex needs authentication." }), "needs_login");
   assert.equal(classifyAgentRuntimeAttention({ state: "ready", reason: "OpenAI Codex is ready to use." }, "The scan agent stopped: rate limit"), "usage");

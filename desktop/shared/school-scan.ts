@@ -70,9 +70,13 @@ export const ScanSourceCheckpointSchema = z.strictObject({
 export const SchoolScanSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   scanId: z.string().min(1).max(256),
+  ownerSubject: z.string().min(1).max(256).optional(),
   kind: z.enum(["first_scan", "replay"]),
   targetAssignmentId: z.string().min(1).max(256).optional(),
+  sourceScanTarget: SafeSourceTargetSchema.optional(),
   targetSourceTargets: z.array(SafeSourceTargetSchema).max(500).optional(),
+  addedSourceTargets: z.array(SafeSourceTargetSchema).max(100).default([]),
+  skippedSources: z.array(z.strictObject({ sourceTarget: SafeSourceTargetSchema, reason: z.string().trim().min(1).max(300) })).max(100).default([]),
   state: z.enum(["running", "needs_user", "succeeded", "partial", "failed"]),
   startedAt: IsoTimestampSchema,
   updatedAt: IsoTimestampSchema,
@@ -102,6 +106,7 @@ export const SCAN_TOOL_NAMES = [
   "scan_status", "scan_record_course", "scan_record_assignment", "scan_record_assignments",
   "scan_record_linked_system", "scan_record_inventory", "scan_request_handoff", "scan_finish",
   "scan_check_source", "scan_record_source", "scan_read_assignment", "scan_read_material",
+  "scan_add_source", "scan_skip_source",
 ] as const;
 
 export const CourseSchema = z.strictObject({
@@ -202,7 +207,7 @@ export function hasCompletedSchoolOnboarding(
   if (!state.profile) return false;
   if (state.profile.onboardingCompletedAt || state.workflowRevision !== null) return true;
   return Boolean(
-    state.scan?.completedAt && !state.scan.targetAssignmentId &&
+    state.scan?.completedAt && !state.scan.targetAssignmentId && !state.scan.sourceScanTarget &&
     (state.scan.state === "succeeded" || state.scan.state === "partial") &&
     state.scan.coverage.length > 0,
   );

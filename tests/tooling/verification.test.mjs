@@ -48,3 +48,12 @@ test('changed selection escalates unknown/shared code and unions affected bounda
   assert.deepEqual(affectedScopes(['.agents/skills/test-studi/references/full-app-pass.md']), []);
   assert.deepEqual(makePlan({ changedPaths: [] }).steps, []);
 });
+
+test('Learn selects its storage, agent, UI and fixture boundaries with bounded worker counts', () => {
+  const plan = makePlan({ changedPaths: ['desktop/electron/agent/tutor-coordinator.ts', 'desktop/electron/storage/learn-records.ts'], concurrency: 1 });
+  assert.deepEqual(plan.scopes, ['storage', 'agent', 'contracts', 'ui', 'lms']);
+  assert.ok(plan.steps.find(step => step.id === 'node-tests').args.includes('--test-concurrency=1'));
+  assert.ok(makePlan({ scope: ['backend'], concurrency: 2 }).steps.find(step => step.id === 'backend').args.includes('--maxWorkers=2'));
+  assert.throws(() => makePlan({ concurrency: 0 }), /Concurrency/);
+  assert.throws(() => makePlan({ concurrency: NaN }), /Concurrency/);
+});

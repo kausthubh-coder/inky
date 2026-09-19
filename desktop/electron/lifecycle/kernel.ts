@@ -32,7 +32,7 @@ import type { AssignmentExecutionCoordinator, ExecutionNotification } from "../a
 import { VisibleBrowserBusyError, type VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
-import { createAutomationSchedule, nextScheduleRun } from "./schedule.js";
+import { createAutomationSchedule, nextScheduleRun, withinHomeworkHours } from "./schedule.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const unpackedSoundDirectory = resolve(moduleDirectory, "..", "..", "..", "assets", "sounds");
@@ -49,6 +49,12 @@ export class AppKernel {
   readonly #window: BrowserWindow;
   readonly #runScheduledScan: (claimOccurrence: () => AutomationSchedule | null) => Promise<{ readonly claim: AutomationSchedule; readonly state: SchoolOnboardingState } | null>;
   readonly #focusBrowser: () => void;
+  readonly #runScheduledAssignment: ((taskId: string) => Promise<unknown>) | undefined;
+  #reconciling = false;
+  #reconcileRequested = false;
+  #requestTimer: ReturnType<typeof setTimeout> | null = null;
+  #reconcileRetryAt = 0;
+  #assignmentRetryAt = 0;
   readonly #iconPath: string | undefined;
   readonly #now: () => string;
   #tray: Tray | null = null;
@@ -68,6 +74,7 @@ export class AppKernel {
     options: {
       readonly runScheduledScan: (claimOccurrence: () => AutomationSchedule | null) => Promise<{ readonly claim: AutomationSchedule; readonly state: SchoolOnboardingState } | null>;
       readonly focusBrowser: () => void;
+      readonly runScheduledAssignment?: (taskId: string) => Promise<unknown>;
       readonly iconPath?: string;
       readonly now?: () => string;
     },
@@ -79,12 +86,14 @@ export class AppKernel {
     this.#window = window;
     this.#runScheduledScan = options.runScheduledScan;
     this.#focusBrowser = options.focusBrowser;
+    this.#runScheduledAssignment = options.runScheduledAssignment;
     this.#iconPath = options.iconPath;
     this.#now = options.now ?? (() => new Date().toISOString());
   }
 
   async start(): Promise<void> {
     this.#assertUsable();
+    this.#manager.setSchedulingEnabled(Boolean(this.#runScheduledAssignment));
     this.#window.on("close", this.#hideOnClose);
     app.on("before-quit", this.#beforeQuit);
     powerMonitor.on("resume", this.#resume);
@@ -96,7 +105,7 @@ export class AppKernel {
     this.#tray.setToolTip("Studi");
     this.#tray.on("click", this.open);
     this.#refreshTray();
-    await this.reconcile();
+    this.requestReconcile();
   }
 
   state(): LifecycleState {
@@ -111,8 +120,10 @@ export class AppKernel {
     const now = this.#now();
     const schedule = createAutomationSchedule(cadence, timezone, now, this.#store.lifecycle.getSchedule(), requested);
     this.#store.lifecycle.putSchedule(schedule);
+    this.#manager.reconcileQueue();
     this.#refreshTray();
     this.#armTimer();
+    this.requestReconcile();
     return this.state();
   }
 
@@ -129,8 +140,10 @@ export class AppKernel {
       ...(nextRunAt === undefined ? {} : { nextRunAt }),
       updatedAt: now,
     });
+    this.#manager.reconcileQueue();
     this.#refreshTray();
     this.#armTimer();
+    this.requestReconcile();
     return this.state();
   }
 
@@ -199,9 +212,14 @@ export class AppKernel {
 
   async reconcile(): Promise<void> {
     this.#assertUsable();
-    if(this.#updating)return;
+    if (this.#updating) return;
+    if (this.#reconciling) { this.#reconcileRequested = true; return; }
+    this.#reconciling = true;
+    this.#reconcileRequested = false;
+    try {
+    this.#manager.reconcileQueue();
     await this.#execution.reconcileDeadlines();
-    if(this.#updating)return;
+    if (this.#updating || this.#disposed) return;
     const schedule = this.#store.lifecycle.getSchedule();
     const now = this.#now();
     if (schedule?.state === "enabled" && schedule.cadence !== "manual" && schedule.nextRunAt && schedule.nextRunAt <= now) {
@@ -228,22 +246,75 @@ export class AppKernel {
         }
       }
     }
-    this.#refreshTray();
-    this.#armTimer();
+    const workNow = this.#now();
+    const workTimezone = this.#store.lifecycle.getSchedule()?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!this.#updating && !this.#disposed && this.#runScheduledAssignment && this.#manager.allowsAutomaticWork &&
+      this.#store.lifecycle.getSchedule()?.state !== "paused" && !this.#browserWork.isScanStartBlocked() &&
+      Date.parse(workNow) >= this.#assignmentRetryAt && withinHomeworkHours(workNow, workTimezone)) {
+      this.#manager.reconcileQueue();
+      const next = this.#manager.state().entries.find(entry => entry.scheduledStartAt && entry.scheduledStartAt <= workNow);
+      if (next) {
+        try {
+          const assignment = this.#store.assignments.get(next.assignmentId);
+          await this.notify({ kind: "work_start", target: { type: "task", id: next.taskId }, title: "Inky is about to start", body: `I'm about to start ${assignment?.title ?? "your homework"}. You can take over from Studi.`.slice(0, 500) });
+          // A rule or ownership command may have arrived while the notification was being saved.
+          this.#manager.reconcileQueue();
+          const current = this.#manager.state().entries.find(entry => entry.taskId === next.taskId);
+          if (current?.scheduledStartAt && current.scheduledStartAt <= this.#now() && this.#store.lifecycle.getSchedule()?.state !== "paused") await this.#runScheduledAssignment(next.taskId);
+          this.#assignmentRetryAt = 0;
+        }
+        catch (error) {
+          // Keep a permitted queue entry for retry; never claim that execution started.
+          this.#assignmentRetryAt = Date.parse(this.#now()) + 5 * 60_000;
+          if (!(error instanceof VisibleBrowserBusyError)) await this.notify({ kind: "failure", target: { type: "task", id: next.taskId }, title: "Homework could not start", body: error instanceof Error ? error.message.slice(0, 500) : "Inky could not start this homework." });
+        }
+      }
+    }
+    this.#reconcileRetryAt = 0;
+    } finally {
+      this.#reconciling = false;
+      if (!this.#disposed) { this.#refreshTray(); this.#armTimer(); }
+      if (this.#reconcileRequested) this.requestReconcile();
+    }
+  }
+
+  requestReconcile(): void {
+    if (this.#disposed || this.#updating) return;
+    this.#reconcileRequested = true;
+    if (this.#reconciling || this.#requestTimer) return;
+    this.#requestTimer = setTimeout(() => {
+      this.#requestTimer = null;
+      if (this.#disposed || this.#updating) return;
+      void this.reconcile().catch(error => {
+        if (this.#disposed) return;
+        this.#reconcileRetryAt = Date.parse(this.#now()) + 60_000;
+        const reason = error instanceof Error ? error.message.slice(0, 500) : "Studi could not check its saved automation state.";
+        // Persist a readable failure even if native notification delivery is the failing boundary.
+        try { this.#store.lifecycle.putNotification({ schemaVersion: 1, notificationId: `notification-${randomUUID()}`, kind: "failure", target: { type: "scan", id: "automation" }, title: "Automation needs attention", body: reason || "Automation failed.", createdAt: this.#now() }); }
+        catch { console.error("Studi could not save its automation failure notification."); }
+        if (this.#requestTimer) clearTimeout(this.#requestTimer);
+        this.#requestTimer = null;
+        this.requestReconcile();
+      });
+    }, Math.max(0, this.#reconcileRetryAt - Date.parse(this.#now())));
   }
 
   prepareUpdate(): void {
     this.#updating=true;
     this.#quitting=true;
     if(this.#timer)clearTimeout(this.#timer);
+    if(this.#requestTimer)clearTimeout(this.#requestTimer);
+    this.#requestTimer=null;
     this.#timer=null;
   }
-  cancelUpdate(): void {this.#updating=false;this.#quitting=false;this.#armTimer();}
+  cancelUpdate(): void {this.#updating=false;this.#quitting=false;this.requestReconcile();}
 
   dispose(): void {
     if (this.#disposed) return;
     this.#disposed = true;
     if (this.#timer) clearTimeout(this.#timer);
+    if (this.#requestTimer) clearTimeout(this.#requestTimer);
+    this.#requestTimer = null;
     this.#timer = null;
     powerMonitor.removeListener("resume", this.#resume);
     app.removeListener("before-quit", this.#beforeQuit);
@@ -251,6 +322,7 @@ export class AppKernel {
     this.#tray?.removeListener("click", this.open);
     this.#tray?.destroy();
     this.#tray = null;
+    this.#manager.setSchedulingEnabled(false);
   }
 
   #hideOnClose = (event: Electron.Event): void => {
@@ -266,7 +338,7 @@ export class AppKernel {
   };
 
   #resume = (): void => {
-    void this.reconcile();
+    this.requestReconcile();
   };
 
   #focusTarget(intent: NotificationIntent): void {
@@ -278,10 +350,13 @@ export class AppKernel {
     if (!this.#tray) return;
     const schedule = this.#store.lifecycle.getSchedule();
     const lease = this.#manager.state().lease;
+    const nextWork = this.#manager.state().entries.filter(entry => entry.scheduledStartAt).sort((a, b) => a.scheduledStartAt!.localeCompare(b.scheduledStartAt!))[0];
     const status = lease
-      ? `Working on ${lease.taskId}`
+      ? `Working on ${this.#store.assignments.get(this.#store.tasks.get(lease.taskId)?.assignmentId ?? "")?.title ?? "homework"}`
       : schedule?.state === "paused"
         ? "Automation paused"
+        : nextWork?.scheduledStartAt
+          ? `Next homework ${new Date(nextWork.scheduledStartAt).toLocaleString()}`
         : schedule?.nextRunAt
           ? `Next scan ${new Date(schedule.nextRunAt).toLocaleString()}`
           : "Ready";
@@ -306,18 +381,35 @@ export class AppKernel {
     const candidates: number[] = [];
     const now = Date.parse(this.#now());
     const schedule = this.#store.lifecycle.getSchedule();
+    if (this.#runScheduledAssignment && this.#manager.allowsAutomaticWork && schedule?.state !== "paused") {
+      for (const entry of this.#manager.state().entries) {
+        if (!entry.scheduledStartAt) continue;
+        let start = Math.max(Date.parse(entry.scheduledStartAt), this.#assignmentRetryAt);
+        if (start <= now && this.#browserWork.isScanStartBlocked()) start = now + BUSY_BROWSER_RECHECK_MS;
+        const timezone = schedule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (start <= now && !withinHomeworkHours(this.#now(), timezone)) start = Date.parse(nextScheduleRun({ schemaVersion: 1, scheduleId: "school-scan", cadence: "daily", state: "enabled", timezone, localTime: "08:00", updatedAt: this.#now() }, this.#now()));
+        candidates.push(start);
+      }
+    }
     if (schedule?.state === "enabled" && schedule.nextRunAt) {
       const scheduledAt = Date.parse(schedule.nextRunAt);
       candidates.push(scheduledAt <= now && this.#browserWork.isScanStartBlocked() ? now + BUSY_BROWSER_RECHECK_MS : scheduledAt);
     }
     const execution = this.#store.lifecycle.getActiveExecution();
     if (execution?.phase === "ready_review") {
-      const releaseAt = execution.handoffDeadline ?? execution.reviewDeadline;
-      if (releaseAt) candidates.push(Date.parse(releaseAt));
+      const assignment = this.#store.assignments.get(execution.assignmentId);
+      const maySubmit = assignment && this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit;
+      const deadline = schedule?.state !== "paused" && !execution.reviewSubmissionRequestedAt && !execution.doubts?.length && maySubmit
+        ? execution.reviewDeadline : execution.handoffDeadline ?? execution.reviewDeadline;
+      if (deadline) candidates.push(Math.max(Date.parse(deadline), this.#manager.isWorkerRunning ? now + BUSY_BROWSER_RECHECK_MS : 0));
     }
+    if (execution?.phase === "needs_user" && execution.handoffDeadline) candidates.push(Math.max(Date.parse(execution.handoffDeadline), this.#manager.isWorkerRunning ? now + BUSY_BROWSER_RECHECK_MS : 0));
     if (candidates.length === 0) return;
-    const delay = Math.min(MAX_TIMER_MS, Math.max(0, Math.min(...candidates) - now));
-    this.#timer = setTimeout(() => { void this.reconcile(); }, delay);
+    // Overdue work can remain ineligible or wait on another boundary. Only new
+    // commands request immediate reconciliation; a timer always yields time.
+    const remaining = Math.max(this.#reconcileRetryAt, Math.min(...candidates)) - now;
+    const delay = Math.min(MAX_TIMER_MS, remaining > 0 ? remaining : BUSY_BROWSER_RECHECK_MS);
+    this.#timer = setTimeout(() => { this.requestReconcile(); }, delay);
   }
 
   #playBundledSound(soundId: NotificationSoundId | null): void {
@@ -337,6 +429,7 @@ const PREVIEW_COPY: Record<NotificationKind, { title: string; body: string }> = 
   review_ready: { title: "Ready to look over", body: "An assignment is sitting on the school page for you." },
   scan_result: { title: "Scan finished", body: "Inky finished looking at your classes." },
   failure: { title: "Something went wrong", body: "Inky had to stop and needs another look." },
+  work_start: { title: "Inky is about to start", body: "I'm about to start your next homework. You can take over from Studi." },
 };
 
 function bundledNotificationSoundPath(soundId: NotificationSoundId): string | null {

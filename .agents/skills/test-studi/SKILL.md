@@ -14,6 +14,7 @@ Read this file, the shared review standard, and only the guide for the affected 
 ```powershell
 bun run verify --file tests/storage/scan-evidence.test.mjs
 bun run verify --scope scan
+bun run verify --scope learn
 bun run verify --scope auth --scope ui
 bun run test:all
 ```
@@ -22,7 +23,11 @@ The runner builds prerequisites once per invocation, captures full logs under ig
 
 For speed, reuse the onboarded `profile` and its signed-in QA identity for feature checks. Reserve a fresh identity for admission/signup tests. Use [account lifecycle](references/clerk-electron-journey.md#disposable-onboarding-accounts) for automatic cleanup. For live agent checks, start with the smallest LMS scenario (`smoke`, `quiz`, or `coding-multifile`); expand to `scan-regression` or `semester` only for relevant coverage. Hold model/configuration constant for comparisons and retain failed runs. Missing usage is unknown. See [simulator](../../../agent-harness/lms/README.md) and [scan benchmarks](../../../agent-harness/benchmark/README.md).
 
+Use GPT-5.6 Sol with high reasoning at normal speed for app/scan QA unless the test explicitly compares another provider or model. Check the actual selection in a reused profile; saved preferences can override the new-install default. The live benchmark defaults to the same model and reasoning.
+
 ## Choose the proof before editing
+
+The runner limits Node/Vitest workers using available memory (up to four by default). Use `--concurrency 1` on a busy laptop; the dry run and receipt show the selected count. One coordinator owns the heavy test/app slot when several agents share the checkout.
 
 State the user-visible outcome and the few likely ways it could fail. Use the smallest mode that proves that outcome; combine modes when a change crosses boundaries. Read [review-standard.md](references/review-standard.md) for the shared usability, code-quality, and completion review.
 

@@ -6,7 +6,7 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   build: { type: "string" }, revision: { type: "string" }, output: { type: "string" },
   "budget-ms": { type: "string", default: "60000" }, "max-tool-calls": { type: "string", default: "120" },
   "lms-module": { type: "string" }, scenario: { type: "string", default: "smoke" }, seed: { type: "string", default: "42" },
-  model: { type: "string", default: "gpt-6-astra" }, provider: { type: "string", default: "openai-codex" }, effort: { type: "string", default: "medium" },
+  model: { type: "string", default: "gpt-5.6-sol" }, provider: { type: "string", default: "openai-codex" }, effort: { type: "string", default: "high" },
   phases: { type: "string", default: "cold" }, show: { type: "boolean", default: false },
 } });
 if (positionals[0] === "live") {

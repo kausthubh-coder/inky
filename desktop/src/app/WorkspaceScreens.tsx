@@ -1,9 +1,13 @@
+import type { TimelineContext } from "../../shared/conversation-timeline.js";
+import { MemorySettings } from "./MemorySettings.js";
 import { HomeworkRules } from "./HomeworkRules.js";
 import { FeedbackSettings } from "./FeedbackSettings.js";
 import { ScanStatus } from "./ScanStatus.js";
 import { ConnectedAppRow } from "./ConnectedAppRow.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
 import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
+import { Today } from "./Today.js";
+import type { Assignment } from "../../shared/index.js";
 import { Icon } from "./Icon.js";
 import { SettingsNavigation, SETTINGS_SECTIONS, matchingSettings, type SettingsSectionId } from "./SettingsNavigation.js";
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
@@ -70,6 +74,7 @@ import {
 type SaveRuleInput = Parameters<StudiRendererApi["savePermissionRule"]>[0];
 
 export interface ChromeProps {
+  onOpenContext: (context: TimelineContext) => void;
   storageKey?: string;
   screen: AppScreen;
   settingsLanding: SettingsLanding;
@@ -83,6 +88,8 @@ export interface ChromeProps {
 }
 
 export function DashboardScreen({
+  settings,
+  onRefresh,
   chrome,
   onboarding,
   workspace,
@@ -116,6 +123,8 @@ export function DashboardScreen({
   onFeedback,
   onSchoolSlot,
 }: {
+  settings: ProductSettingsState | null;
+  onRefresh: () => Promise<void>;
   chrome: ChromeProps;
   onboarding: SchoolOnboardingState;
   workspace: StudiWorkspaceState | null;
@@ -153,6 +162,7 @@ export function DashboardScreen({
     readDevPreviewConfig()?.id.startsWith("chat-") ? "expanded" : "home",
   );
   const [schoolOpen, setSchoolOpen] = useState(false);
+  const [askedAssignment, setAskedAssignment] = useState<Assignment | null>(null);
   const [clock, setClock] = useState(() => new Date());
   const [weekOffset, setWeekOffset] = useState(0);
   const [boardView, setBoardView] = useState<"week" | "undated">(() => readDevPreviewConfig()?.id === "week-undated" ? "undated" : "week");
@@ -223,11 +233,13 @@ export function DashboardScreen({
 
   return (
     <main
-      className="app-shell chat-dashboard"
+        className="app-shell chat-dashboard redesign"
       data-studi-app-ready="true"
     >
       <AppChrome
         {...chrome}
+        schoolStatus={onboarding.scan?.state === "running" ? "Checking school now" : onboarding.scan?.state === "needs_user" ? "School needs sign-in" : "School check"}
+        onSchool={() => { setSchoolOpen(true); setChatView("expanded"); }}
         chatName={undefined}
         onNavigate={(screen, landing) => {
           if (screen === "week") {
@@ -238,206 +250,18 @@ export function DashboardScreen({
         }}
       />
       <div className="page dashboard-page">
-        <header className="page-hero dashboard-hero">
-          <h1>Hey {chrome.studentName.trim().split(/\s+/)[0]}.</h1>
-          <p>{dueToday ? `${dueToday} ${dueToday === 1 ? "thing" : "things"} due today. We’ll take them one at a time.` : "Nothing due today. A little room to breathe."}</p>
-        </header>
-
-        <RuntimeAttentionBanner
-          attention={runtimeAttention}
-          workspace={workspace}
-          busy={busy !== null}
-          onConnect={onConnectRuntime}
-          onCompleteLogin={onCompleteRuntimeLogin}
-          onCancelLogin={onCancelRuntimeLogin}
-          onSwitchProvider={onSwitchProvider}
-        />
-
-        <ScanStatus state={onboarding} lifecycle={lifecycle} busy={busy}
-          onCheck={onScanAgain} onStopAndScan={onStopAndScan} onOpenWork={onOpenDesk}
-          onWait={() => { onClosePanel(); setSchoolOpen(false); setChatView("home"); }}
-          onDetails={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} />
-
-        <section className="week-section" data-studi-week-board="true">
-          {onboarding.courseConflicts?.map(conflict => (
-            <div className="week-note" role="status" key={conflict.courseIds.join(",")}>
-              <strong>I kept these classes separate: {conflict.courseIds.map(id => courseLabel(onboarding, id)).join(" · ")}.</strong>
-              <p>{conflict.reason} Automatic work on these classes is paused.</p>
-              {conflict.kind === "permissions" && <button className="quiet-button" onClick={() => chrome.onNavigate("settings", "rules")}>Review homework rules</button>}
-            </div>
-          ))}
-          {onboarding.assignmentConflicts?.map(conflict => (
-            <p className="week-note" role="status" key={conflict.assignmentIds.join(",")}>
-              I kept separate copies of {onboarding.assignments.find(item => item.assignmentId === conflict.assignmentIds[0])?.title ?? "this homework"}.
-              {" "}{conflict.reason} I’ve paused automatic work on these copies.
-            </p>
-          ))}
-          <div className="section-title">
-            <div>
-              <div className="board-views" aria-label="Assignment views">
-                <button aria-pressed={boardView === "week"} onClick={() => setBoardView("week")}>Your week</button>
-                <button aria-pressed={boardView === "undated"} onClick={() => setBoardView("undated")}>Without dates <span>{verified.filter(a => !a.dueAt).length}</span></button>
-              </div>
-            </div>
-            <div className="week-tools">
-              {boardView === "week" && <div className="week-navigation" aria-label="Week navigation">
-              <button className="week-arrow" onClick={() => setWeekOffset(n => n - 1)} aria-label="Previous week"><Icon name="left" /></button>
-              <div className="week-range" aria-live="polite"><strong>{week.title}</strong><small>{week.range}</small></div>
-              <button className="week-arrow" onClick={() => setWeekOffset(n => n + 1)} aria-label="Next week"><Icon name="right" /></button>
-              </div>}
-              {boardView === "week" && weekOffset !== 0 && (
-                <button
-                  className="week-today"
-                  onClick={() => setWeekOffset(0)}
-                >
-                  This week
-                </button>
-              )}
-            </div>
-          </div>
-          {noteOpen && (
-            <form
-              className="week-note"
-              onSubmit={async (event) => {
-                event.preventDefault();
-                if (!feedback.trim() || busy !== null) return;
-                if (await onFeedback("dashboard", feedback.trim())) {
-                  setFeedback("");
-                  setNoteOpen(false);
-                }
-              }}
-            >
-              <input
-                aria-label="Note about your assignments"
-                autoFocus
-                value={feedback}
-                disabled={busy !== null}
-                onChange={(event) => setFeedback(event.target.value)}
-                placeholder="Which assignment is missing or incorrect?"
-                maxLength={1000}
-              />
-              <button
-                className="button button--yellow"
-                disabled={!feedback.trim() || busy !== null}
-              >
-                Send note
-              </button>
-            </form>
-          )}
-          {boardView === "week" && <div className="week-grid-scroll"><div className="week-grid">
-            {days.map((day, index) => {
-              const items = verified.filter(
-                (assignment) =>
-                  assignment.dueAt &&
-                  localDateKey(new Date(assignment.dueAt)) === day.key,
-              );
-              return (
-                <section
-                  className={`day-column ${day.isToday ? "is-today" : ""}`}
-                  key={day.key}
-                >
-                  <header>
-                    <strong>{day.label}</strong>
-                    <small>{day.isToday ? "today" : day.date}</small>
-                  </header>
-                  <div className="day-stack">
-                    {items.length === 0 ? (
-                      <p className="empty-day">
-                        <span aria-hidden="true">〰</span>Nothing due
-                      </p>
-                    ) : (
-                      items.map((assignment) => {
-                        const task = taskByAssignment.get(
-                          assignment.assignmentId,
-                        );
-                        const course = courseLabel(
-                          onboarding,
-                          assignment.courseId,
-                        );
-                        const selected =
-                          (panel.kind === "assignment" &&
-                            panel.assignmentId === assignment.assignmentId) ||
-                          (showingLiveDesk &&
-                            lifecycle.execution?.assignmentId ===
-                              assignment.assignmentId);
-                        return (
-                          <AssignmentCard
-                            key={assignment.assignmentId}
-                            assignmentId={assignment.assignmentId}
-                            selected={selected}
-                            {...(task ? { item: task } : {})}
-                            title={assignment.title}
-                            {...(assignment.dueAt
-                              ? { dueAt: assignment.dueAt }
-                              : {})}
-                            course={course}
-                            tone={courseTone(course)}
-                            onAssignment={onAssignment}
-                          />
-                        );
-                      })
-                    )}
-                  </div>
-                </section>
-              );
-            })}
-          </div></div>}
-          {boardView === "undated" && (
-            <div className="undated-assignments">
-              <p>School hasn’t listed a due date for these yet.</p>
-              {!verified.some(a => !a.dueAt) && <p className="undated-empty">All caught up — everything has a place in your week.</p>}
-              {[...new Set(verified.filter(a => !a.dueAt).map(a => a.courseId))].map(courseId => <section className="undated-course" key={courseId}>
-              <h3>{courseLabel(onboarding, courseId)}</h3><div>
-                {verified
-                  .filter((a) => !a.dueAt && a.courseId === courseId)
-                  .map((assignment) => (
-                    <AssignmentCard
-                      key={assignment.assignmentId}
-                      assignmentId={assignment.assignmentId}
-                      title={assignment.title}
-                      {...(taskByAssignment.get(assignment.assignmentId) ? { item: taskByAssignment.get(assignment.assignmentId)! } : {})}
-                      course={courseLabel(onboarding, assignment.courseId)}
-                      tone={courseTone(
-                        courseLabel(onboarding, assignment.courseId),
-                      )}
-                      selected={
-                        selectedAssignment?.assignmentId ===
-                        assignment.assignmentId
-                      }
-                      onAssignment={onAssignment}
-                    />
-                  ))}
-              </div></section>)}
-            </div>
-          )}
-          {verified.length === 0 && (
-            <PaperCard className="empty-state">
-              <p className="eyebrow">Nothing here yet</p>
-              <h3>I haven’t found homework on the school pages.</h3>
-              <p>
-                {scan?.state === "succeeded"
-                  ? "I looked, and nothing showed up. Check the school page or tell me what I missed."
-                  : "Let me look through school first."}
-              </p>
-            </PaperCard>
-          )}
-          <footer className="week-footer">
-            <button className="scan-refresh" onClick={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }} aria-label="School check"><Icon name="refresh" size={15} /><span role="status">School scan details</span></button>
-            <button className="week-correction" onClick={() => setNoteOpen(open => !open)} aria-expanded={noteOpen}><Icon name="note" size={15} />{noteOpen ? "Close note" : "Report missing or incorrect homework"}</button>
-          </footer>
-        </section>
-        {error && panel.kind === "closed" && (
-          <p className="error-note" role="alert">
-            {error}
-          </p>
-        )}
+        <Today onboarding={onboarding} lifecycle={lifecycle} library={library} settings={settings} onOpen={onAssignment} onStart={onStart} onAsk={assignment => { setAskedAssignment(assignment); setChatView("compact"); }} onSchool={() => { setSchoolOpen(true); setChatView("expanded"); }} onRefresh={onRefresh} onSettings={() => chrome.onNavigate("settings", "rules")} />
+        <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} onCompleteLogin={onCompleteRuntimeLogin} onCancelLogin={onCancelRuntimeLogin} onSwitchProvider={onSwitchProvider} />
+        {error && panel.kind === "closed" && <p className="error-note" role="alert">{error}</p>}
       </div>
       <ChatWorkspace
-        key={`${chrome.storageKey}:${schoolOpen ? "school" : selectedAssignment?.assignmentId ?? "home"}`}
+        onOpenContext={chrome.onOpenContext}
+        contextAssignment={askedAssignment}
+        key={`${chrome.storageKey}:${schoolOpen ? "school" : selectedAssignment?.assignmentId ?? askedAssignment?.assignmentId ?? "home"}`}
         schoolCheck={schoolOpen}
         onAssignment={id => { setSchoolOpen(false); onAssignment(id); }}
         view={chatView === "home" ? "home" : "expanded"}
-        onView={view => { setChatView(view); if(view === "home") { onClosePanel(); setSchoolOpen(false); } }}
+        onView={view => { setChatView(view); if(view === "home") { onClosePanel(); setSchoolOpen(false); setAskedAssignment(null); } }}
         storageKey={chrome.storageKey ?? chrome.studentName}
         onboarding={onboarding}
         lifecycle={lifecycle}
@@ -478,6 +302,7 @@ function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, select
 }
 
 const NOTIFICATION_ROWS: ReadonlyArray<{ kind: NotificationKind; label: string; hint: string }> = [
+  { kind: "work_start", label: "Starting work", hint: "Inky is starting an assignment." },
   { kind: "handoff", label: "Needs you", hint: "Inky is waiting in the page." },
   { kind: "review_ready", label: "Ready to look over", hint: "An assignment is sitting for you." },
   { kind: "scan_result", label: "Scan finished", hint: "A class look-through finished." },
@@ -735,7 +560,7 @@ export function SettingsScreen({
   const [section, setSection] = useState<SettingsSectionId>(() => chrome.settingsLanding === "usage" ? "usage" : chrome.settingsLanding === "feedback" ? "support" : chrome.settingsLanding === "rules" ? "rules" : readDevPreviewConfig()?.settingsSection ?? initialSection);
   const [query, setQuery] = useState("");
   const matches = matchingSettings(query);
-  const visible = (id: SettingsSectionId) => query.trim() ? matches.includes(id) : section === id;
+  const visible = (id: SettingsSectionId) => !query.trim() || matches.includes(id);
   const currentSection = SETTINGS_SECTIONS.find(item => item.id === section)!;
   const [reviewTime, setReviewTime] = useState("30");
   const [memory, setMemory] = useState<"none" | "selected" | "all">("selected");
@@ -764,13 +589,13 @@ export function SettingsScreen({
   );
 
   return (
-    <main className="app-shell" data-studi-app-ready="true">
+    <main className="app-shell rd-settings" data-studi-app-ready="true">
       <AppChrome {...chrome} />
       <div className="page settings-page">
-        <SettingsNavigation section={section} query={query} onQuery={setQuery} onSection={setSection} />
+        <div className="rd-settings-top"><button className="rd-link" onClick={() => chrome.onNavigate("week")}>← Back</button><h1>Settings</h1><input type="search" aria-label="Find a setting" placeholder="Find a setting…" value={query} onChange={event => setQuery(event.target.value)} /></div>
         <div className="settings-content">
           <header className="settings-heading">
-            <div><p className="eyebrow">{query.trim() ? "Find your setting" : currentSection.group}</p><h2>{query.trim() ? "Search results" : currentSection.label}</h2><p>{query.trim() ? `${matches.length} ${matches.length === 1 ? "section" : "sections"} matching “${query.trim()}”` : currentSection.hint}</p></div>
+            <div><h2>{query.trim() ? "Search results" : "Make yourself at home."}</h2><p>{query.trim() ? `${matches.length} sections matching “${query.trim()}”` : "How I work, and what’s yours."}</p></div>
             <Inky state="idle" size={58} label="Inky" />
           </header>
           {query.trim() && matches.length === 0 && <div className="settings-no-results"><h3>No settings found.</h3><p>Try “sound”, “model”, or “school”.</p><button className="button" onClick={() => setQuery("")}>Clear search</button></div>}
@@ -847,6 +672,7 @@ export function SettingsScreen({
               </form>
             </PaperCard>
             )}
+            {visible("preferences") && memory !== "none" && <MemorySettings />}
             {visible("apps") && (
             <PaperCard className="settings-card">
               <p className="eyebrow">Connected apps</p>

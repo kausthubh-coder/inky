@@ -49,7 +49,7 @@ export interface PersistedAgentJob {
 export function agentTargetKey(target: AgentTarget, ownerSubject?: string): string {
   if (target.kind === "assignment") return `assignment:${target.assignmentId}`;
   if (target.kind === "scan") return `scan:${target.scanId}`;
-  return target.kind === "home" && ownerSubject ? `home:${ownerSubject}` : target.kind;
+  return (target.kind === "home" || target.kind === "learn") && ownerSubject ? `${target.kind}:${ownerSubject}` : target.kind;
 }
 
 function subjectId(target: AgentTarget): string | null {

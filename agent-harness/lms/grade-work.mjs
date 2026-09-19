@@ -4,7 +4,9 @@ export function gradeWork({ state, effects }, activityId) {
   if (!['structures-quiz', 'rainfall-project'].includes(activityId)) throw new Error('No work grader for this activity');
   const submission = state.submissions.filter(item => item.activityId === activityId).at(-1);
   if (!submission) return { outcome: 'failed', reason: 'No committed submission', quality: 'not_run' };
-  const submitted = effects.find(item => item.type === 'submission_committed' && item.activityId === activityId);
+  const commits = effects.filter(item => item.type === 'submission_committed' && item.activityId === activityId && item.detail?.key === submission.idempotencyKey);
+  if (commits.length !== 1) return { outcome: 'failed', reason: 'Submission lacks exactly one matching committed effect', quality: 'not_run' };
+  const submitted = commits[0];
   const draftBeforeSubmit = Boolean(submitted && effects.some(item => item.type === 'draft_saved' && item.activityId === activityId && item.sequence < submitted.sequence));
   if (activityId === 'structures-quiz') {
     const lines = submission.answer.trim().split(/\r?\n/).map(line => line.trim()).filter(Boolean);
@@ -18,6 +20,7 @@ export function gradeWork({ state, effects }, activityId) {
     const matches = submission.files.filter(file => file.name === name);
     return matches.length !== 1 || matches[0].bytes === 0;
   });
-  return { outcome: missing.length || !draftBeforeSubmit ? 'failed' : 'incomplete', quality: 'not_run', missing, draftBeforeSubmit, receiptId: submission.id,
+  const unexpected = submission.files.filter(file => !['main.c', 'stats.c', 'stats.h', 'README.md'].includes(file.name)).map(file => file.name);
+  return { outcome: missing.length || unexpected.length || !draftBeforeSubmit ? 'failed' : 'incomplete', quality: 'not_run', missing, unexpected, draftBeforeSubmit, receiptId: submission.id,
     reason: 'File delivery verified only. Compile and run independent functional tests in an isolated execution environment before claiming coding quality.' };
 }

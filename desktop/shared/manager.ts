@@ -23,6 +23,7 @@ export const ManagerQueueEntrySchema = z.strictObject({
   assignmentId: AssignmentIdSchema,
   courseId: CourseIdSchema,
   dueAt: IsoTimestampSchema.optional(),
+  scheduledStartAt: IsoTimestampSchema.optional(),
   priority: z.number().int().nonnegative(),
   enqueuedAt: IsoTimestampSchema,
   permission: PermissionResolutionSchema,

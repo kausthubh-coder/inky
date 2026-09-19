@@ -80,6 +80,7 @@ export interface AgentRuntime {
   createAssignmentSession(
     tools: readonly ToolDefinition[],
     target?: AgentSessionTarget,
+    control?: ScanSessionControl,
   ): Promise<AgentSession>;
   createScanSession(
     recordingTools: readonly ToolDefinition[],
@@ -200,12 +201,20 @@ export class PiAgentRuntime implements AgentRuntime {
   async createAssignmentSession(
     recordingTools: readonly ToolDefinition[],
     target: AgentSessionTarget = {},
+    control?: ScanSessionControl,
   ): Promise<AgentSession> {
     if (!this.#assignmentBrowserTools) {
       throw new Error("The Studi assignment session requires the visible school browser");
     }
     const browserTools = target.assignmentId && this.#assignmentBrowser ? createBrowserTools(this.#assignmentBrowser(target.assignmentId), {includeSubmit:false}) : this.#assignmentBrowserTools;
-    const tools = [...browserTools, ...recordingTools];
+    const tools = [...browserTools, ...recordingTools].map((tool) => ({
+      ...tool,
+      execute: (...args: Parameters<ToolDefinition["execute"]>) => {
+        control?.assertActive();
+        if (args[2]?.aborted) throw new Error("The assignment was stopped");
+        return tool.execute(...args);
+      },
+    }));
     if (new Set(tools.map((tool) => tool.name)).size !== tools.length) {
       throw new Error("The Studi assignment session received a duplicate tool name");
     }
@@ -257,7 +266,7 @@ export class PiAgentRuntime implements AgentRuntime {
     if (new Set(tools.map((tool) => tool.name)).size !== tools.length) {
       throw new Error("The Studi job session received a duplicate tool name");
     }
-    const role = target.kind === "home" ? "home" : "assignment";
+    const role = target.kind === "learn" ? "learn" : target.kind === "home" ? "home" : "assignment";
     const createPiSession = async (nextTarget: AgentSessionTarget) =>
       this.#createPiSession(
         nextTarget,
@@ -269,6 +278,20 @@ export class PiAgentRuntime implements AgentRuntime {
       createPiSession,
       (usage) => this.addUsage(usage, "conversation"),
     );
+  }
+
+  async createLearningSession(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    target: AgentSessionTarget = {},
+  ): Promise<AgentSession> {
+    if (!systemPrompt.trim() || !tools.length || new Set(tools.map(tool => tool.name)).size !== tools.length) {
+      throw new Error('A learning session requires instructions and unique bounded tools');
+    }
+    // The caller supplies only the tutor/extraction tools. #createPiSession
+    // disables built-in tools, extensions, and local context-file loading.
+    const create = (nextTarget: AgentSessionTarget) => this.#createPiSession(nextTarget, tools, systemPrompt);
+    return new PiBackedAgentSession(await create(target), create, usage => this.addUsage(usage, 'conversation'));
   }
 
   async getProviderStatus(providerId: string): Promise<ProviderStatus> {
@@ -462,8 +485,7 @@ export class PiAgentRuntime implements AgentRuntime {
       this.#reportSessionError(error);
       throw error;
     });
-    // Pi's simple-stream API drops provider-specific options. Set the supported priority tier on the
-    // final Codex payload so it survives retries and both supported transports.
+    // Observe the provider's final request without forcing a faster service tier.
     const diagnostics = new RuntimeDiagnostics(session.sessionId, this.#onDiagnostic);
     diagnostics.record("session_created", {
       system_prompt: systemPrompt, model: this.#model.id, provider: this.#model.provider,
@@ -473,11 +495,7 @@ export class PiAgentRuntime implements AgentRuntime {
     session.subscribe(event => diagnostics.accept(event));
     const onPayload = session.agent.onPayload;
     session.agent.onPayload = async (payload, model) => {
-      let prepared = (await onPayload?.(payload, model)) ?? payload;
-      if (model.provider === "openai-codex" && model.id === "gpt-6-astra"
-        && prepared !== null && typeof prepared === "object") {
-        prepared = { ...prepared, service_tier: "priority" };
-      }
+      const prepared = (await onPayload?.(payload, model)) ?? payload;
       diagnostics.providerRequest(model.id, model.provider, prepared);
       return prepared;
     };

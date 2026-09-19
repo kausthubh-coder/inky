@@ -3,6 +3,8 @@ import type { DeskPanel } from "../app/DeskScreen.js";
 import type { DevPreviewConfig, DevPreviewScenarioId } from "../app/devPreview.js";
 
 export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId; readonly group: string; readonly title: string; readonly note: string }[] = [
+  ...(["today", "today-clear", "today-needs", "today-working", "desk-submitting"] as const).map(id => ({id, group:"Today", title:id.replaceAll("-"," "), note:"Controlled renderer fixture"})),
+  ...(["learn", "learn-empty", "learn-reading", "learn-error", "learn-partial", "tutor-choice", "tutor-typed", "tutor-explain", "tutor-population", "tutor-flashcards", "tutor-number-line", "tutor-function-plot", "tutor-code", "tutor-paused", "tutor-finished"] as const).map(id => ({id,group:"Learn",title:id.replaceAll("-"," "),note:"Controlled public renderer fixture"})),
   { id: "auth", group: "Entry", title: "Private beta gate", note: "Signed-out entry and feedback" },
   { id: "onboarding-welcome", group: "Onboarding", title: "Meet Inky", note: "Welcome" },
   { id: "onboarding-chatgpt", group: "Onboarding", title: "Connect ChatGPT", note: "Agent runtime" },
@@ -59,5 +61,5 @@ export function parsePreviewConfig(search: string): DevPreviewConfig | null {
   const panel: DeskPanel = id === "assignment" || id.startsWith("assignment-")
     ? { kind: "assignment", assignmentId: id === "assignment-saved" ? "assignment-hw1" : "assignment-sort" }
     : id === "chat-handoff" ? {kind:"school"} : id.startsWith("desk-") ? { kind: "desk" } : { kind: "closed" };
-  return { id, screen: settingsSection ? "settings" : "week", panel, ...(onboardingStep === undefined ? {} : { onboardingStep }), ...(settingsSection ? { settingsSection } : {}) };
+  return { id, screen: settingsSection ? "settings" : id.startsWith("learn") || id.startsWith("tutor-") ? "learn" : "week", panel, ...(onboardingStep === undefined ? {} : { onboardingStep }), ...(settingsSection ? { settingsSection } : {}) };
 }

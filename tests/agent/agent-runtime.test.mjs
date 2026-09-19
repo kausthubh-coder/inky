@@ -11,7 +11,8 @@ import {
   fauxProvider,
   fauxToolCall,
 } from "@earendil-works/pi-ai";
-import { ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { ModelRuntime, defineTool } from "@earendil-works/pi-coding-agent";
+import { Type } from 'typebox';
 
 import {
   FakeAgentRuntime,
@@ -46,6 +47,32 @@ const expectedProbeEvents = [
   { schemaVersion: 1, type: "text", delta: "te." },
   { schemaVersion: 1, type: "terminal", outcome: "completed" },
 ];
+
+test('learning uses a real Pi session with only its bounded tools and records usage', async () => {
+  await withRuntime({}, async ({ faux, runtime }) => {
+    const calls = [];
+    const tool = defineTool({ name: 'tutor_say', label: 'Teach', description: 'Say one teaching sentence.',
+      parameters: Type.Object({ text: Type.String() }, { additionalProperties: false }),
+      execute: async (_id, input) => { calls.push(input.text); return { content: [{ type: 'text', text: 'Saved' }], details: {} }; },
+    });
+    faux.setResponses([
+      fauxAssistantMessage(fauxToolCall('tutor_say', { text: 'A half is one of two equal parts.' }, { id: 'teach' }), { stopReason: 'toolUse' }),
+      fauxAssistantMessage(''),
+    ]);
+    const session = await runtime.createLearningSession([tool], 'Teach through the supplied tools.');
+    try {
+      assert.deepEqual(session.toolNames, ['tutor_say']);
+      await session.prompt('Teach fractions.');
+      assert.deepEqual(calls, ['A half is one of two equal parts.']);
+      assert.equal(runtime.takeLastUsage().toolCalls, 1);
+      const path = session.sessionPath;
+      assert.ok(path);
+      await session.replace({ resumeSessionPath: path });
+      assert.deepEqual(session.toolNames, ['tutor_say']);
+    } finally { session.dispose(); }
+    await assert.rejects(runtime.createLearningSession([tool, tool], 'Teach'), /unique bounded tools/);
+  });
+});
 
 test("real Pi session exposes only studi_probe, resumes, and matches the deterministic fake", async () => {
   await withRuntime({ tokenSize: { min: 1, max: 1 } }, async ({ faux, runtime, root }) => {

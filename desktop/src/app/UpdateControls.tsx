@@ -5,6 +5,7 @@ import { Icon } from "./Icon.js";
 
 const notificationKinds = {
   handoff: { icon: "hand", label: "Needs you" },
+  work_start: { icon: "right", label: "Starting work" },
   review_ready: { icon: "check", label: "Ready to review" },
   scan_result: { icon: "search", label: "School scan" },
   failure: { icon: "warning", label: "Needs attention" },

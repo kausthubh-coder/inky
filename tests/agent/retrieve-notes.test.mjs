@@ -6,6 +6,17 @@ import { retrieveNoteIndex } from "../../dist/agent-system/retrieve.js";
 const base = { schemaVersion: 1, markdownPath: "x.md", contentHash: "a".repeat(64), revision: 1, updatedAt: "2026-09-03T12:00:00.000Z" };
 const note = (noteId, scope, subjectId, about, key) => ({ ...base, noteId, scope, subjectId, about, key, title: key });
 
+test("home automatic and search retrieval use only this authenticated student's preferences", () => {
+  const entries = [note("own", "student", "student-a", "preference", "style"),
+    note("other", "student", "student-b", "preference", "style"),
+    note("legacy", "student", "primary", "preference", "style"),
+    note("course", "course", "csc-316", "work", "project")];
+  for (const mode of ["automatic", "search"]) {
+    assert.deepEqual(retrieveNoteIndex(entries, { kind: "home", studentId: "student-a" }, mode).map(entry => entry.noteId), ["own"]);
+    assert.deepEqual(retrieveNoteIndex(entries, { kind: "home" }, mode), []);
+  }
+});
+
 test("assignment retrieval is deterministic and does not leak unrelated courses or unconfirmed patterns", () => {
   const entries = [
     note("note-z", "course", "csc-999", "work", "foreign"),

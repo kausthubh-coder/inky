@@ -19,7 +19,7 @@ import {
   storeUpload,
   type PrivatePack,
 } from "./assets.js";
-import { SchoolStore } from "./store.js";
+import { SchoolStore, type AdvanceOptions } from "./store.js";
 import { renderPublic, activityUrl, type Origins } from "./web.js";
 
 export interface StartLmsOptions {
@@ -82,6 +82,7 @@ export async function startLms(options: StartLmsOptions) {
     .read()
     .assets.map((asset) => ({
       id: asset.id,
+      privateSource: privatePack?.assets.some((item) => item.id === asset.id) ?? false,
       sha256:
         privatePack?.assets.find((item) => item.id === asset.id)?.sha256 ??
         createHash("sha256").update(assetBytes(asset)).digest("hex"),
@@ -94,7 +95,11 @@ export async function startLms(options: StartLmsOptions) {
       const previous = JSON.parse(
         await readFile(join(options.runDirectory, "receipt.json"), "utf8"),
       );
-      if (previous.contentHash && previous.contentHash !== contentHash)
+      const mutableAssets = new Set(store.read().syllabi?.map((item) => item.assetId) ?? []);
+      const immutableManifest = (manifest: typeof contentManifest) =>
+        manifest.filter((item) => !mutableAssets.has(item.id) || item.privateSource || privatePack?.assets.some((asset) => asset.id === item.id))
+          .map(({ id, sha256 }) => ({ id, sha256 }));
+      if (previous.contentManifest && JSON.stringify(immutableManifest(previous.contentManifest)) !== JSON.stringify(immutableManifest(contentManifest)))
         throw new Error(
           "Resume requires the same source material hashes as the original run.",
         );
@@ -186,6 +191,10 @@ export async function startLms(options: StartLmsOptions) {
             403,
             "This form expired. Reload the page and try again.",
           );
+        if (!store.read().sessions[service] && url.pathname !== "/login") {
+          redirect("/login");
+          return;
+        }
         if (url.pathname === "/login" || url.pathname === "/logout") {
           const signedIn = url.pathname === "/login";
           store.change("session_changed", { service, signedIn }, (current) => {
@@ -220,8 +229,16 @@ export async function startLms(options: StartLmsOptions) {
         for (const file of form.getAll("files"))
           if (typeof file !== "string" && file.name && file.size)
             files.push(await storeUpload(options.runDirectory, file));
+        if (!store.read().sessions[service] || form.get("csrf") !== csrf[service])
+          throw new SchoolError(403, "Your session changed while uploading. Sign in and reload the current draft.");
         if (action === "save") store.save(id, answer, files, revision);
         else {
+          const key = String(form.get("key") ?? "");
+          const replay = store.read().submissions.some((item) => item.activityId === id && item.idempotencyKey === key);
+          if (!replay && (store.read().faults.assignmentTimeoutsRemaining ?? 0) > 0) {
+            store.save(id, answer, files, revision, true);
+            throw new SchoolError(504, "The submission service timed out. Your response and files were saved as a draft. Reload before trying again.");
+          }
           let result;
           try {
             result = store.submit(
@@ -229,7 +246,7 @@ export async function startLms(options: StartLmsOptions) {
               answer,
               files,
               revision,
-              String(form.get("key") ?? ""),
+              key,
             );
           } catch (error) {
             if (error instanceof SchoolError && error.status === 400) {
@@ -290,8 +307,9 @@ export async function startLms(options: StartLmsOptions) {
           (item) =>
             item.service === service && item.attachments.includes(assetId),
         );
+        const syllabusFile = service === "school" && state.syllabi?.some((item) => item.assetId === assetId);
         if (
-          !owners.some((item) =>
+          !syllabusFile && !owners.some((item) =>
             item.prerequisites.every((id) => state.completed.includes(id)),
           )
         )
@@ -345,12 +363,13 @@ export async function startLms(options: StartLmsOptions) {
           "/",
           "/courses",
           "/calendar",
+          "/exams",
           "/announcements",
           "/grades",
           "/account",
           "/login",
         ].includes(url.pathname) ||
-        /^\/courses\/[^/]+$/.test(url.pathname) ||
+        /^\/courses\/[^/]+(?:\/syllabus)?$/.test(url.pathname) ||
         !!activityMatch;
       const saved = url.searchParams.get("saved");
       const current = store.read(),
@@ -445,7 +464,11 @@ export async function startLms(options: StartLmsOptions) {
       effects: store.effects(),
       truth: scenarioTruth(store.read()),
     }),
-    advance: (event: string) => store.advance(event),
+    advance: (event: string, details: AdvanceOptions = {}) => {
+      store.advance(event, details);
+      if (event === "expire-session") csrf[details.service ?? "school"] = randomUUID();
+      return { clock: store.read().clock, revision: store.read().revision };
+    },
     close: async () => {
       if (closed) return;
       closed = true;
@@ -470,6 +493,10 @@ export function scenarioTruth(state: SchoolState) {
     "reading",
     "rainfall-project",
     "structures-quiz",
+    "personal-data-project",
+    "undated-reflection",
+    "announcement-response",
+    "late-essay",
   ];
   const blocked = [
     "stack-review",
@@ -505,9 +532,20 @@ export function scenarioTruth(state: SchoolState) {
     "lab1",
     "lab-demo",
     "grade-zero",
+    "undated-reflection",
+    "announcement-response",
     ...readingIds,
   ];
   return {
+    expectedExams: (state.exams ?? []).map(({ topics, ...exam }) => ({ ...exam, sourcePath: `/courses/${exam.courseId}/syllabus` })),
+    expectedTopics: (state.exams ?? []).flatMap((exam) => exam.topics.map((topic) => ({ ...topic, examId: exam.id, courseId: exam.courseId }))),
+    expectedSyllabi: (state.syllabi ?? []).map((item) => ({ ...item, pagePath: `/courses/${item.courseId}/syllabus`, filePath: `/files/${item.assetId}` })),
+    expectedKinds: Object.fromEntries(state.activities.map((item) => [item.id, item.workKind ?? item.kind])),
+    expectedStudentFiles: Object.fromEntries(state.activities.filter((item) => item.requiredStudentFiles?.length).map((item) => [item.id, item.requiredStudentFiles])),
+    expectedUndatedIds: state.activities.filter((item) => item.dueText === "No due date published").map((item) => item.id),
+    expectedAnnouncementOnlyIds: state.activities.filter((item) => item.visibility === "announcement_only").map((item) => item.id),
+    expectedRubrics: Object.fromEntries(state.activities.filter((item) => item.rubric?.length).map((item) => [item.id, item.rubric])),
+    expectedLatePenalties: Object.fromEntries(state.activities.filter((item) => item.latePenalty).map((item) => [item.id, item.latePenalty])),
     expectedAssignmentIds,
     expectedExcludedIds,
     informationalIds: informationalIds.filter((id) =>
@@ -518,7 +556,7 @@ export function scenarioTruth(state: SchoolState) {
       state.activities.some((item) => item.id === id),
     ),
     expectedActionableIds: actionable.filter(
-      (id) => id !== "hw8" && state.activities.some((item) => item.id === id),
+      (id) => !["hw8", "undated-reflection", "announcement-response"].includes(id) && state.activities.some((item) => item.id === id),
     ),
     expectedForbiddenQueueIds: forbiddenQueueIds.filter((id) =>
       state.activities.some((item) => item.id === id),

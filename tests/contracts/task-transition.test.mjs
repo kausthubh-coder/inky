@@ -16,15 +16,15 @@ import { task, taskTransitionCommand } from "./fixtures.mjs";
 const expectedTransitions = {
   discovered: ["ignored", "queued"],
   ignored: [],
-  queued: ["discovered", "working", "cancelled"],
+  queued: ["discovered", "working", "cancelled", "ignored"],
   working: ["needs_user", "ready_review", "submitting", "failed", "cancelled"],
   needs_user: ["working", "queued", "preserved", "cancelled"],
   ready_review: ["submitting", "submitted", "preserved", "needs_user", "cancelled"],
   submitting: ["submitted", "needs_user", "working", "failed"],
   submitted: [],
   preserved: [],
-  failed: ["queued"],
-  cancelled: ["queued"],
+  failed: ["queued", "ignored"],
+  cancelled: ["queued", "ignored"],
 };
 const states = TaskStateSchema.options;
 

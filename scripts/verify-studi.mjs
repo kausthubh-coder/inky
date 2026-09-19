@@ -4,6 +4,7 @@ import { mkdirSync, writeFileSync, readdirSync, readFileSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
+import { availableParallelism, freemem } from 'node:os';
 
 const groups = ['contracts', 'agent', 'storage', 'auth', 'telemetry', 'packaging', 'foundation', 'ui', 'benchmark', 'lms', 'tooling', 'backend', 'harness', 'electron'];
 const scopes = {
@@ -13,6 +14,7 @@ const scopes = {
   auth: ['auth', 'contracts', 'backend'],
   ui: ['ui'], agent: ['agent', 'contracts', 'harness', 'benchmark'],
   storage: ['storage', 'contracts'], lms: ['lms'],
+  learn: ['storage', 'agent', 'contracts', 'ui', 'lms'],
   tooling: ['tooling', 'auth', 'lms'],
   telemetry: ['telemetry'], updates: ['contracts', 'packaging'],
   backend: ['backend'], electron: ['electron'],
@@ -25,6 +27,7 @@ export function affectedScopes(paths) {
     const path = raw.replaceAll('\\', '/');
     if (/^(.agents\/skills\/test-studi\/scripts\/|scripts\/verify-studi|tests\/tooling\/)/.test(path)) selected.add('tooling');
     else if (/^(agent-harness\/lms\/)/.test(path)) selected.add('lms');
+    else if (/^desktop\/electron\/(?:agent\/(?:learn-|tutor-)|storage\/learn-)/.test(path)) selected.add('learn');
     else if (/^agent-harness\/benchmark\//.test(path)) selected.add('scan');
     else if (/^(desktop\/electron\/(scan|browser)\/)/.test(path)) selected.add('scan');
     else if (/^desktop\/electron\/(assignment|files|lifecycle|manager)\//.test(path)) selected.add('homework');
@@ -42,7 +45,8 @@ export function affectedScopes(paths) {
   return [...selected];
 }
 
-export function makePlan({ scope = [], files = [], changedPaths = [] } = {}) {
+export function makePlan({ scope = [], files = [], changedPaths = [], concurrency = 2 } = {}) {
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 16) throw new Error('Concurrency must be an integer from 1 to 16');
   const selected = new Set();
   for (const name of [...scope, ...affectedScopes(changedPaths)]) {
     const entries = scopes[name] ?? (groups.includes(name) ? [name] : null);
@@ -70,14 +74,14 @@ export function makePlan({ scope = [], files = [], changedPaths = [] } = {}) {
   if (needsLms) add('typecheck-lms', 'bun', ['run', 'typecheck:lms']);
   if (needsElectron) add('build', 'bun', ['run', needsFullBuild ? 'build' : 'build:electron']);
   if (needsLms) add('build-lms', 'bun', ['run', 'build:lms']);
-  if (targets.size) add('node-tests', process.execPath, ['--experimental-strip-types', '--test', ...targets], [...(needsElectron ? ['build'] : []), ...(needsLms ? ['build-lms'] : [])]);
-  if (selected.has('backend')) add('backend', 'bun', ['run', 'test:backend']);
+  if (targets.size) add('node-tests', process.execPath, ['--experimental-strip-types', '--test', `--test-concurrency=${concurrency}`, ...targets], [...(needsElectron ? ['build'] : []), ...(needsLms ? ['build-lms'] : [])]);
+  if (selected.has('backend')) add('backend', 'bun', ['x', 'vitest', 'run', `--maxWorkers=${concurrency}`]);
   if (selected.has('harness')) for (const suite of ['foundation', 'routing', 'trace', 'files']) add(`harness-${suite}`, 'bun', ['agent-harness/cli.ts', 'run', '--suite', suite, '--driver', 'scripted', '--json'], ['build-lms']);
   if (selected.has('electron')) {
     add('electron', process.execPath, ['tests/electron-self-test-runner.mjs'], ['build']);
     add('native-materials', 'bun', ['x', 'electron', 'tests/school-materials-native.cjs'], ['build']);
   }
-  return { scopes: [...selected], files: [...targets], steps,
+  return { scopes: [...selected], files: [...targets], concurrency, steps,
     pending: ['Affected visible interaction and recovery (when applicable)', 'Live admission → onboarding → scan → chat → homework → restart for a full journey', 'Installed package/upgrade on each shipping platform for release'] };
 }
 
@@ -105,15 +109,21 @@ async function main() {
   const { values } = parseArgs({ options: {
     scope: { type: 'string', multiple: true }, file: { type: 'string', multiple: true },
     changed: { type: 'boolean' }, base: { type: 'string' }, 'dry-run': { type: 'boolean' },
+    concurrency: { type: 'string' },
   } });
-  if (!values.scope?.length && !values.file?.length && !values.changed) throw new Error('Use --scope scan|homework|auth|ui|agent|storage|lms|tooling|all|release, --file tests/<suite>/<name>.test.mjs, or --changed [--base <ref>]. Add --dry-run to inspect.');
+  if (!values.scope?.length && !values.file?.length && !values.changed) throw new Error('Use --scope scan|homework|learn|auth|ui|agent|storage|lms|tooling|all|release, --file tests/<suite>/<name>.test.mjs, or --changed [--base <ref>]. Add --dry-run to inspect.');
   if (values.base && !values.changed) throw new Error('--base requires --changed');
   const changedPaths = values.changed ? [...new Set([
     ...git(['diff', '--name-only', '-z', 'HEAD']).split('\0'),
     ...git(['ls-files', '--others', '--exclude-standard', '-z']).split('\0'),
     ...(values.base ? git(['diff', '--name-only', '-z', `${values.base}...HEAD`]).split('\0') : []),
   ].filter(Boolean))] : [];
-  const plan = makePlan({ scope: values.scope, files: values.file, changedPaths });
+  // Leave headroom for Electron and the desktop app; large core counts must not
+  // create a test process per CPU on a memory-constrained student laptop.
+  const concurrency = values.concurrency === undefined
+    ? Math.max(1, Math.min(4, availableParallelism(), Math.floor(freemem() / (768 * 1024 * 1024))))
+    : Number(values.concurrency);
+  const plan = makePlan({ scope: values.scope, files: values.file, changedPaths, concurrency });
   if (values['dry-run']) { console.log(JSON.stringify({ ...plan, changedPaths }, null, 2)); return; }
   const directory = resolve('.agents/studi-qa/checks', `${new Date().toISOString().replaceAll(':', '-')}-${process.pid}`);
   mkdirSync(directory, { recursive: true });

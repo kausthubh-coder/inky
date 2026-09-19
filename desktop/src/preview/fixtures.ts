@@ -16,6 +16,8 @@ import {
   type StudiWorkspaceState,
   type TaskDetail,
 } from "../../shared/index.js";
+import { learnPreview } from "./learnFixtures.js";
+import type { TimelineEntry } from "../../shared/conversation-timeline.js";
 import { installPreviewEnvironment } from "../app/devPreview.js";
 import { parsePreviewConfig } from "./scenarios.js";
 import { SchoolPage } from "./SchoolPage.js";
@@ -85,7 +87,7 @@ export function installDevPreview(): void {
       updatedAt: now,
     },
     scan: {
-      inventories: [], messages: [], changes: [], sourceCheckpoints: [],
+      inventories: [], messages: [], changes: [], sourceCheckpoints: [], addedSourceTargets: [], skippedSources: [],
       schemaVersion: 1,
       scanId: "preview-scan",
       kind: "first_scan",
@@ -114,7 +116,7 @@ export function installDevPreview(): void {
     permission,
     events: [],
     runs: [],
-    attempts: index === 2 ? [{ schemaVersion: 1, taskId: `task-${item.assignmentId}`, ordinal: 1, plan: "Fill the visible homework from the current page.", result: "Answers stayed on the page and were saved locally.", evidence: { revision: 1, url: item.sourceTarget, title: item.title, capturedAt: now, summary: "Completed work left on the school page." }, recordedAt: now }] : [],
+    attempts: index === 2 ? [{ schemaVersion: 1, taskId: `task-${item.assignmentId}`, ordinal: 1, plan: "Fill the visible homework from the current page.", result: "Answers stayed on the page and were saved locally.", evidence: { revision: 1, url: item.sourceTarget!, title: item.title, capturedAt: now, summary: "Completed work left on the school page." }, recordedAt: now }] : [],
     submissionReceipt: null,
     activity: [],
   }));
@@ -159,7 +161,7 @@ export function installDevPreview(): void {
   };
 
   let settings: ProductSettingsState = {
-    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, memoryVisibility: "selected", homeworkRoot: null, agentProviderId: "openai-codex", agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
+    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, workStartMode: "manual", memoryVisibility: "selected", homeworkRoot: null, agentProviderId: "openai-codex", agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
     permissionRules: [{ schemaVersion: 1, ruleId: "preview-global", scope: "global", mode: "attempt", updatedAt: now }],
     schedule: lifecycle.schedule,
   };
@@ -186,7 +188,7 @@ export function installDevPreview(): void {
   const conversations = new Map<string, AgentJob>();
   let conversationSequence = 0;
   const conversation = (target: ConversationTarget): AgentJob => {
-    const key = target.kind === "home" ? "home" : `assignment:${target.assignmentId}`;
+    const key = target.kind === "assignment" ? `assignment:${target.assignmentId}` : target.kind;
     const existing = conversations.get(key);
     if (existing) return existing;
     conversationSequence += 1;
@@ -207,10 +209,10 @@ export function installDevPreview(): void {
     return job;
   };
 
-  if (preview.id.startsWith("desk-") || preview.id === "week-browser-busy") {
+  if (preview.id.startsWith("desk-") || preview.id === "week-browser-busy" || preview.id === "today-needs" || preview.id === "today-working") {
     const item = tasks[0]!;
-    const phase = preview.id === "desk-needs-user" ? "needs_user" : preview.id === "desk-review" ? "ready_review" : preview.id === "desk-submitted" ? "submitted" : "working";
-    const checkpoint = { revision: 4, url: item.assignment.sourceTarget, title: item.assignment.title, capturedAt: now, summary: "All six written answers are visible on the assignment page." };
+    const phase = preview.id === "desk-needs-user" ? "needs_user" : preview.id === "desk-review" || preview.id === "today-needs" ? "ready_review" : preview.id === "desk-submitting" ? "submitting" : preview.id === "desk-submitted" ? "submitted" : "working";
+    const checkpoint = { revision: 4, url: item.assignment.sourceTarget!, title: item.assignment.title, capturedAt: now, summary: "All six written answers are visible on the assignment page." };
     item.task = { ...item.task, state: phase, revision: 4 };
     item.execution = {
       schemaVersion: 1,
@@ -223,6 +225,7 @@ export function installDevPreview(): void {
       ...(phase === "needs_user" ? { returnPredicate: "Attach the three JPG graphs in Show My Work, then tell me to keep going.", lastError: "The assignment requires graph files that are not in the homework folder." } : {}),
       ...(phase === "ready_review" ? { reviewDeadline: "2026-09-03T16:15:00.000Z", reviewCheckpoint: checkpoint, answerSnapshot: "Six written responses filled; three graphs attached.", completionChecklist: [{ requirement: "Six written answers", evidence: "All six response boxes contain an answer." }, { requirement: "Three JPG graphs", evidence: "Three attachments are listed in Show My Work." }] } : {}),
       ...(phase === "submitted" ? { submissionReceiptId: "preview-receipt" } : {}),
+      ...(phase === "submitting" ? { submissionAttemptedAt: now, answerSnapshot:"Six written responses saved." } : {}),
       updatedAt: now,
     };
     item.activity = phase === "working" ? [
@@ -263,6 +266,24 @@ export function installDevPreview(): void {
   const home = conversation({kind:'home'});
   if(preview.id.startsWith('chat-')) conversations.set('home',{...home,messages:[...(preview.id==='chat-error'?[{messageId:'preview-question',role:'user' as const,text:'What should I work on tonight?',turnIndex:0,createdAt:now}]:[]),{messageId:'preview-welcome',role:'assistant',text:preview.id==='chat-error'?'I couldn’t finish that reply. Your message is saved.':'Hey! What would you like to work on today?',turnIndex:0,createdAt:now,...(preview.id==='chat-error'?{recovery:'failed' as const}:{})}]});
   const api: StudiRendererApi = {
+    ...learnPreview(preview.id),
+    getConversationTimeline: async () => {
+      const entries: TimelineEntry[] = [...conversations.values()].flatMap(job => job.messages.map(message => ({id:message.messageId,kind:"message" as const,context:job.target.kind==="tutor"?{kind:"tutor",sessionId:job.sessionId??job.jobId}:job.target,createdAt:message.createdAt,text:message.text,role:message.role})));
+      if(lifecycle.execution)entries.push({id:"preview-work",kind:"event",context:{kind:"assignment",assignmentId:lifecycle.execution.assignmentId},createdAt:now,text:lifecycle.execution.phase==="submitted"?"Submitted. The school confirmed it.":"Started the assignment.",event:lifecycle.execution.phase==="submitted"?"submitted":"started",title:tasks.find(item=>item.assignment.assignmentId===lifecycle.execution?.assignmentId)?.assignment.title??"Assignment"});
+      const learned = await api.getLearnState();
+      for (const session of learned.sessions) if(session.status==="completed") entries.push({id:"session-"+session.sessionId,kind:"event",context:{kind:"tutor",sessionId:session.sessionId},createdAt:session.finishedAt??session.updatedAt,text:session.result?.summary??"Session finished.",event:"session_finished",title:session.goal});
+      return {entries:entries.sort((a,b)=>a.createdAt.localeCompare(b.createdAt)),hasMore:false};
+    },
+    correctAssignment: async input => {
+      onboarding={...onboarding,assignments:onboarding.assignments.map(item=>item.assignmentId!==input.assignmentId?item:input.correction==="due_date"?{...item,dueAt:input.dueAt,dueDateOverride:{dueAt:input.dueAt,updatedAt:new Date().toISOString()}}:{...item,ignoredReason:input.correction})};
+      for(const task of tasks){const updated=onboarding.assignments.find(item=>item.assignmentId===task.assignment.assignmentId);if(updated)task.assignment=updated;if(task.assignment.assignmentId===input.assignmentId&&input.correction!=="due_date")task.task={...task.task,state:"ignored"};}
+      return onboarding;
+    },
+    setAssignmentOwner: async input => {onboarding={...onboarding,assignments:onboarding.assignments.map(item=>item.assignmentId===input.assignmentId?{...item,owner:input.owner}:item)};for(const task of tasks){const updated=onboarding.assignments.find(item=>item.assignmentId===task.assignment.assignmentId);if(updated)task.assignment=updated;}return onboarding;},
+    addAssignment: async input => {const item={...assignment(crypto.randomUUID(),input.text,new Date().toISOString()),courseId:input.courseId??onboarding.courses[0]!.courseId,origin:"manual" as const};onboarding={...onboarding,assignments:[...onboarding.assignments,item]};return onboarding;},
+    reorderQueue: async ({taskIds}) => {lifecycle={...lifecycle,manager:{...lifecycle.manager,entries:lifecycle.manager.entries.map(item=>({...item,priority:taskIds.indexOf(item.taskId)}))}};return lifecycle.manager;},
+    submitAssignmentByRule:async()=>{throw new Error("Preview cannot submit schoolwork.");},
+
     getRuntimeInfo: async () => ({ app: `${version}-preview`, electron: "simulated", chrome: "simulated", node: "simulated" }),
     getContractManifest: async () => CONTRACT_MANIFEST,
     getAuthState: async () => preview.id === "auth" ? { status: "signed_out" } : ({ status: "approved", user: { subject: "preview", email: "preview@studi.local", name: "kausthubh" }, entitlement: { plan: "beta", credits: 0 }, deviceId: "00000000-0000-4000-8000-000000000001", secureStorage: false }),
@@ -339,7 +360,7 @@ export function installDevPreview(): void {
         ],
         updatedAt: now,
       };
-      conversations.set(target.kind === "home" ? "home" : `assignment:${target.assignmentId}`, job);
+      conversations.set(target.kind === "assignment" ? `assignment:${target.assignmentId}` : target.kind, job);
       return { outcome: "completed", text: reply, job };
     },
     selectAssignment: async ({ assignmentId }) => {
@@ -380,7 +401,7 @@ export function installDevPreview(): void {
     getProductSettings: async () => settings,
     saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, workStartMode: input.workStartMode ?? settings.preferences.workStartMode, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     selectHomeworkRoot: async () => { settings = { ...settings, preferences: { ...settings.preferences, homeworkRoot: "C:\\Studi Preview Homework", updatedAt: new Date().toISOString() } }; return settings.preferences; },
-    saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: {...input,kinds:{...input.kinds,work_start:input.kinds.work_start??DEFAULT_NOTIFICATION_PREFERENCES.kinds.work_start}}, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     testNotification: async ({ kind }) => ({
       notification: {
         schemaVersion: 1,

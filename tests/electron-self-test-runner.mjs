@@ -36,7 +36,7 @@ try {
 
   const onboarding = await runControlledScenario("onboarding-ready");
   assert.equal(onboarding.observation.marker, true);
-  assert.equal(onboarding.observation.contractVersion, "18");
+  assert.equal(onboarding.observation.contractVersion, "19");
   assert.equal(onboarding.observation.runtime.electron, "37.10.3");
   assert.equal(onboarding.observation.runtime.node, "22.21.1");
   assert.deepEqual(onboarding.observation.onboarding, {
@@ -94,7 +94,7 @@ try {
 function assertComposition(composition) {
   assert.deepEqual(composition.window, { menuBarVisible: false });
   assert.equal(composition.storage.driver, "node:sqlite");
-  assert.equal(composition.storage.schemaVersion, 8);
+  assert.equal(composition.storage.schemaVersion, 9);
   assert.equal(composition.storage.fileBacked, true);
   assert.equal(composition.storage.reopened, true);
   assert.equal(composition.storage.backupValidated, true);

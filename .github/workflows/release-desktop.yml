@@ -12,9 +12,12 @@ permissions:
 jobs:
   windows:
     name: Windows installer
+    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -30,23 +33,28 @@ jobs:
       - name: Stage Windows installer
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force release | Out-Null
+          New-Item -ItemType Directory release -ErrorAction Stop | Out-Null
           Copy-Item -LiteralPath "out/make/squirrel.windows/x64/Studi-Setup.exe" -Destination "release/Studi-Setup.exe"
           Copy-Item -LiteralPath "out/make/squirrel.windows/x64/RELEASES" -Destination "release/RELEASES"
           $packages = @(Get-ChildItem "out/make/squirrel.windows/x64/*-full.nupkg")
           if ($packages.Count -eq 0 -or @($packages | Where-Object Length -eq 0).Count -gt 0) { throw "Missing Squirrel update package" }
           $packages | Copy-Item -Destination release
+          if (@(Get-ChildItem -LiteralPath release | Where-Object Length -eq 0).Count -gt 0) { throw "Empty staged Windows artifact" }
       - uses: actions/upload-artifact@v4
         with:
           name: studi-windows
           path: release/*
           if-no-files-found: error
+          retention-days: 90
 
   macos:
     name: macOS universal disk image
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
@@ -80,35 +88,101 @@ jobs:
         run: bunx electron tests/packaged-pdf.cjs out/Studi-darwin-universal/Studi.app/Contents/Resources/app.asar
       - name: Stage macOS disk image
         run: |
-          mkdir -p release
-          artifact="$(find out/make -type f -name '*.dmg' -print -quit)"
-          test -n "$artifact"
+          mkdir release
+          count="$(find out/make -type f -name '*.dmg' | wc -l | tr -d ' ')"
+          test "$count" = 1
+          artifact="$(find out/make -type f -name '*.dmg')"
+          test -s "$artifact"
           cp "$artifact" release/Studi-macOS.dmg
+      - name: Verify staged DMG and native packaged first launch
+        run: bash scripts/verify-macos-dmg.sh release/Studi-macOS.dmg out/Studi-darwin-universal/Studi.app native-proof/macos
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studi-macos-native-proof
+          path: native-proof/macos/*
+          if-no-files-found: warn
+          retention-days: 90
       - uses: actions/upload-artifact@v4
         with:
           name: studi-macos
           path: release/Studi-macOS.dmg
           if-no-files-found: error
+          retention-days: 90
+
+  windows-upgrade:
+    name: Windows installed upgrade (${{ matrix.mode }})
+    if: github.event_name == 'workflow_dispatch'
+    needs: windows
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [setup, updater]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v4
+        with:
+          name: studi-windows
+          path: release
+      - name: Install baseline and verify candidate persistence
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ./scripts/verify-windows-upgrade.ps1 -Artifacts release -Mode '${{ matrix.mode }}'
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studi-windows-${{ matrix.mode }}-native-proof
+          path: native-proof/windows/**
+          if-no-files-found: warn
+          retention-days: 90
 
   release:
-    name: Publish GitHub release
+    name: Promote tested installers
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     permissions:
       contents: write
-    needs: [windows, macos]
+      actions: read
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify evidence and the successful manual source run
+        id: evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-release-evidence.mjs --tag "$GITHUB_REF_NAME" --verify-run --prepare-artifacts release --github-output "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
-          pattern: studi-*
+          name: studi-windows
+          run-id: ${{ steps.evidence.outputs.artifactRunId }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
           path: release
-          merge-multiple: true
-      - name: Add checksums
-        run: cd release && sha256sum * > SHA256SUMS.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: studi-macos
+          run-id: ${{ steps.evidence.outputs.artifactRunId }}
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          path: release
+      - name: Verify exact tested assets and generate their checksum list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/verify-release-evidence.mjs --tag "$GITHUB_REF_NAME" --verify-run --artifacts release --write-checksums
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="${GITHUB_REF_NAME}"
-          gh release create "$tag" release/* --title "Studi ${tag}" --generate-notes --latest
+          gh release create "$tag" release/* --verify-tag --title "Studi ${tag}" --generate-notes --latest

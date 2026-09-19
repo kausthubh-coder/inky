@@ -8,6 +8,7 @@ import {
   STUDI_SCHEMA_VERSION,
   resolvePermission,
   assignmentWorkEligibility,
+  AssignmentKindSchema,
   transitionTask,
   type AgentRunEvent,
   type BrowserWorkerLease,
@@ -20,12 +21,14 @@ import type {
   AgentSessionTarget,
 } from "../agent/runtime.js";
 import type { LocalStore } from "../storage/index.js";
+import { plannedAssignmentStart } from "../lifecycle/schedule.js";
 
 export interface AssignmentWorkerRuntime {
   createWorkerSession(target?: AgentSessionTarget): Promise<AgentSession>;
   createAssignmentSession?(
     tools: readonly ToolDefinition[],
     target?: AgentSessionTarget,
+    control?: { readonly assertActive: () => void },
   ): Promise<AgentSession>;
 }
 
@@ -57,6 +60,7 @@ export class ManagerCoordinator {
   #workerSession: AgentSession | null = null;
   #workerRunning = false;
   #workStartMode: "manual" | "automatic" = "manual";
+  #schedulingEnabled = false;
   #disposed = false;
   #beforeAssignmentWork: ((assignmentId: string) => Promise<void>) | null = null;
 
@@ -164,12 +168,70 @@ export class ManagerCoordinator {
       enqueuedAt: existing?.enqueuedAt ?? this.#now(),
       permission,
       requestOrigin: existing?.requestOrigin === "student" ? "student" : requestOrigin,
+      scheduledStartAt: this.#plannedStart(assignment, existing?.enqueuedAt ?? this.#now()),
     });
   }
 
   steerNext(taskId: string): ManagerQueueEntry {
     this.#assertUsable();
     return this.#store.manager.steerNext(taskId);
+  }
+
+  reorderQueue(taskIds: readonly string[]): ManagerState {
+    this.#assertUsable();
+    if (taskIds.some(id => this.#requiredTask(id).state !== "queued")) throw new Error("Only waiting homework can be reordered.");
+    this.#store.manager.reorderQueue(taskIds);
+    return this.state();
+  }
+
+  async setAssignmentOwner(assignmentId: string, owner: "student" | "inky"): Promise<void> {
+    this.#assertUsable();
+    const assignment = this.#store.assignments.get(assignmentId);
+    if (!assignment) throw new Error("This assignment is no longer available.");
+    const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignment.assignmentId);
+    if (tasks.some(task => task.state === "submitting")) throw new Error("Submission has begun. Wait for its result before changing who does this work.");
+    const ruleId = `owner-${assignment.assignmentId}`.slice(0, 256);
+    this.#store.database.transaction(() => {
+      const currentRule = this.#store.permissionRules.listAll().find(rule => rule.scope === "assignment" && rule.assignmentId === assignment.assignmentId);
+      if (owner === "student") {
+        this.#store.assignments.put({ ...assignment, owner, ownerPreviousMode: assignment.owner === "student" ? assignment.ownerPreviousMode : currentRule?.mode });
+        this.#store.permissionRules.put({ schemaVersion: 1, ruleId, scope: "assignment", assignmentId: assignment.assignmentId, mode: "do_not_attempt", updatedAt: this.#now() });
+      } else {
+        if (assignment.owner === "student" && currentRule?.ruleId === ruleId) {
+          if (assignment.ownerPreviousMode) this.#store.permissionRules.put({ ...currentRule, mode: assignment.ownerPreviousMode, updatedAt: this.#now() });
+          else this.#store.permissionRules.delete(ruleId);
+        }
+        this.#store.assignments.put({ ...assignment, owner, ownerPreviousMode: undefined });
+      }
+      this.reconcileQueue();
+    });
+    if (owner === "student") {
+      for (const task of tasks) {
+        if (["working", "needs_user", "ready_review"].includes(this.#requiredTask(task.taskId).state)) {
+          await this.#workerSession?.abort();
+          if (["working", "needs_user", "ready_review"].includes(this.#requiredTask(task.taskId).state)) this.cancel(task.taskId);
+        }
+      }
+    }
+  }
+
+  ignoreAssignment(assignmentId: string, reason: string): void {
+    this.#store.database.transaction(() => {
+      const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId);
+      if (tasks.some(task => !["discovered", "queued", "failed", "cancelled", "ignored"].includes(task.state))) throw new Error("Stop the current work before marking this assignment done or not homework.");
+      for (const task of tasks) {
+        if (task.state !== "ignored") this.#transition(task.taskId, "ignored", reason, `student-${randomUUID()}`);
+        this.#store.manager.removeQueueEntry(task.taskId);
+      }
+    });
+  }
+
+  // Called only when the student explicitly saves a rule for this kind.
+  confirmKindMatches(courseId: string, kind: string): void {
+    for (const assignment of this.#store.assignments.listByCourse(courseId)) {
+      if (assignment.kind === kind && assignment.kindConfidence === "explicit" && assignment.kindEvidence) this.#store.manager.confirmPatternMatch({ schemaVersion: 1, assignmentId: assignment.assignmentId, courseId: assignment.courseId, patternId: kind, confirmedAt: this.#now() });
+    }
+    this.reconcileQueue();
   }
 
   cancel(taskId: string): void {
@@ -196,10 +258,12 @@ export class ManagerCoordinator {
   async pauseForStudent(taskId: string, reason: string): Promise<void> {
     this.#assertActiveLease(taskId);
     const task = this.#requiredTask(taskId);
-    if (task.state !== "working") throw new Error(`Task ${taskId} cannot be taken over from ${task.state}`);
-    await this.#workerSession?.abort();
+    if (!["working", "ready_review"].includes(task.state)) throw new Error(`Task ${taskId} cannot be taken over from ${task.state}`);
     this.pause(taskId, "needs_user", reason);
+    await this.abortWorkerTurn();
   }
+
+  async abortWorkerTurn(): Promise<void> { await this.#workerSession?.abort(); }
 
   async startNext(
     assignmentTools: AssignmentSessionPlanInput = [],
@@ -325,7 +389,7 @@ export class ManagerCoordinator {
       assignmentId: this.#requiredTask(lease.taskId).assignmentId,
       resumeSessionPath: lease.workerSessionPath,
       ...(plan.cwd ? { cwd: plan.cwd } : {}),
-    });
+    }, { assertActive: () => this.#assertWorkerPermission(lease.taskId) });
   }
 
   dispose(): void {
@@ -394,6 +458,11 @@ export class ManagerCoordinator {
   }
 
   #resolvePermission(assignmentId: string, courseId: string) {
+    const assignment = this.#store.assignments.get(assignmentId);
+    if (assignment?.owner === "student" || assignment?.ignoredReason) return {
+      mode: "do_not_attempt" as const, mayAttempt: false, maySubmit: false, matchedRuleId: null,
+      rationale: assignment.ignoredReason ? "You marked this assignment as done or not homework." : "You chose to do this assignment yourself.",
+    };
     courseId = this.#store.school.resolveCourseId(courseId);
     const conflict = this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId))
       ?? this.#store.courseConflicts.find(item => item.courseIds.includes(courseId));
@@ -403,11 +472,22 @@ export class ManagerCoordinator {
     };
     const matchedPatternIds = this.#store.manager
       .listConfirmedPatterns(assignmentId, courseId)
+      .filter(match => !AssignmentKindSchema.safeParse(match.patternId).success || (assignment?.kind === match.patternId && assignment.kindConfidence === "explicit" && assignment.kindEvidence))
       .map((match) => match.patternId);
-    return resolvePermission(
+    const rules = this.#store.permissionRules.listAll();
+    const baseline = resolvePermission(
       { assignmentId, courseId, matchedPatternIds },
-      this.#store.permissionRules.listAll(),
+      rules,
     );
+    // A guess can restrict work, never grant it. Unknown work must also respect
+    // a potentially applicable kind restriction until the student clarifies it.
+    const possibleKinds = assignment?.kindConfidence === "explicit" && assignment.kind ? [assignment.kind]
+      : assignment?.possibleKinds?.length ? assignment.possibleKinds : AssignmentKindSchema.options;
+    const rank = { do_not_attempt: 0, attempt: 1, auto_submit: 2 };
+    return possibleKinds.reduce((safest, kind) => {
+      const candidate = resolvePermission({ assignmentId, courseId, matchedPatternIds: [...new Set([...matchedPatternIds, kind])] }, rules);
+      return rank[candidate.mode] < rank[safest.mode] ? { ...candidate, rationale: `This kind may apply; keeping its safer rule until the kind is confirmed. ${candidate.rationale}` } : safest;
+    }, baseline);
   }
 
   resolvePermission(assignmentId: string, courseId: string) {
@@ -421,6 +501,25 @@ export class ManagerCoordinator {
     for (const entry of this.#store.manager.listQueue()) {
       if (this.#store.tasks.get(entry.taskId)?.state === "queued") this.#refreshStartPermission(entry);
     }
+    if (this.#schedulingEnabled && this.allowsAutomaticWork && this.#store.lifecycle.getSchedule()?.state !== "paused") {
+      for (const task of this.#store.tasks.listByState("discovered")) {
+        const assignment = this.#store.assignments.get(task.assignmentId);
+        if (!assignment || !this.#resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit || !assignmentWorkEligibility(assignment, this.#now()).eligible) continue;
+        if (this.#plannedStart(assignment, this.#now())) this.enqueue({ taskId: task.taskId, requestOrigin: "automatic" });
+      }
+    }
+  }
+
+  setSchedulingEnabled(enabled: boolean): void {
+    this.#schedulingEnabled = enabled;
+    this.reconcileQueue();
+  }
+
+  #plannedStart(assignment: NonNullable<ReturnType<LocalStore["assignments"]["get"]>>, enqueuedAt: string): string | undefined {
+    const schedule = this.#store.lifecycle.getSchedule();
+    if (!this.#schedulingEnabled || !this.allowsAutomaticWork || schedule?.state === "paused") return undefined;
+    if (!this.#resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit) return undefined;
+    return plannedAssignmentStart(assignment, enqueuedAt, schedule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
   }
 
   setWorkStartMode(mode: "manual" | "automatic"): void {
@@ -445,9 +544,8 @@ export class ManagerCoordinator {
       this.#store.manager.removeQueueEntry(entry.taskId);
       return null;
     }
-    return JSON.stringify(permission) === JSON.stringify(entry.permission)
-      ? entry
-      : this.#store.manager.putQueueEntry({ ...entry, permission });
+    const next = { ...entry, permission, dueAt: assignment?.dueAt, scheduledStartAt: assignment ? this.#plannedStart(assignment, entry.enqueuedAt) : undefined };
+    return JSON.stringify(next) === JSON.stringify(entry) ? entry : this.#store.manager.putQueueEntry(next);
   }
 
   async #startEntry(
@@ -471,7 +569,7 @@ export class ManagerCoordinator {
       const plan = await resolveAssignmentSessionPlan(assignmentTools, entry.assignmentId);
       const sessionTarget = { ...target, assignmentId:entry.assignmentId, ...(plan.cwd ? { cwd: plan.cwd } : {}) };
       worker = plan.tools.length > 0
-        ? await this.#requiredAssignmentRuntime().createAssignmentSession!(plan.tools, sessionTarget)
+        ? await this.#requiredAssignmentRuntime().createAssignmentSession!(plan.tools, sessionTarget, { assertActive: () => this.#assertWorkerPermission(entry.taskId) })
         : await this.#runtime.createWorkerSession(target);
       if (!worker.sessionPath) {
         throw new Error("Pi did not persist the assignment worker session");
@@ -602,6 +700,19 @@ export class ManagerCoordinator {
       phase,
       updatedAt: this.#now(),
     }), persisted.sessionPath);
+  }
+
+  #assertWorkerPermission(taskId: string): void {
+    this.#assertUsable();
+    const task = this.#requiredTask(taskId);
+    const lease = this.#store.manager.getLease();
+    if (lease?.taskId !== taskId || lease.state !== "active" || !["working", "ready_review", "submitting"].includes(task.state)) {
+      throw new Error("This assignment no longer owns the school page.");
+    }
+    const assignment = this.#store.assignments.get(task.assignmentId);
+    if (!assignment || !this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) {
+      throw new Error("Current homework rules no longer allow this work.");
+    }
   }
 
   #requiredAssignmentRuntime(): AssignmentWorkerRuntime & Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">> {

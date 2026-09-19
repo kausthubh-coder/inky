@@ -46,6 +46,7 @@ export const NotificationPreferencesSchema = z.strictObject({
     review_ready: NotificationKindPreferenceSchema,
     scan_result: NotificationKindPreferenceSchema,
     failure: NotificationKindPreferenceSchema,
+    work_start: NotificationKindPreferenceSchema.default({ banner: true, sound: "inky_soft" }),
   }),
 });
 export type NotificationPreferences = z.infer<typeof NotificationPreferencesSchema>;
@@ -57,6 +58,7 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
     review_ready: { banner: true, sound: "inky_done" },
     scan_result: { banner: true, sound: "inky_soft" },
     failure: { banner: true, sound: "inky_uh_oh" },
+    work_start: { banner: true, sound: "inky_soft" },
   },
 };
 

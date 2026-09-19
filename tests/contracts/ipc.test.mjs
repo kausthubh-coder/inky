@@ -17,6 +17,33 @@ import {
 } from "../../dist/shared/index.js";
 
 const execFileAsync = promisify(execFile);
+const redesignMethods = {
+  getConversationTimeline: 'studi:conversation-timeline',
+  listMemories: 'studi:memory-list',
+  readMemory: 'studi:memory-read',
+  updateMemory: 'studi:memory-update',
+  deleteMemory: 'studi:memory-delete',
+  getLearnState: 'studi:learn-state',
+  importLearnSource: 'studi:learn-source-import',
+  importLearnFile: 'studi:learn-file-import',
+  setLearnExam: 'studi:learn-exam-set',
+  findLearnSyllabus: 'studi:learn-syllabus-find',
+  retryLearnSource: 'studi:learn-source-retry',
+  getTutorSession: 'studi:tutor-session',
+  startTutorSession: 'studi:tutor-start',
+  answerTutorBlock: 'studi:tutor-answer',
+  hintTutorBlock: 'studi:tutor-hint',
+  saveTutorDraft: 'studi:tutor-draft',
+  sendTutorMessage: 'studi:tutor-message',
+  pauseTutorSession: 'studi:tutor-pause',
+  resumeTutorSession: 'studi:tutor-resume',
+  cancelTutorSession: 'studi:tutor-cancel',
+  submitAssignmentByRule: 'studi:assignment-submit-rule',
+  correctAssignment: 'studi:assignment-correct',
+  addAssignment: 'studi:assignment-add',
+  setAssignmentOwner: 'studi:assignment-owner',
+  reorderQueue: 'studi:queue-reorder',
+};
 
 test("optional scan intent supports the existing no-argument call and validates assignment scope", async () => {
   const received = [];
@@ -249,6 +276,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "sendScanMessage",
     "pauseSchoolScan",
     "getConversationState",
+    ...Object.keys(redesignMethods),
     "stopConversation",
     "getNotifications",
     "readNotification",
@@ -322,6 +350,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       sendScanMessage: "studi:scan-message",
       pauseSchoolScan: "studi:scan-pause",
       getConversationState: "studi:conversation-state",
+      ...redesignMethods,
       stopConversation: "studi:conversation-stop",
       getNotifications: "studi:notifications",
       readNotification: "studi:notification-read",
@@ -382,7 +411,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   );
   assert.deepEqual(CONTRACT_MANIFEST, {
     schemaVersion: 1,
-    contractVersion: "18",
+    contractVersion: "19",
     ipcMethods: [
       { method: "getUpdateState", channel: "studi:update-state" },
       { method: "checkForUpdates", channel: "studi:update-check" },
@@ -397,6 +426,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       {method:"sendScanMessage",channel:"studi:scan-message"},
       {method:"pauseSchoolScan",channel:"studi:scan-pause"},
       { method: "getConversationState", channel: "studi:conversation-state" },
+      ...Object.entries(redesignMethods).map(([method, channel]) => ({ method, channel })),
       { method: "stopConversation", channel: "studi:conversation-stop" },
       { method: "getNotifications", channel: "studi:notifications" },
       { method: "readNotification", channel: "studi:notification-read" },

@@ -18,7 +18,7 @@ class TestDriver {
 
 test("capabilities follow target, explicit work, claim, and submit facts", async () => {
   const home = await buildAgentTurn({ target: { kind: "home" }, phase: "conversing", hasBrowserClaim: false }, "hello");
-  assert.deepEqual(home.toolNames, ["home_status", "queue_inspect", "queue_start", "queue_cancel", "note_search"]);
+  assert.deepEqual(home.toolNames, ["home_status", "queue_inspect", "queue_start", "queue_cancel", "queue_reorder", "assignment_set_owner", "note_search", "note_read", "note_upsert"]);
   const connectedHome = await buildAgentTurn({ target: { kind: "home" }, phase: "conversing", hasBrowserClaim: false, composioTools: ["connected_apps_search", "connected_apps_execute"] }, "email my professor");
   assert.deepEqual(connectedHome.toolNames.slice(-2), ["connected_apps_search", "connected_apps_execute"]);
 

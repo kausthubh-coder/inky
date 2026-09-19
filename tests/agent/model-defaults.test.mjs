@@ -9,7 +9,7 @@ import { streamSimple } from "@earendil-works/pi-ai/api/openai-codex-responses";
 import { ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { PiAgentRuntime } from "../../dist/electron/agent/runtime.js";
 
-test("real Pi sessions send Astra medium priority, including after resume, without changing other models", async () => {
+test("real Pi sessions send Sol high at normal speed, including after resume, and preserve explicit model choices", async () => {
   const root = await mkdtemp(join(tmpdir(), "studi-astra-test-"));
   const modelRuntime = await ModelRuntime.create({
     credentials: new InMemoryCredentialStore(), modelsPath: null, refreshOnCreate: false,
@@ -37,10 +37,10 @@ test("real Pi sessions send Astra medium priority, including after resume, witho
   try {
     const runtime = await PiAgentRuntime.create({ cwd: root, agentDir: join(root, "agent"), modelRuntime, onDiagnostic: event => diagnostics.push(event) });
     assert.equal(runtime.selectedProviderId, "openai-codex");
-    assert.equal(runtime.selectedModelId, "gpt-6-astra");
+    assert.equal(runtime.selectedModelId, "gpt-5.6-sol");
     assert.ok(runtime.getProviderModels("anthropic").some((model) => model.id === "claude-fable-5-1" && model.providerId === "anthropic"));
-    assert.equal(runtime.selectedReasoningEffort, "medium");
-    assert.ok(runtime.getProviderModels("openai-codex").some((model) => model.id === "gpt-6-astra"));
+    assert.equal(runtime.selectedReasoningEffort, "high");
+    assert.ok(runtime.getProviderModels("openai-codex").some((model) => model.id === "gpt-5.6-sol"));
     session = await runtime.createSession();
     await session.prompt("Check request defaults.");
     await session.replace({ resumeSessionPath: session.sessionPath });
@@ -53,16 +53,16 @@ test("real Pi sessions send Astra medium priority, including after resume, witho
     assert.ok(diagnostics.some(event => event.kind === "session_created" && event.payload.system_prompt.includes("Studi")));
     assert.ok(diagnostics.some(event => event.kind === "message_end" && JSON.stringify(event.payload).includes("Check request defaults.")));
     for (const request of requests) {
-      assert.equal(request.model, "gpt-6-astra");
-      assert.equal(request.reasoning.effort, "medium");
-      assert.equal(request.service_tier, "priority");
+      assert.equal(request.model, "gpt-5.6-sol");
+      assert.equal(request.reasoning.effort, "high");
+      assert.equal(request.service_tier, undefined);
     }
     session.dispose();
-    runtime.selectModel("openai-codex", "gpt-5.6-sol");
+    runtime.selectModel("openai-codex", "gpt-6-astra");
     runtime.setReasoningEffort("high");
     session = await runtime.createSession();
     await session.prompt("Check explicit selection.");
-    assert.equal(requests.at(-1).model, "gpt-5.6-sol");
+    assert.equal(requests.at(-1).model, "gpt-6-astra");
     assert.equal(requests.at(-1).reasoning.effort, "high");
     assert.equal(requests.at(-1).service_tier, undefined);
   } finally {

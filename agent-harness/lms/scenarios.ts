@@ -17,6 +17,10 @@ export const SCENARIO_IDS = [
   "smoke",
   "coding-multifile",
   "quiz",
+  "learn",
+  "needs-student-file",
+  "double-timeout",
+  "today-edge-cases",
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 const future = "2026-09-15T03:59:00.000Z";
@@ -26,12 +30,13 @@ function activity(
   title: string,
   changes: Partial<Activity> = {},
 ): Activity {
+  const kind = changes.kind ?? "assignment";
   return {
     id,
     courseId,
     title,
     module: "Week 3",
-    kind: "assignment",
+    kind,
     service: "school",
     dueAt: future,
     dueText: "September 14, 2026 at 11:59 PM America/New_York",
@@ -47,6 +52,18 @@ function activity(
     attachments: [],
     prerequisites: [],
     maxAttempts: 1,
+    workKind:
+      changes.workKind ??
+      (kind === "lesson"
+        ? "reading"
+        : kind === "forum"
+          ? "discussion"
+          : kind === "quiz"
+            ? "quiz"
+            : ["programming", "lab"].includes(courseId)
+              ? "code"
+              : courseId === "writing" ? "essay" : "problem_set"),
+    visibility: "course",
     ...changes,
   };
 }
@@ -105,7 +122,30 @@ export function createScenario(
       format: "text" as const,
       text: "Rubric\nCompleteness: 40 points\nReasoning and evidence: 40 points\nFile format and clarity: 20 points\nA blank grade means feedback has not been released.\n",
     },
+    {
+      id: `${course.id}-syllabus`,
+      name: `${course.code.replaceAll(" ", "-")}-syllabus.pdf`,
+      mime: "application/pdf",
+      format: "pdf" as const,
+      text: "", // Filled from exam facts by refreshSyllabus after scenario selection.
+    },
   ]);
+  const exams = courses.map((course, index) => ({
+    id: `${course.id}-midterm`,
+    courseId: course.id,
+    title: `${course.code} midterm exam`,
+    date: `2026-10-${String(12 + index).padStart(2, "0")}T17:00:00.000Z`,
+    topics: [
+      { id: `${course.id}-foundations`, title: "Foundations", chapter: 1, weight: 25 },
+      { id: `${course.id}-methods`, title: "Core methods", chapter: 2, weight: 45 },
+      { id: `${course.id}-applications`, title: "Applications", chapter: 3, weight: 30 },
+    ],
+  }));
+  const syllabi = courses.map((course) => ({
+    courseId: course.id,
+    assetId: `${course.id}-syllabus`,
+    updatedAt: "2026-08-24T13:00:00.000Z",
+  }));
   assets.push(
     {
       id: "observations",
@@ -131,6 +171,7 @@ export function createScenario(
   );
   const activities: Activity[] = [
     activity("exercise-05", "programming", "Exercise 05", {
+      workKind: "code",
       attachments: ["programming-guide", "starter-c"],
       requirements: [
         "Read the attached PDF.",
@@ -181,6 +222,7 @@ export function createScenario(
       requirements: ["Explain how a stack differs from a queue."],
     }),
     activity("workshop-3", "structures", "Workshop 3: Stack and Queue", {
+      workKind: "code",
       prerequisites: ["stack-review"],
       dueAt: "2026-09-12T03:55:00.000Z",
       dueText: "September 11 at 11:55 PM",
@@ -225,6 +267,7 @@ export function createScenario(
       gradeVisible: false,
     }),
     activity("hw5", "statistics", "Homework 5", {
+      workKind: "problem_set",
       service: "statistics",
       dueAt: "2026-09-17T03:59:00.000Z",
       dueText: "September 16 at 11:59 PM (personal extension)",
@@ -284,6 +327,7 @@ export function createScenario(
       attachments: ["games-guide"],
     }),
     activity("final-game", "games", "Final puzzle game", {
+      workKind: "code",
       requirements: [
         "Upload the playable HTML game.",
         "Upload a README PDF with instructions and an all-level walkthrough.",
@@ -327,6 +371,7 @@ export function createScenario(
         "This diagnostic has an explicit score of zero. It is not an ungraded assignment.",
     }),
     activity("observation", "writing", "Observation paragraph", {
+      workKind: "essay",
       requirements: [
         "Write three sentences about a rainy afternoon.",
         "Include a sound and a color.",
@@ -341,13 +386,15 @@ export function createScenario(
   const state: SchoolState = {
     schemaVersion: 1,
     scenarioId,
-    scenarioVersion: 1,
+    scenarioVersion: 2,
     seed,
     clock: "2026-09-13T16:00:00.000Z",
     timezone: "America/New_York",
     courses,
     activities,
     assets,
+    exams,
+    syllabi,
     drafts: {},
     submissions: [],
     completed: [],
@@ -357,6 +404,7 @@ export function createScenario(
       courseFailurePending: scenarioId === "interrupted-scan",
       lostSubmitResponsePending: scenarioId === "lost-submit-response",
       downloadFailurePending: false,
+      assignmentTimeoutsRemaining: scenarioId === "double-timeout" ? 2 : 0,
     },
     builds: [
       {
@@ -407,7 +455,7 @@ export function createScenario(
     state.activities.find(
       (item) => item.id === "exercise-05",
     )!.dashboardDueText = "September 12 at 11:59 PM";
-  if (scenarioId === "smoke") {
+  if (["smoke", "double-timeout"].includes(scenarioId)) {
     state.courses = courses.filter((item) => item.id === "writing");
     state.activities = activities.filter((item) => item.id === "observation");
   }
@@ -437,6 +485,7 @@ export function createScenario(
       { id: "observations", name: "observations.csv", mime: "text/csv", format: "text", text: "day,rain_mm\nMonday,5\nTuesday,10\nWednesday,0\nThursday,5\n" },
     ];
     state.activities = [activity("rainfall-project", "programming", "Rainfall calculator: multi-file C project", {
+      workKind: "code",
       attachments: state.assets.map((asset) => asset.id),
       requiredFiles: [".c", ".h", ".md"],
       requiredFileNames: ["main.c", "stats.c", "stats.h", "README.md"],
@@ -453,8 +502,82 @@ export function createScenario(
       requirements: ["Write one answer per line using Q1: answer, Q2: answer, Q3: answer.", "Save your draft before submitting. Two final attempts are allowed; saving does not consume an attempt."],
     })];
   }
+  if (scenarioId === "learn") {
+    state.courses = courses.filter((item) => ["structures", "writing"].includes(item.id));
+    state.activities = activities.filter((item) => item.id === "observation");
+    // Writing intentionally has no syllabus: a source-free Learn state must stay honest.
+    state.syllabi = syllabi.filter((item) => item.courseId === "structures");
+    state.exams = [{
+      id: "structures-midterm", courseId: "structures", title: "CS 316 midterm exam",
+      date: "2026-09-21T17:00:00.000Z",
+      topics: [
+        { id: "stacks", title: "Stacks and queues", chapter: 1, weight: 25 },
+        { id: "trees", title: "Trees and heaps", chapter: 2, weight: 45 },
+        { id: "complexity", title: "Algorithm complexity", chapter: 3, weight: 30 },
+      ],
+    }];
+  }
+  if (scenarioId === "needs-student-file") {
+    state.courses = courses.filter((item) => item.id === "programming");
+    state.activities = [activity("personal-data-project", "programming", "Analyze your field measurements", {
+      workKind: "code", requiredFiles: [".c", ".csv"],
+      requiredFileNames: ["analysis.c", "field-measurements.csv"],
+      requiredStudentFiles: ["field-measurements.csv"],
+      instructions: "Write a C program that reads your personal field-measurements.csv and prints its mean. This file exists only on your device; it is not downloadable from school. Ask for the original file before calculating. Do not invent measurements.",
+      requirements: ["Obtain field-measurements.csv from the student.", "Upload analysis.c and the original field-measurements.csv.", "Explain the calculation using the supplied measurements."],
+    })];
+  }
+  if (scenarioId === "today-edge-cases") {
+    state.courses = courses.filter((item) => item.id === "writing");
+    state.activities = [
+      activity("undated-reflection", "writing", "Reading reflection", {
+        workKind: "essay", dueAt: null, dueText: "No due date published", closeAt: null,
+        requirements: ["Describe one idea from the reading and connect it to your experience."],
+      }),
+      activity("announcement-response", "writing", "Community observation essay", {
+        workKind: "essay", visibility: "announcement_only", dueAt: null,
+        dueText: "No due date published", closeAt: null, wordLimit: 150,
+        announcement: "New homework: write a community observation essay. Open this notice for the full rubric. No deadline has been set.",
+        requirements: ["Write 100 to 150 words.", "Include a concrete observation and explain its significance.", "Save a draft before submitting."],
+        rubric: ["Observation: one specific place, sound, and color (40 points).", "Reasoning: explain why the observation matters (40 points).", "Clarity: 100 to 150 words in complete sentences (20 points)."],
+      }),
+      activity("late-essay", "writing", "Rainy afternoon essay", {
+        workKind: "essay", dueAt: "2026-09-12T03:59:00.000Z",
+        dueText: "September 11 at 11:59 PM America/New_York",
+        latePenalty: "10 percentage points deducted per calendar day late, capped at 30 points.",
+        wordLimit: 150,
+        requirements: ["Write 100 to 150 words about a rainy afternoon.", "Include a sound and a color."],
+        rubric: ["Concrete observation (40 points).", "Reasoning and evidence (40 points).", "Clarity and word limit (20 points)."],
+      }),
+    ];
+  }
+  const learnScenarios = ["semester", "partial-login", "interrupted-scan", "deadline-change", "learn"];
+  if (!learnScenarios.includes(scenarioId)) {
+    state.syllabi = [];
+    state.exams = [];
+  }
+  state.syllabi = state.syllabi?.filter((item) => state.courses.some((course) => course.id === item.courseId)) ?? [];
+  state.exams = state.exams?.filter((item) => state.syllabi?.some((syllabus) => syllabus.courseId === item.courseId)) ?? [];
+  for (const syllabus of state.syllabi) refreshSyllabus(state, syllabus.courseId);
+  const usedAssets = new Set([...state.activities.flatMap((item) => item.attachments), ...state.syllabi.map((item) => item.assetId)]);
+  state.assets = state.assets.filter((item) => usedAssets.has(item.id));
   // Seed controls presentation order without changing canonical identities or facts.
   if (Math.abs(seed) % 2 === 1) state.courses.reverse();
   validateState(state);
   return state;
+}
+
+export function refreshSyllabus(state: SchoolState, courseId: string): void {
+  const syllabus = state.syllabi?.find((item) => item.courseId === courseId);
+  const asset = state.assets.find((item) => item.id === syllabus?.assetId);
+  if (!syllabus || !asset) throw new Error("Syllabus not found");
+  const course = state.courses.find((item) => item.id === courseId)!;
+  const date = (value: string) => new Intl.DateTimeFormat("en-US", {
+    dateStyle: "long", timeStyle: "short", timeZone: state.timezone,
+  }).format(new Date(value));
+  asset.text = [course.title, "Fall 2026 syllabus", `Updated: ${syllabus.updatedAt}`,
+    ...(state.exams ?? []).filter((item) => item.courseId === courseId).flatMap((exam) => [
+      `${exam.title}: ${date(exam.date)} (${state.timezone})`,
+      ...exam.topics.map((topic) => `Chapter ${topic.chapter}: ${topic.title} - ${topic.weight}% of exam`),
+    ]), "Homework completion does not establish student mastery."].join("\n");
 }

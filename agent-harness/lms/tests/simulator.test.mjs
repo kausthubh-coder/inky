@@ -226,8 +226,11 @@ test("source cases expose statuses, requirements, date-only dates, late rules an
   );
   const dateOnly = await fields(`${server.origins.statistics}/assignments/hw8`);
   assert.match(dateOnly.html, /exact time unavailable/);
-  assert.doesNotMatch(dateOnly.html, /<time/);
+  const dueField = /<p><strong>Due:<\/strong>[\s\S]*?<\/p>/.exec(dateOnly.html)?.[0];
+  assert.ok(dueField, "The assignment must expose its due-date field");
+  assert.doesNotMatch(dueField, /<time/);
   const extended = await fields(`${server.origins.statistics}/assignments/hw5`);
+  assert.match(extended.html, /<p><strong>Due:<\/strong>\s*<time dateTime="2026-09-17T03:59:00.000Z"/);
   assert.match(extended.html, /personal extension/);
   assert.match(extended.html, /One extension has now been used/);
   assert.match(

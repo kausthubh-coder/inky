@@ -22,7 +22,7 @@ export interface AgentProviderEntry {
 }
 
 export const DEFAULT_AGENT_PROVIDER_ID: AgentProviderId = "openai-codex";
-export const DEFAULT_AGENT_MODEL_ID = "gpt-6-astra";
+export const DEFAULT_AGENT_MODEL_ID = "gpt-5.6-sol";
 
 export const AGENT_PROVIDERS: readonly AgentProviderEntry[] = [
   {

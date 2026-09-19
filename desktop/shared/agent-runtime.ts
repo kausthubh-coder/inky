@@ -87,7 +87,7 @@ export const AgentRunEventSchema = z.union([
 ]);
 
 export const AgentReasoningEffortSchema = z.enum(["off", "minimal", "low", "medium", "high", "xhigh"]);
-export const DEFAULT_AGENT_REASONING_EFFORT = "medium" as const;
+export const DEFAULT_AGENT_REASONING_EFFORT = "high" as const;
 
 export const ProviderLoginMethodSchema = z.enum(["api_key", "oauth"]);
 
@@ -132,6 +132,7 @@ const LOGIN_MARKERS = [
   "invalid token",
   "expired token",
   "refresh token",
+  "token refresh failed",
   "sign in to chatgpt",
   "sign in to openai",
   "sign in to claude",

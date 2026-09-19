@@ -1,14 +1,17 @@
 import { UpdateControls } from "./UpdateControls.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { Icon } from "./Icon.js";
+import { Inky } from "./Inky.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { DEFAULT_AGENT_PROVIDER_ID, agentProviderName, agentRuntimeAttentionCopy, providerLoginActive, selectedProvider, type AgentRuntimeAttention, type NotificationIntent, type ProviderLoginHandoff, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
 
-export type AppScreen = "week" | "settings";
+export type AppScreen = "week" | "settings" | "learn";
 export type SettingsLanding = "settings" | "usage" | "feedback" | "rules";
 
 export function AppChrome({
+  schoolStatus,
+  onSchool,
   chatName,
   screen,
   settingsLanding,
@@ -20,6 +23,8 @@ export function AppChrome({
   onNotification,
   onSignOut,
 }: {
+  schoolStatus?: string;
+  onSchool?: () => void;
   chatName?: string | undefined;
   screen: AppScreen;
   settingsLanding: SettingsLanding;
@@ -71,9 +76,9 @@ export function AppChrome({
   return (
     <header className="app-chrome">
       <button className="brand-lockup brand-home" type="button" onClick={() => onNavigate("week")} aria-label="Open dashboard"><strong>studi</strong></button>
-      {chatName&&<div className="chat-breadcrumb"><span>/</span>{chatName}</div>}
+      <nav className={`rd-mode-switch ${screen === "learn" ? "is-learn" : ""}`} aria-label="Studi mode"><span className="rd-mode-thumb" aria-hidden="true" /><button aria-current={screen !== "learn" ? "page" : undefined} onClick={() => onNavigate("week")}>{screen !== "learn" && <Inky state="working" size={20} />}Homework</button><button aria-current={screen === "learn" ? "page" : undefined} onClick={() => onNavigate("learn")}>{screen === "learn" && <Inky state="done" size={20} />}Learn</button></nav>
       <div className="chrome-end">
-        {readDevPreviewConfig() && <span className="preview-mode-label">Design preview</span>}
+        {onSchool && <button className="rd-school-status" onClick={onSchool}>{schoolStatus ?? "School check"}</button>}
         <UpdateControls onNotification={onNotification}/>
         <button className="chrome-settings" type="button" aria-label="Settings" title="Settings" aria-current={screen === "settings" ? "page" : undefined} onClick={() => openSettings("settings")}><Icon name="settings" size={19} /></button>
         <div className="account-menu-wrap" ref={accountMenuRef}>
