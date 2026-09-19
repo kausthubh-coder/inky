@@ -46,6 +46,14 @@ jobs:
           path: release/*
           if-no-files-found: error
           retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studi-windows-controlled-proof
+          path: .agents/studi-qa/checks/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 90
 
   macos:
     name: macOS universal disk image
@@ -108,6 +116,14 @@ jobs:
           name: studi-macos
           path: release/Studi-macOS.dmg
           if-no-files-found: error
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: studi-macos-controlled-proof
+          path: .agents/studi-qa/checks/
+          include-hidden-files: true
+          if-no-files-found: warn
           retention-days: 90
 
   windows-upgrade:

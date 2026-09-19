@@ -92,7 +92,10 @@ try {
 }
 
 function assertComposition(composition) {
-  assert.deepEqual(composition.window, { menuBarVisible: false });
+  assert.deepEqual(composition.window, {
+    menuBarVisible: process.platform === 'darwin' ? null : false,
+    applicationMenuAttached: false,
+  });
   assert.equal(composition.storage.driver, "node:sqlite");
   assert.equal(composition.storage.schemaVersion, 9);
   assert.equal(composition.storage.fileBacked, true);

@@ -851,7 +851,9 @@ function createWindow(): BrowserWindow {
         storage: storageSelfTestObservation,
         agent: agentSelfTestObservation,
         window: {
-          menuBarVisible: window.isMenuBarVisible(),
+          // Electron exposes the per-window menu visibility API on Windows/Linux only.
+          menuBarVisible: process.platform === 'darwin' ? null : window.isMenuBarVisible(),
+          applicationMenuAttached: Menu.getApplicationMenu() !== null,
         },
       })}\n`);
     });

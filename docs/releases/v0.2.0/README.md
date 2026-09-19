@@ -22,8 +22,12 @@ is optional and remains unproven until its isolated runner executes.
 The integrated controlled pass built/typechecked both app and LMS. Its four Node
 failures were three outdated transition expectations and one real Learn tool-order
 mismatch. Focused rechecks passed after correction. Backend, scripted harnesses
-and native material checks passed. The source-mode Electron check and the full
-live provider journeys are still being resolved; they are not release proof yet.
+and native material checks passed. The revised source-mode Electron journey
+passed on the Windows runner. CI also exposed temporary-directory alias assumptions
+and a menu-visibility check unsupported on macOS; those checks have been corrected
+and await their native rerun. Live Clerk admission and onboarding passed; provider
+work remains blocked on renewal of the QA ChatGPT authorization. These results
+are not full release proof yet.
 
 The renderer handoff includes actual-component visual/interaction evidence under
 `tests/ui/evidence/pr38/renderer-handoff.md`. Preview evidence is separate from
