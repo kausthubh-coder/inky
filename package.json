@@ -29,7 +29,7 @@
     "package:mac": "bun run build && electron-forge package --platform=darwin --arch=universal",
     "make:mac": "bun run build && electron-forge make --platform=darwin --arch=universal",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p desktop/electron/tsconfig.json --noEmit",
-    "test": "bun run typecheck && bun run test:backend && bun run build && bun run test:contracts && bun run test:packaging && bun run test:foundation",
+    "test": "bun run verify --scope all",
     "test:contracts": "bun run build:electron && node --test \"tests/contracts/*.test.mjs\"",
     "test:agent": "bun run build:electron && node --test \"tests/agent/*.test.mjs\"",
     "test:auth": "bun run build:lms && bun run build:electron && node --test \"tests/auth/*.test.mjs\"",
@@ -46,12 +46,16 @@
     "test:harness": "bun run agent:harness -- run --suite foundation --driver scripted --json && bun run agent:harness -- run --suite routing --driver scripted --json && bun run agent:harness -- run --suite trace --driver scripted --json && bun run agent:harness -- run --suite files --driver scripted --json",
     "test:composio": "bun scripts/composio-test.ts",
     "deploy:composio-policy": "bun scripts/deploy-composio-policy.ts",
-    "test:all": "bun run typecheck && bun run test:backend && bun run build && bun run test:contracts && bun run test:agent && bun run test:storage && bun run test:auth && bun run test:telemetry && bun run test:packaging && bun run test:foundation && bun run test:ui && bun run test:harness && bun run test:electron",
+    "test:all": "bun run verify --scope all",
     "test:ui": "node --experimental-strip-types --test \"tests/ui/*.test.mjs\"",
     "build:lms": "bun agent-harness/lms/build.mjs",
     "lms": "bun run build:lms && node .studi-lms/build/cli.mjs",
     "typecheck:lms": "tsc -p agent-harness/lms/tsconfig.json",
-    "test:lms": "bun run typecheck:lms && bun run build:lms && node --test agent-harness/lms/tests/*.test.mjs"
+    "test:lms": "bun run typecheck:lms && bun run build:lms && node --test agent-harness/lms/tests/*.test.mjs",
+    "verify": "node scripts/verify-studi.mjs",
+    "qa:account": "node .agents/skills/test-studi/scripts/qa-ephemeral.mjs",
+    "test:release": "bun run verify --scope release",
+    "test:tooling": "node --test tests/tooling/*.test.mjs"
   },
   "dependencies": {
     "@composio/core": "^0.18.0",

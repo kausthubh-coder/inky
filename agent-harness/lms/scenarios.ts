@@ -15,6 +15,8 @@ export const SCENARIO_IDS = [
   "resume-draft",
   "lost-submit-response",
   "smoke",
+  "coding-multifile",
+  "quiz",
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 const future = "2026-09-15T03:59:00.000Z";
@@ -425,6 +427,31 @@ export function createScenario(
     state.courses = courses.filter((course) =>
       state.activities.some((item) => item.courseId === course.id),
     );
+  }
+  if (scenarioId === "coding-multifile") {
+    state.courses = courses.filter((item) => item.id === "programming");
+    state.assets = [
+      { id: "stats-header", name: "stats.h", mime: "text/plain", format: "text", text: "#ifndef STATS_H\n#define STATS_H\n#include <stddef.h>\ndouble mean(const double *values, size_t count);\n#endif\n" },
+      { id: "stats-source", name: "stats.c", mime: "text/plain", format: "text", text: '#include "stats.h"\ndouble mean(const double *values, size_t count) { /* TODO */ return 0; }\n' },
+      { id: "stats-main", name: "main.c", mime: "text/plain", format: "text", text: '#include <stdio.h>\n#include "stats.h"\nint main(void) { double rain[] = {5, 10, 0, 5}; /* TODO: print mean */ return 0; }\n' },
+      { id: "observations", name: "observations.csv", mime: "text/csv", format: "text", text: "day,rain_mm\nMonday,5\nTuesday,10\nWednesday,0\nThursday,5\n" },
+    ];
+    state.activities = [activity("rainfall-project", "programming", "Rainfall calculator: multi-file C project", {
+      attachments: state.assets.map((asset) => asset.id),
+      requiredFiles: [".c", ".h", ".md"],
+      requiredFileNames: ["main.c", "stats.c", "stats.h", "README.md"],
+      instructions: "Download the starter files. Keep the public mean function signature. Implement mean in stats.c; return 0 for an empty array. main.c must print the mean of observations.csv as 5.00 followed by a newline. Do not hard-code the mean function result. Compile with cc -std=c11 -Wall -Wextra -Werror main.c stats.c -o rainfall. Submit separate files, not a ZIP.",
+      requirements: ["Upload exactly one nonempty file named main.c, stats.c, stats.h, and README.md.", "Compute the mean for arbitrary arrays, including negative values and an empty array.", "README.md must explain how to compile and run, and describe normal, negative, and empty-array tests.", "Save a draft before the final submission. Summarize the result in the response."],
+    })];
+  }
+  if (scenarioId === "quiz") {
+    state.courses = courses.filter((item) => item.id === "structures");
+    state.assets = [];
+    state.activities = [activity("structures-quiz", "structures", "Stacks, queues, and complexity quiz", {
+      kind: "quiz", maxAttempts: 2,
+      instructions: "Answer these three questions. Q1: Push A, then B onto an empty stack. What does pop return? (A, B, or empty.) Q2: Enqueue A, then B in an empty queue. What does dequeue return? (A, B, or empty.) Q3: What is the worst-case complexity of linear search over n elements? (O(1), O(log n), or O(n).)",
+      requirements: ["Write one answer per line using Q1: answer, Q2: answer, Q3: answer.", "Save your draft before submitting. Two final attempts are allowed; saving does not consume an attempt."],
+    })];
   }
   // Seed controls presentation order without changing canonical identities or facts.
   if (Math.abs(seed) % 2 === 1) state.courses.reverse();

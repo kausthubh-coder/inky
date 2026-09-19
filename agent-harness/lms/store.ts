@@ -13,6 +13,11 @@ import {
 } from "./domain.js";
 import { createScenario } from "./scenarios.js";
 
+function mergeUploads(previous: Upload[], incoming: Upload[]): Upload[] {
+  // Re-uploading a corrected source file replaces that draft version.
+  return [...new Map([...previous, ...incoming].map((file) => [file.name, file])).values()];
+}
+
 export class SchoolStore {
   readonly database: DatabaseSync;
   readonly runId: string;
@@ -123,7 +128,7 @@ export class SchoolStore {
           );
         state.drafts[id] = {
           answer,
-          files: [...(previous?.files ?? []), ...files],
+          files: mergeUploads(previous?.files ?? [], files),
           revision: revision + 1,
         };
         activity.status = "draft";
@@ -179,7 +184,7 @@ export class SchoolStore {
           );
         if (!answer.trim())
           throw new SchoolError(400, "Enter a response before submitting.");
-        const submittedFiles = [...(draft?.files ?? []), ...files];
+        const submittedFiles = mergeUploads(draft?.files ?? [], files);
         for (const extension of activity.requiredFiles)
           if (
             !submittedFiles.some((file) =>
@@ -191,6 +196,11 @@ export class SchoolStore {
               `Upload the required ${extension} file before submitting.`,
             );
         const receiptId = randomUUID();
+        for (const name of activity.requiredFileNames ?? []) {
+          const matches = submittedFiles.filter((file) => file.name === name);
+          if (matches.length !== 1 || matches[0]!.bytes === 0)
+            throw new SchoolError(400, `Upload exactly one nonempty ${name} file before submitting.`);
+        }
         state.submissions.push({
           id: receiptId,
           activityId: id,

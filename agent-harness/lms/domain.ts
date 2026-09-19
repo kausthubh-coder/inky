@@ -36,6 +36,7 @@ export const ActivitySchema = z.object({
   ]),
   requirements: z.array(z.string()),
   requiredFiles: z.array(z.string()),
+  requiredFileNames: z.array(z.string()).optional(),
   attachments: z.array(z.string()),
   prerequisites: z.array(z.string()),
   maxAttempts: z.number().int().positive(),

@@ -113,3 +113,29 @@ test("Clerk handoff is one-shot per attempt, supports retries, and rejects non-l
     assert.equal((await fetch(publish, { method: 'POST', body: authorize.href })).status, 400);
   } finally { child.kill(); }
 });
+
+test('disposable launcher refuses reusable or mismatched profiles and permits the same journey restart', { skip: process.platform !== 'win32' || !existsSync('dist/client/index.html') }, async () => {
+  const name = `qa-lease-${process.pid}`;
+  const directory = resolve('.agents/studi-qa', name);
+  const leaseDirectory = await mkdtemp(join(tmpdir(), 'studi-qa-lease-'));
+  const leasePath = join(leaseDirectory, 'lease.json');
+  const id = '12345678-1234-1234-1234-123456789abc';
+  const lease = { id, email: `studi.ephemeral.${id}+clerk_test@example.com` };
+  await mkdir(directory, { recursive: true });
+  await writeFile(join(directory, 'sentinel'), 'preserve');
+  await writeFile(leasePath, JSON.stringify(lease));
+  const run = () => spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', resolve('.agents/skills/test-studi/scripts/Start-StudiQa.ps1'), '-Persistent', '-ProfileName', name, '-DryRun'], {
+    encoding: 'utf8', windowsHide: true,
+    env: { ...process.env, STUDI_QA_TEST_EMAIL: lease.email, STUDI_QA_ACCOUNT_LEASE: leasePath },
+  });
+  assert.notEqual(run().status, 0);
+  await writeFile(join(directory, 'qa-account-lease.json'), JSON.stringify({ ...lease, id: 'wrong' }));
+  assert.notEqual(run().status, 0);
+  await writeFile(join(directory, 'qa-account-lease.json'), JSON.stringify(lease));
+  const resumed = run();
+  assert.equal(resumed.status, 0, resumed.stderr);
+  assert.equal(JSON.parse(resumed.stdout.replace(/^\uFEFF/, '')).testEmail, lease.email);
+  await writeFile(leasePath, JSON.stringify({ ...lease, cleanedAt: new Date().toISOString() }));
+  assert.notEqual(run().status, 0);
+  assert.equal(await readFile(join(directory, 'sentinel'), 'utf8'), 'preserve');
+});

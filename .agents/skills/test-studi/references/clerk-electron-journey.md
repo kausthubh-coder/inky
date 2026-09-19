@@ -19,6 +19,30 @@ When specifically proving UI signup, omit `--create-user` and complete signup th
 
 This request's authorization to create/reuse dedicated test accounts and accept their invitations covers those operations. Lookup first; do not ask again for each step. Creating waitlist entries suppresses notification; Clerk's waitlist invite endpoint may send its invitation to the dedicated reserved test email. Do not use it for other recipients.
 
+## Disposable onboarding accounts
+
+Feature tests reuse the existing onboarded profile and identity. Do not create a timestamped profile for every edit. For a true fresh-signup journey use:
+
+```powershell
+bun run qa:account -- node path/to/complete-journey.mjs
+```
+
+The command is the **entire journey**, including app shutdown after restart verification, not just `Start-StudiQa.ps1` (which returns as soon as the app opens). The wrapper reserves a unique address, records a lease before mutations, prepares the linked invitation, and supplies `STUDI_QA_TEST_EMAIL` and `STUDI_QA_ACCOUNT_LEASE` to the child. The launcher uses these for its suggested identity. Omit `--create-user` to exercise actual signup; add it only for backend-provisioned account tests. Ordinary success and failure both trigger cleanup in `finally`. A child failure or cleanup failure makes the command fail.
+
+For an interactive journey:
+
+```powershell
+bun run qa:account --allocate
+# Set STUDI_QA_TEST_EMAIL and STUDI_QA_ACCOUNT_LEASE from the returned receipt.
+# Launch a fresh named profile, finish the full journey and stop that app.
+bun run qa:account --cleanup <lease.json> --dry-run
+bun run qa:account --cleanup <lease.json>
+```
+
+Keep the same account through restart checks. After completion, clear the two environment variables. Cleanup verifies the development issuer and exact uniquely reserved address, refuses older or multi-email accounts, revokes pending invitations, deletes the user, and verifies absence. Completed waitlist history can remain (Clerk only supports deleting pending entries). It does not delete Convex application data or local QA evidence. The durable lease records cleanup time and permits safe retry after network failure. Hard process termination cannot guarantee `finally`; retry cleanup from the printed lease after stopping the abandoned journey. Never select an account by a broad name/email substring.
+
+Legacy/reusable identities lack these ownership receipts and are intentionally not auto-deleted. Review their exact owners and active profiles separately before retiring them. One shared identity across simultaneous profiles is unsafe because the backend leases a device per subject.
+
 ## Accept an invitation
 
 First read the helper's status. A linked invitation may already become accepted during account creation. Do not reopen accepted invitations just to generate a screenshot.

@@ -7,13 +7,28 @@ description: Verify Studi changes with full app journeys or focused UI, agent ha
 
 Test the checkout the user is changing. Choose evidence proportional to the change, fix failures within scope, and review the final diff before calling the work ready. Repair routine QA setup yourself; a signed-out or missing test profile is setup work, not a reason to stop. Do not claim a full flow from screenshots, previews, or seeded state.
 
+## Fast entry points
+
+Read this file, the shared review standard, and only the guide for the affected boundary. Start with `bun run verify --changed --dry-run` (add `--base <ref>` to include branch commits); review the selected scope before running. The map is conservative, not a dependency graph: add neighboring scopes when an interaction crosses boundaries. Unknown code selects all controlled suites. Documentation-only selections produce **not run**, never a green test result.
+
+```powershell
+bun run verify --file tests/storage/scan-evidence.test.mjs
+bun run verify --scope scan
+bun run verify --scope auth --scope ui
+bun run test:all
+```
+
+The runner builds prerequisites once per invocation, captures full logs under ignored `.agents/studi-qa/checks/`, and prints timing plus a short failure tail. Read failed logs selectively; do not dump passing traces into context. It does not reuse stale builds or silently retry failures. A passing runner receipt is **controlled evidence**, not a full live journey. `test:release` includes the same complete controlled suite; the release workflow also checks packaged PDFs. Live and installed-upgrade gates still require separate evidence.
+
+For speed, reuse the onboarded `profile` and its signed-in QA identity for feature checks. Reserve a fresh identity for admission/signup tests. Use [account lifecycle](references/clerk-electron-journey.md#disposable-onboarding-accounts) for automatic cleanup. For live agent checks, start with the smallest LMS scenario (`smoke`, `quiz`, or `coding-multifile`); expand to `scan-regression` or `semester` only for relevant coverage. Hold model/configuration constant for comparisons and retain failed runs. Missing usage is unknown. See [simulator](../../../agent-harness/lms/README.md) and [scan benchmarks](../../../agent-harness/benchmark/README.md).
+
 ## Choose the proof before editing
 
 State the user-visible outcome and the few likely ways it could fail. Use the smallest mode that proves that outcome; combine modes when a change crosses boundaries. Read [review-standard.md](references/review-standard.md) for the shared usability, code-quality, and completion review.
 
 | Change or request | Required proof |
 | --- | --- |
-| Full app test, release readiness, onboarding, or a broad cross-system change | [Full app pass](references/full-app-pass.md): fresh admission → onboarding → scan → chat → homework → restart. Include connected-app work when supported/in scope. |
+| Full app test, release readiness, admission/onboarding flow changes, or a broad cross-system change | [Full app pass](references/full-app-pass.md): fresh admission → onboarding → scan → chat → homework → restart. Include connected-app work when supported/in scope. Onboarding copy/layout alone uses focused UI proof. |
 | An existing desktop feature or bug | [Feature pass](references/feature-pass.md): reproduce the trigger, exercise the fix in the real app, check its result and the adjacent common failure/recovery path. Reuse an onboarded profile. |
 | UI, copy, icons, layout, interaction | [Focused UI pass](references/focused-passes.md#ui-and-interaction): actual components, visual inspection, controls and relevant states; native verification for native behavior. |
 | Prompts, model/reasoning, memory, tools, agent harness or benchmark | [Focused agent pass](references/focused-passes.md#agent-harness-prompts-and-memory): production-path contracts plus bounded live runs when claiming agent behavior. |
@@ -46,7 +61,7 @@ The launcher allocates loopback ports and keeps the profile inside this worktree
 
 Attach Microsoft's Playwright to the receipt endpoint; see the dynamic attachment example in [worktrees.md](references/worktrees.md). Check the renderer's file path matches this checkout. Read public auth, workspace, and school-onboarding state. Reuse an existing dedicated identity if already signed in; `testEmail` is the suggested identity for a fresh profile, not permission to switch an existing profile's account.
 
-If signed out, look up and prepare the dedicated test identity using the account helper. Do not ask the user to log into Clerk. Account setup must check the current state first and verify both the Clerk development instance and exact test email. A user's request to set up or run QA with test accounts authorizes the necessary dedicated test-account creation and invitation flow. Carry that authorization forward; do not ask again for each worktree. This does not authorize personal/production accounts, deletion, admin grants, credit changes, or unrelated invitations.
+If signed out, look up and prepare the dedicated test identity using the account helper. Do not ask the user to log into Clerk. Account setup must check the current state first and verify both the Clerk development instance and exact test email. A user's request to set up or run QA with test accounts authorizes the necessary dedicated test-account creation and invitation flow. Carry that authorization forward; do not ask again for each worktree. This does not authorize personal/production accounts, admin grants, credit changes, or unrelated invitations. Disposable accounts created by the lifecycle wrapper are cleaned up under its recorded lease; reusable and legacy accounts are excluded.
 
 ## Boundaries
 

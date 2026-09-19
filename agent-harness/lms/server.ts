@@ -468,6 +468,8 @@ export function scenarioTruth(state: SchoolState) {
     "lab2",
     "observation",
     "reading",
+    "rainfall-project",
+    "structures-quiz",
   ];
   const blocked = [
     "stack-review",

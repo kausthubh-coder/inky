@@ -22,14 +22,8 @@ jobs:
         with:
           bun-version: 1.3.14
       - run: bun install --frozen-lockfile
-      - run: bun run test
-      - run: bun run test:auth
-      - run: bun run test:telemetry
-      - name: Verify scan, materials and chat regressions
-        run: node --test tests/storage/school-materials.test.mjs tests/storage/lifecycle-execution.test.mjs tests/agent/browser-controller.test.mjs tests/storage/scan-evidence.test.mjs tests/benchmark/*.test.mjs
-      - run: bun run test:ui
-      - name: Verify authenticated downloads and PDF rendering in Electron
-        run: bunx electron tests/school-materials-native.cjs
+      - name: Verify complete controlled release suite
+        run: bun run test:release
       - run: bun run make:win
       - name: Verify PDF reading from the Windows package
         run: bunx electron tests/packaged-pdf.cjs out/Studi-win32-x64/resources/app.asar
@@ -74,14 +68,8 @@ jobs:
           sips -z 512 512 assets/studi-inky.png --out assets/studi-inky.iconset/icon_512x512.png >/dev/null
           cp assets/studi-inky.png assets/studi-inky.iconset/icon_512x512@2x.png
           iconutil -c icns assets/studi-inky.iconset -o assets/studi-inky.icns
-      - run: bun run test
-      - run: bun run test:auth
-      - run: bun run test:telemetry
-      - name: Verify scan, materials and chat regressions
-        run: node --test tests/storage/school-materials.test.mjs tests/storage/lifecycle-execution.test.mjs tests/agent/browser-controller.test.mjs tests/storage/scan-evidence.test.mjs tests/benchmark/*.test.mjs
-      - run: bun run test:ui
-      - name: Verify authenticated downloads and PDF rendering in Electron
-        run: bunx electron tests/school-materials-native.cjs
+      - name: Verify complete controlled release suite
+        run: bun run test:release
       - run: bun run make:mac
       - name: Verify both packaged PDF renderer architectures
         run: |

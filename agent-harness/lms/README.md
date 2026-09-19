@@ -60,6 +60,8 @@ Initial queue expectations are not recomputed from Studi's production eligibilit
 | Scenario | Purpose |
 | --- | --- |
 | `smoke` | One writing activity for a bounded first scan/save/submit. |
+| `coding-multifile` | One C project with downloadable source/header files and CSV data; requires exactly one nonempty `main.c`, `stats.c`, `stats.h`, and `README.md`. |
+| `quiz` | One three-question stack/queue/complexity quiz, saved drafts, two final attempts, and an operator-only answer grader. |
 | `scan-regression` | Nine tasks across four courses: unfinished, submitted, graded, closed overdue, accepted late work, extension, date-only deadline, multi-file requirements, zero grade. |
 | `semester` | Six courses and 39 activities; 25 scan-worthy tasks plus informational content/completed readings. |
 | `partial-login` | Statistics and feedback start signed out independently of the main school. |
@@ -79,7 +81,23 @@ Advance events:
 - `release-feedback`: publishes Workshop 2's grade. Use on semester scenarios.
 - `build-success`: makes the current simulated revision successful.
 
-The build site simulates reports, not a compiler or remote Git service. Quiz submissions enforce prerequisites and attempts but do not independently grade answer quality. Inbox/forum pages model the source information and assignment response behavior; this slice does not implement general email or a complete discussion platform. The named interruption is a school HTTP failure, not a forced stop of the agent process or a simulated provider quota.
+The build site simulates reports, not a compiler or remote Git service. School submissions enforce prerequisites and attempts. The separate operator grader can grade the dedicated `quiz` scenario; other quiz-like activities remain ungraded. Inbox/forum pages model the source information and assignment response behavior; this slice does not implement general email or a complete discussion platform. The named interruption is a school HTTP failure, not a forced stop of the agent process or a simulated provider quota.
+
+## Focused homework evaluation
+
+Use `coding-multifile` or `quiz` to test one assignment cheaply without scanning a semester. These scenarios use the same durable forms/uploads/receipts as the larger school. The quiz uses a multiline answer form with explicit question labels; it does not simulate a vendor's multiple-choice widget or timer.
+
+```powershell
+bun run lms -- start --scenario coding-multifile --run .studi-lms/runs/coding-check
+bun run lms -- start --scenario quiz --run .studi-lms/runs/quiz-check
+bun run verify --scope lms
+```
+
+An operator can import `gradeWork` from `agent-harness/lms/grade-work.mjs` and call `gradeWork(school.inspect(), 'structures-quiz')` or `gradeWork(school.inspect(), 'rainfall-project')` after the production assignment agent works through the public browser. The grader uses committed submissions and the ordered effects journal, not the agent's success claim. It checks draft-before-submit and grades all three quiz answers. It is never imported into the public server/UI.
+
+With `STUDI_PLAYWRIGHT_PATH` and `STUDI_CHROMIUM_PATH` configured as below, `node agent-harness/lms/tests/work.journey.mjs` exercises both new scenarios in a real isolated browser: upload, save, reload, submit, independently inspect receipts, and check narrow layout. It uses synthetic answers/files and is controlled browser proof, not live Inky homework proof.
+
+The coding grader verifies delivery and explicitly returns `incomplete` until source is independently compiled and functionally tested. It does not execute arbitrary candidate code on the host. Code-quality benchmarking needs an isolated compiler runner with normal, negative, empty-array, and varied-input tests; a filename or successful simulated build badge cannot prove correct code. Neither grader is automatically invoked by the existing **scan-only** live benchmark. A full homework benchmark must invoke production assignment execution, preserve its artifacts, and call this evaluator afterward.
 
 ## Bring in private materials
 
