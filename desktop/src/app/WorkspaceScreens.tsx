@@ -571,11 +571,11 @@ export function SettingsScreen({
         </SettingsGroup>
         <SettingsGroup title="Where Inky looks">
           {onboarding.profile && <SettingsRow title={host(onboarding.profile.schoolRoot)} description="Your school's main site">
-            <small>{onboarding.profile.onboardingState === "needs_sign_in" ? "Needs a sign-in" : "Sign-in not checked live"}</small>
+            <small>{onboarding.profile.onboardingState === "needs_sign_in" ? "Needs a sign-in" : "Not checked yet"}</small>
             <button className="st-quiet" disabled={disabled} onClick={() => onOpenSite(onboarding.profile!.schoolRoot)}>Open</button>
           </SettingsRow>}
           {onboarding.linkedSystems.map(system => <SettingsRow key={system.linkedSystemId} title={system.label} description={host(system.sourceTarget)}>
-            <small className={system.state === "needs_user" ? "st-danger" : "st-verified"}>{system.state === "needs_user" ? "Needs a sign-in" : "Verified last check"}</small>
+            <small className={system.state === "needs_user" ? "st-danger" : "st-verified"}>{system.state === "needs_user" ? "Needs a sign-in" : "Signed in at last check"}</small>
             <button className="st-quiet" disabled={disabled} onClick={() => onOpenSite(system.sourceTarget)}>{system.state === "needs_user" ? "Sign in" : "Open"}</button>
           </SettingsRow>)}
           {!onboarding.profile && <p className="st-muted">No school connected.</p>}

@@ -3,6 +3,7 @@ import type { PermissionMode, PermissionRule, SchoolOnboardingState, StudiRender
 import { currentPermissionRules, permissionRuleTargetKey } from "../../shared/index.js";
 import { Icon } from "./Icon.js";
 import { SettingsGroup } from "./SettingsPrimitives.js";
+import { courseTone } from "./assignmentPresentation.js";
 type RuleInput = Parameters<StudiRendererApi["savePermissionRule"]>[0];
 const modes = [
   { id: "do_not_attempt", label: "Leave it" },
@@ -50,7 +51,7 @@ export function HomeworkRules({ rules, onboarding, busy, onSaveRule, onDeleteRul
     </SettingsGroup>
     <SettingsGroup title="Exceptions">
       <p className="st-muted">An assignment rule wins, then its kind, then its class, then all homework.</p>
-      {current.filter(rule => rule.scope !== "global").map(rule => <div className="st-exception" key={rule.ruleId}>
+      {current.filter(rule => rule.scope !== "global").map(rule => <div className={`st-exception ${exceptionAccent(rule, onboarding)}`} key={rule.ruleId}>
         <div className="st-copy"><strong>{targetLabel(rule, onboarding)}</strong><small>{rule.scope === "pattern" ? "A confirmed kind in this class" : rule.scope === "assignment" ? "Just this assignment" : "Everything in this class"}</small></div>
         <select aria-label={`Rule for ${targetLabel(rule, onboarding)}`} disabled={busy} value={rule.mode}
           onChange={event => { const { schemaVersion: _version, updatedAt: _time, ...input } = rule; onSaveRule({ ...input, mode: event.target.value as PermissionMode }); }}>
@@ -78,6 +79,14 @@ export function HomeworkRules({ rules, onboarding, busy, onSaveRule, onDeleteRul
       </div>}
     </SettingsGroup>
   </>;
+}
+function exceptionAccent(rule: PermissionRule, onboarding: SchoolOnboardingState): string {
+  if (rule.scope === "global") return "";
+  const courseId = rule.scope === "assignment"
+    ? onboarding.assignments.find(item => item.assignmentId === rule.assignmentId)?.courseId
+    : rule.courseId;
+  const course = onboarding.courses.find(item => item.courseId === courseId);
+  return course ? `course-accent-${courseTone(course.label)}` : "";
 }
 function targetLabel(rule: PermissionRule | undefined, onboarding: SchoolOnboardingState): string {
   if (!rule) return "No matching rule";

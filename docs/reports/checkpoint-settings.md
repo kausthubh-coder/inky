@@ -132,7 +132,6 @@ All at 1120×760; directory .agents/audit/settings/. Compared with the listed re
 - settings-notifications.png — Paper “Settings v2 / Notifications” 10S-0; paper/notifications-screenshot-0.jpg.
 - settings-you.png — Paper “Settings v2 / You” 13C-0; paper/you-screenshot-0.jpg.
 - today.png; week.png — app-wide switch/composer/arrows; compared Today with Paper “Homework / Today” 1-0, paper/today-screenshot-0.jpg.
-
 ## Not done, or failed
 - Tutor-session/school-check usage counts: not recorded in existing UsageState. Explicitly unavailable; no fabricated counts or new backend.
 - “The evening before”: omitted as allowed; existing scheduler supports manual/automatic start, not a clean per-deadline start mode.
@@ -140,8 +139,11 @@ All at 1120×760; directory .agents/audit/settings/. Compared with the listed re
 - Paper-only folder Open and school Change actions were not added; existing folder picker and school navigation remain. Provider/runtime OAuth and native school-view visibility need desktop review.
 - Headless preview verifies renderer behavior using controlled IPC, not live Clerk, providers, OS sound delivery or real school accounts. Older broad release journeys were adapted but not rerun wholesale.
 - Build retains the >500 kB bundle warning. No packaging, deployment or release performed.
-
 ## Decisions I made
 - Retained actual beta privacy disclosure (messages/answers/tool activity), instead of Paper’s inaccurate “clicks and errors only.” No invented “up to date” or “school checks always Quick” promises.
 - Extra effort levels and handoff timeout fold away so working controls survive. Text/number edits persist on blur/Done/Enter; choices persist on change. Quiet-hours enable switch defaults off.
 - Kept the functional conversation button as a thin line icon. Preserved existing non-Settings layout; Today/Week issues outside the brief remain for their checkpoint.
+
+## Fixes after review
+All Settings selects use the Icon-matched grey chevron; school/quiet-hour times fit fully with the native clock hidden. Exceptions inherit their class color, including assignment rules; School uses the approved sign-in copy.
+Refreshed all five screenshots at 1120x760 in .agents/audit/settings/; also inspected settings-notifications-quiet.png. Typecheck and the Settings interaction journey pass (1120/720/390px, no page errors).

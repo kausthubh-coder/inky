@@ -23,9 +23,10 @@
 .st-settings button:disabled, .st-settings input:disabled, .st-settings select:disabled { opacity:.5; cursor:default; }
 .st-settings button:focus-visible, .st-settings input:focus-visible, .st-settings select:focus-visible, .st-settings textarea:focus-visible { outline:2px solid var(--pencil); outline-offset:3px; }
 .st-settings select, .st-settings input:not([type="checkbox"]), .st-settings textarea { min-width:0; border:1.5px solid var(--rule); border-radius:10px; background:var(--page); color:var(--pencil); font:400 14px/18px "Nunito Sans",sans-serif; padding:8px 10px; box-shadow:none; }
-.st-settings select { height:36px; max-width:100%; }
+.st-settings select { appearance:none; height:36px; max-width:100%; padding-right:28px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%237f766b' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
 .st-control select:not(:only-child) { flex:1; width:100px; }
-.st-control input[type="time"] { width:102px; height:36px; padding:5px; }
+.st-control input[type="time"] { flex:0 0 100px; width:100px; height:36px; padding:5px 7px; }
+.st-settings input[type="time"]::-webkit-calendar-picker-indicator { display:none; }
 .st-quiet, .st-outline, .st-primary { border:0; border-radius:8px; padding:6px 12px; font:600 13px/16px "Nunito Sans",sans-serif; color:var(--pencil); background:var(--blotter); }
 .st-highlight .st-quiet { background:var(--page); }
 .st-outline { background:var(--page); box-shadow:0 0 0 1.5px var(--pencil); }
@@ -52,9 +53,9 @@
 .st-rule-modes button { border:0; background:var(--page); color:var(--pencil); border-radius:8px; padding:7px 12px; font-size:13px; }
 .st-rule-modes [aria-pressed="true"] { background:var(--highlighter); box-shadow:0 0 0 1.5px var(--pencil); }
 .st-exception { display:grid; grid-template-columns:minmax(0,1fr) 150px 20px; align-items:center; gap:12px; padding:8px 14px 8px 16px; border-bottom:1px solid var(--rule); }
-.st-exception .st-copy { border-left:3px solid var(--lavender); padding-left:10px; }
+.st-exception .st-copy { border-left:3px solid var(--course-accent, var(--graphite)); padding-left:10px; }
 .st-exception strong { font-size:14.5px; }
-.st-exception select { font-size:13px; padding-inline:6px; }
+.st-exception select { font-size:13px; padding-left:6px; }
 .st-rule-actions { display:flex; align-items:center; gap:12px; }
 .st-rule-actions .st-add { margin-top:0; }
 .st-minutes { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
