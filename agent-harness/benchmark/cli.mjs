@@ -6,7 +6,7 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   build: { type: "string" }, revision: { type: "string" }, output: { type: "string" },
   "budget-ms": { type: "string", default: "60000" }, "max-tool-calls": { type: "string", default: "120" },
   "lms-module": { type: "string" }, scenario: { type: "string", default: "smoke" }, seed: { type: "string", default: "42" },
-  model: { type: "string", default: "gpt-5.6-sol" }, provider: { type: "string", default: "openai-codex" }, effort: { type: "string", default: "high" },
+  model: { type: "string", default: "gpt-6-sol" }, provider: { type: "string", default: "openai-codex" }, effort: { type: "string", default: "high" },
   phases: { type: "string", default: "cold" }, show: { type: "boolean", default: false },
 } });
 if (positionals[0] === "live") {
@@ -16,7 +16,7 @@ if (positionals[0] === "live") {
     scenarioId: values.scenario, seed: Number(values.seed), model: values.model, provider: values.provider, effort: values.effort,
     budgetMs: Number(values["budget-ms"]), maxToolCalls: Number(values["max-tool-calls"]), phases: values.phases.split(","), show: values.show });
   console.log(JSON.stringify({ path, error: record.error ?? null, phases: record.phases.map(phase => ({ name: phase.name, status: phase.status, scanState: phase.scanState, passed: phase.grade.passed, metrics: phase.metrics })) }));
-  process.exitCode = record.phases.length === record.config.phases.length && record.phases.every(phase => phase.grade.passed) ? 0 : 1;
+  process.exitCode = !record.error && record.phases.length === record.config.phases.length && record.phases.every(phase => phase.status === "completed" && phase.scanState === "succeeded" && phase.grade.passed) ? 0 : 1;
 } else if (positionals[0] === "replay") {
   const { path, record } = await runReplay({ buildRoot: values.build, gitSha: values.revision, budgetMs: Number(values["budget-ms"]), maxToolCalls: Number(values["max-tool-calls"]) });
   const phase = record.phases[0];

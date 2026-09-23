@@ -16,7 +16,7 @@ bun run benchmark -- live --lms-module .studi-lms/build/server.mjs --scenario sm
 
 Build the LMS with `bun run build:lms` first. The live runner imports the dedicated test-studi provider cache into a new private run directory. It never copies the everyday Studi profile. Missing credentials and provider failures are recorded as failures; there is no scripted fallback.
 
-Studi and live scan benchmarks default to `gpt-5.6-sol`, high reasoning, with the provider's normal service tier. Existing saved model choices remain explicit choices. Use `--model`, `--provider`, and `--effort` to compare another configuration; never mix configurations in a claimed speed/token improvement.
+Studi and live scan benchmarks default to `gpt-6-sol`, high reasoning, with the provider's normal service tier. Existing saved model choices remain explicit choices. Use `--model`, `--provider`, and `--effort` to compare another configuration; never mix configurations in a claimed speed/token improvement.
 
 ## Compare revisions
 

@@ -52,6 +52,7 @@ export const ActivitySchema = z.object({
   maxAttempts: z.number().int().positive(),
   workKind: WorkKindSchema.optional(),
   visibility: z.enum(["course", "announcement_only"]).optional(),
+  moduleType: z.enum(["assign", "quiz", "resource", "page", "url", "folder", "forum", "lti", "label", "grade"]).optional(),
   requiredStudentFiles: z.array(z.string()).optional(),
   rubric: z.array(z.string()).optional(),
   wordLimit: z.number().int().positive().optional(),
@@ -67,7 +68,7 @@ export interface Asset {
   name: string;
   mime: string;
   text: string;
-  format: "text" | "pdf";
+  format: "text" | "pdf" | "image-pdf" | "docx";
 }
 export interface Upload {
   id: string;
@@ -122,6 +123,12 @@ export interface SchoolState {
   seed: number;
   clock: string;
   timezone: string;
+  presentation?: {
+    theme: "moodle" | "canvas";
+    connectorApis: boolean;
+    remembered: boolean;
+    duoDelayMs: number;
+  };
   courses: Course[];
   activities: Activity[];
   assets: Asset[];

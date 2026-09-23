@@ -4,8 +4,10 @@ import {
   type SchoolState,
   validateState,
 } from "./domain.js";
+import { configureSchoolTheme } from "./school-scenarios.js";
 
 export const SCENARIO_IDS = [
+  "moodle-noisy", "moodle-noisy-no-api", "moodle-sso", "canvas-basic", "canvas-basic-no-api",
   "semester",
   "scan-regression",
   "partial-login",
@@ -551,7 +553,8 @@ export function createScenario(
       }),
     ];
   }
-  const learnScenarios = ["semester", "partial-login", "interrupted-scan", "deadline-change", "learn"];
+  if (scenarioId.startsWith("moodle-") || scenarioId.startsWith("canvas-")) configureSchoolTheme(state, activity);
+  const learnScenarios = ["semester", "partial-login", "interrupted-scan", "deadline-change", "learn", ...SCENARIO_IDS.filter(id => id.startsWith("moodle-") || id.startsWith("canvas-"))];
   if (!learnScenarios.includes(scenarioId)) {
     state.syllabi = [];
     state.exams = [];

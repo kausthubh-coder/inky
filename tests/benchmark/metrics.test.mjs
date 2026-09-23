@@ -111,6 +111,8 @@ test("failed and incomplete attempts remain measured and cannot pass via a forge
     r => { r.phases.reverse(); },
     r => { r.phases[1].name = "cold"; },
     r => { r.phases[1].status = "timed_out"; },
+    r => { r.phases[1].timedOut = true; },
+    r => { r.error = "Benchmark deadline exceeded"; },
     r => { r.phases[1].scanState = "partial"; },
     r => { r.phases[1].grade.passed = false; },
     r => { r.phases[1].grade.checks[0].passed = false; },

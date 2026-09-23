@@ -69,12 +69,14 @@ function validateRecord(record, label) {
 function summarize(record) {
   const phases = Array.isArray(record?.phases) ? record.phases : [];
   const issues = validateRecord(record, "run");
+  if (record?.error) issues.push(`Run failed: ${record.error}`);
   if (!phases.length) issues.push("No phases were attempted");
   if (!equal(phases.map(phase => phase?.name), record?.config?.phases)) {
     issues.push("Actual phases do not match the required names and order");
   }
   for (const [index, phase] of phases.entries()) {
     const label = nonempty(phase?.name) ? phase.name : `phase ${index + 1}`;
+    if (phase?.timedOut === true) issues.push(`${label}: timed out`);
     if (!["completed", "succeeded"].includes(phase?.status)) issues.push(`${label}: not completed`);
     if (phase?.scanState !== "succeeded") issues.push(`${label}: scan coverage incomplete`);
     if (phase?.grade?.passed !== true || !Array.isArray(phase?.grade?.checks)

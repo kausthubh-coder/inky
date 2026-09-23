@@ -9,9 +9,11 @@ import {
   resolve,
 } from "node:path";
 import type { Asset, Upload } from "./domain.js";
+import { documentFixture } from "./document-fixtures.js";
 
 export function assetBytes(asset: Asset): Buffer {
   if (asset.format === "text") return Buffer.from(asset.text);
+  if (asset.format === "docx" || asset.format === "image-pdf") return documentFixture(asset.format, asset.text);
   // Deterministic, selectable-text one-page PDFs for portable synthetic fixtures.
   const lines = asset.text
     .split("\n")

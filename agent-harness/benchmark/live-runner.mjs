@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import electronPath from "electron";
 import { ROOT, hash, hashTree, writeJson, runProcess } from "./runner.mjs";
+import { loadExpected, evaluateScan } from "../lms/evaluate-scan.mjs";
 
 function waitMessage(child, type, timeoutMs) {
   return new Promise((resolveResult, reject) => {
@@ -62,7 +63,7 @@ export function gradeLive(inspection, result, origins) {
 }
 
 export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSha, scenarioId = "smoke", seed = 42,
-  model = "gpt-5.6-sol", provider = "openai-codex", effort = "high", budgetMs = 180000, maxToolCalls = 150, phases = ["cold"], show = false } = {}) {
+  model = "gpt-6-sol", provider = "openai-codex", effort = "high", budgetMs = 180000, maxToolCalls = 150, phases = ["cold"], show = false } = {}) {
   if (!Number.isSafeInteger(budgetMs) || budgetMs < 1000 || budgetMs > 3600000 || !Number.isSafeInteger(maxToolCalls) || maxToolCalls < 1 || maxToolCalls > 5000) throw new Error("Invalid benchmark budget");
   if (!phases.length || phases[0] !== "cold" || phases.some(name => !["cold", "unchanged", "changed", "resume"].includes(name)) || new Set(phases).size !== phases.length) throw new Error("Invalid phase sequence");
   const { startLms } = await import(pathToFileURL(resolve(lmsModule)).href);
@@ -78,13 +79,17 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
     scope: "Live production Pi scan sessions, BrowserController, scan coordinator, storage and queue manager in isolated Electron. Desktop admission/UI, popup tabs, assignment execution and submission are not exercised.",
     phases: results,
   };
-  let child, started = null;
+  let child, started = null, expected = null;
+  const grade = (inspection, result) => expected
+    ? evaluateScan({ expected, observation: result, effects: inspection.effects, origins: school.origins })
+    : gradeLive(inspection, result, school.origins);
   try {
     school = await startLms({ scenarioId, seed, runDirectory: join(runRoot, "school") });
     const initial = school.inspect();
+    if (initial.state.presentation) expected = await loadExpected(scenarioId);
     record.fixture = { scenarioId, version: initial.state.scenarioVersion, seed, clock: initial.state.clock, contentHash: hash(initial.state) };
     record.revision.buildTreeSha256 = await hashTree(buildRoot);
-    record.revision.harnessTreeSha256 = hash([await hashTree(join(ROOT, "agent-harness/benchmark")), hash(await readFile(resolve(lmsModule)))]);
+    record.revision.harnessTreeSha256 = hash([await hashTree(join(ROOT, "agent-harness/benchmark")), await hashTree(join(ROOT, "agent-harness/lms")), hash(await readFile(resolve(lmsModule)))]);
     const importAuth = await runProcess(process.execPath, [join(ROOT, ".agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs"), "--import", "--profile", profile], { timeoutMs: 15000 });
     if (importAuth.code !== 0) throw new Error("Dedicated QA provider cache unavailable");
     const configPath = join(runRoot, "agent-config.json");
@@ -108,7 +113,7 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
       const { result } = await pending;
       const inspection = school.inspect();
       await writeJson(join(runRoot, `${name}-school.json`), inspection);
-      results.push({ ...result, grade: gradeLive(inspection, result, school.origins) });
+      results.push({ ...result, grade: grade(inspection, result) });
       // Persist completed phases immediately so later timeout cannot erase them.
       await writeJson(join(runRoot, "result.json"), record);
       if (result.status !== "completed") break;
@@ -138,7 +143,7 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
               interrupted.courses = saved.school.listCourses();
               interrupted.scanState = saved.school.latestScan()?.state ?? null;
               interrupted.queue = saved.manager.listQueue().map(entry => ({ ...entry, state: saved.tasks.get(entry.taskId)?.state }));
-              interrupted.grade = gradeLive(inspection, interrupted, school.origins);
+              interrupted.grade = grade(inspection, interrupted);
             } finally { saved.close(); }
           } catch (error) { record.recoveryError = error.message; }
           try {

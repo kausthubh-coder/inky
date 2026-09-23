@@ -287,6 +287,28 @@ PostHog's [capture API](https://posthog.com/docs/api/capture) documents the batc
 
 ## Existing entry points and packaging
 
+## Moodle / Canvas scan fixtures (Checkpoint 1)
+
+`moodle-noisy` has 130 rows in Programming in C, including nine real assignments; `canvas-basic` has the same deadline traps with a smaller module list. Both have a second course with study material. Each has a `-no-api` variant. `moodle-sso` starts logged out; the other baselines start with a signed-in school session. Expiring either baseline's session enters the same separate-origin Unity/Duo-like flow. This is synthetic Moodle/Canvas-shaped markup and selected API contracts, not either LMS distribution. Moodle's [timeline template](https://raw.githubusercontent.com/moodle/moodle/MOODLE_405_STABLE/blocks/timeline/templates/main.mustache) informed the timeline region/classes.
+
+- JS timeline/planner, replace-on-render drawer and Show more; nested course sections; iframe quiz instructions; independent WebAssign-like and Gradescope-like origins. WebAssign launch is a one-use LTI POST, authenticated from the school origin. University syllabi live on a sixth origin.
+- Yearless, date-only and relative dates have `dueAt: null` and retained display text. PT/ET, proposal/final and late-cutoff distinctions are separate cases. Every course has weighted syllabus topics, a numbered DOCX review, slides and an image-only graded-quiz PDF.
+- Operator events: `expire-session`, `forget-device`, `approve-push`, `course-failure`, `download-failure`, plus existing clock/deadline events. `?latency=80` delays a request by 80 ms (0–10000 allowed). Connector-disabled variants still expose their human-readable calendar/course pages.
+- Golden expected files are authored separately in `expected/`; the browser never receives them. `record.mjs` and `--replay` are documented in `recordings/README.md`; real WolfWare recordings wait for CP8 consent.
+
+```powershell
+bun run test:lms
+bun run build:electron
+bun run benchmark -- live --lms-module .studi-lms/build/server.mjs --scenario moodle-noisy --budget-ms 180000 --max-tool-calls 160 --model gpt-6-sol --effort high
+node agent-harness/lms/evaluate-scan.mjs .studi-harness/benchmarks/<run>/result.json
+```
+
+Repeat with `canvas-basic`. `evaluate-scan.mjs` saves `scan-evaluation.json`, reports all attempted runs (including timeouts), and compares against the last saved evaluation for that scenario only when fixture/configuration match. Recall, precision and exact deadlines target 0.98; duplicates, junk, invented dates and journaled schoolwork writes must be zero. `benchmark/slo.json` supplies time/tool/token targets. Token totals include uncached input, cache reads/writes and output; interrupted generations are explicitly lower bounds, never zero or fabricated totals. Peak prompt chars measures serialized provider requests. Authentication/session events and read/download journal entries are not schoolwork writes.
+
+`tests/scan-fixtures.journey.mjs` exports `verifyScanFixture(page, school, screenshot)` for real Chrome checks of client rendering, stale nodes, iframe content, LTI POST and SSO return. HTTP unit tests alone do not prove these browser interactions.
+
+### Packaging
+
 `agent-harness/school-fixture.ts` translates the old YAML fixture through a Node child process running this shared school. The QA `school-fixture.mjs` helper is an async shared-server adapter; its CLI still prints the established `schoolUrl`, `processId`, and `simulated` receipt. Old `/health` answer flags were removed in favor of operator inspection. `agent:harness` and `test:auth` build the shared fixture first.
 
 `.studi-lms/` is ignored. Forge explicitly excludes both that directory and `agent-harness/`. Private sources must remain outside the repository. Benchmark drivers and production scanner changes are owned by the integrating manager task.

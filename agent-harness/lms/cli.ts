@@ -17,6 +17,7 @@ const { values, positionals } = parseArgs({
     port: { type: "string", default: "0" },
     manifest: { type: "string" },
     library: { type: "string" },
+    replay: { type: "string" },
   },
 });
 const command = positionals[0] ?? "start";
@@ -66,6 +67,7 @@ else if (command === "validate") {
     port,
     resume: command === "resume",
     ...(values.library ? { privateLibrary: resolve(values.library) } : {}),
+    ...(values.replay ? { replayDirectory: resolve(values.replay) } : {}),
   });
   console.log(
     JSON.stringify({

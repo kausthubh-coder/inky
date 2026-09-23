@@ -8,7 +8,7 @@ import {
   type Service,
 } from "./domain.js";
 
-export type Origins = Record<Service, string>;
+export type Origins = Record<Service, string> & Partial<Record<"unity" | "university", string>>;
 const labels: Record<Service, string> = {
   school: "Cedar Learning",
   statistics: "Statistics Homework",

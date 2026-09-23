@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "description": "Targets for the improved scanner; CP1 measures the unchanged scanner against these, including failures. Tokens are input plus output, including repeated context. Missing metrics cannot pass.",
+  "scenarios": {
+    "moodle-noisy": { "minutes": 3, "toolCalls": 60, "tokens": 200000 },
+    "canvas-basic": { "minutes": 3, "toolCalls": 50, "tokens": 150000 },
+    "moodle-noisy-no-api": { "minutes": 10, "toolCalls": 160, "tokens": 600000 },
+    "canvas-basic-no-api": { "minutes": 10, "toolCalls": 120, "tokens": 400000 },
+    "moodle-sso": { "minutes": 3, "toolCalls": 65, "tokens": 200000 }
+  },
+  "phases": { "unchanged": { "minutes": 1, "toolCalls": 20, "tokens": 50000 } }
+}

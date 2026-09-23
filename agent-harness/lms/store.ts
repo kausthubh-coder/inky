@@ -310,6 +310,18 @@ export class SchoolStore {
         if (typeof minutes !== "number" || !Number.isSafeInteger(minutes) || minutes <= 0 || minutes > 525_600)
           throw new SchoolError(400, "Minutes must be an integer from 1 to 525600.");
         state.clock = new Date(Date.parse(state.clock) + minutes * 60_000).toISOString();
+      } else if (event === "download-failure") {
+        state.faults.downloadFailurePending = true;
+      } else if (event === "course-failure") {
+        state.faults.courseFailurePending = true;
+      } else if (event === "forget-device") {
+        if (!state.presentation) throw new SchoolError(400, "SSO fixture required.");
+        state.presentation.remembered = false;
+        state.sessions.school = false;
+      } else if (event === "approve-push") {
+        if (!state.presentation) throw new SchoolError(400, "SSO fixture required.");
+        state.presentation.remembered = true;
+        state.sessions.school = true;
       } else if (event === "double-timeout") {
         state.faults.assignmentTimeoutsRemaining = 2;
       } else if (event === "exam-moved") {

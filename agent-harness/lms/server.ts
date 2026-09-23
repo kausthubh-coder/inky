@@ -7,6 +7,9 @@ import {
 } from "node:http";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 import {
   SchoolError,
   activityById,
@@ -21,6 +24,8 @@ import {
 } from "./assets.js";
 import { SchoolStore, type AdvanceOptions } from "./store.js";
 import { renderPublic, activityUrl, type Origins } from "./web.js";
+import { createSchoolTheme, type Surface } from "./school-theme.js";
+import { loadRecording } from "./replay.js";
 
 export interface StartLmsOptions {
   scenarioId?: string;
@@ -30,9 +35,11 @@ export interface StartLmsOptions {
   resume?: boolean;
   privateLibrary?: string;
   initialState?: SchoolState;
+  replayDirectory?: string;
 }
-const services: Service[] = ["school", "statistics", "builds", "feedback"];
+const baseServices: Service[] = ["school", "statistics", "builds", "feedback"];
 export async function startLms(options: StartLmsOptions) {
+  const replay = options.replayDirectory ? await loadRecording(options.replayDirectory) : null;
   const store = new SchoolStore(
     options.runDirectory,
     options.scenarioId ?? "semester",
@@ -46,10 +53,12 @@ export async function startLms(options: StartLmsOptions) {
     builds: "",
     feedback: "",
   };
+  const services: Surface[] = store.read().presentation || replay ? [...baseServices, "unity", "university"] : [...baseServices];
   const servers: Server[] = [];
   const csrf = Object.fromEntries(
-    services.map((service) => [service, randomUUID()]),
+    baseServices.map((service) => [service, randomUUID()]),
   ) as Record<Service, string>;
+  const themed = createSchoolTheme(store, origins, () => csrf.school);
   let privatePack: PrivatePack | undefined;
   if (options.privateLibrary) {
     try {
@@ -116,7 +125,7 @@ export async function startLms(options: StartLmsOptions) {
     }
   }
   async function handle(
-    service: Service,
+    service: Surface,
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> {
@@ -140,16 +149,20 @@ export async function startLms(options: StartLmsOptions) {
       response.end();
     };
     try {
-      if (request.headers.host !== new URL(origins[service]).host)
+      if (request.headers.host !== new URL(origins[service]!).host)
         throw new SchoolError(400, "Invalid school host.");
       if (!["GET", "HEAD", "POST"].includes(request.method ?? "GET"))
         throw new SchoolError(405, "Method not allowed.");
+      if (!replay && url.pathname === "/favicon.ico" && request.method === "GET") { response.writeHead(204); response.end(); return; }
       if (
         /^\/(?:_control|control|inspect|truth|state|manifest)(?:\/|$)/.test(
           url.pathname,
         )
       )
         throw new SchoolError(404, "Page not found.");
+      if (replay) { replay(service, request.method ?? "GET", url.pathname + url.search, response, origins); return; }
+      if (await themed(service, request, response, url)) return;
+      if (service === "unity" || service === "university") throw new SchoolError(404, "Page not found.");
       const activityMatch = /^\/assignments\/([^/]+)(?:\/(complete))?$/.exec(
         url.pathname,
       );
@@ -508,7 +521,7 @@ export function scenarioTruth(state: SchoolState) {
   const readingIds = state.activities
     .filter((item) => item.id.includes("-reading-"))
     .map((item) => item.id);
-  const expectedExcludedIds = [...informationalIds, ...readingIds].filter(
+  const expectedExcludedIds = [...informationalIds, ...readingIds, ...state.activities.filter(item => state.presentation && item.submissionChannel === "none").map(item => item.id)].filter(
     (id) => state.activities.some((item) => item.id === id),
   );
   const expectedAssignmentIds = state.activities
@@ -646,4 +659,12 @@ function closeServer(server: Server): Promise<void> {
     server.close(() => resolve());
     server.closeAllConnections();
   });
+}
+
+// Also support the plan's direct `server.ts --replay <dir>` entry point.
+if (process.argv[1] && /(?:^|[\\/])server\.(?:ts|mjs)$/.test(process.argv[1]) && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  const { values } = parseArgs({ options: { replay: { type: "string" }, run: { type: "string" }, scenario: { type: "string", default: "moodle-noisy" } } });
+  const server = await startLms({ scenarioId: values.scenario, runDirectory: resolve(values.run ?? join(".studi-lms/runs", randomUUID())), ...(values.replay ? { replayDirectory: resolve(values.replay) } : {}) });
+  console.log(JSON.stringify({ url: server.url, origins: server.origins, runId: server.runId }));
+  for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => { void server.close(); });
 }
