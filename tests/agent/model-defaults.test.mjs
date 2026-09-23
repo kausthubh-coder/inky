@@ -37,10 +37,10 @@ test("real Pi sessions send Sol high at normal speed, including after resume, an
   try {
     const runtime = await PiAgentRuntime.create({ cwd: root, agentDir: join(root, "agent"), modelRuntime, onDiagnostic: event => diagnostics.push(event) });
     assert.equal(runtime.selectedProviderId, "openai-codex");
-    assert.equal(runtime.selectedModelId, "gpt-5.6-sol");
+    assert.equal(runtime.selectedModelId, "gpt-6-sol");
     assert.ok(runtime.getProviderModels("anthropic").some((model) => model.id === "claude-fable-5-1" && model.providerId === "anthropic"));
     assert.equal(runtime.selectedReasoningEffort, "high");
-    assert.ok(runtime.getProviderModels("openai-codex").some((model) => model.id === "gpt-5.6-sol"));
+    assert.ok(runtime.getProviderModels("openai-codex").some((model) => model.id === "gpt-6-sol"));
     session = await runtime.createSession();
     await session.prompt("Check request defaults.");
     await session.replace({ resumeSessionPath: session.sessionPath });
@@ -53,7 +53,7 @@ test("real Pi sessions send Sol high at normal speed, including after resume, an
     assert.ok(diagnostics.some(event => event.kind === "session_created" && event.payload.system_prompt.includes("Studi")));
     assert.ok(diagnostics.some(event => event.kind === "message_end" && JSON.stringify(event.payload).includes("Check request defaults.")));
     for (const request of requests) {
-      assert.equal(request.model, "gpt-5.6-sol");
+      assert.equal(request.model, "gpt-6-sol");
       assert.equal(request.reasoning.effort, "high");
       assert.equal(request.service_tier, undefined);
     }
