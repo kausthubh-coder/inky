@@ -44,7 +44,7 @@ td.id{font-variant-numeric:tabular-nums;color:var(--graphite);white-space:nowrap
 </style>
 </head>
 <body>
-<nav><div><b>Scan plan</b><a href="#audit">Audit</a><a href="#why">Why the benchmark missed it</a><a href="#compare">Other browser tools</a><a href="#design">New design</a><a href="#browser">Browser tools</a><a href="#harness">Harness</a><a href="#stories">Stories</a><a href="#build">Build order, scan + Learn</a><a href="learn-plan.html">Learn plan →</a><a href="learn-concept.html">Learn mock →</a></div></nav>
+<nav><div><b>Scan plan</b><a href="#audit">Audit</a><a href="#why">Why the benchmark missed it</a><a href="#compare">Other browser tools</a><a href="#design">New design</a><a href="#browser">Browser tools</a><a href="#harness">Harness</a><a href="#stories">Stories</a><a href="#guarantees">Guarantees</a><a href="#build">Build order, scan + Learn</a><a href="learn-plan.html">Learn plan →</a><a href="learn-concept.html">Learn mock →</a></div></nav>
 <main>
 <h1>Scanning: from a 99 minute crawl to a two minute check.</h1>
 <p class="lede">An audit of the scanner on <code>codex/studi-redesign-release</code>, a comparison with other agent browsers, the new scan design, and one build order that covers scanning and the Learn redesign together.</p>
@@ -201,17 +201,197 @@ td.id{font-variant-numeric:tabular-nums;color:var(--graphite);white-space:nowrap
 <tr><td class="id">S16</td><td>Real school</td><td>Setup under 10 min on the Moodle account that took 99. Recorded in the report.</td><td>Live</td></tr>
 </table>
 
+<h2 id="guarantees">What guarantees a good scan</h2>
+<p>The plan above fixes the 99 minute scan. It does not yet say what a good scan is, so nothing can guarantee one. It is tested only on schools we wrote, and it leaves read-only to the prompt once the label guard goes. These are the gaps, what to add, and where each lands in the <a href="#build">build order</a> (new steps 1b, 2b, 4b, 5b, 5c, 8b).</p>
+<table>
+<tr><th>#</th><th>Gap in the plan</th><th>Today in code</th><th>Add</th><th>Step</th></tr>
+<tr><td class="id">G1</td><td>No definition of good</td><td>The harness gates time and “rows found vs expected” with no threshold. <code>comparison.mjs:86</code> checks only time and calls, and only when non-null.</td><td><a href="#g-slo">Scan targets</a> in one file the harness and CI read.</td><td class="id">2b</td></tr>
+<tr><td class="id">G2</td><td>Only tested on schools we wrote</td><td>The noisy Moodle scenario is still our guess at Moodle. <code>replay-cases.mjs</code> has 9 synthetic items.</td><td><a href="#g-golden">Golden recordings</a> of real school pages, replayed through the fake LMS.</td><td class="id">2b</td></tr>
+<tr><td class="id">G3</td><td>A wrong field can't be traced</td><td><code>Assignment.evidence[]</code> is one list that every record appends to. Title and course have no field-level source.</td><td><a href="#g-identity">Per-field provenance</a> and confidence.</td><td class="id">4b</td></tr>
+<tr><td class="id">G4</td><td>Student edits can be overwritten</td><td>The record path in <code>coordinator.ts</code> writes <code>title: input.title</code> over the stored title. Only <code>dueDateOverride</code> exists, and a school change behind it isn't surfaced.</td><td>School value and student value kept apart, with a conflict rule.</td><td class="id">4b</td></tr>
+<tr><td class="id">G5</td><td>Identity is Moodle-only</td><td><code>schoolIdentity()</code> in <code>source-identity.ts</code> knows Moodle URLs. Everything else gets a <code>url|</code> or <code>observed|</code> identity, which breaks on rename or move. LMS and linked system copies never merge.</td><td>Per-platform ids, rename, move and remove rules, cross-system merge.</td><td class="id">4b</td></tr>
+<tr><td class="id">G6</td><td>Read-only rests on the prompt</td><td>Step 3 deletes the label check in <code>controller.ts</code> (rightly) and moves “don't submit” to the prompt. A page can still POST, and opening a Canvas announcement marks it read.</td><td>A <a href="#g-readonly">network-level write guard</a>.</td><td class="id">1b</td></tr>
+<tr><td class="id">G7</td><td>Failures are strings</td><td><code>SchoolScan.failures: string[]</code>. The handoff has three kinds.</td><td><a href="#g-failures">Typed failures</a>, each with a recovery and a message.</td><td class="id">1b</td></tr>
+<tr><td class="id">G8</td><td>Change detection is a page digest</td><td><code>sourceContentDigest()</code> in <code>source-checkpoints.ts</code> hashes the whole visible page, so sesskeys and clocks break it.</td><td><a href="#g-incremental">Updated-since, ETags and row hashes</a>, plus rules for when a full scan runs.</td><td class="id">5b</td></tr>
+<tr><td class="id">G9</td><td>Unknown platforms fail silently</td><td>Anything that isn't Moodle falls to the crawl with no label.</td><td>A <a href="#g-coverage">coverage matrix</a>, and an honest message on unknown sites.</td><td class="id">5c</td></tr>
+<tr><td class="id">G10</td><td>Only PDFs are read</td><td><code>pdf-tool.ts</code> via <code>materials.ts</code>. Nothing covers docx, slides, Google Docs or embedded viewers.</td><td>A <a href="#g-docs">document table</a>.</td><td class="id">5c</td></tr>
+<tr><td class="id">G11</td><td>No trace outside the harness</td><td><code>trace.jsonl</code> exists only in <code>.studi-harness/benchmarks/</code>. A real scan leaves <code>currentStep</code> and failure strings.</td><td>A per-scan trace, a <a href="#g-observe">scan report</a>, and release canaries.</td><td class="id">1b, 2b</td></tr>
+<tr><td class="id">G12</td><td>Relative dates aren't covered</td><td><code>requireObservedDueAt</code> (coordinator), <code>zoned-deadline.ts</code> and <code>assignmentDue</code> (<code>todayGroups.ts</code>, commit <code>aa957c0</code>) each hold part of the rule.</td><td><a href="#g-dates">Date rules</a> in one shared module.</td><td class="id">1</td></tr>
+<tr><td class="id">G13</td><td>Learn's needs aren't scan outputs</td><td><code>LearnSource.kind: "scan"</code> and <code>Exam.dateOrigin</code> exist, but no scan writes them.</td><td>A <a href="#g-learn">scan-to-Learn contract</a>.</td><td class="id">8b</td></tr>
+</table>
+
+<h3 id="g-slo">Scan targets, and how they're measured</h3>
+<p>One file, <code>agent-harness/benchmark/slo.json</code>. <code>metrics.mjs</code> computes each number, and <code>comparison.mjs</code> fails the run when any target is missed. A timeout counts as a failure, not a null. Live numbers come from the per-scan trace and from the student's own corrections.</p>
+<table>
+<tr><th>Target</th><th>Must be</th><th>Measured against</th></tr>
+<tr><td>Recall: expected work found</td><td>100% on the fake LMS, ≥ 99% per golden recording</td><td><code>inspect().truth.expectedAssignmentIds</code>; <code>expected.json</code>. Live: “Missing something?” reports (extend <code>missedCourseFeedback</code> to assignments), ≤ 1 per scan</td></tr>
+<tr><td>Precision: recorded rows that are real work</td><td>Zero <code>expectedExcludedIds</code> or <code>informationalIds</code> recorded; ≥ 97% on golden</td><td>Live: <code>ignoredReason: "not_homework"</code> marks, ≤ 3% of rows</td></tr>
+<tr><td>Duplicates</td><td>0</td><td>Two stored rows mapping to one expected id</td></tr>
+<tr><td>Due date exact</td><td>100%. Rows with a time match the expected UTC instant. Date-only rows match the calendar date with precision <code>date</code></td><td>Compared as instants in the school's time zone, never as strings</td></tr>
+<tr><td>Invented dates</td><td>0. A row whose source shows no date has no <code>dueAt</code></td><td><code>dueAt: null</code> in the expected file</td></tr>
+<tr><td>Course and status</td><td>Course 100%, status ≥ 98%</td><td>Expected file</td></tr>
+<tr><td>Writes to the school</td><td>0. A single write fails the build.</td><td>Fake LMS <code>effects</code>, the guard's blocked-write log</td></tr>
+<tr><td>Setup time</td><td>≤ 3 min with a connector, ≤ 10 min by crawl (worst of 3 runs)</td><td>Trace</td></tr>
+<tr><td>Refresh, nothing changed</td><td>≤ 60 s, 0 detail pages, ≤ 15 tool calls, ≤ 40k tokens (0 model tokens with a connector)</td><td>Trace</td></tr>
+<tr><td>Refresh, something changed</td><td>≤ 2 min; exactly the changed rows updated</td><td><code>scan.changes</code> vs the fixture event</td></tr>
+<tr><td>Setup cost</td><td>Connector ≤ 300k tokens, 60 calls. Crawl ≤ 1.5M tokens, 250 calls. Peak prompt ≤ 60k tokens</td><td>Trace (the fields of <code>TelemetryAgentFactsSchema</code>)</td></tr>
+<tr><td>Resume</td><td>0 finished classes re-read; carry-over ≤ 2k tokens</td><td>Trace</td></tr>
+</table>
+<p>These are harness and CI gates, not in-app caps. The app keeps the 30 minute ceiling, plus one backstop the design section currently rules out: at 4× the token target a scan finishes as partial with <code>budget_exceeded</code>. At the audit's rate (77M tokens in 99 minutes), a 30 minute ceiling alone still allows about 23M tokens.</p>
+
+<h3 id="g-golden">Golden recordings of real schools</h3>
+<ul>
+<li><b>Record:</b> a dev-only recorder on <code>BrowserController</code>'s CDP session saves document, XHR and file responses (<code>Network.getResponseBody</code>) into <code>agent-harness/fixtures/golden/&lt;platform&gt;/&lt;case&gt;/</code>. That holds <code>pages/</code> keyed by normalised URL, and <code>manifest.json</code> with status, headers, capture clock and school time zone.</li>
+<li><b>Scrub:</b> names, emails, student ids, sesskeys, tokens and avatars are replaced with stable fakes. The recorder refuses to save if the account holder's name or email survives the scrub. Record only with the account holder's consent.</li>
+<li><b>Replay:</b> a <code>replay</code> mode in <code>agent-harness/lms/server.ts</code> serves the manifest on loopback origins, as the vendor origins work today, with the recorded headers and the capture clock. Anything that wasn't recorded returns 404, so wandering shows up as misses and never reaches a live site.</li>
+<li><b>Expected output:</b> <code>expected.json</code> lists courses. For each assignment it gives platform id, title, course, <code>dueAt</code> or null, <code>dueText</code>, precision, status and kind. It also lists excluded ids, a syllabus per class, and exams with their quote. A person writes it from the pages and a second person checks it. Studi's output never becomes the expected file.</li>
+<li><b>Two tiers:</b> <i>extractor tier</i> (no model): connectors, <code>browser_rows</code> and the date module run on every recorded page with <code>bun run test:golden</code>, on every PR, deterministically. <i>Agent tier</i>: a full setup and refresh against the replayed site at the release model and effort, 3 runs, worst run counts, nightly and before each release.</li>
+<li><b>Gate:</b> CI fails if the extractor tier is below 100% on due dates, if any recall or precision target is missed, or if any date is invented. The agent tier blocks a release. Results are saved in <code>docs/reports/</code> next to today's benchmark reports.</li>
+<li><b>First recording:</b> the Moodle school from the audit. Then one recording per platform in the matrix below. Each “page changed shape” failure in the field (opt-in) becomes a candidate recording, and each platform is re-recorded every term.</li>
+</ul>
+
+<h3 id="g-coverage">Coverage matrix</h3>
+<p>“Verified” means the platform's golden agent tier passes and one live scan met its targets. Nothing else counts. The app shows the level it reached.</p>
+<table>
+<tr><th>Platform</th><th>Detected by</th><th>Read by</th><th>Stable id (confirm with the recording)</th><th>Status</th></tr>
+<tr><td>Moodle 4.x</td><td><code>M.cfg</code>, <code>/lib/ajax/service.php</code></td><td>Session ajax; iCal; crawl</td><td>course id; module <code>cmid</code> (<code>/mod/*/view.php?id=</code>)</td><td>Fake LMS only</td></tr>
+<tr><td>Canvas</td><td><code>ENV</code>, <code>/api/v1</code></td><td>Planner and assignments API; crawl</td><td><code>/courses/:c/assignments/:a</code>, planner <code>plannable_id</code></td><td>Canvas-like fake only</td></tr>
+<tr><td>Google Classroom</td><td><code>classroom.google.com</code></td><td>Crawl. The official API needs Google OAuth, and its internal calls are unsupported.</td><td><code>/c/:course/a/:work</code></td><td>None</td></tr>
+<tr><td>Blackboard Learn</td><td><code>/ultra/</code>, <code>/webapps/</code></td><td>Crawl; whether <code>/learn/api/public/v1</code> accepts the session is unverified</td><td>course and content ids (<code>_123_1</code>)</td><td>None</td></tr>
+<tr><td>D2L Brightspace</td><td><code>/d2l/</code></td><td>Crawl; <code>/d2l/api/le/</code> with the session is unverified</td><td>org unit <code>ou</code> and dropbox <code>db</code> or quiz id</td><td>None</td></tr>
+<tr><td>Schoology</td><td><code>schoology.com</code> or its markers</td><td>Crawl</td><td>section id and <code>/assignment/:id</code></td><td>None</td></tr>
+<tr><td>WebAssign, Gradescope (linked)</td><td>Host, or an LTI launch from a class page</td><td>Crawl after launch</td><td>Deployment id; <code>/courses/:c/assignments/:a</code></td><td>None</td></tr>
+<tr><td>Unknown</td><td>None of the above</td><td>Crawl, best effort</td><td><code>url|</code> exact target</td><td>n/a</td></tr>
+</table>
+<p>On an unknown site the scan result says: “Studi doesn't know this school site yet. It read it the way you would, which is slower and can miss things. Check the list.” The rows are marked best effort, and the student is offered an opt-in to share the page's shape so it can be recorded.</p>
+
+<h3 id="g-identity">Identity, dedupe, student edits and provenance</h3>
+<ul>
+<li><b>Identity</b> is platform + installation + platform id, taken from the connector or from the URL patterns above. Each pattern is added to <code>schoolIdentity()</code>. A known platform never uses the title for identity. Scan writes are upserts by identity, one transaction per batch (<code>store.database.transaction</code>), so running the same scan twice records zero changes.</li>
+<li><b>Renamed:</b> same id, new title. One <code>title</code> change, and the old title is kept as an alias for search. <b>Moved:</b> same id, new course. One <code>course</code> change. <b>Gone:</b> missing from two complete reads of its class in a row. It's marked removed and hidden from Today, never deleted, because tasks and artifacts may point at it.</li>
+<li><b>LMS row plus linked-system row:</b> merged into one assignment with two sources only when the LMS row's link launches that linked assignment, or when course, normalised title and due instant all agree. Anything else stays as two rows and goes into <code>assignmentConflicts</code> (<code>assignment-reconciliation.ts</code>) for the student. Never merge on title alone.</li>
+<li><b>Student edits win and are surfaced.</b> Title, course, due date, kind and “not homework” each hold a school value and a student value, the way <code>dueDateOverride</code> already does. Scans write only the school value. If the school value changes under a student value, the change is recorded with <code>conflict: true</code> and shown once: “School moved this to Oct 9. You had Oct 12. Keep yours · Use school's.” Learn exam dates follow the same rule (<code>dateOrigin: "student"</code>).</li>
+<li><b>Provenance per field:</b> <code>provenance.{title, course, dueAt, status, instructions, kind} = {evidenceId, via, quote, capturedAt}</code>, where <code>via</code> is api, row, detail, document, inferred or student. <code>quote</code> is the exact source text (<code>dueText</code> already is one). This replaces the ever-growing <code>evidence[]</code> with the last capture per field (audit #7).</li>
+<li><b>Confidence comes from <code>via</code>, not from the model:</b> api, row, detail and document are exact; inferred means check (kind from <code>classifyAssignmentKind</code>, a resolved relative date); student means yours. <code>assignmentWorkEligibility</code> refuses an inferred due date.</li>
+<li><b>In the UI:</b> each field on the assignment page shows “Found on &lt;page title&gt; · Sep 21” and links to the source. “This is wrong” saves the field, its provenance and that slice of the trace into the scan report.</li>
+</ul>
+
+<h3 id="g-readonly">Read-only, enforced below the prompt</h3>
+<p>The label regex was the wrong tool, but the prompt alone isn't a guarantee. <code>desktop/electron/browser/read-only-guard.ts</code> switches on whenever a scan, not the student, owns the tab (the ownership epoch in <code>work-ownership.ts</code>). It uses CDP <code>Fetch.enable</code> on every frame session.</p>
+<table>
+<tr><th>Request</th><th>Rule</th></tr>
+<tr><td>GET, HEAD</td><td>Allowed</td></tr>
+<tr><td>Moodle <code>service.php</code></td><td>Allowed only if every <code>methodname</code> is on a read list: <code>core_calendar_get_*</code>, <code>core_course_get_*</code>, <code>core_course_check_updates</code>, <code>core_session_touch</code>, <code>core_session_time_remaining</code>. The list is verified per school in step 5.</td></tr>
+<tr><td>Canvas <code>POST /api/graphql</code></td><td>Allowed only with no <code>mutation</code></td></tr>
+<tr><td>LTI launch form</td><td>Allowed (<code>lti_message_type</code> or <code>id_token</code>) to a linked system linked from a verified class page</td></tr>
+<tr><td>SSO post</td><td>Allowed (<code>SAMLResponse</code>, or OIDC <code>code</code> with <code>state</code>) to the identity provider</td></tr>
+<tr><td>Anything else: form submits, POST, PUT, PATCH, DELETE</td><td><code>Fetch.failRequest</code>. Logged in the trace with method and URL; the action result carries <code>blockedWrite</code> so the agent moves on</td></tr>
+<tr><td>File chooser, confirm dialogs</td><td>Intercepted (<code>Page.setInterceptFileChooserDialog</code>) and cancelled</td></tr>
+</table>
+<p>Scans are also never given <code>browser_submit</code> or <code>browser_upload</code> (<code>tools.ts</code>), and get <code>browser_type</code> only for search boxes. When the student takes over, the guard lifts for that tab. One risk stays: some sites log plain page views (Moodle “viewed” completion, Canvas page views). Setup and refresh avoid detail pages partly for this reason, and the scan report lists every page opened.</p>
+
+<h3 id="g-failures">Failures: each one named, recovered and shown</h3>
+<p><code>failures: string[]</code> becomes <code>{code, target, at, attempts, detail}</code>. Rows are committed as they're found, one transaction per batch, so a failed or partial scan keeps everything it saved. The checkpoint is a per-class checklist on the <code>SchoolScan</code> record. A resume starts at the first unfinished class with the fixed carry-over and replays no conversation.</p>
+<table>
+<tr><th>Code</th><th>Detected by</th><th>Recovery</th><th>Student sees</th></tr>
+<tr><td>signed_out</td><td>Redirect to a login page; 401 or 403 from a connector</td><td><code>needs_user</code>, <code>school_sign_in</code> handoff, resume the same scan</td><td>“Sign in to your school to keep going.”</td></tr>
+<tr><td>sso_or_2fa</td><td>Identity provider or MFA page</td><td>Same, in a student-owned tab; the paused scan is kept</td><td>“Your school wants to check it's you.”</td></tr>
+<tr><td>captcha</td><td>Challenge page or frame</td><td><code>student_takeover</code>. The agent never solves it</td><td>“Finish this check, then Studi carries on.”</td></tr>
+<tr><td>site_down</td><td>DNS or connection errors; 5xx after 2 retries with backoff</td><td>Skip that source, keep rows, retry it at the next refresh</td><td>“Your school wasn't responding. Found 14 before that.”</td></tr>
+<tr><td>rate_limited</td><td>429, <code>Retry-After</code></td><td>Wait up to 2 min inside the ceiling, then skip the source</td><td>Only if a source was skipped</td></tr>
+<tr><td>page_changed_shape</td><td>A connector reply fails its schema; <code>browser_rows</code> returns 0 rows where the last scan had rows; platform markers missing</td><td>Crawl that class instead; flag it for recording (opt-in)</td><td>“Biology looked different, so Studi read it the slow way.”</td></tr>
+<tr><td>linked_sign_in</td><td>Existing <code>linked_system_sign_in</code> handoff</td><td>Skip; listed</td><td>“Sign in to WebAssign to include its work.”</td></tr>
+<tr><td>budget_exceeded</td><td>30 minute ceiling or the token backstop</td><td>Finish as partial</td><td>“Stopped at 30 minutes. Not checked: …”</td></tr>
+<tr><td>no_progress</td><td>5 quiet minutes</td><td>Finish as partial</td><td>Same</td></tr>
+<tr><td>model_error</td><td><code>classifyAgentRuntimeAttention</code> (<code>agent-runtime.ts</code>)</td><td>Connector rows still saved; retry the agent step once, then finish as partial</td><td>The existing runtime login, usage or unavailable screens</td></tr>
+<tr><td>document_unreadable</td><td>Download failed, or no text and no page images</td><td>Link recorded; <code>missingRequirements</code> entry</td><td>“Couldn't read syllabus.pdf. Open it.”</td></tr>
+</table>
+
+<h3 id="g-incremental">Incremental and full scans</h3>
+<table>
+<tr><th>Scan</th><th>Runs when</th><th>Change detection</th></tr>
+<tr><td>Full</td><td>Onboarding; a class never seen before appears (new term); weekly; after 3 failed refreshes in a row; after an extractor version bump; “Rescan everything”</td><td>Every list is read again. Unchanged rows still get no detail visit.</td></tr>
+<tr><td>Incremental</td><td>Scan cadence, app opened after 6 h, Refresh</td><td>Moodle <code>core_course_check_updates</code> and timeline <code>timesortfrom</code> since the last check; Canvas <code>updated_at</code> per assignment; conditional GET with ETag or Last-Modified when the server sends them; otherwise a hash of the extracted rows (title, href, date text, status). The hash replaces <code>sourceContentDigest</code>, and <code>ScanSourceCheckpoint</code> stores <code>rowsHash</code>, <code>etag</code> and <code>checkedAt</code>.</td></tr>
+<tr><td>Details</td><td>An assignment is opened or started</td><td>Always read fresh (eligibility already requires evidence under 24 h old)</td></tr>
+</table>
+
+<h3 id="g-docs">Documents</h3>
+<table>
+<tr><th>Type</th><th>Read by</th><th>If it fails</th></tr>
+<tr><td>PDF with text</td><td><code>pdf-tool.ts</code></td><td>Page images</td></tr>
+<tr><td>Scanned PDF</td><td>Page images on when text is empty (audit #10)</td><td>document_unreadable</td></tr>
+<tr><td>Word <code>.docx</code>, PowerPoint <code>.pptx</code></td><td>Unzip and read <code>word/document.xml</code> or the slide XML in-process. No Office needed.</td><td>Link and open</td></tr>
+<tr><td>Google Docs, Slides</td><td><code>/export?format=txt</code> (Slides: <code>pdf</code>) through the student's Google session in the Studi browser, or the Google Docs connection in <code>connected-app-catalog.ts</code></td><td>“Sign in to Google” handoff</td></tr>
+<tr><td>Moodle resource shim, forced download, files behind sign-in</td><td>Follow the shim; register the download before the click, through the session (<code>downloads.ts</code>, <code>native-downloads.ts</code>), into the homework folder</td><td>document_unreadable</td></tr>
+<tr><td>OneDrive, SharePoint links</td><td><code>download=1</code> through the session</td><td>Link only</td></tr>
+<tr><td>Embedded viewers, H5P, LTI iframes</td><td>Frame tracker from step 3</td><td>Listed as “embedded, couldn't read”</td></tr>
+<tr><td>Video, audio</td><td>Title and link only; never transcribed during a scan</td><td>n/a</td></tr>
+</table>
+<p>Every document becomes an artifact with a digest, page count and text length. A digest that has already been read is never read again. Instructions are saved as verbatim quotes with their page number (<code>requirementEvidence</code>, evidence kind <code>document</code>). A syllabus becomes a <code>LearnSource</code>.</p>
+
+<h3 id="g-dates">Dates and time zones</h3>
+<ul>
+<li>One module, <code>desktop/shared/due-date.ts</code>, takes in <code>zoned-deadline.ts</code>, <code>requireObservedDueAt</code> and <code>assignmentDue</code>. Scan, Today and Learn all import it. This is the “shared date parser” of step 1.</li>
+<li>The school's time zone comes from the site (Canvas <code>ENV.TIMEZONE</code>, the Moodle profile or calendar export) and is stored on <code>SchoolProfile</code>. API instants with an offset are used as they are.</li>
+<li>A date with no time has precision <code>date</code> and is due at the end of that day in the school's zone. For a missing year, use the rule in the design section.</li>
+<li>Relative dates (“Friday”, “tomorrow”, “end of week”, “next class”) keep their <code>dueText</code> with precision <code>unknown</code>. They are resolved only when the same page gives an absolute anchor (“Week of Sep 21”). A resolved date has <code>via: inferred</code>, quotes its anchor, shows as “Fri Sep 25?” until confirmed, and is never eligible for automatic work.</li>
+<li>“11:59 PM Friday” is 23:59 that Friday. “Midnight Friday” alone is ambiguous, so it becomes the end of Friday with precision <code>date</code>. Daylight-saving gaps and repeats stay unresolved, as <code>zoned-deadline.ts</code> already does.</li>
+</ul>
+<ul class="never">
+<li>Never use the computer's time zone, never let <code>Date.parse</code> fill in a year, and never turn a non-due label (“Opened: Oct 1”, “Posted”, “Available from”) into a due date. Only text labelled due, deadline or closes becomes <code>dueAt</code>.</li>
+</ul>
+
+<h3 id="g-observe">Trace, scan report, canaries</h3>
+<ul>
+<li><b>Trace:</b> one <code>scan-trace.jsonl</code> per scan in app data. It records events for pages, tools, model calls, saved rows, blocked writes and failures, each with URL, milliseconds, tokens (the <code>TelemetryAgentFactsSchema</code> fields) and the row ids saved from each page. It rotates at 5 MB.</li>
+<li><b>Scan report:</b> opened from the scan result. It shows time, pages, calls and tokens, what was found on which page for each class, what couldn't be checked, blocked writes and failures. A plain page, scrubbed and included in the diagnostics export (<code>diagnostics.ts</code>). Telemetry sends the target numbers only, never titles or URLs.</li>
+<li><b>Canaries:</b> every release build runs S1, S4, S5, S12, S17 and the golden extractor tier; any failure blocks publishing. A nightly agent-tier run catches changes on the model provider's side.</li>
+</ul>
+
+<h3 id="g-learn">What Learn needs from the scan</h3>
+<table>
+<tr><th>Learn needs</th><th>Recorded as</th><th>Written by</th></tr>
+<tr><td>A syllabus per class</td><td><code>LearnSource{kind: "scan"}</code> with target, digest, text and provenance. If it can't be read: <code>status: "failed"</code> with the reason.</td><td>Setup scan</td></tr>
+<tr><td>Exam dates</td><td><code>Exam{dateOrigin: "source"}</code> with the quote, taken from calendar and timeline events (quiz, test, midterm, final) and from syllabus schedules. These are not homework rows.</td><td>Setup scan, Find exams</td></tr>
+<tr><td>Study guides, review sheets, slides, past quizzes, lecture notes</td><td>One <code>LearnSource</code> per file, linked to the exam, deduplicated by digest</td><td>Materials scan</td></tr>
+<tr><td>Topics</td><td><code>LearnTopic{origin: "source"}</code> from syllabus schedules; <code>"homework_hint"</code> from assignment instructions</td><td>Extraction after reading</td></tr>
+<tr><td>The work Inky did</td><td>The finished task, its artifacts and the assignment's requirements, linked by <code>assignmentId</code>. Their topics become homework hints.</td><td>End of assignment work, not a scan</td></tr>
+</table>
+
+<h3>New stories</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">S17</td><td>Something tries to write</td><td>A scripted driver submits a form, sends a fetch POST and a PUT, opens a file chooser, and clicks “Mark as read”. All are blocked and logged, and <code>effects</code> stays empty. LTI launch and SSO still work.</td><td>Deterministic + fake LMS</td></tr>
+<tr><td class="id">S18</td><td>Golden: the audit's Moodle school</td><td>Extractor tier 100% on due dates, recall ≥ 99%. Agent tier setup ≤ 10 min.</td><td>Golden</td></tr>
+<tr><td class="id">S19</td><td>Golden: Canvas, Classroom, then each matrix row</td><td>Same targets; the matrix status is updated from the result.</td><td>Golden</td></tr>
+<tr><td class="id">S20</td><td>Renamed, moved, removed</td><td>Same id kept; one change each; a removed item is hidden, not deleted, and its task is still linked.</td><td>Fake LMS events</td></tr>
+<tr><td class="id">S21</td><td>WebAssign row in Moodle and in WebAssign</td><td>One assignment with two sources. A lookalike title in another class stays separate.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S22</td><td>Student set a date, then the school changed it</td><td>The student's date is still shown. The conflict is shown once, and either value can be kept.</td><td>Fake LMS + UI</td></tr>
+<tr><td class="id">S23</td><td>Each failure code</td><td>The right state and message; rows kept; the resume re-reads no finished class.</td><td>Fake LMS faults (add captcha, 429, 2FA, changed shape)</td></tr>
+<tr><td class="id">S24</td><td>Unchanged refresh with a connector</td><td>Zero model tokens, ≤ 60 s.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S25</td><td>docx, pptx, Google Doc, scanned PDF, embedded viewer</td><td>Text saved with page quotes; anything unreadable is listed.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S26</td><td>“Due Friday”, “Opened: Oct 1”, a daylight-saving gap</td><td>No <code>dueAt</code> invented. Friday is resolved only with a week header, and marked check.</td><td>Deterministic</td></tr>
+<tr><td class="id">S27</td><td>Scan report</td><td>Every row traces to a page and a quote; the report is in the diagnostics export.</td><td>UI journey</td></tr>
+<tr><td class="id">S28</td><td>Release canary</td><td>A seeded due-date regression blocks publishing.</td><td>CI</td></tr>
+</table>
+
 <h2 id="build">One build order for scanning and Learn</h2>
 <p>Scanning first, because Learn's “Find my exams” and “Find materials” depend on it, and because it is the thing currently burning time and tokens.</p>
-<div class="phase"><b>1</b><div><h3>Stop the bleeding</h3>30 minute ceiling, no-progress stop, three-strikes skip, Finish with what you found, failures recorded, shared date parser, per-role model and effort, compact scan tool results, no mid-turn session abort.<div class="done"><b>Done when</b> S8, S9, S13 pass and no real scan can run past 30 minutes.</div></div></div>
+<div class="phase"><b>1</b><div><h3>Stop the bleeding</h3>30 minute ceiling, no-progress stop, three-strikes skip, Finish with what you found, failures recorded, shared date parser (<a href="#g-dates">the date rules</a>, in <code>desktop/shared/due-date.ts</code>), per-role model and effort, compact scan tool results, no mid-turn session abort.<div class="done"><b>Done when</b> S8, S9, S13, S26 pass and no real scan can run past 30 minutes.</div></div></div>
+<div class="phase"><b>1b</b><div><h3>Guardrails that don't depend on the prompt</h3><a href="#g-readonly">Read-only guard</a> at the network layer, <a href="#g-failures">typed failures</a> with their recovery and messages, rows committed as found, per-class checkpoint, per-scan trace, token backstop. It lands before step 3 removes the label guard.<div class="done"><b>Done when</b> S17 passes, S23 passes for signed out, site down, rate limited and budget exceeded, and the trace for S8 accounts for every minute and token.</div></div></div>
 <div class="phase"><b>2</b><div><h3>Harness that can fail</h3>Noisy Moodle scenario, university origin, document faults, budget gates, all phases. Record today's scanner against it as the baseline.<div class="done"><b>Done when</b> the current scanner fails S1, S2, S4, S6 in the report, for the reasons in the audit.</div></div></div>
+<div class="phase"><b>2b</b><div><h3>Targets and golden recordings</h3><code>slo.json</code> with <code>comparison.mjs</code> gating on it (timeouts included), recorder and scrubber, replay mode in <code>lms/server.ts</code>, <code>expected.json</code> for the audit's Moodle school, extractor tier in CI, scan report, release canary. Record today's scanner as the baseline.<div class="done"><b>Done when</b> the S18 extractor tier runs in CI, S27 and S28 pass, and a seeded due-date bug fails the build.</div></div></div>
 <div class="phase"><b>3</b><div><h3>Browser tools</h3>Rebuild the browser layer to the Codex shape: identities and stable refs, committed observations with diffs, typed batches, action results, frames, dialogs, downloads as artifacts, ownership epoch, label guard removed, new operator prompt. Plus <code>browser_rows</code>, snapshot pruning, documents, syllabus origin.<div class="done"><b>Done when</b> S11, S12, S6, S7 pass, stale-ref errors are zero on the noisy scenario and S2 meets its time target.</div></div></div>
 <div class="phase"><b>4</b><div><h3>New scan scope</h3>Setup, refresh and details as separate kinds with checklists; work filter; inventories removed; row-level evidence; refresh diffs by link.<div class="done"><b>Done when</b> S2, S4, S5, S10, S14 pass.</div></div></div>
+<div class="phase"><b>4b</b><div><h3>Identity, provenance, student edits</h3><a href="#g-identity">Per-platform ids</a> in <code>schoolIdentity()</code>; rename, move and remove; LMS and linked-system merge; per-field provenance replacing <code>evidence[]</code>; school and student values with the conflict rule; “Found on” in the assignment view.<div class="done"><b>Done when</b> S20, S21, S22 pass and S5 still records exactly two changes.</div></div></div>
 <div class="phase"><b>5</b><div><h3>LMS connectors</h3>Moodle and Canvas session calls with the crawl as fallback. Verify the unconfirmed endpoints on the real school first.<div class="done"><b>Done when</b> S1, S3, S16 pass.</div></div></div>
+<div class="phase"><b>5b</b><div><h3>Incremental refresh</h3><a href="#g-incremental">Updated-since calls, ETags and row hashes</a> in place of <code>sourceContentDigest</code>; the full-versus-incremental schedule.<div class="done"><b>Done when</b> S4 and S24 pass with the connector and by crawl, and S5 stays exact.</div></div></div>
+<div class="phase"><b>5c</b><div><h3>Coverage and documents</h3>Detection and golden recordings for each <a href="#g-coverage">matrix</a> row; the unknown-site message; docx, pptx, Google Docs and OneDrive <a href="#g-docs">reading</a>.<div class="done"><b>Done when</b> S19 and S25 pass and each matrix status comes from a result.</div></div></div>
 <div class="phase"><b>6</b><div><h3>Learn: goals and dashboard</h3><a href="learn-plan.html#build">Learn steps 1 and 2</a>: goal model, the dashboard from the <a href="learn-concept.html#learn/exams">mock</a>, intake, Change or fix something, Add an exam, Learn something else.<div class="done"><b>Done when</b> Learn stories A1 to A7, B1 to B10 pass.</div></div></div>
 <div class="phase"><b>7</b><div><h3>Learn: grounded tutor and simulated students</h3>Learn steps 3 and 4.<div class="done"><b>Done when</b> C2 passes and the tutor baseline is saved.</div></div></div>
 <div class="phase"><b>8</b><div><h3>Learn: phases, grader, profile, review items</h3>Learn step 5.<div class="done"><b>Done when</b> C1, C3 to C16 pass and beat the baseline.</div></div></div>
-<div class="phase"><b>9</b><div><h3>Find exams and Find materials</h3>The two Learn scans, built on steps 3 to 5 here.<div class="done"><b>Done when</b> S15 and Learn A1, B8 pass.</div></div></div>
+<div class="phase"><b>8b</b><div><h3>What Learn gets from the scan</h3>The <a href="#g-learn">scan-to-Learn contract</a>: syllabi as sources, exam candidates from calendars and syllabi, materials deduplicated by digest, Inky's finished work as topic hints.<div class="done"><b>Done when</b> setup on the <code>learn</code> scenario creates its exam and three topics with source quotes, and a student-set exam date survives a rescan.</div></div></div>
+<div class="phase"><b>9</b><div><h3>Find exams and Find materials</h3>The two Learn scans, built on steps 3 to 5c and 8b here.<div class="done"><b>Done when</b> S15 and Learn A1, B8 pass.</div></div></div>
 <div class="phase"><b>10</b><div><h3>Practice tests, visuals, topic goals</h3>Learn steps 7 to 9.<div class="done"><b>Done when</b> E, D and F stories pass.</div></div></div>
 
 <h2>Where everything is</h2>

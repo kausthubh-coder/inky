@@ -5,8 +5,8 @@ import type { SettingsSectionId } from "./SettingsNavigation.js";
 
 export type DevPreviewScenarioId =
   | "today" | "today-clear" | "today-needs" | "today-working" | "desk-submitting"
-  | "learn" | "learn-empty" | "learn-reading" | "learn-error" | "learn-partial"
-  | "tutor-choice" | "tutor-typed" | "tutor-explain" | "tutor-population" | "tutor-flashcards" | "tutor-number-line" | "tutor-function-plot" | "tutor-code" | "tutor-paused" | "tutor-finished"
+  | "learn" | "learn-empty" | "learn-reading" | "learn-error" | "learn-partial" | "learn-no-topics" | "learn-topic-goal" | "learn-recap"
+  | "tutor-choice" | "tutor-typed" | "tutor-explain" | "tutor-population" | "tutor-flashcards" | "tutor-number-line" | "tutor-function-plot" | "tutor-code" | "tutor-paused" | "tutor-finished" | "tutor-quiz"
   | "auth"
   | "onboarding-welcome" | "onboarding-chatgpt" | "onboarding-connections" | "onboarding-folder"
   | "onboarding-school" | "onboarding-permission" | "onboarding-schedule" | "onboarding-signin"

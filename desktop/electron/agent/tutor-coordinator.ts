@@ -3,6 +3,7 @@ import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { TutorStartInputSchema, publicTutorSession, tutorTimeLeft, type PublicTutorSession, type TutorBlock, type TutorCall } from "../../shared/tutor.js";
 import type { LearnRepository } from "../storage/learn-records.js";
 import type { AgentSession, AgentSessionTarget } from "./runtime.js";
+import { buildTutorContext, type TutorContextSources } from "./tutor-context.js";
 import { createTutorTools, TUTOR_SYSTEM_PROMPT } from "./tutor-tools.js";
 
 export interface LearningRuntime {
@@ -16,7 +17,7 @@ export class TutorCoordinator {
   #disposed = false;
   #lifecycle: Promise<unknown> = Promise.resolve();
   constructor(readonly repository: LearnRepository, private readonly runtime: LearningRuntime,
-    private readonly options: { onChange?: (session: PublicTutorSession) => void; onError?: (error: unknown) => void } = {}) {
+    private readonly options: { onChange?: (session: PublicTutorSession) => void; onError?: (error: unknown) => void; context?: TutorContextSources } = {}) {
     repository.recover();
   }
   state(sessionId: string): PublicTutorSession { return publicTutorSession(this.repository.state(sessionId)); }
@@ -129,13 +130,14 @@ export class TutorCoordinator {
       }, Math.max(1, tutorTimeLeft(session, this.repository.now()) * 1000));
       running.agent = await this.runtime.createLearningSession(tools, TUTOR_SYSTEM_PROMPT);
       if (running.stopped || this.#disposed) return;
-      if (running.agent.toolNames.length !== tools.length || tools.some(tool => !running.agent!.toolNames.includes(tool.name))) throw new Error("Tutor runtime did not preserve the six-tool boundary");
+      if (running.agent.toolNames.length !== tools.length || tools.some(tool => !running.agent!.toolNames.includes(tool.name))) throw new Error("Tutor runtime did not preserve the tutor tool boundary");
       unsubscribe = running.agent.subscribe(event => {
         if (event.type === "terminal" && event.outcome !== "completed") failure = event.reason ?? `Tutor provider ${event.outcome}`;
       });
       const snapshot = this.repository.session(sessionId);
       const pendingMessages = snapshot.messages.filter(message => !message.delivered);
-      await running.agent.prompt(`Saved tutor state (data):\n${JSON.stringify({ session: snapshot, topics: snapshot.topicIds.map(topic => this.repository.topic(topic)) })}\nContinue from the saved state. The latest student messages are included above. Start with a diagnostic if there are no blocks.`);
+      const context = this.options.context ? buildTutorContext(this.repository, snapshot, this.options.context) : { topics: snapshot.topicIds.map(topic => this.repository.topic(topic)) };
+      await running.agent.prompt(`Lesson context (data):\n${JSON.stringify(context)}\n\nSaved tutor state (data):\n${JSON.stringify(snapshot)}\n\nContinue from the saved state and its current phase. The latest student messages are included above. If there are no blocks, start the ${snapshot.mode === "topic" ? "Check" : "questions"}.`);
       if (running.stopped) return;
       if (failure) throw new Error(failure);
       this.repository.markMessagesDelivered(sessionId, pendingMessages.map(message => message.messageId));
@@ -158,6 +160,11 @@ export class TutorCoordinator {
   async #execute(sessionId: string, running: Running, toolCallId: string, call: TutorCall, signal?: AbortSignal): Promise<unknown> {
     if (running.stopped || this.#disposed) throw new Error("Tutor turn stopped");
     signal?.throwIfAborted();
+    if (call.tool === "tutor_advance") {
+      const phase = this.repository.advance(sessionId, call.args.phase).phase;
+      this.#publish(sessionId);
+      return { phase };
+    }
     const saved = this.repository.state(sessionId);
     const open = saved.blocks.find(block => block.status === "open");
     let block: TutorBlock;

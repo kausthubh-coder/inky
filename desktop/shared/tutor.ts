@@ -4,10 +4,17 @@ import { IsoTimestampSchema } from "./schema-version.js";
 import { MasteryEvidenceSchema } from "./learn.js";
 
 const text = z.string().trim().min(1).max(10000);
-export const TUTOR_TOOL_NAMES = ["tutor_say", "tutor_ask_choice", "tutor_ask_typed", "tutor_show_model", "tutor_ask_explain", "tutor_finish"] as const;
+export const TUTOR_TOOL_NAMES = ["tutor_say", "tutor_ask_choice", "tutor_ask_typed", "tutor_show_model", "tutor_ask_explain", "tutor_advance", "tutor_finish"] as const;
 export const TutorToolNameSchema = z.enum(TUTOR_TOOL_NAMES);
+/** A lesson moves forward through these. Only Check and On your own answers are unassisted, so only they count as evidence. */
+export const TUTOR_PHASES = ["check", "learn", "practice", "independent", "wrap"] as const;
+export const TutorPhaseSchema = z.enum(TUTOR_PHASES);
+export type TutorPhase = z.infer<typeof TutorPhaseSchema>;
+export const EVIDENCE_PHASES: readonly TutorPhase[] = ["check", "independent"];
 export const TutorSayInputSchema = z.strictObject({ text });
-const topicScope = { topicId: OpaqueIdSchema.optional() };
+export const TutorAdvanceInputSchema = z.strictObject({ phase: z.enum(["learn", "practice", "independent"]) });
+/** Where a question came from, shown under it: "Like problem 3 on the Midterm 1 review sheet". */
+const topicScope = { topicId: OpaqueIdSchema.optional(), source: z.string().trim().min(1).max(300).optional() };
 export const TutorChoiceInputSchema = z.strictObject({ ...topicScope, question: text, options: z.array(z.string().min(1).max(1000)).min(2).max(6), correct: z.number().int().min(0).max(5) })
   .refine(input => input.correct < input.options.length && new Set(input.options).size === input.options.length, "Choice needs unique options and a valid correct index");
 export const TutorTypedInputSchema = z.strictObject({ ...topicScope, question: text, accept: z.array(z.string().trim().min(1).max(1000)).min(1).max(30), hints: z.array(z.string().min(1).max(2000)).max(8) });
@@ -24,13 +31,18 @@ export const TutorAssessmentSchema = z.strictObject({
   evidence: z.array(z.strictObject({ blockId: OpaqueIdSchema, correct: z.boolean(), rationale: z.string().trim().min(1).max(2000) })).max(40),
   missing: z.array(z.string().min(1).max(1000)).max(20), next: z.string().min(1).max(2000), summary: text,
 });
-export const TutorFinishInputSchema = TutorAssessmentSchema.extend({ assessments: z.array(TutorAssessmentSchema).max(30).optional() });
+export const TutorFinishInputSchema = TutorAssessmentSchema.extend({
+  assessments: z.array(TutorAssessmentSchema).max(30).optional(),
+  /** For a goal outside school: the outline Inky proposes after the first check. */
+  outline: z.array(z.string().trim().min(1).max(200)).max(12).optional(),
+});
 export const TutorCallSchema = z.discriminatedUnion("tool", [
   z.strictObject({ tool: z.literal("tutor_say"), args: TutorSayInputSchema }),
   z.strictObject({ tool: z.literal("tutor_ask_choice"), args: TutorChoiceInputSchema }),
   z.strictObject({ tool: z.literal("tutor_ask_typed"), args: TutorTypedInputSchema }),
   z.strictObject({ tool: z.literal("tutor_show_model"), args: TutorModelInputSchema }),
   z.strictObject({ tool: z.literal("tutor_ask_explain"), args: TutorExplainInputSchema }),
+  z.strictObject({ tool: z.literal("tutor_advance"), args: TutorAdvanceInputSchema }),
   z.strictObject({ tool: z.literal("tutor_finish"), args: TutorFinishInputSchema }),
 ]);
 export const TutorBlockAnswerSchema = z.discriminatedUnion("kind", [
@@ -47,6 +59,7 @@ const blockFields = {
   status: z.enum(["open", "answered", "complete", "cancelled"]),
   createdAt: IsoTimestampSchema, answeredAt: IsoTimestampSchema.nullable(),
   elapsedAtCreation: z.number().nonnegative().default(0),
+  phase: TutorPhaseSchema.default("independent"),
   hintsUsed: z.number().int().min(0).max(8), draft: z.string().max(10000), result: TutorBlockResultSchema.nullable(),
 };
 export const TutorBlockSchema = z.discriminatedUnion("tool", [
@@ -67,6 +80,7 @@ export const TutorMessageSchema = z.strictObject({ messageId: OpaqueIdSchema, te
 export const TutorSessionSchema = z.strictObject({
   sessionId: OpaqueIdSchema, topicId: OpaqueIdSchema, goal: text,
   mode: z.enum(["topic", "recap", "mock_exam"]), topicIds: z.array(OpaqueIdSchema).min(1).max(30), examId: OpaqueIdSchema.nullable(),
+  phase: TutorPhaseSchema.default("independent"),
   initialLevels: z.record(z.string(), z.number().int().min(0).max(4).nullable()),
   status: z.enum(["active", "paused", "completed", "cancelled", "expired", "failed"]),
   startedAt: IsoTimestampSchema, updatedAt: IsoTimestampSchema, finishedAt: IsoTimestampSchema.nullable(),

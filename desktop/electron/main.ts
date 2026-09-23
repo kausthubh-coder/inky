@@ -136,6 +136,8 @@ let visibleBrowserWork: VisibleBrowserWork | null = null;
 let schoolScanCoordinator: SchoolScanCoordinator | null = null;
 let homeworkCoordinator: HomeworkCoordinator | null = null;
 let learnRepository: LearnRepository | null = null;
+/** The goal the student is looking at. Every Learn change answers with this goal still selected. */
+let learnSelectedGoal: string | undefined;
 let tutorCoordinator: TutorCoordinator | null = null;
 let memoryCoordinator: MemoryCoordinator | null = null;
 let learnExtractionWorker: LearnExtractionWorker | null = null;
@@ -455,29 +457,32 @@ const ipcHandlers: StudiIpcHandlers = {
     requireAppKernel().requestReconcile();
     return result;
   },
-  getLearnState: (input) => currentLearnState(input?.selectedExamId),
+  getLearnState: (input) => {
+    if (input) learnSelectedGoal = input.selectedExamId ?? undefined;
+    return currentLearnState();
+  },
   listMemories: () => requireMemoryCoordinator().list(),
   readMemory: ({ noteId }) => requireMemoryCoordinator().read(noteId),
   updateMemory: (input) => requireMemoryCoordinator().update(input),
   deleteMemory: (input) => requireMemoryCoordinator().delete(input),
-  importLearnSource: (input) => {
-    validateLearnCourse(input.courseId);
-    requireLearnRepository().importSource({ ...input, kind: 'paste', sourceTarget: null });
+  importLearnSource: ({ examId, ...input }) => {
+    const courseId = learnSourceCourse(input.courseId, examId);
+    requireLearnRepository().importSource({ ...input, courseId, examId, kind: 'paste', sourceTarget: null });
     queueLearnExtraction();
     return currentLearnState();
   },
-  importLearnFile: async ({ courseId }) => {
-    validateLearnCourse(courseId);
+  importLearnFile: async ({ courseId: requestedCourse, examId }) => {
+    const courseId = learnSourceCourse(requestedCourse, examId);
     const repository = requireLearnRepository();
     const result = await dialog.showOpenDialog({
-      title: 'Choose your syllabus', properties: ['openFile'],
-      filters: [{ name: 'Syllabus', extensions: ['pdf', 'txt', 'md', 'csv'] }],
+      title: examId ? 'Add something to study from' : 'Choose your syllabus', properties: ['openFile'],
+      filters: [{ name: 'Syllabus, study guide or notes', extensions: ['pdf', 'txt', 'md', 'csv'] }],
     });
     if (repository !== learnRepository) throw new Error('Your account changed. Choose the file again.');
     if (!result.canceled && result.filePaths[0]) {
       await importLearnFile(repository, result.filePaths[0], courseId, undefined, () => {
         if (repository !== learnRepository) throw new Error('Your account changed. Choose the file again.');
-      });
+      }, examId);
       if (repository !== learnRepository) throw new Error('Your account changed. Sign in to continue.');
       queueLearnExtraction();
     }
@@ -485,7 +490,20 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   setLearnExam: (input) => {
     validateLearnCourse(input.courseId);
-    requireLearnRepository().setExam(input);
+    learnSelectedGoal = requireLearnRepository().setExam(input).examId;
+    return currentLearnState();
+  },
+  removeLearnGoal: ({ examId }) => {
+    requireLearnRepository().removeExam(examId);
+    if (learnSelectedGoal === examId) learnSelectedGoal = undefined;
+    return currentLearnState();
+  },
+  addLearnTopic: ({ examId, title }) => {
+    requireLearnRepository().addTopic(examId, title);
+    return currentLearnState();
+  },
+  removeLearnTopic: ({ topicId }) => {
+    requireLearnRepository().removeTopic(topicId);
     return currentLearnState();
   },
   findLearnSyllabus: async () => {
@@ -1674,7 +1692,15 @@ async function initializeDesktopAgent(): Promise<void> {
   });
   await applyPersistedAgentRuntime();
   const reportLearningError = (error: unknown) => telemetryService?.captureError(error, 'runtime', 'session_start');
-  tutorCoordinator = new TutorCoordinator(requireLearnRepository(), agentRuntime, { onError: reportLearningError });
+  learnSelectedGoal = undefined;
+  tutorCoordinator = new TutorCoordinator(requireLearnRepository(), agentRuntime, { onError: reportLearningError, context: {
+    courseLabel: courseId => requireLocalStore().school.listCourses().find(course => course.courseId === courseId)?.label ?? null,
+    workedHomework: courseId => workedAssignments().filter(assignment => assignment.courseId === courseId).map(assignment => ({
+      courseId: assignment.courseId, title: assignment.title, instructions: assignment.instructions,
+      requirements: assignment.requirementEvidence?.map(item => item.text) ?? [],
+    })),
+    today: learnToday,
+  } });
   learnExtractionWorker = new LearnExtractionWorker(requireLearnRepository(), agentRuntime, { onError: reportLearningError });
   runtimeLoginAttempt = new ProviderLoginAttemptOwner(async (providerId, signal, interaction) => {
     await requireAgentRuntime().loginProvider(providerId, signal, {
@@ -2300,7 +2326,15 @@ function createLearningConversationHooks(repository: LearnRepository): import('.
   };
 }
 
-function currentLearnState(selectedExamId?: string) {
+/** A file added to a goal belongs to that goal's class. */
+function learnSourceCourse(courseId: string | null, examId: string | null): string | null {
+  const goalCourse = examId ? requireLearnRepository().exam(examId).courseId : courseId;
+  validateLearnCourse(goalCourse);
+  return goalCourse;
+}
+
+/** Homework Inky actually worked on for this student, with its verified instructions. */
+function workedAssignments() {
   const repository = requireLearnRepository();
   const store = requireLocalStore();
   const worked = new Set(store.tasks.listAll().filter(task => {
@@ -2308,12 +2342,19 @@ function currentLearnState(selectedExamId?: string) {
     return execution?.ownerSubject === repository.ownerSubject
       && Boolean(execution.answerSnapshot && execution.reviewCheckpoint);
   }).map(task => task.assignmentId));
-  repository.syncHomeworkHints(store.assignments.listAll().filter(assignment =>
-    worked.has(assignment.assignmentId) && Boolean(assignment.sourceTarget && assignment.requirementEvidence?.length),
-  ).map(({ assignmentId, courseId, title }) => ({ assignmentId, courseId, title })));
+  return store.assignments.listAll().filter(assignment =>
+    worked.has(assignment.assignmentId) && Boolean(assignment.sourceTarget && assignment.requirementEvidence?.length));
+}
+
+function learnToday(): string {
   const now = new Date();
-  const today = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
-  return repository.learnState(today, selectedExamId);
+  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+}
+
+function currentLearnState() {
+  const repository = requireLearnRepository();
+  repository.syncHomeworkHints(workedAssignments().map(({ assignmentId, courseId, title }) => ({ assignmentId, courseId, title })));
+  return repository.learnState(learnToday(), learnSelectedGoal);
 }
 
 function queueLearnExtraction(sourceId?: string): void {

@@ -4,8 +4,8 @@ import { OpaqueIdSchema } from "../../shared/ids.js";
 import { IsoTimestampSchema } from "../../shared/schema-version.js";
 import { ExamSchema, LearnExamInputSchema, LearnExtractionSchema, LearnSourceInputSchema, LearnSourceSchema, LearnTopicSchema, TopicMasterySchema, TopicMasterySummarySchema, planLearn,
   type Exam, type LearnExtraction, type LearnSource, type LearnTopic, type MasteryEvidence, type TopicMastery } from "../../shared/learn.js";
-import { TutorBlockAnswerSchema, TutorBlockSchema, TutorCallSchema, TutorFinishInputSchema, TutorMessageSchema, TutorSessionSchema, TutorSessionSummarySchema,
-  normalizeTutorAnswer, tutorTimeLeft, type TutorBlock, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
+import { EVIDENCE_PHASES, TUTOR_PHASES, TutorBlockAnswerSchema, TutorBlockSchema, TutorCallSchema, TutorFinishInputSchema, TutorMessageSchema, TutorSessionSchema, TutorSessionSummarySchema,
+  normalizeTutorAnswer, tutorTimeLeft, type TutorBlock, type TutorPhase, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
 import type { StudiSqliteDatabase } from "./database.js";
 
 type Table = "learn_sources" | "learn_exams" | "learn_topics" | "learn_mastery" | "learn_sessions";
@@ -40,6 +40,7 @@ export class LearnRepository {
   mastery(): TopicMastery[] { return this.#list("learn_mastery", TopicMasterySchema); }
   source(key: string): LearnSource { const value = this.#get("learn_sources", key, LearnSourceSchema); if (!value) throw new Error("Learn source not found"); return value; }
   topic(key: string): LearnTopic { const value = this.#get("learn_topics", key, LearnTopicSchema); if (!value) throw new Error("Learn topic not found"); return value; }
+  exam(key: string): Exam { const value = this.#get("learn_exams", key, ExamSchema); if (!value) throw new Error("Goal not found"); return value; }
   sessions(): TutorSession[] { return this.#list("learn_sessions", sessionRecord).map(record => this.session(record.sessionId)); }
   /** Overview reads never load blocks or transfer saved messages/evidence out of SQLite. */
   sessionSummaries(): TutorSessionSummary[] {
@@ -73,14 +74,15 @@ export class LearnRepository {
   learnState(today: string, selectedExamId?: string) {
     const sources = this.database.handle.prepare("SELECT json_remove(record_json,'$.text') AS summary FROM learn_sources WHERE owner_subject=? ORDER BY id").all(this.ownerSubject)
       .map(row => LearnSourceSchema.omit({ text: true }).parse(JSON.parse(String(row.summary))));
-    const exams = this.exams(), topics = this.topics(), mastery = this.masterySummaries(), sessions = this.sessionSummaries();
+    const exams = this.exams().filter(exam => !exam.hidden), topics = this.topics().filter(topic => !topic.hidden), mastery = this.masterySummaries(), sessions = this.sessionSummaries();
+    if (selectedExamId && !exams.some(exam => exam.examId === selectedExamId)) selectedExamId = undefined;
     return { sources, exams, topics, mastery, sessions, plan: planLearn({ exams, topics, mastery, sessions, today, ...(selectedExamId ? { selectedExamId } : {}) }) };
   }
 
   importSource(value: unknown): LearnSource {
     const input = LearnSourceInputSchema.parse(value), now = this.now(), contentHash = hash(input.text);
     return this.database.transaction(() => {
-      const previous = input.sourceId ? this.source(input.sourceId) : this.sources().find(source => source.courseId === input.courseId &&
+      const previous = input.sourceId ? this.source(input.sourceId) : this.sources().find(source => source.courseId === input.courseId && source.examId === input.examId &&
         (input.sourceTarget ? source.sourceTarget === input.sourceTarget : source.contentHash === contentHash && source.kind === input.kind));
       if (previous && previous.contentHash === contentHash) return previous;
       if (previous && previous.courseId !== input.courseId) throw new Error("A source cannot move between courses");
@@ -105,6 +107,9 @@ export class LearnRepository {
       const source = this.source(sourceId), now = this.now();
       if (source.contentHash !== contentHash) throw new Error("The source changed during extraction; retry it");
       this.#validateExtraction(source, extraction);
+      // A file added to one goal feeds that goal. It never creates exams of its own.
+      const goal = source.examId ? this.#get("learn_exams", source.examId, ExamSchema) : null;
+      if (goal) return this.#applyToGoal(source, goal, extraction);
       const previousExams = this.exams().filter(exam => exam.sourceId === sourceId);
       const examIds = new Map(extraction.exams.map(exam => [exam.key,
         previousExams.find(previous => normalizeTutorAnswer(previous.title) === normalizeTutorAnswer(exam.title))?.examId
@@ -126,12 +131,13 @@ export class LearnRepository {
       for (const extracted of extraction.exams) {
         const examId = examIds.get(extracted.key)!;
         const old = this.#get("learn_exams", examId, ExamSchema);
-        this.#put("learn_exams", examId, ExamSchema.parse({ examId, courseId: source.courseId, title: extracted.title,
+        this.#put("learn_exams", examId, ExamSchema.parse({ ...old, examId, courseId: old?.courseId ?? source.courseId, title: extracted.title,
           date: old?.dateOrigin === "student" ? old.date : extracted.date, dateOrigin: old?.dateOrigin ?? "source", sourceId, updatedAt: now }));
       }
       for (const extracted of extraction.topics) {
         const topicId = topicKeyToId.get(extracted.key)!;
-        this.#put("learn_topics", topicId, LearnTopicSchema.parse({ topicId, courseId: source.courseId,
+        const old = this.#get("learn_topics", topicId, LearnTopicSchema);
+        this.#put("learn_topics", topicId, LearnTopicSchema.parse({ topicId, hidden: old?.hidden ?? false, courseId: source.courseId,
           examId: extracted.examKey ? examIds.get(extracted.examKey) : null, title: extracted.title, chapter: extracted.chapter,
           weight: extracted.weight, sourceId, origin: "source", updatedAt: now }));
       }
@@ -139,6 +145,21 @@ export class LearnRepository {
       this.#put("learn_sources", sourceId, ready);
       return ready;
     });
+  }
+  #applyToGoal(source: LearnSource, goal: Exam, extraction: LearnExtraction): LearnSource {
+    const now = this.now(), dates = [...new Set(extraction.exams.map(exam => exam.date).filter(Boolean))];
+    if (!goal.date && goal.kind === "exam" && dates.length === 1) this.#put("learn_exams", goal.examId, { ...goal, date: dates[0], dateOrigin: "source", updatedAt: now });
+    const existing = this.topics().filter(topic => topic.examId === goal.examId);
+    for (const extracted of extraction.topics) {
+      const same = existing.find(topic => normalizeTutorAnswer(topic.title) === normalizeTutorAnswer(extracted.title));
+      const topicId = same?.topicId ?? stableId("topic", source.sourceId, `${goal.examId}:${normalizeTutorAnswer(extracted.title)}`);
+      this.#put("learn_topics", topicId, LearnTopicSchema.parse({ ...same, topicId, examId: goal.examId, courseId: goal.courseId, title: same?.title ?? extracted.title,
+        chapter: same?.chapter ?? extracted.chapter, weight: same?.weight ?? extracted.weight, sourceId: same?.sourceId ?? source.sourceId,
+        origin: same?.origin === "student" ? "student" : "source", updatedAt: now }));
+    }
+    const ready = LearnSourceSchema.parse({ ...source, status: "ready", extractedAt: now, updatedAt: now, error: null });
+    this.#put("learn_sources", source.sourceId, ready);
+    return ready;
   }
   #validateExtraction(source: LearnSource, extraction: LearnExtraction): void {
     if (new Set(extraction.exams.map(e => e.key)).size !== extraction.exams.length || new Set(extraction.topics.map(t => t.key)).size !== extraction.topics.length) throw new Error("Extraction keys must be unique");
@@ -148,17 +169,43 @@ export class LearnRepository {
     for (const item of [...extraction.exams, ...extraction.topics]) if (!text.includes(normalizeQuote(item.quote))) throw new Error("Extraction must quote the supplied source");
     for (const topic of extraction.topics) if (topic.examKey && !extraction.exams.some(exam => exam.key === topic.examKey)) throw new Error("Topic references a missing exam");
   }
+  /** Creates a goal, or edits the one named by examId. A topic goal starts with itself as its only topic. */
   setExam(value: unknown): Exam {
     const input = LearnExamInputSchema.parse(value);
     return this.database.transaction(() => {
-      const old = input.examId ? this.#get("learn_exams", input.examId, ExamSchema) : null;
-      if (input.examId && !old) throw new Error("Exam not found");
-      if (old && old.courseId !== input.courseId) throw new Error("An exam cannot move between courses");
-      const source = old ? this.source(old.sourceId) : this.importSource({ courseId: input.courseId, title: input.title, kind: "typed", sourceTarget: null, text: `${input.title}\n${input.date ?? "Date unknown"}` });
-      const exam = ExamSchema.parse({ ...input, examId: old?.examId ?? id("exam"), sourceId: source.sourceId, dateOrigin: "student", updatedAt: this.now() });
+      const old = input.examId ? this.exam(input.examId) : null, now = this.now();
+      const kind = old?.kind ?? input.kind ?? "exam";
+      const exam = ExamSchema.parse({ ...old, examId: old?.examId ?? id("exam"), courseId: kind === "topic" ? null : input.courseId,
+        title: input.title, date: kind === "topic" ? null : input.date, sourceId: old?.sourceId ?? null, kind,
+        scopeNote: input.scopeNote === undefined ? old?.scopeNote ?? null : input.scopeNote || null,
+        dateOrigin: old && old.date === input.date ? old.dateOrigin : "student", hidden: false, updatedAt: now });
       this.#put("learn_exams", exam.examId, exam);
+      if (old && old.courseId !== exam.courseId) for (const topic of this.topics().filter(item => item.examId === exam.examId)) this.#put("learn_topics", topic.topicId, { ...topic, courseId: exam.courseId, updatedAt: now });
+      if (!old && kind === "topic") this.addTopic(exam.examId, exam.title);
       return exam;
     });
+  }
+  /** Hidden rather than deleted, so reading the same syllabus again doesn't bring it back. */
+  removeExam(examId: string): void {
+    this.database.transaction(() => { const exam = this.exam(examId); this.#put("learn_exams", examId, { ...exam, hidden: true, updatedAt: this.now() }); });
+  }
+  addTopic(examId: string, title: string): LearnTopic {
+    return this.database.transaction(() => {
+      const exam = this.exam(examId), siblings = this.topics().filter(topic => topic.examId === examId);
+      const existing = siblings.find(topic => normalizeTutorAnswer(topic.title) === normalizeTutorAnswer(title));
+      if (existing) {
+        const shown = { ...existing, hidden: false };
+        if (existing.hidden) this.#put("learn_topics", existing.topicId, { ...shown, updatedAt: this.now() });
+        return shown;
+      }
+      const topic = LearnTopicSchema.parse({ topicId: id("topic"), examId, courseId: exam.courseId, title, chapter: Math.max(-1, ...siblings.map(item => item.chapter)) + 1,
+        weight: null, sourceId: null, origin: "student", updatedAt: this.now() });
+      this.#put("learn_topics", topic.topicId, topic);
+      return topic;
+    });
+  }
+  removeTopic(topicId: string): void {
+    this.database.transaction(() => { const topic = this.topic(topicId); this.#put("learn_topics", topicId, { ...topic, hidden: true, updatedAt: this.now() }); });
   }
   createFreeTopic(title: string): LearnTopic {
     const existing = this.topics().find(topic => topic.origin === "student" && topic.examId === null && topic.courseId === null && normalizeTutorAnswer(topic.title) === normalizeTutorAnswer(title));
@@ -201,7 +248,8 @@ export class LearnRepository {
       if (existing) return existing;
       const now = this.now();
       const levels = new Map(this.mastery().map(item => [item.topicId, item.level]));
-      const session = TutorSessionSchema.parse({ sessionId: id("tutor"), topicId, goal, mode, topicIds, examId: options.examId ?? null,
+      const session = TutorSessionSchema.parse({ sessionId: id("tutor"), topicId, goal, mode, topicIds, examId: options.examId ?? this.topic(topicId).examId,
+        phase: mode === "topic" ? "check" : "independent",
         initialLevels: Object.fromEntries(topicIds.map(key => [key, levels.get(key) ?? null])), status: "active", startedAt: now, updatedAt: now, finishedAt: null,
         budgetSeconds: minutes * 60, elapsedSeconds: 0, activeSince: now, initialLevel: this.mastery().find(item => item.topicId === topicId)?.level ?? null,
         blocks: [], messages: [], result: null, error: null });
@@ -250,6 +298,7 @@ export class LearnRepository {
   openBlock(sessionId: string, toolCallId: string, value: unknown): TutorBlock {
     const call = TutorCallSchema.parse(value);
     if (call.tool === "tutor_finish") return this.finish(sessionId, toolCallId, call.args).blocks.at(-1)!;
+    if (call.tool === "tutor_advance") throw new Error("Advance the lesson with advance(), not as a block");
     return this.database.transaction(() => {
       const session = this.#active(sessionId);
       if ("topicId" in call.args && call.args.topicId && !session.topicIds.includes(call.args.topicId)) throw new Error("Question topic is outside this session");
@@ -266,12 +315,26 @@ export class LearnRepository {
         return replay;
       }
       if (session.blocks.length >= 119) throw new Error("Tutor block budget reached; finish the session");
-      if (session.blocks.some(block => block.status === "open") && call.tool !== "tutor_say") throw new Error("Answer the open block before creating another");
+      const open = session.blocks.some(block => block.status === "open");
+      if (open && call.tool !== "tutor_say") throw new Error("Answer the open block before creating another");
+      if (!open && call.tool === "tutor_say" && session.blocks.length >= 2 && session.blocks.slice(-2).every(block => block.tool === "tutor_say")) {
+        throw new Error("That's three messages in a row. Give the student something to do: ask a question or show a model.");
+      }
       const now = this.now();
-      const block = TutorBlockSchema.parse({ ...call, blockId: id("block"), toolCallId, sequence: session.blocks.length,
+      const block = TutorBlockSchema.parse({ ...call, phase: session.phase, blockId: id("block"), toolCallId, sequence: session.blocks.length,
         status: call.tool === "tutor_say" ? "complete" : "open", createdAt: now, elapsedAtCreation: session.budgetSeconds - tutorTimeLeft(session, now), answeredAt: null, result: null, hintsUsed: 0, draft: "" });
       this.#saveSession({ ...session, blocks: [...session.blocks, block], updatedAt: now });
       return block;
+    });
+  }
+  advance(sessionId: string, phase: TutorPhase): TutorSession {
+    return this.database.transaction(() => {
+      const session = this.#active(sessionId);
+      if (session.mode !== "topic") throw new Error("Recaps and mock exams are all on your own; there is nothing to advance");
+      if (phase === "wrap") throw new Error("Wrap up by calling tutor_finish");
+      if (TUTOR_PHASES.indexOf(phase) <= TUTOR_PHASES.indexOf(session.phase)) throw new Error(`The lesson is already past ${phase}`);
+      if (session.blocks.some(block => block.status === "open")) throw new Error("Answer the open block before moving on");
+      return this.#saveSession({ ...session, phase, updatedAt: this.now() });
     });
   }
   answerBlock(sessionId: string, blockId: string, value: unknown): TutorSession {
@@ -345,6 +408,7 @@ export class LearnRepository {
         const evidence: MasteryEvidence[] = assessment.evidence.map(item => {
           const block = session.blocks.find(b => b.blockId === item.blockId);
           if (!block?.result || !["tutor_ask_typed", "tutor_ask_explain"].includes(block.tool)) throw new Error("Mastery requires an answered typed or explanation block from this session");
+          if (!EVIDENCE_PHASES.includes(block.phase)) throw new Error("Only answers from Check or On your own count; the student had help in Learn and Practise");
           const blockTopic = "topicId" in block.args ? block.args.topicId ?? session.topicId : session.topicId;
           if (blockTopic !== assessment.topic) throw new Error("Evidence belongs to a different topic");
           const answer = block.result.answer;
@@ -372,8 +436,10 @@ export class LearnRepository {
       }
       const primary = changes.find(item => item.topicId === session.topicId);
       const result = { summary: input.summary, previousLevel: primary?.previousLevel ?? null, level: primary?.level ?? null, evidence: allEvidence, missing: input.missing, next: input.next, assessments: changes };
-      const block = TutorBlockSchema.parse({ tool: "tutor_finish", args: input, blockId: id("block"), toolCallId, sequence: session.blocks.length, status: "complete", createdAt: now, answeredAt: null, hintsUsed: 0, draft: "", result: null });
-      return this.#saveSession({ ...session, status: "completed", result, blocks: [...session.blocks, block], finishedAt: now, updatedAt: now,
+      const goal = session.examId ? this.#get("learn_exams", session.examId, ExamSchema) : null;
+      if (goal?.kind === "topic") for (const title of input.outline ?? []) this.addTopic(goal.examId, title);
+      const block = TutorBlockSchema.parse({ tool: "tutor_finish", args: input, phase: "wrap", blockId: id("block"), toolCallId, sequence: session.blocks.length, status: "complete", createdAt: now, answeredAt: null, hintsUsed: 0, draft: "", result: null });
+      return this.#saveSession({ ...session, status: "completed", phase: "wrap", result, blocks: [...session.blocks, block], finishedAt: now, updatedAt: now,
         elapsedSeconds: session.budgetSeconds - tutorTimeLeft(session, now), activeSince: null });
     });
   }

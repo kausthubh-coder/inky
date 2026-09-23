@@ -16,11 +16,18 @@ export const LearnSourceSchema = z.strictObject({
   status: z.enum(["pending", "reading", "ready", "failed"]),
   extractedAt: IsoTimestampSchema.nullable(), error: z.string().max(2000).nullable(),
   createdAt: IsoTimestampSchema, updatedAt: IsoTimestampSchema,
+  /** The goal the student added this to. Class sources reach every goal in that class. */
+  examId: OpaqueIdSchema.nullable().default(null),
 });
+/** A learning goal: an exam, or a topic the student wants to learn outside a class. */
 export const ExamSchema = z.strictObject({
   examId: OpaqueIdSchema, courseId: OpaqueIdSchema.nullable(), title,
-  date: LearnDateSchema.nullable(), sourceId: OpaqueIdSchema,
+  date: LearnDateSchema.nullable(), sourceId: OpaqueIdSchema.nullable(),
   dateOrigin: z.enum(["source", "student"]), updatedAt: IsoTimestampSchema,
+  kind: z.enum(["exam", "topic"]).default("exam"),
+  scopeNote: z.string().trim().max(2000).nullable().default(null),
+  /** Removed by the student. Kept so a later syllabus read doesn't bring it back. */
+  hidden: z.boolean().default(false),
 });
 export const LearnTopicSchema = z.strictObject({
   topicId: OpaqueIdSchema, examId: OpaqueIdSchema.nullable(), courseId: OpaqueIdSchema.nullable(),
@@ -28,6 +35,7 @@ export const LearnTopicSchema = z.strictObject({
   weight: z.number().finite().positive().max(1_000_000).nullable(),
   sourceId: OpaqueIdSchema.nullable(), origin: z.enum(["source", "student", "homework_hint"]),
   updatedAt: IsoTimestampSchema,
+  hidden: z.boolean().default(false),
 });
 export const MasteryEvidenceSchema = z.strictObject({
   sessionId: OpaqueIdSchema, blockId: OpaqueIdSchema,
@@ -89,13 +97,12 @@ export function planLearn(input: {
   sessions: readonly LearnSession[]; today: string; selectedExamId?: string;
 }): LearnPlan {
   const today = LearnDateSchema.parse(input.today);
-  const exams = input.exams.filter(exam => exam.date && exam.date >= today && input.topics.some(t => t.examId === exam.examId && t.origin !== "homework_hint"))
-    .sort((a, b) => a.date!.localeCompare(b.date!) || a.examId.localeCompare(b.examId));
-  const leadExam = input.selectedExamId ? input.exams.find(exam => exam.examId === input.selectedExamId) ?? null : exams[0] ?? null;
+  const leadExam = input.selectedExamId ? input.exams.find(exam => exam.examId === input.selectedExamId) ?? null : orderGoals(input.exams, today)[0] ?? null;
   const topics = input.topics.filter(t => t.examId === leadExam?.examId && t.origin !== "homework_hint");
   const weights = normalizeTopicWeights(topics);
   const levels = new Map(input.mastery.map(item => [item.topicId, item.level]));
-  const gap = (topic: LearnTopic) => weights ? (weights[topic.topicId] ?? 0) * (4 - (levels.get(topic.topicId) ?? 0)) / 4 : 0;
+  // Without stated shares every topic counts the same for ordering only; readiness stays unknown.
+  const gap = (topic: LearnTopic) => (weights ? weights[topic.topicId] ?? 0 : 1) * (4 - (levels.get(topic.topicId) ?? 0)) / 4;
   const ordered = [...topics].sort((a, b) => gap(b) - gap(a) || a.chapter - b.chapter || a.topicId.localeCompare(b.topicId));
   const last = input.sessions.filter(session => session.status === "completed" && session.finishedAt && topics.some(t => t.topicId === session.topicId))
     .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!) || b.sessionId.localeCompare(a.sessionId))[0];
@@ -104,7 +111,7 @@ export function planLearn(input: {
   const sinceLast = last ? Math.floor((day(today) - day(last.finishedAt!.slice(0, 10))) / 86_400_000) : 0;
   const recapDue = !!last && sinceLast >= 3;
   const path: LearnPlan["path"] = [];
-  const days = leadExam?.date ? Math.min(90, Math.ceil((day(leadExam.date) - day(today)) / 86_400_000)) : 0;
+  const days = leadExam?.date && topics.length ? Math.min(90, Math.ceil((day(leadExam.date) - day(today)) / 86_400_000)) : 0;
   for (let index = 0; index < days; index++) {
     const date = new Date(day(today) + index * 86_400_000).toISOString().slice(0, 10);
     const mock = days - index === 2 && topics.length <= 30;
@@ -116,14 +123,22 @@ export function planLearn(input: {
   return { leadExam, todayTopic: ordered[0] ?? null, readiness: computeReadiness(topics, input.mastery), recapDue, recapTopic, path };
 }
 
+/** Upcoming exams by date, then undated exams, then topic goals. Past exams are only shown when chosen. */
+export function orderGoals<T extends Exam>(exams: readonly T[], today: string): T[] {
+  const rank = (exam: Exam) => exam.hidden ? 3 : exam.kind === "topic" ? 2 : exam.date ? (exam.date >= today ? 0 : 3) : 1;
+  return exams.filter(exam => rank(exam) < 3)
+    .sort((a, b) => rank(a) - rank(b) || (a.date ?? "").localeCompare(b.date ?? "") || b.updatedAt.localeCompare(a.updatedAt) || a.examId.localeCompare(b.examId));
+}
+
 export const LearnSourceInputSchema = z.strictObject({
-  sourceId: OpaqueIdSchema.optional(), courseId: OpaqueIdSchema.nullable(), title,
+  sourceId: OpaqueIdSchema.optional(), courseId: OpaqueIdSchema.nullable(), examId: OpaqueIdSchema.nullable().default(null), title,
   kind: LearnSourceSchema.shape.kind, sourceTarget: SafeSourceTargetSchema.nullable(),
   text: z.string().trim().min(1).max(200_000),
 });
 export const LearnExamInputSchema = z.strictObject({
   examId: OpaqueIdSchema.optional(), courseId: OpaqueIdSchema.nullable(), title,
   date: LearnDateSchema.nullable(),
+  kind: ExamSchema.shape.kind.optional(), scopeNote: z.string().trim().max(2000).nullable().optional(),
 });
 export const LearnExtractionSchema = z.strictObject({
   exams: z.array(z.strictObject({ key: title, title, date: LearnDateSchema.nullable(), quote: z.string().min(1).max(2000) })).max(30),

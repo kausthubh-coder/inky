@@ -103,7 +103,8 @@ export function installDevPreview(): void {
       observedAssignmentIds: assignments.map((item) => item.assignmentId),
       observedLinkedSystemIds: [],
     },
-    courses: [{ schemaVersion: 1, courseId: "course-csc316", label: "CSC 316 Data Structures", sourceTarget: evidence.sourceTarget, lastVerifiedScanId: "preview-scan", lastVerifiedAt: now, evidence }],
+    courses: [["course-csc316", "CSC 316 Data Structures"], ["course-st370", "ST 370 Probability & Statistics"], ["course-ma241", "MA 241 Calculus II"]]
+      .map(([courseId, label]) => ({ schemaVersion: 1 as const, courseId: courseId!, label: label!, sourceTarget: evidence.sourceTarget, lastVerifiedScanId: "preview-scan", lastVerifiedAt: now, evidence })),
     assignments,
     linkedSystems: [],
     workflowRevision: 1,

@@ -3,7 +3,7 @@ import { basename, extname } from "node:path";
 import type { LearnRepository } from "../storage/learn-records.js";
 
 /** Call only with a main-process native chooser result, never a renderer-provided path. */
-export async function importLearnFile(repository: LearnRepository, chosenPath: string, courseId: string | null, title = basename(chosenPath), assertActive?: () => void) {
+export async function importLearnFile(repository: LearnRepository, chosenPath: string, courseId: string | null, title = basename(chosenPath), assertActive?: () => void, examId: string | null = null) {
   assertActive?.();
   const info = await stat(chosenPath);
   if (!info.isFile() || info.size > 8 * 1024 * 1024) throw new Error("Choose a syllabus file smaller than 8 MB");
@@ -32,5 +32,5 @@ export async function importLearnFile(repository: LearnRepository, chosenPath: s
   } else text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
   if (!text.trim()) throw new Error("This file has no readable text. Paste the syllabus text to continue.");
   assertActive?.();
-  return repository.importSource({ courseId, title, kind: "file", sourceTarget: null, text });
+  return repository.importSource({ courseId, examId, title, kind: "file", sourceTarget: null, text });
 }
