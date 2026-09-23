@@ -58,7 +58,7 @@ export function AssignmentWork({
             className="assignment-text-action"
             onClick={() => onOpenArtifact(execution.taskId)}
           >
-            Open saved file ↗
+            Open saved file <Icon name="external" size={14} />
           </button>
         )}
       </div>
@@ -122,7 +122,7 @@ export function AssignmentWork({
       {execution && (
         <button className="assignment-text-action" onClick={onBrowser}>
           {state === "submitted" ? "View submission" : "Review on school page"}{" "}
-          ↗
+          <Icon name="external" size={14} />
         </button>
       )}
       {state === "ready_review" && execution && (

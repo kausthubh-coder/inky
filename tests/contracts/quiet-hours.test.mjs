@@ -20,4 +20,3 @@ test("daytime quiet window includes start and excludes end", () => {
   const hours = { start:"09:00", end:"11:30" };
   for (const [hour,minute,expected] of [[8,59,false],[9,0,true],[11,29,true],[11,30,false],[23,0,false]]) assert.equal(isQuietHours(hours,time(hour,minute)),expected);
 });
-

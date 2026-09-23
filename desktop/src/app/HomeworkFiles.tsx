@@ -192,7 +192,7 @@ export function HomeworkFiles({
         ))}
         {!loading && !files.length && <p>No files yet.</p>}
         <button className="rd-link rd-folder" onClick={() => void reveal()}>
-          Open folder ↗
+          Open folder <Icon name="external" size={14} />
         </button>
       </nav>
       <section className="rd-file-reader">
@@ -206,7 +206,7 @@ export function HomeworkFiles({
                 className="rd-link"
                 onClick={() => void reveal(opened.path)}
               >
-                Show in folder ↗
+                Show in folder <Icon name="external" size={14} />
               </button>
             </header>
             {reading ? (
@@ -236,7 +236,7 @@ export function HomeworkFiles({
                     className="rd-button"
                     onClick={() => void reveal(opened.path)}
                   >
-                    Show in folder ↗
+                    Show in folder <Icon name="external" size={14} />
                   </button>
                 </div>
               )

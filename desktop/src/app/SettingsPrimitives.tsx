@@ -26,4 +26,3 @@ export function SavedNotice({ revision }: { revision: number }) {
   }, [revision]);
   return <span className="st-saved" role="status">{visible ? "Saved" : ""}</span>;
 }
-

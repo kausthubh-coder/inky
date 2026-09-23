@@ -31,4 +31,3 @@ test("disposing denies a queued memory creation before it writes", async () => {
     await assert.rejects(memory.create({title:"Later",content:"No."}),/disposed/);
   } finally { store.close(); await rm(root,{recursive:true,force:true}); }
 });
-

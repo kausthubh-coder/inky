@@ -114,8 +114,8 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
     {canStart && !blocked && task && <small className="assignment-permission">{task.permission.maySubmit ? "Can attempt and submit · your saved rule" : "Stops before submission · you review first"}</small>}
     {canCheckDetails && <small>I’ll check the missing facts, then wait for you to start.</small>}
     {blocked && !canCheckDetails && !terminalSchoolStatus && (!task?.permission.mayAttempt
-      ? <button className="quiet-button" onClick={onOpenRules}>Homework rules <span aria-hidden="true">↗</span></button>
-      : otherWork ? <button className="quiet-button" onClick={onOpenWork}>Go to current assignment <span aria-hidden="true">↗</span></button>
-        : <button className="quiet-button" onClick={onOpenSchoolCheck}>Open school check <span aria-hidden="true">↗</span></button>)}
+      ? <button className="quiet-button" onClick={onOpenRules}>Homework rules <span aria-hidden="true"><Icon name="external" size={14} /></span></button>
+      : otherWork ? <button className="quiet-button" onClick={onOpenWork}>Go to current assignment <span aria-hidden="true"><Icon name="external" size={14} /></span></button>
+        : <button className="quiet-button" onClick={onOpenSchoolCheck}>Open school check <span aria-hidden="true"><Icon name="external" size={14} /></span></button>)}
   </section>;
 }

@@ -9,4 +9,3 @@ test("Settings deep links select one of exactly five tabs", () => {
   for(const {id} of SETTINGS_SECTIONS) assert.equal(settingsTab("settings",id),id);
   assert.equal(settingsTab("usage","school"),"you");
 });
-

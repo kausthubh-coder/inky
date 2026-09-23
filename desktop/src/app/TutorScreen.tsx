@@ -101,7 +101,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, onStart, o
   const composer = (
     <form className="rd-composer inky-composer" onSubmit={event => { event.preventDefault(); void (message.trim() ? send() : pause()); }}>
       <button className="composer-mascot" type="button" aria-label="Open conversation" onClick={() => setSheet(true)}>
-        <Inky size={28} state={busy ? "thinking" : "idle"} />
+        <Icon name="note" size={20} />
       </button>
       <div className="inky-composer-line">
         <textarea rows={1} aria-label="Message Inky about this session" maxLength={10000} value={message}
@@ -201,7 +201,7 @@ function WrapUp({ session, asked, goal, topicTitle, onStart, onLeave }: {
       <h1>{session.status === "completed" ? "That's today's session." : session.status === "expired" ? "Time's up for today." : "We stopped here."}</h1></div>
     <ChatMarkdown text={result?.summary ?? session.error ?? "Your answers so far are saved."} />
     {result && <p className="tu-level">
-      {changed ? <><b>{LEVELS[result.previousLevel ?? 0]}</b> → <b>{LEVELS[result.level!]}</b> on {topicTitle(session.topicId)}</>
+      {changed ? <><b>{LEVELS[result.previousLevel ?? 0]}</b> <Icon name="forward" size={14} /> <b>{LEVELS[result.level!]}</b> on {topicTitle(session.topicId)}</>
         : result.level !== null ? <>Still <b>{LEVELS[result.level]}</b> on {topicTitle(session.topicId)}. One session moves it at most one step.</>
         : <>Not enough on-your-own answers to set a level yet.</>}
     </p>}

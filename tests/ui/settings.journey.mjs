@@ -111,5 +111,3 @@ export async function verifySettings(page, base) {
     return results;
   } finally {page.off("pageerror",onError);}
 }
-
-

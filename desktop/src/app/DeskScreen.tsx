@@ -1,3 +1,4 @@
+import { Icon } from "./Icon.js";
 import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { ChatMarkdown } from "./ChatMarkdown.js";
@@ -291,7 +292,7 @@ export function DeskDrawer({
           >
             <span className={execution?.phase === "working" ? "live-dot" : "live-dot is-paused"} />
             <span><strong>{liveChipLine(execution?.phase ?? "working", currentTool)}</strong><small>The page I’m on</small></span>
-            <span className="live-chip__action">Expand ↗</span>
+            <span className="live-chip__action">Expand <Icon name="external" size={14} /></span>
           </button>
           <div ref={slotRef} className="drawer-school-slot" data-school-slot="true" aria-label="Live school page">{readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}</div>
         </div>

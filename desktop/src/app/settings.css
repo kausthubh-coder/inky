@@ -124,4 +124,3 @@
 #settings-you .st-group:last-child .st-control button { white-space:nowrap; }
 .st-avatar { background:#f4d1e2; border:1px solid var(--pencil); text-transform:uppercase; }
 @media(max-width:650px) { .st-global-rule { flex-direction:column; align-items:flex-start; } }
-

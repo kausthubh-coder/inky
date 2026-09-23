@@ -502,7 +502,7 @@ export function ChatWorkspace(props: ChatProps) {
               assignment || school ? setSheet(true) : onView("compact")
             }
           >
-            <Inky state={mood} size={28} label="Inky" />
+            <Icon name="note" size={20} />
           </button>
         }
         <span className="rd-composer-context">
@@ -809,7 +809,7 @@ export function ChatWorkspace(props: ChatProps) {
                   )?.title ?? "Your conversation with Inky"}
                 </small>
               </span>
-              <span>↗</span>
+              <span><Icon name="external" size={14} /></span>
             </button>
             {activeExecution?.phase === "working" && (
               <button

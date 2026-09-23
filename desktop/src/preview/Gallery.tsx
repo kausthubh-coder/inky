@@ -1,3 +1,4 @@
+import { Icon } from "../app/Icon.js";
 import { useEffect, useRef, useState } from "react";
 import { DEV_PREVIEW_SCENARIOS } from "./scenarios.js";
 
@@ -121,7 +122,7 @@ export function PreviewGallery() {
               Reset state
             </button>
             <a href={href} target="_blank" rel="noreferrer">
-              Open full size ↗
+              Open full size <Icon name="external" size={14} />
             </a>
           </div>
           <p className="preview-current">

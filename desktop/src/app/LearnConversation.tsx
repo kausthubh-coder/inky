@@ -4,7 +4,6 @@ import type { ConversationState } from "../../shared/index.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
 import { Icon } from "./Icon.js";
-import { Inky } from "./Inky.js";
 
 export function LearnConversation({
   storageKey,
@@ -115,7 +114,7 @@ export function LearnConversation({
           aria-label="Open your conversation with Inky"
           onClick={() => setSheet(true)}
         >
-          <Inky size={28} state={active ? "thinking" : "idle"} />
+          <Icon name="note" size={20} />
         </button>
         <span className="rd-composer-context">Learn</span>
         <div className="inky-composer-line">

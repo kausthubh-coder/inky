@@ -139,7 +139,7 @@ export function UpdateControls({
           {state?.targetVersion && (
             <>
               {" "}
-              <span>→</span> <strong>{state.targetVersion}</strong>
+              <span><Icon name="forward" size={14} /></span> <strong>{state.targetVersion}</strong>
             </>
           )}
         </div>
