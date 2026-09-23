@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studi scanning: audit and plan</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:"Nunito Sans";font-weight:400;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:700;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-600-normal.woff2") format("woff2")}
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--blot2:#e9e0ce;--hl:#f6c945;--red:#b3452f;--green:#4f9a78;--blue:#5b83c4}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:70px}
+body{margin:0;background:var(--paper);color:var(--pencil);font:400 15px/1.55 "Nunito Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:"Shantell Sans",cursive;font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:38px;line-height:1.08}h2{font-size:26px;line-height:1.15;margin:72px 0 10px}
+h3{font-size:16px;font-weight:700;margin:30px 0 8px}
+p{margin:0 0 10px;max-width:74ch;text-wrap:pretty}b{font-weight:700}
+ul{margin:0 0 10px;padding-left:20px;max-width:74ch}li{margin:3px 0}
+code{font:12.5px/1.4 ui-monospace,Consolas,monospace;background:var(--blotter);border-radius:5px;padding:1px 5px;overflow-wrap:anywhere}
+pre{background:#26221d;color:#e9e1d2;border-radius:12px;padding:14px 16px;font:12.5px/1.5 ui-monospace,Consolas,monospace;overflow:auto;margin:10px 0}
+a{color:var(--pencil);text-underline-offset:3px;text-decoration-color:#bfb5a5}
+nav{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px solid var(--rule)}
+nav div{max-width:1080px;margin:0 auto;padding:12px 28px;display:flex;gap:18px;font-size:13.5px;font-weight:600;flex-wrap:wrap}
+nav a{text-decoration:none;color:var(--graphite)}nav a:hover{color:var(--pencil)}nav b{font-family:"Shantell Sans";margin-right:8px}
+main{max-width:1080px;margin:0 auto;padding:46px 28px 120px}
+.lede{font-size:18px;color:var(--graphite);max-width:66ch;margin-top:12px}
+.sub{color:var(--graphite);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0 6px}
+th{text-align:left;color:var(--graphite);font-weight:600;padding:0 14px 8px 0;border-bottom:1.5px solid var(--pencil);white-space:nowrap}
+td{padding:10px 14px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}td:first-child{font-weight:600}
+td.id{font-variant-numeric:tabular-nums;color:var(--graphite);white-space:nowrap}
+.tag{font-weight:700;white-space:nowrap;font-size:12.5px}.tag::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:var(--c)}
+.det{--c:var(--green)}.ui{--c:var(--hl)}.sim{--c:var(--blue)}.live{--c:var(--red)}
+.key{display:flex;gap:22px;font-size:13px;color:var(--graphite);margin:10px 0 0;flex-wrap:wrap}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);margin:18px 0;counter-reset:f}
+.flow div{padding:14px 16px 14px 0;border-top:2px solid var(--pencil);font-size:13.5px;position:relative;counter-increment:f}
+.flow div::before{content:counter(f);position:absolute;top:-13px;left:0;width:24px;height:24px;border-radius:50%;background:var(--hl);box-shadow:0 0 0 1.5px var(--pencil);display:grid;place-items:center;font-weight:700;font-size:12.5px}
+.flow b{display:block;margin:8px 0 2px;font-size:14.5px}.flow span{color:var(--graphite)}
+.never{border-left:3px solid var(--red);padding:2px 0 2px 16px;margin:14px 0}
+.never li::marker{color:var(--red)}
+.phase{display:grid;grid-template-columns:54px 1fr;gap:6px 16px;padding:16px 0;border-bottom:1px solid var(--rule)}
+.phase>b:first-child{font:600 26px "Shantell Sans"}.phase h3{margin:0 0 4px}.phase .done{color:var(--graphite);font-size:13.5px;margin-top:6px}.phase .done b{color:var(--pencil)}
+</style>
+</head>
+<body>
+<nav><div><b>Scan plan</b><a href="#audit">Audit</a><a href="#why">Why the benchmark missed it</a><a href="#compare">Other browser tools</a><a href="#design">New design</a><a href="#browser">Browser tools</a><a href="#harness">Harness</a><a href="#stories">Stories</a><a href="#build">Build order, scan + Learn</a><a href="learn-plan.html">Learn plan →</a><a href="learn-concept.html">Learn mock →</a></div></nav>
+<main>
+<h1>Scanning: from a 99 minute crawl to a two minute check.</h1>
+<p class="lede">An audit of the scanner on <code>codex/studi-redesign-release</code>, a comparison with other agent browsers, the new scan design, and one build order that covers scanning and the Learn redesign together.</p>
+<p class="sub">Written 2026-09-20. Companion to <a href="learn-plan.html">learn-plan.html</a> and <a href="learn-concept.html">learn-concept.html</a>. Numbers for the real scan come from <code>.agents/studi-qa/scan-audit-2026-09-19.md</code>.</p>
+
+<h2 id="audit">Audit: what happened and why</h2>
+<p>One onboarding scan of a real Moodle school: 99 minutes, 8 internal agent sessions, 655 tool calls, 112 errors or rejections, about 77M tokens (mostly re-read cached context), 5 courses, 218 “items” of which most are slides, readings and grade rows. Only 2 of 5 course inventories were complete and <code>scan_finish</code> was never called.</p>
+<table>
+<tr><th>#</th><th>Cause</th><th>Where</th><th>Effect</th></tr>
+<tr><td class="id">1</td><td>No limits at all</td><td><code>coordinator.ts:90-91, 960</code></td><td>No time, tool-call, token, no-progress or repeated-error limit. The only stop is 8 sessions × 8 page checkpoints. 99 minutes is just how long 64 checkpoints took.</td></tr>
+<tr><td class="id">2</td><td>Restart prompt carries the whole scan</td><td><code>coordinator.ts:391, 1064-1083</code></td><td>Every 8 checkpoints the conversation is thrown away and restarted with all checkpoints, all inventories and a row per item found so far. By session 8 that is 218 rows re-read on every turn. <code>scan_status</code> grew from 29k to 184k characters. This is most of the 77M tokens.</td></tr>
+<tr><td class="id">3</td><td>Refs die on every read</td><td><code>controller.ts:112</code>, <code>coordinator.ts:1026</code></td><td><code>snapshot()</code> clears all element refs, and every <code>scan_record_*</code> call takes a snapshot internally. So saving one thing invalidates everything the agent is holding. 18 stale-ref failures, plus a forced re-snapshot after every record.</td></tr>
+<tr><td class="id">4</td><td>Evidence rules force one page visit per item</td><td><code>coordinator.ts:1425, 584</code>, <code>source-identity.ts:31</code></td><td>On a Moodle list, title and date are in separate cells, so “row must contain title and date” fails and the agent is told to open each detail page. With 218 items that is hundreds of navigations. 12 due-date rejections.</td></tr>
+<tr><td class="id">5</td><td>Scope is exhaustive and self-ratcheting</td><td><code>scan-record/instructions.md:4-6</code>, <code>coordinator.ts:834, 1051</code></td><td>The prompt says check every course inventory, sections, schedule, locked work, linked systems, syllabi, requirements. Nothing filters what counts as an assignment, so slides and grade rows record fine, and once recorded each becomes a mandatory inventory ID. More found means harder to finish.</td></tr>
+<tr><td class="id">6</td><td>Every browser action returns a full page</td><td><code>browser/tools.ts</code>, <code>controller.ts:3-4</code></td><td>8 of 10 tools return a full snapshot (about 3k tokens). 174 snapshots and 85 navigations. Nothing is ever pruned from the conversation.</td></tr>
+<tr><td class="id">7</td><td>Scan bookkeeping tools return unbounded JSON</td><td><code>coordinator.ts:1504, 646</code></td><td>Pretty-printed full records; evidence arrays only grow; <code>scan_record_assignments</code> echoes up to 100 full records.</td></tr>
+<tr><td class="id">8</td><td>Syllabus must be on the exact same host</td><td><code>coordinator.ts:999</code></td><td><code>cs.university.edu</code> linked from <code>moodle.university.edu</code> is refused, and the prompt tells the agent to find a syllabus per course. 13 rejections, no retry cap.</td></tr>
+<tr><td class="id">9</td><td>Read-only guard blocks ordinary links and buttons</td><td><code>controller.ts:250-263</code></td><td>Any label containing submit, upload, reply, post, or any bare <code>&lt;button&gt;</code>, is refused. That includes a link named “Submit Lab 3” and Moodle's “Show more” and section expanders.</td></tr>
+<tr><td class="id">10</td><td>Moodle PDFs fail to download or match</td><td><code>downloads.ts:25</code>, <code>materials.ts:43, 66</code></td><td>Resource links return an HTML shim, which is rejected; the link must match an exact href; image-only PDFs return nothing because page images default off.</td></tr>
+<tr><td class="id">11</td><td>iframes are invisible</td><td><code>controller.ts:114</code></td><td>Only the top frame's accessibility tree is read. Embedded viewers, H5P, LTI tools show as blank.</td></tr>
+<tr><td class="id">12</td><td>Refreshes re-read everything and can't succeed</td><td><code>source-checkpoints.ts:45</code>, <code>coordinator.ts:324</code></td><td>Reuse needs a byte-identical page digest (any sesskey or timestamp breaks it) and only applies to detail pages. Every refresh must re-enumerate every course. A school this size always ends <code>partial</code>, so the learned route never gets written. None of six real refresh scans succeeded.</td></tr>
+<tr><td class="id">13</td><td>High reasoning effort for mechanical work</td><td><code>agent-runtime.ts:90</code>, <code>runtime.ts:230</code></td><td>One global model and effort. 655 “click the next row” steps at high effort.</td></tr>
+<tr><td class="id">14</td><td>Missing year read as 2001</td><td>date parsing</td><td>“Oct 7” became overdue. Codex fixed the display; the rule should be one shared function: missing year means the current academic year, a date with no time is not overdue until that day ends.</td></tr>
+</table>
+
+<h2 id="why">Why the fake LMS said it was fine</h2>
+<table>
+<tr><th>Fake LMS</th><th>Real Moodle</th></tr>
+<tr><td>39 activities, 8 in the biggest course</td><td>218 items, 132 in one course</td></tr>
+<tr><td>Item kinds: assignment, quiz, lesson, forum, external. No slides, files, pages, videos</td><td>Mostly slides, readings, files, grade rows</td></tr>
+<tr><td>Server-rendered HTML with no JavaScript, so refs never go stale</td><td>Drawers, collapsing sections, redirects. Stale refs were the top error</td></tr>
+<tr><td>Off-fixture navigation is scored as a violation (<code>electron-scan.mjs:41</code>)</td><td>Syllabus lives on another university host</td></tr>
+<tr><td>Inline one-page text PDFs</td><td>HTML shim pages, forced downloads, scanned PDFs</td></tr>
+<tr><td>Budget 3 min / 150 calls, only checked when metrics are non-null; a timeout records null and skips the check (<code>comparison.mjs:86</code>)</td><td>99 min / 655 calls</td></tr>
+<tr><td>Pass or fail is correctness only. The candidate was 2.4× slower with 2× the calls than the baseline and still shipped</td><td>Cost is the failure</td></tr>
+<tr><td>Refresh, changed and resume phases exist but were never run</td><td>0 of 6 refreshes succeeded</td></tr>
+</table>
+<p>So the benchmark was honest about what it measured. It measured correctness on a small, static, single-host school, and never gated on time, calls or tokens.</p>
+
+<h2 id="compare">How other agent browsers do it</h2>
+<table>
+<tr><th></th><th>Studi today</th><th>agent-browser</th><th>Playwright MCP</th><th>Stagehand</th><th>Codex in-app browser</th></tr>
+<tr><td>Element refs</td><td>All die on every snapshot</td><td>Surviving elements keep their ref; reset on navigation</td><td>Valid until the page changes</td><td>No refs; returns selectors</td><td>Not documented</td></tr>
+<tr><td>Scoped snapshot</td><td>Substring search only, and a searched page can't be used as evidence</td><td>By selector, interactive-only, compact, depth</td><td>By ref or selector, depth; find with context</td><td>By selector</td><td>Not documented</td></tr>
+<tr><td>Diffs</td><td>None</td><td>Delta mode: full once, then “unchanged” or a structural delta</td><td>Not in the current README</td><td>None</td><td>Not documented</td></tr>
+<tr><td>Batch extraction</td><td>None</td><td><code>get text</code>, <code>eval</code>, <code>batch</code></td><td><code>browser_evaluate</code></td><td><code>extract(instruction, schema)</code> returns validated rows</td><td>Not documented</td></tr>
+<tr><td>iframes</td><td>Invisible</td><td>Manual frame switch</td><td>Inlined with frame-prefixed refs</td><td>Unverified</td><td>Not documented</td></tr>
+<tr><td>Attach to an existing browser</td><td>n/a (in-process CDP)</td><td><code>--cdp</code> port, names Electron</td><td><code>--cdp-endpoint</code></td><td>Unverified</td><td>Own profile; CDP in developer mode</td></tr>
+<tr><td>Form</td><td>In-process</td><td>Rust daemon + CLI/MCP, no Node API, Apache-2.0</td><td>MCP server, Apache-2.0</td><td>Library with its own model loop</td><td>Product only</td></tr>
+</table>
+<h3>Decision: build Studi's browser the way Codex's browser use is built</h3>
+<p>Codex inspected its own installed browser plugin (<code>C:/Users/kaust/.codex/plugins/cache/openai-bundled/browser/26.915.31945/</code>: <code>scripts/browser-client.mjs</code>, <code>scripts/browser-service.mjs</code>, <code>docs/api.json</code>, <code>docs/accessibility.md</code>, <code>docs/confirmations.md</code>). That is the reference. It fits Studi directly, because it drives the page through Chromium's DevTools protocol from a trusted service, which is what Electron's <code>webContents.debugger</code> already gives Studi on the school browser, with the student's login intact. No debugging port, no second program. So there is no embed-versus-build question left: we rebuild Studi's browser layer to the Codex shape.</p>
+<table>
+<tr><th>Codex browser use does</th><th>Studi builds</th><th>Replaces</th></tr>
+<tr><td>Separate identities for tab, document, frame, observation, element. An element ref is rejected only if its node is gone or it belongs to a previous document.</td><td><code>ElementTarget{ref, tabId, frameId, documentId, backendNodeId, role, name}</code>. Refs survive repeated observations of the same document.</td><td><code>pageChanged()</code> on every snapshot (<code>controller.ts:112</code>)</td></tr>
+<tr><td>Observations are captured, checked against the current document, then committed. A capture that races a navigation is discarded, never published half and half.</td><td>read document id → capture frames and accessible content → build candidate → re-check document id → commit or retry inside one deadline.</td><td>“The page changed while refreshing evidence” errors</td></tr>
+<tr><td>Full or differential output. A diff needs its baseline; after a context reset a full one is sent.</td><td><code>Observation{observationId, documentId, mode: full|diff, baseObservationId, text, truncated, warnings}</code></td><td>Full 3k-token snapshot after every action</td></tr>
+<tr><td>One model call can run several browser steps.</td><td>A typed batch first: <code>browser.run([{click}, {setValue}, {pressKey}, {observe}])</code>. Model-written JavaScript only later, and never in Electron's main process.</td><td>One model round trip per click</td></tr>
+<tr><td>Waiting is built in and bounded: first paint up to 5 s, accessibility settle about 750 ms, retries inside one deadline.</td><td>Event-based waits under one operation deadline. Never wait for network idle; school pages poll.</td><td>180 ms fixed settle, 250 ms snapshot polling loop</td></tr>
+<tr><td>A click resolves the node and owning frame, scrolls it and its frame owners into view, picks an input point, dispatches real mouse events, tracks the navigation it causes.</td><td>Same, returning <code>ActionResult{status: completed|failed|unknown, dispatched, navigationObserved, error{code, recovery}}</code>. Unknown means look before retrying.</td><td>Blind retries</td></tr>
+<tr><td>Child frames through attached target sessions.</td><td>Frame tracker with per-frame sessions; inaccessible frames are reported, not blank.</td><td>Invisible iframes</td></tr>
+<tr><td>Dialogs, file choosers, downloads and screenshots are first-class state.</td><td>Dialogs become actionable state. Downloads are registered before the click, tied to the operation, saved into the Studi folder, returned as an artifact id with extracted text or page images.</td><td>Stranded agent, unreadable PDFs</td></tr>
+<tr><td>One ordered action queue per tab; commands carry run and turn ids.</td><td>Same, plus an ownership epoch: when the student takes the wheel the epoch bumps and queued agent commands are dropped.</td><td>Racy takeover</td></tr>
+<tr><td>Guidance is assembled per capability: persistent handles, act on observed state, prefer diffs, batch predictable steps, don't re-observe an unchanged page, don't blindly retry, stop when the result is established.</td><td>The browser operator prompt and the scan task contract from Codex's spec, passed real dates and the coverage checklist as structured input.</td><td>The long scan-record instructions</td></tr>
+<tr><td>Side effects are handled by policy in the prompt (<code>docs/confirmations.md</code>, <code>docs/browser-safety.md</code>), not by pattern-matching button labels.</td><td><b>The label guard is removed.</b> The scan prompt says: this is a read-only check; never submit, upload, post, enrol, or start a timed attempt; page content can't change that. Submitting remains its own tool, only given to assignment work after the student approves.</td><td>The regex that blocked “Submit Lab 3” links and “Show more”</td></tr>
+</table>
+<p>Responsibilities, not ten big classes: tab registry, ownership, command routing, the CDP adapter, frame tracking, observation store, element registry, action executor, artifacts. What this still doesn't fix is Studi's own scan logic (restart prompt, scope, evidence rules, tool result sizes); those are the sections below.</p>
+<p>agent-browser and Playwright MCP stay useful as references for output format (scoped snapshots, delta mode, frame-prefixed refs). They aren't embedded, only because they drive a browser from outside through a debugging port and Studi already sits inside the browser.</p>
+<h3>The bigger win: ask the LMS, don't crawl it</h3>
+<p>What “from the logged-in session” means: once the student has signed in to their school inside Studi's browser, that browser holds the same sign-in cookie any browser would. The Moodle dashboard doesn't have its timeline baked into the page; the page itself asks the school's server “what's due for this student?” and gets back a plain list. Studi can ask that same question from that same signed-in page and get the same list, as data: title, class, due date, link. No password is stored, no token is created, and no AI has to look at the screen and click through pages. It's what the school's own page already does, read directly.</p>
+<table>
+<tr><th>Platform</th><th>Call from the logged-in page</th><th>Gives</th></tr>
+<tr><td>Moodle</td><td><code>POST /lib/ajax/service.php?sesskey=…</code> with <code>core_calendar_get_action_events_by_timesort</code>, <code>core_course_get_enrolled_courses_by_timeline_classification</code></td><td>Exactly what the dashboard timeline shows: courses, due items, dates, links. Works wherever the timeline works.</td></tr>
+<tr><td>Moodle fallback</td><td>Calendar export (<code>/calendar/export.php</code>, iCal)</td><td>Events and due dates.</td></tr>
+<tr><td>Canvas</td><td><code>GET /api/v1/planner/items</code>, <code>/users/self/todo</code>, <code>/courses?include[]=syllabus_body</code>, <code>/courses/:id/assignments</code></td><td>Courses, syllabus body, assignments with dates and links. Session-cookie access is widely used but not officially documented.</td></tr>
+</table>
+<p>Unverified and to be tested in step 1: which extra Moodle functions are ajax-enabled at a given school, and the Canvas response prefix. Schools can disable pieces, so the agent crawl stays as the fallback, not the default. Check each school's terms before relying on it.</p>
+
+<h2 id="design">New scan design</h2>
+<p>Four small scans with different jobs, replacing one exhaustive crawl. Deep reading moves to the moment it's needed. <b>Every scan has one hard ceiling: 30 minutes.</b> There are no tool-call caps. The expected times below are targets the harness reports against, not limits.</p>
+<table>
+<tr><th>Scan</th><th>When</th><th>Collects</th><th>Expected time</th><th>Done when</th></tr>
+<tr><td>Setup</td><td>Onboarding</td><td>Classes and their metadata; syllabus link or text per class; work due in the next 30 days and the last 14, as title, date text, link, status. No requirements, no linked systems, no slides.</td><td>a few minutes</td><td>Every class has a row list from the dashboard, calendar or API, and a syllabus result (found, not found, or needs sign-in).</td></tr>
+<tr><td>Refresh</td><td>Daily or manual</td><td>Its job is to find new assignments and updates to known ones. Reads the same lists again and diffs against stored rows by link: new item, changed date, changed status, removed.</td><td>a minute or two</td><td>The list was read. Unchanged items are not opened.</td></tr>
+<tr><td>Details</td><td>Student opens or starts one assignment</td><td>Instructions, attachments, rubric, linked system for that one item (exists today as the assignment-scoped scan).</td><td>a few minutes</td><td>That item's requirements are recorded or listed as missing.</td></tr>
+<tr><td>Materials</td><td>From Learn, per exam (<a href="learn-concept.html#learn/scanning">mock</a>)</td><td>Study guides, review sheets, slides, past quizzes for one class.</td><td>a few minutes</td><td>Course sections walked once.</td></tr>
+</table>
+<h3>How a setup or refresh scan runs</h3>
+<div class="flow">
+<div><b>Detect</b><span>Moodle, Canvas or unknown, from page markers. No model.</span></div>
+<div><b>Ask the LMS</b><span>Connector calls the session APIs or reads the calendar. Rows saved directly. No model.</span></div>
+<div><b>Fill gaps</b><span>Only if the connector failed or a class has no rows: the agent reads the dashboard and calendar with the batch tool.</span></div>
+<div><b>Syllabi</b><span>Agent opens each class once, follows one syllabus link, any host linked from a verified class page.</span></div>
+<div><b>Finish</b><span>The app finishes the scan from its checklist. The agent doesn't have to remember to.</span></div>
+</div>
+<h3>Rules the coordinator enforces</h3>
+<ul>
+<li><b>One ceiling: 30 minutes</b> of active scanning per scan, any kind. Time paused for sign-in doesn't count. At 30 minutes the scan finishes as partial with what it has and says what wasn't checked. No tool-call or token caps; those are measured and reported only.</li>
+<li><b>No-progress stop:</b> 5 minutes without a new saved row or a newly finished class ends the scan early. This is what stops wandering long before the ceiling.</li>
+<li><b>Same rejection three times</b> for the same target: the target is marked skipped with the reason, shown in the scan result, and the agent is told to move on.</li>
+<li><b>“Finish with what you found”</b> button at any time. Saves rows, lists what wasn't checked.</li>
+<li><b>One continuous scan:</b> no mid-turn aborts. Context stays small because results are small, not because the conversation is thrown away. If a restart is ever needed, the carry-over is a fixed-size summary: classes done, classes left, counts. Never the rows.</li>
+<li><b>Evidence, relaxed for lists:</b> a row extracted by the batch tool is its own evidence (title, date text, href, captured together from one DOM row). No detail visit to prove a date.</li>
+<li><b>What counts as work:</b> only items with a due date or a submission type, or that the LMS itself lists on its timeline. Files, pages, slides, URLs and grade rows are not recorded by setup or refresh.</li>
+<li><b>Inventories dropped.</b> Completion is the checklist above, not set-equality over everything ever seen.</li>
+<li><b>Dates:</b> one shared parser. Missing year means the current academic year (if that date is more than six months past, roll forward a year); explicit years are kept; date-only deadlines are overdue only after the day ends. Used by Homework, scan and Learn.</li>
+<li><b>Model:</b> per-role model and effort. Scans run at low effort on the smaller model. Tutor and assignment work keep the current one.</li>
+<li><b>Honest results:</b> rejections and skips are written to <code>scan.failures</code>, so the UI stops understating friction.</li>
+</ul>
+
+<h2 id="browser">Browser tool changes</h2>
+<table>
+<tr><th>#</th><th>Change</th><th>How</th><th>Fixes</th></tr>
+<tr><td class="id">1</td><td>Stable refs</td><td><code>snapshot()</code> stops clearing refs. Map ref → <code>backendNodeId</code>, reuse the ref for surviving nodes, reset only on real main-frame navigation (ignore same-document). Record tools stop re-snapshotting.</td><td>Stale-ref errors, re-snapshot after every record</td></tr>
+<tr><td class="id">2</td><td><code>browser_rows</code> batch extraction</td><td>In-page evaluate: given a container ref or auto-detected repeating group, return compact JSON rows <code>{title, href, dateText, statusText, kind}</code> for the whole list, paged by the tool, not by the model.</td><td>One visit per item, paged snapshots of long course pages</td></tr>
+<tr><td class="id">3</td><td>Small action results</td><td>click, scroll, type, wait return <code>{url, title, changed: [...]}</code>. Full snapshot only on request, and scoped by ref or selector with a depth.</td><td>3k tokens per action</td></tr>
+<tr><td class="id">4</td><td>Prune old snapshots</td><td>Keep the last two snapshots verbatim in the conversation; replace older ones with a one-line stub.</td><td>Context growth</td></tr>
+<tr><td class="id">5</td><td>Remove the label guard</td><td>Delete the submit/upload/reply pattern check and the bare-button rule from <code>controller.click</code>. “Don't submit” is a prompt rule, as in Codex. The scan still isn't handed the submit or upload tools.</td><td>Blocked assignment links, blocked “Show more”</td></tr>
+<tr><td class="id">6</td><td>iframes</td><td><code>Page.getFrameTree</code>, per-frame accessibility tree, frame-prefixed refs.</td><td>Blank embedded content</td></tr>
+<tr><td class="id">7</td><td>Documents</td><td>Follow Moodle resource shims to the file; match links by normalised URL or node; turn page images on when text is empty; one <code>read_document</code> tool that works for a syllabus, not only assignment attachments.</td><td>Unreadable PDFs, skipped syllabi</td></tr>
+<tr><td class="id">8</td><td>Syllabus origin</td><td>Accept any page reached by a link seen on a verified class page.</td><td>13 rejections per scan</td></tr>
+<tr><td class="id">9</td><td>Compact scan tool results</td><td>Record tools return <code>{saved: n, ids}</code>. <code>scan_status</code> returns counts and what's left. Cap evidence history.</td><td>Growing results</td></tr>
+</table>
+
+<h2 id="harness">Harness: make the benchmark able to fail</h2>
+<ul>
+<li><b>Noisy Moodle scenario:</b> 5 courses, about 130 activities in one, new item kinds (file, page, url, folder, video, label), Moodle-shaped nested sections, a grades page, a small client script that re-renders sections and the drawer so refs really go stale, a “Show more” bare button.</li>
+<li><b>University site origin:</b> a fourth origin hosting one syllabus as HTML and one as a forced-download PDF; the harness allowlist accepts it when linked from a class page.</li>
+<li><b>Document faults:</b> HTML shim before the file, <code>Content-Disposition: attachment</code>, an image-only PDF.</li>
+<li><b>Connector surface:</b> <code>/lib/ajax/service.php</code> for the Moodle scenario and <code>/api/v1/*</code> for a Canvas-like scenario, with a switch to disable them so the fallback is tested.</li>
+<li><b>Time is the gate:</b> a run fails if it hits the 30 minute ceiling or misses its scenario's time target. A timeout is a failure, never a null. Tool calls, tokens, error rate and peak prompt size are always recorded and the run is flagged if any is more than 25% worse than the last saved run.</li>
+<li><b>All phases every run:</b> cold, unchanged, changed, resume.</li>
+<li><b>Report per run:</b> minutes, calls, tokens, errors by type, rows found vs expected, duplicates, junk rows recorded. Saved in <code>docs/reports/</code> and compared with the last run.</li>
+</ul>
+
+<h2 id="stories">Scan stories and expected behaviour</h2>
+<table>
+<tr><th>#</th><th>Story</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">S1</td><td>Setup on noisy Moodle, APIs on</td><td>Under 3 min. All classes, all work due in range, zero slides or grade rows recorded.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S2</td><td>Setup, APIs off</td><td>Under 10 min, same rows as S1. No detail-page visits to prove dates.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S3</td><td>Canvas-like setup</td><td>Same targets as S1 and S2.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S4</td><td>Refresh, nothing changed</td><td>Under 1 min, no assignment opened, state succeeded, zero changes.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S5</td><td>Refresh, one date moved, one new item</td><td>Exactly two changes, existing rows updated in place, no duplicates.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S6</td><td>Syllabus on another host, as a forced-download PDF</td><td>Read and saved as a class source. No rejection loop.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S7</td><td>Unreachable syllabus</td><td>Skipped after 3 tries, listed under “couldn't check”, scan still succeeds.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S8</td><td>Agent wanders</td><td>No-progress stop fires after 5 quiet minutes; a scan that keeps finding things is cut at 30 minutes. Either way the result is partial with rows kept.</td><td>Deterministic, scripted agent</td></tr>
+<tr><td class="id">S9</td><td>Finish with what you found</td><td>Stops within 5 s. Rows usable on Today at once. Unchecked classes listed.</td><td>UI journey</td></tr>
+<tr><td class="id">S10</td><td>Sign-in expires mid-scan</td><td>Pauses as needs-you, resumes the same scan, no re-read of finished classes.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S11</td><td>Refs survive</td><td>Snapshot, record, then click a ref from the first snapshot: works. After navigation: clear error.</td><td>Deterministic</td></tr>
+<tr><td class="id">S12</td><td>Nothing blocks reading</td><td>A link named “Submit Lab 3” opens and “Show more” expands. Across every harness scan the fake school records zero submissions, uploads, posts or started attempts.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S13</td><td>Dates</td><td>“Oct 7” seen in September 2026 is 2026-10-07, not overdue. “Jan 12” seen in December is next January. “Due Oct 7” with no time is overdue on Oct 8.</td><td>Deterministic</td></tr>
+<tr><td class="id">S14</td><td>Open an assignment</td><td>Details scan gathers instructions and files for that one item in a few minutes; nothing else is touched.</td><td>Fake LMS</td></tr>
+<tr><td class="id">S15</td><td>Materials for an exam</td><td>Finds the study guide, slides and past quiz for one class; links them to the exam; Learn shows the done state from the mock.</td><td>Fake LMS + UI</td></tr>
+<tr><td class="id">S16</td><td>Real school</td><td>Setup under 10 min on the Moodle account that took 99. Recorded in the report.</td><td>Live</td></tr>
+</table>
+
+<h2 id="build">One build order for scanning and Learn</h2>
+<p>Scanning first, because Learn's “Find my exams” and “Find materials” depend on it, and because it is the thing currently burning time and tokens.</p>
+<div class="phase"><b>1</b><div><h3>Stop the bleeding</h3>30 minute ceiling, no-progress stop, three-strikes skip, Finish with what you found, failures recorded, shared date parser, per-role model and effort, compact scan tool results, no mid-turn session abort.<div class="done"><b>Done when</b> S8, S9, S13 pass and no real scan can run past 30 minutes.</div></div></div>
+<div class="phase"><b>2</b><div><h3>Harness that can fail</h3>Noisy Moodle scenario, university origin, document faults, budget gates, all phases. Record today's scanner against it as the baseline.<div class="done"><b>Done when</b> the current scanner fails S1, S2, S4, S6 in the report, for the reasons in the audit.</div></div></div>
+<div class="phase"><b>3</b><div><h3>Browser tools</h3>Rebuild the browser layer to the Codex shape: identities and stable refs, committed observations with diffs, typed batches, action results, frames, dialogs, downloads as artifacts, ownership epoch, label guard removed, new operator prompt. Plus <code>browser_rows</code>, snapshot pruning, documents, syllabus origin.<div class="done"><b>Done when</b> S11, S12, S6, S7 pass, stale-ref errors are zero on the noisy scenario and S2 meets its time target.</div></div></div>
+<div class="phase"><b>4</b><div><h3>New scan scope</h3>Setup, refresh and details as separate kinds with checklists; work filter; inventories removed; row-level evidence; refresh diffs by link.<div class="done"><b>Done when</b> S2, S4, S5, S10, S14 pass.</div></div></div>
+<div class="phase"><b>5</b><div><h3>LMS connectors</h3>Moodle and Canvas session calls with the crawl as fallback. Verify the unconfirmed endpoints on the real school first.<div class="done"><b>Done when</b> S1, S3, S16 pass.</div></div></div>
+<div class="phase"><b>6</b><div><h3>Learn: goals and dashboard</h3><a href="learn-plan.html#build">Learn steps 1 and 2</a>: goal model, the dashboard from the <a href="learn-concept.html#learn/exams">mock</a>, intake, Change or fix something, Add an exam, Learn something else.<div class="done"><b>Done when</b> Learn stories A1 to A7, B1 to B10 pass.</div></div></div>
+<div class="phase"><b>7</b><div><h3>Learn: grounded tutor and simulated students</h3>Learn steps 3 and 4.<div class="done"><b>Done when</b> C2 passes and the tutor baseline is saved.</div></div></div>
+<div class="phase"><b>8</b><div><h3>Learn: phases, grader, profile, review items</h3>Learn step 5.<div class="done"><b>Done when</b> C1, C3 to C16 pass and beat the baseline.</div></div></div>
+<div class="phase"><b>9</b><div><h3>Find exams and Find materials</h3>The two Learn scans, built on steps 3 to 5 here.<div class="done"><b>Done when</b> S15 and Learn A1, B8 pass.</div></div></div>
+<div class="phase"><b>10</b><div><h3>Practice tests, visuals, topic goals</h3>Learn steps 7 to 9.<div class="done"><b>Done when</b> E, D and F stories pass.</div></div></div>
+
+<h2>Where everything is</h2>
+<table>
+<tr><th>File</th><th>What</th></tr>
+<tr><td><a href="scan-plan.html">docs/redesign/scan-plan.html</a></td><td>This page.</td></tr>
+<tr><td><a href="learn-plan.html">docs/redesign/learn-plan.html</a></td><td>Learn and tutor plan, stories, build steps.</td></tr>
+<tr><td><a href="learn-concept.html">docs/redesign/learn-concept.html</a></td><td>Clickable Learn and tutor mock with build notes.</td></tr>
+<tr><td><a href="concept.html">docs/redesign/concept.html</a>, <a href="plan.html">plan.html</a></td><td>The earlier whole-app redesign mock and plan.</td></tr>
+<tr><td><code>.agents/studi-qa/scan-audit-2026-09-19.md</code></td><td>Codex's audit of the real 99 minute scan.</td></tr>
+<tr><td><code>docs/reports/fake-lms-scan-benchmark.md</code></td><td>The fake LMS benchmark that passed.</td></tr>
+</table>
+<p class="sub">All under <code>C:/Users/kaust/.codex/worktrees/studi-redesign-release/studi-2/</code>. The pages open straight from disk; no server needed.</p>
+
+<h2>Open decisions</h2>
+<ul>
+<li>Session-cookie API calls to Moodle and Canvas: fine to rely on, with the crawl as fallback? It's the student's own session reading their own data, but Canvas doesn't document it.</li>
+<li>Which smaller model for scans. Pick after step 2 by running the harness at two settings.</li>
+<li>Setup window: next 30 days and last 14. Wider?</li>
+</ul>
+</main>
+</body>
+</html>

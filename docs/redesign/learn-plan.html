@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studi Learn: build plan and stories</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+@font-face{font-family:"Nunito Sans";font-weight:400;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:700;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-600-normal.woff2") format("woff2")}
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--blot2:#e9e0ce;--hl:#cdbcf0;--red:#b3452f;--green:#4f9a78;--blue:#5b83c4}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:70px}
+body{margin:0;background:var(--paper);color:var(--pencil);font:400 15px/1.55 "Nunito Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2{font-family:"Shantell Sans",cursive;font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:38px;line-height:1.08}h2{font-size:26px;line-height:1.15;margin:72px 0 10px}
+h3{font-size:16px;font-weight:700;margin:30px 0 8px}
+p{margin:0 0 10px;max-width:74ch;text-wrap:pretty}b{font-weight:700}
+ul{margin:0 0 10px;padding-left:20px;max-width:74ch}li{margin:3px 0}
+code{font:12.5px/1.4 ui-monospace,Consolas,monospace;background:var(--blotter);border-radius:5px;padding:1px 5px;overflow-wrap:anywhere}
+pre{background:#26221d;color:#e9e1d2;border-radius:12px;padding:14px 16px;font:12.5px/1.5 ui-monospace,Consolas,monospace;overflow:auto;margin:10px 0}
+a{color:var(--pencil);text-underline-offset:3px;text-decoration-color:#bfb5a5}
+nav{position:sticky;top:0;z-index:5;background:var(--paper);border-bottom:1px solid var(--rule)}
+nav div{max-width:1080px;margin:0 auto;padding:12px 28px;display:flex;gap:18px;font-size:13.5px;font-weight:600;flex-wrap:wrap}
+nav a{text-decoration:none;color:var(--graphite)}nav a:hover{color:var(--pencil)}nav b{font-family:"Shantell Sans";margin-right:8px}
+main{max-width:1080px;margin:0 auto;padding:46px 28px 120px}
+.lede{font-size:18px;color:var(--graphite);max-width:66ch;margin-top:12px}
+.sub{color:var(--graphite);margin-top:6px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin:12px 0 6px}
+th{text-align:left;color:var(--graphite);font-weight:600;padding:0 14px 8px 0;border-bottom:1.5px solid var(--pencil);white-space:nowrap}
+td{padding:10px 14px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}td:first-child{font-weight:600}
+td.id{font-variant-numeric:tabular-nums;color:var(--graphite);white-space:nowrap}
+.tag{font-weight:700;white-space:nowrap;font-size:12.5px}.tag::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:7px;background:var(--c)}
+.det{--c:var(--green)}.ui{--c:var(--hl)}.sim{--c:var(--blue)}.live{--c:var(--red)}
+.key{display:flex;gap:22px;font-size:13px;color:var(--graphite);margin:10px 0 0;flex-wrap:wrap}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);margin:18px 0;counter-reset:f}
+.flow div{padding:14px 16px 14px 0;border-top:2px solid var(--pencil);font-size:13.5px;position:relative;counter-increment:f}
+.flow div::before{content:counter(f);position:absolute;top:-13px;left:0;width:24px;height:24px;border-radius:50%;background:var(--hl);box-shadow:0 0 0 1.5px var(--pencil);display:grid;place-items:center;font-weight:700;font-size:12.5px}
+.flow b{display:block;margin:8px 0 2px;font-size:14.5px}.flow span{color:var(--graphite)}
+.never{border-left:3px solid var(--red);padding:2px 0 2px 16px;margin:14px 0}
+.never li::marker{color:var(--red)}
+.phase{display:grid;grid-template-columns:54px 1fr;gap:6px 16px;padding:16px 0;border-bottom:1px solid var(--rule)}
+.phase>b:first-child{font:600 26px "Shantell Sans"}.phase h3{margin:0 0 4px}.phase .done{color:var(--graphite);font-size:13.5px;margin-top:6px}.phase .done b{color:var(--pencil)}
+</style>
+</head>
+<body>
+<nav><div><b>Learn plan</b><a href="#goal">Goal</a><a href="#flow">Workflow</a><a href="#broken">Broken today</a><a href="#kinds">Kinds of goal</a><a href="#arc">Across days</a><a href="#interrupt">In a lesson</a><a href="#screens">Screens</a><a href="#model">Data</a><a href="#tutor">Tutor</a><a href="#visuals">Visuals</a><a href="#tests">Practice tests</a><a href="#harness">Harness</a><a href="#stories">Stories</a><a href="#build">Build order</a><a href="scan-plan.html">Scan plan →</a><a href="learn-concept.html">Open the mock →</a></div></nav>
+<main>
+<h1>Learn: a tutor that gets you the highest score on your real test.</h1>
+<p class="lede">This page and <a href="learn-concept.html">learn-concept.html</a> are the contract. The mock fixes what each screen looks like and what data feeds each part. This page fixes the behaviour, the rules the app enforces, and the stories every build step is tested against.</p>
+<p class="sub">Branch <code>codex/studi-redesign-release</code>. Written 2026-09-19. Replaces the Learn section of <code>plan.html</code>.</p>
+
+<h2 id="goal">What we're building, and for whom</h2>
+<p>A student has an exam coming. They open Learn. Studi already knows the exam, what's on it, how much each topic is worth, and has their study guide and last quiz. It says what to study today, teaches it in small steps that make them think, checks their reasoning, remembers how they think, and tests them with questions shaped like their teacher's.</p>
+<table>
+<tr><th>Principle</th><th>What it means in the build</th></tr>
+<tr><td>One selected goal</td><td>Headline, plan, topics, sources, Edit all read from <code>selectedGoalId</code>. Nothing on screen may describe a different goal. Every IPC call carries it and every response echoes it.</td></tr>
+<tr><td>Grounded in their coursework</td><td>The tutor is sent excerpts from the student's own sources every turn. A question based on them shows where it came from.</td></tr>
+<tr><td>The student does the thinking</td><td>The app runs the lesson phases and refuses lecturing: at most two statements before a question, predict before reveal, hints before answers.</td></tr>
+<tr><td>Evidence, not vibes</td><td>Mastery moves only on unaided answers, graded by the app or a separate grader, never by the tutor's own say-so.</td></tr>
+<tr><td>Add anything, from one place</td><td>One intake box takes files, links, text, a sentence, or a scan request. Inky sorts it. The student never chooses between “source” and “exam”.</td></tr>
+<tr><td>Quiet until needed</td><td>One filled button per screen. Sources and “Change or fix something” are closed by default and open in place. No edit forms: the student says what changed or taps one thing, and Inky does it.</td></tr>
+</table>
+<p>Exams are the priority. Course goals and free topics (“learn Python”) use the same model and the same session machinery; they ship last and get no countdown and no readiness percent.</p>
+
+<h2 id="flow">The workflow, end to end</h2>
+<div class="flow">
+<div><b>Tell Studi</b><span>Drop a syllabus, paste a link, type “stats midterm Friday”, or press Find my exams. Inky reads it and asks one confirm question.</span></div>
+<div><b>Gather</b><span>A read-only materials scan of that class finds the study guide, slides and past quizzes. The student can add files to any exam any time.</span></div>
+<div><b>Plan</b><span>The app (not the model) picks today's topic: biggest gap for its share of the exam. Due misses come first.</span></div>
+<div><b>Session</b><span>Check, learn, practise, on your own, wrap up. 5 to 60 minutes, one topic.</span></div>
+<div><b>Prove it</b><span>Topic quizzes any time, a mock exam from two days out, built from their real assignments and tests.</span></div>
+</div>
+
+<h2 id="broken">What is broken in the prototype today</h2>
+<p>Checked against <code>aa957c0</code> on Sep 23. The Sep 19 notes said the screen never sent the selected exam. That is no longer true for loading. It is still true for every action.</p>
+<table>
+<tr><th>What the student sees</th><th>Why</th><th>Where</th></tr>
+<tr><td>Midterm 1 is selected, but Today and Start belong to another class</td><td>Loading sends the selected exam. Every action (add a source, save a date, retry, import) returns state built without it, so the planner picks the nearest exam again. The header follows the chip. Today, the path, readiness and Start follow the planner.</td><td><code>main.ts:467-500</code> call <code>currentLearnState()</code> with no argument. <code>LearnScreen.tsx:159-167</code> takes the exam from the chip and the topic from the plan. Start at <code>:330</code> falls back to <code>topics[0]</code> of whichever exam won.</td></tr>
+<tr><td>Some exams never lead, even when they are next</td><td>The planner's default list drops exams with no date or no topics yet.</td><td><code>learn.ts:92</code></td></tr>
+<tr><td>"Add another" could mean a source or a test</td><td>It could. The row mixes three ways to add a source with Enter an exam date. That grouping came from the PR 40 audit fix.</td><td><code>LearnScreen.tsx:627-668</code></td></tr>
+<tr><td>Entering an exam date replaces the selected exam</td><td>The editor saves over the open exam instead of creating one. There is no way to add a second exam.</td><td><code>LearnScreen.tsx:477-499</code></td></tr>
+<tr><td>Something else hides the whole page</td><td>It swaps the screen into a separate mode with no sources and no list of goals.</td><td><code>LearnScreen.tsx:229-246</code></td></tr>
+<tr><td>The tutor teaches from titles</td><td>Each turn it receives the session and the topic records. No source text, class, exam date, past answers or study guide.</td><td><code>tutor-coordinator.ts:138</code></td></tr>
+</table>
+<p>The fix for the first four is the same one: one selected goal, sent with every call and returned by it, and one Add that asks what you are adding. That is build step 1 below.</p>
+
+<h2 id="kinds">Three kinds of goal</h2>
+<p>The student never picks a kind. They say or drop something, and Inky reads it and confirms in one line. The kind decides where the facts come from and how the tutor behaves. The screens and the session are the same for all three.</p>
+<table>
+<tr><th></th><th>A test</th><th>A class</th><th>Something else</th></tr>
+<tr><td>How Studi tells</td><td>A class plus a test word or a date: "CS 230 midterm", "stats quiz Friday", a syllabus line with a date. An exam found by a scan.</td><td>A class with no test: "help me keep up in CS 230", "I'm lost in stats".</td><td>No class matches: "learn Python", "how do taxes work", "SAT math".</td></tr>
+<tr><td>Confirm line</td><td>"CS 230 Midterm 1, Oct 3. I'll look for your study guide. Right?"</td><td>"Keep up in CS 230, following your lectures. Right?"</td><td>"Learning Python from scratch, not for a class. Right?"</td></tr>
+<tr><td>Where the facts come from</td><td>Syllabus and exam page for date and scope. Study guide, review sheet and past quizzes for format. Graded homework for what the teacher asks. Anything the student drops.</td><td>The class's recent lectures, slides and assignments, kept current by the normal school check.</td><td>Only what the student gives. No scan. Inky proposes an outline and the student edits it.</td></tr>
+<tr><td>Who decides the topics</td><td>Extraction from the syllabus and study guide, weighted by the guide. The student can edit.</td><td>The last few weeks of the class, most recent first.</td><td>The outline, agreed in the first session.</td></tr>
+<tr><td>What the planner optimises</td><td>Score on this test by this date. Biggest gap for its weight first.</td><td>Keeping up: this week's material before older material.</td><td>Progress through the outline at the student's pace.</td></tr>
+<tr><td>Tutor stance</td><td>Teach what this test asks, in the formats it uses. Practise under test conditions near the date. Name the source: "This is like question 4 on your quiz."</td><td>Explain the lecture the student found hard. Connect it to the current homework without doing the homework.</td><td>First principles. Check prior knowledge, then build. No test framing.</td></tr>
+<tr><td>What the screen shows</td><td>Countdown, readiness, day path, practice quiz, mock exam.</td><td>This week's topics and levels. No countdown, no readiness.</td><td>The outline with levels. No countdown, no readiness.</td></tr>
+<tr><td>When it ends</td><td>After the test date. See Across days.</td><td>When the class ends or the student removes it.</td><td>When the outline is done or the student removes it.</td></tr>
+</table>
+<p>If Inky guesses the kind wrong, the confirm line is the fix: "No, it's for the final" turns a class goal into a test goal. A class goal also becomes a test goal when a scan finds an exam in that class, after a one-line confirm.</p>
+
+<h2 id="arc">From adding a test to after it</h2>
+<p>This is the study system. The model reads and teaches. The app decides what happens on which day, so the plan is predictable and never changes by surprise.</p>
+<table>
+<tr><th>When</th><th>What happens</th><th>Who decides</th></tr>
+<tr><td>Day 0: added</td><td>Confirm line. Then Inky offers once per class: "Want me to look for your study guide and past quizzes?" Yes starts the read-only materials scan. The student can drop files any time, onto the goal or into a session.</td><td>Student confirms. The scan never creates a goal by itself.</td></tr>
+<tr><td>Day 0: materials read</td><td>Each file is read once and split into passages. Exams and topics found in it are proposed, not silently added. A file is read again only if it changes or the student says it is wrong.</td><td>Model reads once, app saves.</td></tr>
+<tr><td>First session</td><td>A 5 to 8 minute check across every topic: one or two questions each, no teaching. This fills in levels so the plan is real from day one. Skippable.</td><td>App picks the questions from the item bank. Falls back to the tutor if the bank is empty.</td></tr>
+<tr><td>Each day after</td><td>One session, 15 minutes by default. Missed questions that are due come first, then the topic with the biggest gap for its weight. The day path is recomputed every morning and after every session, so a missed day just shifts it. No guilt copy.</td><td>App, from saved data only.</td></tr>
+<tr><td>Behind schedule</td><td>When the days left can't cover every weak topic, the planner drops topics already Good or Solid and says so in one line: "Six days, five weak topics. We'll skip counting, you've got it."</td><td>App.</td></tr>
+<tr><td>Any time</td><td>A 5 minute quiz on any topic from its row. No teaching, just questions shaped like the teacher's.</td><td>Student.</td></tr>
+<tr><td>2 days before</td><td>The mock exam unlocks: timed, weighted like the test, graded by topic, ending with what to study next.</td><td>App.</td></tr>
+<tr><td>Day before</td><td>No new topics. A short review of everything missed so far, hardest first.</td><td>App.</td></tr>
+<tr><td>Test day</td><td>Nothing new. An optional 5 minute warm-up of easy wins, then "Good luck".</td><td>App.</td></tr>
+<tr><td>After</td><td>Next day, one line: "How did CS 230 Midterm 1 go?" with three taps. When a later school check finds the grade, Inky says it once. Topics that were weak stay as review items for the final in the same class. The goal moves to a Done list.</td><td>App, from the scan and the student's tap.</td></tr>
+</table>
+
+<h2 id="interrupt">Inside a lesson, when the student</h2>
+<p>A lesson is one topic through check, learn, practise, on your own, and wrap up (the phases in the Tutor section). The box under the lesson is always live. These are the cases a real 1-on-1 tutor handles, and ours must too.</p>
+<table>
+<tr><th>The student</th><th>What Inky does</th><th>How</th></tr>
+<tr><td>Asks a question about the block</td><td>Answers in two or three sentences, then returns to the same block. The block stays open.</td><td>Free text goes to the tutor as a message. A reply with no block tool keeps the open block. Counts toward the limit of two <code>tutor_say</code> in a row.</td></tr>
+<tr><td>Asks about another topic</td><td>"Good one. I'll put it on your list." Adds it as a review item or a new topic. Offers to switch only when the current block is done.</td><td>New <code>tutor_note_topic</code>. Switching starts a new session, never a silent change of topic.</td></tr>
+<tr><td>Says "I already know this"</td><td>Skips to an on-your-own question. Right: marks progress and moves on. Wrong: goes back one phase without comment.</td><td><code>tutor_advance</code> to independent. Safe because only independent answers can raise a level.</td></tr>
+<tr><td>Says "I'm lost" or answers "idk"</td><td>The smallest step back: a simpler question or a worked example, never a lecture.</td><td>Phase back one step. Hint ladder: nudge, one step, walk through.</td></tr>
+<tr><td>Asks for the answer</td><td>Gives it on a practice block and marks the block as shown, not answered. Never on a quiz or mock exam block.</td><td>Block result <code>revealed</code>. It never raises a level and becomes a review item.</td></tr>
+<tr><td>Drops a file or pastes notes</td><td>"Got it, your Lecture 7 slides." Adds it to the goal and uses it from the next block.</td><td>The same intake as everywhere. The snapshot is rebuilt every turn, so new passages are available at once.</td></tr>
+<tr><td>Says "this isn't on my test"</td><td>Asks what is. Fixes the topic list or the scope note, and flags the source as possibly wrong.</td><td>Writes the goal's scope note. The planner and the next snapshot use it.</td></tr>
+<tr><td>Runs out of time</td><td>Wraps up at the limit: one line on what they got and what is next. The unfinished phase resumes next time.</td><td>The app enforces the time budget and calls wrap-up.</td></tr>
+<tr><td>Leaves, closes the app, or the model fails</td><td>Everything answered is saved. Next open: "Right where we left off" with Resume.</td><td>Sessions and blocks are saved as they happen. Already built.</td></tr>
+</table>
+
+<h2 id="screens">Screens</h2>
+<p>The mock is normative for layout, hierarchy, copy tone and states. Open each state; the table under the frame names the data and the rule for every part.</p>
+<table>
+<tr><th>State</th><th>Link</th><th>Must be true</th></tr>
+<tr><td>1 Nothing yet</td><td><a href="learn-concept.html#learn/empty">#learn/empty</a></td><td>One question, one intake box, one filled button. If no school is connected, Choose a file is the filled button.</td></tr>
+<tr><td>2 Finding exams</td><td><a href="learn-concept.html#learn/finding">#learn/finding</a></td><td>Read-only scan of every class, one line per class filling in as it goes. Ends in Confirm. Never creates anything by itself.</td></tr>
+<tr><td>3 Confirm</td><td><a href="learn-concept.html#learn/confirm">#learn/confirm</a></td><td>Same screen after a scan or a dropped file. Each exam shows the sentence it came from. Add creates the ticked exams, already filled with date, topics and materials. Something's not right lets the student correct Inky.</td></tr>
+<tr><td>4 Exams</td><td><a href="learn-concept.html#learn/exams">#learn/exams</a></td><td>Every exam row visible, colour-coded by class, sorted by date. One selected; its detail sits under the list. Click MA 241 for the needs-info state. Change or fix something replaces any edit form.</td></tr>
+<tr><td>Finding materials</td><td><a href="learn-concept.html#learn/scanning">#learn/scanning</a> → <a href="learn-concept.html#learn/scandone">#learn/scandone</a></td><td>Entered from Find more on Northstar, from an exam with nothing yet, or from the offer after adding an exam. One class only, read-only. Status sits at the top of the exam detail, the page stays usable. When done: one line saying what was found and what changed, each item can be unlinked, OK dismisses.</td></tr>
+<tr><td>Add an exam</td><td><a href="learn-concept.html#learn/addexam">#learn/addexam</a> → <a href="learn-concept.html#learn/added">#learn/added</a></td><td>Opens in place under the list. One sentence; Inky shows how it read it; class buttons correct it. After adding, the new row is selected and Inky offers the materials scan once.</td></tr>
+<tr><td>Learn something else</td><td><a href="learn-concept.html#learn/else">#learn/else</a> → <a href="learn-concept.html#learn/topicgoal">#learn/topicgoal</a></td><td>One field, a 5 minute check, then Inky proposes an outline. The goal lives under a “Not for a test” label with no countdown and no readiness bar.</td></tr>
+<tr><td>Session blocks</td><td><a href="learn-concept.html#tutor/probe">#tutor/probe</a> … <a href="learn-concept.html#tutor/recap">recap</a></td><td>Header shows the five phases. Press How this works on any block to see the tool call and the rule the app enforces.</td></tr>
+<tr><td>Quiz result</td><td><a href="learn-concept.html#tutor/quiz">#tutor/quiz</a></td><td>Score by topic, how many questions came from their own materials, one filled button into the weakest topic.</td></tr>
+</table>
+<div class="never"><b>The implementer must not</b><ul>
+<li>add a sidebar, tabs, status pills, tinted cards, or a second filled button on a screen;</li>
+<li>compute anything on the Learn page from a goal other than the selected one, or fall back to another goal when data is missing;</li>
+<li>build an edit form for a goal. One change at a time, by sentence or by one tap;</li>
+<li>put exam actions inside source controls or the reverse. Add an exam and Add a file are different controls;</li>
+<li>hardcode topics, suggestions, course names or placeholder text from fixtures (<code>"ST 370 syllabus"</code> is in the shipped component today);</li>
+<li>poll. <code>onChange</code> exists on both coordinators; wire it (<code>main.ts:1677</code>);</li>
+<li>layer new CSS over the old. Delete the Learn rules in <code>redesign.css:1146-1420</code>, <code>1995-2120</code>, <code>2249-2401</code> and write them once.</li>
+</ul></div>
+
+<h2 id="model">Data</h2>
+<pre>// desktop/shared/learn.ts
+Goal        { goalId, kind: "exam"|"course"|"topic", courseId|null, title,
+              date|null, dateOrigin: "source"|"student", scopeNote|null, createdAt, updatedAt }
+LearnSource { …today's fields, goalIds: string[],
+              role: "syllabus"|"study_guide"|"slides"|"past_test"|"notes"|"assignment"|"other",
+              kind: …|"link" }
+SourceChunk { sourceId, index, text }                      // built at import, keyword-scored
+LearnTopic  { …today's fields, goalId (was examId), style: "conceptual"|"factual"|"procedural",
+              quotes: string[] }                           // extraction quotes are kept now
+ReviewItem  { itemId, topicId, blockRef, dueAt, interval } // missed unaided questions
+QuizItem    { itemId, goalId, topicId, format: "choice"|"typed"|"explain", prompt,
+              answer|rubric, sourceRef|null, difficulty, verified: boolean }
+GoalSummary { goalId, title, courseLabel, colour, date, daysLeft, readiness, sourceCount, needs: ("date"|"topics")[] }
+LearnState  { selectedGoalId, goals: GoalSummary[], detail: { goal, topics, mastery, sources, plan, sessions } | null }</pre>
+<ul>
+<li>Migration: each <code>Exam</code> becomes a <code>Goal{kind:"exam"}</code> with the same id. Free topics created by <code>createFreeTopic</code> become <code>Goal{kind:"topic"}</code> with one topic.</li>
+<li><code>planLearn</code> requires <code>goalId</code> and never chooses one. Default selection is decided once, in main: nearest dated exam, else first goal.</li>
+<li>Learner profile uses the notes store: <code>scope:"student"</code> or <code>"course"</code>, <code>about:"knowledge"</code>. Add a <code>learn</code> variant to <code>NoteRetrievalContext</code>.</li>
+<li>Graded assignments become <code>role:"assignment"</code> sources. The inert <code>homework_hint</code> topics go away.</li>
+</ul>
+<h3>IPC</h3>
+<table>
+<tr><th>Call</th><th>Does</th></tr>
+<tr><td><code>getLearnState({selectedGoalId?})</code></td><td>Returns <code>LearnState</code>. Also pushed on every change.</td></tr>
+<tr><td><code>learnIntake({goalId?, text?, filePath?, url?})</code></td><td>Imports, classifies role and class, runs extraction, returns a proposal <code>{source, goals[], attachTo[]}</code> with quotes. Creates nothing but the source.</td></tr>
+<tr><td><code>confirmIntake({proposalId, accept[]})</code></td><td>Creates the goals and links.</td></tr>
+<tr><td><code>createGoal / updateGoal / removeGoal</code></td><td>Student-set date and title win over the source from then on.</td></tr>
+<tr><td><code>linkSource / unlinkSource({sourceId, goalId})</code></td><td>Sources are never deleted by unlinking.</td></tr>
+<tr><td><code>findExams()</code></td><td>Read-only scan of every class for syllabi, exam dates and materials. Returns a proposal; creates nothing.</td></tr>
+<tr><td><code>findMaterials({goalId})</code></td><td>Starts a <code>learn_materials</code> scan for the goal's class only. Confirm the first time per class. Result: <code>{linked[], newTopics[], nothingNew}</code>.</td></tr>
+<tr><td><code>reportGoalProblem({goalId, kind, text})</code></td><td>Opens a Learn chat turn with the goal attached.</td></tr>
+<tr><td><code>startTutorSession({goalId, topicId?, mode})</code></td><td>Modes: <code>topic</code>, <code>quiz</code>, <code>mock_exam</code>.</td></tr>
+</table>
+
+<h2 id="tutor">Tutor</h2>
+<h3>What it's sent every turn</h3>
+<pre>{ goal:    { title, courseLabel, date, daysLeft, scopeNote },
+  topic:   { title, style, weight, quotes },
+  excerpts:[ { sourceTitle, role, locator, text } ],   // top chunks for this topic, ≤ 6k chars
+  history: { lastResults, dueReviewItems },
+  profile: [ relevant notes ],
+  session: { phase, blocks, messages, minutesLeft } }</pre>
+<p>Prompt, in short: teach what this exam tests, in the formats the student's study guide and past tests use; spend time by weight and days left; when a block is based on an excerpt, pass its <code>sourceRef</code>. Free topics keep “teach from first principles”. Source text stays marked as untrusted data.</p>
+
+<h3>Phases (the app owns them)</h3>
+<table>
+<tr><th>Phase (label)</th><th>Tools offered</th><th>Leaves when</th><th>Counts toward level</th></tr>
+<tr><td>probe (Check)</td><td>ask_choice, ask_typed, ask_explain. Due review items first.</td><td>≥1 answered</td><td>Can lower only</td></tr>
+<tr><td>teach (Learn)</td><td>say, ask_predict, show, ask_explain</td><td>≥1 student response</td><td>No</td></tr>
+<tr><td>guided (Practise)</td><td>ask_typed with hints, ask_explain, show</td><td>≥2 answered</td><td>Can lower only</td></tr>
+<tr><td>independent (On your own)</td><td>ask_typed without hints, ask_explain</td><td>≥2 answered, exam format</td><td>Yes, the only phase that can raise it</td></tr>
+<tr><td>recap (Wrap up)</td><td>say, observe, finish</td><td>finish</td><td>n/a</td></tr>
+</table>
+<ul>
+<li>The model asks to move on with <code>tutor_advance</code>. The repository checks the exit condition and the tool list is rebuilt for the new phase.</li>
+<li><code>openBlock</code> rejects a third <code>tutor_say</code> in a row and any tool outside the phase. The error text tells the model what to do instead.</li>
+<li>A probe answered correctly with confidence lets the tutor skip teach. A short session (5 min) is probe then independent.</li>
+<li>Level moves at most one step per session, up only with a correct unaided answer.</li>
+</ul>
+<h3>Style by topic</h3>
+<table>
+<tr><th><code>topic.style</code></th><th>How teach and guided run</th></tr>
+<tr><td>conceptual (maths, physics, stats)</td><td>Puzzle first. <code>ask_predict</code> before any reveal. A scene to explore. The smallest nudge that unblocks. The student states the rule; then the tutor names it.</td></tr>
+<tr><td>factual (terms, dates, anatomy)</td><td>Retrieval before reading. Short reads. Misses come back later in the same session.</td></tr>
+<tr><td>procedural (code, accounting, lab methods)</td><td>Worked example, then the same shape with steps removed, then alone.</td></tr>
+</table>
+<h3>Tools</h3>
+<table>
+<tr><th>Tool</th><th>Change</th><th>Notes</th></tr>
+<tr><td><code>tutor_say</code></td><td>capped</td><td>Two in a row, then a question is required.</td></tr>
+<tr><td><code>tutor_ask_choice / typed / explain</code></td><td>+ <code>sourceRef?</code>; explain gets <code>probe: reasoning|assumption|transfer</code></td><td>Typed accepts numeric equivalents (<code>0.5</code>, <code>1/2</code>, <code>50%</code>) before falling to the grader.</td></tr>
+<tr><td><code>tutor_ask_predict</code></td><td>new</td><td>The reveal is withheld from the renderer until the student commits.</td></tr>
+<tr><td><code>tutor_show</code></td><td>replaces <code>tutor_show_model</code></td><td>Scene or applet, see Visuals.</td></tr>
+<tr><td><code>tutor_observe</code></td><td>new</td><td>Writes a profile note. Shown to the student at wrap up, removable.</td></tr>
+<tr><td><code>tutor_advance</code></td><td>new</td><td>Phase change request.</td></tr>
+<tr><td><code>tutor_finish</code></td><td>same</td><td>Evidence must come from independent-phase blocks to raise a level.</td></tr>
+</table>
+<h3>Grading</h3>
+<p>Explain and predict answers go to a separate one-shot grader session: rubric (written before the answer), the answer, the source excerpt. It returns pass or fail per rubric line and a misconception if it sees one. The tutor gets the verdict as the tool result and cannot change it, the same way typed verdicts work today (<code>learn-records.ts:352</code>).</p>
+<h3>Missed questions</h3>
+<p>Every wrong independent answer becomes a <code>ReviewItem</code> due in 1, then 3, then 7 days, never past the exam date. The next probe pulls due items first. This replaces the fixed three-day recap in <code>planLearn</code>.</p>
+
+<h2 id="visuals">Visuals</h2>
+<table>
+<tr><th>Tier</th><th>What</th><th>Safety</th></tr>
+<tr><td>Scene (default)</td><td>A declarative spec Studi draws: axes, plot(expr), points, vectors, shapes, table, dot grid, node-and-edge diagram, step-through sequence, sliders. Any number can be an expression over slider names. The <a href="learn-concept.html#tutor/scene">Bayes grid</a> is one.</td><td>Schema-validated. Expressions run in a small parser: numbers, names, <code>+ - * / ^ ( )</code>, a fixed function list. No <code>eval</code>.</td></tr>
+<tr><td>Applet (long tail, flagged)</td><td>Model-written self-contained HTML and JS for things scenes can't do.</td><td>The existing opaque sandbox iframe. No network, no storage, strict CSP, 200 KB cap, <code>postMessage</code> only. Loaded hidden first; must post <code>ready</code> within 2 s with no errors or the tutor is told to fall back. Interactions come back as <code>{event, values}</code>.</td></tr>
+</table>
+<p>Working applets are cached by topic and content hash, so the library grows from use. The five current widgets become scene presets. Ship scenes first; turn applets on only when the simulated-student suite shows a load success rate we accept.</p>
+
+<h2 id="tests">Practice tests and quizzes</h2>
+<ul>
+<li>A background job per exam goal, rerun when sources change, writes <code>QuizItem</code>s: from <code>past_test</code>, <code>assignment</code> and <code>study_guide</code> chunks first, same formats and difficulty, each with its <code>sourceRef</code>.</li>
+<li>A second pass answers each item cold. If it disagrees with the key, the item is dropped. Only <code>verified</code> items are served.</li>
+<li>A goal with no such sources still gets items, and the result screen says they aren't based on the student's own tests.</li>
+<li>Topic quiz: 5 minutes, from the goal detail. Full practice exam: timed, topic weights respected, available any time. Two days before the exam Inky suggests it in the Today row. Both run as sessions with no teaching, graded by the app and the grader, feeding mastery and review items.</li>
+</ul>
+
+<h2 id="harness">Agent runtime and test harness</h2>
+<h3>Runtime</h3>
+<ul>
+<li>Same shape as today: a Pi session with a raw system prompt, tools executed by the app, state rebuilt from SQLite on every launch (<code>tutor-coordinator.ts #run</code>).</li>
+<li>Tools are created per launch from <code>session.phase</code>; the six-tool boundary check becomes a per-phase boundary check.</li>
+<li>Grader, intake classifier and item-bank builder are single-purpose sessions through <code>createLearningSession</code>, like extraction.</li>
+<li>Delete the dead <code>{kind:"tutor"}</code> agent target, <code>roles/tutor</code> pack and the <code>not_supported</code> phase.</li>
+</ul>
+<h3>How each kind of behaviour is tested</h3>
+<div class="key"><span class="tag det">Deterministic: node tests on the repository and planner, no model</span><span class="tag ui">UI journey: preview fixtures driven like <code>release-learning.journey.mjs</code></span><span class="tag sim">Simulated student: a model plays a persona against the real tutor, a judge scores the transcript</span><span class="tag live">Live: real account, real school or fake LMS, by hand or the QA skill</span></div>
+<p>Simulated students live in <code>agent-harness/tutor/</code>. A persona file says what the student knows, one planted misconception, and how they behave (guesses when stuck, terse, asks for the answer). The judge returns yes or no with a quoted line for each check in the story. Run each persona three times; a story passes at three of three.</p>
+<p>The fake LMS gains, per course: a syllabus page, a study guide PDF, a slides page, and a graded past quiz, so the materials scan runs end to end.</p>
+
+<h2 id="stories">User stories and expected behaviour</h2>
+<p>Each build step is done when its stories pass. “Expected” is what a tester checks; if it isn't observable, it isn't a requirement.</p>
+
+<h3>A. Getting set up</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Steps</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">A1</td><td>First time, school connected</td><td>Open Learn with no goals. Press Find my exams.</td><td>Empty state shows one question, the intake box, one filled button. Scan runs read-only. Found syllabus produces a confirm list with quotes. Nothing exists until Add.</td><td><span class="tag ui">UI</span> <span class="tag live">Live</span></td></tr>
+<tr><td class="id">A2</td><td>Drop a syllabus PDF</td><td>Drop a PDF with two exams.</td><td>Proposal lists both exams with date and quote. Unticking one creates only the other. The source is saved and linked to the class.</td><td><span class="tag det">Det</span> <span class="tag ui">UI</span></td></tr>
+<tr><td class="id">A3</td><td>Type it</td><td>Type “CS 230 midterm Oct 3, chapters 1 to 4”.</td><td>Proposal: exam goal, class matched to the scanned CS 230, date Oct 3, scope note kept. No topics yet, so the goal opens in needs-topics state.</td><td><span class="tag sim">Sim</span> (classifier) <span class="tag ui">UI</span></td></tr>
+<tr><td class="id">A4</td><td>Image-only PDF</td><td>Drop a scanned handout with no text.</td><td>Error sits next to the intake box: no readable text, paste it or try a photo. No goal, no broken source row.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">A5</td><td>Same file twice</td><td>Drop the same syllabus again.</td><td>No duplicate source, no duplicate exams. Inky says it already has it.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">A6</td><td>Not a syllabus</td><td>Drop lecture slides.</td><td>Role is slides. Inky asks which exam it's for, defaulting to the selected goal. No exams invented.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">A7</td><td>A link</td><td>Paste a public URL, then a school URL.</td><td>Public link fetched and imported. School link goes through the school browser; if signed out, asks for sign-in and doesn't fail silently.</td><td><span class="tag live">Live</span></td></tr>
+</table>
+
+<h3>B. The dashboard</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Steps</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">B1</td><td>Several exams</td><td>Three goals across two classes.</td><td>All rows visible, sorted by date, undated last, class colours match Homework. Nearest dated exam selected.</td><td><span class="tag det">Det</span> <span class="tag ui">UI</span></td></tr>
+<tr><td class="id">B2</td><td>Switch exams (the Midterm 1 bug)</td><td>Select Midterm 1, then upload a file, save a date, run a scan.</td><td>After every action the headline, Today row, topics and sources still describe Midterm 1. No frame shows another goal's topic. Assert on every response: <code>detail.goal.goalId === selectedGoalId</code>.</td><td><span class="tag det">Det</span> <span class="tag ui">UI</span></td></tr>
+<tr><td class="id">B3</td><td>Two exams in one class</td><td>Add Midterm 2 to CS 230 with + Add an exam.</td><td>A new goal is created. Midterm 1 is untouched. The syllabus source is linked to both.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">B4</td><td>Exam with no date or topics</td><td>Select it.</td><td>Headline says what's missing. Detail shows the intake box scoped to that goal and Look in the class. No Today row, no empty section, no other goal's data.</td><td><span class="tag ui">UI</span></td></tr>
+<tr><td class="id">B5</td><td>Fix a wrong date</td><td>Change or fix something, Change the date, Save. Or type “it moved to the 27th”.</td><td>Countdown, order and plan update at once. A later rescan with the old date does not overwrite it.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">B6</td><td>Report a problem</td><td>Change or fix something, then “chapter 3 isn't on it”.</td><td>Inky replies in place saying exactly what it changed, with Undo. The topic is detached, weights and readiness recompute. Sessions already done on that topic are kept.</td><td><span class="tag sim">Sim</span> <span class="tag det">Det</span></td></tr>
+<tr><td class="id">B7</td><td>Add and remove sources</td><td>Open Studying from, add a file, remove one.</td><td>New file shows role and “You added”. Removing unlinks only; the source still serves other goals.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">B8</td><td>Find materials</td><td>Find more on Northstar.</td><td>First time per class asks to confirm. Page stays usable, items appear as found, Stop works, a finished scan leaves no spinner.</td><td><span class="tag live">Live</span> (fake LMS)</td></tr>
+<tr><td class="id">B9</td><td>Hierarchy</td><td>Every state.</td><td>Exactly one filled button. Sources and the change panel closed by default. No multi-field forms. No pills, no sidebar.</td><td><span class="tag ui">UI</span> (count <code>.primary</code>)</td></tr>
+<tr><td class="id">B10</td><td>Remove an exam</td><td>Change or fix something, Remove this exam, confirm.</td><td>Confirm dialog. Goal and its plan go; sources and mastery stay. Selection moves to the next exam.</td><td><span class="tag det">Det</span></td></tr>
+</table>
+
+<h3>C. A tutor session</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Persona or steps</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">C1</td><td>Asks before telling</td><td>Any persona, new topic.</td><td>First block is a question. Never three <code>tutor_say</code> in a row. At least four questions in a 15 minute session.</td><td><span class="tag det">Det</span> <span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C2</td><td>Uses their material</td><td>Goal has a study guide and a past quiz.</td><td>At least half the questions carry a <code>sourceRef</code> that resolves to a supplied excerpt. The source line shows under those blocks.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C3</td><td>Finds a planted misconception</td><td>Persona confuses P(A|B) with P(B|A).</td><td>The tutor asks a question that exposes it, addresses it, and records it with <code>tutor_observe</code>. The note appears at wrap up.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C4</td><td>Predict before reveal</td><td>Conceptual topic.</td><td>The reveal payload is absent from the public session until the prediction is committed.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">C5</td><td>“Just tell me the answer”</td><td>Persona asks for the answer right away.</td><td>Tutor gives the next hint, not the answer, until the hints run out. Then it shows the worked answer and the block counts as incorrect.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C6</td><td>Already knows it</td><td>Persona answers the probe fast and right.</td><td>Teach is skipped. Session goes to harder unaided questions. Level can rise one step.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C7</td><td>Honest grading</td><td>Persona writes a confident, wrong explanation.</td><td>Grader fails the rubric lines. Tutor can't mark it correct. Level doesn't rise.</td><td><span class="tag det">Det</span> <span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C8</td><td>Hints don't buy mastery</td><td>All answers right, all with hints.</td><td>Level unchanged. Wrap up says what's still to show unaided.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">C9</td><td>Number formats</td><td>Answer “1/2”, “0.5”, “50 %”.</td><td>All accepted for an answer of 50%.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">C10</td><td>Question mid-block</td><td>Type a question while a block is open.</td><td>Inky answers, the same block stays open with its draft, no duplicate block.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">C11</td><td>Pause, quit, reopen</td><td>Pause, close the app, reopen, Continue.</td><td>Same phase, same open block, time not charged while closed.</td><td><span class="tag det">Det</span> <span class="tag live">Live</span></td></tr>
+<tr><td class="id">C12</td><td>Misses come back</td><td>Miss an unaided question; start a session after the due date.</td><td>The first probe question revisits it. Right answer pushes the interval out; wrong resets it.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">C13</td><td>Close to the exam</td><td>Same topic at 14 days and at 1 day.</td><td>At 1 day: no long teaching, mixed exam-format questions, weakest heavy topics first.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C14</td><td>Style fits the topic</td><td>One conceptual, one factual, one procedural topic.</td><td>Conceptual uses predict and a scene. Factual opens with retrieval. Procedural shows a worked example then fades steps.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C15</td><td>Profile carries over</td><td>Second session after C3.</td><td>The note is in the snapshot. The tutor checks the old misconception early. Removing the note at wrap up removes it from later snapshots.</td><td><span class="tag det">Det</span> <span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">C16</td><td>Model fails mid-session</td><td>Kill the provider.</td><td>Session pauses with a plain message next to the block. Resume works. No lost answers.</td><td><span class="tag det">Det</span></td></tr>
+</table>
+
+<h3>D. Visuals</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">D1</td><td>Scene with a slider</td><td>Dragging updates counts and readout live. Explored values are returned to the tutor.</td><td><span class="tag ui">UI</span></td></tr>
+<tr><td class="id">D2</td><td>Bad scene spec</td><td>Rejected at the tool boundary with a message the model can act on. The student sees nothing broken.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">D3</td><td>Hostile expression</td><td><code>constructor.constructor("…")()</code> and similar fail to parse.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">D4</td><td>Applet that throws or hangs</td><td>Never shown. Tutor falls back to a scene or words within the same turn.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">D5</td><td>Applet tries the network</td><td>Blocked by CSP; logged; applet not cached.</td><td><span class="tag det">Det</span></td></tr>
+</table>
+
+<h3>E. Practice tests</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">E1</td><td>Quiz from their own tests</td><td>With a past quiz as a source, most items carry its <code>sourceRef</code> and match its formats. The result screen says how many.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">E2</td><td>Wrong answer key</td><td>An item whose key the verifier disputes is never served.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">E3</td><td>Mock exam</td><td>Available any time; suggested in the Today row from two days out. Timed. Every topic covered by weight. Can't finish as passed with unanswered topics.</td><td><span class="tag det">Det</span> <span class="tag ui">UI</span></td></tr>
+<tr><td class="id">E4</td><td>Result leads somewhere</td><td>Score by topic, one filled button into the weakest heavy topic. Misses become review items.</td><td><span class="tag ui">UI</span> <span class="tag det">Det</span></td></tr>
+<tr><td class="id">E5</td><td>No materials</td><td>Quiz still works; says it isn't based on their tests; offers Find materials.</td><td><span class="tag ui">UI</span></td></tr>
+</table>
+
+<h3>F. Not for a test</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">F1</td><td>Learn something else</td><td>Creates a topic goal as a row under the exams. No countdown, no readiness percent. The rest of the page stays.</td><td><span class="tag ui">UI</span></td></tr>
+<tr><td class="id">F2</td><td>Free-topic session</td><td>Probe first, then Inky proposes a short outline the student can change. First-principles teaching. Files can be added to the goal.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">F3</td><td>Long session</td><td>60 minutes across several topics: phases repeat per topic, a break is offered, the saved-content budget isn't hit.</td><td><span class="tag det">Det</span></td></tr>
+</table>
+
+<h3>G. Across days</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">G1</td><td>Selected exam stays selected</td><td>Select Midterm 1, then add a source, save a date and retry a failed source. After each, the header, Today, the path, readiness and Start all name Midterm 1.</td><td><span class="tag ui">UI</span></td></tr>
+<tr><td class="id">G2</td><td>First session is a check</td><td>A new exam with five topics. The first session asks one or two questions per topic, teaches nothing, and every topic has a level after it.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">G3</td><td>Missed day</td><td>Skip a day on the fake clock. The path shifts, nothing is marked late, and today's topic follows the same rule.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">G4</td><td>Behind schedule</td><td>Three days left, five weak topics. Good and Solid topics leave the path and the one-line explanation appears.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">G5</td><td>Day before and test day</td><td>Day before: only review items. Test day: only the optional warm-up.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">G6</td><td>After the test</td><td>The next day shows "How did it go?". A later scan that finds the grade reports it once. Weak topics carry to the final in the same class.</td><td><span class="tag live">Live</span></td></tr>
+<tr><td class="id">G7</td><td>Class goal becomes a test goal</td><td>A class goal exists. A scan finds its midterm. One confirm line, then the goal has a date and a countdown.</td><td><span class="tag live">Live</span></td></tr>
+</table>
+
+<h3>H. Inside a lesson</h3>
+<table>
+<tr><th>#</th><th>Story</th><th>Expected</th><th>Test</th></tr>
+<tr><td class="id">H1</td><td>Question mid-block</td><td>A short answer, then the same block is still open and answerable.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">H2</td><td>"I already know this"</td><td>Jumps to an on-your-own question. A wrong answer steps back one phase. The level moves only on on-your-own answers.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">H3</td><td>"Just tell me"</td><td>Shown on practice blocks, marked revealed, becomes a review item. Politely refused on quiz and mock blocks.</td><td><span class="tag det">Det</span></td></tr>
+<tr><td class="id">H4</td><td>File dropped mid-lesson</td><td>The next question is traceable to a passage from that file.</td><td><span class="tag sim">Sim</span></td></tr>
+<tr><td class="id">H5</td><td>Another topic asked about</td><td>It is added to the list. The current topic does not change.</td><td><span class="tag sim">Sim</span></td></tr>
+</table>
+
+<h2 id="build">Build order</h2>
+<p>Each step ships alone and is checked in the real app before the next starts.</p>
+<div class="phase"><b>1</b><div><h3>Goal model and dashboard</h3>Fixes the first four rows of <a href="#broken">Broken today</a>. Schema and migration, <code>LearnState</code> with <code>selectedGoalId</code>, goal-required planner, push updates, new LearnScreen from the mock, Edit and Something wrong?, delete old CSS layers and duplicate controls.<div class="done"><b>Done when</b> B1 to B7, B9, B10 pass.</div></div></div>
+<div class="phase"><b>2</b><div><h3>Intake</h3><code>learnIntake</code> and <code>confirmIntake</code>, role classification, goal-linked sources, files and text first, links second.<div class="done"><b>Done when</b> A1 to A7 pass.</div></div></div>
+<div class="phase"><b>3</b><div><h3>Grounded tutor</h3>Keep quotes, chunk sources, new snapshot, <code>sourceRef</code> on blocks and the source line in TutorScreen.<div class="done"><b>Done when</b> C2 passes and a baseline of C1, C3, C5, C7 is recorded.</div></div></div>
+<div class="phase"><b>4</b><div><h3>Simulated students</h3>Personas, judge, three-run rule, report. Built before step 5 so step 5 is measured.<div class="done"><b>Done when</b> the suite runs from one command and the baseline is saved in <code>docs/reports/</code>.</div></div></div>
+<div class="phase"><b>5</b><div><h3>Phases, grader, new tools, profile, review items</h3><div class="done"><b>Done when</b> C1 and C3 to C16 pass and beat the baseline.</div></div></div>
+<div class="phase"><b>6</b><div><h3>Materials scan</h3><code>learn_materials</code> scan kind, material reader freed from assignments, fake-LMS materials.<div class="done"><b>Done when</b> B8 passes on the fake LMS and once on a real school.</div></div></div>
+<div class="phase"><b>7</b><div><h3>Item bank, quiz, mock exam</h3><div class="done"><b>Done when</b> E1 to E5 pass.</div></div></div>
+<div class="phase"><b>8</b><div><h3>Scenes, then applets behind a flag</h3><div class="done"><b>Done when</b> D1 to D5 pass; C14 uses a scene for the conceptual topic.</div></div></div>
+<div class="phase"><b>9</b><div><h3>Topic and course goals, long sessions</h3><div class="done"><b>Done when</b> F1 to F3 pass.</div></div></div>
+
+<h2>Open decisions</h2>
+<ul>
+<li>Applets: allow model-written code in the sandbox, or scenes only for the first release? This plan ships scenes first and applets behind a flag.</li>
+<li>Materials scan confirm: first time per class (assumed) or every time?</li>
+<li>Links behind the school login go through the school browser; public links use a plain fetch.</li>
+</ul>
+</main>
+</body>
+</html>

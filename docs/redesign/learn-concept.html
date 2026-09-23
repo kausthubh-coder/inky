@@ -1,0 +1,347 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studi Learn: concrete design</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="inky.css">
+<style>
+@font-face{font-family:"Nunito Sans";font-weight:400;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:700;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-600-normal.woff2") format("woff2")}
+/* Same tokens and type roles as concept.html. Type: display 30, voice 17, title 16, body 15, meta 13, label 12.5. Space: 4 base. */
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--blot2:#e9e0ce;--highlighter:#cdbcf0;--redpen:#b3452f;--csc:#a993d6;--st:#7fbf9f;--ma:#e2a35c;--r:10px}
+*{box-sizing:border-box}
+body{margin:0;background:#26221d;color:var(--pencil);font:400 15px/1.5 "Nunito Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,.voice{font-family:"Shantell Sans",cursive;font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:30px;line-height:1.1}h2{font-size:17px;line-height:1.2}
+p{margin:0;text-wrap:pretty}b{font-weight:700}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+input,textarea,select{font:inherit;color:inherit}
+.muted{color:var(--graphite)}.late{color:var(--redpen);font-weight:600}.num{font-variant-numeric:tabular-nums}.sm{font-size:13px}
+.label{font-size:12.5px;font-weight:600;color:var(--graphite);white-space:nowrap}
+.h{font-size:15px;font-weight:700;white-space:nowrap}
+:focus-visible{outline:2px solid var(--pencil);outline-offset:2px}
+
+/* concept chrome (not part of the app) */
+.bar{position:sticky;top:0;z-index:30;display:flex;gap:4px;align-items:center;padding:10px 18px;background:#26221d;color:#cfc6b6;font-size:12.5px;flex-wrap:wrap}
+.bar strong{color:#f3ecdf;margin-right:14px}.bar a{color:#cfc6b6;margin-left:auto}
+.bar button{padding:4px 11px;border-radius:99px;color:#cfc6b6}.bar button[aria-current=true]{background:#f3ecdf;color:#26221d;font-weight:700}
+.scen{width:1244px;margin:0 auto 8px;display:flex;gap:4px;align-items:center;color:#8f8677;font-size:12.5px;flex-wrap:wrap}
+.scen span{margin-right:8px}.scen button{padding:3px 10px;border-radius:99px;color:#cfc6b6;border:1px solid #4a433a}.scen button.on{background:#4a433a;color:#f3ecdf}
+.screen{padding:0 18px 28px}
+.frame{width:1244px;height:790px;margin:0 auto;border-radius:12px;overflow:hidden;background:var(--paper);display:flex;flex-direction:column;position:relative}
+.spec{width:1244px;margin:14px auto 0;color:#cfc6b6;font-size:13px}
+.spec h3{font:600 15px "Shantell Sans";color:#f3ecdf;margin:0 0 8px}
+.spec table{width:100%;border-collapse:collapse}.spec th{text-align:left;color:#8f8677;font-weight:600;padding:0 14px 6px 0;border-bottom:1px solid #4a433a}
+.spec td{padding:7px 14px 7px 0;border-bottom:1px solid #3a342d;vertical-align:top}.spec td:first-child{color:#f3ecdf;font-weight:600;white-space:nowrap}
+.spec code{font:12px ui-monospace,Consolas,monospace;color:#d8c9f5}
+
+/* controls: one filled, then outlined, quiet, ghost, dashed, text+caret */
+.btn,.q{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;font-weight:600;border-radius:var(--r);transition:transform .1s ease-out,background-color .15s ease-out}
+.btn:active,.q:active{transform:scale(.96)}
+.btn{height:36px;padding:0 16px;font-size:14px;background:var(--page);box-shadow:0 0 0 1.5px var(--pencil)}
+.btn.pri{background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil),0 2.5px 0 1.5px var(--pencil)}
+.btn.lg{height:44px;padding:0 22px;font-size:15px}
+.btn[disabled]{opacity:.45;cursor:default}
+.q{height:30px;padding:0 11px;font-size:13px;background:var(--blotter);border-radius:8px}.q:hover{background:var(--blot2)}
+.q.on{background:var(--pencil);color:var(--paper)}
+.q.ghost{background:none;box-shadow:inset 0 0 0 1px var(--blot2);color:var(--graphite)}.q.ghost:hover{background:var(--blotter);color:var(--pencil)}
+.q.dash{background:none;border:1.5px dashed #bdb3a3;font-family:"Shantell Sans";font-size:13.5px;height:34px}.q.dash:hover{background:var(--blotter)}
+.car{display:inline-block;font-size:10px;color:var(--graphite);transition:transform .15s ease-out}.open>.car,.on>.car{transform:rotate(180deg)}
+.disc{display:inline-flex;align-items:center;gap:6px;height:30px;font-size:13.5px;font-weight:600}.disc em{font-style:normal;color:var(--graphite)}.disc:hover{text-decoration:underline;text-underline-offset:3px}
+.wrongbtn{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:8px;font-size:13px;font-weight:600;color:var(--graphite)}
+.wrongbtn::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--redpen)}
+.wrongbtn:hover,.wrongbtn.on{background:color-mix(in srgb,var(--redpen) 10%,transparent);color:var(--redpen)}
+.lnk{text-decoration:underline;text-decoration-color:#cfc6b6;text-underline-offset:3px}
+
+/* shell */
+.top{display:flex;align-items:center;height:60px;padding:0 28px;flex:none}
+.top .logo{font:600 22px "Shantell Sans";width:280px}.top .right{width:280px;display:flex;justify-content:flex-end;align-items:center;gap:10px}
+.switch{margin:0 auto;display:grid;grid-template-columns:132px 132px;padding:4px;border-radius:14px;background:var(--blotter);position:relative}
+.switch .thumb{position:absolute;top:4px;left:136px;width:132px;height:34px;border-radius:10px;background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil),0 2px 0 1.5px var(--pencil)}
+.switch button{position:relative;height:34px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:600;font-size:14px;color:var(--graphite)}.switch button.on{color:var(--pencil);font-weight:700}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--blotter);display:grid;place-items:center;font-weight:700;font-size:12.5px}
+.status{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--graphite)}.status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st)}
+.page{flex:1;min-height:0;display:flex;flex-direction:column;position:relative}
+.colm{width:752px;margin:0 auto;padding:22px 16px 8px;flex:1;min-height:0;overflow:auto;scrollbar-width:none}
+.hello{display:flex;gap:18px;align-items:center;margin-bottom:22px}.hello p{margin-top:6px;font-size:16px;line-height:1.4}
+.sec{display:flex;align-items:center;justify-content:space-between;margin:26px 0 6px;gap:14px}
+.meter{height:4px;border-radius:9px;background:var(--blot2);overflow:hidden;width:90px}
+.meter i{display:block;height:100%;background:var(--pencil);transform-origin:left;transform:scaleX(var(--p,0))}
+
+/* goal rows: every exam is always visible. One is selected; its detail sits under the list. */
+.goal{margin:0 -14px 2px;border-radius:14px}
+.goal.open{background:var(--blotter);box-shadow:inset 3px 0 0 var(--highlighter)}
+.detail{margin:14px -14px 0;padding:16px 18px 16px 18px;border-radius:16px;background:var(--page);box-shadow:0 0 0 1.5px var(--pencil),0 3px 0 1.5px var(--pencil)}
+.detail .lead{margin-left:0}
+.ghead{display:grid;grid-template-columns:4px 1fr 150px 84px;gap:14px;align-items:center;width:100%;padding:8px 14px;border-radius:14px;transition:background-color .15s ease-out}
+.ghead:hover{background:var(--blotter)}.goal.open .ghead:hover{background:none}
+.ghead .cb{width:4px;height:30px;border-radius:4px;background:var(--c)}
+.ghead .t{font-weight:700;font-size:16px;line-height:1.3}.ghead .m{font-size:13px;color:var(--graphite);margin-top:1px}
+.ghead .rd{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--graphite)}
+.ghead .when{font-size:13px;color:var(--graphite);text-align:right}.ghead .when b{display:block;color:var(--pencil);font-size:14.5px}
+.lead{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:center;padding:12px 16px;margin:0 0 6px -16px;border-radius:12px;background:var(--blotter)}
+.lead .t{font-weight:700;font-size:16px}.lead .m{font-size:13px;color:var(--graphite);margin-top:2px}
+.topic{display:grid;grid-template-columns:1fr 84px 110px 64px;gap:16px;align-items:center;padding:8px 8px 8px 0;margin-right:-8px;font-size:14.5px;border-radius:8px}
+.topic:hover{background:var(--blotter)}.topic .go{opacity:0;font-size:13px;font-weight:600;text-align:right}.topic:hover .go{opacity:1}
+.topic .wt{font-size:12.5px;color:var(--graphite);margin-left:8px}
+.lvl{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.lvl i{height:6px;border-radius:2px;background:var(--blot2)}.lvl i.f{background:var(--pencil)}
+.lvl.none i{background:none;box-shadow:inset 0 0 0 1px var(--blot2)}
+.topic .lv{font-size:13px;color:var(--graphite)}
+.shelf{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.srcs{margin:6px 0 0;display:grid;gap:0}
+.srow{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;padding:6px 0;font-size:13.5px}
+.srow .role{font-size:12.5px;font-weight:600;color:var(--graphite)}.srow .from{font-size:12.5px;color:var(--graphite)}
+.x{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;color:var(--graphite)}.x:hover{background:var(--blot2);color:var(--redpen)}
+.edit{margin-top:12px;padding:14px 16px;border-radius:12px;background:var(--blotter)}
+.edit dl{display:grid;grid-template-columns:110px 1fr;gap:10px 14px;margin:0;align-items:center;font-size:13.5px}.edit dt{color:var(--graphite)}.edit dd{margin:0}
+.in{height:34px;border:0;box-shadow:0 0 0 1.5px var(--blot2);border-radius:8px;padding:0 10px;background:var(--page);width:100%;outline:0}.in:focus{box-shadow:0 0 0 1.5px var(--pencil)}
+textarea.in{height:auto;min-height:56px;padding:8px 10px;resize:none;display:block}
+.wrong{margin-top:12px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--redpen) 7%,var(--page))}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.need{padding:4px 0 2px;font-size:14.5px}
+.scanline{display:flex;gap:10px;align-items:center;margin-top:12px;font-size:13.5px}
+.found{font-size:13.5px;padding:3px 0 3px 38px;color:var(--graphite)}.found b{color:var(--pencil);font-weight:600}
+
+/* intake: one box for files, links, text, a sentence */
+.intake{border:1.5px dashed #bdb3a3;border-radius:16px;padding:18px 18px 14px;background:var(--page)}
+.intake textarea{width:100%;border:0;outline:0;background:none;resize:none;height:54px;font-size:16px}
+.intake textarea::placeholder{color:var(--graphite)}
+.intake .ways{display:flex;gap:8px;align-items:center;margin-top:6px}
+.confirm{margin-top:14px;padding:14px 16px;border-radius:14px;background:var(--blotter)}
+.pick{display:grid;grid-template-columns:20px 1fr auto;gap:10px;align-items:center;padding:7px 0;font-size:14.5px}
+.pick input{width:16px;height:16px;accent-color:var(--pencil)}
+
+/* dock */
+.dock{width:720px;margin:0 auto;padding:10px 0 16px;flex:none}
+.composer{display:flex;align-items:center;gap:8px;min-height:50px;padding:0 8px 0 12px;box-shadow:0 0 0 1.5px var(--pencil);border-radius:14px;background:var(--page)}
+.composer input{flex:1;border:0;background:none;outline:0;height:48px;min-width:0}.composer input::placeholder{color:var(--graphite)}
+.clip{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--blotter);font-size:18px;color:var(--graphite)}.clip:hover{background:var(--blot2);color:var(--pencil)}
+
+/* tutor */
+.lhead{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:58px;padding:0 24px;flex:none;border-bottom:1px solid var(--rule)}
+.lhead .mid{text-align:center}.lhead .end{white-space:nowrap;display:flex;gap:12px;justify-content:flex-end;align-items:center}
+.steps{display:flex;gap:6px;justify-content:center;margin-top:3px}
+.steps span{font-size:11.5px;font-weight:600;color:#b9b0a2;display:inline-flex;align-items:center;gap:5px}
+.steps span::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--blot2)}
+.steps span.done{color:var(--graphite)}.steps span.done::before{background:var(--pencil)}
+.steps span.now{color:var(--pencil)}.steps span.now::before{background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil)}
+.steps span+span{margin-left:8px}
+.past{display:grid;grid-template-columns:120px 1fr auto;gap:10px;padding:4px 0;font-size:13px;color:var(--graphite)}.past b{color:var(--pencil);font-weight:600}
+.says{display:flex;gap:12px;align-items:flex-start;margin:16px 0;min-height:52px}.says p{padding-top:6px;font-size:16.5px;line-height:1.35}
+.qh{font-weight:700;font-size:22px;line-height:1.3;text-wrap:balance}
+.srcline{font-size:12.5px;color:var(--graphite);margin-top:8px}
+.opts{display:grid;grid-template-columns:repeat(var(--n,3),1fr);gap:12px;margin-top:18px}
+.opt{box-shadow:0 0 0 1.5px var(--pencil);border-radius:12px;padding:14px 16px;background:var(--page);transition:transform .1s ease-out}
+.opt:active{transform:scale(.97)}.opt b{display:block;font:600 19px "Shantell Sans"}.opt span{font-size:13px;color:var(--graphite)}
+.opt.pick{background:var(--blotter)}.opt.right{background:var(--highlighter)}
+.ans{display:flex;gap:10px;align-items:center;margin-top:18px}
+.ans input{height:44px;width:180px;border:0;box-shadow:0 0 0 1.5px var(--pencil);border-radius:var(--r);padding:0 14px;background:var(--page);font-size:18px;outline:0}
+.ta{width:100%;min-height:92px;border:0;box-shadow:0 0 0 1.5px var(--pencil);border-radius:var(--r);padding:10px 12px;background:var(--page);resize:none;display:block;outline:0;margin-top:16px}
+.hint{font-family:"Shantell Sans";font-size:14.5px;padding:2px 0 2px 14px;border-left:3px solid var(--highlighter);margin-top:12px}
+.verdict{border-left:3px solid var(--highlighter);padding:4px 0 4px 14px;margin-top:16px;display:grid;gap:5px;font-size:14.5px}
+.verdict .ok::before{content:"✓ ";font-weight:700}.verdict .no{color:var(--redpen)}.verdict .no::before{content:"✗ ";font-weight:700}
+.scene{margin-top:14px;padding:16px;border-radius:14px;background:var(--page);box-shadow:0 0 0 1px var(--rule)}
+.people{display:grid;grid-template-columns:repeat(50,1fr);gap:2px;margin:0 auto 12px;max-width:560px}.people i{aspect-ratio:1;border-radius:50%;background:var(--blot2)}
+.people i.fp{background:var(--pencil)}.people i.sick{background:var(--redpen)}.people i.miss{background:none;box-shadow:inset 0 0 0 1.5px var(--redpen)}
+.legend{display:flex;gap:18px;font-size:13px;flex-wrap:wrap}.key{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.slider{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;margin-top:12px;font-size:13.5px}
+.slider input{accent-color:var(--pencil)}
+.wire{background:#26221d;color:#e9e1d2;border-radius:12px;padding:14px 16px;margin-top:18px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap}.wire b{color:var(--highlighter);font-weight:400}
+.noticed{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;padding:6px 0;font-size:14px}
+.res{display:grid;grid-template-columns:1fr 90px 70px;gap:16px;align-items:center;padding:8px 0;font-size:14.5px}.res .sc{text-align:right;font-weight:600}
+</style>
+</head>
+<body>
+<div class="bar"><strong>Studi Learn · concrete design</strong><span id="tabs"></span><a href="learn-plan.html">Build plan and stories →</a></div>
+<div id="app"></div>
+<script src="inky.js"></script>
+<script>
+const $=s=>document.querySelector(s);
+const inky=(st,z)=>`<span class="inky-mascot" data-state="${st}" style="width:${z}px;height:${z}px">${INKY[st]||INKY.idle}</span>`;
+const car=`<span class="car" aria-hidden="true">▼</span>`;
+const LV=["New","Shaky","Getting there","Good","Solid"];
+
+/* Fixture data. Shapes match the Goal / LearnTopic / LearnSource schemas in learn-plan.html. */
+const GOALS=[
+ {id:"st-mid",kind:"exam",course:"ST 370",c:"var(--st)",title:"Midterm 1",date:"Sep 25",days:6,ready:.4,readyText:"About 40% ready",
+  today:["Bayes' theorem","Your biggest gap for its share of the exam · 15 min"],
+  topics:[["Counting and sets",15,4],["Conditional probability",25,3],["Bayes' theorem",30,1],["Random variables",20,2],["Distributions",10,null]],
+  sources:[["Syllabus","ST 370 Syllabus.pdf","Northstar scan"],["Study guide","Midterm 1 review sheet.pdf","Northstar scan"],["Past test","Quiz 2 (graded 7/10)","Northstar scan"],["Slides","Lecture 7, Bayes.pdf","You added"]],
+  scope:"Chapters 1 to 5. Prof said no combinatorics proofs."},
+ {id:"csc-mid",kind:"exam",course:"CSC 316",c:"var(--csc)",title:"Midterm",date:"Oct 1",days:12,ready:.15,readyText:"2 of 4 topics checked",
+  today:["Heaps","Not checked yet · 5 min check first"],
+  topics:[["Heaps and priority queues",30,null],["Sorting",30,2],["Hash tables",25,1],["Graphs",15,null]],
+  sources:[["Syllabus","CSC 316 Syllabus","Northstar scan"]],scope:""},
+ {id:"ma-final",kind:"exam",course:"MA 241",c:"var(--ma)",title:"Final",date:null,days:null,ready:0,readyText:"",topics:[],sources:[],scope:"",need:true},
+ {id:"csc-final",extra:true,justAdded:true,kind:"exam",course:"CSC 316",c:"var(--csc)",title:"Final",date:"Dec 10",days:82,ready:0,readyText:"Nothing checked yet",today:["",""],
+  topics:[["Heaps and priority queues",0,null],["Sorting",0,2],["Hash tables",0,1],["Graphs",0,null],["Tries",0,null],["Dynamic programming",0,null]],sources:[["Syllabus","CSC 316 Syllabus","Northstar scan"]]},
+ {id:"py",extra:true,kind:"topic",course:"Not for a class",c:"var(--graphite)",title:"Python basics",when:"3 sessions",days:null,today:["Loops","You can read a for loop. Next is writing one · 15 min"],
+  topics:[["Variables and types",0,3],["Conditionals",0,2],["Loops",0,1],["Functions",0,null],["Lists and dictionaries",0,null]],sources:[]},
+];
+const S={screen:"learn",state:"exams",open:"st-mid",srcOpen:false,fixOpen:false,fix:null,cwrong:false,scene:"probe",wire:false,
+ pick:null,pred:"",revealed:false,rate:1,typed:"",hints:0,checked:false,explained:false,confirmOn:[true,true]};
+
+function topbar(){return `<div class="top"><div class="logo">studi</div><div class="switch" role="tablist"><span class="thumb"></span><button role="tab">Homework</button><button role="tab" class="on">${inky("done",20)}Learn</button></div><div class="right"><span class="status">School checked 8 min ago</span><span class="avatar">K</span></div></div>`}
+function dock(ph){return `<div class="dock"><div class="composer"><button aria-label="Talk to Inky" style="line-height:0">${inky("idle",30)}</button><input placeholder="${ph}"><button class="clip" aria-label="Add a file or link" title="Add a file or link">+</button></div></div>`}
+
+/* ============ Learn dashboard ============ */
+function lvl(n){return n===null?`<div class="lvl none" aria-label="Not checked"><i></i><i></i><i></i><i></i></div>`:`<div class="lvl" aria-label="Level ${n} of 4">${[0,1,2,3].map(i=>`<i class="${i<n?"f":""}"></i>`).join("")}</div>`}
+function goalRow(g){
+ const open=S.open==g.id&&S.state!="addexam"&&S.state!="else";
+ const head=`<button class="ghead" data-act="open" data-id="${g.id}" aria-pressed="${open}"><span class="cb" style="--c:${g.c}"></span><span><div class="t">${g.title}</div><div class="m">${g.course}${g.kind=="topic"?"":g.sources.length?` · ${g.sources.length} source${g.sources.length>1?"s":""}`:" · nothing to study from yet"}</div></span><span class="rd">${g.need||g.kind=="topic"?"":`<span class="meter"><i style="--p:${g.ready}"></i></span>`}</span><span class="when">${g.kind=="topic"?`<b class="muted" style="font-weight:600">${g.when}</b>`:g.days===null?`<b class="muted" style="font-weight:600">No date</b>`:`<b class="num">${g.days} days</b>${g.date}`}</span></button>`;
+ return `<div class="goal ${open?"open":""}">${head}</div>`}
+/* One control for every change. No form: pick what to change, or just say it. */
+function fixPanel(g){
+ const acts=g.kind=="topic"?[["outline","Change the outline"],["file","Add a file or link"],["remove","Stop learning this"]]:[["date","Change the date"],["addtopic","Add a topic"],["offtopic","Take a topic off"],["file","Add a file or link"],["class","Wrong class"],["remove","Remove this exam"]];
+ let extra="";
+ if(S.fix=="date")extra=`<div class="ans" style="margin-top:10px"><input class="in" type="date" value="2026-09-25" style="width:180px;height:36px"><button class="btn" data-act="fixsaid">Save</button><span class="sm muted">The syllabus says Sep 25. Yours wins from now on.</span></div>`;
+ else if(S.fix=="said")extra=`<div class="says" style="margin:12px 0 0;min-height:0">${inky("done",32)}<p class="voice" style="font-size:15px;padding-top:4px">Done. Took Counting and sets off Midterm 1. The other topics now add up to 100% and you're about 36% ready.</p><button class="q" data-act="fixclose" style="margin-left:auto">Undo</button></div>`;
+ else if(S.fix=="remove")extra=`<div class="ans" style="margin-top:10px"><span class="sm">Remove ${g.title}? Your files and what you've learned stay.</span><button class="btn" data-act="fixclose">Remove</button><button class="q" data-act="fixclose">Keep it</button></div>`;
+ return `<div class="wrong" style="background:var(--blotter)"><form data-act="fixform" style="display:flex;gap:8px"><input class="in" style="height:38px" placeholder="Tell Inky: “prof said counting isn't on it”, “it moved to the 27th”"><button class="btn" type="submit">Send</button></form><div class="chips">${acts.map(a=>`<button type="button" class="q ${S.fix==a[0]?"on":""}" style="${S.fix==a[0]?"":"background:var(--page)"}" data-act="fix" data-v="${a[0]}">${a[1]}</button>`).join("")}</div>${extra}</div>`}
+function goalDetail(g){
+ let body;
+ if(g.need){body=`<p class="need"><span class="voice">I know this exam exists, but not when it is or what's on it.</span></p><div class="intake" style="margin-top:10px"><textarea placeholder="Drop the syllabus or study guide here, or type it: “Dec 12, chapters 6 to 11”"></textarea><div class="ways"><button class="btn pri" data-state="scanning">Look in MA 241 on Northstar</button><button class="q">Choose a file</button><span style="flex:1"></span><button class="q ghost" data-act="noop">Remove this exam</button></div></div>`}
+ else if(g.kind=="topic"){body=`<div class="lead"><div><div class="t">Next: ${g.today[0]}</div><div class="m">${g.today[1]}</div></div><button class="btn pri lg" data-go="tutor">Start</button></div>
+  <div class="sec" style="margin-top:16px"><span class="h">Your outline</span><span class="label">Inky proposed it after your first check. Change it any time.</span></div>
+  ${g.topics.map(t=>`<div class="topic"><span>${t[0]}</span>${lvl(t[2])}<span class="lv">${t[2]===null?"Not checked":LV[t[2]]}</span><button class="go" data-go="tutor">Study →</button></div>`).join("")}
+  <div class="shelf"><button class="q" data-go="tutor" data-scene="quiz">Quiz me · 5 min</button></div>
+  <div class="sec"><span class="disc">Learning from <em>${g.sources.length?g.sources.map(s=>s[1]).join(", "):"what Inky knows. Add a book, course page or notes to steer it."}</em></span></div>
+  <div class="shelf" style="margin-top:12px"><button class="q ${S.fixOpen?"on":""}" data-act="fixopen">Change or fix something ${car}</button></div>${S.fixOpen?fixPanel(g):""}`}
+ else{
+  const scanning=S.state=="scanning"&&g.id=="st-mid",done=S.state=="scandone"&&g.id=="st-mid";
+  body=`${scanning?`<div class="scanline" style="margin-top:0">${inky("scanning",28)}<span><b>Looking through ST 370 on Northstar.</b> Read-only, about a minute. You can keep studying.</span><button class="q ghost" data-state="exams">Stop</button></div><div class="found"><b>Found</b> Midterm 1 review sheet.pdf · study guide</div><div class="found"><b>Found</b> Quiz 2, graded 7/10 · past test</div><div class="found">Checking Modules → Week 5…</div><div class="shelf" style="margin-left:38px"><button class="q" data-state="scandone">(mock) finish the scan</button></div>`:""}
+  ${done?`<div class="scanline" style="align-items:flex-start;margin-top:0">${inky("done",28)}<span><b>Found 3 things in ST 370 and added them to Midterm 1.</b><br><span class="muted">One new topic, and I'm rewriting your practice questions from Quiz 2. Today's plan didn't change.</span></span><button class="q" data-state="exams">OK</button></div>${[["Study guide","Midterm 1 review sheet.pdf"],["Past test","Quiz 2, graded 7/10"],["Slides","Lecture 7, Bayes.pdf"]].map(f=>`<div class="srow" style="margin-left:38px;grid-template-columns:96px 1fr auto"><span class="role">${f[0]}</span><span>${f[1]}</span><button class="q ghost" style="height:26px">Not for this exam</button></div>`).join("")}`:""}
+  ${scanning||done?`<div style="height:14px"></div>`:""}${g.justAdded?`<div class="says" style="margin-top:0">${inky("done",40)}<p class="voice" style="font-size:15.5px">Added. The CSC 316 syllabus lists six topics for the final. Want me to look for study materials too?</p></div><div class="shelf" style="margin:0 0 14px"><button class="btn pri" data-state="scanning">Find materials on Northstar</button><button class="q" style="height:36px">Add a file or link</button><button class="q ghost" style="height:36px" data-act="noop">Not now</button></div>`:`<div class="lead"><div><div class="t">Today: ${g.today[0]}</div><div class="m">${g.today[1]}</div></div><button class="btn pri lg" data-go="tutor">Start</button></div>`}
+  <div class="sec" style="margin-top:16px"><span class="h">What's on it</span><span class="label">${g.readyText}</span></div>
+  ${g.topics.map(t=>`<div class="topic"><span>${t[0]}<span class="wt num">${t[1]?t[1]+"%":""}</span></span>${lvl(t[2])}<span class="lv">${t[2]===null?"Not checked":LV[t[2]]}</span><button class="go" data-go="tutor">Study →</button></div>`).join("")}
+  ${done?`<div class="topic" style="background:color-mix(in srgb,var(--highlighter) 35%,transparent)"><span>Expected value<span class="wt">new, from the review sheet</span></span>${lvl(null)}<span class="lv">Not checked</span><span></span></div>`:""}
+  ${g.justAdded?"":`<div class="sec" style="margin:18px 0 4px"><span class="h">Test yourself</span><span class="label">No teaching. Questions like your teacher's, then a score by topic.</span></div><div class="shelf" style="margin-top:4px"><button class="q" data-go="tutor" data-scene="quiz">Quiz me · 5 min</button><button class="q" data-go="tutor" data-scene="quiz">Full practice exam · 40 min</button></div>`}
+  <div class="sec"><button class="disc ${S.srcOpen?"open":""}" data-act="src">Studying from <em>${g.sources.map(s=>s[0].toLowerCase()).join(", ")}${done?", + 3 new":""}</em> ${car}</button></div>
+  ${S.srcOpen?`<div class="srcs">${g.sources.map(s=>`<div class="srow"><span class="role">${s[0]}</span><span>${s[1]}</span><span class="from">${s[2]}</span></div>`).join("")}</div>${scanning||done?"":`<div class="shelf" style="margin-top:8px"><button class="q" data-state="scanning">Find more on Northstar</button><button class="q">Add a file or link</button></div>`}`:""}
+  <div class="shelf" style="margin-top:16px"><button class="q ${S.fixOpen?"on":""}" data-act="fixopen">Change or fix something ${car}</button></div>${S.fixOpen?fixPanel(g):""}`}
+ return `<div class="detail">${body}</div>`}
+const CLS=[["ST 370","var(--st)"],["CSC 316","var(--csc)"],["MA 241","var(--ma)"]];
+function renderLearn(){
+ let body;const st=S.state;
+ if(st=="empty"){body=`<div class="hello">${inky("hello",64)}<div><h1>What are you getting ready for?</h1><p class="muted">Give me anything about it. I'll work out the exams, the topics and a plan.</p></div></div>
+  <div class="intake"><textarea placeholder="Drop a syllabus or study guide, paste a link, or type “stats midterm next Friday, chapters 1 to 5”"></textarea><div class="ways"><button class="btn pri" data-state="finding">Find my exams on Northstar</button><button class="q" data-state="confirm">Choose a file</button><span style="flex:1"></span><span class="sm muted">PDF, text, links, photos of a handout</span></div></div>
+  <div class="shelf" style="margin-top:18px"><button class="q dash" data-state="else">+ Learn something that isn't for a class</button></div>`}
+ else if(st=="finding"){body=`<div class="hello">${inky("scanning",64)}<div><h1>Looking for your exams.</h1><p class="muted">I'm reading your three classes on Northstar. I only look, I never submit anything. About two minutes.</p></div></div>
+  ${[["ST 370","var(--st)","Syllabus · 2 exams · review sheet · Quiz 2"],["CSC 316","var(--csc)","Syllabus · 1 exam"],["MA 241","var(--ma)","Checking Announcements…"]].map((c,i)=>`<div class="ghead" style="grid-template-columns:4px 120px 1fr;cursor:default"><span class="cb" style="--c:${c[1]}"></span><b>${c[0]}</b><span class="${i==2?"muted":""}">${c[2]}</span></div>`).join("")}
+  <div class="shelf" style="margin-top:16px"><button class="q ghost" data-state="empty">Stop</button><span style="flex:1"></span><button class="q" data-state="confirm">(mock) finish the scan</button></div>`}
+ else if(st=="confirm"){body=`<div class="hello">${inky("thinking",64)}<div><h1>I found three exams.</h1><p class="muted">Tick the ones you want to study for. Nothing is added until you say so.</p></div></div>
+  <div class="confirm">${[["var(--st)","ST 370 · Midterm 1","Sep 25 · 5 topics with weights · review sheet and Quiz 2 found","“Midterm 1: Thursday September 25, in class”"],["var(--st)","ST 370 · Final","Dec 12 · topics not listed yet","“Final exam: December 12, 8 AM”"],["var(--csc)","CSC 316 · Midterm","Oct 1 · 4 topics","“Midterm: Oct 1, covers weeks 1 to 6”"]].map(e=>`<label class="pick" style="grid-template-columns:20px 4px 1fr"><input type="checkbox" checked><span style="width:4px;height:34px;border-radius:4px;background:${e[0]}"></span><span><b>${e[1]}</b> <span class="sm muted">${e[2]}</span><br><span class="sm muted">${e[3]}</span></span></label>`).join("")}
+  <p class="sm muted" style="margin:8px 0 0 30px">MA 241: no syllabus or exam dates on Northstar. You can add that one yourself.</p>
+  <div class="shelf"><button class="btn pri" data-state="exams">Add 3 exams</button><span style="flex:1"></span><button class="wrongbtn ${S.cwrong?"on":""}" data-act="cwrong">Something's not right</button></div>
+  ${S.cwrong?`<div class="wrong"><div class="chips" style="margin-top:0"><button class="q">A date is wrong</button><button class="q">One of these isn't an exam</button><button class="q">An exam is missing</button><button class="q">That file isn't a syllabus</button></div><input class="in" style="margin-top:10px" placeholder="Or tell Inky what's off"></div>`:""}</div>`}
+ else if(st=="addexam"){body=`<div class="hello">${inky("idle",64)}<div><h1>Which exam?</h1><p class="muted">Say it, drop something about it, or let me look.</p></div></div>
+  ${GOALS.filter(g=>!g.extra).map(goalRow).join("")}
+  <div class="detail"><div class="intake" style="border:0;padding:0;background:none"><textarea placeholder="“CSC 316 final, Dec 10”, or drop its study guide here">CSC 316 final, Dec 10</textarea></div>
+  <div class="shelf" style="margin-top:0"><span class="label">For</span>${CLS.map((c,i)=>`<button class="q ${i==1?"on":""}"><span style="width:8px;height:8px;border-radius:3px;background:${c[1]};display:inline-block"></span>${c[0]}</button>`).join("")}<button class="q ghost">Not for a class</button></div>
+  <p class="sm muted" style="margin-top:10px">Inky read that as: <b style="color:var(--pencil)">Final</b> for <b style="color:var(--pencil)">CSC 316</b> on <b style="color:var(--pencil)">Wed Dec 10</b>. Topics will come from the CSC 316 syllabus I already have.</p>
+  <div class="shelf" style="margin-top:14px"><button class="btn pri" data-state="added">Add this exam</button><button class="q" style="height:36px" data-state="finding">Look on Northstar instead</button><span style="flex:1"></span><button class="q ghost" style="height:36px" data-state="exams">Cancel</button></div></div>`}
+ else if(st=="else"){body=`<div class="hello">${inky("hello",64)}<div><h1>What do you want to learn?</h1><p class="muted">It doesn't have to be for a class. No exam, no countdown.</p></div></div>
+  <div class="intake"><textarea placeholder="Python basics, how to read a balance sheet, anything">Python basics</textarea><div class="ways"><button class="btn pri" data-go="tutor">Start with a 5 minute check</button><button class="q">Add a book, link or notes to learn from</button><span style="flex:1"></span><button class="q ghost" data-state="exams">Cancel</button></div></div>
+  <div class="sec"><span class="h">What happens next</span></div>
+  <div class="found" style="padding-left:0"><b>1.</b> A few questions, so I don't teach you what you know.</div><div class="found" style="padding-left:0"><b>2.</b> I propose a short outline. You can change it.</div><div class="found" style="padding-left:0"><b>3.</b> It shows up under your exams, and we go one piece at a time. <button class="lnk" data-state="topicgoal">See it</button></div>`}
+ else{const list=GOALS.filter(g=>!g.extra||(g.id=="csc-final"&&st=="added")||(g.id=="py"&&st=="topicgoal")).sort((a,b)=>(a.days??1e9)-(b.days??1e9));const g=list.find(x=>x.id==S.open)||list[0];
+  body=`<div class="hello">${inky(g.need?"needs":"idle",64)}<div><h1>${g.kind=="topic"?g.title+".":g.days===null?g.course+" "+g.title+".":g.title+" in "+g.days+" days."}</h1><p class="muted">${g.need?"I need a date and what's on it before I can plan.":g.kind=="topic"?"Three sessions so far. Next up: "+g.today[0]+".":g.justAdded?"Six topics from the syllabus. Nothing checked yet.":g.readyText+". Next up: "+g.today[0]+"."}</p></div></div>
+  ${list.filter(x=>x.kind!="topic").map(goalRow).join("")}${list.some(x=>x.kind=="topic")?`<div class="sec" style="margin:14px 0 2px"><span class="label">Not for a test</span></div>${list.filter(x=>x.kind=="topic").map(goalRow).join("")}`:""}${goalDetail(g)}
+  <div class="shelf" style="margin-top:14px"><button class="q dash" data-state="addexam">+ Add an exam</button><button class="q dash" data-state="else">+ Learn something else</button></div>`}
+ return `<div class="frame">${topbar()}<div class="page"><div class="colm">${body}</div>${dock("Ask Inky, or drop a file or link here")}</div></div>`}
+
+/* ============ Tutor session ============ */
+const PH=["Check","Learn","Practise","On your own","Wrap up"];
+const SCENES=[["probe","Check: choice",0],["predict","Learn: predict first",1],["scene","Learn: scene",1],["guided","Practise: typed + hints",2],["solo","On your own: explain",3],["recap","Wrap up",4],["quiz","Quiz result",4]];
+const WIRE={
+ probe:['tutor_ask_choice','{ "topicId": "bayes", "question": "P(A | B) means the chance of A…",\n  "options": ["when B already happened","and B both happen","or B, either one"], "correct": 0,\n  "sourceRef": { "sourceId": "quiz-2", "locator": "question 4" } }','phase probe · allowed: ask_choice, ask_typed, ask_explain · say is capped at 2 in a row'],
+ predict:['tutor_ask_predict','{ "topicId": "bayes", "question": "1 in 100 has the disease. The test is 90% accurate. You test positive. How likely are you sick?",\n  "reveal": { "kind": "scene", "ref": "next" } }','the student must commit before the reveal is sent to the renderer'],
+ scene:['tutor_show','{ "scene": { "kind": "dot_grid", "count": 1000,\n   "sliders": [{ "name": "base", "min": 0.01, "max": 0.5, "step": 0.01 }],\n   "groups": [{ "label": "Sick, caught", "n": "count*base*0.9" }, { "label": "Healthy, false alarm", "n": "count*(1-base)*0.1" }, { "label": "Sick, missed", "n": "count*base*0.1" }],\n   "readout": "caught/(caught+falseAlarm)" } }','result: { "explored": [{ "base": 0.01 }, { "base": 0.1 }], "seconds": 40 }'],
+ guided:['tutor_ask_typed','{ "topicId": "bayes", "question": "Now 1 in 10 people has it. Same test. You test positive. How likely are you sick?",\n  "accept": [{ "number": 50, "tolerance": 1, "unit": "%" }],\n  "hints": ["Out of 1,000 people, how many are sick?","100 sick, 90 caught. How many healthy people get a false alarm?","90 true alarms, 90 false alarms. 90 / 180."] }','phase guided · hints allowed · this evidence cannot raise the level'],
+ solo:['tutor_ask_explain','{ "topicId": "bayes", "probe": "reasoning",\n  "prompt": "A friend says a positive result means a 90% chance. Explain why that\'s wrong.",\n  "rubric": ["mentions the base rate","false alarms outnumber true ones when the disease is rare","does not confuse P(sick | +) with P(+ | sick)"] }','graded by a separate grader call. The tutor receives the verdict and cannot change it.'],
+ recap:['tutor_observe + tutor_finish','{ "kind": "misconception", "topicId": "bayes", "text": "Reads P(A|B) as P(B|A) when the question is worded as a story" }\n{ "topic": "bayes", "level": 2, "evidence": [{ "blockId": "b7", "correct": true }], "missing": ["missed cases"], "next": "recap Saturday" }','level moves at most +1, and only on on-your-own evidence with no hints'],
+ quiz:['(no tutor) quiz session','items drawn from the item bank: past_test and study_guide sources first','graded by the app (typed) and the grader (explain)']};
+function grid(){const n=1000,b=S.rate/100,sick=Math.round(n*b),caught=Math.round(sick*.9),miss=sick-caught,fp=Math.round((n-sick)*.1);let o="";for(let i=0;i<n;i++)o+=`<i class="${i<caught?"sick":i<sick?"miss":i<sick+fp?"fp":""}"></i>`;return {o,caught,miss,fp,pct:Math.round(caught/(caught+fp)*100)}}
+function renderTutor(){
+ const sc=SCENES.find(s=>s[0]==S.scene),ph=sc[2];let say,stage,src="";
+ const Q=t=>`<div class="qh">${t}</div>`;
+ const PAST=[["Check","P(A | B) means…","right, 6 s"],["Predict","Rare disease, positive test","you said 90%"],["Scene","Moved the base rate","tried 1%, 10%"],["Practise","1 in 10 version","right, 1 hint"],["On your own","Explain it to a friend","2 of 3"]];
+ const idx=SCENES.findIndex(s=>s[0]==S.scene);
+ if(S.scene=="probe"){say=S.pick===null?"Quick check before we start, so I don't teach you what you know.":S.pick==0?"Right. You have the notation. Let's see if the idea behind it holds up.":"Not quite. Good to know, we'll start there.";
+  src="Same wording as question 4 on your Quiz 2.";
+  stage=Q("P(A | B) means the chance of A…")+`<div class="opts" style="--n:3">${["when B already happened","and B both happen","or B, either one"].map((o,i)=>`<button class="opt ${S.pick==i?"pick":""} ${S.pick!==null&&i==0?"right":""}" data-act="pick" data-i="${i}"><b>${o}</b></button>`).join("")}</div>${S.pick!==null?next("predict","Next"):""}`}
+ else if(S.scene=="predict"){say=S.revealed?"Most people say 90%, doctors included. Don't take my word for the real number. Go find it.":"Commit to a number first. Being wrong here is the useful part.";
+  stage=Q("1 in 100 people has a disease. A test for it is 90% accurate. You test positive. How likely is it that you're sick?")+`<div class="ans"><input id="pred" placeholder="Your guess, %" value="${S.pred}" ${S.revealed?"disabled":""}><button class="btn pri" data-act="reveal" ${S.revealed?"disabled":""}>Lock it in</button></div>${S.revealed?`<p class="muted sm" style="margin-top:10px">Locked: ${S.pred||"90"}%. I won't show the answer. The next block lets you work it out.</p>`+next("scene","Show me the 1,000 people"):""}`}
+ else if(S.scene=="scene"){const g=grid();say="Here are 1,000 people. Drag how common the disease is and watch who tests positive.";
+  src="Scene drawn by Studi from a spec the tutor wrote. Same example as slide 12 of Lecture 7.";
+  stage=`<div class="scene"><div class="people">${g.o}</div><div class="legend"><span><i class="key" style="background:var(--redpen)"></i>Sick, test caught it <b class="num">${g.caught}</b></span><span><i class="key" style="background:var(--pencil)"></i>Healthy, false alarm <b class="num">${g.fp}</b></span><span><i class="key" style="box-shadow:inset 0 0 0 1.5px var(--redpen)"></i>Sick, test missed <b class="num">${g.miss}</b></span></div><div class="slider"><span>How common</span><input type="range" min="1" max="50" value="${S.rate}" data-act="rate" aria-label="How common the disease is"><b class="num">${S.rate} in 100</b></div><p style="margin-top:10px">Of everyone who tested positive, <b class="num">${g.pct}%</b> are actually sick.</p></div>${next("guided","I see it. Try one")}`}
+ else if(S.scene=="guided"){const H=["Out of 1,000 people, how many are sick?","100 sick, 90 caught. How many healthy people get a false alarm?","90 true alarms and 90 false alarms. 90 out of 180."];
+  const ok=S.checked&&/^\s*50\s*%?\s*$|^0?\.5$|^1\/2$/.test(S.typed);
+  say=!S.checked?"Your turn. No picture this time, but I'm here if you get stuck.":ok?"Yes. 90 true alarms, 90 false ones. Half.":"Not yet. Look at how many healthy people there are.";
+  src="Matches the format of problem 3 on the Midterm 1 review sheet.";
+  stage=Q("Now 1 in 10 people has the disease. Same test. You test positive. How likely is it that you're sick?")+`<div class="ans"><input id="typed" placeholder="%" value="${S.typed}"><button class="btn pri" data-act="check">Check</button><button class="q" data-act="hint" ${S.hints>=3?"disabled":""}>${S.hints?"Another hint":"Hint"} <span class="muted num">${S.hints}/3</span></button></div>${H.slice(0,S.hints).map(h=>`<div class="hint">${h}</div>`).join("")}${ok?next("solo","One on your own"):""}`}
+ else if(S.scene=="solo"){say=S.explained?"Good. You have the base rate and the false alarms. You didn't mention that the test also misses some sick people.":"Last one, no hints. This is the kind that's on the exam.";
+  src="The review sheet says: “Be able to explain, in words, why a positive test can be misleading.”";
+  stage=Q("A friend says a positive result means a 90% chance you're sick. Explain why that's wrong.")+`<textarea class="ta" placeholder="In your own words" ${S.explained?"disabled":""}>${S.explained?"Because the disease is rare, most of the people who test positive are healthy people who got a false alarm. 90% is how often the test catches sick people, not the chance I'm sick.":""}</textarea>${S.explained?`<div class="verdict"><span class="ok">Uses the base rate</span><span class="ok">False alarms outnumber true ones</span><span class="no">Doesn't mention missed cases</span></div>`+next("recap","Finish"):`<div style="margin-top:12px"><button class="btn pri" data-act="explain">Send</button></div>`}`}
+ else if(S.scene=="recap"){say="Shaky to getting there. One more clean answer next time and you're at Good.";
+  stage=`<div class="topic" style="grid-template-columns:1fr 84px 140px"><span><b>Bayes' theorem</b></span><div class="lvl"><i class="f"></i><i class="f"></i><i></i><i></i></div><span class="lv">Shaky → Getting there</span></div><div class="topic" style="grid-template-columns:1fr 84px 140px"><span>Midterm 1 readiness</span><span class="meter" style="width:84px"><i style="--p:.47"></i></span><span class="lv num">40% → 47%</span></div>
+  <div class="sec"><span class="h">What I noticed</span><span class="label">Saved so I teach you better. Remove anything wrong.</span></div>
+  <div class="noticed"><span>You read “P(A | B)” backwards when the question is told as a story.</span><button class="x" aria-label="Remove">×</button></div><div class="noticed"><span>A picture got you there faster than the formula did.</span><button class="x" aria-label="Remove">×</button></div>
+  <div class="sec"><span class="h">Coming back</span></div><div class="noticed"><span>Missed cases (the sick people a test doesn't catch)</span><span class="sm muted">Saturday, in your first check</span></div>
+  <div class="shelf" style="margin-top:20px"><button class="btn pri" data-go="learn">Back to Learn</button><button class="q" style="height:36px" data-scene="guided">One more problem</button></div>`}
+ else{say="7 out of 10. Conditional probability is solid. Bayes is where the points are.";
+  stage=`<div class="sec" style="margin-top:0"><span class="h">Midterm 1 · 5 minute quiz</span><span class="label">6 of 10 questions came from your Quiz 2 and review sheet</span></div>${[["Conditional probability","3 / 3",3/3],["Bayes' theorem","1 / 3",1/3],["Random variables","2 / 2",1],["Counting and sets","1 / 2",.5]].map(r=>`<div class="res"><span>${r[0]}</span><span class="meter"><i style="--p:${r[2]}"></i></span><span class="sc num">${r[1]}</span></div>`).join("")}<div class="shelf" style="margin-top:20px"><button class="btn pri" data-scene="probe">Study Bayes' theorem · 15 min</button><button class="q" style="height:36px">See each answer</button><button class="q ghost" style="height:36px" data-go="learn">Back to Learn</button></div>`}
+ function next(to,label){return `<div style="margin-top:22px"><button class="btn" data-scene="${to}">${label} →</button></div>`}
+ const w=WIRE[S.scene];
+ return `<div class="frame"><div class="lhead"><div><button class="q" data-go="learn">Leave</button></div><div class="mid"><b>Bayes' theorem</b> <span class="muted">· ST 370 Midterm 1 in 6 days</span><div class="steps">${PH.map((p,i)=>`<span class="${i<ph?"done":i==ph?"now":""}">${p}</span>`).join("")}</div></div><div class="end"><button class="q ${S.wire?"on":""}" data-act="wire">How this works</button><span class="muted num sm">${[14,12,10,7,4,0,0][idx]} min left</span><button class="q">Pause</button></div></div>
+ <div class="page"><div class="colm" style="width:800px;padding-top:14px">${idx&&S.scene!="quiz"?PAST.slice(0,idx).map(p=>`<div class="past"><b>${p[0]}</b><span>${p[1]}</span><span>${p[2]}</span></div>`).join(""):""}<div class="says">${inky(S.scene=="recap"||S.scene=="quiz"?"done":S.scene=="scene"?"thinking":"idle",52)}<p class="voice">${say}</p></div>${stage}${src?`<p class="srcline">${src}</p>`:""}${S.wire?`<div class="wire"><b>${w[0]}</b>\n${w[1]}\n\n<b>rule</b> ${w[2]}</div>`:""}</div>${dock("Stuck? Ask Inky about this question")}</div></div>`}
+
+/* ============ Build notes under each screen ============ */
+const SPEC={
+ "learn/empty":[["How you get here","no goals","First time in Learn, or after removing every goal."],["Intake box","<code>learnIntake({text?, file?, url?})</code>","One box for every kind of input. A file or sentence goes straight to step 3 (Confirm). It never creates an exam on its own."],["Find my exams","<code>findExams()</code> → school scan, all classes","Yes, this runs a scan. The scan only reads. It ends in step 3, where the student confirms. Only then are exams created, already filled with date, topics, weights and the materials found. Shown only when a school is connected; otherwise Choose a file is the filled button."],["Learn something that isn't for a class","state: Learn something else","Dashed and quiet. Opens in place."]],
+ "learn/finding":[["How you get here","Find my exams, or Look on Northstar instead","A full read-only pass over every class."],["Per-class lines","scan events, pushed","Each class shows what was found as it's found. Stop keeps what was found so far."],["When it's done","→ Confirm","Never adds anything by itself. If nothing was found it says so per class and offers the intake box."]],
+ "learn/confirm":[["How you get here","after a scan, or after dropping a file","Same screen for both. A single file just lists fewer rows."],["Rows","<code>proposal.goals[]</code> with <code>quote</code>","Every exam shows the sentence it came from and what materials came with it."],["Add","<code>confirmIntake({accept[]})</code>","Creates the ticked exams with their topics and links the sources. Lands on Exams with the nearest one selected."],["Something's not right","<code>reportGoalProblem</code>","Replaces the old “This isn't a syllabus” button. Lets the student tell Inky it misread: wrong date, not an exam, one missing, wrong kind of file. Inky fixes the list in place."]],
+ "learn/exams":[["Rows","<code>GoalSummary[]</code>","All rows always visible, sorted by date, undated last. Exactly one selected = <code>selectedGoalId</code>. Headline, detail and plan all read from it."],["Today row","<code>plan.todayTopic</code> of the selected goal","The only filled button on the page."],["Topic rows","<code>LearnTopic</code> + mastery","Weight as %. Outlined dots = not checked. Hover shows Study →."],["Test yourself","item bank for this goal","Why it exists: studying a topic teaches; this only tests, the way the real exam will, and scores by topic so the plan can re-aim. Quiz me = 5 min, mixed topics. Full practice exam = whole exam by weight, timed, available any time (no lock). Two days before the exam Inky suggests it in the Today row."],["Studying from","sources linked to this goal","One sentence, opens to the list, Find more on Northstar, Add a file or link."],["Change or fix something","<code>reportGoalProblem</code> / <code>updateGoal</code>","Replaces the Edit form. The student says what changed or taps one thing. One field at a time, never a form. Inky makes the change, says what it did, offers Undo."],["No-date goal","<code>needs: [date, topics]</code>","Click the MA 241 row."]],
+ "learn/scanning":[["How you get here","three ways","1. Find more on Northstar, inside Studying from. 2. Look in MA 241 on Northstar, on an exam that has nothing yet. 3. Find materials, offered right after adding an exam. First time per class it asks OK first."],["What it does","<code>findMaterials({goalId})</code> → scan of one class","Read-only. Looks for study guides, review sheets, slides, past quizzes, graded work. Not the whole school, just this exam's class."],["While it runs","pushed scan events","The page stays usable, Start still works. Found items list as they're found. Stop keeps what was found."]],
+ "learn/scandone":[["When it's done","scan result","One Inky line says what was found and what changed. New sources are linked to this exam. New topics are highlighted once. Practice questions rebuild in the background."],["Not for this exam","<code>unlinkSource</code>","Each found item can be unlinked. It stays as a class source."],["Nothing found","—","Says so plainly: “Nothing new in ST 370.” and offers Add a file or link."],["OK","dismiss","Returns to the normal exam view. Nothing else to do."]],
+ "learn/addexam":[["How you get here","+ Add an exam","Opens in place under the list. The list stays visible."],["One sentence","<code>learnIntake({text})</code>","Inky reads class, name and date from the sentence and shows how it read it before anything is created. Class buttons correct it in one tap."],["Add this exam","<code>createGoal</code>","Reuses sources the class already has (the syllabus) for topics."],["Look on Northstar instead","→ Finding exams","For when the student doesn't know the date."]],
+ "learn/added":[["After adding","new goal selected","The new row is in date order and selected. Topics come from the class syllabus. Inky offers the materials scan once; Not now is fine."]],
+ "learn/else":[["How you get here","+ Learn something else","Opens in place. One field, one filled button."],["Start","<code>createGoal({kind:'topic'})</code> + 5 min check","The check is a real session (probe only). After it Inky proposes an outline of 4 to 8 pieces, which become the topics."],["Add a book, link or notes","<code>learnIntake</code> on the new goal","Optional. Steers the outline and the teaching."]],
+ "learn/topicgoal":[["Row","<code>Goal{kind:'topic'}</code>","Under a “Not for a test” label. No countdown, no readiness bar."],["Detail","same parts as an exam","Next instead of Today. Outline instead of What's on it. Quiz me only, no practice exam."]],
+ tutor:[["Header","<code>session.goal</code>, <code>goal.title</code>, <code>daysLeft</code>, <code>session.phase</code>","The five steps are the app's phases, not something the model draws."],["Past blocks","<code>session.blocks</code> where status != open","One line each. Click to expand (not shown)."],["Inky's line","latest <code>tutor_say</code>","At most two in a row before a question. The app rejects a third."],["Source line","<code>block.args.sourceRef</code>","Shown whenever the tutor based the block on the student's material. Missing on free topics."],["Verdict","grader result","Per rubric line. The tutor cannot change it."],["What I noticed","<code>tutor_observe</code> notes","Shown at wrap up. The student can remove any of them."]]};
+function spec(){const k=S.screen=="tutor"?"tutor":"learn/"+S.state;const rows=SPEC[k]||SPEC["learn/exams"];return `<div class="spec"><h3>Build notes for this screen</h3><table><tr><th>Part</th><th>Data</th><th>Rule</th></tr>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td></tr>`).join("")}</table></div>`}
+
+/* ============ chrome ============ */
+const LSTATES=[["empty","1 Nothing yet"],["finding","2 Finding exams"],["confirm","3 Confirm"],["exams","4 Exams"],["scanning","Finding materials"],["scandone","Materials found"],["addexam","Add an exam"],["added","Exam added"],["else","Learn something else"],["topicgoal","Topic goal"]];
+function render(){
+ $("#tabs").innerHTML=[["learn","Learn"],["tutor","Tutor session"]].map(t=>`<button aria-current="${S.screen==t[0]}" data-go="${t[0]}">${t[1]}</button>`).join("");
+ const chips=S.screen=="learn"?LSTATES.map(s=>`<button class="${S.state==s[0]?"on":""}" data-state="${s[0]}">${s[1]}</button>`).join(""):SCENES.map(s=>`<button class="${S.scene==s[0]?"on":""}" data-scene="${s[0]}">${s[1]}</button>`).join("");
+ $("#app").innerHTML=`<div class="scen"><span>${S.screen=="learn"?"State":"Block"}</span>${chips}</div><section class="screen">${S.screen=="learn"?renderLearn():renderTutor()}${spec()}</section>`;
+ location.hash=S.screen=="learn"?"learn/"+S.state:"tutor/"+S.scene}
+document.addEventListener("click",e=>{const el=e.target.closest("[data-go],[data-act],[data-state],[data-scene]");if(!el||el.disabled)return;const d=el.dataset;
+ if(d.act=="noop")return;
+ if(d.go){S.screen=d.go;if(d.go=="tutor"&&!d.scene){Object.assign(S,{scene:"probe",pick:null,pred:"",revealed:false,typed:"",hints:0,checked:false,explained:false,rate:1})}}
+ if(d.state){S.screen="learn";S.state=d.state;S.fixOpen=false;S.fix=null;if(d.state=="scanning"||d.state=="scandone"){S.open="st-mid";S.srcOpen=true}if(d.state=="added")S.open="csc-final";if(d.state=="topicgoal")S.open="py";if(d.state=="exams"&&(S.open=="py"||S.open=="csc-final"))S.open="st-mid"}
+ if(d.scene){S.screen="tutor";S.scene=d.scene}
+ if(d.act=="open"){S.open=d.id;S.fixOpen=S.srcOpen=false;S.fix=null;if(S.state=="addexam"||S.state=="else")S.state="exams"}
+ if(d.act=="src")S.srcOpen=!S.srcOpen;
+ if(d.act=="fixopen"){S.fixOpen=!S.fixOpen;S.fix=null}
+ if(d.act=="fix")S.fix=d.v;if(d.act=="fixsaid")S.fix="said";if(d.act=="fixclose")S.fix=null;
+ if(d.act=="cwrong")S.cwrong=!S.cwrong;
+ if(d.act=="wire")S.wire=!S.wire;
+ if(d.act=="pick")S.pick=+d.i;
+ if(d.act=="reveal"){S.pred=$("#pred").value;S.revealed=true}
+ if(d.act=="check"){S.typed=$("#typed").value;S.checked=true}
+ if(d.act=="hint"){S.typed=$("#typed").value;S.hints=Math.min(3,S.hints+1)}
+ if(d.act=="explain")S.explained=true;
+ render()});
+document.addEventListener("input",e=>{if(e.target.dataset.act=="rate"){S.rate=+e.target.value;const y=$(".colm").scrollTop;render();$(".colm").scrollTop=y;$("[data-act=rate]").focus()}});
+document.addEventListener("submit",e=>{e.preventDefault();if(e.target.dataset.act=="fixform"){S.fix="said";render()}});
+const h=location.hash.slice(1).split("/");if(h[0]=="tutor"){S.screen="tutor";if(h[1])S.scene=h[1]}else if(h[1]){S.state=h[1];if(h[1]=="added")S.open="csc-final";if(h[1]=="topicgoal")S.open="py";if(h[1]=="scanning"||h[1]=="scandone")S.srcOpen=true}
+render();
+</script>
+</body>
+</html>

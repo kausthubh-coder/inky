@@ -6,6 +6,9 @@ Design exploration only. Nothing here ships in the app, and no production code c
 |---|---|
 | `concept.html` | Clickable mock of the redesigned app. Tabs along the top switch screens. The row under them switches states. |
 | `plan.html` | How the current app works, what each part of the new UI needs, how Learn becomes real, fake school additions, 42 test stories, and nine build phases. |
+| `learn-concept.html` | Clickable mock of the new Learn dashboard and tutor session. Build notes under each frame name the data and rule for every part. States are linkable: `#learn/empty`, `#learn/exams`, `#tutor/scene`. |
+| `learn-plan.html` | Learn build plan: data model, tutor phases and tools, visuals, practice tests, harness, user stories with expected behaviour, build order. `LEARN-PLAN.md` is the earlier text draft. |
+| `scan-plan.html` | Scanner audit (why a real scan took 99 minutes), comparison with other agent browsers, new scan design, scan stories, and one build order covering scanning and Learn. |
 | `SPEC.md` | How each part decides what to show, and the data behind it. |
 | `inky.js`, `inky.css` | Inky's artwork and animations, copied from `desktop/shared/inky.ts` and `desktop/src/app/app.css` so the mock uses the real mascot. |
 
