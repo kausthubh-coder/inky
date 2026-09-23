@@ -122,7 +122,7 @@ export function learnPreview(id: string) {
   const setStatus = (status: PublicTutorSession["status"]) => { tutor = { ...tutor, status, updatedAt: now(), activeSince: status === "active" ? now() : null }; return session(); };
   const editBlocks = (edit: (item: PublicTutorBlock) => PublicTutorBlock) => { tutor = { ...tutor, updatedAt: now(), blocks: tutor.blocks.map(edit) }; return session(); };
   return {
-    getLearnState: async input => { if (input) selected = input.selectedExamId ?? undefined; return read(); },
+    getLearnState: async input => { if (input?.selectedExamId) selected = input.selectedExamId; return read(); },
     importLearnSource: async input => { sources = [...sources, { ...source(crypto.randomUUID(), input.courseId, input.title), kind: "paste", examId: input.examId ?? null }]; return read(); },
     importLearnFile: async () => { throw new Error("Choosing a file works in the desktop app. Paste the text here to try the preview."); },
     findLearnSyllabus: async () => { throw new Error("Looking through your classes works in the desktop app."); },
