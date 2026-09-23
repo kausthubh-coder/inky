@@ -21,7 +21,7 @@ const redesignMethods = {
   getConversationTimeline: 'studi:conversation-timeline',
   listMemories: 'studi:memory-list',
   readMemory: 'studi:memory-read',
-  updateMemory: 'studi:memory-update',
+  createMemory: "studi:memory-create", updateMemory: 'studi:memory-update',
   deleteMemory: 'studi:memory-delete',
   getLearnState: 'studi:learn-state',
   importLearnSource: 'studi:learn-source-import',

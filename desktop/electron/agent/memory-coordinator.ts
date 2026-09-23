@@ -1,4 +1,5 @@
-import { MemoryDeleteInputSchema, MemoryListSchema, MemoryUpdateInputSchema } from "../../shared/memory.js";
+import { randomUUID } from "node:crypto";
+import { MemoryCreateInputSchema, MemoryDeleteInputSchema, MemoryListSchema, MemoryUpdateInputSchema } from "../../shared/memory.js";
 import { OpaqueIdSchema } from "../../shared/ids.js";
 import type { NoteFrontmatter, NoteIndexEntry } from "../../shared/note.js";
 import type { NoteStore } from "../storage/notes.js";
@@ -24,6 +25,14 @@ export class MemoryCoordinator {
       this.#assertUsable();
       if (note && !this.#allowed(note.frontmatter)) throw new Error("Memory is not available for this account");
       return note;
+    });
+  }
+  async create(value: unknown) {
+    return this.#track(async () => {
+      this.#assertUsable();
+      const input = MemoryCreateInputSchema.parse(value);
+      return this.notes.upsert({ scope: "student", subjectId: this.#ownerSubject, about: "preference",
+        key: `remember-${randomUUID()}`, ...input }, { assertAuthorized: () => this.#assertUsable() });
     });
   }
   async update(value: unknown) {

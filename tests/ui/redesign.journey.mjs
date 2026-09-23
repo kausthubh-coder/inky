@@ -106,12 +106,13 @@ export async function verifyRedesign(page, base) {
   results.push(
     "Isolated JS runs; network/storage/import globals absent; infinite loop terminates and next run recovers",
   );
-  await open("settings-preferences");
+  await open("settings-inky");
   await button("Use APA citations").click();
   await page
     .getByLabel("What to remember")
     .fill("Use APA citations and page numbers.");
-  await button("Save memory").click();
+  await button("Done").click();
+  await page.waitForFunction(async () => (await window.studi.listMemories())[0].revision === 2);
   const memory = await page.evaluate(async () => {
     const notes = await window.studi.listMemories();
     return window.studi.readMemory({ noteId: notes[0].noteId });
@@ -127,7 +128,7 @@ export async function verifyRedesign(page, base) {
     "learn",
     "tutor-choice",
     "desk-review",
-    "settings-rules",
+    "settings-homework",
   ]) {
     await page.setViewportSize({ width: 390, height: 844 });
     await open(id);

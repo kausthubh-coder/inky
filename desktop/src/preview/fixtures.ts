@@ -5,6 +5,7 @@ import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   isLivePhase,
   permissionRuleTargetKey,
+  resolvePermission,
   type Assignment,
   type AgentJob,
   type ConversationTarget,
@@ -167,6 +168,18 @@ export function installDevPreview(): void {
     schedule: lifecycle.schedule,
   };
 
+  if (preview.settingsSection) {
+    settings.preferences.homeworkRoot = "C:\\Users\\Student\\Documents\\Studi";
+    settings.permissionRules.push(
+      { schemaVersion: 1, ruleId: "preview-course", scope: "course", courseId: "course-ma241", mode: "do_not_attempt", updatedAt: now },
+      { schemaVersion: 1, ruleId: "preview-pattern", scope: "pattern", courseId: "course-st370", patternId: "problem_set", mode: "auto_submit", updatedAt: now },
+      { schemaVersion: 1, ruleId: "preview-assignment", scope: "assignment", assignmentId: assignments[0]!.assignmentId, mode: "do_not_attempt", updatedAt: now },
+    );
+    onboarding.linkedSystems = [
+      { schemaVersion: 1, linkedSystemId: "preview-webassign", label: "WebAssign", sourceTarget: "https://webassign.example.edu", state: "needs_user", lastObservedScanId: "preview-scan", lastObservedAt: now, evidence },
+      { schemaVersion: 1, linkedSystemId: "preview-gradescope", label: "Gradescope", sourceTarget: "https://gradescope.example.edu", state: "verified", lastObservedScanId: "preview-scan", lastVerifiedScanId: "preview-scan", lastObservedAt: now, evidence },
+    ];
+  }
   const workspace = (): StudiWorkspaceState => ({
     browser: { url: "https://school.example.edu", title: "School", revision: 1, driver: lifecycle.execution?.phase === "working" ? "inky" : "none" },
     providers: [
@@ -426,7 +439,7 @@ export function installDevPreview(): void {
     getProductSettings: async () => settings,
     saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, workStartMode: input.workStartMode ?? settings.preferences.workStartMode, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     selectHomeworkRoot: async () => { settings = { ...settings, preferences: { ...settings.preferences, homeworkRoot: "C:\\Studi Preview Homework", updatedAt: new Date().toISOString() } }; return settings.preferences; },
-    saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: {...input,kinds:{...input.kinds,work_start:input.kinds.work_start??DEFAULT_NOTIFICATION_PREFERENCES.kinds.work_start}}, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: {...input,quietHours:input.quietHours??"off",kinds:{...input.kinds,work_start:input.kinds.work_start??DEFAULT_NOTIFICATION_PREFERENCES.kinds.work_start}}, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     testNotification: async ({ kind }) => ({
       notification: {
         schemaVersion: 1,
@@ -450,8 +463,16 @@ export function installDevPreview(): void {
       settings = { ...settings, permissionRules: settings.permissionRules.filter(rule => rule.ruleId !== ruleId) };
       return settings;
     },
-    configureScanSchedule: async () => settings,
-    getLibraryState: async () => library(),
+    configureScanSchedule: async ({ cadence, localTime, weekday }) => {
+      settings = { ...settings, schedule: { schemaVersion: 1, scheduleId: "school-scan", cadence,
+        state: cadence === "manual" ? "paused" : "enabled", timezone: "America/New_York", localTime: localTime ?? "09:00",
+        ...(cadence === "weekly" ? { weekday: weekday ?? 1 } : {}), updatedAt: new Date().toISOString() } };
+      return settings;
+    },
+    getLibraryState: async () => ({ ...library(), tasks: library().tasks.map(task => ({ ...task,
+      permission: resolvePermission({ assignmentId: task.assignment.assignmentId, courseId: task.assignment.courseId,
+        matchedPatternIds: task.assignment.kindConfidence === "explicit" && task.assignment.kindEvidence && task.assignment.kind ? [task.assignment.kind] : [] }, settings.permissionRules),
+    })) }),
     getTaskDetail: async ({ taskId }) => { const value = detail(taskId); if (!value) throw new Error("Missing task"); return value; },
     readArtifact: async ({ kind, artifactId }) => kind === "answer" && artifactId === "preview-answer"
       ? { frontmatter: { schemaVersion: 1, kind: "answer", artifactId, updatedAt: now }, content: "Simulated saved answers for UI preview. This assignment has not been submitted.\n\n1. Sort each digit in order, preserving the order within each group.\n2. Repeat for the remaining digits." }

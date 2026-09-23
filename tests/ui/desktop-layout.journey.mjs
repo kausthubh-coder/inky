@@ -42,9 +42,9 @@ export async function verifyDesktopLayouts(page, base, evidenceDirectory) {
       observations.push(`${route}: visible nonoverlapping controls at ${width}px`);
     }
   }
-  await page.goto(`${base}/?preview=settings-folder`);
-  await page.locator("#settings-folder").waitFor();
-  assert.equal(await page.locator("#settings-folder").evaluate(el => {
+  await page.goto(`${base}/?preview=settings-homework`);
+  await page.locator("#settings-homework").waitFor();
+  assert.equal(await page.locator("#settings-homework").evaluate(el => {
     const rect = el.getBoundingClientRect(); return rect.top >= 0 && rect.top < innerHeight / 2;
   }), true, "Settings preview should land on its named section");
   for (const route of ["updates-ready", "updates-mac", "updates-error"]) {

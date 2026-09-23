@@ -1,0 +1,127 @@
+/* Settings v2 — Paper Smart echo, QM-0 / TA-0 / Y8-0 / 10S-0 / 13C-0. */
+.st-settings { background: var(--paper); color: var(--pencil); }
+.st-page { width: min(752px, 100%); padding: 18px 16px 40px; margin: 0 auto; overflow: auto; flex: 1; min-height: 0; }
+.st-heading { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:22px; }
+.st-heading h1 { font:600 30px/36px "Shantell Sans", cursive; margin:0; }
+.st-tabs { display:flex; align-items:center; gap:2px; background:var(--blotter); padding:3px; border-radius:12px; }
+.st-tabs button { border:0; background:transparent; padding:6px 14px; border-radius:9px; color:var(--graphite); font:600 13.5px/18px "Nunito Sans",sans-serif; cursor:pointer; }
+.st-tabs [aria-current="page"] { background:var(--page); color:var(--pencil); box-shadow:0 1px 2px #2b262129; }
+.st-content { display:flex; flex-direction:column; gap:22px; }
+.st-group { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.st-group h2 { margin:0; padding:0 0 4px 2px; font:700 13px/16px "Nunito Sans",sans-serif; color:var(--graphite); }
+.st-row { display:grid; grid-template-columns:minmax(0,1fr) 220px; align-items:center; gap:16px; padding:10px 14px 10px 16px; }
+.st-copy { display:flex; flex-direction:column; gap:2px; min-width:0; }
+.st-copy strong { font:600 15px/18px "Nunito Sans",sans-serif; overflow-wrap:anywhere; }
+.st-copy small, .st-settings small, .st-muted { font:400 13px/16px "Nunito Sans",sans-serif; color:var(--graphite); }
+.st-muted { margin:0 2px 6px; }
+.st-copy [data-homework-root] { overflow-wrap:anywhere; }
+.st-control { width:220px; display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+.st-control > select:only-child { width:100%; }
+.st-highlight { background:var(--blotter); border-radius:12px; padding-block:12px; }
+.st-highlight .st-copy strong { font-weight:700; }
+.st-settings button { cursor:pointer; }
+.st-settings button:disabled, .st-settings input:disabled, .st-settings select:disabled { opacity:.5; cursor:default; }
+.st-settings button:focus-visible, .st-settings input:focus-visible, .st-settings select:focus-visible, .st-settings textarea:focus-visible { outline:2px solid var(--pencil); outline-offset:3px; }
+.st-settings select, .st-settings input:not([type="checkbox"]), .st-settings textarea { min-width:0; border:1.5px solid var(--rule); border-radius:10px; background:var(--page); color:var(--pencil); font:400 14px/18px "Nunito Sans",sans-serif; padding:8px 10px; box-shadow:none; }
+.st-settings select { height:36px; max-width:100%; }
+.st-control select:not(:only-child) { flex:1; width:100px; }
+.st-control input[type="time"] { width:102px; height:36px; padding:5px; }
+.st-quiet, .st-outline, .st-primary { border:0; border-radius:8px; padding:6px 12px; font:600 13px/16px "Nunito Sans",sans-serif; color:var(--pencil); background:var(--blotter); }
+.st-highlight .st-quiet { background:var(--page); }
+.st-outline { background:var(--page); box-shadow:0 0 0 1.5px var(--pencil); }
+.st-primary { background:var(--highlighter); box-shadow:0 0 0 1.5px var(--pencil),0 2.5px 0 1.5px var(--pencil); padding:7px 16px; }
+.st-text { display:inline-flex; align-items:center; text-align:left; border:0; background:none; color:var(--pencil); padding:0; font:600 14px/18px "Nunito Sans",sans-serif; }
+.st-danger, .st-settings .st-danger { color:var(--redpen); }
+.st-verified, .st-settings .st-verified { color:#2f7d53; }
+.st-provider-selected { background:var(--blotter); border-radius:12px; box-shadow:inset 3px 0 var(--highlighter); }
+.st-provider .st-row { padding-block:12px; }
+.st-provider-actions { display:flex; justify-content:flex-end; gap:12px; padding:0 14px 12px; }
+.st-provider .provider-login { margin:12px 16px; }
+.st-memory { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:9px 14px 9px 16px; border-bottom:1px solid var(--rule); }
+.st-memory > div { display:flex; flex-direction:column; gap:2px; }
+.st-memory .st-danger { font-size:13px; flex-shrink:0; }
+.st-add { align-self:flex-start; padding:6px 12px; border:1px dashed var(--blot2); border-radius:8px; background:transparent; font:600 13px/16px "Nunito Sans",sans-serif; color:var(--graphite); margin:6px 0 0 16px; }
+.st-form { display:grid; gap:10px; margin:10px 16px; }
+.st-form label { display:grid; gap:4px; color:var(--graphite); font-size:13px; }
+.st-form input,.st-form select,.st-form textarea { width:100%; }
+.st-form .st-text { justify-self:start; }
+.st-saved { display:block; min-height:16px; font-size:12px; color:var(--graphite); }
+.st-group > .st-saved:empty { display:none; }
+.st-global-rule { display:flex; flex-direction:column; align-items:flex-start; padding:12px 16px; gap:12px; }
+.st-rule-modes { display:flex; flex-wrap:wrap; gap:4px; }
+.st-rule-modes button { border:0; background:var(--page); color:var(--pencil); border-radius:8px; padding:7px 12px; font-size:13px; }
+.st-rule-modes [aria-pressed="true"] { background:var(--highlighter); box-shadow:0 0 0 1.5px var(--pencil); }
+.st-exception { display:grid; grid-template-columns:minmax(0,1fr) 150px 20px; align-items:center; gap:12px; padding:8px 14px 8px 16px; border-bottom:1px solid var(--rule); }
+.st-exception .st-copy { border-left:3px solid var(--lavender); padding-left:10px; }
+.st-exception strong { font-size:14.5px; }
+.st-exception select { font-size:13px; padding-inline:6px; }
+.st-rule-actions { display:flex; align-items:center; gap:12px; }
+.st-rule-actions .st-add { margin-top:0; }
+.st-minutes { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.st-minutes input { width:76px; height:36px; }
+.st-toggle { appearance:none; flex-shrink:0; width:40px; height:22px; border:0; padding:3px; margin:0; border-radius:11px; background:var(--blot2); cursor:pointer; }
+.st-toggle::before { content:""; display:block; width:16px; height:16px; border-radius:50%; background:var(--page); }
+.st-toggle:checked { background:var(--pencil); }
+.st-toggle:checked::before { transform:translateX(18px); }
+.st-notification { display:grid; grid-template-columns:34px minmax(0,1fr) 150px 32px; align-items:center; gap:14px; padding:8px 14px 8px 16px; border-bottom:1px solid var(--rule); }
+.st-notification:last-of-type { border-bottom:0; }
+.st-notification .st-toggle { width:34px; height:20px; }
+.st-notification .st-toggle::before { width:14px; height:14px; }
+.st-notification .st-toggle:checked::before { transform:translateX(14px); }
+.st-notification strong { font-size:14.5px; }
+.st-notification small { font-size:12.5px; }
+.st-notification select { height:32px; font-size:13px; }
+.st-play { display:flex; align-items:center; justify-content:center; width:32px; height:32px; border:0; border-radius:9px; background:var(--blotter); }
+.st-account { display:flex; align-items:center; padding:12px 14px 12px 16px; gap:12px; }
+.st-account .st-copy { flex:1; }
+.st-avatar { width:40px; height:40px; display:grid; place-items:center; border-radius:50%; background:var(--lavender); font-weight:700; }
+.st-usage { display:flex; flex-direction:column; gap:10px; padding:8px 16px; font-size:13px; }
+.st-usage > div:first-child { display:flex; justify-content:space-between; gap:12px; }
+.st-meter { height:6px; border-radius:3px; background:var(--blot2); overflow:hidden; }
+.st-meter span { display:block; height:100%; background:var(--pencil); }
+.st-settings .connected-app-row { display:grid; grid-template-columns:26px minmax(0,1fr) auto; align-items:center; gap:12px; padding:9px 16px; border:0; border-bottom:1px solid var(--rule); }
+.st-settings .connected-app-logo { width:22px; height:22px; }
+.st-settings .connected-app-copy { min-width:0; gap:3px; }
+.st-settings .connected-app-copy > small { display:none; }
+.st-settings .connection-feedback { border:0; background:none; padding:0; font-size:12.5px; color:var(--graphite); }
+.st-settings .connection-feedback__mark { display:none; }
+.st-settings .connected-app-row .quiet-button { border:0; background:var(--blotter); border-radius:8px; padding:6px 12px; color:var(--pencil); }
+.st-settings .settings-note { display:grid; gap:10px; padding:0 16px; }
+.st-settings .settings-note label { display:grid; gap:4px; }
+.st-settings .settings-note button { justify-self:start; }
+@media(max-width:650px) {
+  .st-heading { align-items:flex-start; flex-direction:column; }
+  .st-tabs { max-width:100%; overflow-x:auto; }
+  .st-tabs button { padding-inline:9px; }
+  .st-row { grid-template-columns:minmax(0,1fr); gap:10px; }
+  .st-control { justify-self:end; }
+  .st-notification { grid-template-columns:34px minmax(0,1fr) 32px; }
+  .st-notification select { grid-column:2; grid-row:auto; }
+  .st-notification .st-play { grid-column:3; }
+  .st-exception { grid-template-columns:minmax(0,1fr) 130px 20px; gap:8px; }
+}
+
+
+.st-provider-selected .st-quiet { background:var(--page); }
+.st-provider strong { font-weight:700; }
+.st-effort { display:flex; padding:3px; border-radius:10px; background:var(--blotter); }
+.st-effort button { border:0; background:none; padding:5px 13px; font-size:13px; color:var(--graphite); border-radius:7px; }
+.st-effort [aria-pressed="true"] { background:var(--page); color:var(--pencil); box-shadow:0 1px 2px #2b262129; }
+.st-more-effort { margin:0 14px; font-size:12px; color:var(--graphite); }
+.st-more-effort summary { cursor:pointer; text-align:right; }
+.st-global-rule { flex-direction:row; align-items:center; justify-content:space-between; gap:12px; }
+.st-rule-modes { flex-wrap:nowrap; padding:3px; border-radius:10px; background:var(--blot2); gap:2px; }
+.st-rule-modes button { background:none; white-space:nowrap; padding:6px 10px; font-size:13px; }
+.st-memory > div { display:contents; }
+.st-memory { display:grid; grid-template-columns:minmax(0,1fr) auto 60px; gap:16px; padding-block:10px; }
+.st-memory small { font-size:12.5px; }
+.st-memory .st-danger { justify-self:end; color:var(--pencil); font-weight:600; }
+.st-memory .st-text:first-child { font-weight:400; font-size:14.5px; }
+.st-add { margin-left:2px; color:var(--pencil); }
+.st-notification .st-copy { gap:0; }
+.st-notification + .st-notification { margin-top:-4px; }
+#settings-you .st-group:last-child .st-control { width:max-content; justify-self:end; }
+#settings-you .st-group:last-child .st-control button { white-space:nowrap; }
+.st-avatar { background:#f4d1e2; border:1px solid var(--pencil); text-transform:uppercase; }
+@media(max-width:650px) { .st-global-rule { flex-direction:column; align-items:flex-start; } }
+

@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { OpaqueIdSchema } from './ids.js';
 import { NoteDocumentSchema, NoteSegmentSchema } from './note.js';
-import { MemoryListSchema, MemoryReadSchema, MemoryUpdateInputSchema, MemoryDeleteInputSchema, MemoryDeleteResultSchema } from './memory.js';
+import { MemoryCreateInputSchema, MemoryListSchema, MemoryReadSchema, MemoryUpdateInputSchema, MemoryDeleteInputSchema, MemoryDeleteResultSchema } from './memory.js';
 import { LearnStateSchema } from './learn-state.js';
 import { LearnExamInputSchema } from './learn.js';
 import { TutorStartInputSchema, TutorBlockAnswerSchema, PublicTutorSessionSchema } from './tutor.js';
@@ -296,6 +296,7 @@ export const ContractManifestSchema = z.strictObject({
     z.strictObject({method:z.literal('getConversationTimeline'),channel:z.literal('studi:conversation-timeline')}),
     z.strictObject({ method: z.literal('listMemories'), channel: z.literal('studi:memory-list') }),
     z.strictObject({ method: z.literal('readMemory'), channel: z.literal('studi:memory-read') }),
+    z.strictObject({ method: z.literal('createMemory'), channel: z.literal('studi:memory-create') }),
     z.strictObject({ method: z.literal('updateMemory'), channel: z.literal('studi:memory-update') }),
     z.strictObject({ method: z.literal('deleteMemory'), channel: z.literal('studi:memory-delete') }),
     z.strictObject({ method: z.literal('getLearnState'), channel: z.literal('studi:learn-state') }),
@@ -440,6 +441,7 @@ export const studiIpcRegistry = Object.freeze({
   getConversationTimeline: { channel: 'studi:conversation-timeline', requestSchema: ConversationTimelineInputSchema, resultSchema: ConversationTimelineSchema },
   listMemories: { channel: 'studi:memory-list', requestSchema: z.undefined(), resultSchema: MemoryListSchema },
   readMemory: { channel: 'studi:memory-read', requestSchema: z.strictObject({ noteId: NoteSegmentSchema }), resultSchema: MemoryReadSchema },
+  createMemory: { channel: 'studi:memory-create', requestSchema: MemoryCreateInputSchema, resultSchema: NoteDocumentSchema },
   updateMemory: { channel: 'studi:memory-update', requestSchema: MemoryUpdateInputSchema, resultSchema: NoteDocumentSchema },
   deleteMemory: { channel: 'studi:memory-delete', requestSchema: MemoryDeleteInputSchema, resultSchema: MemoryDeleteResultSchema },
   getLearnState: { channel: 'studi:learn-state', requestSchema: z.strictObject({ selectedExamId: OpaqueIdSchema.nullable().optional() }).optional(), resultSchema: LearnStateSchema },

@@ -4,6 +4,9 @@ import { NoteDocumentSchema, NoteFrontmatterSchema, NoteSegmentSchema } from "./
 export const MemorySummarySchema = NoteFrontmatterSchema;
 export const MemoryListSchema = z.array(MemorySummarySchema);
 export const MemoryReadSchema = NoteDocumentSchema.nullable();
+export const MemoryCreateInputSchema = z.strictObject({
+  title: z.string().trim().min(1).max(200), content: z.string().trim().min(1).max(100000),
+});
 export const MemoryUpdateInputSchema = z.strictObject({
   noteId: NoteSegmentSchema, expectedRevision: z.number().int().positive(),
   title: z.string().trim().min(1).max(200), content: z.string().trim().min(1).max(100000),

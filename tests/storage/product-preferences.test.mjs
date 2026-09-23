@@ -13,6 +13,7 @@ test("product preferences default safely and survive a validated atomic save", a
     const store = new ProductPreferencesStore(path);
     const defaultNotifications = {
       enabled: true,
+      quietHours: "off",
       kinds: {
         handoff: { banner: true, sound: "inky_nudge" },
         review_ready: { banner: true, sound: "inky_done" },
@@ -45,6 +46,7 @@ test("product preferences default safely and survive a validated atomic save", a
       agentReasoningEffort: "high",
       notifications: {
         enabled: false,
+        quietHours: "off",
         kinds: {
           handoff: { banner: false, sound: "silent" },
           review_ready: { banner: true, sound: "os" },
@@ -60,6 +62,7 @@ test("product preferences default safely and survive a validated atomic save", a
 
     const legacyNotifications = structuredClone(saved);
     delete legacyNotifications.notifications.kinds.work_start;
+    delete legacyNotifications.notifications.quietHours;
     await writeFile(path, JSON.stringify(legacyNotifications));
     assert.deepEqual(await new ProductPreferencesStore(path).get(), saved, "existing preferences acquire the new pre-start notification default");
 

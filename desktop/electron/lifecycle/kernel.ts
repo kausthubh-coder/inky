@@ -152,7 +152,7 @@ export class AppKernel {
     const now = this.#now();
     const preferences = (await this.#store.productPreferences.get()).notifications ?? DEFAULT_NOTIFICATION_PREFERENCES;
     const sound = preferences.kinds[intent.kind].sound;
-    const resolved = resolveNotificationSound(preferences, intent.kind, (soundId) => bundledNotificationSoundPath(soundId) !== null);
+    const resolved = resolveNotificationSound(preferences, intent.kind, (soundId) => bundledNotificationSoundPath(soundId) !== null, new Date(now));
     const record = this.#store.lifecycle.putNotification({
       ...intent,
       schemaVersion: STUDI_SCHEMA_VERSION,
@@ -160,7 +160,7 @@ export class AppKernel {
       createdAt: now,
     });
     const supported = Notification.isSupported();
-    if (!shouldShowNotificationBanner(preferences, intent.kind) || !supported) {
+    if (!shouldShowNotificationBanner(preferences, intent.kind, new Date(now)) || !supported) {
       return { notification: record, shown: false, sound, supported };
     }
     const icon = this.#iconPath ? nativeImage.createFromPath(this.#iconPath) : undefined;

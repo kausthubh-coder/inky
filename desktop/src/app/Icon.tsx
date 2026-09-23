@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 
 const paths = {
+  play: <path d="m7 4 13 8-13 8Z" />,
+  "chevron-down": <path d="m7 10 5 5 5-5" />,
   browser: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 9h18M7 6.5h.01M10 6.5h.01" /></>,
   bell: <><path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8ZM10 21h4" /></>,
   check: <path d="m5 12 4 4L19 6" />,

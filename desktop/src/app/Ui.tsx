@@ -1,10 +1,8 @@
 import { UpdateControls } from "./UpdateControls.js";
-import { readDevPreviewConfig } from "./devPreview.js";
 import { Icon } from "./Icon.js";
-import { Inky } from "./Inky.js";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
-import { DEFAULT_AGENT_PROVIDER_ID, agentProviderName, agentRuntimeAttentionCopy, providerLoginActive, selectedProvider, type AgentRuntimeAttention, type NotificationIntent, type ProviderLoginHandoff, type StudiWorkspaceState, type TelemetryState } from "../../shared/index.js";
+import { DEFAULT_AGENT_PROVIDER_ID, agentProviderName, agentRuntimeAttentionCopy, providerLoginActive, selectedProvider, type AgentRuntimeAttention, type NotificationIntent, type ProviderLoginHandoff, type StudiWorkspaceState } from "../../shared/index.js";
 
 export type AppScreen = "week" | "settings" | "learn";
 export type SettingsLanding = "settings" | "usage" | "feedback" | "rules";
@@ -78,7 +76,7 @@ export function AppChrome({
   return (
     <header className="app-chrome">
       <button className="brand-lockup brand-home" type="button" onClick={() => onNavigate("week")} aria-label="Open dashboard"><strong>studi</strong></button>
-      <nav className={`rd-mode-switch ${screen === "learn" ? "is-learn" : ""}`} aria-label="Studi mode"><span className="rd-mode-thumb" aria-hidden="true" /><button aria-current={screen !== "learn" ? "page" : undefined} onClick={() => onNavigate("week")}>{screen !== "learn" && <Inky state="working" size={20} />}Homework</button><button aria-current={screen === "learn" ? "page" : undefined} onClick={() => onNavigate("learn")}>{screen === "learn" && <Inky state="done" size={20} />}Learn</button></nav>
+      <nav className={`rd-mode-switch ${screen === "learn" ? "is-learn" : ""}`} aria-label="Studi mode">{screen !== "settings" && <span className="rd-mode-thumb" aria-hidden="true" />}<button aria-current={screen === "week" ? "page" : undefined} onClick={() => onNavigate("week")}>Homework</button><button aria-current={screen === "learn" ? "page" : undefined} onClick={() => onNavigate("learn")}>Learn</button></nav>
       <div className="chrome-end">
         {onSchool && <button className={`rd-chrome-icon rd-school-status ${schoolTone}`} aria-label={schoolStatus ?? "School check"} title={schoolStatus ?? "School check"} onClick={onSchool}><Icon name="school" size={19} />{schoolTone !== "is-ok" && <span>{schoolStatus}</span>}<i aria-hidden="true" /></button>}
         <UpdateControls onNotification={onNotification} openUpdates={updatesSignal}/>
@@ -112,7 +110,7 @@ function ProfileMenuItem({ icon, label, active = false, danger = false, onClick 
     <button className={`${active ? "is-active" : ""} ${danger ? "is-danger" : ""}`} type="button" role="menuitem" onClick={onClick}>
       <ProfileMenuIcon name={icon} />
       <span>{label}</span>
-      {danger ? null : <span className="account-menu__arrow" aria-hidden="true">›</span>}
+      {danger ? null : <span className="account-menu__arrow" aria-hidden="true"><Icon name="right" size={14} /></span>}
     </button>
   );
 }
@@ -243,29 +241,6 @@ export function RuntimeAttentionBanner({
         {switching ? "Use another subscription" : loginActive ? `Waiting for ${providerName}…` : `Reconnect ${providerName}`}
       </button>
     </div>
-  );
-}
-
-export function TelemetryControls({
-  telemetry,
-  busy,
-  onChange,
-  onDebug,
-}: {
-  telemetry: TelemetryState | null;
-  busy: boolean;
-  onChange: (enabled: boolean, replayEnabled: boolean) => void;
-  onDebug: (minutes: 0 | 30) => void;
-}) {
-  const configured = telemetry?.configured === true;
-  return (
-    <PaperCard tone="lavender" className="settings-card">
-      <div className="card-heading"><div><p className="eyebrow">Privacy</p><h3>What I may share</h3></div><StatusPill tone={configured ? "mint" : "yellow"}>{configured ? "configured" : "local only"}</StatusPill></div>
-      <label className="toggle-row"><input type="checkbox" checked={telemetry?.enabled ?? false} disabled={!configured || busy} onChange={(event) => onChange(event.target.checked, telemetry?.replayEnabled ?? true)} /><span><strong>Share product events</strong><small>Private beta includes messages, answers, tool activity, performance, and errors. Passwords, cookies, and credentials stay out.</small></span></label>
-      <label className="toggle-row"><input type="checkbox" checked={telemetry?.replayEnabled ?? false} disabled={!configured || busy || !telemetry?.enabled} onChange={(event) => onChange(telemetry?.enabled ?? false, event.target.checked)} /><span><strong>Share Studi replay</strong><small>Records the Studi window, not the school page.</small></span></label>
-      <button className="quiet-button" type="button" disabled={!configured || busy || !telemetry?.enabled} onClick={() => onDebug(telemetry?.debugUntil ? 0 : 30)}>{telemetry?.debugUntil ? "Stop beta debug" : "Enable beta debug for 30 minutes"}</button>
-      <details><summary>Local inspector ({telemetry?.inspector.length ?? 0})</summary><div className="inspector">{(telemetry?.inspector.length ?? 0) === 0 ? <small>No upload-eligible envelopes yet.</small> : telemetry?.inspector.slice(-4).reverse().map((item) => <code key={`${item.capturedAt}-${item.event}`}>{JSON.stringify(item)}</code>)}</div></details>
-    </PaperCard>
   );
 }
 

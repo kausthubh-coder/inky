@@ -96,9 +96,9 @@ h2 {
   flex: none;
   position: relative;
   display: grid;
-  grid-template-columns: 132px 132px;
-  padding: 4px;
-  border-radius: 14px;
+  grid-template-columns: 108px 108px;
+  padding: 3px;
+  border-radius: 12px;
   background: var(--blotter);
 }
 .rd-mode-switch button {
@@ -120,17 +120,17 @@ h2 {
 }
 .rd-mode-thumb {
   position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 132px;
-  height: 34px;
+  top: 3px;
+  left: 3px;
+  width: 108px;
+  height: 32px;
   border-radius: 10px;
   background: var(--highlighter);
   box-shadow: var(--shadow);
   transition: transform 0.28s cubic-bezier(0.3, 1.4, 0.5, 1);
 }
 .is-learn .rd-mode-thumb {
-  transform: translateX(132px);
+  transform: translateX(108px);
   background: #cdbcf0;
 }
 .account-chip {
@@ -1507,80 +1507,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 .rd-session-notice button {
   margin-right: 14px;
 }
-.rd-settings .settings-page {
-  display: block;
-  max-width: 752px;
-  width: 100%;
-  padding: 22px 16px;
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
-}
-.rd-settings .settings-content {
-  width: 100%;
-  max-width: none;
-}
-.rd-settings-top {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  margin: 0 0 22px;
-}
-.rd-settings-top h1 {
-  flex: 1;
-  font:
-    600 24px "Shantell Sans",
-    cursive;
-}
-.rd-settings-top input {
-  width: 170px;
-  font-size: 13px;
-}
-.rd-settings .settings-heading {
-  border: 0;
-  padding: 0 0 24px;
-}
-.rd-settings .settings-heading h2 {
-  font:
-    600 28px "Shantell Sans",
-    cursive;
-}
-.rd-settings .paper-card,
-.rd-settings .settings-card {
-  background: none;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  padding: 0;
-  margin: 0 0 34px;
-}
-.rd-settings .settings-card h2 {
-  font-size: 16px;
-  font-weight: 700;
-}
-.rd-settings .settings-card p {
-  font-size: 14px;
-  color: var(--graphite);
-}
-.rd-settings .provider-card {
-  border-radius: 12px;
-  background: var(--page);
-  border: 1px solid var(--blot2);
-  box-shadow: none;
-}
-.rd-settings .form-grid {
-  gap: 14px;
-}
-.rd-settings .field input,
-.rd-settings .field select {
-  background: var(--page);
-  border: 1px solid var(--blot2);
-  border-radius: 8px;
-}
-.rd-settings .homework-rules {
-  border-top: 1px solid var(--rule);
-  padding-top: 24px;
-}
 @media (max-width: 600px) {
   .rd-topic {
     grid-template-columns: 1fr 70px 82px;
@@ -1611,12 +1537,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   }
   .rd-source-note {
     flex-wrap: wrap;
-  }
-  .rd-settings .settings-page {
-    padding: 18px 22px;
-  }
-  .rd-settings-top input {
-    width: 120px;
   }
   .rd-tutor-column {
     padding: 14px 22px;
@@ -1919,8 +1839,8 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 .app-chrome .update-entry { white-space: nowrap; }
 .app-shell .app-chrome .rd-mode-switch {
   display: grid;
-  grid-template-columns: 132px 132px;
-  width: 272px;
+  grid-template-columns: 108px 108px;
+  width: 222px;
   gap: 0;
 }
 .app-shell .page.dashboard-page {
@@ -2308,95 +2228,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 .rd-session-notice ~ * { opacity: 0.45; pointer-events: none; }
 .rd-typed-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; max-width: 460px; }
 
-/* ===== Audit fixes: Settings =====
-   Same language as the rest of the app: bold section names, no label above every heading,
-   no pills, the active choice marked by a highlighter edge, and one button tier per job. */
-.rd-settings .settings-page { display: block; width: min(752px, calc(100% - 32px)); margin: 0 auto; padding: 22px 16px 60px; }
-.rd-settings-top { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; margin-bottom: 8px; }
-.rd-settings-top h1 { order: -1; margin: 0; font-size: 30px; line-height: 1.1; }
-.rd-settings-top input { height: 36px; width: 210px; padding: 0 12px; border: 0; border-radius: 10px; background: var(--blotter); font-size: 13.5px; }
-.rd-settings-top > .rd-link { order: 3; height: 36px; padding: 0 14px; border-radius: 10px; background: var(--page); box-shadow: 0 0 0 1.5px var(--pencil); font-weight: 600; font-size: 13.5px; text-decoration: none; color: var(--pencil); }
-.rd-settings .eyebrow { display: none; }
-.rd-settings .settings-content .paper-card,
-.rd-settings .settings-card { border: 0; padding: 0; margin: 0 0 40px; gap: 10px; }
-.rd-settings .settings-content .paper-card h2,
-.rd-settings .settings-card h2 { font-family: "Nunito Sans", system-ui, sans-serif; font-size: 15px; font-weight: 700; margin: 0; }
-.rd-settings .settings-content .paper-card h3 { font-size: 14.5px; font-weight: 600; margin: 0; }
-.rd-settings .settings-content .paper-card p { font-size: 13.5px; line-height: 1.5; color: var(--graphite); max-width: 62ch; }
-.rd-settings .settings-content hr,
-.rd-settings .settings-divider { display: none; }
-
-/* buttons: yellow filled leads, everything else is quiet */
-.rd-settings .settings-content .button {
-  min-height: 34px; padding: 0 14px; border: 0; border-radius: 10px; background: var(--blotter); box-shadow: none;
-  font-size: 13.5px; font-weight: 600; color: var(--pencil); transition: transform 100ms ease-out, background-color 150ms ease-out;
-}
-.rd-settings .settings-content .button:hover:not(:disabled) { background: var(--blot2); }
-.rd-settings .settings-content .button:active:not(:disabled) { transform: scale(0.96); }
-.rd-settings .settings-content .button--yellow,
-.rd-settings .settings-content .button--coral { background: var(--highlighter); box-shadow: 0 0 0 1.5px var(--pencil), 0 2.5px 0 1.5px var(--pencil); }
-.rd-settings .settings-content .button--yellow:hover:not(:disabled),
-.rd-settings .settings-content .button--coral:hover:not(:disabled) { background: var(--highlighter); }
-.rd-settings .settings-content .button:disabled { opacity: 0.5; box-shadow: none; }
-.rd-settings .quiet-button { height: 30px; padding: 0 11px; border: 0; border-radius: 8px; background: var(--blotter); font-size: 13px; font-weight: 600; text-decoration: none; color: var(--pencil); }
-
-/* which AI does the work */
-.rd-settings .provider-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 12px 14px 12px 18px; margin: 0 -14px; border: 0; border-radius: 14px; background: none; position: relative; }
-.rd-settings .provider-card--selected { background: var(--blotter); }
-.rd-settings .provider-card--selected::before { content: ""; position: absolute; left: 7px; top: 14px; bottom: 14px; width: 4px; border-radius: 4px; background: var(--highlighter); box-shadow: 0 0 0 1px var(--pencil); }
-.rd-settings .provider-card-head { display: contents; }
-.rd-settings .provider-card-head h3 { font-size: 15px; font-weight: 700; }
-.rd-settings .provider-card-head small { font-size: 13px; color: var(--graphite); }
-.rd-settings .provider-card-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
-.rd-provider-state { font-size: 12.5px; font-weight: 600; color: var(--graphite); white-space: nowrap; }
-.rd-provider-state.is-coral { color: var(--redpen); }
-
-/* fields */
-.rd-settings .field > span, .rd-settings .field > label, .rd-settings .field { text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 600; color: var(--graphite); }
-.rd-settings .field input, .rd-settings .field select, .rd-settings select, .rd-settings input[type="number"], .rd-settings input[type="time"] {
-  height: 36px; border: 0; border-radius: 10px; background: var(--page); box-shadow: 0 0 0 1.5px var(--blot2); padding: 0 12px; font-size: 14px; font-weight: 600; color: var(--pencil);
-}
-
-/* connected apps fold away */
-.rd-apps > summary { list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; margin: 0 -14px; border-radius: 12px; font-size: 14px; font-weight: 600; }
-.rd-apps > summary::-webkit-details-marker { display: none; }
-.rd-apps > summary:hover { background: var(--blotter); }
-.rd-apps-manage { height: 30px; padding: 0 11px; border-radius: 8px; background: var(--blotter); font-size: 13px; line-height: 30px; }
-.rd-apps[open] .rd-apps-manage { background: var(--pencil); color: var(--paper); }
-.rd-settings .connected-app-grid { display: grid; gap: 2px; margin-top: 6px; }
-.rd-settings .connected-app-row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 8px 0; border: 0; }
-.rd-settings .connected-app-logo { width: 22px; height: 22px; }
-.rd-settings .connected-app-copy { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-.rd-settings .connected-app-copy strong { font-size: 14px; font-weight: 600; }
-.rd-settings .connected-app-copy small { display: none; }
-.rd-settings .connection-feedback { padding: 0; border: 0; background: none; font-size: 12.5px; font-weight: 400; color: var(--graphite); text-transform: none; letter-spacing: 0; }
-.rd-settings .connection-feedback__mark { display: none; }
-.rd-settings .connection-feedback--coral { color: var(--redpen); }
-
-/* memories read as sentences with their own remove */
-.rd-memory-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 8px 0; text-align: left; font-size: 14px; }
-.rd-memory-row > :first-child { text-align: left; }
-.rd-settings .provider-card-head h3,
-.rd-settings .settings-content .paper-card .provider-card-head h3 { font-size: 15px; font-weight: 700; }
-.rd-settings .provider-card--selected .button:not(.button--yellow) { background: var(--page); }
-.rd-memory-row > .rd-link:first-child { justify-self: start; text-align: left; font-weight: 600; text-decoration: none; }
-.rd-memory-row > span { font-size: 12.5px; color: var(--graphite); }
-/* the rule picker is a row of three, like the one on Today */
-.rd-rule-modes { display: inline-flex; flex-direction: row; flex-wrap: wrap; align-items: center; min-inline-size: 0; }
-.rd-rule-modes legend { float: left; width: 100%; padding: 0; margin: 0 0 8px; font-size: 13px; font-weight: 600; color: var(--graphite); }
-.rd-rule-modes legend + * { clear: left; }
-.rd-rule-modes label { display: inline-flex; width: auto; flex: none; }
-.rd-settings .homework-rules .rd-button.primary,
-.homework-rules .rd-button.primary { width: max-content; min-width: 120px; }
-.rd-rule-modes { display: block; padding: 0; background: none; width: auto; }
-.rd-rule-modes legend { float: none; width: auto; }
-.rd-rule-mode-row { display: inline-flex; gap: 0; padding: 3px; border-radius: 10px; background: var(--blotter); }
-.rd-rule-mode-row label { display: inline-flex; align-items: center; width: auto; margin: 0; padding: 5px 14px; border-radius: 7px; font-size: 13px; font-weight: 600; color: var(--graphite); cursor: pointer; white-space: nowrap; }
-.rd-rule-mode-row label.selected { background: var(--page); color: var(--pencil); box-shadow: 0 1px 2px rgb(43 38 33 / 14%); }
-.rd-rule-mode-row input { position: absolute; opacity: 0; pointer-events: none; }
-.rd-rule-mode-row label:focus-within { outline: 2px solid var(--pencil); outline-offset: 2px; }
-.rd-rule-mode-row { width: max-content; max-width: 100%; flex-wrap: wrap; }
-.rd-settings .status-pill { padding: 0; border: 0; background: none; font-size: 12.5px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--graphite); }
 .rd-session-notice .rd-quiet { background: var(--page); }
 .rd-tutor-heading > button:first-child { height: 30px; padding: 0 11px; border-radius: 8px; background: var(--blotter); font-size: 13px; font-weight: 600; text-decoration: none; }
 

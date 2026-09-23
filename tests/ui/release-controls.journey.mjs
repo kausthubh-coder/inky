@@ -1,3 +1,4 @@
+import { verifySettings } from "./settings.journey.mjs";
 import assert from 'node:assert/strict';
 
 // Current release controls with controlled IPC. Native and live outcomes are separate gates.
@@ -53,58 +54,13 @@ export async function verifyReleaseControls(page, base) {
     assert.equal(await button('Start assignment').isDisabled(),true);
     assert.equal(await button('Start').isDisabled(),true);
     await button('Homework rules').click();
-    await page.getByRole('heading',{name:'Homework rules',exact:true}).waitFor();
+    await page.getByRole('heading',{name:'When Inky finds homework',exact:true}).waitFor();
     await open('assignment-failed');
     await button('Try again').click();
     await page.getByRole('button',{name:'Takeover',exact:true}).waitFor();
     results.push('Restricted work cannot start from either entry; failed work can retry');
 
-    await open('settings-preferences');
-    const time=page.getByRole('spinbutton',{name:'Keep the assignment open for (minutes)',exact:true});
-    for(const value of ['', '0','241','1.5']) {await time.fill(value);assert.equal(await button('Save changes').isDisabled(),true);}
-    await time.fill('23');
-    await page.getByRole('checkbox',{name:'Show saved memories',exact:true}).uncheck();
-    await button('Save changes').click();
-    await page.waitForFunction(async()=>{const p=(await window.studi.getProductSettings()).preferences;return p.handoffMinutes===23&&p.memoryVisibility==='none';});
-    results.push('Review timer validation and saved memory visibility');
-
-    const rules=page.locator('.homework-rules');
-    const radio=name=>rules.getByRole('radio',{name,exact:true});
-    await rules.getByText('Do it and submit',{exact:true}).click();
-    assert.equal(await radio('Do it and submit').isChecked(),true);
-    await rules.getByRole('button',{name:'Update rule',exact:true}).click();
-    await rules.getByLabel('Apply this rule to',{exact:true}).selectOption('course');
-    assert.equal(await radio('Do it, I submit').isChecked(),true);
-    await rules.getByRole('button',{name:'Save rule',exact:true}).click();
-    await rules.getByRole('button',{name:'Remove rule for CSC 316 Data Structures',exact:true}).waitFor();
-    await rules.getByLabel('Apply this rule to',{exact:true}).selectOption('global');
-    assert.equal(await radio('Do it and submit').isChecked(),true);
-    await rules.getByText('Don’t start',{exact:true}).click();
-    assert.equal(await radio('Don’t start').isChecked(),true);
-    await page.evaluate(()=>{window.realSaveRule=window.studi.savePermissionRule;window.studi.savePermissionRule=async()=>{throw new Error('Controlled rule save failure');};});
-    await rules.getByRole('button',{name:'Update rule',exact:true}).click();
-    await page.getByText('Controlled rule save failure',{exact:true}).waitFor();
-    assert.equal(await radio('Don’t start').isChecked(),true);
-    await page.evaluate(()=>{window.studi.savePermissionRule=input=>new Promise(resolve=>{window.finishRule=()=>resolve(window.realSaveRule(input));});});
-    await rules.getByRole('button',{name:'Update rule',exact:true}).click();
-    assert.equal(await rules.getByLabel('Apply this rule to',{exact:true}).isDisabled(),true);
-    await page.evaluate(()=>window.finishRule());
-    await rules.getByRole('button',{name:'Saved',exact:true}).waitFor();
-    await rules.getByRole('button',{name:'Remove rule for All homework',exact:true}).click();
-    await rules.getByRole('button',{name:'Save rule',exact:true}).waitFor();
-    results.push('Target-specific permissions, failed save retains choice, retry locks target, deletion');
-
-    const note=page.getByRole('textbox',{name:'Your note',exact:true});
-    await note.fill('Please keep my feedback if the connection fails.');
-    await page.evaluate(()=>{window.studi.submitFeedback=async()=>{throw new Error('Controlled feedback outage');};});
-    await button('Send feedback').click();
-    await button('Try sending again').waitFor();
-    assert.equal(await note.inputValue(),'Please keep my feedback if the connection fails.');
-    await page.evaluate(()=>{window.studi.submitFeedback=async()=>({accepted:true,feedbackId:'00000000-0000-4000-8000-000000000002'});});
-    await button('Try sending again').click();
-    await page.getByText('Thanks — the Studi team received your note.',{exact:true}).waitFor();
-    assert.equal(await note.inputValue(),'');
-    results.push('Feedback failure retains text; successful retry clears it');
+    results.push(...await verifySettings(page, base));
     assert.deepEqual(errors,[]);
     return results;
   } finally {page.off('pageerror',onError);}

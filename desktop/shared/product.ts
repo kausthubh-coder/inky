@@ -39,8 +39,23 @@ export const NotificationKindPreferenceSchema = z.strictObject({
   sound: NotificationSoundIdSchema,
 });
 
+const LocalTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export const QuietHoursSchema = z.union([z.literal("off"), z.strictObject({
+  start: LocalTimeSchema, end: LocalTimeSchema,
+}).refine(value => value.start !== value.end, "Choose different start and end times")]);
+
+/** Device-local wall time; the start is inclusive and the end exclusive. */
+export function isQuietHours(hours: z.infer<typeof QuietHoursSchema>, now: Date): boolean {
+  if (hours === "off") return false;
+  const minute = now.getHours() * 60 + now.getMinutes();
+  const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+  const start = minutes(hours.start), end = minutes(hours.end);
+  return start < end ? minute >= start && minute < end : minute >= start || minute < end;
+}
+
 export const NotificationPreferencesSchema = z.strictObject({
   enabled: z.boolean(),
+  quietHours: QuietHoursSchema.default("off"),
   kinds: z.strictObject({
     handoff: NotificationKindPreferenceSchema,
     review_ready: NotificationKindPreferenceSchema,
@@ -53,6 +68,7 @@ export type NotificationPreferences = z.infer<typeof NotificationPreferencesSche
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   enabled: true,
+  quietHours: "off",
   kinds: {
     handoff: { banner: true, sound: "inky_nudge" },
     review_ready: { banner: true, sound: "inky_done" },
@@ -65,15 +81,18 @@ export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
 export function shouldShowNotificationBanner(
   preferences: NotificationPreferences,
   kind: NotificationKind,
+  now: Date = new Date(),
 ): boolean {
-  return preferences.enabled && preferences.kinds[kind].banner;
+  return preferences.enabled && preferences.kinds[kind].banner && !isQuietHours(preferences.quietHours, now);
 }
 
 export function resolveNotificationSound(
   preferences: NotificationPreferences,
   kind: NotificationKind,
   bundledExists: (soundId: NotificationSoundId) => boolean,
+  now: Date = new Date(),
 ): { readonly silent: boolean; readonly playSoundId: NotificationSoundId | null } {
+  if (isQuietHours(preferences.quietHours, now)) return { silent: true, playSoundId: null };
   const sound = preferences.kinds[kind].sound;
   if (sound === "silent") return { silent: true, playSoundId: null };
   if (sound !== "os" && bundledExists(sound)) return { silent: true, playSoundId: sound };

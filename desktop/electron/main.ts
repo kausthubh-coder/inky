@@ -463,6 +463,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   listMemories: () => requireMemoryCoordinator().list(),
   readMemory: ({ noteId }) => requireMemoryCoordinator().read(noteId),
+  createMemory: (input) => requireMemoryCoordinator().create(input),
   updateMemory: (input) => requireMemoryCoordinator().update(input),
   deleteMemory: (input) => requireMemoryCoordinator().delete(input),
   importLearnSource: ({ examId, ...input }) => {

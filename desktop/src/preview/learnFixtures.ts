@@ -164,6 +164,11 @@ export function learnPreview(id: string) {
     cancelTutorSession: async () => setStatus("cancelled"),
     listMemories: async () => structuredClone(memories.map(note => note.frontmatter)),
     readMemory: async ({ noteId }) => structuredClone(memories.find(note => note.frontmatter.noteId === noteId) ?? null),
+    createMemory: async ({ title, content }) => {
+      const note: NoteDocument = { frontmatter: { schemaVersion: 1, scope: "student", subjectId: "preview", about: "preference",
+        noteId: crypto.randomUUID(), key: crypto.randomUUID(), title, revision: 1, updatedAt: now() }, content };
+      memories.push(note); return structuredClone(note);
+    },
     updateMemory: async ({ noteId, expectedRevision, title, content }) => {
       const note = getMemory(noteId);
       if (note.frontmatter.revision !== expectedRevision) throw new Error("Memory changed. Reload the latest version.");
@@ -179,5 +184,5 @@ export function learnPreview(id: string) {
     },
   } satisfies Pick<StudiRendererApi, "getLearnState" | "importLearnSource" | "importLearnFile" | "findLearnSyllabus" | "retryLearnSource" | "setLearnExam"
     | "removeLearnGoal" | "addLearnTopic" | "removeLearnTopic" | "getTutorSession" | "startTutorSession" | "answerTutorBlock" | "hintTutorBlock" | "saveTutorDraft"
-    | "sendTutorMessage" | "pauseTutorSession" | "resumeTutorSession" | "cancelTutorSession" | "listMemories" | "readMemory" | "updateMemory" | "deleteMemory">;
+    | "sendTutorMessage" | "pauseTutorSession" | "resumeTutorSession" | "cancelTutorSession" | "listMemories" | "readMemory" | "createMemory" | "updateMemory" | "deleteMemory">;
 }
