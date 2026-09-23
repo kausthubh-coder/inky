@@ -75,6 +75,11 @@ export interface AgentSession {
 }
 
 export interface AgentRuntime {
+  createLearningSession(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    target?: AgentSessionTarget,
+  ): Promise<AgentSession>;
   createSession(target?: AgentSessionTarget): Promise<AgentSession>;
   createWorkerSession(target?: AgentSessionTarget): Promise<AgentSession>;
   createAssignmentSession(
@@ -923,6 +928,23 @@ export class FakeAgentRuntime implements AgentRuntime {
 
   async createSession(target: AgentSessionTarget = {}): Promise<AgentSession> {
     return this.createWorkerSession(target);
+  }
+
+  async createLearningSession(
+    tools: readonly ToolDefinition[],
+    systemPrompt: string,
+    target: AgentSessionTarget = {},
+  ): Promise<AgentSession> {
+    if (!systemPrompt.trim() || !tools.length || new Set(tools.map(tool => tool.name)).size !== tools.length) {
+      throw new Error('A learning session requires instructions and unique bounded tools');
+    }
+    this.#sessionNumber += 1;
+    return new FakeAgentSession(
+      `fake-learning-session-${this.#sessionNumber}`,
+      target.resumeSessionPath ?? `fake-learning-session-${this.#sessionNumber}.jsonl`,
+      this.#turns,
+      tools.map((tool) => tool.name),
+    );
   }
 
   async createWorkerSession(target: AgentSessionTarget = {}): Promise<AgentSession> {

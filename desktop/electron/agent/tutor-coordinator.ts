@@ -1,14 +1,11 @@
 import { randomUUID } from "node:crypto";
-import type { ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { TutorStartInputSchema, publicTutorSession, tutorTimeLeft, type PublicTutorSession, type TutorBlock, type TutorCall } from "../../shared/tutor.js";
 import type { LearnRepository } from "../storage/learn-records.js";
-import type { AgentSession, AgentSessionTarget } from "./runtime.js";
+import type { AgentRuntime, AgentSession } from "./runtime.js";
 import { buildTutorContext, type TutorContextSources } from "./tutor-context.js";
 import { createTutorTools, TUTOR_SYSTEM_PROMPT } from "./tutor-tools.js";
 
-export interface LearningRuntime {
-  createLearningSession(tools: readonly ToolDefinition[], systemPrompt: string, target?: AgentSessionTarget): Promise<AgentSession>;
-}
+export type LearningRuntime = Pick<AgentRuntime, "createLearningSession">;
 type Running = { stopped: boolean; agent: AgentSession | null; done: Promise<void>; timer: ReturnType<typeof setTimeout> | null; wake: (() => void) | null };
 
 /** Rebuild Pi context from the durable transcript on restart; never replay student effects. */

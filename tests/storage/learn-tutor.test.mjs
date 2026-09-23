@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -8,6 +8,8 @@ import { LearnRepository, validateLearnRecords } from "../../dist/electron/stora
 import { LearnStateSchema } from "../../dist/shared/learn-state.js";
 import { computeReadiness, normalizeTopicWeights, planLearn } from "../../dist/shared/learn.js";
 import { publicTutorSession, PublicTutorSessionSchema, TutorModelInputSchema } from "../../dist/shared/tutor.js";
+import { pickExcerpts } from "../../dist/electron/agent/tutor-context.js";
+import { importLearnFile } from "../../dist/electron/agent/learn-import.js";
 
 const timestamp = "2026-09-19T12:00:00.000Z";
 async function fixture(run) {
@@ -15,7 +17,7 @@ async function fixture(run) {
   let database = new StudiSqliteDatabase(join(directory, "studi.sqlite3"));
   let now = timestamp;
   const repo = () => new LearnRepository(database, "student-a", () => now);
-  try { await run({ repo: repo(), setNow: value => { now = value; }, database,
+  try { await run({ repo: repo(), directory, setNow: value => { now = value; }, database,
     reopen: () => { database.close(); database = new StudiSqliteDatabase(join(directory, "studi.sqlite3")); return repo(); } }); }
   finally { database.close(); await rm(directory, { recursive: true, force: true }); }
 }
@@ -61,11 +63,14 @@ test("source discovery is durable, content addressed, and exam moves preserve id
 
 test("overview omits transcripts and evidence while the full saved session remains accessible", async () => fixture(({ repo }) => {
   const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Practice", 15);
-  for (let index = 0; index < 30; index++) repo.openBlock(session.sessionId, `say-${index}`, { tool: "tutor_say", args: { text: `PRIVATE-TRANSCRIPT-${index}` } });
+  for (let index = 0; index < 10; index++) {
+    repo.openBlock(session.sessionId, `say-${index}`, { tool: "tutor_say", args: { text: `PRIVATE-TRANSCRIPT-${index}` } });
+    typed(repo, repo.session(session.sessionId));
+  }
   repo.appendMessage(session.sessionId, "message", "PRIVATE-STUDENT-MESSAGE");
   finish(repo, session, typed(repo, repo.session(session.sessionId)));
   const full = repo.session(session.sessionId);
-  assert.equal(full.blocks.length, 32);
+  assert.equal(full.blocks.length, 22);
   assert.equal(full.messages.length, 1);
   // An overview must not call either full-session reader, even with substantial history.
   repo.sessions = () => { throw new Error("Overview loaded full sessions"); };
@@ -222,4 +227,129 @@ test("all five fixed model types are bounded and unknown/host execution models a
   assert.equal(TutorModelInputSchema.safeParse({ ...models[4], params: { ...models[4].params, language: "powershell" } }).success, false);
   assert.equal(TutorModelInputSchema.safeParse({ ...models[4], params: { ...models[4].params, timeoutMs: 999999 } }).success, false);
   assert.equal(TutorModelInputSchema.safeParse({ model: "custom_html", params: {}, controls: [] }).success, false);
+});
+
+test("the selected goal survives Learn source, goal, topic and tutor mutations", async () => fixture(({ repo, reopen }) => {
+  const { exam: first } = syllabus(repo);
+  const selected = repo.setExam({ courseId: "other-course", title: "Final", date: null });
+  const selectedState = (repository = repo) => {
+    const state = repository.learnState("2026-09-19", selected.examId);
+    assert.equal(state.plan.leadExam.examId, selected.examId);
+    assert.ok(state.plan.todayTopic === null || state.plan.todayTopic.examId === selected.examId);
+    return state;
+  };
+  selectedState();
+  const source = repo.importSource({ courseId: selected.courseId, examId: selected.examId, title: "Review", kind: "paste", sourceTarget: null, text: "Stacks and queues." });
+  selectedState();
+  repo.markSource(source.sourceId, source.contentHash, "reading"); selectedState();
+  repo.markSource(source.sourceId, source.contentHash, "failed", "Temporary extraction failure"); selectedState();
+  repo.markSource(source.sourceId, source.contentHash, "reading"); selectedState();
+  repo.applyExtraction(source.sourceId, source.contentHash, { exams: [], topics: [{ key: "stacks", examKey: null, title: "Stacks", chapter: 1, weight: null, quote: "Stacks and queues." }] });
+  selectedState();
+  repo.setExam({ examId: selected.examId, courseId: selected.courseId, title: "Final, revised", date: "2026-12-01" }); selectedState();
+  const topic = repo.addTopic(selected.examId, "Queues"); selectedState();
+  repo.removeTopic(topic.topicId); selectedState();
+  repo.addTopic(selected.examId, "Queues"); selectedState();
+  repo.removeExam(first.examId); selectedState();
+  const session = repo.startSession(topic.topicId, "Queues", 10);
+  selectedState();
+  repo.transition(session.sessionId, "paused"); selectedState();
+  repo.transition(session.sessionId, "active");
+  finish(repo, session, typed(repo, session)); selectedState();
+  selectedState(reopen());
+}));
+
+test("undated and topic-less exams are selectable; default selects the nearest dated exam", async () => fixture(({ repo }) => {
+  const undated = repo.setExam({ courseId: "c", title: "Undated final", date: null });
+  const distant = repo.setExam({ courseId: "c", title: "Exam 2", date: "2026-11-01" });
+  const nearest = repo.setExam({ courseId: "c", title: "Exam 1", date: "2026-09-23" });
+  repo.setExam({ courseId: "c", title: "Past test", date: "2026-09-01" });
+  repo.setExam({ kind: "topic", courseId: null, title: "Gardening", date: null });
+  assert.equal(repo.learnState("2026-09-19").plan.leadExam.examId, nearest.examId);
+  for (const exam of [undated, distant, nearest]) {
+    const plan = repo.learnState("2026-09-19", exam.examId).plan;
+    assert.equal(plan.leadExam.examId, exam.examId);
+    assert.equal(plan.todayTopic, null);
+    assert.equal(plan.readiness.status, "unknown");
+    assert.deepEqual(plan.path, []);
+  }
+}));
+
+test("a removed goal stays removed through re-extraction, omission, return and restart", async () => fixture(({ repo, reopen }) => {
+  const { source, exam } = syllabus(repo);
+  const extraction = { exams: [{ key: "new-provider-key", title: "Exam", date: "2026-09-25", quote: "Exam September 25, 2026." }], topics: [] };
+  repo.removeExam(exam.examId);
+  repo.applyExtraction(source.sourceId, source.contentHash, extraction);
+  assert.equal(repo.learnState("2026-09-19").exams.length, 0);
+  repo.applyExtraction(source.sourceId, source.contentHash, { exams: [], topics: [] });
+  repo.applyExtraction(source.sourceId, source.contentHash, extraction);
+  const restored = reopen();
+  assert.equal(restored.exam(exam.examId).hidden, true);
+  assert.equal(restored.learnState("2026-09-19").exams.length, 0);
+}));
+
+for (const phase of ["learn", "practice"]) test(`answers from ${phase} cannot change mastery even after advancing`, async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
+  repo.advance(session.sessionId, phase);
+  const block = typed(repo, session);
+  repo.advance(session.sessionId, "independent");
+  assert.throws(() => finish(repo, session, block), /Only answers from Check or On your own/);
+  assert.deepEqual(repo.mastery(), []);
+  assert.equal(repo.session(session.sessionId).status, "active");
+  assert.equal(repo.session(session.sessionId).blocks[0].phase, phase);
+}));
+
+test("tutor_advance moves only forward, preserves the phase on rejection and cannot skip an open question", async () => fixture(({ repo, reopen }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
+  assert.equal(session.phase, "check");
+  assert.equal(repo.advance(session.sessionId, "learn").phase, "learn");
+  assert.throws(() => repo.advance(session.sessionId, "check"), /already past/);
+  assert.throws(() => repo.advance(session.sessionId, "learn"), /already past/);
+  const block = repo.openBlock(session.sessionId, "question", { tool: "tutor_ask_typed", args: { question: "6*7?", accept: ["42"], hints: [] } });
+  assert.throws(() => repo.advance(session.sessionId, "practice"), /open block/);
+  repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "42" });
+  assert.equal(repo.advance(session.sessionId, "independent").phase, "independent");
+  assert.throws(() => repo.advance(session.sessionId, "practice"), /already past/);
+  assert.throws(() => repo.advance(session.sessionId, "wrap"), /tutor_finish/);
+  assert.equal(reopen().session(session.sessionId).phase, "independent");
+}));
+
+test("a third tutor_say is rejected, including while a question is waiting; replay is harmless", async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
+  const say = index => repo.openBlock(session.sessionId, `say-${index}`, { tool: "tutor_say", args: { text: `Explanation ${index}` } });
+  say(0); const second = say(1);
+  assert.equal(say(1).blockId, second.blockId);
+  assert.throws(() => say(2), /three messages/);
+  const block = repo.openBlock(session.sessionId, "question", { tool: "tutor_ask_typed", args: { question: "6*7?", accept: ["42"], hints: [] } });
+  say(2); say(3);
+  assert.throws(() => say(4), /three messages/);
+  repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "42" });
+  assert.equal(repo.session(session.sessionId).blocks.length, 5);
+}));
+
+test("a file attached to a goal adds its topics without creating other exams", async () => fixture(async ({ repo, directory, reopen }) => {
+  const goal = repo.setExam({ courseId: "c", title: "Chosen midterm", date: null });
+  const path = join(directory, "review.md");
+  await writeFile(path, "Exam A September 25. Exam B October 2. Stacks and queues.");
+  const source = await importLearnFile(repo, path, goal.courseId, undefined, undefined, goal.examId);
+  assert.equal(source.examId, goal.examId);
+  repo.applyExtraction(source.sourceId, source.contentHash, {
+    exams: [{ key: "a", title: "Exam A", date: "2026-09-25", quote: "Exam A September 25." }, { key: "b", title: "Exam B", date: "2026-10-02", quote: "Exam B October 2." }],
+    topics: [{ key: "stacks", examKey: "a", title: "Stacks", chapter: 1, weight: null, quote: "Stacks and queues." }, { key: "queues", examKey: "b", title: "Queues", chapter: 2, weight: null, quote: "Stacks and queues." }],
+  });
+  const restored = reopen();
+  assert.deepEqual(restored.exams().map(item => item.examId), [goal.examId]);
+  assert.equal(restored.exam(goal.examId).date, null, "Conflicting dates cannot silently choose one");
+  assert.equal(restored.topics().length, 2);
+  assert.ok(restored.topics().every(item => item.examId === goal.examId && item.courseId === goal.courseId));
+}));
+
+test("pickExcerpts finds relevant material beyond the opening chunk within its budget", () => {
+  const text = `${"Administrative policy and office hours. ".repeat(100)}\n\nBayes theorem: use the base rate to interpret a positive test.\n\n${"Unrelated syllabus text. ".repeat(80)}`;
+  const excerpts = pickExcerpts(text, "Bayes theorem base rate", 120, 90);
+  assert.ok(excerpts.some(chunk => chunk.includes("Bayes theorem")));
+  assert.ok(excerpts.reduce((sum, chunk) => sum + chunk.length, 0) <= 120);
+  assert.deepEqual(pickExcerpts(text, "the and for"), []);
+  assert.deepEqual(pickExcerpts("", "Bayes"), []);
+  assert.deepEqual(pickExcerpts(text, "Bayes", 0), []);
 });

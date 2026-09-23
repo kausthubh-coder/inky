@@ -7,6 +7,8 @@ import { StudiSqliteDatabase } from "../../dist/electron/storage/database.js";
 import { LearnRepository } from "../../dist/electron/storage/learn-records.js";
 import { TutorCoordinator } from "../../dist/electron/agent/tutor-coordinator.js";
 import { LearnExtractionWorker } from "../../dist/electron/agent/learn-extraction.js";
+import { FakeAgentRuntime } from "../../dist/electron/agent/runtime.js";
+import { createTutorTools, TUTOR_SYSTEM_PROMPT } from "../../dist/electron/agent/tutor-tools.js";
 
 // Controlled orchestration driver. These tests make no claim about provider teaching quality.
 class ControlledRuntime {
@@ -39,8 +41,9 @@ async function until(predicate) {
 
 test("real tool definitions wait for student actions, persist results, and expose only public state", async () => setup(async repo => {
   const runtime = new ControlledRuntime(async ({ tools, text, signal }) => {
-    const snapshot = JSON.parse(text.slice(text.indexOf("\n") + 1, text.lastIndexOf("\nContinue")));
-    const topic = snapshot.session.topicId;
+    const snapshot = JSON.parse(text.split("Saved tutor state (data):\n")[1].split("\n\nContinue")[0]);
+    const topic = snapshot.topicId;
+    await call(tools, "tutor_advance", { phase: "independent" }, signal);
     const reply = await call(tools, "tutor_ask_typed", { question: "6*7?", accept: ["42"], hints: ["Multiply"] }, signal);
     await call(tools, "tutor_finish", { topic, level: 4, evidence: [{ blockId: reply.details.blockId, correct: true, rationale: "Solved independently" }], missing: [], next: "Apply it", summary: "You solved it." }, signal);
   });
@@ -54,10 +57,31 @@ test("real tool definitions wait for student actions, persist results, and expos
     coordinator.answerBlock(started.sessionId, open.blockId, { kind: "typed", answer: "42" });
     await until(() => coordinator.state(started.sessionId).status === "completed");
     assert.equal(coordinator.state(started.sessionId).result.level, 1);
-    assert.equal(runtime.creations[0].tools.length, 6);
-    assert.match(runtime.creations[0].systemPrompt, /Homework done by Inky never/);
+    assert.equal(runtime.creations[0].tools.length, 7);
+    assert.equal(repo.session(started.sessionId).blocks[0].phase, "independent");
+    assert.match(runtime.creations[0].systemPrompt, /Homework Inky did.*never evidence/);
   } finally { await coordinator.dispose(); }
 }));
+
+test("fake learning sessions preserve the bounded tools, resume target and event lifecycle", async () => {
+  const turn = [{ schemaVersion: 1, type: "text", delta: "Controlled tutor reply" }, { schemaVersion: 1, type: "terminal", outcome: "completed" }];
+  const runtime = new FakeAgentRuntime([turn]);
+  const tools = createTutorTools(async () => { throw new Error("Event fake must not pretend to execute tools"); });
+  const session = await runtime.createLearningSession(tools, TUTOR_SYSTEM_PROMPT, { resumeSessionPath: "saved-tutor.jsonl" });
+  assert.deepEqual(session.toolNames, tools.map(tool => tool.name));
+  assert.equal(session.sessionPath, "saved-tutor.jsonl");
+  const events = [];
+  session.subscribe(event => events.push(event));
+  await session.prompt("Begin");
+  assert.deepEqual(events, turn);
+  await session.abort();
+  assert.equal(events.at(-1).outcome, "aborted");
+  session.dispose();
+  await assert.rejects(session.prompt("Again"), /disposed/);
+  await assert.rejects(runtime.createLearningSession([], TUTOR_SYSTEM_PROMPT), /bounded tools/);
+  await assert.rejects(runtime.createLearningSession(tools, " "), /instructions/);
+  await assert.rejects(runtime.createLearningSession([tools[0], tools[0]], TUTOR_SYSTEM_PROMPT), /unique/);
+});
 
 test("a question mid-block interrupts the pending tool, preserves the block and resumes without duplicates", async () => setup(async repo => {
   const args = { question: "6*7?", accept: ["42"], hints: [] };

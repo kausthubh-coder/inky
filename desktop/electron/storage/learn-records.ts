@@ -122,7 +122,7 @@ export class LearnRepository {
       }));
       const topicIds = new Set(topicKeyToId.values());
       for (const record of this.exams().filter(exam => exam.sourceId === sourceId)) {
-        if (![...examIds.values()].includes(record.examId) && record.dateOrigin !== "student") this.#delete("learn_exams", record.examId);
+        if (![...examIds.values()].includes(record.examId) && record.dateOrigin !== "student" && !record.hidden) this.#delete("learn_exams", record.examId);
       }
       for (const record of this.topics().filter(topic => topic.sourceId === sourceId)) {
         // Preserve historical topic/session links, but remove obsolete topics from the exam plan.
@@ -317,7 +317,7 @@ export class LearnRepository {
       if (session.blocks.length >= 119) throw new Error("Tutor block budget reached; finish the session");
       const open = session.blocks.some(block => block.status === "open");
       if (open && call.tool !== "tutor_say") throw new Error("Answer the open block before creating another");
-      if (!open && call.tool === "tutor_say" && session.blocks.length >= 2 && session.blocks.slice(-2).every(block => block.tool === "tutor_say")) {
+      if (call.tool === "tutor_say" && session.blocks.length >= 2 && session.blocks.slice(-2).every(block => block.tool === "tutor_say")) {
         throw new Error("That's three messages in a row. Give the student something to do: ask a question or show a model.");
       }
       const now = this.now();
