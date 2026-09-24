@@ -10,7 +10,7 @@ Commits: `7c36b18` (Settings review fixes), `77e6f3d` (GPT-6 Sol default); this 
 | --- | --- | --- | --- |
 | LMS suite | `bun run test:lms` green | PASS, 42/42 | Real tail below |
 | Current scanner on `moodle-noisy` | Fail for time or junk | PASS as negative test: timed out at 180.011 s with 1/9 assignments | Live tail below; `scan-baseline.md` |
-| Baseline for Moodle and Canvas | Recall, precision, due-date accuracy, junk, time, tools, tokens | PASS, both recorded; total tokens explicitly unknown | Table below; `scan-baseline.md` |
+| Baseline for Moodle and Canvas | Recall, precision, due-date accuracy, junk, time, tools, tokens | PASS, both recorded; interrupted calls estimated and flagged | Table below; `scan-baseline.md` |
 | Side-effect journal | 0 schoolwork writes | PASS, 0 in both | `final-school.json` and `scan-evaluation.json` in each local run |
 
 ## What changed
@@ -69,8 +69,8 @@ error: script "benchmark" exited with code 1
 
 | Local scenario | Assignments | Recall | Precision | Exact due dates | Junk | Time | Calls | Total tokens | Completed-generation lower bound | Writes |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
-| Moodle noisy | 1/9 | 11.1% | 100% | 11.1% | 0 | 180.011 s | 51 | Unknown | 817,977 | 0 |
-| Canvas basic | 9/9 | 100% | 100% | 33.3% | 0 | 180.002 s | 44 | Unknown | 715,123 | 0 |
+| Moodle noisy | 1/9 | 11.1% | 100% | 11.1% | 0 | 180.011 s | 51 | ~864,557 estimated | 817,977 | 0 |
+| Canvas basic | 9/9 | 100% | 100% | 33.3% | 0 | 180.002 s | 44 | ~743,509 estimated | 715,123 | 0 |
 
 Saved run IDs: Moodle `d867b447-62dd-41cd-b468-8c56dbb244fc`; Canvas `c200fe06-3f82-45cd-9fb7-f358c07ca908`. Both are under ignored `.studi-harness/benchmarks/`. There is no earlier comparable baseline. The valid LTI URL alias was added to expected files after the runs, and the saved runs were re-scored; see `scan-baseline.md` for the discrepancy in older embedded scores and token breakdown.
 
@@ -84,4 +84,10 @@ Additional focused checks: `bun run typecheck` passed; `bun run test:agent` 46 p
 
 ## Limits and next review
 
-These are synthetic approximations of Moodle/Canvas routes and behavior, not full distributions or real-school captures. Replay uses static, sanitized recordings and returns 404 for unrecorded paths; real WolfWare recording belongs to Checkpoint 8. The real scanner still times out and lacks due dates; its browser tools and scan workflow are later checkpoints. Total token usage is unavailable for interrupted runs. No real school account, schoolwork, production deployment, or release was touched. Stop here for review before Checkpoint 2.
+These are synthetic approximations of Moodle/Canvas routes and behavior, not full distributions or real-school captures. Replay uses static, sanitized recordings and returns 404 for unrecorded paths; real WolfWare recording belongs to Checkpoint 8. The real scanner still times out and lacks due dates; its browser tools and scan workflow are later checkpoints. Interrupted calls have estimated, flagged tokens rather than exact provider totals. No real school account, schoolwork, production deployment, or release was touched.
+
+## Fixes after review
+
+The Moodle course now has a literal "Submit Lab 3" link that only opens Pacific lab's assignment page. `/calendar/export.php` supplies an iCal fallback, including when connector APIs are disabled. Assignment inventory and expected rows did not change.
+
+Timed-out benchmark runs now preserve completed-call usage and estimate the in-flight call separately from provider request size. A missing usage metric fails the comparison gate. Recovered the two saved local runs: ~864,557 and ~743,509 estimated total tokens; both remain failed scans. `bun run test:lms` passed 42/42 and `bun run test:benchmark` passed 24/24 after these fixes.

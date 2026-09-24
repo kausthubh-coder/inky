@@ -54,6 +54,11 @@ test("noisy course has 130 activities, exactly nine real tasks, independent gold
   assert.match(page.html, /<section class="section"/);
   assert.match(page.html, /<td>Oct 7<\/td>/);
   assert.match(page.html, /\/mod\/lti\/view.php/);
+  assert.match(page.html, /<a href="\/mod\/assign\/view.php\?id=pacific-lab">Submit Lab 3<\/a>/);
+  const labPage = await get(school.url + "/mod/assign/view.php?id=pacific-lab");
+  assert.equal(labPage.status, 200);
+  assert.match(labPage.html, /Pacific lab/);
+  assert.equal(school.inspect().effects.some((event) => event.type === "submitted"), false);
   assert.match((await get(school.url)).html, /block_timeline block-timeline/);
   assert.match(
     (await get(school.url + "/mod/quiz/view.php?id=concept-quiz")).html,
@@ -106,6 +111,13 @@ test("Moodle AJAX methods require sesskey; unknown writes fail; disabled connect
     (await get(disabled.url + "/calendar/view.php?view=upcoming")).status,
     200,
   );
+  const exported = await fetch(disabled.url + "/calendar/export.php");
+  assert.equal(exported.status, 200);
+  assert.match(exported.headers.get("content-type"), /text\/calendar/);
+  const calendar = await exported.text();
+  assert.match(calendar, /BEGIN:VCALENDAR/);
+  assert.match(calendar, /SUMMARY:Pacific lab/);
+  assert.match(calendar, /DTSTART:20260919T065900Z/);
   assert.equal(
     school
       .inspect()

@@ -123,8 +123,9 @@ export function evaluateScan({
     "cacheReadTokens",
     "cacheWriteTokens",
   ];
-  const tokens =
-    usage && usageFields.every((field) => known(usage[field]))
+  const tokens = known(observation.metrics?.tokenEstimate?.totalTokens)
+    ? observation.metrics.tokenEstimate.totalTokens
+    : usage && usageFields.every((field) => known(usage[field]))
       ? usageFields.reduce((sum, field) => sum + usage[field], 0)
       : null;
   const measuredGenerations =
@@ -155,6 +156,7 @@ export function evaluateScan({
       ? observation.metrics.toolCalls
       : null,
     tokens,
+    tokenEstimate: observation.metrics?.tokenEstimate ?? null,
     completedGenerationTokens: measuredGenerations
       ? inputs.reduce((a, b) => a + b, 0) + outputs.reduce((a, b) => a + b, 0)
       : null,
@@ -221,9 +223,9 @@ export function evaluateScan({
     junk: actual
       .filter((a) => !recognized.includes(a))
       .map((a) => ({ title: a.title, href: a.sourceTarget ?? a.href })),
-    usageNote: complete
-      ? "Usage from provider diagnostics; unavailable fields remain null."
-      : "Interrupted run: completed-generation counts and peak prompt are lower bounds; total tokens remain unknown.",
+    usageNote: observation.metrics?.tokenEstimate?.estimated
+      ? "Total tokens include an estimated in-flight provider call; completed-call usage is measured. An incomplete run fails the gate."
+      : "Usage from completed provider diagnostics; missing metrics fail the gate.",
   };
 }
 

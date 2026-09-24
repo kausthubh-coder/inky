@@ -6,6 +6,7 @@ import { pathToFileURL } from "node:url";
 import electronPath from "electron";
 import { ROOT, hash, hashTree, writeJson, runProcess } from "./runner.mjs";
 import { loadExpected, evaluateScan } from "../lms/evaluate-scan.mjs";
+import { recoverTimeoutUsage } from "./timeout-usage.mjs";
 
 function waitMessage(child, type, timeoutMs) {
   return new Promise((resolveResult, reject) => {
@@ -153,12 +154,15 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
               interrupted.metrics.toolCalls = events.filter(event => event.diagnostic?.kind === "tool_execution_start").length;
               interrupted.metrics.modelCalls = events.filter(event => event.diagnostic?.kind === "provider_request").length;
             }
-            // Completed generation usage is a lower bound after an interrupted
-            // request. Preserve it separately; total usage remains unknown.
+            const recovered = recoverTimeoutUsage(events);
+            interrupted.metrics.usage = recovered.usage;
+            interrupted.metrics.tokenEstimate = recovered.tokenEstimate;
+            // Keep per-call diagnostics for auditing the estimate.
             interrupted.completedGenerations = events.filter(event => event.diagnostic?.kind === "generation")
               .map(event => ({ inputTokens: event.diagnostic.payload.$ai_input_tokens ?? null, outputTokens: event.diagnostic.payload.$ai_output_tokens ?? null,
                 cacheReadTokens: event.diagnostic.payload.$ai_cache_read_input_tokens ?? null, cacheWriteTokens: event.diagnostic.payload.$ai_cache_creation_input_tokens ?? null }));
           } catch (error) { record.traceRecoveryError = error.message; }
+          interrupted.grade = grade(inspection, interrupted);
         }
       }
       finally { await school.close(); }

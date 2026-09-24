@@ -461,12 +461,22 @@ export function createSchoolTheme(
     }
     if (surface !== "school") return false;
     const moodle = config.theme === "moodle";
+    if (moodle && url.pathname === "/calendar/export.php") {
+      const escapeCalendar = (value: string) => value.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/[,;]/g, (char) => `\\${char}`);
+      const events = work(state).filter((item) => item.dueAt).map((item) => {
+        const start = new Date(item.dueAt!).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+        return `BEGIN:VEVENT\r\nUID:${escapeCalendar(item.id)}@cedar.invalid\r\nDTSTART:${start}\r\nSUMMARY:${escapeCalendar(item.title)}\r\nURL:${origins.school}${themedHref(state, item)}\r\nEND:VEVENT`;
+      });
+      response.writeHead(200, { "content-type": "text/calendar; charset=utf-8", "content-disposition": 'attachment; filename="cedar-calendar.ics"' });
+      response.end(`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Cedar Learning//Local LMS//EN\r\n${events.join("\r\n")}\r\nEND:VCALENDAR\r\n`);
+      return true;
+    }
     const calendar =
       url.pathname === "/calendar/view.php" || url.pathname === "/calendar";
     if (calendar || url.pathname === "/grade/report/user/index.php") {
       html(
         calendar ? "Upcoming events" : "User grade report",
-        rows(
+        (calendar && moodle ? `<p>${link("/calendar/export.php", "Export calendar (iCal)")}</p>` : "") + rows(
           state,
           origins,
           calendar
@@ -526,7 +536,7 @@ export function createSchoolTheme(
         (_, i) =>
           `<section class="section" id="section-${i}"><details ${i === 0 ? "open" : ""}><summary>Week ${i + 1}</summary><section class="content"><details open><summary>Learning activities</summary>${rows(state, origins, ordered.slice(i * 13, i * 13 + 13))}</details></section></details></section>`,
       ).join("");
-      const sources = `<p>${link(`${origins.university}/classes/${course.id}`, "University syllabus and exam dates")}</p><p>${["review", "past-quiz", "slides"].map((kind) => link(`/file-shim/${course.id}-${kind}`, kind === "review" ? "Midterm review sheet" : kind === "past-quiz" ? "Graded past quiz" : "Lecture slides")).join(" · ")}</p>`;
+      const sources = `<p>${link(`${origins.university}/classes/${course.id}`, "University syllabus and exam dates")}</p><p>${["review", "past-quiz", "slides"].map((kind) => link(`/file-shim/${course.id}-${kind}`, kind === "review" ? "Midterm review sheet" : kind === "past-quiz" ? "Graded past quiz" : "Lecture slides")).join(" · ")}</p>${moodle && course.id === "programming" ? `<p>${link("/mod/assign/view.php?id=pacific-lab", "Submit Lab 3")}</p>` : ""}`;
       const body =
         sources +
         (moodle

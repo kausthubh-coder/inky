@@ -7,14 +7,14 @@ The existing Studi scanner was measured against the new **local, synthetic** sch
 | `moodle-noisy` | Timed out while running | 1 / 9 | 11.1% | 100% | 11.1% | 0 | 0 | 0 | 180.011 s | 51 | 0 |
 | `canvas-basic` | Timed out while running | 9 / 9 | 100% | 100% | 33.3% | 0 | 0 | 0 | 180.002 s | 44 | 0 |
 
-Precision is 100% for Moodle because its **one** saved assignment is valid; it does not imply useful coverage. Canvas saved all nine assignments but omitted the exact deadline timestamps on six. The three exact matches are expected date-only or unknown dates. The side-effect journals contain zero schoolwork writes in both runs. The three-minute time target was missed by both; Moodle also missed the recall and due-date targets. No positive scanner-readiness claim follows from this baseline.
+Precision is 100% for Moodle because its **one** saved assignment is valid; it does not imply useful coverage. Canvas saved all nine assignments but omitted the exact deadline timestamps on six. The three exact matches are expected date-only or unspecified dates. The side-effect journals contain zero schoolwork writes in both runs. The three-minute time target was missed by both; Moodle also missed the recall and due-date targets. No positive scanner-readiness claim follows from this baseline.
 
 | Scenario | Total tokens | Completed-generation lower bound | Uncached input | Cached input read | Output | Peak prompt tokens, lower bound | Peak serialized request |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| `moodle-noisy` | Unknown | 817,977 | 35,848 | 779,776 | 2,353 | 29,688 | 383,856 chars |
-| `canvas-basic` | Unknown | 715,123 | 68,916 | 643,072 | 3,135 | 31,960 | 142,784 chars |
+| `moodle-noisy` | ~864,557 (estimated) | 817,977 | 35,848 | 779,776 | 2,353 | 29,688 | 383,856 chars |
+| `canvas-basic` | ~743,509 (estimated) | 715,123 | 68,916 | 643,072 | 3,135 | 31,960 | 142,784 chars |
 
-The runs were interrupted at the deadline, so final aggregate usage was unavailable. These are sums of completed model generations and cannot be presented as final token totals. Peak serialized request size can include non-text payload. The intended targets in `agent-harness/benchmark/slo.json` are 200,000 tokens / 60 tool calls for Moodle and 150,000 tokens / 50 calls for Canvas, within three minutes; missing aggregate usage cannot pass a token gate.
+The runs were interrupted at the deadline. Exact completed-call usage is shown separately. The pending provider call is estimated from its serialized request size and the completed calls' observed input-to-size ratio and average output: Moodle +46,534 prompt and +46 output; Canvas +28,315 prompt and +71 output. This estimate is flagged in each run record and cannot be presented as exact billed usage. Peak serialized request size can include non-text payload. The intended targets in `agent-harness/benchmark/slo.json` are 200,000 tokens / 60 tool calls for Moodle and 150,000 tokens / 50 calls for Canvas, within three minutes; a missing metric fails the gate.
 
 ## Reproduction and real command tails
 

@@ -85,6 +85,10 @@ function summarize(record) {
     }
   }
   const metrics = aggregateMetrics(phases);
+  for (const field of ["durationMs", "toolCalls", "modelCalls"]) {
+    if (metrics[field] === null) issues.push(`Missing ${field} measurement`);
+  }
+  if (metrics.usage === null || Object.values(metrics.usage).some(value => value === null)) issues.push("Missing token usage measurement");
   if (metrics.durationMs !== null && metrics.durationMs > record?.config?.budgetMs) issues.push("Run exceeded its wall-time budget");
   if (metrics.toolCalls !== null && metrics.toolCalls > record?.config?.maxToolCalls) issues.push("Run exceeded its tool-call budget");
   return { runId: record?.runId ?? null, revision: record?.revision ?? null,

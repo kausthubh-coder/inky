@@ -2,6 +2,25 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { aggregateMetrics } from "../../agent-harness/benchmark/metrics.mjs";
 import { compareRuns } from "../../agent-harness/benchmark/comparison.mjs";
+import { recoverTimeoutUsage } from "../../agent-harness/benchmark/timeout-usage.mjs";
+
+test("timeout retains completed usage and labels the pending model call estimate", () => {
+  const events = [
+    { diagnostic: { kind: "provider_request", payload: { span_id: "done", request: { input: "a".repeat(400) } } } },
+    { diagnostic: { kind: "generation", payload: { $ai_span_id: "done", $ai_input_tokens: 20, $ai_output_tokens: 4, $ai_cache_read_input_tokens: 80, $ai_cache_creation_input_tokens: 0 } } },
+    { diagnostic: { kind: "provider_request", payload: { span_id: "pending", request: { input: "b".repeat(800) } } } },
+  ];
+  const result = recoverTimeoutUsage(events);
+  assert.deepEqual(result.usage, { inputTokens: 20, outputTokens: 4, cacheReadTokens: 80, cacheWriteTokens: 0 });
+  assert.equal(result.tokenEstimate.observedTokens, 104);
+  assert.equal(result.tokenEstimate.estimated, true);
+  assert.ok(result.tokenEstimate.inFlightPromptTokens > 100);
+  assert.equal(result.tokenEstimate.inFlightOutputTokens, 4);
+  assert.equal(result.tokenEstimate.totalTokens, 104 + result.tokenEstimate.inFlightPromptTokens + 4);
+  const missing = run(); missing.phases[1].metrics.usage = null;
+  assert.equal(compareRuns(run(), missing).candidate.passed, false);
+  assert.ok(compareRuns(run(), missing).candidate.issues.includes("Missing token usage measurement"));
+});
 
 const phase = name => ({ name, status: "completed", scanState: "succeeded",
   metrics: { durationMs: 50.5, toolCalls: 4, modelCalls: 2,
