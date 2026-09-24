@@ -89,6 +89,7 @@ export function installDevPreview(): void {
     },
     scan: {
       inventories: [], messages: [], changes: [], sourceCheckpoints: [], addedSourceTargets: [], skippedSources: [],
+      purpose: "setup", materialSourceCount: 0, completedCourseIds: [],
       schemaVersion: 1,
       scanId: "preview-scan",
       kind: "first_scan",
@@ -373,6 +374,7 @@ export function installDevPreview(): void {
     stopScopedConversation: async target => {stopRequested=true;chatActivity='idle';return {job:conversation(target),activity:'idle'};},
     sendScanMessage: async ({text,clientMessageId}) => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,messages:[...onboarding.scan.messages,{messageId:clientMessageId,clientMessageId,role:"user",text,createdAt:new Date().toISOString()}]}};return onboarding; },
     pauseSchoolScan: async () => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,state:"needs_user",currentStep:"You have the page."}};return onboarding; },
+    finishSchoolScan: async () => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,state:"partial",currentStep:"Saved what Inky found so far",failures:[...onboarding.scan.failures,"You ended this check before all sources were verified."]}};return onboarding; },
     getConversationState: async () => ({job:conversation({kind:'home'}),activity:chatActivity}),
     stopConversation: async () => {stopRequested=true;chatActivity='idle';return {job:conversation({kind:'home'}),activity:'idle'};},
     getNotifications: async () => lifecycle.latestNotification ? [lifecycle.latestNotification] : [],

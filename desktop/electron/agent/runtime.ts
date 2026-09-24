@@ -257,6 +257,7 @@ export class PiAgentRuntime implements AgentRuntime {
         nextTarget,
         tools,
         (await buildRuntimeInstructions("scan", tools.map((tool) => tool.name))).text,
+        "low",
       );
     return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "scan"));
   }
@@ -451,6 +452,7 @@ export class PiAgentRuntime implements AgentRuntime {
     target: AgentSessionTarget,
     tools: readonly ToolDefinition[],
     systemPrompt: string,
+    reasoningEffort: AgentReasoningEffort = this.#thinkingLevel,
   ): Promise<PiAgentSession> {
     const sessionCwd = target.cwd ?? this.#cwd;
     const settingsManager = SettingsManager.inMemory();
@@ -480,7 +482,7 @@ export class PiAgentRuntime implements AgentRuntime {
       noTools: "all",
       tools: tools.map((tool) => tool.name),
       customTools: [...tools],
-      thinkingLevel: this.#thinkingLevel,
+      thinkingLevel: reasoningEffort,
     };
     if (!this.#model) {
       throw new Error("Pi has no model available for a Studi session");
@@ -495,7 +497,7 @@ export class PiAgentRuntime implements AgentRuntime {
     const diagnostics = new RuntimeDiagnostics(session.sessionId, this.#onDiagnostic);
     diagnostics.record("session_created", {
       system_prompt: systemPrompt, model: this.#model.id, provider: this.#model.provider,
-      reasoning_effort: this.#thinkingLevel, tools: tools.map(tool => ({ name: tool.name, description: tool.description, parameters: tool.parameters })),
+      reasoning_effort: reasoningEffort, tools: tools.map(tool => ({ name: tool.name, description: tool.description, parameters: tool.parameters })),
       resumed: !!target.resumeSessionPath,
     });
     session.subscribe(event => diagnostics.accept(event));

@@ -420,7 +420,7 @@ export function ChatWorkspace(props: ChatProps) {
           onCheck={props.onResumeScan}
           onPause={() => {
             void window.studi
-              ?.pauseSchoolScan()
+              ?.finishSchoolScan()
               .catch((cause) => setError(String(cause)));
           }}
           onBrowser={openBrowser}

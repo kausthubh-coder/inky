@@ -203,7 +203,7 @@ export function createSchoolTheme(
       launches.set(token, item.id);
       html(
         item.title,
-        `<p>Open the course tool. Due dates and submissions are managed by WebAssign-like.</p><form method="post" action="${origins.statistics}/lti/launch"><input type="hidden" name="launch" value="${token}"><button>Open WebAssign</button></form>`,
+        `<p>Open the course tool. Due dates and submissions are managed by WebAssign-like.</p><form method="post" action="${origins.statistics}/lti/launch"><input type="hidden" name="lti_message_type" value="LtiResourceLinkRequest"><input type="hidden" name="resource_link_id" value="${esc(item.id)}"><input type="hidden" name="launch" value="${token}"><button>Open WebAssign</button></form>`,
       );
       return true;
     }

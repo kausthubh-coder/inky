@@ -1,5 +1,12 @@
 import type { OnBeforeRequestListenerDetails, Session } from "electron";
 
+import {
+  mergeSchoolReadOnlyHosts,
+  SchoolReadOnlyHostsSchema,
+  type SchoolReadOnlyHosts,
+  type SchoolReadOnlyHostsInput,
+} from "../../shared/school-scan.js";
+
 const READ_ONLY_MOODLE_METHODS = new Set([
   "core_course_check_updates",
   "core_session_time_remaining",
@@ -24,8 +31,25 @@ export interface ScanReadOnlyGuardOptions {
 
 export interface ScanReadOnlyGuard {
   readonly scanActive: boolean;
+  setAllowedHosts(hosts: SchoolReadOnlyHostsInput | undefined): void;
   setScanActive(active: boolean): void;
   dispose(): void;
+}
+
+export interface LtiLaunchFormObservation {
+  readonly pageUrl: string;
+  readonly action: string;
+  readonly method: string;
+  /** Field names only. Form values can contain credentials and must not cross this boundary. */
+  readonly fieldNames: readonly string[];
+}
+
+export interface SignInRedirectObservation {
+  readonly schoolRoot: string;
+  /** Main-frame navigation URLs in order, including the school start and return. */
+  readonly redirectChain: readonly string[];
+  readonly context: "onboarding" | "needs_you";
+  readonly signedIn: boolean;
 }
 
 interface CompiledPolicy {
@@ -42,7 +66,7 @@ export function installScanReadOnlyGuard(
   session: Pick<Session, "webRequest">,
   options: ScanReadOnlyGuardOptions = {},
 ): ScanReadOnlyGuard {
-  const policy = compilePolicy(options);
+  let policy = compilePolicy(options);
   let scanActive = false;
   let disposed = false;
 
@@ -63,6 +87,10 @@ export function installScanReadOnlyGuard(
 
   return {
     get scanActive() { return scanActive; },
+    setAllowedHosts(hosts) {
+      if (disposed) throw new Error("The scan read-only guard has been disposed");
+      policy = compilePolicy(hosts ?? {});
+    },
     setScanActive(active) {
       if (disposed) {
         if (active) throw new Error("The scan read-only guard has been disposed");
@@ -87,6 +115,55 @@ export function classifyScanRequest(
   return classifyScanRequestWithPolicy(request, compilePolicy(options), scanActive);
 }
 
+/**
+ * Adds an LTI host only when a verified course page contains the launch form.
+ * Callers should collect only the form action, method, and field names from the
+ * page; form values are intentionally unnecessary.
+ */
+export function autofillLtiLaunchHost(
+  current: SchoolReadOnlyHostsInput | undefined,
+  observation: LtiLaunchFormObservation,
+  verifiedCoursePageUrls: readonly string[],
+): SchoolReadOnlyHosts {
+  const page = parseCredentialFreeHttpUrl(observation.pageUrl, "LTI course page");
+  const verifiedPages = new Set(verifiedCoursePageUrls.map(url => comparablePageUrl(parseCredentialFreeHttpUrl(url, "verified course page"))));
+  if (!verifiedPages.has(comparablePageUrl(page))) {
+    throw new Error("An LTI launch host can be learned only from a verified course page");
+  }
+  if (observation.method.trim().toUpperCase() !== "POST") {
+    throw new Error("An LTI launch form must use POST");
+  }
+  const names = new Set(observation.fieldNames.map(name => name.trim().toLowerCase()).filter(Boolean));
+  if (!isLtiLaunchFieldSet(names)) {
+    throw new Error("The verified course-page form is not an LTI launch form");
+  }
+  const action = parseCredentialFreeHttpUrl(new URL(observation.action, page).toString(), "LTI form action");
+  return mergeSchoolReadOnlyHosts(current, { ltiLaunchHosts: [action.host] });
+}
+
+/**
+ * Adds exact IdP hosts after a student completes a sign-in handoff. Only a
+ * main-frame chain that starts at the school, visits another host, returns to
+ * the same school host, and is followed by a signed-in observation qualifies.
+ */
+export function autofillSignInHosts(
+  current: SchoolReadOnlyHostsInput | undefined,
+  observation: SignInRedirectObservation,
+): SchoolReadOnlyHosts {
+  if (!observation.signedIn) throw new Error("Sign-in hosts require a verified signed-in school state");
+  if (observation.context !== "onboarding" && observation.context !== "needs_you") {
+    throw new Error("Sign-in hosts can be learned only during onboarding or a needs-you handoff");
+  }
+  const root = parseCredentialFreeHttpUrl(observation.schoolRoot, "school root");
+  const chain = observation.redirectChain.map(url => parseCredentialFreeHttpUrl(url, "sign-in redirect"));
+  if (chain.length < 3 || chain[0]?.host !== root.host || chain.at(-1)?.host !== root.host) {
+    throw new Error("Sign-in redirects must go from the school root back to the same school host");
+  }
+  const signInHosts = [...new Set(chain.slice(1, -1).map(url => url.host).filter(host => host !== root.host))];
+  if (signInHosts.length === 0) throw new Error("The sign-in redirect chain did not visit an identity-provider host");
+  return mergeSchoolReadOnlyHosts(current, { signInHosts });
+}
+
 function classifyScanRequestWithPolicy(
   request: GuardRequest,
   policy: CompiledPolicy,
@@ -105,7 +182,7 @@ function classifyScanRequestWithPolicy(
   if (
     method === "POST" &&
     policy.ltiLaunchHosts.has(normalizeHostname(url.host)) &&
-    (fields.names.has("lti_message_type") || fields.names.has("id_token"))
+    isLtiLaunchFieldSet(fields.names)
   ) {
     return { action: "allow", reason: "lti_launch" };
   }
@@ -123,20 +200,14 @@ function classifyScanRequestWithPolicy(
 }
 
 function compilePolicy(options: Pick<ScanReadOnlyGuardOptions, "signInHosts" | "ltiLaunchHosts">): CompiledPolicy {
+  const parsed = SchoolReadOnlyHostsSchema.parse({
+    signInHosts: options.signInHosts,
+    ltiLaunchHosts: options.ltiLaunchHosts,
+  });
   return {
-    signInHosts: new Set((options.signInHosts ?? []).map(normalizeConfiguredHost)),
-    ltiLaunchHosts: new Set((options.ltiLaunchHosts ?? []).map(normalizeConfiguredHost)),
+    signInHosts: new Set(parsed.signInHosts),
+    ltiLaunchHosts: new Set(parsed.ltiLaunchHosts),
   };
-}
-
-function normalizeConfiguredHost(value: string): string {
-  const trimmed = value.trim();
-  if (!trimmed || trimmed.includes("*")) throw new Error(`Invalid read-only guard host: ${value}`);
-  const url = parseHttpUrl(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
-  if (!url || url.username || url.password || (url.pathname !== "/" && url.pathname !== "") || url.search || url.hash) {
-    throw new Error(`Read-only guard hosts must be exact HTTP(S) host names: ${value}`);
-  }
-  return normalizeHostname(url.host);
 }
 
 function normalizeHostname(hostname: string): string {
@@ -150,6 +221,25 @@ function parseHttpUrl(value: string): URL | null {
   } catch {
     return null;
   }
+}
+
+function parseCredentialFreeHttpUrl(value: string, label: string): URL {
+  const url = parseHttpUrl(value);
+  if (!url || url.username || url.password) throw new Error(`${label} must be a credential-free HTTP(S) URL`);
+  return url;
+}
+
+function comparablePageUrl(url: URL): string {
+  const copy = new URL(url);
+  copy.hash = "";
+  return copy.toString();
+}
+
+function isLtiLaunchFieldSet(names: ReadonlySet<string>): boolean {
+  return (
+    (names.has("lti_message_type") && names.has("resource_link_id"))
+    || (names.has("id_token") && names.has("state"))
+  );
 }
 
 function isReadOnlyMoodleMethod(method: string): boolean {

@@ -9,7 +9,62 @@ import { IsoTimestampSchema, SchemaVersionSchema } from "./schema-version.js";
 
 export const ScanCadenceSchema = z.enum(["manual", "daily", "weekly"]);
 
-export const SchoolProfileSchema = z.strictObject({
+export function normalizeExactSchoolHost(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.includes("*")) throw new Error("School hosts must be exact HTTP(S) host names");
+  let url: URL;
+  try {
+    url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
+  } catch {
+    throw new Error("School hosts must be exact HTTP(S) host names");
+  }
+  if (
+    !["http:", "https:"].includes(url.protocol)
+    || url.username
+    || url.password
+    || (url.pathname !== "/" && url.pathname !== "")
+    || url.search
+    || url.hash
+  ) {
+    throw new Error("School hosts must be exact HTTP(S) host names");
+  }
+  return url.host.toLowerCase().replace(/\.(?=:|$)/, "");
+}
+
+export const ExactSchoolHostSchema = z.string().transform((value, context) => {
+  try {
+    return normalizeExactSchoolHost(value);
+  } catch (error) {
+    context.addIssue({ code: "custom", message: error instanceof Error ? error.message : "Invalid school host" });
+    return z.NEVER;
+  }
+});
+
+const ExactSchoolHostListSchema = z.array(ExactSchoolHostSchema).max(100).transform(hosts => [...new Set(hosts)]);
+
+export const SchoolReadOnlyHostsSchema = z.strictObject({
+  signInHosts: ExactSchoolHostListSchema.default([]),
+  ltiLaunchHosts: ExactSchoolHostListSchema.default([]),
+});
+
+export type SchoolReadOnlyHosts = z.infer<typeof SchoolReadOnlyHostsSchema>;
+export interface SchoolReadOnlyHostsInput {
+  readonly signInHosts?: readonly string[];
+  readonly ltiLaunchHosts?: readonly string[];
+}
+
+export function mergeSchoolReadOnlyHosts(
+  current: SchoolReadOnlyHostsInput | undefined,
+  additions: Partial<SchoolReadOnlyHosts>,
+): SchoolReadOnlyHosts {
+  const policy = SchoolReadOnlyHostsSchema.parse(current ?? {});
+  return SchoolReadOnlyHostsSchema.parse({
+    signInHosts: [...policy.signInHosts, ...(additions.signInHosts ?? [])],
+    ltiLaunchHosts: [...policy.ltiLaunchHosts, ...(additions.ltiLaunchHosts ?? [])],
+  });
+}
+
+const SchoolProfileRecordSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
   profileId: z.literal("primary-school"),
   studentName: z.string().trim().min(1).max(100),
@@ -19,8 +74,22 @@ export const SchoolProfileSchema = z.strictObject({
   onboardingState: z.enum(["profile_saved", "needs_sign_in", "scanning", "ready"]),
   onboardingCompletedAt: IsoTimestampSchema.optional(),
   missedCourseFeedback: z.array(z.string().trim().min(1).max(500)).max(20),
+  signInHosts: ExactSchoolHostListSchema.default([]),
+  ltiLaunchHosts: ExactSchoolHostListSchema.default([]),
+  schoolTimeZone: z.string().refine(value => {
+    try { new Intl.DateTimeFormat("en-US", { timeZone: value }); return true; }
+    catch { return false; }
+  }, "Expected an IANA time zone").optional(),
   updatedAt: IsoTimestampSchema,
 });
+
+type ParsedSchoolProfile = z.infer<typeof SchoolProfileRecordSchema>;
+export type SchoolProfile = Omit<ParsedSchoolProfile, "signInHosts" | "ltiLaunchHosts"> &
+  Partial<Pick<ParsedSchoolProfile, "signInHosts" | "ltiLaunchHosts">>;
+
+// Older in-memory profile literals may omit the new fields. Parsing and
+// persistence still materialize both arrays through the schema defaults.
+export const SchoolProfileSchema: z.ZodType<SchoolProfile> = SchoolProfileRecordSchema;
 
 export const SchoolScanCoverageSchema = z
   .strictObject({
@@ -72,7 +141,11 @@ export const SchoolScanSchema = z.strictObject({
   scanId: z.string().min(1).max(256),
   ownerSubject: z.string().min(1).max(256).optional(),
   kind: z.enum(["first_scan", "replay"]),
+  purpose: z.enum(["setup", "refresh", "details", "materials"]).default("setup"),
   targetAssignmentId: z.string().min(1).max(256).optional(),
+  targetCourseId: z.string().min(1).max(256).optional(),
+  materialSourceCount: z.number().int().nonnegative().default(0),
+  completedCourseIds: z.array(z.string().min(1).max(256)).max(1_000).default([]),
   sourceScanTarget: SafeSourceTargetSchema.optional(),
   targetSourceTargets: z.array(SafeSourceTargetSchema).max(500).optional(),
   addedSourceTargets: z.array(SafeSourceTargetSchema).max(100).default([]),
@@ -93,7 +166,7 @@ export const SchoolScanSchema = z.strictObject({
   messages: z.array(z.strictObject({ messageId:z.string(), role:z.enum(["user","assistant"]), text:z.string().max(100000), createdAt:IsoTimestampSchema, clientMessageId:z.string().optional() })).max(1000).default([]),
   changes: z.array(z.strictObject({
     assignmentId: z.string(),
-    kind: z.enum(["new", "updated"]),
+    kind: z.enum(["new", "updated", "removed"]),
     fields: z.array(z.string()),
     dueChange: z.strictObject({
       before: z.strictObject({ dueAt: IsoTimestampSchema.optional(), dueText: z.string().max(200).optional() }),
@@ -104,6 +177,14 @@ export const SchoolScanSchema = z.strictObject({
 });
 
 export const SCAN_TOOL_NAMES = [
+  "scan_status", "scan_record_system", "scan_record_course", "scan_record_rows",
+  "scan_record_source", "scan_request_handoff",
+] as const;
+
+// Existing assignment-details checks still use their older tool surface until
+// the homework checkpoint migrates them. Setup, refresh and materials expose
+// only SCAN_TOOL_NAMES above.
+export const LEGACY_SCAN_TOOL_NAMES = [
   "scan_status", "scan_record_course", "scan_record_assignment", "scan_record_assignments",
   "scan_record_linked_system", "scan_record_inventory", "scan_request_handoff", "scan_finish",
   "scan_check_source", "scan_record_source", "scan_read_assignment", "scan_read_material",
@@ -175,9 +256,9 @@ export const SaveSchoolProfileInputSchema = z.strictObject({
   schoolRoot: SafeSourceTargetSchema,
   defaultPermission: PermissionModeSchema,
   scanCadence: ScanCadenceSchema,
+  schoolTimeZone: SchoolProfileRecordSchema.shape.schoolTimeZone,
 });
 
-export type SchoolProfile = z.infer<typeof SchoolProfileSchema>;
 export type SchoolScan = z.infer<typeof SchoolScanSchema>;
 export type SchoolScanCoverage = z.infer<typeof SchoolScanCoverageSchema>;
 export type Course = z.infer<typeof CourseSchema>;

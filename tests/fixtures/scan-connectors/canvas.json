@@ -1,0 +1,75 @@
+{
+  "origin": "https://canvas.cedar.example",
+  "courses": [
+    {
+      "id": "programming",
+      "name": "Programming in C",
+      "course_code": "CSC 230"
+    },
+    {
+      "id": "writing",
+      "name": "Academic Writing",
+      "course_code": "ENG 101",
+      "html_url": "/courses/writing?view=home"
+    }
+  ],
+  "planner": [
+    {
+      "course_id": "programming",
+      "plannable_id": "concept-quiz",
+      "plannable_type": "quiz",
+      "plannable": {
+        "id": "concept-quiz",
+        "title": "Concept quiz",
+        "due_at": "2026-09-23T23:59:00-04:00",
+        "due_text": "Sep 23 at 11:59pm"
+      },
+      "submissions": {
+        "excused": false,
+        "graded": false,
+        "late": false,
+        "missing": true,
+        "needs_grading": false,
+        "with_feedback": false
+      },
+      "html_url": "/courses/programming/assignments/concept-quiz#submit"
+    },
+    {
+      "course_id": "writing",
+      "plannable_type": "assignment",
+      "plannable": {
+        "id": "reflection",
+        "title": "Reflection",
+        "due_at": null,
+        "due_text": "No due date"
+      },
+      "html_url": "/courses/writing/assignments/reflection"
+    }
+  ],
+  "assignmentsByCourse": {
+    "programming": [
+      {
+        "id": "concept-quiz",
+        "course_id": "programming",
+        "name": "Concept quiz",
+        "due_at": "2026-09-23T23:59:00-04:00",
+        "html_url": "https://canvas.cedar.example/courses/programming/assignments/concept-quiz#submit",
+        "submission_types": ["online_quiz"],
+        "description": "Answer all ten questions.",
+        "submission": { "workflow_state": "unsubmitted" }
+      }
+    ],
+    "writing": [
+      {
+        "id": "reflection",
+        "course_id": "writing",
+        "name": "Reflection",
+        "due_at": null,
+        "html_url": "https://canvas.cedar.example/courses/writing/assignments/reflection",
+        "submission_types": ["online_text_entry"],
+        "description": "Write 300 words."
+      }
+    ]
+  },
+  "failures": []
+}

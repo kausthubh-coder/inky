@@ -16,7 +16,12 @@ if (positionals[0] === "live") {
     scenarioId: values.scenario, seed: Number(values.seed), model: values.model, provider: values.provider, effort: values.effort,
     budgetMs: Number(values["budget-ms"]), maxToolCalls: Number(values["max-tool-calls"]), phases: values.phases.split(","), show: values.show });
   console.log(JSON.stringify({ path, error: record.error ?? null, phases: record.phases.map(phase => ({ name: phase.name, status: phase.status, scanState: phase.scanState, passed: phase.grade.passed, metrics: phase.metrics })) }));
-  process.exitCode = !record.error && record.phases.length === record.config.phases.length && record.phases.every(phase => phase.status === "completed" && phase.scanState === "succeeded" && phase.grade.passed) ? 0 : 1;
+  const expectsHandoff = record.config.phases.includes("resume");
+  process.exitCode = !record.error && record.phases.length === record.config.phases.length && record.phases.every(phase =>
+    phase.name === "cold" && expectsHandoff
+      ? phase.status === "completed" && phase.scanState === "needs_user"
+      : phase.status === "completed" && phase.scanState === "succeeded" && phase.grade.passed
+  ) ? 0 : 1;
 } else if (positionals[0] === "replay") {
   const { path, record } = await runReplay({ buildRoot: values.build, gitSha: values.revision, budgetMs: Number(values["budget-ms"]), maxToolCalls: Number(values["max-tool-calls"]) });
   const phase = record.phases[0];

@@ -433,18 +433,21 @@ test("real Pi assignment session accepts workspace tools and preserves their fil
 
 test("scan session accepts its dedicated browser without a general browser controller", async () => {
   await withRuntime({}, async ({ faux, root, modelRuntime }) => {
+    const diagnostics = [];
     const runtime = await PiAgentRuntime.create({
       cwd: root,
       agentDir: join(root, "scan-agent"),
       modelRuntime,
       model: faux.getModel(),
       scanBrowserController: {},
+      onDiagnostic: event => diagnostics.push(event),
     });
     const session = await runtime.createScanSession([]);
     try {
       assert.equal(session.toolNames.includes("browser_snapshot"), true);
       assert.equal(session.toolNames.includes("browser_rows"), true);
       assert.equal(session.toolNames.includes("browser_submit"), false);
+      assert.equal(diagnostics.find(event => event.kind === "session_created")?.payload.reasoning_effort, "low");
     } finally {
       session.dispose();
     }

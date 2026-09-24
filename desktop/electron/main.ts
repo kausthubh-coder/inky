@@ -439,6 +439,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   sendScanMessage: input => requireSchoolScanCoordinator().sendMessage(input),
   pauseSchoolScan: () => requireSchoolScanCoordinator().requestTakeover(),
+  finishSchoolScan: () => requireSchoolScanCoordinator().finishWithFound(),
   getConversationState: () => requireConversationCoordinator().state(),
   getConversationTimeline: (input) => {
     requireConversationCoordinator();
@@ -1057,7 +1058,7 @@ function schoolBrowserPage(key: string): {view:WebContentsView;controller:Browse
   view.setVisible(false);
   window.contentView.addChildView(view);
   driveOverlay?.raise();
-  view.webContents.on("did-start-navigation",(_event,_url,inPlace,isMainFrame)=>{if(isMainFrame && !inPlace) controller.pageChanged();});
+  view.webContents.on("did-start-navigation",(_event,url,inPlace,isMainFrame)=>{if(isMainFrame && !inPlace) { controller.noteMainFrameNavigation(url); controller.pageChanged(); }});
   view.webContents.on("did-fail-load",(_event,code,description,url,isMainFrame)=>{if(isMainFrame) recordBrowserDiagnostic("load_failed",{page:key,code,description,url});});
   view.webContents.on("render-process-gone",(_event,details)=>recordBrowserDiagnostic("process_gone",{page:key,...details}));
   view.webContents.setWindowOpenHandler(({url})=>{

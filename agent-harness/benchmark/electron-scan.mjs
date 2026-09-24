@@ -48,6 +48,7 @@ async function initialize() {
   });
   const browser = new BrowserController({ debugger: window.webContents.debugger,
     session: window.webContents.session,
+    executeJavaScript: (code, userGesture) => window.webContents.executeJavaScript(code, userGesture),
     getURL: () => window.webContents.getURL(), getTitle: () => window.webContents.getTitle(),
     loadURL: async url => { if (!allowed(url)) { violations.push("Attempted navigation outside the fixture"); trace({ kind: "forbidden_navigation", url }); throw new Error("Only this run's fake school is allowed"); } await window.loadURL(url); },
   });
@@ -59,7 +60,7 @@ async function initialize() {
     try { return await Promise.race([capture(), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("Screenshot unavailable in the benchmark window; use the accessibility snapshot.")), 5000); })]); }
     finally { clearTimeout(timer); }
   };
-  window.webContents.on("did-navigate", () => browser.pageChanged());
+  window.webContents.on("did-navigate", (_event, url) => { browser.noteMainFrameNavigation(url); browser.pageChanged(); });
   runtime = await PiAgentRuntime.create({ cwd: config.agentWorkspace, agentDir: config.agentDir, browserController: browser,
     onDiagnostic: diagnostic => {
       trace({ kind: "diagnostic", diagnostic });
@@ -87,7 +88,7 @@ async function initialize() {
     return activeSession;
   } };
   coordinator = new SchoolScanCoordinator(store, scanRuntime, browser, { manager, now: () => config.clock,
-    readOnlyGuard: { setScanActive: active => { scanGuardActive = active; } },
+    readOnlyGuard: { setScanActive: active => { scanGuardActive = active; }, setAllowedHosts: () => {} },
     onError: error => trace({ kind: "scan_error", error: error.message }) });
   await coordinator.saveProfile({ studentName: "Synthetic student", schoolRoot: config.schoolUrl, defaultPermission: "attempt", scanCadence: "manual" });
   process.send?.({ type: "ready", model: runtime.selectedModelId, effort: runtime.selectedReasoningEffort, sdkVersion: PiAgentRuntime.sdkVersion });
@@ -103,7 +104,7 @@ async function runPhase(name) {
   } catch (caught) { error = caught.message; state = await coordinator.state(); }
   const generations = phaseEvents.filter(event => event.kind === "diagnostic" && event.diagnostic.kind === "generation");
   const total = key => generations.every(event => typeof event.diagnostic.payload[key] === "number") ? generations.reduce((sum, event) => sum + event.diagnostic.payload[key], 0) : null;
-  const usage = generations.length ? { inputTokens: total("$ai_input_tokens"), outputTokens: total("$ai_output_tokens"), cacheReadTokens: total("$ai_cache_read_input_tokens"), cacheWriteTokens: total("$ai_cache_creation_input_tokens") } : null;
+  const usage = { inputTokens: total("$ai_input_tokens"), outputTokens: total("$ai_output_tokens"), cacheReadTokens: total("$ai_cache_read_input_tokens"), cacheWriteTokens: total("$ai_cache_creation_input_tokens") };
   const result = { name, status: error ? exhausted ? "budget_exceeded" : "failed" : "completed", error, scanState: state.scan?.state ?? null,
     assignments: state.assignments, courses: state.courses, scan: state.scan,
     queue: manager.state().entries.map(entry => ({ ...entry, assignmentId: store.tasks.get(entry.taskId)?.assignmentId, state: store.tasks.get(entry.taskId)?.state })), policyViolations: [...violations],

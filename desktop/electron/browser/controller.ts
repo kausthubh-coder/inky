@@ -30,6 +30,7 @@ export interface CdpDebugger {
 export interface BrowserTarget {
   readonly debugger: CdpDebugger;
   readonly session?: Pick<Electron.Session, "fetch">;
+  executeJavaScript?<T = unknown>(code: string, userGesture?: boolean): Promise<T>;
   getURL(): string;
   getTitle(): string;
   loadURL(url: string): Promise<void>;
@@ -77,6 +78,7 @@ export class BrowserController {
   #lastSnapshot: BrowserSnapshot | null = null;
   #observedSnapshot: BrowserSnapshot | null = null;
   #diffBaseline: BrowserSnapshot | null = null;
+  readonly #navigationUrls: string[] = [];
 
   constructor(target: BrowserTarget) {
     this.#target = target;
@@ -101,6 +103,28 @@ export class BrowserController {
     this.#lastSnapshot = null;
     this.#observedSnapshot = null;
     this.#diffBaseline = null;
+  }
+
+  get navigationUrls(): readonly string[] {
+    return this.#navigationUrls;
+  }
+
+  noteMainFrameNavigation(rawUrl: string): void {
+    try {
+      const url = new URL(rawUrl);
+      if (url.protocol !== "http:" && url.protocol !== "https:") return;
+      // Retain only the route in memory; redirect tickets and query secrets
+      // are never needed to learn an exact identity-provider host.
+      const route = url.origin + url.pathname;
+      if (this.#navigationUrls.at(-1) !== route) this.#navigationUrls.push(route);
+      if (this.#navigationUrls.length > 60) this.#navigationUrls.shift();
+    } catch { /* Ignore internal browser URLs. */ }
+  }
+
+  /** Run a read-only connector from the signed-in school page's own origin. */
+  async evaluateInPage<T>(code: string): Promise<T> {
+    if (!this.#target.executeJavaScript) throw new Error("Signed-in page evaluation is unavailable");
+    return this.#target.executeJavaScript<T>(code);
   }
 
   get lastSnapshot(): BrowserSnapshot | null { return this.#lastSnapshot; }
@@ -370,6 +394,10 @@ export class BrowserController {
           connected: Boolean(element.isConnected),
           disabled: Boolean(element.disabled || element.getAttribute?.("aria-disabled") === "true"),
           submission: type === "submit" && Boolean(element.form),
+          ltiLaunch: Boolean(element.form && String(element.form.method).toUpperCase() === "POST" && (() => {
+            const names = new Set([...element.form.querySelectorAll('input[name]')].map(input => input.name.toLowerCase()));
+            return (names.has("lti_message_type") && names.has("resource_link_id")) || (names.has("id_token") && names.has("state"));
+          })()),
           label
         };
       }`),
@@ -379,7 +407,7 @@ export class BrowserController {
     // Saving a draft is a form POST on many school sites, but does not hand in work.
     const draftSave = /^save(?: as)? draft$/i.test(label);
     const knownSubmission = (target.role !== "link" && SUBMISSION_PATTERN.test(label)) || (value.submission === true && !draftSave);
-    if (knownSubmission && !allowSubmission) {
+    if (knownSubmission && !allowSubmission && value.ltiLaunch !== true) {
       throw new Error("Ordinary click cannot activate a submission control. Use browser_submit only after the student explicitly asks to submit.");
     }
     if (value.connected !== true || value.disabled === true) {

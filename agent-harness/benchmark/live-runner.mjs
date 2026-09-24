@@ -82,10 +82,20 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
   };
   let child, started = null, expected = null;
   const grade = (inspection, result) => expected
-    ? evaluateScan({ expected, observation: result, effects: inspection.effects, origins: school.origins })
+    ? evaluateScan({ expected: result.name === "changed"
+      ? { ...expected, assignments: expected.assignments.map(row => {
+        const current = inspection.state.activities.find(item => item.title === row.title);
+        return current ? { ...row, dueAt: current.dueAt } : row;
+      }) }
+      : expected, observation: result, effects: inspection.effects, origins: school.origins })
     : gradeLive(inspection, result, school.origins);
   try {
     school = await startLms({ scenarioId, seed, runDirectory: join(runRoot, "school") });
+    if (scenarioId === "moodle-sso" && phases.includes("resume")) {
+      // Exercise a real needs-you handoff instead of the fixture's remembered
+      // device automatically approving Duo before the scanner can pause.
+      await school.advance("forget-device");
+    }
     const initial = school.inspect();
     if (initial.state.presentation) expected = await loadExpected(scenarioId);
     record.fixture = { scenarioId, version: initial.state.scenarioVersion, seed, clock: initial.state.clock, contentHash: hash(initial.state) };
