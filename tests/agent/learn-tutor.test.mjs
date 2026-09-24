@@ -57,7 +57,7 @@ test("real tool definitions wait for student actions, persist results, and expos
     coordinator.answerBlock(started.sessionId, open.blockId, { kind: "typed", answer: "42" });
     await until(() => coordinator.state(started.sessionId).status === "completed");
     assert.equal(coordinator.state(started.sessionId).result.level, 1);
-    assert.equal(runtime.creations[0].tools.length, 7);
+    assert.equal(runtime.creations[0].tools.length, 8);
     assert.equal(repo.session(started.sessionId).blocks[0].phase, "independent");
     assert.match(runtime.creations[0].systemPrompt, /Homework Inky did.*never evidence/);
   } finally { await coordinator.dispose(); }
@@ -157,4 +157,32 @@ test("sources imported during extraction join the same batch exactly once withou
   assert.equal(runtime.creations.length, 2);
   await worker.processPendingSources(); assert.equal(runtime.creations.length, 2);
   await worker.dispose();
+}));
+
+test("the study folder feeds the prompt, keeps study pages, and records the finish; a broken folder never stops the lesson", async () => setup(async repo => {
+  const events = [];
+  const files = {
+    read: async () => { events.push("read"); return { progress: "PRIOR-PROGRESS-NOTE", cheatsheet: "- n log n" }; },
+    savePage: async (_session, title, html) => { events.push(`page:${title}:${html.length}`); },
+    recordFinish: async session => { events.push(`finish:${session.result.level}`); throw new Error("disk full"); },
+  };
+  const errors = [];
+  let prompt = "";
+  const runtime = new ControlledRuntime(async ({ tools, text, signal }) => {
+    prompt = text;
+    const snapshot = JSON.parse(text.split("Saved tutor state (data):\n")[1].split("\n\nContinue")[0]);
+    const page = await call(tools, "tutor_show_page", { title: "Shifts", purpose: "Count shifts", html: "<button onclick=\"studi.explore('step')\">Step</button>" }, signal);
+    assert.deepEqual(page.details.answer, { kind: "model", explored: ["step"] });
+    await call(tools, "tutor_finish", { topic: snapshot.topicId, level: 1, evidence: [], missing: [], next: "Practise", summary: "Explored shifts.", cheatsheet: ["Insertion sort worst case: n(n-1)/2 shifts"] }, signal);
+  });
+  const coordinator = new TutorCoordinator(repo, runtime, { files, onError: error => errors.push(error.message) });
+  const started = await coordinator.start({ topic: "Insertion sort", minutes: 2 });
+  await until(() => coordinator.state(started.sessionId).blocks.some(b => b.status === "open"));
+  const open = coordinator.state(started.sessionId).blocks.find(b => b.status === "open");
+  assert.equal(open.tool, "tutor_show_page");
+  coordinator.answerBlock(started.sessionId, open.blockId, { kind: "model", explored: ["step"] });
+  await until(() => coordinator.state(started.sessionId).status === "completed" && errors.length === 1);
+  assert.match(prompt, /PRIOR-PROGRESS-NOTE/);
+  assert.deepEqual(events, ["read", `page:Shifts:${"<button onclick=\"studi.explore('step')\">Step</button>".length}`, "finish:null"]);
+  assert.deepEqual(errors, ["disk full"]);
 }));

@@ -453,7 +453,8 @@ export const studiIpcRegistry = Object.freeze({
   removeLearnGoal: { channel: 'studi:learn-goal-remove', requestSchema: z.strictObject({ examId: OpaqueIdSchema }), resultSchema: LearnStateSchema },
   addLearnTopic: { channel: 'studi:learn-topic-add', requestSchema: z.strictObject({ examId: OpaqueIdSchema, title: z.string().trim().min(1).max(500) }), resultSchema: LearnStateSchema },
   removeLearnTopic: { channel: 'studi:learn-topic-remove', requestSchema: z.strictObject({ topicId: OpaqueIdSchema }), resultSchema: LearnStateSchema },
-  findLearnSyllabus: { channel: 'studi:learn-syllabus-find', requestSchema: z.undefined(), resultSchema: LearnStateSchema },
+  /** With a class: that class's study materials. Without: a full school check for syllabi and exams. */
+  findLearnSyllabus: { channel: 'studi:learn-syllabus-find', requestSchema: z.strictObject({ courseId: OpaqueIdSchema }).optional(), resultSchema: LearnStateSchema },
   retryLearnSource: { channel: 'studi:learn-source-retry', requestSchema: z.strictObject({ sourceId: OpaqueIdSchema }), resultSchema: LearnStateSchema },
   getTutorSession: { channel: 'studi:tutor-session', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema }), resultSchema: PublicTutorSessionSchema },
   startTutorSession: { channel: 'studi:tutor-start', requestSchema: TutorStartInputSchema, resultSchema: PublicTutorSessionSchema },

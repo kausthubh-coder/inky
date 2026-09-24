@@ -352,7 +352,7 @@ export class LearnRepository {
         if (answer.picked >= block.args.options.length) throw new Error("Choose an available option");
         correct = answer.picked === block.args.correct;
       } else if (block.tool === "tutor_ask_typed" && answer.kind === "typed") correct = block.args.accept.some(item => normalizeTutorAnswer(item) === normalizeTutorAnswer(answer.answer));
-      else if (!(block.tool === "tutor_ask_explain" && answer.kind === "explain") && !(block.tool === "tutor_show_model" && answer.kind === "model")) throw new Error("Answer does not match the open block");
+      else if (!(block.tool === "tutor_ask_explain" && answer.kind === "explain") && !((block.tool === "tutor_show_model" || block.tool === "tutor_show_page") && answer.kind === "model")) throw new Error("Answer does not match the open block");
       const now = this.now();
       const answered: TutorBlock = { ...block, status: "answered", answeredAt: now, draft: "", result: { answer, correct, hintsUsed: block.hintsUsed, seconds: Math.max(0, session.budgetSeconds - tutorTimeLeft(session, now) - block.elapsedAtCreation) } };
       return this.#saveSession({ ...session, blocks: session.blocks.map(b => b.blockId === blockId ? answered : b), updatedAt: now });

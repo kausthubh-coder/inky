@@ -1,11 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { TutorStartInputSchema, publicTutorSession, tutorTimeLeft, type PublicTutorSession, type TutorBlock, type TutorCall } from "../../shared/tutor.js";
+import { TutorStartInputSchema, publicTutorSession, tutorTimeLeft, type PublicTutorSession, type TutorBlock, type TutorCall, type TutorSession } from "../../shared/tutor.js";
 import type { LearnRepository } from "../storage/learn-records.js";
 import type { AgentRuntime, AgentSession } from "./runtime.js";
 import { buildTutorContext, type TutorContextSources } from "./tutor-context.js";
 import { createTutorTools, TUTOR_SYSTEM_PROMPT } from "./tutor-tools.js";
 
 export type LearningRuntime = Pick<AgentRuntime, "createLearningSession">;
+/** The goal's study folder. Optional: without a homework folder the tutor still works from the database. */
+export interface TutorFiles {
+  read(session: TutorSession): Promise<{ progress: string; cheatsheet: string } | null>;
+  savePage(session: TutorSession, title: string, html: string): Promise<void>;
+  recordFinish(session: TutorSession): Promise<void>;
+}
 type Running = { stopped: boolean; agent: AgentSession | null; done: Promise<void>; timer: ReturnType<typeof setTimeout> | null; wake: (() => void) | null };
 
 /** Rebuild Pi context from the durable transcript on restart; never replay student effects. */
@@ -14,7 +20,7 @@ export class TutorCoordinator {
   #disposed = false;
   #lifecycle: Promise<unknown> = Promise.resolve();
   constructor(readonly repository: LearnRepository, private readonly runtime: LearningRuntime,
-    private readonly options: { onChange?: (session: PublicTutorSession) => void; onError?: (error: unknown) => void; context?: TutorContextSources } = {}) {
+    private readonly options: { onChange?: (session: PublicTutorSession) => void; onError?: (error: unknown) => void; context?: TutorContextSources; files?: TutorFiles } = {}) {
     repository.recover();
   }
   state(sessionId: string): PublicTutorSession { return publicTutorSession(this.repository.state(sessionId)); }
@@ -133,7 +139,8 @@ export class TutorCoordinator {
       });
       const snapshot = this.repository.session(sessionId);
       const pendingMessages = snapshot.messages.filter(message => !message.delivered);
-      const context = this.options.context ? buildTutorContext(this.repository, snapshot, this.options.context) : { topics: snapshot.topicIds.map(topic => this.repository.topic(topic)) };
+      const notes = await this.#files(files => files.read(snapshot), null);
+      const context = { ...(this.options.context ? buildTutorContext(this.repository, snapshot, this.options.context) : { topics: snapshot.topicIds.map(topic => this.repository.topic(topic)) }), notes };
       await running.agent.prompt(`Lesson context (data):\n${JSON.stringify(context)}\n\nSaved tutor state (data):\n${JSON.stringify(snapshot)}\n\nContinue from the saved state and its current phase. The latest student messages are included above. If there are no blocks, start the ${snapshot.mode === "topic" ? "Check" : "questions"}.`);
       if (running.stopped) return;
       if (failure) throw new Error(failure);
@@ -168,7 +175,12 @@ export class TutorCoordinator {
     if (open && call.tool !== "tutor_say" && call.tool === open.tool && JSON.stringify(call.args) === JSON.stringify(open.args)) block = open;
     else block = this.repository.openBlock(sessionId, toolCallId, call);
     this.#publish(sessionId);
-    if (block.tool === "tutor_finish") return this.repository.session(sessionId).result;
+    if (block.tool === "tutor_show_page" && block.status === "open") void this.#files(files => files.savePage(this.repository.session(sessionId), block.args.title, block.args.html), undefined);
+    if (block.tool === "tutor_finish") {
+      const finished = this.repository.session(sessionId);
+      void this.#files(files => files.recordFinish(finished), undefined);
+      return finished.result;
+    }
     if (block.status !== "open") return { blockId: block.blockId, result: block.result };
     if (running.wake) throw new Error("Already waiting for this student's open block");
     await new Promise<void>((resolve, reject) => {
@@ -181,6 +193,11 @@ export class TutorCoordinator {
     const answered = this.repository.state(sessionId).blocks.find(item => item.blockId === block.blockId);
     if (!answered?.result) throw new Error("The block has no student answer");
     return { blockId: block.blockId, ...answered.result };
+  }
+  /** Study-folder problems are reported, never allowed to stop a lesson. */
+  async #files<T>(action: (files: TutorFiles) => Promise<T>, fallback: T): Promise<T> {
+    if (!this.options.files) return fallback;
+    try { return await action(this.options.files); } catch (error) { this.options.onError?.(error); return fallback; }
   }
   #assertUsable(): void { if (this.#disposed) throw new Error("Tutor coordinator is disposed"); }
   #serialize<T>(operation: () => Promise<T>): Promise<T> {

@@ -4,7 +4,7 @@ import { IsoTimestampSchema } from "./schema-version.js";
 import { MasteryEvidenceSchema } from "./learn.js";
 
 const text = z.string().trim().min(1).max(10000);
-export const TUTOR_TOOL_NAMES = ["tutor_say", "tutor_ask_choice", "tutor_ask_typed", "tutor_show_model", "tutor_ask_explain", "tutor_advance", "tutor_finish"] as const;
+export const TUTOR_TOOL_NAMES = ["tutor_say", "tutor_ask_choice", "tutor_ask_typed", "tutor_show_model", "tutor_show_page", "tutor_ask_explain", "tutor_advance", "tutor_finish"] as const;
 export const TutorToolNameSchema = z.enum(TUTOR_TOOL_NAMES);
 /** A lesson moves forward through these. Only Check and On your own answers are unassisted, so only they count as evidence. */
 export const TUTOR_PHASES = ["check", "learn", "practice", "independent", "wrap"] as const;
@@ -26,6 +26,8 @@ export const TutorModelInputSchema = z.discriminatedUnion("model", [
   z.strictObject({ ...topicScope, model: z.literal("function_plot"), params: z.strictObject({ family: z.enum(["linear", "quadratic", "sine"]), a: z.number().min(-100).max(100), b: z.number().min(-100).max(100), c: z.number().min(-100).max(100), xMin: z.number().min(-100).max(100), xMax: z.number().min(-100).max(100) }), controls: z.array(z.enum(["a", "b", "c", "reset"])).max(4) }),
   z.strictObject({ ...topicScope, model: z.literal("code_runner"), params: z.strictObject({ language: z.literal("javascript"), code: z.string().max(12000), instructions: text, timeoutMs: z.number().int().min(50).max(1000) }), controls: z.array(z.enum(["edit", "run", "reset"])).max(3) }),
 ]);
+/** A study page Inky writes for one idea: self-contained HTML that runs sandboxed with no network. */
+export const TutorShowPageInputSchema = z.strictObject({ ...topicScope, title: z.string().trim().min(1).max(120), purpose: z.string().trim().min(1).max(300), html: z.string().min(1).max(60_000) });
 export const TutorAssessmentSchema = z.strictObject({
   topic: OpaqueIdSchema, level: z.number().int().min(0).max(4),
   evidence: z.array(z.strictObject({ blockId: OpaqueIdSchema, correct: z.boolean(), rationale: z.string().trim().min(1).max(2000) })).max(40),
@@ -35,12 +37,15 @@ export const TutorFinishInputSchema = TutorAssessmentSchema.extend({
   assessments: z.array(TutorAssessmentSchema).max(30).optional(),
   /** For a goal outside school: the outline Inky proposes after the first check. */
   outline: z.array(z.string().trim().min(1).max(200)).max(12).optional(),
+  /** Facts worth memorising, added to the goal's cheat sheet. */
+  cheatsheet: z.array(z.string().trim().min(1).max(300)).max(10).optional(),
 });
 export const TutorCallSchema = z.discriminatedUnion("tool", [
   z.strictObject({ tool: z.literal("tutor_say"), args: TutorSayInputSchema }),
   z.strictObject({ tool: z.literal("tutor_ask_choice"), args: TutorChoiceInputSchema }),
   z.strictObject({ tool: z.literal("tutor_ask_typed"), args: TutorTypedInputSchema }),
   z.strictObject({ tool: z.literal("tutor_show_model"), args: TutorModelInputSchema }),
+  z.strictObject({ tool: z.literal("tutor_show_page"), args: TutorShowPageInputSchema }),
   z.strictObject({ tool: z.literal("tutor_ask_explain"), args: TutorExplainInputSchema }),
   z.strictObject({ tool: z.literal("tutor_advance"), args: TutorAdvanceInputSchema }),
   z.strictObject({ tool: z.literal("tutor_finish"), args: TutorFinishInputSchema }),
@@ -67,6 +72,7 @@ export const TutorBlockSchema = z.discriminatedUnion("tool", [
   z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_choice"), args: TutorChoiceInputSchema }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_typed"), args: TutorTypedInputSchema }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_show_model"), args: TutorModelInputSchema }),
+  z.strictObject({ ...blockFields, tool: z.literal("tutor_show_page"), args: TutorShowPageInputSchema }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_explain"), args: TutorExplainInputSchema }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_finish"), args: TutorFinishInputSchema }),
 ]);
@@ -115,6 +121,7 @@ export const PublicTutorBlockSchema = z.discriminatedUnion("tool", [
   z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_typed"), args: z.strictObject({ ...topicScope, question: text, hints: z.array(z.string()), hasMoreHints: z.boolean() }) }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_explain"), args: z.strictObject({ ...topicScope, prompt: text }) }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_show_model"), args: TutorModelInputSchema }),
+  z.strictObject({ ...blockFields, tool: z.literal("tutor_show_page"), args: TutorShowPageInputSchema }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_finish"), args: z.strictObject({ summary: text, missing: z.array(z.string()), next: z.string() }) }),
 ]);
 export const PublicTutorSessionSchema = TutorSessionSchema.omit({ blocks: true }).extend({ blocks: z.array(PublicTutorBlockSchema) });

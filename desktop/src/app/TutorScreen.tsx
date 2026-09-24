@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Exam } from "../../shared/learn.js";
 import { TUTOR_PHASES, type PublicTutorBlock, type PublicTutorSession, type TutorBlockAnswer, type TutorPhase, type TutorStartInput } from "../../shared/tutor.js";
 import { TutorModel } from "./TutorModels.js";
+import { StudyPage } from "./StudyPage.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import { Icon } from "./Icon.js";
 import { Inky } from "./Inky.js";
@@ -13,7 +14,7 @@ const PHASE_NAMES: Record<TutorPhase, string> = { check: "Check", learn: "Learn"
 const LEVELS = ["Not yet", "Shaky", "Getting there", "Good", "Solid"];
 type Asked = Exclude<PublicTutorBlock, { tool: "tutor_say" | "tutor_finish" }>;
 
-const prompt = (block: Asked) => block.tool === "tutor_ask_explain" ? block.args.prompt : block.tool === "tutor_show_model" ? `Explored a ${block.args.model.replaceAll("_", " ")}` : block.args.question;
+const prompt = (block: Asked) => block.tool === "tutor_ask_explain" ? block.args.prompt : block.tool === "tutor_show_model" ? `Explored a ${block.args.model.replaceAll("_", " ")}` : block.tool === "tutor_show_page" ? `Tried “${block.args.title}”` : block.args.question;
 function outcome(block: Asked): string {
   const result = block.result;
   if (!result) return block.status === "cancelled" ? "skipped" : "";
@@ -270,6 +271,10 @@ function TutorBlockView({ block, sessionId, disabled, onAnswer, onHint, onError,
       </>}
       {source && <p className="tu-source">{source}</p>}
       {block.tool === "tutor_ask_typed" && block.args.hints.length > 0 && <ol className="tu-hints">{block.args.hints.map((hint, index) => <li key={index}><ChatMarkdown text={hint} /></li>)}</ol>}
+      {block.tool === "tutor_show_page" && <>
+        <StudyPage title={block.args.title} html={block.args.html} onExplore={explore} />
+        <button className="rd-button rd-primary" disabled={disabled || !explored.length} onClick={() => void submit({ kind: "model", explored })}>I've tried it</button>
+      </>}
       {block.tool === "tutor_show_model" && <>
         <TutorModel model={block.args} onExplore={explore} disabled={disabled} />
         <button className="rd-button rd-primary" disabled={disabled || !explored.length} onClick={() => void submit({ kind: "model", explored })}>I've tried it</button>

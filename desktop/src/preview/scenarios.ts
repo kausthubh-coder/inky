@@ -4,7 +4,7 @@ import type { DevPreviewConfig, DevPreviewScenarioId } from "../app/devPreview.j
 
 export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId; readonly group: string; readonly title: string; readonly note: string }[] = [
   ...(["today", "today-clear", "today-needs", "today-working", "desk-submitting"] as const).map(id => ({id, group:"Today", title:id.replaceAll("-"," "), note:"Controlled renderer fixture"})),
-  ...(["learn", "learn-empty", "learn-reading", "learn-error", "learn-partial", "learn-no-topics", "learn-topic-goal", "learn-recap", "tutor-choice", "tutor-typed", "tutor-explain", "tutor-population", "tutor-flashcards", "tutor-number-line", "tutor-function-plot", "tutor-code", "tutor-paused", "tutor-finished", "tutor-quiz"] as const).map(id => ({id,group:"Learn",title:id.replaceAll("-"," "),note:"Controlled public renderer fixture"})),
+  ...(["learn", "learn-empty", "learn-reading", "learn-error", "learn-partial", "learn-no-topics", "learn-topic-goal", "learn-recap", "tutor-choice", "tutor-typed", "tutor-explain", "tutor-population", "tutor-flashcards", "tutor-number-line", "tutor-function-plot", "tutor-code", "tutor-paused", "tutor-finished", "tutor-quiz", "tutor-page"] as const).map(id => ({id,group:"Learn",title:id.replaceAll("-"," "),note:"Controlled public renderer fixture"})),
   { id: "auth", group: "Entry", title: "Private beta gate", note: "Signed-out entry and feedback" },
   { id: "onboarding-welcome", group: "Onboarding", title: "Meet Inky", note: "Welcome" },
   { id: "onboarding-chatgpt", group: "Onboarding", title: "Connect ChatGPT", note: "Agent runtime" },

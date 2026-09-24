@@ -89,6 +89,8 @@ import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
 import { usageProperties, type AgentUsageSnapshot } from "./telemetry/usage.js";
 import { initializeHomeworkWorkspace, requireHomeworkWorkspace, syncHomeworkClassFolders } from "./files/workspace.js";
+import { addCheatsheetLines, goalFolder, readGoalNotes, recordSessionNote, saveStudyPage } from "./files/learn-workspace.js";
+import { studyPageDocument } from "../shared/study-page.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(moduleDirectory, "preload.cjs");
@@ -534,9 +536,10 @@ const ipcHandlers: StudiIpcHandlers = {
     requireLearnRepository().removeTopic(topicId);
     return currentLearnState();
   },
-  findLearnSyllabus: async () => {
-    await requireReadyProvider('finding your syllabus');
-    await runScanWithTelemetry('start', () => requireSchoolScanCoordinator().startScan());
+  findLearnSyllabus: async (input) => {
+    if (input) validateLearnCourse(input.courseId);
+    await requireReadyProvider(input ? 'finding your study materials' : 'finding your syllabus');
+    await runScanWithTelemetry('start', () => input ? requireSchoolScanCoordinator().startMaterialsScan(input.courseId) : requireSchoolScanCoordinator().startScan());
     return currentLearnState();
   },
   retryLearnSource: async ({ sourceId }) => {
@@ -1739,7 +1742,7 @@ async function initializeDesktopAgent(): Promise<void> {
       requirements: assignment.requirementEvidence?.map(item => item.text) ?? [],
     })),
     today: learnToday,
-  } });
+  }, files: tutorFiles() });
   learnExtractionWorker = new LearnExtractionWorker(requireLearnRepository(), agentRuntime, { onError: reportLearningError });
   runtimeLoginAttempt = new ProviderLoginAttemptOwner(async (providerId, signal, interaction) => {
     await requireAgentRuntime().loginProvider(providerId, signal, {
@@ -2388,6 +2391,41 @@ function workedAssignments() {
   }).map(task => task.assignmentId));
   return store.assignments.listAll().filter(assignment =>
     worked.has(assignment.assignmentId) && Boolean(assignment.sourceTarget && assignment.requirementEvidence?.length));
+}
+
+const LEVEL_NAMES = ['Not yet', 'Shaky', 'Getting there', 'Good', 'Solid'];
+
+/** The goal's study folder under the homework folder: notes the tutor reads back, and the pages it made. */
+function tutorFiles(): import('./agent/tutor-coordinator.js').TutorFiles {
+  const folderFor = async (session: import('../shared/tutor.js').TutorSession) => {
+    const root = (await requireLocalStore().productPreferences.get()).homeworkRoot;
+    if (!root) return null;
+    const repository = requireLearnRepository();
+    const goal = session.examId ? repository.exams().find(exam => exam.examId === session.examId) : undefined;
+    const topic = repository.topic(session.topicId);
+    const courseId = goal?.courseId ?? topic.courseId;
+    const classLabel = courseId ? requireLocalStore().school.listCourses().find(course => course.courseId === courseId)?.label ?? null : null;
+    return goalFolder(root, { title: goal?.title ?? topic.title, classLabel });
+  };
+  return {
+    read: async session => {
+      const folder = await folderFor(session);
+      return folder ? readGoalNotes(folder) : null;
+    },
+    savePage: async (session, title, html) => {
+      const folder = await folderFor(session);
+      if (folder) await saveStudyPage(folder, learnToday(), title, studyPageDocument(html));
+    },
+    recordFinish: async session => {
+      const folder = await folderFor(session);
+      if (!folder || !session.result) return;
+      const level = (value: number | null) => value === null ? null : LEVEL_NAMES[value] ?? null;
+      await recordSessionNote(folder, { date: learnToday(), topic: requireLearnRepository().topic(session.topicId).title, summary: session.result.summary,
+        levelBefore: level(session.result.previousLevel), levelAfter: level(session.result.level), missing: session.result.missing, next: session.result.next });
+      const finish = [...session.blocks].reverse().find(block => block.tool === 'tutor_finish');
+      if (finish?.tool === 'tutor_finish') await addCheatsheetLines(folder, finish.args.cheatsheet ?? []);
+    },
+  };
 }
 
 function learnToday(): string {

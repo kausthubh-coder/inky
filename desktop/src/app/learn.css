@@ -88,7 +88,7 @@
 }
 
 /* Tutor session. */
-.tu-heading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 14px; height: 64px; }
+.rd-tutor-heading.tu-heading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 14px; height: 64px; width: 100%; align-self: stretch; box-sizing: border-box; }
 .tu-title { min-width: 0; text-align: center; }
 .tu-title strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 700; }
 .tu-title strong span { font-weight: 400; color: var(--graphite); }
@@ -124,3 +124,8 @@
   .tu-past li { grid-template-columns: minmax(0, 1fr) auto; }
   .tu-past li > span:first-child { display: none; }
 }
+
+/* A study page Inky wrote, sandboxed. */
+.tu-page { position: relative; margin: 14px 0 12px; }
+.tu-page figcaption { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--graphite); }
+.tu-page iframe { display: block; width: 100%; border: 1.5px dashed color-mix(in srgb, var(--graphite) 60%, transparent); border-radius: 12px; background: var(--page); }

@@ -145,7 +145,8 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
 
           {goals.length > 0 && panel === null && goal && state && <GoalCard state={state} goal={goal} busy={busy} scanning={scanning}
             courseLabel={courseLabel} onStart={input => void start(input)} onOpenSession={sessionId => void openSession(sessionId)}
-            onChange={() => setPanel("change")} onFind={findExams}
+            onChange={() => setPanel("change")}
+            onFind={() => goal.courseId ? void run(() => window.studi!.findLearnSyllabus({ courseId: goal.courseId! })) : findExams()}
             onText={text => run(() => window.studi!.importLearnSource({ courseId: goal.courseId, examId: goal.examId, title: firstLine(text), text }))}
             onFile={() => void run(() => window.studi!.importLearnFile({ courseId: goal.courseId, examId: goal.examId }))}
             onRemove={() => void run(() => window.studi!.removeLearnGoal({ examId: goal.examId }))} />}
@@ -289,6 +290,7 @@ function GoalCard({ state, goal, busy, scanning, courseLabel, onStart, onOpenSes
       </div>}
       <div className="lr-card-foot">
         <span className="lr-muted">{sources.length ? `From ${sources.slice(0, 2).map(source => source.title).join(", ")}${sources.length > 2 ? ` and ${sources.length - 2} more` : ""}` : goal.kind === "topic" ? "Your outline came from your first check." : "Topics you typed."}</span>
+        {goal.courseId && <button className="rd-quiet" disabled={busy || scanning} onClick={onFind}>Find more in class</button>}
         <button className="rd-quiet" disabled={busy} onClick={onFile}>Add a file</button>
         <button className="rd-quiet" onClick={onChange}>Change</button>
       </div>
