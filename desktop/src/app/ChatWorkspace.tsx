@@ -131,6 +131,15 @@ export function ChatWorkspace(props: ChatProps) {
     ["working", "needs_user", "ready_review", "submitting"].includes(
       activeExecution.phase,
     );
+  const stoppableAssignment =
+    execution && ["working", "needs_user", "ready_review"].includes(execution.phase)
+      ? execution
+      : activeExecution &&
+          ["working", "needs_user", "ready_review"].includes(
+            activeExecution.phase,
+          )
+        ? activeExecution
+        : null;
   const messages = school
     ? (onboarding.scan?.messages ?? []).map((message, index) => ({
         ...message,
@@ -340,14 +349,18 @@ export function ChatWorkspace(props: ChatProps) {
         await window.studi!.pauseSchoolScan();
         return;
       }
-      if (execution?.phase === "working") {
-        props.onTakeover(execution.taskId);
+      if (stoppableAssignment) {
+        props.onCancel(stoppableAssignment.taskId);
         return;
       }
       const result = await window.studi?.stopScopedConversation(target);
       if (result) setChat(result);
     } catch {
-      setError("Couldn’t stop the reply yet. Try again.");
+      setError(
+        stoppableAssignment
+          ? "Couldn’t stop the assignment yet. Try again."
+          : "Couldn’t stop the reply yet. Try again.",
+      );
     }
   };
   const choose = (a: Assignment) => {
@@ -632,13 +645,17 @@ export function ChatWorkspace(props: ChatProps) {
           <button
             className="chat-send"
             aria-label={
-              !draft.text.trim() && (active || workingAnywhere || scanActive)
-                ? "Stop current work"
+              !draft.text.trim() && (active || stoppableAssignment || scanActive)
+                ? stoppableAssignment
+                  ? "Stop assignment"
+                  : school
+                    ? "Stop school check"
+                    : "Stop reply"
                 : "Send message"
             }
             disabled={
               sending ||
-              (!(active || workingAnywhere || scanActive) &&
+              (!(active || stoppableAssignment || scanActive) &&
                 !draft.text.trim()) ||
               (school &&
                 !["running", "needs_user"].includes(
@@ -648,7 +665,7 @@ export function ChatWorkspace(props: ChatProps) {
           >
             <Icon
               name={
-                !draft.text.trim() && (active || workingAnywhere || scanActive)
+                !draft.text.trim() && (active || stoppableAssignment || scanActive)
                   ? "stop"
                   : "send"
               }

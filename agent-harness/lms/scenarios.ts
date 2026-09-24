@@ -8,6 +8,7 @@ import { configureSchoolTheme } from "./school-scenarios.js";
 
 export const SCENARIO_IDS = [
   "moodle-noisy", "moodle-noisy-no-api", "moodle-sso", "canvas-basic", "canvas-basic-no-api",
+  "unknown-lms",
   "semester",
   "scan-regression",
   "partial-login",
@@ -26,6 +27,16 @@ export const SCENARIO_IDS = [
 ] as const;
 export type ScenarioId = (typeof SCENARIO_IDS)[number];
 const future = "2026-09-15T03:59:00.000Z";
+function practiceDeadline(): Pick<Activity, "dueAt" | "dueText" | "closeAt"> {
+  const now = new Date();
+  const due = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 3, 23, 59));
+  const close = new Date(due.getTime() + 3 * 24 * 60 * 60 * 1000);
+  return {
+    dueAt: due.toISOString(),
+    dueText: `${new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeStyle: "short", timeZone: "America/New_York" }).format(due)} America/New_York`,
+    closeAt: close.toISOString(),
+  };
+}
 function activity(
   id: string,
   courseId: string,
@@ -487,6 +498,7 @@ export function createScenario(
       { id: "observations", name: "observations.csv", mime: "text/csv", format: "text", text: "day,rain_mm\nMonday,5\nTuesday,10\nWednesday,0\nThursday,5\n" },
     ];
     state.activities = [activity("rainfall-project", "programming", "Rainfall calculator: multi-file C project", {
+      ...practiceDeadline(),
       workKind: "code",
       attachments: state.assets.map((asset) => asset.id),
       requiredFiles: [".c", ".h", ".md"],
@@ -499,6 +511,7 @@ export function createScenario(
     state.courses = courses.filter((item) => item.id === "structures");
     state.assets = [];
     state.activities = [activity("structures-quiz", "structures", "Stacks, queues, and complexity quiz", {
+      ...practiceDeadline(),
       kind: "quiz", maxAttempts: 2,
       instructions: "Answer these three questions. Q1: Push A, then B onto an empty stack. What does pop return? (A, B, or empty.) Q2: Enqueue A, then B in an empty queue. What does dequeue return? (A, B, or empty.) Q3: What is the worst-case complexity of linear search over n elements? (O(1), O(log n), or O(n).)",
       requirements: ["Write one answer per line using Q1: answer, Q2: answer, Q3: answer.", "Save your draft before submitting. Two final attempts are allowed; saving does not consume an attempt."],
@@ -553,8 +566,13 @@ export function createScenario(
       }),
     ];
   }
-  if (scenarioId.startsWith("moodle-") || scenarioId.startsWith("canvas-")) configureSchoolTheme(state, activity);
-  const learnScenarios = ["semester", "partial-login", "interrupted-scan", "deadline-change", "learn", ...SCENARIO_IDS.filter(id => id.startsWith("moodle-") || id.startsWith("canvas-"))];
+  if (scenarioId.startsWith("moodle-") || scenarioId.startsWith("canvas-") || scenarioId === "unknown-lms") configureSchoolTheme(state, activity);
+  if (scenarioId === "unknown-lms") {
+    state.presentation = { theme: "unknown", connectorApis: false, remembered: true, duoDelayMs: 1500 };
+    state.sessions.statistics = true;
+    state.sessions.feedback = true;
+  }
+  const learnScenarios = ["semester", "partial-login", "interrupted-scan", "deadline-change", "learn", ...SCENARIO_IDS.filter(id => id.startsWith("moodle-") || id.startsWith("canvas-") || id === "unknown-lms")];
   if (!learnScenarios.includes(scenarioId)) {
     state.syllabi = [];
     state.exams = [];

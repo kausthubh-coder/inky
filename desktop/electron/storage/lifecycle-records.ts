@@ -135,7 +135,9 @@ export class LifecycleRepository {
       const actions = [...(execution.actions ?? [])];
       if (action) {
         const last = actions.at(-1);
-        if (action.kind === "text" && last?.kind === "text") actions[actions.length - 1] = { ...last, label: (last.label + action.label).slice(-4000) };
+        const pending = action.toolCallId ? actions.findIndex(item => item.toolCallId === action.toolCallId) : -1;
+        if (pending >= 0) actions[pending] = { ...actions[pending]!, outcome: action.outcome, label: action.label || actions[pending]!.label };
+        else if (action.kind === "text" && last?.kind === "text") actions[actions.length - 1] = { ...last, label: (last.label + action.label).slice(-4000) };
         else actions.push(action);
       }
       const commandOutputs = command

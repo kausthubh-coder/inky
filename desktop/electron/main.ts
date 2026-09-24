@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { existsSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   app,
@@ -54,6 +54,7 @@ import {
   type UsageEventKind,
   type UsageState,
   transitionTask,
+  assignmentWorkEligibility,
 } from "../shared/index.js";
 import { getDevelopmentUrl } from "./development-url.js";
 import { buildDiagnosticsSnapshot, writeDiagnosticsSnapshot } from "./diagnostics.js";
@@ -99,6 +100,7 @@ const trayIconPath = app.isPackaged
   ? join(process.resourcesPath, "studi-inky.ico")
   : resolve(moduleDirectory, "..", "..", "assets", "studi-inky.ico");
 const isSelfTest = !app.isPackaged && process.env.STUDI_SELF_TEST === "1";
+const isE2e = isSelfTest && Boolean(process.env.STUDI_E2E_RUNTIME_MODULE);
 const uiScenario = isSelfTest ? process.env.STUDI_UI_SCENARIO : undefined;
 const selfTestConnectedApps = [
   ["gmail", "20260902_00"], ["googledrive", "20260902_00"], ["googledocs", "20260826_00"],
@@ -255,6 +257,28 @@ function updates(): UpdateService {
   }
   return updateService;
 }
+async function prepareAndStartAssignment(taskId: string): Promise<void> {
+  const store = requireLocalStore();
+  const task = store.tasks.get(taskId);
+  if (!task) throw new Error("This assignment is no longer in your week.");
+  const assignment = store.assignments.get(task.assignmentId);
+  if (!assignment) throw new Error("This assignment is no longer available.");
+  if (assignment.owner === "student" || assignment.ignoredReason) {
+    throw new Error("You chose to handle this assignment yourself.");
+  }
+  if (!assignmentWorkEligibility(assignment, new Date().toISOString()).eligible) {
+    const checked = await requireSchoolScanCoordinator().startScan(assignment.assignmentId);
+    if (checked.scan?.state !== "succeeded") {
+      throw new Error(checked.scan?.failures[0] ?? "Inky could not finish checking this assignment's instructions.");
+    }
+  }
+  const current = store.assignments.get(task.assignmentId);
+  if (!current) throw new Error("This assignment disappeared during its school check.");
+  const eligibility = assignmentWorkEligibility(current, new Date().toISOString());
+  if (!eligibility.eligible) throw new Error(eligibility.reason);
+  await startSelectedAssignment(store, requireManagerCoordinator(), requireAssignmentExecutionCoordinator(), taskId);
+}
+
 const ipcHandlers: StudiIpcHandlers = {
   getUpdateState: () => updates().state(),
   checkForUpdates: () => updates().check(),
@@ -538,7 +562,7 @@ const ipcHandlers: StudiIpcHandlers = {
   cancelTutorSession: ({ sessionId }) => requireTutorCoordinator().cancel(sessionId),
   submitAssignmentByRule: async ({ taskId }) => {
     await requireReadyProvider('handing in your homework');
-    await requireAssignmentExecutionCoordinator().submitByRule(taskId);
+    await requireAssignmentExecutionCoordinator().submitReviewed(taskId);
     requireAppKernel().requestReconcile();
     return requireAppKernel().state();
   },
@@ -618,6 +642,7 @@ const ipcHandlers: StudiIpcHandlers = {
     await requireReadyProviderForScan();
     assignmentRunStartedAt = Date.now();
     await requireAssignmentExecutionCoordinator().startNext();
+    requireAppKernel().requestReconcile();
     const state = requireAppKernel().state();
     captureQueueTransition("assignment_start", state);
     return state;
@@ -625,12 +650,8 @@ const ipcHandlers: StudiIpcHandlers = {
   startAssignment: async ({ taskId }) => {
     await requireReadyProviderForScan();
     assignmentRunStartedAt = Date.now();
-    await startSelectedAssignment(
-      requireLocalStore(),
-      requireManagerCoordinator(),
-      requireAssignmentExecutionCoordinator(),
-      taskId,
-    );
+    await prepareAndStartAssignment(taskId);
+    requireAppKernel().requestReconcile();
     const state = requireAppKernel().state();
     captureQueueTransition("assignment_start", state);
     return state;
@@ -639,6 +660,7 @@ const ipcHandlers: StudiIpcHandlers = {
     await requireReadyProviderForScan();
     assignmentRunStartedAt = Date.now();
     await requireAssignmentExecutionCoordinator().resume(taskId);
+    requireAppKernel().requestReconcile();
     const state = requireAppKernel().state();
     captureQueueTransition("assignment_resume", state);
     return state;
@@ -677,7 +699,8 @@ const ipcHandlers: StudiIpcHandlers = {
   selectHomeworkRoot: async () => {
     const current = await requireLocalStore().productPreferences.get();
     const owner = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
-    const result = owner
+    const e2eRoot = isSelfTest ? process.env.STUDI_E2E_HOMEWORK_ROOT : undefined;
+    const result = e2eRoot ? { canceled: false, filePaths: [e2eRoot] } : owner
       ? await dialog.showOpenDialog(owner, { title: "Choose an empty folder just for Studi", buttonLabel: "Use this empty folder", properties: ["openDirectory", "createDirectory"] })
       : await dialog.showOpenDialog({ title: "Choose an empty folder just for Studi", buttonLabel: "Use this empty folder", properties: ["openDirectory", "createDirectory"] });
     if (result.canceled || !result.filePaths[0]) return current;
@@ -1567,7 +1590,7 @@ async function initializeStorage(): Promise<void> {
       updatedAt: "2026-08-31T12:00:00.000Z",
     });
   }
-  if (!isSelfTest) {
+  if (!isSelfTest || isE2e) {
     return;
   }
 
@@ -1613,7 +1636,7 @@ async function initializeStorage(): Promise<void> {
 }
 
 async function initializeAgentSelfTest(): Promise<void> {
-  if (!isSelfTest) {
+  if (!isSelfTest || isE2e) {
     return;
   }
   const dataRoot = join(app.getPath("userData"), "studi-data");
@@ -1685,7 +1708,7 @@ async function initializeDesktopAgent(): Promise<void> {
   learnRepository = new LearnRepository(requireLocalStore().database, ownerSubject);
   memoryCoordinator = new MemoryCoordinator(requireLocalStore().notes, ownerSubject);
   const dataRoot = join(app.getPath("userData"), "studi-data");
-  agentRuntime = await PiAgentRuntime.create({
+  const runtimeOptions: Parameters<typeof PiAgentRuntime.create>[0] = {
     cwd: dataRoot,
     agentDir: join(dataRoot, "pi"),
     browserController: schoolBrowserPage("home").controller,
@@ -1699,7 +1722,13 @@ async function initializeDesktopAgent(): Promise<void> {
         telemetry.captureDiagnostic({ source: "runtime", ...event });
       }
     },
-  });
+  };
+  const e2eModule = isSelfTest ? process.env.STUDI_E2E_RUNTIME_MODULE : undefined;
+  if (e2eModule) {
+    const module = await import(pathToFileURL(resolve(e2eModule)).href);
+    if (typeof module.createE2eRuntime !== "function") throw new Error("The scripted QA runtime has no createE2eRuntime export");
+    agentRuntime = await module.createE2eRuntime(runtimeOptions) as PiAgentRuntime;
+  } else agentRuntime = await PiAgentRuntime.create(runtimeOptions);
   await applyPersistedAgentRuntime();
   const reportLearningError = (error: unknown) => telemetryService?.captureError(error, 'runtime', 'session_start');
   learnSelectedGoal = undefined;
@@ -1725,7 +1754,8 @@ async function initializeDesktopAgent(): Promise<void> {
     agentRuntime,
     {
       startAssignment: async (taskId) => {
-        return requireAssignmentExecutionCoordinator().start(taskId);
+        await prepareAndStartAssignment(taskId);
+        return requireLocalStore().lifecycle.getExecution(taskId);
       },
     },
   );
@@ -1852,7 +1882,8 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
       browserWork: requireVisibleBrowserWork(),
       connectedAppTools: loadConnectedAppTools,
       browserForAssignment: id => schoolBrowserPage(`assignment:${id}`).controller,
-      reviewWindowMs: productPreferences.reviewMinutes * 60_000,
+      reviewWindowMs: isSelfTest && process.env.STUDI_E2E_REVIEW_WINDOW_MS
+        ? Number(process.env.STUDI_E2E_REVIEW_WINDOW_MS) : productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
       notify: async (intent) => {
         observeExecutionNotification(intent);

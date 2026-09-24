@@ -79,6 +79,7 @@ export class BrowserController {
   #observedSnapshot: BrowserSnapshot | null = null;
   #diffBaseline: BrowserSnapshot | null = null;
   readonly #navigationUrls: string[] = [];
+  readonly #observedLinks = new Set<string>();
 
   constructor(target: BrowserTarget) {
     this.#target = target;
@@ -128,6 +129,11 @@ export class BrowserController {
   }
 
   get lastSnapshot(): BrowserSnapshot | null { return this.#lastSnapshot; }
+
+  canNavigateObserved(rawUrl: string): boolean {
+    const url = parseSchoolUrl(rawUrl);
+    return url === this.#target.getURL() || this.#observedLinks.has(url);
+  }
 
   async downloadSource(ref?: string): Promise<string> {
     return parseSchoolUrl(ref ? await this.link(ref) : this.#target.getURL());
@@ -276,6 +282,7 @@ export class BrowserController {
       ...(nextOffset === undefined ? {} : { nextOffset }),
       ...(options.search ? { search: options.search } : {}),
     };
+    for (const element of elements) if (element.href) this.#observedLinks.add(element.href);
     const previous = observed ? this.#diffBaseline : this.#lastSnapshot;
     this.#lastSnapshot = snapshot;
     if (observed) {
@@ -350,6 +357,7 @@ export class BrowserController {
       this.#nodeRefs.set(key, ref);
       const cells = Array.isArray(row.cells) ? row.cells.map(cell => String(cell).slice(0, 300)) : [];
       const href = typeof row.href === "string" && /^https?:\/\//i.test(row.href) ? row.href : null;
+      if (href) this.#observedLinks.add(href);
       const name = cells.join(" | ");
       this.#refs.set(ref, { backendNodeId, revision: this.#revision, frameId: "main", role: href ? "link" : "row", name });
       elements.push({ ref, role: href ? "link" : "row", name, ...(href ? { href } : {}) });

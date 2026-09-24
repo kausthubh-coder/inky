@@ -63,7 +63,7 @@ try {
   assert.equal((await files.read(starter.details.path)).content, 'starter = 2 + 3');
   snapshot = await browser.snapshot();
   await assert.rejects(download.execute('login', { ref: snapshot.elements.find(e => e.name === 'Unavailable attachment').ref }), /web page/);
-  await assert.rejects(download.execute('stale', { ref }), /Stale/);
+  assert.ok(await browser.refreshRef(ref), 'A ref stays usable across snapshots on the same page');
   const { createScanMaterialReader } = await import('../dist/electron/scan/materials.js');
   const { openLocalStore } = await import('../dist/electron/storage/index.js');
   const { initializeHomeworkWorkspace } = await import('../dist/electron/files/workspace.js');
@@ -102,7 +102,7 @@ try {
     await assert.rejects(scanPdf.tool.execute('stopped', { assignmentId: assignment.assignmentId, documentId: first.details.documentId }), /Scan stopped/);
     console.log('Native: scan PDF provenance, images, scope, page reuse and cancellation passed');
   } finally { scanStore.close(); }
-  console.log('Native: login and stale-link recovery passed; opening original PDF viewer');
+  console.log('Native: login rejection and stable-ref reuse passed; opening original PDF viewer');
   let viewerNavigation = 'loaded';
   try { await browser.navigate(`${origin}/exercise.pdf`); }
   catch (error) {
@@ -123,7 +123,7 @@ try {
   assert.equal(current.details.path, 'materials/Exercise 6 (1).pdf');
   await school.clearStorageData();
   await assert.rejects(download.execute('signed-out', {}), /web page/);
-  const receipt = { mode: 'controlled native Electron', electron: process.versions.electron, node: process.versions.node, profile: root, viewerNavigation, viewerCapture, passed: ['signed-in download from observed link', 'redirect with session cookie', 'duplicate preservation', 'starter file', 'PDF text and image-only page', 'stale link rejection', 'HTML/login rejection', 'current-document download', 'scan PDF/text provenance and assignment isolation', 'scan image-page transcription and cancellation'], notRun: ['real Moodle', 'macOS package'] };
+  const receipt = { mode: 'controlled native Electron', electron: process.versions.electron, node: process.versions.node, profile: root, viewerNavigation, viewerCapture, passed: ['signed-in download from observed link', 'redirect with session cookie', 'duplicate preservation', 'starter file', 'PDF text and image-only page', 'stable ref across snapshots', 'HTML/login rejection', 'current-document download', 'scan PDF/text provenance and assignment isolation', 'scan image-page transcription and cancellation'], notRun: ['real Moodle', 'macOS package'] };
   await writeFile(join(evidence, 'native.json'), JSON.stringify(receipt, null, 2));
   console.log(JSON.stringify(receipt));
   if (process.argv.includes('--live-agent')) {

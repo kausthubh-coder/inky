@@ -33,22 +33,59 @@ export async function verifyReleaseControls(page, base) {
     await button('Starting…').waitFor();
     assert.equal(await button('Starting…').isDisabled(),true);
     await page.evaluate(()=>window.finishStart());
-    // Pause lives on the school page overlay (mocked in previews). Stopping is pause, then stop.
+    await page.evaluate(()=>{
+      const takeover=window.studi.requestAssignmentTakeover;
+      const cancel=window.studi.cancelAssignment;
+      window.assignmentControlCalls={takeover:0,cancel:0};
+      window.studi.requestAssignmentTakeover=async input=>{window.assignmentControlCalls.takeover++;return takeover(input);};
+      window.studi.cancelAssignment=async input=>{window.assignmentControlCalls.cancel++;return cancel(input);};
+    });
+    // Takeover remains on the school overlay. The composer Stop cancels the assignment.
     await page.getByRole('button',{name:'Takeover',exact:true}).click();
     await page.getByRole('button',{name:/I’m ready. Continue/}).click();
-    await page.getByRole('button',{name:'Takeover',exact:true}).click();
-    await workspace.getByRole('button',{name:'Stop this assignment',exact:true}).click();
+    await workspace.getByRole('button',{name:'Stop assignment',exact:true}).click();
+    await page.getByRole('heading',{name:'You stopped this.',exact:true}).waitFor();
     assert.equal(await page.evaluate(()=>window.startCalls),1);
-    results.push('Single start while pending, pause, resume, stop');
+    assert.deepEqual(await page.evaluate(()=>window.assignmentControlCalls),{takeover:1,cancel:1});
+    results.push('Single start while pending; takeover pauses; composer Stop cancels');
+
+    await open('desk-working');
+    const activity=page.getByLabel('Assignment activity');
+    assert.deepEqual(await activity.locator('li').allTextContents(),[
+      'Opened the quiz',
+      'Read the instructions and 2 attached files',
+      'Answered questions 1–3',
+      'Typing the answer to question 4',
+    ]);
+    assert.equal(await activity.locator('li').last().getAttribute('aria-current'),'step');
+    results.push('Mockup C activity feed shows labelled progress and the current action');
 
     await open('desk-review');
-    const confirm=button('I submitted it — check');
-    assert.equal(await confirm.isDisabled(),true);
-    await page.getByLabel('Words shown after submission').fill('Submitted successfully');
-    assert.equal(await confirm.isEnabled(),true);
-    await button('Let me edit').click();
+    await page.getByRole('heading',{name:'Two things I’m not sure about:',exact:true}).waitFor();
+    assert.deepEqual(await page.getByLabel('Inky’s doubts').locator('p').allTextContents(),[
+      'Q2: The rubric says “show work.” I attached the trace.',
+      'Q5: There are two readings of “stable.” I used the textbook one.',
+    ]);
+    await page.getByText('Requirements · 6 of 6 met',{exact:true}).waitFor();
+    await page.getByText('Answers · on school page',{exact:true}).waitFor();
+    await button('Submit now').waitFor();
+    await button('Edit it myself').waitFor();
+    assert.equal(await page.getByLabel('Words shown after submission').count(),0);
+    assert.equal(
+      await page.locator('time[datetime="2026-09-04T03:30:00.000Z"]').innerText(),
+      new Date('2026-09-04T03:30:00.000Z').toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}),
+    );
+    assert.match(await page.locator('.rd-auto-submit').innerText(),/rule: do it and submit/);
+    await button('Edit it myself').click();
     await page.getByRole('button',{name:/I’m ready. Continue/}).waitFor();
-    results.push('Manual submission requires confirmation; editing returns control to student');
+    results.push('Mockup D leads with doubts, names actions, and shows the actual auto-submit time and rule');
+
+    await open('desk-submitted');
+    assert.equal(await page.getByText('Handed in.',{exact:true}).count(),1);
+    await open('assignment-stopped');
+    await page.getByRole('heading',{name:'You stopped this.',exact:true}).waitFor();
+    await page.getByText('Your saved work is kept.',{exact:true}).waitFor();
+    results.push('Submitted confirmation appears once; student cancellation has accurate copy');
 
     await open('assignment-restricted');
     assert.equal(await button('Start assignment').isDisabled(),true);

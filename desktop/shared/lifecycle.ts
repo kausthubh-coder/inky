@@ -10,6 +10,7 @@ export const AssignmentDoubtSchema = z.strictObject({ where: z.string().trim().m
 export const AssignmentActionSchema = z.strictObject({
   actionId: z.string().min(1), occurredAt: IsoTimestampSchema,
   kind: z.enum(["text", "tool", "retry"]), label: z.string().min(1).max(4000),
+  toolCallId: z.string().min(1).optional(),
   outcome: z.enum(["started", "succeeded", "failed"]).optional(),
 });
 export type AssignmentAction = z.infer<typeof AssignmentActionSchema>;
@@ -93,6 +94,7 @@ export const AssignmentExecutionSchema = z.strictObject({
   attemptCount: z.number().int().min(0).max(2),
   returnPredicate: z.string().trim().min(1).max(1_000).optional(),
   reviewDeadline: IsoTimestampSchema.optional(),
+  reviewSubmissionSource: z.enum(["rule", "student"]).optional(),
   handoffDeadline: IsoTimestampSchema.optional(),
   reviewCheckpoint: BrowserCheckpointSchema.optional(),
   answerSnapshot: z.string().trim().min(1).max(20_000).optional(),

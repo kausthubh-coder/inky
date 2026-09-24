@@ -169,6 +169,24 @@ export function installDevPreview(): void {
     schedule: lifecycle.schedule,
   };
 
+  if (preview.id === "desk-review") {
+    tasks[0]!.permission = {
+      ...permission,
+      mode: "auto_submit",
+      maySubmit: true,
+      rationale: "A saved rule lets Inky do this assignment and submit after review.",
+    };
+    settings.permissionRules = [
+      {
+        schemaVersion: 1,
+        ruleId: "preview-global",
+        scope: "global",
+        mode: "auto_submit",
+        updatedAt: now,
+      },
+    ];
+  }
+
   if (preview.settingsSection) {
     settings.preferences.homeworkRoot = "C:\\Users\\Student\\Documents\\Studi";
     settings.permissionRules.push(
@@ -236,10 +254,34 @@ export function installDevPreview(): void {
       phase,
       taskBudget: { maxAgentTurns: 24, maxRecoveryAttempts: 2 },
       turnCount: 8,
-      ...(preview.id === "desk-working" ? { commandOutputs: [{ toolCallId: "preview-tests", shell: "powershell" as const, outcome: "succeeded" as const, text: "Checking assignment files…\n3 checks passed", durationMs: 1250, truncated: false, recordedAt: now }] } : {}),
+      ...(preview.id === "desk-working" ? {
+        actions: [
+          { actionId: "preview-open", occurredAt: "2026-09-03T16:00:01.000Z", kind: "tool" as const, label: "Opened the quiz", outcome: "succeeded" as const },
+          { actionId: "preview-read", occurredAt: "2026-09-03T16:00:02.000Z", kind: "tool" as const, label: "Read the instructions and 2 attached files", outcome: "succeeded" as const },
+          { actionId: "preview-answers", occurredAt: "2026-09-03T16:00:03.000Z", kind: "tool" as const, label: "Answered questions 1–3", outcome: "succeeded" as const },
+          { actionId: "preview-current", occurredAt: "2026-09-03T16:00:04.000Z", kind: "tool" as const, label: "Typing the answer to question 4", outcome: "started" as const },
+        ],
+        commandOutputs: [{ toolCallId: "preview-tests", shell: "powershell" as const, outcome: "succeeded" as const, text: "Checking assignment files…\n3 checks passed", durationMs: 1250, truncated: false, recordedAt: now }],
+      } : {}),
       attemptCount: 1,
       ...(phase === "needs_user" ? { returnPredicate: "Attach the three JPG graphs in Show My Work, then tell me to keep going.", lastError: "The assignment requires graph files that are not in the homework folder." } : {}),
-      ...(phase === "ready_review" ? { reviewDeadline: "2026-09-03T16:15:00.000Z", reviewCheckpoint: checkpoint, answerSnapshot: "Six written responses filled; three graphs attached.", completionChecklist: [{ requirement: "Six written answers", evidence: "All six response boxes contain an answer." }, { requirement: "Three JPG graphs", evidence: "Three attachments are listed in Show My Work." }] } : {}),
+      ...(phase === "ready_review" ? {
+        reviewDeadline: "2026-09-04T03:30:00.000Z",
+        reviewCheckpoint: checkpoint,
+        answerSnapshot: "Six written responses filled; three graphs attached.",
+        doubts: [
+          { where: "Q2", why: "The rubric says “show work.” I attached the trace." },
+          { where: "Q5", why: "There are two readings of “stable.” I used the textbook one." },
+        ],
+        completionChecklist: [
+          { requirement: "Six written answers", evidence: "All six response boxes contain an answer." },
+          { requirement: "Question 2 trace", evidence: "The completed trace is attached to question 2." },
+          { requirement: "Stable sort definition", evidence: "Question 5 uses the textbook definition." },
+          { requirement: "Three JPG graphs", evidence: "Three attachments are listed in Show My Work." },
+          { requirement: "File names", evidence: "Each graph file is named for its question." },
+          { requirement: "Submission review", evidence: "The school page still shows the work as not submitted." },
+        ],
+      } : {}),
       ...(phase === "submitted" ? { submissionReceiptId: "preview-receipt" } : {}),
       ...(phase === "submitting" ? { submissionAttemptedAt: now, answerSnapshot:"Six written responses saved." } : {}),
       updatedAt: now,

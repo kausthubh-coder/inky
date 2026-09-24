@@ -25,12 +25,17 @@ export function createBrowserTools(
   const navigate = defineTool({
     name: "browser_navigate",
     label: "Open school page",
-    description: "Navigate Studi's visible school browser to an HTTP or HTTPS URL.",
+    description: "Navigate Studi's visible school browser to an HTTP or HTTPS URL. During a school check, use only a destination observed in a page or saved as the current page; do not guess routes.",
     parameters: Type.Object(
       { url: Type.String({ minLength: 1, maxLength: 2_048 }) },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => action(controller, () => controller.navigate(input.url)),
+    execute: async (_toolCallId, input) => {
+      if (options.readOnly && !controller.canNavigateObserved(input.url)) {
+        throw new Error("This destination was not observed in the school browser. Use a visible link or inspect the current page.");
+      }
+      return action(controller, () => controller.navigate(input.url));
+    },
   });
   const click = defineTool({
     name: "browser_click",

@@ -31,14 +31,17 @@ export async function verifyWorkspacePreview(page, base = "http://127.0.0.1:4174
     await page.keyboard.press("Escape");
     assert.equal(await page.getByRole("menu", { name: "Profile menu" }).count(), 0);
     await open("desk-review");
-    await page.locator('time[datetime="2026-09-03T16:15:00.000Z"]').waitFor();
+    const autoSubmit = page.locator('time[datetime="2026-09-04T03:30:00.000Z"]');
+    await autoSubmit.waitFor();
+    assert.equal(await autoSubmit.innerText(), new Date("2026-09-04T03:30:00.000Z").toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
+    assert.match(await page.locator(".rd-auto-submit").innerText(), /rule: do it and submit/);
     await page.evaluate(async () => {
       const library = await window.studi.getLibraryState();
       const review = library.tasks.find(item => item.execution?.phase === "ready_review");
-      review.execution.handoffDeadline = "2026-09-03T16:30:00.000Z";
+      review.execution.reviewDeadline = "2026-09-04T04:05:00.000Z";
     });
-    await page.locator('time[datetime="2026-09-03T16:30:00.000Z"]').waitFor();
-    assert.equal(await page.locator('time[datetime="2026-09-03T16:15:00.000Z"]').count(), 0);
+    await page.locator('time[datetime="2026-09-04T04:05:00.000Z"]').waitFor();
+    assert.equal(await autoSubmit.count(), 0);
     const sections = ["inky", "homework", "school", "notifications", "you"];
     for (const size of [{ width: 1280, height: 850 }, { width: 1024, height: 768 }, { width: 720, height: 520 }]) {
       await page.setViewportSize(size);
@@ -53,7 +56,7 @@ export async function verifyWorkspacePreview(page, base = "http://127.0.0.1:4174
     assert.equal(await page.locator('a[href="/?preview=week-undated"]').count(), 2);
     assert.equal(await page.locator('a[href="/?preview=settings-notifications"]').count(), 2);
     assert.deepEqual(errors, []);
-    return { passed: ["undated separation, navigation retention, assignment opens", "five Settings tabs, autosave and recovery", "review shows page hold deadline with legacy fallback", "all five settings tabs at three window sizes", "preview gallery routes"], pageErrors: errors };
+    return { passed: ["undated separation, navigation retention, assignment opens", "five Settings tabs, autosave and recovery", "review shows actual auto-submit time and rule", "all five settings tabs at three window sizes", "preview gallery routes"], pageErrors: errors };
   } finally {
     page.off("pageerror", onError);
   }

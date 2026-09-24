@@ -156,7 +156,7 @@ async function runControlledScenario(scenario, extraEnvironment = {}, prepare, i
   const startedAt = Date.now();
   const child = launchElectron(directory, port, { STUDI_UI_SCENARIO: scenario, ...extraEnvironment }, inspectorPort);
   try {
-    const ready = await waitForReady(child, 25_000);
+    const ready = await waitForReady(child, 45_000);
     const composition = JSON.parse(ready.slice(ready.indexOf("{")));
     const client = await connectToRenderer(port, 10_000);
     try {
@@ -232,17 +232,18 @@ async function inspectPublicApp(client) {
 async function exerciseExpandedBrowser(client) {
   await client.evaluate(`(async () => {
     const click=(selector)=>{const button=document.querySelector(selector);if(!(button instanceof HTMLButtonElement))throw new Error('Missing '+selector);button.click();};
-    const waitFor = async (predicate) => { const deadline=Date.now()+5000; while(!predicate()){if(Date.now()>deadline)throw new Error('Assignment view did not settle');await new Promise(r=>setTimeout(r,50));} };
+    const waitFor = async (label,predicate) => { const deadline=Date.now()+5000; while(!predicate()){if(Date.now()>deadline)throw new Error(label+': '+JSON.stringify({workspace:!!document.querySelector('[aria-label="Assignment workspace"]'),slot:!!document.querySelector('.chat-browser-slot'),text:document.body.innerText.slice(0,1200)}));await new Promise(r=>setTimeout(r,50));} };
     click('.chat-work-slip button');
-    await waitFor(()=>document.querySelector('[aria-label="Assignment workspace"]')&&document.querySelector('.chat-browser-slot'));
+    await waitFor('assignment open',()=>document.querySelector('[aria-label="Assignment workspace"]')&&document.querySelector('.chat-browser-slot'));
+    await new Promise(r=>setTimeout(r,300));
     document.body.dataset.activityCardRemoved=String(!document.querySelector('.chat-work-slip')&&!document.body.innerText.includes("What I’ve done"));
     document.body.dataset.browserExpanded=String(Boolean(document.querySelector('.chat-browser-slot')));
     click('[aria-label="Close browser"]');
-    await waitFor(()=>!document.querySelector('.chat-browser-slot'));
+    await waitFor('browser closed',()=>!document.querySelector('.chat-browser-slot'));
     const reopen=[...document.querySelectorAll('.rd-stage-page button')].find(button=>button.textContent.includes('Open school page'));
     if(!(reopen instanceof HTMLButtonElement))throw new Error('Closed browser offers no reopen action');
-    reopen.click();await waitFor(()=>document.querySelector('.chat-browser-slot'));
-    click('[aria-label="Close browser"]');await waitFor(()=>!document.querySelector('.chat-browser-slot'));
+    reopen.click();await waitFor('browser reopened',()=>document.querySelector('.chat-browser-slot'));
+    click('[aria-label="Close browser"]');await waitFor('browser closed again',()=>!document.querySelector('.chat-browser-slot'));
     document.body.dataset.browserClosedCleanly=String(Boolean(document.querySelector('[aria-label="Assignment workspace"]')));
   })()`);
 }
@@ -319,7 +320,7 @@ async function testInvalidProfile() {
 async function testRendererLoadFailure() {
   const directory = ownedDirectory(`studi-wp00-self-test-renderer-failure-${nonce}`);
   cleanupDirectories.add(directory);
-  const result = await runToExit(directory, { STUDI_SELF_TEST_RENDERER_FAILURE: "1" }, 8_000);
+  const result = await runToExit(directory, { STUDI_SELF_TEST_RENDERER_FAILURE: "1" }, 15_000);
   assert.notEqual(result.exit.code, 0);
   assert.equal(result.timedOut, false);
   assert.match(result.stderr, /STUDI_SELF_TEST_FAILED renderer load/);

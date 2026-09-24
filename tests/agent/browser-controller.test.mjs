@@ -63,6 +63,19 @@ test("ordinary click refuses submission while explicit submit can activate it", 
   assert.equal(target.clicks, 1);
 });
 
+test("read-only school navigation accepts observed links but rejects guessed LMS routes", async () => {
+  const href = "https://school.example.edu/classroom/programming";
+  const target = fakeTarget([
+    { ...axNode(1, "link", "Programming in C"), properties: [{ name: "url", value: { value: href } }] },
+  ]);
+  const controller = new BrowserController(target);
+  const navigate = createBrowserTools(controller, { readOnly: true }).find(tool => tool.name === "browser_navigate");
+  await controller.snapshot();
+  await assert.rejects(navigate.execute("guessed", { url: "https://school.example.edu/courses/programming" }), /not observed/);
+  await navigate.execute("observed", { url: href });
+  assert.equal(controller.state.url, href);
+});
+
 test("a Submit Lab 3 navigation link opens without submission permission", async () => {
   const target = fakeTarget([axNode(1, "link", "Submit Lab 3")], {
     inspection: { connected: true, disabled: false, submission: false, label: "Submit Lab 3" },

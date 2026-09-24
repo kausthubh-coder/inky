@@ -425,7 +425,7 @@ export class SchoolScanCoordinator {
       : "";
     return await this.#run(
       scan,
-      `Run a ${kind === "replay" ? "refresh" : "setup"} school check. ${connectorComplete ? "The signed-in LMS connector already saved its courses and LMS assignment rows. Do not reread unchanged LMS details. The remaining job is linked homework systems." : "The LMS connector left gaps. Check dashboard/calendar, course lists, and linked systems using the visible browser."} On every course page, take browser_snapshot, call scan_record_course for that current course page, then call browser_rows through all offsets (including collapsed sections). Look for LTI/linked homework such as WebAssign and Gradescope. Open each linked homework system, read its assignment index and record its work with scan_record_rows under the parent course. Do not spend this setup check on university syllabus pages; that is a materials check. If sign-in blocks one system, record that system and request a handoff only after saving reachable work. Use only the six scan tools. Stop after checking the in-scope systems; the app finishes the scan.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
+      `Run a ${kind === "replay" ? "refresh" : "setup"} school check. ${connectorComplete ? "The signed-in LMS connector already saved its courses and LMS assignment rows. Do not reread unchanged LMS details. The remaining job is linked homework systems." : "The LMS connector left gaps. Check dashboard/calendar, course lists, and linked systems using the visible browser."} On each course page, take one full browser_snapshot, record the course, read all list rows with browser_rows, and record visible work in batches. Expand visible collapsed lists. Open a linked homework system only if the observed school page links to it; check its assignment index but do not record the same class/title/deadline twice. Never guess an LMS URL or revisit a course already checked in this run. Do not spend this setup check on university syllabus pages; that is a materials check. If sign-in blocks one system, record that system and request a handoff only after saving reachable work. Use only the six scan tools. Stop after dashboard/calendar, each observed course list, and linked indexes have been checked; the app finishes the scan.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
     );
     } catch (error) {
       this.#fail(scan.scanId, `The scan could not start: ${errorMessage(error)}`);
@@ -708,6 +708,9 @@ export class SchoolScanCoordinator {
       lastVerifiedScanId: scanId,
       evidence: [...(prior?.evidence ?? []), evidence],
     });
+    if (!this.#store.courseConflicts.some(item => item.courseIds.includes(assignment.courseId))) {
+      this.#ensureTaskOrigin(assignment, scanId);
+    }
     const scan = this.#requiredRunningScan(scanId);
     const change = assignmentScanChange(prior ?? undefined, assignment);
     const priorChange = scan.changes.find(item => item.assignmentId === assignmentId);
@@ -779,7 +782,8 @@ export class SchoolScanCoordinator {
     let terminalOutcome: "completed" | "failed" | "aborted" | null = null;
     let terminalReason: string | null = null;
     let unsubscribe: () => void = () => {};
-    const structured = !scan.targetAssignmentId && !scan.sourceScanTarget
+    const details = Boolean(scan.targetAssignmentId);
+    const structured = !details && !scan.sourceScanTarget
       && typeof this.#browser.evaluateInPage === "function";
     let watchdog: ReturnType<typeof setInterval> | undefined;
     const activeStartedAt = Date.now();
@@ -789,7 +793,7 @@ export class SchoolScanCoordinator {
     let session = this.#session;
     if (!session || this.#sessionScanId !== scan.scanId) {
       session?.dispose();
-      session = await this.#runtime.createScanSession(structured ? this.#createStructuredTools(scan.scanId) : this.#createRecordingTools(scan.scanId), {}, {
+      session = await this.#runtime.createScanSession(details ? this.#createDetailsTools(scan.scanId) : structured ? this.#createStructuredTools(scan.scanId) : this.#createRecordingTools(scan.scanId), {}, {
         assertActive: () => { this.#requiredRunningScan(scan.scanId); if (this.#rotateSession) throw new Error("Saved source checkpoint; continuing in a fresh scan session."); },
       });
       this.#session = session;
@@ -841,6 +845,14 @@ export class SchoolScanCoordinator {
     const current = this.#store.school.getScan(scan.scanId);
     if (current?.state === "running" && structured) {
       await this.#finishStructured(scan.scanId);
+      this.#session?.dispose();
+      this.#session = null;
+      this.#sessionScanId = null;
+      return this.state();
+    }
+    if (current?.state === "running" && details && !this.#rotateSession) {
+      const assignment = this.#store.assignments.get(current.targetAssignmentId!);
+      this.#finishAssignmentCheck(current, [{ target: `Assignment: ${assignment?.title ?? "Unknown"}`, status: "verified" }]);
       this.#session?.dispose();
       this.#session = null;
       this.#sessionScanId = null;
@@ -983,7 +995,15 @@ export class SchoolScanCoordinator {
           return { schemaVersion: STUDI_SCHEMA_VERSION, evidenceId, reference: evidenceId, kind: "agent_observation", sourceTarget: target, capturedAt: this.#now(), summary };
         };
         const ids: string[] = [];
+        let saved = 0;
         for (const row of input.rows) {
+          // A linked system can link back through a different school URL for
+          // work already listed under its own URL. Keep one student task.
+          const duplicate = row.dueText && this.#store.assignments.listAll().some(item =>
+            item.courseId === course.courseId && item.sourceTarget && sameFact(item.title, row.title)
+            && item.dueText && sameFact(item.dueText, row.dueText!)
+            && exactTarget(item.sourceTarget) !== exactTarget(row.href));
+          if (duplicate) continue;
           const before = this.#requiredRunningScan(scanId).observedAssignmentIds;
           this.#saveConnectorRow(scanId, course.courseId, {
             assignmentKey: row.href, courseKey: course.courseId, title: row.title, href: row.href,
@@ -991,8 +1011,9 @@ export class SchoolScanCoordinator {
             kind: row.kind, instructions: row.instructions ?? null, sourceLabels: [],
           }, "browser", makeEvidence);
           ids.push(...this.#requiredRunningScan(scanId).observedAssignmentIds.filter(id => !before.includes(id)));
+          saved += 1;
         }
-        return toolResult({ saved: input.rows.length, ids });
+        return toolResult({ saved, duplicatesSkipped: input.rows.length - saved, ids });
       },
     });
     const recordSource = defineTool({
@@ -1025,6 +1046,16 @@ export class SchoolScanCoordinator {
     const tools = [status, recordSystem, recordCourse, recordRows, recordSource, handoff];
     if (tools.some((tool, index) => tool.name !== SCAN_TOOL_NAMES[index])) throw new Error("Structured scan tools do not match the shared capability contract");
     return tools;
+  }
+
+  #createDetailsTools(scanId: string): ToolDefinition[] {
+    const legacy = this.#createRecordingTools(scanId);
+    const names = new Set([
+      "scan_status", "scan_record_assignment", "scan_request_handoff",
+      "scan_check_source", "scan_record_source", "scan_read_assignment",
+      "scan_read_material", "scan_add_source", "scan_skip_source",
+    ]);
+    return legacy.filter(tool => names.has(tool.name));
   }
 
   #createRecordingTools(scanId: string): ToolDefinition[] {
@@ -1687,7 +1718,7 @@ export class SchoolScanCoordinator {
     return `Check only this selected assignment: ${JSON.stringify(assignment)}.
 This is a read-only details check, including after a pause, restart or session rotation. It does not authorize starting homework, entering answers, saving drafts or submitting. Do not scan other assignments or record courses/inventories/linked systems.
 Take fresh snapshots of the saved source and its relevant observed links. Call scan_check_source before following a page's links so their observed destinations are saved. Use scan_read_assignment for saved evidence. Record facts using this exact courseId and title; retain the same assignment identity. Gather missing instructions, rubric, deliverables, deadline and current submission state, with separate requirementExcerpts and explicit missingRequirements. If a linked page cannot be tied to this assignment, leave that question unresolved. For already submitted, graded or locked work, record the current state and stop investigating requirements for new work.
-For login, request a school_sign_in handoff with the exact blocker; resume this same assignment when the student returns. Use scan_record_source for progress. Finish with coverage naming Assignment: ${assignment.title}. Do not claim the whole school is complete. Return control to the student; a successful details check does not start work.`;
+For login, request a school_sign_in handoff with the exact blocker; resume this same assignment when the student returns. Use scan_record_source for progress. When the selected assignment's facts and linked materials are checked, stop; Studi finishes this focused check. Do not claim the whole school is complete. A successful details check does not start work.`;
   }
 
   #finishAssignmentCheck(scan: SchoolScan, requested: readonly { target: string; status: "verified" | "partial" | "failed"; failure?: string }[]): SchoolScan {
@@ -1706,10 +1737,12 @@ For login, request a school_sign_in handoff with the exact blocker; resume this 
     else if (!terminal && !eligibility.eligible) failures.push(eligibility.reason);
     const succeeded = failures.length === 0;
     const evidence = [...assignment.evidence].reverse().find(item => item.evidenceId.includes(scan.scanId));
-    return this.#store.school.putScan({ ...scan, state: succeeded ? "succeeded" : "partial", updatedAt: this.#now(), completedAt: this.#now(), handoff: null,
+    const finished = this.#store.school.putScan({ ...scan, state: succeeded ? "succeeded" : "partial", updatedAt: this.#now(), completedAt: this.#now(), handoff: null,
       currentStep: succeeded ? terminal ? "School status checked. This assignment will not be started." : "Assignment details checked. Ready when you choose to start." : "Saved assignment details. Some questions remain.",
       failures: [...new Set(failures)], coverage: [{ target, status: succeeded ? "verified" : "partial", ...(succeeded ? { evidence } : { failure: failures[0] }) }],
     });
+    this.#updateProfileState(this.#requiredProfile().onboardingCompletedAt ? "ready" : "profile_saved");
+    return finished;
   }
 
   #ensureTaskOrigin(assignment: Assignment, scanId: string): void {

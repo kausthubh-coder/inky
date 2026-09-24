@@ -124,7 +124,7 @@ export interface SchoolState {
   clock: string;
   timezone: string;
   presentation?: {
-    theme: "moodle" | "canvas";
+    theme: "moodle" | "canvas" | "unknown";
     connectorApis: boolean;
     remembered: boolean;
     duoDelayMs: number;

@@ -24,18 +24,36 @@ const link = (href: string, label: string) =>
   `<a href="${esc(href)}">${esc(label)}</a>`;
 export function themedHref(state: SchoolState, item: Activity): string {
   if (item.service !== "school") return `/assignments/${item.id}`;
+  if (state.presentation?.theme === "unknown") return `/work/${item.id}`;
   return state.presentation?.theme === "moodle"
     ? `/mod/${item.moduleType === "label" || item.moduleType === "grade" ? "page" : (item.moduleType ?? "assign")}/view.php?id=${item.id}`
     : `/courses/${item.courseId}/assignments/${item.id}`;
 }
 const courseHref = (state: SchoolState, id: string) =>
-  state.presentation?.theme === "moodle"
+  state.presentation?.theme === "unknown"
+    ? `/classroom/${id}`
+    : state.presentation?.theme === "moodle"
     ? `/course/view.php?id=${id}`
     : `/courses/${id}`;
 const work = (state: SchoolState) =>
   state.activities.filter((item) => item.submissionChannel !== "none");
 function rows(state: SchoolState, origins: Origins, items: Activity[]): string {
   return `<table><thead><tr><th>Activity</th><th>Due</th><th>Status</th></tr></thead><tbody>${items.map((item) => `<tr class="activity modtype_${item.moduleType ?? "assign"}" data-id="${esc(item.id)}"><td>${link(item.service === "statistics" ? `${origins.school}/mod/lti/view.php?id=${item.id}` : `${origins[item.service]}${themedHref(state, item)}`, item.title)}</td><td>${esc(item.dueText)}</td><td>${esc(item.status === "not_started" ? "Not submitted" : item.status)}</td></tr>`).join("")}</tbody></table>`;
+}
+
+function unknownRows(state: SchoolState, origins: Origins, items: Activity[], showMore = false): string {
+  const renderRow = (item: Activity) => `<tr><td>${link(`${origins[item.service]}${themedHref(state, item)}`, item.title)}</td><td>${esc(item.dueText)}</td><td>${esc(item.status === "not_started" ? "Not submitted" : item.status)}</td></tr>`;
+  const visible = showMore ? items.slice(0, 3) : items;
+  const remainder = showMore ? items.slice(3) : [];
+  return `<table><thead><tr><th>Work</th><th>Due</th><th>Status</th></tr></thead><tbody>${visible.map(renderRow).join("")}</tbody></table>${remainder.length
+    ? `<template id="more-work">${remainder.map(renderRow).join("")}</template><button type="button" id="show-more" onclick="document.querySelector('tbody').append(document.querySelector('#more-work').content.cloneNode(true));this.remove()">Show more</button>`
+    : ""}`;
+}
+
+function unknownShell(state: SchoolState, origins: Origins, title: string, content: string): string {
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Lantern Learning</title><style>
+    body{margin:0;background:#faf9f4;color:#253144;font:16px/1.5 system-ui}header{background:#25405b;color:white;padding:18px 28px}nav{display:flex;gap:22px;background:white;padding:12px 28px}main{max-width:1050px;margin:28px auto;padding:0 28px 50px}a{color:#205f91}table{width:100%;border-collapse:collapse;background:white}td,th{text-align:left;padding:11px 14px;border-bottom:1px solid #d9dedf}th{background:#f0f2f3}button{margin:14px 0;padding:8px 14px;cursor:pointer}small{color:#566170}section{margin:24px 0}footer{margin-top:35px;color:#566170;font-size:12px}</style></head><body>
+    <header>Lantern Learning · Alex Morgan</header><nav>${link(origins.school, "Home")}${link("/classroom", "Classes")}${link("/schedule", "Schedule")}</nav><main><small>Fall 2026 · School time zone: America/New_York</small><h1>${esc(title)}</h1>${content}<footer>Local synthetic school. No real student data.</footer></main></body></html>`;
 }
 function shell(
   state: SchoolState,
@@ -85,7 +103,7 @@ export function createSchoolTheme(
       response.end(
         request.method === "HEAD"
           ? undefined
-          : shell(state, origins, title, body, script),
+          : config.theme === "unknown" ? unknownShell(state, origins, title, body) : shell(state, origins, title, body, script),
       );
     };
     const redirect = (location: string) => {
@@ -192,6 +210,11 @@ export function createSchoolTheme(
       );
       redirect(`/assignments/${id}`);
       return true;
+    }
+    if (surface === "school" && config.theme === "unknown" &&
+      (/^\/courses?(?:\/|$)/.test(url.pathname) || /^\/mod\//.test(url.pathname) ||
+        /^\/calendar\//.test(url.pathname))) {
+      throw new SchoolError(404, "This school does not use that route.");
     }
     if (surface === "school" && url.pathname === "/mod/lti/view.php") {
       const item = activityById(state, url.searchParams.get("id") ?? "");
@@ -460,6 +483,35 @@ export function createSchoolTheme(
       return false;
     }
     if (surface !== "school") return false;
+    if (config.theme === "unknown") {
+      if (request.method === "POST") return false;
+      const listed = work(state).filter(item => item.id !== "design-doc");
+      if (url.pathname === "/" || url.pathname === "/schedule") {
+        html(url.pathname === "/" ? "My schoolwork" : "Schedule",
+          `<p>Check your classes for work that does not appear here.</p><section><h2>Upcoming work</h2>${unknownRows(state, origins, listed, true)}</section><section><h2>Classes</h2>${state.courses.map(course => `<p>${link(courseHref(state, course.id), `${course.code} ${course.title}`)}</p>`).join("")}</section>`);
+        return true;
+      }
+      if (url.pathname === "/classroom") {
+        html("Classes", state.courses.map(course => `<p>${link(courseHref(state, course.id), `${course.code} ${course.title}`)}</p>`).join(""));
+        return true;
+      }
+      const classroom = /^\/classroom\/([^/]+)$/.exec(url.pathname);
+      if (classroom) {
+        const course = state.courses.find(item => item.id === classroom[1]);
+        if (!course) throw new SchoolError(404, "Class not found.");
+        const items = work(state).filter(item => item.courseId === course.id);
+        html(`${course.code} ${course.title}`, `<p>Class work and deadlines</p>${items.length ? unknownRows(state, origins, items) : "<p>No current work listed.</p>"}<section><h2>Materials</h2><p>${link(`${origins.university}/classes/${course.id}`, "Syllabus and class information")}</p></section>`);
+        return true;
+      }
+      const assignment = /^\/work\/([^/]+)$/.exec(url.pathname);
+      if (assignment) {
+        const item = activityById(state, assignment[1]!);
+        if (item.service !== "school") { redirect(`${origins[item.service]}${themedHref(state, item)}`); return true; }
+        html(item.title, `<p>Class: ${esc(state.courses.find(course => course.id === item.courseId)?.title)}</p><p>Due: ${esc(item.dueText)}</p><p>${esc(item.instructions)}</p>${link(`/assignments/${item.id}`, "Open assignment")}`);
+        return true;
+      }
+      return false;
+    }
     const moodle = config.theme === "moodle";
     if (moodle && url.pathname === "/calendar/export.php") {
       const escapeCalendar = (value: string) => value.replace(/\\/g, "\\\\").replace(/\n/g, "\\n").replace(/[,;]/g, (char) => `\\${char}`);

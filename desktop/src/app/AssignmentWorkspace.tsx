@@ -102,30 +102,60 @@ export function AssignmentWorkspace({
     (lifecycle.submissionReceipt?.taskId === task?.task.taskId
       ? lifecycle.submissionReceipt
       : null);
-  const activity = execution?.actions?.length
-    ? execution.actions.map((line) => ({
-        key: line.actionId,
-        text: line.label,
-        kind:
-          line.kind === "text"
-            ? "voice"
-            : line.kind === "retry"
-              ? "retry"
-              : "action",
-      }))
-    : assignmentActivity(detail?.activity ?? execution?.activity ?? []);
   const phase = execution?.phase;
+  const activity = execution?.actions?.length
+    ? Array.from(
+        execution.actions
+          .reduce(
+            (lines, line) =>
+              lines.set(line.actionId, {
+                key: line.actionId,
+                text: line.label,
+                kind:
+                  line.kind === "text"
+                    ? ("voice" as const)
+                    : line.kind === "retry" || line.outcome === "failed"
+                      ? ("retry" as const)
+                      : ("action" as const),
+                current: line.outcome === "started",
+              }),
+            new Map<
+              string,
+              {
+                key: string;
+                text: string;
+                kind: "voice" | "retry" | "action";
+                current: boolean;
+              }
+            >(),
+          )
+          .values(),
+      )
+    : assignmentActivity(detail?.activity ?? execution?.activity ?? []).map(
+        (line, index, lines) => ({
+          ...line,
+          current: phase === "working" && index === lines.length - 1,
+        }),
+      );
+  const doubts = execution?.doubts ?? [];
+  const checklist = execution?.completionChecklist ?? [];
+  const doubtCount =
+    ["", "One", "Two", "Three"][doubts.length] ?? String(doubts.length);
   const headline =
-    phase === "working"
+    state === "cancelled"
+      ? "You stopped this."
+      : phase === "working"
       ? "I’m on it."
       : phase === "needs_user"
         ? "I need a hand."
         : phase === "ready_review"
-          ? "Ready for your eyes."
+          ? doubts.length
+            ? `${doubtCount} ${doubts.length === 1 ? "thing" : "things"} I’m not sure about:`
+            : "Ready to look over."
           : phase === "submitting"
             ? "Handing it in."
             : phase === "submitted"
-              ? "Handed in."
+              ? null
               : phase === "failed"
                 ? "I got stuck."
                 : phase === "preserved"
@@ -154,7 +184,17 @@ export function AssignmentWorkspace({
       setAdding(false);
     }
   };
-  const deadline = execution?.handoffDeadline ?? execution?.reviewDeadline;
+  const reviewDeadline =
+    phase === "ready_review" && task?.permission.maySubmit
+      ? execution?.reviewDeadline
+      : undefined;
+  const handoffDeadline =
+    phase === "needs_user" ? execution?.handoffDeadline : undefined;
+  const formatDeadline = (deadline: string) =>
+    new Date(deadline).toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
   return (
     <section className="rd-workspace" aria-label="Assignment workspace">
       <header className="rd-work-heading">
@@ -169,24 +209,24 @@ export function AssignmentWorkspace({
       <div className="rd-work-body">
         <aside className="rd-work-side" aria-label="Inky’s progress">
           <div className="rd-work-side-scroll">
-            <div className="rd-work-voice">
-              <Inky
-                size={50}
-                state={
-                  phase === "working"
-                    ? "working"
-                    : phase === "submitting"
-                      ? "thinking"
-                      : phase === "needs_user" || phase === "failed"
-                        ? "needs"
-                        : phase === "submitted"
-                          ? "done"
+            {headline && (
+              <div className="rd-work-voice">
+                <Inky
+                  size={50}
+                  state={
+                    phase === "working"
+                      ? "working"
+                      : phase === "submitting"
+                        ? "thinking"
+                        : phase === "needs_user" || phase === "failed"
+                          ? "needs"
                           : "idle"
-                }
-              />
-              <h1>{headline}</h1>
-            </div>
-            {execution?.lastError && (
+                  }
+                />
+                <h1>{headline}</h1>
+              </div>
+            )}
+            {execution?.lastError && state !== "cancelled" && (
               <p className="rd-error" role="alert">
                 {execution.lastError}
               </p>
@@ -224,18 +264,24 @@ export function AssignmentWorkspace({
                 >
                   Stop this assignment
                 </button>
+                {handoffDeadline && (
+                  <p className="rd-deadline">
+                    I’ll wait until{" "}
+                    <time dateTime={handoffDeadline}>
+                      {formatDeadline(handoffDeadline)}
+                    </time>
+                    . Your saved work stays here.
+                  </p>
+                )}
               </>
             )}
             {phase === "ready_review" && execution && (
               <>
-                {execution.doubts?.length ? (
-                  <section className="rd-doubts">
-                    <h2>A few things to look at</h2>
-                    {execution.doubts.map((doubt, index) => (
+                {doubts.length ? (
+                  <section className="rd-doubts" aria-label="Inky’s doubts">
+                    {doubts.map((doubt, index) => (
                       <p key={index}>
-                        <strong>{doubt.where}</strong>
-                        <br />
-                        {doubt.why}
+                        <strong>{doubt.where}:</strong> {doubt.why}
                       </p>
                     ))}
                   </section>
@@ -244,18 +290,25 @@ export function AssignmentWorkspace({
                     I’ve finished the work. Have a look before handing it in.
                   </p>
                 )}
+                {checklist.length > 0 && (
+                  <details>
+                    <summary>
+                      Requirements · {checklist.length} of {checklist.length} met
+                    </summary>
+                    {checklist.map((item, index) => (
+                      <p key={index}>
+                        ✓ <strong>{item.requirement}</strong>
+                        <br />
+                        {item.evidence}
+                      </p>
+                    ))}
+                  </details>
+                )}
                 <details>
-                  <summary>What I checked</summary>
-                  {execution.completionChecklist?.map((item, index) => (
-                    <p key={index}>
-                      ✓ <strong>{item.requirement}</strong>
-                      <br />
-                      {item.evidence}
-                    </p>
-                  ))}
-                </details>
-                <details>
-                  <summary>Your answers</summary>
+                  <summary>
+                    Answers ·{" "}
+                    {execution.answerArtifactId ? "saved work" : "on school page"}
+                  </summary>
                   <ChatMarkdown
                     text={
                       execution.answerSnapshot ??
@@ -263,49 +316,62 @@ export function AssignmentWorkspace({
                     }
                   />
                 </details>
-                <div className="rd-review-answer">
-                  <AssignmentWork
-                    execution={execution}
-                    state={state}
-                    busy={busy}
-                    onBrowser={onBrowser}
-                    onOpenArtifact={onOpenArtifact}
-                    onVerifySubmission={onVerifySubmission}
-                  />
-                </div>
-                {task?.permission.maySubmit && (
-                  <button
-                    className="rd-button primary"
-                    disabled={busy !== null || adding}
-                    onClick={() => {
-                      setAdding(true);
-                      void window
-                        .studi!.submitAssignmentByRule({
-                          taskId: execution.taskId,
-                        })
-                        .catch((cause) => setFileError(String(cause)))
-                        .finally(() => setAdding(false));
-                    }}
-                  >
-                    Submit by rule
-                  </button>
+                {!task?.permission.maySubmit && (
+                  <div className="rd-review-answer">
+                    <AssignmentWork
+                      execution={execution}
+                      state={state}
+                      busy={busy}
+                      onBrowser={onBrowser}
+                      onOpenArtifact={onOpenArtifact}
+                      onVerifySubmission={onVerifySubmission}
+                    />
+                  </div>
                 )}
-                <div className="rd-actions">
+                {task?.permission.maySubmit && (
+                  <div className="rd-review-actions">
+                    <button
+                      className="rd-button primary"
+                      disabled={busy !== null || adding}
+                      onClick={() => {
+                        setAdding(true);
+                        void window
+                          .studi!.submitAssignmentByRule({
+                            taskId: execution.taskId,
+                          })
+                          .catch((cause) => setFileError(String(cause)))
+                          .finally(() => setAdding(false));
+                      }}
+                    >
+                      {adding ? "Submitting…" : "Submit now"}
+                    </button>
+                    <button
+                      className="rd-button"
+                      disabled={busy !== null}
+                      onClick={() => onPause(execution.taskId)}
+                    >
+                      Edit it myself
+                    </button>
+                  </div>
+                )}
+                {!task?.permission.maySubmit && (
                   <button
-                    className="rd-link"
+                    className="rd-button"
                     disabled={busy !== null}
                     onClick={() => onPause(execution.taskId)}
                   >
-                    Let me edit
+                    Edit it myself
                   </button>
-                  <button
-                    className="rd-link danger"
-                    disabled={busy !== null}
-                    onClick={() => onCancel(execution.taskId)}
-                  >
-                    Discard
-                  </button>
-                </div>
+                )}
+                {reviewDeadline && (
+                  <p className="rd-deadline rd-auto-submit">
+                    Submits automatically at{" "}
+                    <time dateTime={reviewDeadline}>
+                      {formatDeadline(reviewDeadline)}
+                    </time>{" "}
+                    (rule: do it and submit).
+                  </p>
+                )}
               </>
             )}
             {phase === "submitting" && (
@@ -319,26 +385,25 @@ export function AssignmentWorkspace({
               </ol>
             )}
             {phase === "submitted" && (
-              <>
-                <p>{receipt?.verifiedStatus ?? "Submission confirmed."}</p>
-                <button className="rd-button primary" onClick={onClose}>
-                  Back to Today
-                </button>
-              </>
+              <button className="rd-button" onClick={onClose}>
+                Back to Today
+              </button>
             )}
             {(phase === "failed" || phase === "preserved") && (
               <>
                 <p>
-                  {execution?.answerArtifactId
+                  {state === "cancelled"
+                    ? "Your saved work is kept."
+                    : execution?.answerArtifactId
                     ? "Your answer file is saved."
                     : "I haven’t confirmed a submission."}
                 </p>
                 {execution?.answerArtifactId && (
                   <button
-                    className="rd-link"
+                    className="rd-quiet"
                     onClick={() => onOpenArtifact(execution.taskId)}
                   >
-                    Open saved work <Icon name="external" size={14} />
+                    Open saved work
                   </button>
                 )}
                 <button
@@ -371,18 +436,23 @@ export function AssignmentWorkspace({
                 onOpenRules={onOpenRules}
               />
             )}
-            {deadline && (
-              <p className="rd-deadline">
-                I’ll wait until{" "}
-                {new Date(deadline).toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}
-                . Your saved work stays here.
-              </p>
+            {phase === "working" && activity.length > 0 && (
+              <section className="rd-activity-feed" aria-label="Assignment activity">
+                <ol>
+                  {activity.slice(-4).map((line) => (
+                    <li
+                      key={line.key}
+                      className={`${line.kind}${line.current ? " now" : ""}`}
+                      aria-current={line.current ? "step" : undefined}
+                    >
+                      <ChatMarkdown text={line.text} />
+                    </li>
+                  ))}
+                </ol>
+              </section>
             )}
-            {activity.length > 0 && (
-              <details className="rd-activity" open={phase === "working"}>
+            {phase !== "working" && activity.length > 0 && (
+              <details className="rd-activity">
                 <summary>What I’m doing</summary>
                 <ol>
                   {activity.map((line) => (

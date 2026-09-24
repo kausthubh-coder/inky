@@ -552,7 +552,10 @@ function TodayRow({
   const execution = item.task?.execution;
   const need = execution?.returnPredicate ?? execution?.lastError ?? "";
   const starting = first && !done && !needs && !live;
-  const startBlocked = starting && (working || !item.task?.permission.mayAttempt || !assignmentWorkEligibility(a, now.toISOString()).eligible);
+  const needsDetails = !assignmentWorkEligibility(a, now.toISOString()).eligible;
+  const canCheckBeforeStart = Boolean(a.sourceTarget && !a.ignoredReason && a.owner !== "student"
+    && !["submitted", "graded", "locked"].includes(a.schoolStatus?.state ?? ""));
+  const startBlocked = starting && (working || !item.task?.permission.mayAttempt || (needsDetails && !canCheckBeforeStart));
   const actionLabel =
     item.phase === "ready_review"
       ? "Review"
@@ -567,7 +570,7 @@ function TodayRow({
           : done
             ? "Receipt"
             : first
-              ? "Start"
+              ? needsDetails ? "Check and start" : "Start"
               : null;
   return (
     <article
@@ -663,14 +666,14 @@ function TodayRow({
               item.task && (!working || ["discovered", "queued", "failed", "cancelled"].includes(item.task.task.state)) && (
                 <button
                   className="rd-button"
-                  disabled={busy || !item.task.permission.mayAttempt || !assignmentWorkEligibility(a, now.toISOString()).eligible}
+                  disabled={busy || !item.task.permission.mayAttempt || (needsDetails && !canCheckBeforeStart)}
                   onClick={() =>
                     working && item.task
                       ? onAction(() => window.studi!.queueAssignmentNext({ taskId: item.task!.task.taskId }))
                       : onStart()
                   }
                 >
-                  {working ? "Do this next" : "Start now"}
+                  {working ? "Do this next" : needsDetails ? "Check and start" : "Start now"}
                 </button>
               )}
             {!done && (

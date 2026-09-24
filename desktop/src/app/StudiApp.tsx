@@ -177,6 +177,8 @@ export function StudiApp() {
       setWorkspace(await studi.getWorkspaceState());
       setLibrary(await studi.getLibraryState());
       setLifecycle(await studi.getLifecycleState());
+      const task = library?.tasks.find(item => item.assignment.assignmentId === assignmentId);
+      if (task) setDetail(await studi.getTaskDetail({ taskId: task.task.taskId }));
     });
   };
   const stopAndScan = async (taskId: string) => {
@@ -226,6 +228,10 @@ export function StudiApp() {
     const task = library?.tasks.find((item) => item.assignment.assignmentId === assignmentId);
     if (task) await loadTask(task.task.taskId);
     else setDetail(null);
+    if (task?.assignment.sourceTarget && task.assignment.requirementsState !== "complete"
+      && !lifecycle?.manager.lease && onboarding?.scan?.state !== "running" && onboarding?.scan?.state !== "needs_user") {
+      void checkAssignmentDetails(assignmentId);
+    }
   };
   const openDesk = async () => {
     setScreen("week");

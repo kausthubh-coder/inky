@@ -103,7 +103,7 @@ test("a scoped details check refreshes only its assignment and waits for an expl
   runtime.next = async tools => {
     assert.equal(browser.url, assignment.sourceTarget);
     browser.detail();
-    await assert.rejects(invoke(tools, "scan_record_course", { label: "Calculus" }), /cannot change school/);
+    assert.equal(tools.some(tool => tool.name === "scan_record_course"), false, "details mode exposes only focused tools");
     await assert.rejects(invoke(tools, "scan_read_assignment", { assignmentId: unrelated.assignmentId }), /selected/);
     await assert.rejects(invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: "Other assignment" }), /only the selected assignment/);
     await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title, dueText: due,
@@ -118,7 +118,7 @@ test("a scoped details check refreshes only its assignment and waits for an expl
     await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title,
       requirementExcerpts: [{ text: "Provide a walkthrough for every level." }], requirementsComplete: true, missingRequirements: [] });
     await invoke(tools, "scan_record_source", { kind: "details", courseId: assignment.courseId, state: "checked", assignmentIds: [assignment.assignmentId] });
-    await invoke(tools, "scan_finish", { coverage: [{ target: `Assignment: ${assignment.title}`, status: "verified" }], navigationHints: [] });
+    assert.equal(tools.some(tool => tool.name === "scan_finish"), false, "the app finishes the details check");
   };
   const result = await scan.startScan(assignment.assignmentId);
   assert.equal(result.scan.state, "succeeded", result.scan.failures.join("; "));
@@ -156,7 +156,7 @@ test("scoped sign-in recovery survives coordinator restart and submitted work st
       browser.detail(); browser.text = browser.text.replace("Not submitted", "Submitted for grading");
       await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title,
         schoolStatus: { state: "submitted", text: "Submitted for grading" } });
-      await invoke(tools, "scan_finish", { coverage: [{ target: `Assignment: ${assignment.title}`, status: "verified" }], navigationHints: [] });
+      assert.equal(tools.some(tool => tool.name === "scan_finish"), false);
     };
     const result = await resumed.resume();
     assert.equal(result.scan.state, "succeeded", result.scan.failures.join("; "));

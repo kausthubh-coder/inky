@@ -181,9 +181,8 @@ export const SCAN_TOOL_NAMES = [
   "scan_record_source", "scan_request_handoff",
 ] as const;
 
-// Existing assignment-details checks still use their older tool surface until
-// the homework checkpoint migrates them. Setup, refresh and materials expose
-// only SCAN_TOOL_NAMES above.
+// The legacy definitions remain for the evidence validators shared by focused
+// assignment-details checks. Other scans expose only SCAN_TOOL_NAMES above.
 export const LEGACY_SCAN_TOOL_NAMES = [
   "scan_status", "scan_record_course", "scan_record_assignment", "scan_record_assignments",
   "scan_record_linked_system", "scan_record_inventory", "scan_request_handoff", "scan_finish",

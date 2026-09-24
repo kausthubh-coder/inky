@@ -25,6 +25,30 @@ const get = async (url) => {
     headers: response.headers,
   };
 };
+test("unknown LMS needs a browser crawl and keeps all nine tasks reachable", async (t) => {
+  const { school } = await fixture(t, "unknown-lms");
+  const expected = await loadExpected("unknown-lms");
+  assert.equal(expected.assignments.length, 9);
+  const dashboard = await get(school.url);
+  assert.equal(dashboard.status, 200);
+  assert.match(dashboard.html, /Show more/);
+  assert.match(dashboard.html, /<template id="more-work">/);
+  assert.match(dashboard.html, /\/classroom\/programming/);
+  assert.doesNotMatch(dashboard.html, /class="activity|modtype_|block_timeline|planner-app|\/course\/view\.php|\/courses\/programming/);
+  assert.doesNotMatch(dashboard.html.split("<template")[0], /Design document/, "one task is absent from the dashboard");
+  const course = await get(`${school.url}/classroom/programming`);
+  assert.equal(course.status, 200);
+  assert.match(course.html, /Design document/);
+  assert.match(course.html, /<td>Oct 7<\/td>/);
+  assert.match(course.html, /<th>Due<\/th>/);
+  assert.match(course.html, /\/work\/exercise-05/);
+  assert.match(course.html, new RegExp(school.origins.statistics.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.equal((await get(`${school.url}/calendar/export.php`)).status, 404);
+  assert.equal((await get(`${school.url}/courses/programming`)).status, 404);
+  assert.equal((await get(`${school.url}/mod/lti/view.php?id=webassign-1`)).status, 404);
+  assert.equal((await get(`${school.url}/api/v1/planner/items`)).status, 404);
+  assert.equal((await get(`${school.url}/lib/ajax/service.php`)).status, 404);
+});
 test("noisy course has 130 activities, exactly nine real tasks, independent goldens and per-course Learn sources", async (t) => {
   const { school } = await fixture(t),
     { state, truth } = school.inspect();

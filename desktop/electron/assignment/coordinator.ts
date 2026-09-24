@@ -34,6 +34,15 @@ export type ExecutionNotification = Omit<NotificationIntent, "schemaVersion" | "
 export type ExecutionNotificationSink = (intent: ExecutionNotification) => void | Promise<void>;
 export type ConnectedAppToolProvider = () => Promise<readonly ToolDefinition[]>;
 
+export function submissionConfirmationVisible(pageText: string, expectedText: string): boolean {
+  const expected = expectedText.replace(/\s+/g, " ").trim().toLowerCase();
+  const visible = pageText.replace(/\s+/g, " ").toLowerCase();
+  if (expected === "submitted") {
+    return /\bsubmitted\b/.test(visible.replace(/\b(?:not|un)\s*submitted\b/g, ""));
+  }
+  return visible.includes(expected);
+}
+
 export class AssignmentExecutionCoordinator {
   readonly #store: LocalStore;
   readonly #manager: ManagerCoordinator;
@@ -306,17 +315,28 @@ export class AssignmentExecutionCoordinator {
   }
 
   async submitByRule(taskId: string): Promise<AssignmentExecution> {
+    return this.#requestSubmission(taskId, "rule");
+  }
+
+  async submitReviewed(taskId: string): Promise<AssignmentExecution> {
+    return this.#requestSubmission(taskId, "student");
+  }
+
+  async #requestSubmission(taskId: string, source: "rule" | "student"): Promise<AssignmentExecution> {
     this.#assertUsable();
     const execution = this.#requiredExecution(taskId);
     const assignment = this.#requiredAssignment(execution.assignmentId);
     if (execution.phase !== "ready_review") throw new Error("This assignment is not ready for review.");
-    if (!this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit) throw new Error("Your current rule lets Inky prepare this work; you submit it yourself.");
-    if (execution.doubts?.length) throw new Error("Resolve Inky's doubts before submitting this work.");
+    const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
+    if (!permission.mayAttempt) throw new Error("Your current rule no longer allows Inky to handle this assignment.");
+    if (source === "rule" && !permission.maySubmit) throw new Error("Your current rule lets Inky prepare this work; you submit it yourself.");
+    if (source === "rule" && execution.doubts?.length) throw new Error("Resolve Inky's doubts before submitting this work.");
+    if (execution.handoffDeadline && execution.handoffDeadline <= this.#now()) throw new Error("The review window ended. Check the school page before submitting.");
     if (execution.reviewSubmissionRequestedAt || execution.submissionAttemptedAt) throw new Error("Submission was already requested. Check its result instead of sending it again.");
     if (this.#manager.isWorkerRunning) throw new Error("Inky is finishing the current turn. Try again in a moment.");
-    this.#store.lifecycle.putExecution({ ...execution, reviewSubmissionRequestedAt: this.#now(), updatedAt: this.#now() });
+    this.#store.lifecycle.putExecution({ ...execution, reviewSubmissionRequestedAt: this.#now(), reviewSubmissionSource: source, updatedAt: this.#now() });
     try {
-      await this.#manager.runWorkerTurn("Submit the reviewed assignment now under the fresh stored rule. Take a fresh snapshot and use browser_submit with the current submit control and expected confirmation. Do not rewrite answers or repeat an already attempted effect. If permission or page state changed, report the problem.", event => this.#recordActivity(taskId, event));
+      await this.#manager.runWorkerTurn(`${source === "student" ? "The student clicked Submit for this reviewed assignment, including any visible doubts." : "The review timer ended and the saved rule allows submission."} Take a fresh snapshot and use browser_submit with the current submit control. Set expectedConfirmationText to an affirmative status or receipt that will appear only after submission, such as "Submission received" or "Submitted; not yet graded"; never use the submit button label or the current "Not submitted" status. Do not rewrite answers or repeat an already attempted effect. If permission or page state changed, report the problem.`, event => this.#recordActivity(taskId, event));
       const latest = this.#requiredExecution(taskId);
       if (latest.phase === "ready_review") await this.#submissionHandoff(latest, "Inky could not verify a submission. Check the saved answers and school page before continuing.", "Submission needs you");
     } catch (error) {
@@ -394,14 +414,34 @@ export class AssignmentExecutionCoordinator {
       // The timeline keeps readable actions. Bounded shell text is stored
       // separately for the assignment's file panel.
       const outcome = event.type === "tool_started" ? "started" : event.outcome;
-      const label = TOOL_ACTION_LABELS[event.toolName] ?? this.#tools.find(tool => tool.name === event.toolName)?.label ?? "Working on the assignment";
+      const earlier = event.type === "tool_finished"
+        ? this.#store.lifecycle.getExecution(taskId)?.actions?.find(action => action.toolCallId === event.toolCallId)
+        : undefined;
+      const label = earlier?.label ?? this.#activityLabel(event)
+        ?? TOOL_ACTION_LABELS[event.toolName] ?? this.#tools.find(tool => tool.name === event.toolName)?.label ?? "Working on the assignment";
       const safeEvent: AgentRunEvent = event.type === "tool_started"
         ? { schemaVersion: 1, type: event.type, toolCallId: event.toolCallId, toolName: event.toolName }
         : { schemaVersion: 1, type: event.type, toolCallId: event.toolCallId, toolName: event.toolName, outcome: event.outcome, durationMs: event.durationMs };
-      this.#store.lifecycle.recordActivity(taskId, safeEvent, { ...base, kind: "tool", label, outcome }, commandOutput(event, base.occurredAt));
+      this.#store.lifecycle.recordActivity(taskId, safeEvent, { ...base, kind: "tool", toolCallId: event.toolCallId, label, outcome }, commandOutput(event, base.occurredAt));
     } else if (event.type === "retry") {
       this.#store.lifecycle.recordActivity(taskId, event, { ...base, kind: "retry", label: (event.reason ?? "Trying the connection again").slice(0, 4000), outcome: event.phase === "started" ? "started" : event.outcome });
     } else this.#store.lifecycle.recordActivity(taskId, event);
+  }
+
+  #activityLabel(event: Extract<AgentRunEvent, { type: "tool_started" | "tool_finished" }>): string | null {
+    if (event.type !== "tool_started" || !event.arguments || typeof event.arguments !== "object") return null;
+    const args = event.arguments as Record<string, unknown>;
+    const element = typeof args.ref === "string" ? this.#browser.lastSnapshot?.elements.find(item => item.ref === args.ref) : undefined;
+    const name = element?.name?.trim().slice(0, 80);
+    const file = typeof args.path === "string" ? args.path.split(/[\\/]/).at(-1)?.slice(0, 100) : undefined;
+    if (event.toolName === "browser_type" && name) return `Typed an answer in ${name}`;
+    if (event.toolName === "browser_select" && name) return `Chose an option for ${name}`;
+    if (event.toolName === "browser_click" && name) return `Opened ${name}`;
+    if (event.toolName === "browser_upload" && Array.isArray(args.paths)) return `Attached ${args.paths.length} file${args.paths.length === 1 ? "" : "s"}`;
+    if (event.toolName === "write" && file) return `Saved ${file}`;
+    if (event.toolName === "edit" && file) return `Updated ${file}`;
+    if (event.toolName === "read" && file) return `Read ${file}`;
+    return null;
   }
 
   #createTools(): ToolDefinition[] {
@@ -496,6 +536,7 @@ export class AssignmentExecutionCoordinator {
           answerArtifactId,
           phase: "ready_review",
           reviewSubmissionRequestedAt: current.submissionAttemptedAt ? current.reviewSubmissionRequestedAt : undefined,
+          reviewSubmissionSource: current.submissionAttemptedAt ? current.reviewSubmissionSource : undefined,
           answerSnapshot: answers,
           doubts: input.doubts ?? [],
           completionChecklist: input.completedRequirements.map((item) => ({
@@ -566,21 +607,26 @@ export class AssignmentExecutionCoordinator {
 
   async #submit(ref: string, expectedConfirmationText: string): Promise<AssignmentExecution> {
     const execution = this.#activeExecution();
-    if (!execution || !["working", "ready_review"].includes(execution.phase)) throw new Error("No active assignment can submit.");
+    if (!execution || execution.phase !== "ready_review" || !execution.reviewCheckpoint || !execution.reviewSubmissionRequestedAt) throw new Error("Submission requires a completed review and a request from Studi or the student.");
     this.#assertExecutionOwner(execution);
     if (execution.submissionAttemptedAt) {
       throw new Error("A submission effect was already attempted for this execution; verify the visible page instead of repeating it");
     }
     const assignment = this.#requiredAssignment(execution.assignmentId);
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (!permission.maySubmit) throw new Error("Fresh stored assignment permission does not allow submission");
+    if (!permission.mayAttempt || (execution.reviewSubmissionSource !== "student" && (!permission.maySubmit || execution.doubts?.length))) throw new Error("Fresh stored assignment permission does not allow submission");
     const refreshed = await this.#browser.refreshRef(ref);
     const latestExecution = this.#requiredExecution(execution.taskId);
-    if (!["working", "ready_review"].includes(latestExecution.phase) || latestExecution.submissionAttemptedAt || !this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit) throw new Error("Homework permission or ownership changed before submission.");
+    const latestPermission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
+    if (latestExecution.phase !== "ready_review" || !latestExecution.reviewSubmissionRequestedAt || latestExecution.submissionAttemptedAt || !latestPermission.mayAttempt ||
+      (latestExecution.reviewSubmissionSource !== "student" && (!latestPermission.maySubmit || latestExecution.doubts?.length))) throw new Error("Homework permission or ownership changed before submission.");
     const preSnapshot = refreshed.snapshot;
     const pre = this.#checkpoint(preSnapshot, "Fresh page state immediately before the gated submission effect.");
     const status = expectedConfirmationText.replace(/\s+/g, " ").trim();
-    if (preSnapshot.text.toLowerCase().includes(status.toLowerCase())) {
+    if (!/\b(?:received|submitted|confirmed|receipt|turned in)\b/i.test(status) || /\bnot\s+submitted\b/i.test(status)) {
+      throw new Error("Choose an affirmative submission status or receipt that is absent before submission.");
+    }
+    if (submissionConfirmationVisible(preSnapshot.text, status)) {
       return this.#submissionHandoff(execution, "The claimed submission confirmation was already visible before the submit control was used.", "Submission needs verification");
     }
     const submitting = this.#store.lifecycle.putExecution({ ...execution, phase: "submitting", submissionAttemptedAt: this.#now(), updatedAt: this.#now() });
@@ -591,7 +637,14 @@ export class AssignmentExecutionCoordinator {
     } catch (error) {
       return this.#submissionHandoff(submitting, `Submission effect was ambiguous: ${errorMessage(error)}`, "Check the submission");
     }
-    if (!postSnapshot.text.toLowerCase().includes(status.toLowerCase())) {
+    // Form submission may commit before Chromium finishes the redirect. Read
+    // the resulting page again; never activate the submit control a second time.
+    for (let attempt = 0; attempt < 5 && !submissionConfirmationVisible(postSnapshot.text, status); attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+      try { postSnapshot = await this.#browser.snapshot(); }
+      catch { /* The redirect is still replacing the document. */ }
+    }
+    if (!submissionConfirmationVisible(postSnapshot.text, status)) {
       return this.#submissionHandoff(submitting, "The submit control changed the page, but no new expected confirmation was visible.", "Submission needs verification");
     }
     const receiptId = `receipt-${randomUUID()}`;

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import test from "node:test";
 
-import { AssignmentExecutionCoordinator } from "../../dist/electron/assignment/coordinator.js";
+import { AssignmentExecutionCoordinator, submissionConfirmationVisible } from "../../dist/electron/assignment/coordinator.js";
 import { VisibleBrowserWork } from "../../dist/electron/browser/work-ownership.js";
 import { nextScheduleRun, plannedAssignmentStart } from "../../dist/electron/lifecycle/schedule.js";
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
@@ -13,6 +13,13 @@ import { openLocalStore } from "../../dist/electron/storage/index.js";
 import { initializeHomeworkWorkspace } from "../../dist/electron/files/workspace.js";
 
 const initialNow = "2026-09-01T12:00:00.000Z";
+
+test("a negative school status is not mistaken for a submitted confirmation", () => {
+  assert.equal(submissionConfirmationVisible("Submission status: Not submitted", "Submitted"), false);
+  assert.equal(submissionConfirmationVisible("Submission status: Submitted; not yet graded", "Submitted"), true);
+  assert.equal(submissionConfirmationVisible("Draft saved; not submitted", "Submission received"), false);
+  assert.equal(submissionConfirmationVisible("Submission received. Receipt: 42", "Submission received"), true);
+});
 
 test("homework planning uses real deadlines and local working hours without inventing dates", () => {
   assert.equal(plannedAssignmentStart({}, initialNow, "America/New_York"), undefined);
@@ -169,7 +176,7 @@ test("cancelling review keeps the saved answer and clears both deadlines and bro
   });
 });
 
-test("auto-submit rechecks assignment permission and requires visible post-submit confirmation", async () => {
+test("the worker cannot bypass review to submit, even under an auto-submit rule", async () => {
   await withStore(async (store) => {
     seedTask(store, "submit", "2026-09-02T12:00:00.000Z");
     store.permissionRules.put(rule("auto", "auto_submit", initialNow));
@@ -184,15 +191,11 @@ test("auto-submit rechecks assignment permission and requires visible post-submi
     const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
     manager.enqueue({ taskId: "task-submit" });
     const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow });
-    const submitted = await execution.startNext();
-    assert.equal(submitted.phase, "submitted");
-    assert.equal(browser.refRefreshes, 1, "the coordinator re-identifies the submit control in its own fresh pre-submit snapshot");
-    assert.equal(browser.submitClicks, 1);
-    assert.equal(store.tasks.get("task-submit").state, "submitted");
-    assert.equal(manager.state().lease, null);
-    const receipt = store.lifecycle.getSubmissionReceipt("task-submit");
-    assert.equal(receipt.verifiedStatus, "Submitted successfully");
-    assert.notEqual(receipt.preSubmit.revision, receipt.postSubmit.revision);
+    const waiting = await execution.startNext();
+    assert.equal(waiting.phase, "needs_user");
+    assert.match(waiting.lastError, /completed review and a request/);
+    assert.equal(browser.submitClicks, 0);
+    assert.equal(store.lifecycle.getSubmissionReceipt("task-submit"), null);
     execution.dispose();
     manager.dispose();
   });
@@ -224,6 +227,7 @@ for (const mode of ["ready", "doubts", "paused"]) test(`timed review submission 
       assert.equal(ready.startedAt, initialNow);
       assert.ok(ready.actions.some(action => action.label === "Checking the answer."));
       assert.ok(ready.actions.some(action => action.kind === "tool" && action.outcome === "succeeded"));
+      assert.equal(ready.actions.filter(action => action.toolCallId === "inspect").length, 1, "a tool updates one readable activity row");
       assert.doesNotMatch(JSON.stringify(ready.activity), /RAW_TOOL_SECRET/);
       const reopened = await openLocalStore(root);
       try {
@@ -244,6 +248,32 @@ for (const mode of ["ready", "doubts", "paused"]) test(`timed review submission 
         assert.equal(store.lifecycle.getExecution("task-timer").phase, "ready_review");
         if (mode === "doubts") await assert.rejects(execution.submitByRule("task-timer"), /doubt/i);
       }
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
+
+test("a student can submit an attempt-only review with doubts exactly once", async () => {
+  await withStore(async store => {
+    seedTask(store, "student-submit", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    const browser = new FakeBrowser("Answer page", "Submitted successfully");
+    const runtime = new ScriptedRuntime([
+      tools => invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "Answer filled" }], doubts: [{ where: "Question 1", why: "Double-check the units" }], summary: "Ready" }),
+      async tools => { await browser.snapshot(); await invoke(tools, "browser_submit", { ref: browser.currentRef, confirmation: "SUBMIT", expectedConfirmationText: "Submitted successfully" }); },
+    ]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow });
+    try {
+      const ready = await execution.start("task-student-submit");
+      assert.equal(ready.phase, "ready_review");
+      assert.equal(browser.submitClicks, 0);
+      await assert.rejects(execution.submitByRule(ready.taskId), /you submit it yourself/);
+      const submitted = await execution.submitReviewed(ready.taskId);
+      assert.equal(submitted.phase, "submitted");
+      assert.equal(browser.submitClicks, 1);
+      assert.equal(store.lifecycle.getSubmissionReceipt(ready.taskId).verifiedStatus, "Submitted successfully");
+      await assert.rejects(execution.submitReviewed(ready.taskId), /not ready for review/);
+      assert.equal(browser.submitClicks, 1);
     } finally { execution.dispose(); manager.dispose(); }
   });
 });
@@ -353,18 +383,21 @@ test("auto-submit rejects confirmation text that was already visible before the 
     store.permissionRules.put(rule("auto", "auto_submit", initialNow));
     const browser = new FakeBrowser("Answer page Submit assignment", "Answer page Submit assignment");
     const runtime = new ScriptedRuntime([
-      async (tools) => invoke(tools, "browser_submit", {
-        ref: "submit-1",
+      async (tools) => invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve the problem", evidence: "The answer field contains x = 4" }], summary: "Answer ready" }),
+      async (tools) => { await browser.snapshot(); return invoke(tools, "browser_submit", {
+        ref: browser.currentRef,
         confirmation: "SUBMIT",
         expectedConfirmationText: "Submit assignment",
-      }),
+      }); },
     ]);
     const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
     manager.enqueue({ taskId: "task-preexisting-confirmation" });
     const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow });
-    const needsUser = await execution.startNext();
+    const ready = await execution.startNext();
+    assert.equal(ready.phase, "ready_review");
+    const needsUser = await execution.submitByRule(ready.taskId);
     assert.equal(needsUser.phase, "needs_user");
-    assert.match(needsUser.lastError, /already visible before/);
+    assert.match(needsUser.lastError, /Choose an affirmative submission status/);
     assert.equal(needsUser.submissionAttemptedAt, undefined, "no destructive attempt is recorded when pre-effect evidence is invalid");
     assert.equal(browser.submitClicks, 0, "pre-existing confirmation text cannot trigger a click");
     assert.equal(store.lifecycle.getSubmissionReceipt("task-preexisting-confirmation"), null);

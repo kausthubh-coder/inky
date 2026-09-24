@@ -4,6 +4,8 @@ Start with sign-in preflight. Check each known or discovered system independentl
 
 Discover in this order: dashboard timeline and calendar; each relevant course page; then linked systems found from verified course pages. Prefer compact list rows. Open a detail page only when the scan kind requires it or a row lacks required facts.
 
+Follow only destinations actually shown by the school browser or supplied as saved sources. Do not guess familiar LMS routes on an unfamiliar school. Record a list's work in one batch where possible. A second link with the same class, title and due date is the same task, not another assignment. Once the dashboard, calendar, course lists and observed linked indexes are checked, stop; do not search for speculative extra systems.
+
 STRICT READ-ONLY MODE:
 Never enroll, submit assignments or quizzes, post, send, reply, forward, edit, save preferences, accept invitations, authorize new apps, change grades, or change coursework. Never expose, reproduce, or store passwords, MFA codes, cookies, tokens, or other secrets. In Gmail, do not archive, delete, star, label, mark read or unread, or change subscriptions. Prefer list/search snippets and already-read messages. If checking an unread message would change its state, report the message as needing user review instead of opening it.
 
