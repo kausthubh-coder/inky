@@ -75,6 +75,7 @@ import { ProviderLoginAttemptOwner } from "./agent/provider-login.js";
 import { AssignmentExecutionCoordinator, type ExecutionNotification } from "./assignment/coordinator.js";
 import { startSelectedAssignment } from "./assignment/start-selected.js";
 import { BrowserController } from "./browser/controller.js";
+import { installScanReadOnlyGuard, type ScanReadOnlyGuard } from "./browser/read-only-guard.js";
 import { installSchoolDownloads } from "./browser/native-downloads.js";
 import { HomeworkFiles } from "./files/homework-files.js";
 import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
@@ -122,6 +123,7 @@ let browserController: BrowserController | null = null;
 let browserView: WebContentsView | null = null;
 const browserPages = new Map<string, {view:WebContentsView; controller:BrowserController}>();
 let disposeSchoolDownloads: (() => void) | null = null;
+let schoolReadOnlyGuard: ScanReadOnlyGuard | null = null;
 let selectedBrowserPage = "school";
 let browserDriverTimer: ReturnType<typeof setInterval> | null = null;
 let driveOverlay: DriveOverlay | null = null;
@@ -1023,6 +1025,12 @@ function schoolBrowserPage(key: string): {view:WebContentsView;controller:Browse
   const window = mainWindow;
   if (!window || window.isDestroyed()) throw new Error("The school browser is unavailable");
   const schoolSession = electronSession.fromPartition("persist:studi-school", {cache:true});
+  schoolReadOnlyGuard ??= installScanReadOnlyGuard(schoolSession, {
+    onBlocked: request => {
+      const url = new URL(request.url);
+      recordBrowserDiagnostic("scan_write_blocked", { method: request.method, resourceType: request.resourceType, url: url.origin + url.pathname });
+    },
+  });
   disposeSchoolDownloads ??= installSchoolDownloads(schoolSession, {
     stagingRoot: join(app.getPath("userData"), "school-downloads"),
     destination: async contents => {
@@ -1049,7 +1057,7 @@ function schoolBrowserPage(key: string): {view:WebContentsView;controller:Browse
   view.setVisible(false);
   window.contentView.addChildView(view);
   driveOverlay?.raise();
-  view.webContents.on("did-start-navigation",(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame) controller.pageChanged();});
+  view.webContents.on("did-start-navigation",(_event,_url,inPlace,isMainFrame)=>{if(isMainFrame && !inPlace) controller.pageChanged();});
   view.webContents.on("did-fail-load",(_event,code,description,url,isMainFrame)=>{if(isMainFrame) recordBrowserDiagnostic("load_failed",{page:key,code,description,url});});
   view.webContents.on("render-process-gone",(_event,details)=>recordBrowserDiagnostic("process_gone",{page:key,...details}));
   view.webContents.setWindowOpenHandler(({url})=>{
@@ -1737,6 +1745,7 @@ async function initializeDesktopAgent(): Promise<void> {
     schoolBrowserPage("school").controller,
     {
       browserWork: requireVisibleBrowserWork(), manager: requireManagerCoordinator(), ownerSubject,
+      readOnlyGuard: schoolReadOnlyGuard!,
       recordSyllabus: async (source) => {
         const repository = requireLearnRepository();
         const prior = repository.sources().find(item => item.courseId === source.courseId && item.sourceTarget === source.sourceTarget);
@@ -1786,6 +1795,8 @@ function disposeProtectedRuntimeNow(): Promise<void> {
   assignmentExecutionCoordinator = null;
   schoolScanCoordinator?.dispose();
   schoolScanCoordinator = null;
+  schoolReadOnlyGuard?.dispose();
+  schoolReadOnlyGuard = null;
   unsubscribeConversationTrace?.();
   unsubscribeConversationTrace = null;
   conversationCoordinator?.dispose();

@@ -95,7 +95,7 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
     if (importAuth.code !== 0) throw new Error("Dedicated QA provider cache unavailable");
     const configPath = join(runRoot, "agent-config.json");
     await writeJson(configPath, { runId, runRoot, buildRoot: resolve(buildRoot), schoolUrl: school.url, origins: Object.values(school.origins), clock: initial.state.clock,
-      agentWorkspace: join(runRoot, "agent-workspace"), agentDir: join(profile, "studi-data/pi"), model, provider, effort, maxToolCalls, show });
+      agentWorkspace: join(runRoot, "agent-workspace"), agentDir: join(profile, "studi-data/pi"), model, provider, effort, maxToolCalls, show, originMap: school.origins });
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     child = spawn(electronPath, [join(ROOT, "agent-harness/benchmark/electron-scan.mjs"), configPath], { cwd: ROOT, env, windowsHide: true, stdio: ["ignore", "ignore", "ignore", "ipc"] });
     record.ready = await waitMessage(child, "ready", 45000);

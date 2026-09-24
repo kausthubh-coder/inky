@@ -2,6 +2,7 @@ import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent
 import { Type } from "typebox";
 
 import { BROWSER_KEYS, formatSnapshot, type BrowserController } from "./controller.js";
+import { createReadDocumentTool } from "./read-document.js";
 
 export function createBrowserTools(
   controller: BrowserController,
@@ -10,10 +11,14 @@ export function createBrowserTools(
   const snapshot = defineTool({
     name: "browser_snapshot",
     label: "Read visible school page",
-    description: "Read a bounded accessibility snapshot of Studi's visible school browser. Take a new snapshot after every action because refs expire when the page changes.",
+    description: "Read the school page. Refs survive snapshots and ordinary DOM changes; a main-frame navigation resets them. Use ref or selector to narrow, and mode=diff for changes.",
     parameters: Type.Object({
       offset: Type.Optional(Type.Integer({ minimum: 0 })),
       search: Type.Optional(Type.String({ minLength: 1, maxLength: 300 })),
+      ref: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+      selector: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+      depth: Type.Optional(Type.Integer({ minimum: 0, maximum: 20 })),
+      mode: Type.Optional(Type.Union([Type.Literal("full"), Type.Literal("diff")])),
     }, { additionalProperties: false }),
     execute: async (_toolCallId, input) => result(await controller.snapshot(input)),
   });
@@ -25,14 +30,14 @@ export function createBrowserTools(
       { url: Type.String({ minLength: 1, maxLength: 2_048 }) },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => result(await controller.navigate(input.url)),
+    execute: async (_toolCallId, input) => action(controller, () => controller.navigate(input.url)),
   });
   const click = defineTool({
     name: "browser_click",
     label: "Click visible element",
-    description: "Click a current snapshot ref. This tool refuses known submission controls.",
+    description: "Click an observed ref. Navigation labels such as 'Submit Lab 3' are allowed when they only open a page; final submission controls require browser_submit.",
     parameters: Type.Object({ ref: Type.String({ minLength: 1, maxLength: 64 }) }, { additionalProperties: false }),
-    execute: async (_toolCallId, input) => result(await controller.click(input.ref, false, options.readOnly)),
+    execute: async (_toolCallId, input) => action(controller, () => controller.click(input.ref, false, options.readOnly)),
   });
   const type = defineTool({
     name: "browser_type",
@@ -45,7 +50,7 @@ export function createBrowserTools(
       },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => result(await controller.type(input.ref, input.text, options.readOnly)),
+    execute: async (_toolCallId, input) => action(controller, () => controller.type(input.ref, input.text, options.readOnly)),
   });
   const select = defineTool({
     name: "browser_select",
@@ -55,7 +60,7 @@ export function createBrowserTools(
       { ref: Type.String({ minLength: 1, maxLength: 64 }), value: Type.String({ maxLength: 2_000 }) },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => result(await controller.select(input.ref, input.value, options.readOnly)),
+    execute: async (_toolCallId, input) => action(controller, () => controller.select(input.ref, input.value, options.readOnly)),
   });
   const press = defineTool({
     name: "browser_press",
@@ -65,7 +70,7 @@ export function createBrowserTools(
       { key: Type.Union(BROWSER_KEYS.map((key) => Type.Literal(key))) },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => result(await controller.press(input.key, options.readOnly)),
+    execute: async (_toolCallId, input) => action(controller, () => controller.press(input.key, options.readOnly)),
   });
   const wait = defineTool({
     name: "browser_wait",
@@ -78,8 +83,7 @@ export function createBrowserTools(
       },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) =>
-      result(await controller.waitFor(input.text, input.timeoutMs)),
+    execute: async (_toolCallId, input) => action(controller, () => controller.waitFor(input.text, input.timeoutMs)),
   });
   const submit = defineTool({
     name: "browser_submit",
@@ -89,7 +93,7 @@ export function createBrowserTools(
       { ref: Type.String({ minLength: 1, maxLength: 64 }), confirmation: Type.Literal("SUBMIT") },
       { additionalProperties: false },
     ),
-    execute: async (_toolCallId, input) => result(await controller.click(input.ref, true)),
+    execute: async (_toolCallId, input) => action(controller, () => controller.click(input.ref, true)),
   });
 
   const scroll = defineTool({
@@ -100,7 +104,22 @@ export function createBrowserTools(
       direction: Type.Union([Type.Literal("up"), Type.Literal("down")]),
       ref: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
     }, { additionalProperties: false }),
-    execute: async (_id, input) => result(await controller.scroll(input.direction, input.ref)),
+    execute: async (_id, input) => action(controller, () => controller.scroll(input.direction, input.ref)),
+  });
+  const rows = defineTool({
+    name: "browser_rows",
+    label: "Read a school list",
+    description: "Read a repeating school table as compact rows with stable evidence refs, including collapsed course sections. Continue at nextOffset; 130 rows take three calls at the default 50 rows per call.",
+    parameters: Type.Object({
+      selector: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
+      offset: Type.Optional(Type.Integer({ minimum: 0 })),
+      limit: Type.Optional(Type.Integer({ minimum: 1, maximum: 80 })),
+    }, { additionalProperties: false }),
+    execute: async (_id, input) => {
+      const data = await controller.rows(input.selector, input.offset, input.limit);
+      return { content: [{ type: "text" as const, text: data.rows.map((row, index) => `${(input.offset ?? 0) + index + 1}. ${row.ref} ${row.cells.join(" | ")}${row.href ? ` | ${row.href}` : ""}`).join("\n") + (data.nextOffset === null ? "" : `\nNext offset: ${data.nextOffset}`) }],
+        details: { rows: data.rows, count: data.rows.length, nextOffset: data.nextOffset, url: controller.state.url } };
+    },
   });
   const link = defineTool({
     name: "browser_link",
@@ -122,10 +141,11 @@ export function createBrowserTools(
       details: { kind: "viewport" },
     }),
   });
+  const document = createReadDocumentTool(controller);
 
   return options.includeSubmit === false || options.readOnly
-    ? [snapshot, navigate, click, type, select, press, wait, scroll, link, screenshot]
-    : [snapshot, navigate, click, type, select, press, wait, scroll, link, screenshot, submit];
+    ? [snapshot, navigate, click, type, select, press, wait, scroll, rows, link, document, screenshot]
+    : [snapshot, navigate, click, type, select, press, wait, scroll, rows, link, document, screenshot, submit];
 }
 
 export function createBrowserUploadTool(
@@ -155,4 +175,19 @@ function result(snapshot: Awaited<ReturnType<BrowserController["snapshot"]>>) {
     content: [{ type: "text" as const, text: formatSnapshot(snapshot) }],
     details: snapshot,
   };
+}
+
+async function action(controller: BrowserController, execute: () => Promise<Awaited<ReturnType<BrowserController["snapshot"]>>>) {
+  const before = controller.lastSnapshot;
+  try {
+    const snapshot = await execute();
+    const summary = { status: "completed", url: snapshot.url, title: snapshot.title,
+      changed: !before || before.url !== snapshot.url || before.text !== snapshot.text };
+    return { content: [{ type: "text" as const, text: JSON.stringify(summary) }], details: summary };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const state = controller.state;
+    const status = /timed out|did not finish/i.test(message) ? "unknown" : "failed";
+    throw new Error(JSON.stringify({ status, url: state.url, title: state.title, changed: false, error: message }), { cause: error });
+  }
 }

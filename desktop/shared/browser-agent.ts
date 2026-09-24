@@ -26,7 +26,7 @@ export const BrowserSnapshotSchema = z.strictObject({
 export const BROWSER_TOOL_NAMES = [
   "browser_snapshot", "browser_navigate", "browser_click", "browser_type",
   "browser_select", "browser_press", "browser_wait", "browser_scroll",
-  "browser_link", "browser_screenshot",
+  "browser_rows", "browser_link", "read_document", "browser_screenshot",
 ] as const;
 
 export const BrowserDriverSchema = z.enum(["inky", "student", "none"]);

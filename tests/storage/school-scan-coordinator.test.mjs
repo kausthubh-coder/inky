@@ -358,6 +358,7 @@ test("a caught scan failure reports the original cause without letting telemetry
 
 test("student takeover pauses a running scan without failing it", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-scan-takeover-")));
+  const guardStates = [];
   let store;
   let coordinator;
   try {
@@ -404,7 +405,8 @@ test("student takeover pauses a running scan without failing it", async () => {
         };
       },
     };
-    coordinator = new SchoolScanCoordinator(store, runtime, browser, { now: () => now });
+    coordinator = new SchoolScanCoordinator(store, runtime, browser, { now: () => now,
+      readOnlyGuard: { setScanActive: active => guardStates.push(active) } });
     await coordinator.saveProfile({
       studentName: "Avery",
       schoolRoot: rootUrl,
@@ -413,7 +415,9 @@ test("student takeover pauses a running scan without failing it", async () => {
     });
     const started = coordinator.startScan();
     await promptStarted;
+    assert.equal(guardStates.at(-1), true, "scan owns the session-level write guard");
     const paused = await coordinator.requestTakeover();
+    assert.equal(guardStates.at(-1), false, "student takeover releases the write guard");
     assert.equal(paused.scan.state, "needs_user");
     assert.equal(paused.scan.handoff.kind, "student_takeover");
     assert.equal(paused.scan.failures.length, 0);
@@ -423,6 +427,8 @@ test("student takeover pauses a running scan without failing it", async () => {
     const resumed = await coordinator.resume();
     assert.equal(resumed.scan.state, "succeeded");
     assert.equal(resumed.courses.length, 1);
+    assert.equal(guardStates.at(-1), false, "finished scan releases the write guard");
+    assert.ok(guardStates.filter(Boolean).length >= 2, "resume reacquires the guard");
   } finally {
     coordinator?.dispose();
     store?.close();

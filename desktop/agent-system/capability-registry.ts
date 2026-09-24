@@ -55,8 +55,8 @@ const toolsByCapability = Object.freeze({
   ],
   scan: ["scan_status"],
   "scan-record": SCAN_TOOL_NAMES.filter((name) => name !== "scan_status"),
-  files: ["file_list", "file_read", "file_write"],
-  shell: ["shell_run"],
+  files: ["read", "write", "edit", "grep", "find", "ls", "browser_upload", "browser_download", "file_read_pdf"],
+  shell: [process.platform === "win32" ? "powershell" : "bash"],
   composio: [],
   submit: ["browser_submit"],
 } satisfies Record<CapabilityName, readonly string[]>);
@@ -104,6 +104,9 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
     for (const [capability, names] of Object.entries(toolsByCapability) as Array<[CapabilityName, readonly string[]]>) {
       if (toolName === "note_upsert" && capability === "assignment-effects" && !toolNames.includes("assignment_start_review")) continue;
       if (toolName === "note_upsert" && capability === "preferences" && toolNames.includes("assignment_start_review")) continue;
+      // Assignment workers always carry a permission-gated submit effect. Tool
+      // availability alone is not the fresh authorization represented by this pack.
+      if (toolName === "browser_submit" && capability === "submit") continue;
       if (names.includes(toolName)) selected.add(capability);
     }
     if (normalized.startsWith("manager_") || normalized.startsWith("queue_")) selected.add("queue");
@@ -116,7 +119,6 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
     if (["read", "write", "edit", "grep", "find", "ls", "browser_upload"].includes(normalized)) selected.add("files");
     if (normalized.startsWith("shell_") || normalized === "bash" || normalized === "powershell") selected.add("shell");
     if (normalized.startsWith("composio_") || normalized.startsWith("composio:") || normalized.startsWith("connected_apps_")) selected.add("composio");
-    if (normalized === "browser_submit") selected.add("submit");
   }
   return [...selected].sort();
 }

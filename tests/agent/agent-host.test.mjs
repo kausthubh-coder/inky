@@ -6,6 +6,7 @@ import {
   HarnessReplySchema,
   MemoryAgentJobStore,
   buildAgentTurn,
+  buildAgentTurnForTools,
 } from "../../dist/agent-system/index.js";
 
 class TestDriver {
@@ -29,11 +30,38 @@ test("capabilities follow target, explicit work, claim, and submit facts", async
 
   const work = await buildAgentTurn({ target: { kind: "assignment", assignmentId: "a-1" }, phase: "working", hasBrowserClaim: true }, "work");
   assert.equal(work.toolNames.includes("browser_snapshot"), true);
+  assert.equal(work.toolNames.includes("browser_rows"), true);
+  assert.equal(work.toolNames.includes("read_document"), true);
   assert.equal(work.toolNames.includes("browser_submit"), false);
+  assert.match(work.system.text, /small result with status, URL, title/);
+  assert.match(work.system.text, /Snapshot refs stay valid/);
 
   const submit = await buildAgentTurn({ target: { kind: "assignment", assignmentId: "a-1" }, phase: "working", hasBrowserClaim: true, submissionAuthorized: true }, "submit");
   assert.equal(submit.toolNames.includes("browser_submit"), true);
+  assert.equal(submit.system.packs.some((pack) => pack.id === "capabilities/submit"), true);
   assert.notEqual(work.system.hash, submit.system.hash);
+
+  const runtimeWorker = await buildAgentTurnForTools(
+    { kind: "assignment", assignmentId: "a-1" },
+    ["browser_snapshot", "browser_submit", "assignment_request_takeover"],
+    "continue working",
+  );
+  assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/browser"), true);
+  assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/assignment-effects"), true);
+  assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/submit"), false);
+  assert.equal(runtimeWorker.toolNames.includes("assignment_request_takeover"), true);
+
+  const files = await buildAgentTurn({
+    target: { kind: "assignment", assignmentId: "a-1" },
+    phase: "working",
+    hasBrowserClaim: true,
+    filesAvailable: true,
+    shellAvailable: true,
+  }, "finish the files");
+  for (const name of ["read", "write", "edit", "grep", "find", "ls", "browser_upload", "browser_download", "file_read_pdf", process.platform === "win32" ? "powershell" : "bash"]) {
+    assert.equal(files.toolNames.includes(name), true, `${name} should use its current runtime name`);
+  }
+  assert.equal(files.toolNames.some((name) => ["file_list", "file_read", "file_write", "shell_run"].includes(name)), false);
 });
 
 test("headless job host keeps addressed threads, refuses tutor, and survives restart", async () => {

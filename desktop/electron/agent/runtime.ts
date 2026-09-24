@@ -38,6 +38,7 @@ import {
   type UsageEventKind,
 } from "../../shared/index.js";
 import type { BrowserController } from "../browser/controller.js";
+import { compactBrowserSnapshotContext } from "../browser/context.js";
 import { createBrowserTools } from "../browser/tools.js";
 import {
   addUsage,
@@ -237,10 +238,10 @@ export class PiAgentRuntime implements AgentRuntime {
     target: AgentSessionTarget = {},
     control?: ScanSessionControl,
   ): Promise<AgentSession> {
-    if (!this.#browserTools) {
+    if (!this.#scanBrowserTools) {
       throw new Error("The Studi scan session requires the visible school browser");
     }
-    const tools = [...this.#scanBrowserTools!, ...recordingTools].map((tool) => ({
+    const tools = [...this.#scanBrowserTools, ...recordingTools].map((tool) => ({
       ...tool,
       execute: (...args: Parameters<ToolDefinition["execute"]>) => {
         control?.assertActive();
@@ -499,6 +500,11 @@ export class PiAgentRuntime implements AgentRuntime {
     });
     session.subscribe(event => diagnostics.accept(event));
     const onPayload = session.agent.onPayload;
+    if (tools.some(tool => tool.name === "browser_snapshot")) {
+      const previousTransform = session.agent.transformContext;
+      session.agent.transformContext = async (messages, signal) =>
+        compactBrowserSnapshotContext(previousTransform ? await previousTransform(messages, signal) : messages);
+    }
     session.agent.onPayload = async (payload, model) => {
       const prepared = (await onPayload?.(payload, model)) ?? payload;
       diagnostics.providerRequest(model.id, model.provider, prepared);

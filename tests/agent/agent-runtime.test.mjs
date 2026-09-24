@@ -411,7 +411,7 @@ test("real Pi assignment session accepts workspace tools and preserves their fil
     try {
       assert.deepEqual(new Set(session.toolNames), new Set([
         "browser_snapshot", "browser_navigate", "browser_click", "browser_type",
-        "browser_select", "browser_press", "browser_wait", "browser_scroll", "browser_link", "browser_screenshot", ...files.map((tool) => tool.name),
+        "browser_select", "browser_press", "browser_wait", "browser_scroll", "browser_rows", "browser_link", "read_document", "browser_screenshot", ...files.map((tool) => tool.name),
       ]));
       faux.setResponses([
         fauxAssistantMessage(fauxToolCall("write", { path: "answer.txt", content: "42" }), { stopReason: "toolUse" }),
@@ -428,6 +428,26 @@ test("real Pi assignment session accepts workspace tools and preserves their fil
       await session.replace({ resumeSessionPath: session.sessionPath, cwd: workspace });
       assert.equal(session.toolNames.includes("browser_submit"), false);
     } finally { session.dispose(); }
+  });
+});
+
+test("scan session accepts its dedicated browser without a general browser controller", async () => {
+  await withRuntime({}, async ({ faux, root, modelRuntime }) => {
+    const runtime = await PiAgentRuntime.create({
+      cwd: root,
+      agentDir: join(root, "scan-agent"),
+      modelRuntime,
+      model: faux.getModel(),
+      scanBrowserController: {},
+    });
+    const session = await runtime.createScanSession([]);
+    try {
+      assert.equal(session.toolNames.includes("browser_snapshot"), true);
+      assert.equal(session.toolNames.includes("browser_rows"), true);
+      assert.equal(session.toolNames.includes("browser_submit"), false);
+    } finally {
+      session.dispose();
+    }
   });
 });
 

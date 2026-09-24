@@ -24,6 +24,7 @@ import {
 import { retrieveNoteIndex } from "../../agent-system/retrieve.js";
 import type { AgentSession, AgentSessionTarget, ScanSessionControl } from "../agent/runtime.js";
 import type { BrowserController } from "../browser/controller.js";
+import type { ScanReadOnlyGuard } from "../browser/read-only-guard.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
@@ -48,6 +49,7 @@ export class SchoolScanCoordinator {
   readonly #runtime: ScanSessionRuntime;
   readonly #browser: BrowserController;
   readonly #browserWork: VisibleBrowserWork;
+  readonly #readOnlyGuard: Pick<ScanReadOnlyGuard, "setScanActive"> | undefined;
   readonly #manager: Pick<ManagerCoordinator, "enqueue" | "resolvePermission" | "reconcileQueue" | "allowsAutomaticWork"> | null;
   readonly #now: () => string;
   readonly #ownerSubject: string | undefined;
@@ -71,6 +73,7 @@ export class SchoolScanCoordinator {
       readonly now?: () => string;
       readonly ownerSubject?: string;
       readonly browserWork?: VisibleBrowserWork;
+      readonly readOnlyGuard?: Pick<ScanReadOnlyGuard, "setScanActive">;
       readonly manager?: Pick<ManagerCoordinator, "enqueue" | "resolvePermission" | "reconcileQueue" | "allowsAutomaticWork">;
       readonly onError?: (error: unknown, scanId: string, toolName?: string) => void;
       readonly recordSyllabus?: (source: { courseId: string; title: string; text: string; sourceTarget: string }) => Promise<unknown>;
@@ -82,6 +85,7 @@ export class SchoolScanCoordinator {
     this.#runtime = runtime;
     this.#browser = browser;
     this.#browserWork = options.browserWork ?? new VisibleBrowserWork(store);
+    this.#readOnlyGuard = options.readOnlyGuard;
     this.#manager = options.manager ?? null;
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#ownerSubject = options.ownerSubject;
@@ -160,38 +164,38 @@ export class SchoolScanCoordinator {
   }
 
   async startScan(assignmentId?: string): Promise<SchoolOnboardingState> {
-    return this.#browserWork.startScan(() => this.#start("first_scan", null, assignmentId));
+    return this.#browserWork.startScan(() => this.#withReadOnly(() => this.#start("first_scan", null, assignmentId)));
   }
 
   async startSourceScan(sourceTarget: string): Promise<SchoolOnboardingState> {
     const source = SafeSourceTargetSchema.parse(sourceTarget);
-    return this.#browserWork.startScan(() => this.#start("first_scan", null, undefined, source));
+    return this.#browserWork.startScan(() => this.#withReadOnly(() => this.#start("first_scan", null, undefined, source)));
   }
 
   async replay(): Promise<SchoolOnboardingState> {
-    return this.#browserWork.startScan(async () => {
+    return this.#browserWork.startScan(() => this.#withReadOnly(async () => {
       const workflow = this.#store.school.getWorkflow();
       if (!workflow) throw new Error("A successful school scan is required before replay");
       return this.#start("replay", workflow);
-    });
+    }));
   }
 
   async runScheduledScan<T>(
     claimOccurrence: () => T | null,
     prepare: () => Promise<void>,
   ): Promise<{ readonly claim: T; readonly state: SchoolOnboardingState } | null> {
-    return this.#browserWork.startScan(async () => {
+    return this.#browserWork.startScan(() => this.#withReadOnly(async () => {
       const claim = claimOccurrence();
       if (claim === null) return null;
       await prepare();
       const workflow = this.#store.school.getWorkflow();
       const state = await (workflow ? this.#start("replay", workflow) : this.#start("first_scan"));
       return { claim, state };
-    });
+    }));
   }
 
   async resume(): Promise<SchoolOnboardingState> {
-    return this.#browserWork.resumeScan(async () => {
+    return this.#browserWork.resumeScan(() => this.#withReadOnly(async () => {
       this.#assertUsable();
       const scan = this.#store.school.latestScan();
       if (!scan || !["needs_user", "partial", "failed"].includes(scan.state)) throw new Error("No incomplete school scan is available to resume");
@@ -209,7 +213,7 @@ export class SchoolScanCoordinator {
       });
       this.#updateProfileState("scanning");
       return this.#run(resumed, "The student has returned after the requested handoff. Take a fresh browser snapshot. If login still blocks the assignment list, request another handoff and stop. If this is a linked homework system, list the student's assignments or confirm an empty assignment index before recording it verified. Account names and dashboards are not verification. Then continue the same scan.");
-    });
+    }));
   }
 
   async requestTakeover(): Promise<SchoolOnboardingState> {
@@ -217,6 +221,7 @@ export class SchoolScanCoordinator {
     const scan = this.#store.school.latestScan();
     if (!scan || scan.state !== "running") throw new Error("No school scan is driving the browser");
     this.#takingOver = true;
+    this.#readOnlyGuard?.setScanActive(false);
     const evidence = await this.#takeoverEvidence(scan);
     const latest = this.#store.school.getScan(scan.scanId) ?? scan;
     this.#store.school.putScan({
@@ -282,9 +287,16 @@ export class SchoolScanCoordinator {
     const scan = this.#store.school.latestScan();
     if (scan?.state === "running") this.#fail(scan.scanId, "Studi closed before the school scan finished. Saved discoveries are preserved.");
     this.#disposed = true;
+    this.#readOnlyGuard?.setScanActive(false);
     this.#session?.dispose();
     this.#session = null;
     this.#sessionScanId = null;
+  }
+
+  async #withReadOnly<T>(run: () => Promise<T>): Promise<T> {
+    this.#readOnlyGuard?.setScanActive(true);
+    try { return await run(); }
+    finally { this.#readOnlyGuard?.setScanActive(false); }
   }
 
   async #start(kind: SchoolScan["kind"], workflow: SchoolScanWorkflow | null = null, targetAssignmentId?: string, sourceScanTarget?: string): Promise<SchoolOnboardingState> {

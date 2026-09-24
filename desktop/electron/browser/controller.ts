@@ -38,6 +38,7 @@ export interface BrowserTarget {
 interface ElementTarget {
   readonly backendNodeId: number;
   readonly revision: number;
+  readonly frameId: string;
   readonly role: string;
   readonly name: string;
 }
@@ -47,6 +48,9 @@ interface AxValue {
 }
 
 interface AxNode {
+  readonly nodeId?: string;
+  readonly childIds?: readonly string[];
+  readonly frameId?: string;
   readonly properties?: readonly { readonly name: string; readonly value: AxValue }[];
   readonly ignored?: boolean;
   readonly backendDOMNodeId?: number;
@@ -58,13 +62,21 @@ interface AxNode {
 export interface SnapshotOptions {
   readonly offset?: number;
   readonly search?: string;
+  readonly ref?: string;
+  readonly selector?: string;
+  readonly depth?: number;
+  readonly mode?: "full" | "diff";
 }
 
 export class BrowserController {
   readonly #target: BrowserTarget;
   readonly #refs = new Map<string, ElementTarget>();
+  readonly #nodeRefs = new Map<string, string>();
   #revision = 1;
-  #lastSnapshotOptions: SnapshotOptions = {};
+  #nextRef = 1;
+  #lastSnapshot: BrowserSnapshot | null = null;
+  #observedSnapshot: BrowserSnapshot | null = null;
+  #diffBaseline: BrowserSnapshot | null = null;
 
   constructor(target: BrowserTarget) {
     this.#target = target;
@@ -84,7 +96,14 @@ export class BrowserController {
   pageChanged(): void {
     this.#revision += 1;
     this.#refs.clear();
+    this.#nodeRefs.clear();
+    this.#nextRef = 1;
+    this.#lastSnapshot = null;
+    this.#observedSnapshot = null;
+    this.#diffBaseline = null;
   }
+
+  get lastSnapshot(): BrowserSnapshot | null { return this.#lastSnapshot; }
 
   async downloadSource(ref?: string): Promise<string> {
     return parseSchoolUrl(ref ? await this.link(ref) : this.#target.getURL());
@@ -100,29 +119,74 @@ export class BrowserController {
 
   async navigate(rawUrl: string): Promise<BrowserSnapshot> {
     const url = parseSchoolUrl(rawUrl);
+    const revision = this.#revision;
     await boundedBrowserOperation(this.#target.loadURL(url), "Navigation did not finish. Inspect browser_snapshot or browser_screenshot before retrying; an open PDF can also be read with browser_download.", 15_000);
-    this.pageChanged();
-    return this.snapshot();
+    if (this.#revision === revision) this.pageChanged();
+    return this.snapshot({}, false);
   }
 
-  async snapshot(options: SnapshotOptions = {}): Promise<BrowserSnapshot> {
+  async snapshot(options: SnapshotOptions = {}, observed = true): Promise<BrowserSnapshot> {
     const offset = options.offset ?? 0;
     if (!Number.isInteger(offset) || offset < 0) throw new Error("Snapshot offset must be a nonnegative integer");
-    this.#lastSnapshotOptions = options;
-    this.pageChanged();
+    if (options.depth !== undefined && (!Number.isInteger(options.depth) || options.depth < 0 || options.depth > 20)) throw new Error("Snapshot depth must be 0–20");
+    if (options.ref && options.selector) throw new Error("Choose either a ref or a selector");
     const response = asRecord(
       await this.#send("Accessibility.getFullAXTree", {}, true),
     );
+    const frameNodes: AxNode[] = (Array.isArray(response.nodes) ? response.nodes : []) as AxNode[];
+    const frameErrors: string[] = [];
+    try {
+      const tree = asRecord(await this.#send("Page.getFrameTree"));
+      const visit = async (entry: Record<string, unknown>): Promise<void> => {
+        const children = Array.isArray(entry.childFrames) ? entry.childFrames : [];
+        for (const child of children) {
+          const frame = asRecord(child), identity = asRecord(frame.frame);
+          const id = identity.id;
+          if (typeof id !== "string") continue;
+          try {
+            const result = asRecord(await this.#send("Accessibility.getFullAXTree", { frameId: id }));
+            frameNodes.push(...(Array.isArray(result.nodes) ? result.nodes : []).map(raw => ({ ...(raw as AxNode), frameId: id })));
+          } catch { frameErrors.push(`Frame ${String(identity.url ?? id)} could not be read.`); }
+          await visit(frame);
+        }
+      };
+      await visit(asRecord(tree.frameTree));
+    } catch { /* Older CDP targets may not expose a frame tree. */ }
+    let scopeId: number | null = null;
+    let scopeFrame = "main";
+    if (options.ref) {
+      const target = this.#targetForRef(options.ref);
+      scopeId = target.backendNodeId;
+      scopeFrame = target.frameId;
+    } else if (options.selector) {
+      const document = asRecord(await this.#send("DOM.getDocument", { depth: 1 }));
+      const rootId = asRecord(document.root).nodeId;
+      const match = asRecord(await this.#send("DOM.querySelector", { nodeId: rootId, selector: options.selector }));
+      if (typeof match.nodeId !== "number" || match.nodeId === 0) throw new Error("Snapshot selector did not match a page element");
+      const described = asRecord(await this.#send("DOM.describeNode", { nodeId: match.nodeId }));
+      scopeId = asRecord(described.node).backendNodeId as number;
+    }
+    let scopedNodes = frameNodes;
+    if (scopeId !== null) {
+      const root = frameNodes.find(node => node.backendDOMNodeId === scopeId && (node.frameId ?? "main") === scopeFrame);
+      if (!root) throw new Error("Snapshot target is no longer in the accessibility tree");
+      const ids = new Set([root.nodeId]);
+      for (let depth = 0, frontier = [root]; frontier.length && depth < (options.depth ?? 20); depth++) {
+        const next = frameNodes.filter(node => (node.frameId ?? "main") === scopeFrame && node.nodeId && frontier.some(parent => parent.childIds?.includes(node.nodeId!)));
+        next.forEach(node => ids.add(node.nodeId));
+        frontier = next;
+      }
+      scopedNodes = frameNodes.filter(node => ids.has(node.nodeId) && (node.frameId ?? "main") === scopeFrame);
+    }
     const search = options.search?.trim().toLocaleLowerCase();
-    const rawNodes = (Array.isArray(response.nodes) ? response.nodes : []).filter((raw) => {
+    const rawNodes = scopedNodes.filter((raw) => {
       const node = raw as AxNode;
       return !node.ignored && (!search || `${readAxString(node.name)} ${readAxString(node.value)}`.toLocaleLowerCase().includes(search));
     });
     const elements: BrowserSnapshot["elements"] = [];
-    const textParts: string[] = [];
+    const textParts: string[] = [...frameErrors];
     const seenText = new Set<string>();
     let truncated = false;
-    this.#refs.clear();
     let nextOffset: number | undefined;
 
     for (let index = offset; index < rawNodes.length; index += 1) {
@@ -156,10 +220,14 @@ export class BrowserController {
         truncated = true;
         continue;
       }
-      const ref = `r${this.#revision}:${elements.length + 1}`;
+      const frameId = node.frameId ?? "main";
+      const nodeKey = `${frameId}:${node.backendDOMNodeId}`;
+      const ref = this.#nodeRefs.get(nodeKey) ?? `${frameId === "main" ? "" : `f${frameId}:`}r${this.#revision}:${this.#nextRef++}`;
+      this.#nodeRefs.set(nodeKey, ref);
       this.#refs.set(ref, {
         backendNodeId: node.backendDOMNodeId,
         revision: this.#revision,
+        frameId,
         role,
         name,
       });
@@ -174,7 +242,7 @@ export class BrowserController {
       truncated = true;
     }
 
-    return {
+    const snapshot: BrowserSnapshot = {
       revision: this.#revision,
       url: this.#target.getURL(),
       title: this.#target.getTitle(),
@@ -184,29 +252,37 @@ export class BrowserController {
       ...(nextOffset === undefined ? {} : { nextOffset }),
       ...(options.search ? { search: options.search } : {}),
     };
+    const previous = observed ? this.#diffBaseline : this.#lastSnapshot;
+    this.#lastSnapshot = snapshot;
+    if (observed) {
+      this.#observedSnapshot = options.mode === "diff" ? null : snapshot;
+      this.#diffBaseline = snapshot;
+    }
+    if (options.mode === "diff" && previous?.url === snapshot.url && previous.revision === snapshot.revision) {
+      const oldText = new Set(previous.text.split("\n"));
+      const oldElements = new Set(previous.elements.map(element => `${element.ref}:${element.name}:${element.value ?? ""}`));
+      return { ...snapshot, text: snapshot.text.split("\n").filter(line => !oldText.has(line)).join("\n"),
+        elements: snapshot.elements.filter(element => !oldElements.has(`${element.ref}:${element.name}:${element.value ?? ""}`)) };
+    }
+    return snapshot;
   }
 
-  // Evidence refreshes compare DOM identity, not an expired textual ref or a
-  // potentially duplicated label. Aliases are only for validating this observation;
-  // they are never installed as actionable refs.
+  // Record tools reuse the model's observation. They validate referenced DOM
+  // nodes without spending another snapshot or inheriting a search filter.
   async evidenceSnapshot(refs: readonly string[] = []): Promise<BrowserSnapshot> {
-    const previous = new Map(refs.map((ref) => [ref, this.#targetForRef(ref)]));
-    const revision = this.#revision;
-    const url = this.#target.getURL();
-    const snapshot = await this.snapshot(this.#lastSnapshotOptions);
-    if (snapshot.revision !== revision + 1 || snapshot.url !== url) {
-      throw new Error("The page changed while refreshing evidence. Take a new snapshot.");
+    const snapshot = this.#observedSnapshot;
+    if (!snapshot) throw new Error("Take a full browser_snapshot before recording school evidence.");
+    if (snapshot.search) throw new Error("Take a full unfiltered browser_snapshot before recording school evidence.");
+    if (snapshot.revision !== this.#revision || snapshot.url !== this.#target.getURL()) throw new Error("The page changed. Take a new snapshot before recording.");
+    for (const ref of refs) {
+      const target = this.#targetForRef(ref);
+      if (!snapshot.elements.some(element => element.ref === ref)) throw new Error("The ref is outside the current observation. Take a full snapshot before recording.");
+      const { objectId } = await this.#resolve(ref);
+      const connected = await this.#callOn(objectId, "function () { return Boolean(this.isConnected); }");
+      if (connected.value !== true) throw new Error("The observed element changed. Take a new snapshot before recording.");
+      if (target.revision !== snapshot.revision) throw new Error("The page changed while recording.");
     }
-    const aliases = new Map<string, string>();
-    for (const [ref, target] of previous) {
-      const match = snapshot.elements.find((element) => {
-        const current = this.#refs.get(element.ref);
-        return current?.backendNodeId === target.backendNodeId && current.role === target.role && current.name === target.name;
-      });
-      if (!match) throw new Error("The observed element changed. Take a new snapshot before recording.");
-      aliases.set(match.ref, ref);
-    }
-    return { ...snapshot, elements: snapshot.elements.map((element) => ({ ...element, ref: aliases.get(element.ref) ?? element.ref })) };
+    return snapshot;
   }
 
   async link(ref: string): Promise<string> {
@@ -217,6 +293,52 @@ export class BrowserController {
     }`);
     if (typeof result.value !== "string" || !result.value) throw new Error("The referenced element has no link destination");
     return parseSchoolUrl(result.value);
+  }
+
+  async rows(selector = "tr", offset = 0, limit = 50): Promise<{ readonly rows: readonly { readonly ref: string; readonly cells: readonly string[]; readonly href: string | null }[]; readonly nextOffset: number | null }> {
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > 80) throw new Error("Row limit must be 1–80");
+    if (!Number.isSafeInteger(offset) || offset < 0) throw new Error("Row offset must be nonnegative");
+    if (selector.length > 200) throw new Error("Row selector is too long");
+    const response = asRecord(await this.#send("Runtime.evaluate", {
+      expression: `(() => ({ total:document.querySelectorAll(${JSON.stringify(selector)}).length, rows:[...document.querySelectorAll(${JSON.stringify(selector)})].slice(${offset},${offset + limit}).map(row => ({
+        cells: [...row.querySelectorAll('th,td')].map(cell => (cell.innerText || cell.textContent || '').trim().replace(/\\s+/g,' ').slice(0,300)),
+        href: row.querySelector('a[href]')?.href || null
+      })).filter(row => row.cells.length) }))()`,
+      returnByValue: true,
+    }));
+    const value = asRecord(asRecord(response.result).value);
+    if (!Array.isArray(value.rows) || !Number.isSafeInteger(value.total)) throw new Error("The page did not provide a readable row list");
+    const document = asRecord(await this.#send("DOM.getDocument", { depth: 1 }));
+    const all = asRecord(await this.#send("DOM.querySelectorAll", { nodeId: asRecord(document.root).nodeId, selector }));
+    const nodeIds = Array.isArray(all.nodeIds) ? all.nodeIds : [];
+    const rows = [];
+    const elements: BrowserSnapshot["elements"] = [];
+    for (const [index, raw] of value.rows.entries()) {
+      const row = asRecord(raw), nodeId = nodeIds[offset + index];
+      if (typeof nodeId !== "number") throw new Error("A school row changed during extraction. Retry browser_rows.");
+      const link = asRecord(await this.#send("DOM.querySelector", { nodeId, selector: "a[href]" }));
+      const targetId = typeof link.nodeId === "number" && link.nodeId > 0 ? link.nodeId : nodeId;
+      const described = asRecord(await this.#send("DOM.describeNode", { nodeId: targetId }));
+      const backendNodeId = asRecord(described.node).backendNodeId;
+      if (typeof backendNodeId !== "number") throw new Error("A school row lost its DOM identity. Retry browser_rows.");
+      const key = `main:${backendNodeId}`;
+      const ref = this.#nodeRefs.get(key) ?? `r${this.#revision}:${this.#nextRef++}`;
+      this.#nodeRefs.set(key, ref);
+      const cells = Array.isArray(row.cells) ? row.cells.map(cell => String(cell).slice(0, 300)) : [];
+      const href = typeof row.href === "string" && /^https?:\/\//i.test(row.href) ? row.href : null;
+      const name = cells.join(" | ");
+      this.#refs.set(ref, { backendNodeId, revision: this.#revision, frameId: "main", role: href ? "link" : "row", name });
+      elements.push({ ref, role: href ? "link" : "row", name, ...(href ? { href } : {}) });
+      rows.push({ ref, cells, href });
+    }
+    const nextOffset = offset + rows.length < (value.total as number) ? offset + rows.length : null;
+    const snapshot: BrowserSnapshot = { revision: this.#revision, url: this.#target.getURL(), title: this.#target.getTitle(),
+      text: elements.map(element => element.name).join("\n").slice(0, MAX_TEXT_LENGTH), elements,
+      truncated: nextOffset !== null, ...(nextOffset === null ? {} : { nextOffset }) };
+    this.#lastSnapshot = snapshot;
+    this.#observedSnapshot = snapshot;
+    this.#diffBaseline = snapshot;
+    return { rows, nextOffset };
   }
 
   async scroll(direction: "up" | "down", ref?: string): Promise<BrowserSnapshot> {
@@ -236,7 +358,7 @@ export class BrowserController {
     return result.data;
   }
 
-  async click(ref: string, allowSubmission = false, readOnly = false): Promise<BrowserSnapshot> {
+  async click(ref: string, allowSubmission = false, _readOnly = false): Promise<BrowserSnapshot> {
     const { objectId, target } = await this.#resolve(ref);
     const inspection = asRecord(
       await this.#callOn(objectId, `function () {
@@ -247,20 +369,16 @@ export class BrowserController {
         return {
           connected: Boolean(element.isConnected),
           disabled: Boolean(element.disabled || element.getAttribute?.("aria-disabled") === "true"),
-          submission: (tag === "button" && (!type || type === "submit")) || type === "submit",
+          submission: type === "submit" && Boolean(element.form),
           label
         };
       }`),
     );
     const value = asRecord(inspection.value);
     const label = typeof value.label === "string" ? value.label : target.name;
-    if (readOnly && (/\b(save|submit|turn in|hand in|upload|delete|remove|enroll|unenroll|post|reply|send|start attempt|begin attempt|mark as done)\b/i.test(label)
-      || ["checkbox", "radio", "switch"].includes(target.role))) {
-      throw new Error("A read-only school check cannot activate a control that changes schoolwork");
-    }
     // Saving a draft is a form POST on many school sites, but does not hand in work.
     const draftSave = /^save(?: as)? draft$/i.test(label);
-    const knownSubmission = SUBMISSION_PATTERN.test(label) || (value.submission === true && !draftSave);
+    const knownSubmission = (target.role !== "link" && SUBMISSION_PATTERN.test(label)) || (value.submission === true && !draftSave);
     if (knownSubmission && !allowSubmission) {
       throw new Error("Ordinary click cannot activate a submission control. Use browser_submit only after the student explicitly asks to submit.");
     }
@@ -274,11 +392,11 @@ export class BrowserController {
   async refreshRef(ref: string): Promise<{ readonly snapshot: BrowserSnapshot; readonly ref: string }> {
     const target = this.#targetForRef(ref);
     const url = this.#target.getURL();
-    const snapshot = await this.snapshot();
-    if (snapshot.revision !== target.revision + 1 || snapshot.url !== url) {
+    const snapshot = await this.snapshot({}, false);
+    if (snapshot.revision !== target.revision || snapshot.url !== url) {
       throw new Error("The page changed while refreshing the submission control");
     }
-    const matches = snapshot.elements.filter((element) => element.role === target.role && element.name === target.name);
+    const matches = snapshot.elements.filter((element) => this.#refs.get(element.ref)?.backendNodeId === target.backendNodeId);
     if (matches.length !== 1) {
       throw new Error("The submission control could not be uniquely re-identified in a fresh browser snapshot");
     }
@@ -386,17 +504,18 @@ export class BrowserController {
 
   async waitFor(text: string | undefined, timeoutMs: number): Promise<BrowserSnapshot> {
     const deadline = Date.now() + timeoutMs;
-    let latest = await this.snapshot();
+    this.#observedSnapshot = null;
+    let latest = await this.snapshot({}, false);
     while (text && !latest.text.toLowerCase().includes(text.toLowerCase()) && Date.now() < deadline) {
       await delay(Math.min(250, Math.max(0, deadline - Date.now())));
-      latest = await this.snapshot();
+      latest = await this.snapshot({}, false);
     }
     if (text && !latest.text.toLowerCase().includes(text.toLowerCase())) {
       throw new Error(`Timed out waiting for page text: ${text}`);
     }
     if (!text && timeoutMs > 0) {
       await delay(timeoutMs);
-      latest = await this.snapshot();
+      latest = await this.snapshot({}, false);
     }
     return latest;
   }
@@ -415,7 +534,7 @@ export class BrowserController {
 
   #targetForRef(ref: string): ElementTarget {
     const target = this.#refs.get(ref);
-    if (!target || target.revision !== this.#revision || !ref.startsWith(`r${this.#revision}:`)) {
+    if (!target || target.revision !== this.#revision) {
       throw new Error("Stale or unknown browser ref. Take a new snapshot before acting.");
     }
     return target;
@@ -459,9 +578,9 @@ export class BrowserController {
   }
 
   async #afterAction(): Promise<BrowserSnapshot> {
-    this.pageChanged();
+    this.#observedSnapshot = null;
     await delay(ACTION_SETTLE_MS);
-    return this.snapshot();
+    return this.snapshot({}, false);
   }
 
   async #send(
@@ -499,6 +618,10 @@ export const BROWSER_KEYS = [
   "ArrowRight",
   "Backspace",
   "Delete",
+  "PageUp",
+  "PageDown",
+  "Home",
+  "End",
 ] as const;
 
 export type BrowserKey = (typeof BROWSER_KEYS)[number];
@@ -513,6 +636,10 @@ const KEY_CODES: Record<BrowserKey, number> = {
   ArrowRight: 39,
   Backspace: 8,
   Delete: 46,
+  PageUp: 33,
+  PageDown: 34,
+  Home: 36,
+  End: 35,
 };
 
 export function formatSnapshot(snapshot: BrowserSnapshot): string {

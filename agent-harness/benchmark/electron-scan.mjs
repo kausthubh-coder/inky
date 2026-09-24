@@ -8,6 +8,7 @@ import { pathToFileURL } from "node:url";
 const config = JSON.parse(await readFile(process.argv[2], "utf8"));
 const moduleAt = path => import(pathToFileURL(join(config.buildRoot, path)).href);
 const { BrowserController } = await moduleAt("electron/browser/controller.js");
+const { classifyScanRequest } = await moduleAt("electron/browser/read-only-guard.js");
 const { PiAgentRuntime } = await moduleAt("electron/agent/runtime.js");
 const { SchoolScanCoordinator } = await moduleAt("electron/scan/coordinator.js");
 const { ManagerCoordinator } = await moduleAt("electron/manager/coordinator.js");
@@ -19,6 +20,7 @@ app.setPath("userData", join(config.runRoot, "electron"));
 const allowedOrigins = new Set(config.origins.map(url => new URL(url).origin));
 let window, store, manager, coordinator, activeSession, runtime, calls = 0, phaseCalls = 0, modelCalls = 0;
 let exhausted = false, phaseEvents = [], phaseName = "setup", sequence = 0;
+let scanGuardActive = false;
 let traceWrites = Promise.resolve();
 const violations = [];
 const trace = event => {
@@ -39,7 +41,10 @@ async function initialize() {
   window.webContents.session.webRequest.onBeforeRequest((details, callback) => {
     const internalPdf = details.url.startsWith("chrome-extension://mhjfbmdgcfjbbpaeojofohoefgiehjai/");
     if (!allowed(details.url) && !internalPdf) { violations.push("Attempted navigation outside the fixture"); trace({ kind: "forbidden_navigation", url: details.url }); }
-    callback({ cancel: !allowed(details.url) && !internalPdf });
+    const policy = classifyScanRequest(details, { signInHosts: [new URL(config.originMap.unity).host],
+      ltiLaunchHosts: [config.originMap.statistics, config.originMap.feedback].map(url => new URL(url).host) }, scanGuardActive);
+    if (policy.action === "block") trace({ kind: "scan_write_blocked", method: details.method, url: details.url });
+    callback({ cancel: (!allowed(details.url) && !internalPdf) || policy.action === "block" });
   });
   const browser = new BrowserController({ debugger: window.webContents.debugger,
     session: window.webContents.session,
@@ -55,7 +60,6 @@ async function initialize() {
     finally { clearTimeout(timer); }
   };
   window.webContents.on("did-navigate", () => browser.pageChanged());
-  window.webContents.on("did-navigate-in-page", () => browser.pageChanged());
   runtime = await PiAgentRuntime.create({ cwd: config.agentWorkspace, agentDir: config.agentDir, browserController: browser,
     onDiagnostic: diagnostic => {
       trace({ kind: "diagnostic", diagnostic });
@@ -82,7 +86,9 @@ async function initialize() {
     trace({ kind: "effective_session", model: runtime.selectedModelId, effort: runtime.selectedReasoningEffort, toolNames: activeSession.toolNames });
     return activeSession;
   } };
-  coordinator = new SchoolScanCoordinator(store, scanRuntime, browser, { manager, now: () => config.clock, onError: error => trace({ kind: "scan_error", error: error.message }) });
+  coordinator = new SchoolScanCoordinator(store, scanRuntime, browser, { manager, now: () => config.clock,
+    readOnlyGuard: { setScanActive: active => { scanGuardActive = active; } },
+    onError: error => trace({ kind: "scan_error", error: error.message }) });
   await coordinator.saveProfile({ studentName: "Synthetic student", schoolRoot: config.schoolUrl, defaultPermission: "attempt", scanCadence: "manual" });
   process.send?.({ type: "ready", model: runtime.selectedModelId, effort: runtime.selectedReasoningEffort, sdkVersion: PiAgentRuntime.sdkVersion });
 }
