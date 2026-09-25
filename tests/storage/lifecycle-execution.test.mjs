@@ -201,7 +201,7 @@ test("the worker cannot bypass review to submit, even under an auto-submit rule"
   });
 });
 
-for (const mode of ["ready", "doubts", "paused"]) test(`timed review submission respects ${mode} state and retains readable actions`, async () => {
+for (const mode of ["ready", "doubts", "heads-up", "paused"]) test(`timed review submission respects ${mode} state and retains readable actions`, async () => {
   await withStore(async (store, root) => {
     let now = initialNow;
     seedTask(store, "timer", "2026-09-02T12:00:00.000Z");
@@ -212,6 +212,10 @@ for (const mode of ["ready", "doubts", "paused"]) test(`timed review submission 
         emit({ schemaVersion: 1, type: "text", delta: "Checking the answer." });
         emit({ schemaVersion: 1, type: "tool_started", toolCallId: "inspect", toolName: "browser_snapshot", arguments: { sensitive: "RAW_TOOL_SECRET" } });
         emit({ schemaVersion: 1, type: "tool_finished", toolCallId: "inspect", toolName: "browser_snapshot", outcome: "succeeded", durationMs: 12, result: "RAW_TOOL_SECRET" });
+        if (mode === "heads-up") {
+          const told = await invoke(tools, "assignment_tell_student", { message: "This computer has no graphing tool, so I drew the graph by hand.", needs: "nothing" });
+          assert.equal(told.phase, "working", "a heads-up never pauses the work");
+        }
         await invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve the problem", evidence: "The answer field contains x = 4" }], summary: "Answer ready", ...(mode === "doubts" ? { doubts: [{ where: "Question 1", why: "The diagram scale is unclear" }] } : {}) });
       },
       async tools => {
@@ -246,7 +250,8 @@ for (const mode of ["ready", "doubts", "paused"]) test(`timed review submission 
       } else {
         assert.equal(browser.submitClicks, 0);
         assert.equal(store.lifecycle.getExecution("task-timer").phase, "ready_review");
-        if (mode === "doubts") await assert.rejects(execution.submitByRule("task-timer"), /doubt/i);
+        if (mode === "doubts" || mode === "heads-up") await assert.rejects(execution.submitByRule("task-timer"), /doubt/i);
+        if (mode === "heads-up") assert.deepEqual(store.lifecycle.getExecution("task-timer").doubts, [{ where: "Heads-up", why: "This computer has no graphing tool, so I drew the graph by hand." }]);
       }
     } finally { execution.dispose(); manager.dispose(); }
   });
@@ -447,7 +452,7 @@ test("a permission change before submit blocks the effect and hands the retained
       async (tools) => {
         store.permissionRules.put({ schemaVersion: 1, ruleId: "assignment-attempt", scope: "assignment", assignmentId: "assignment-permission", mode: "attempt", updatedAt: "2026-09-01T12:01:00.000Z" });
         await assert.rejects(invoke(tools, "browser_submit", { ref: "submit-1", confirmation: "SUBMIT", expectedConfirmationText: "Submitted successfully" }), /does not allow submission/);
-        await invoke(tools, "assignment_request_takeover", { reason: "Submission permission changed; the student must decide.", returnPredicate: "The student has reviewed the current permission." });
+        await invoke(tools, "assignment_tell_student", { message: "Submission permission changed; you decide whether to hand this in.", needs: "answer" });
       },
     ]);
     const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
@@ -468,14 +473,8 @@ test("an assignment message resumes a needs-user handoff with the message as wor
     seedTask(store, "message-resume", "2026-09-02T12:00:00.000Z");
     store.permissionRules.put(rule("attempt", "attempt", initialNow));
     const runtime = new ScriptedRuntime([
-      async (tools) => invoke(tools, "assignment_request_takeover", {
-        reason: "Attach the required graph before I continue.",
-        returnPredicate: "The graph is attached, or the student supplies different instructions.",
-      }),
-      async (tools) => invoke(tools, "assignment_request_takeover", {
-        reason: "The graph is still missing after checking the student's reply.",
-        returnPredicate: "The graph is visibly attached.",
-      }),
+      async (tools) => invoke(tools, "assignment_tell_student", { message: "Attach the required graph before I continue.", needs: "files" }),
+      async (tools) => invoke(tools, "assignment_tell_student", { message: "The graph is still missing after checking your reply.", needs: "files" }),
     ]);
     const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
     manager.enqueue({ taskId: "task-message-resume" });

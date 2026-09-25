@@ -47,7 +47,7 @@ test("study page in Electron cannot reach network, app origin, navigation, forms
       const initialHeight = await page.locator('iframe[title="Sandbox proof"]').evaluate(node => node.getBoundingClientRect().height);
       assert.ok(initialHeight >= 420 && initialHeight < 640, `Initial frame height ${initialHeight}`);
       await frame.locator("#explore").click();
-      await page.waitForFunction(() => document.querySelector('iframe[title="Sandbox proof"]').getBoundingClientRect().height === 640);
+      await page.waitForFunction(() => document.querySelector('iframe[title="Sandbox proof"]').getBoundingClientRect().height === 640, undefined, { polling: 100 });
       const proof = await frame.locator("body").evaluate(() => window.proof);
       assert.equal(proof.fetch, "blocked");
       assert.equal(proof.storage, "blocked");

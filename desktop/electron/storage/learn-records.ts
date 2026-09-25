@@ -5,7 +5,7 @@ import { IsoTimestampSchema } from "../../shared/schema-version.js";
 import { ExamSchema, LearnExamInputSchema, LearnExtractionSchema, LearnSourceInputSchema, LearnSourceSchema, LearnTopicSchema, TopicMasterySchema, TopicMasterySummarySchema, planLearn,
   type Exam, type LearnExtraction, type LearnSource, type LearnTopic, type MasteryEvidence, type TopicMastery } from "../../shared/learn.js";
 import { EVIDENCE_PHASES, TUTOR_PHASES, TutorBlockAnswerSchema, TutorBlockSchema, TutorCallSchema, TutorFinishInputSchema, TutorMessageSchema, TutorSessionSchema, TutorSessionSummarySchema,
-  normalizeTutorAnswer, tutorTimeLeft, type TutorBlock, type TutorPhase, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
+  normalizeTutorAnswer, typedAnswerMatches, tutorTimeLeft, type TutorBlock, type TutorPhase, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
 import type { StudiSqliteDatabase } from "./database.js";
 
 type Table = "learn_sources" | "learn_exams" | "learn_topics" | "learn_mastery" | "learn_sessions";
@@ -351,7 +351,7 @@ export class LearnRepository {
       if (block.tool === "tutor_ask_choice" && answer.kind === "choice") {
         if (answer.picked >= block.args.options.length) throw new Error("Choose an available option");
         correct = answer.picked === block.args.correct;
-      } else if (block.tool === "tutor_ask_typed" && answer.kind === "typed") correct = block.args.accept.some(item => normalizeTutorAnswer(item) === normalizeTutorAnswer(answer.answer));
+      } else if (block.tool === "tutor_ask_typed" && answer.kind === "typed") correct = typedAnswerMatches(block.args.accept, answer.answer);
       else if (!(block.tool === "tutor_ask_explain" && answer.kind === "explain") && !((block.tool === "tutor_show_model" || block.tool === "tutor_show_page") && answer.kind === "model")) throw new Error("Answer does not match the open block");
       const now = this.now();
       const answered: TutorBlock = { ...block, status: "answered", answeredAt: now, draft: "", result: { answer, correct, hintsUsed: block.hintsUsed, seconds: Math.max(0, session.budgetSeconds - tutorTimeLeft(session, now) - block.elapsedAtCreation) } };

@@ -551,6 +551,7 @@ function TodayRow({
   const live = ["working", "submitting"].includes(item.phase);
   const execution = item.task?.execution;
   const need = execution?.returnPredicate ?? execution?.lastError ?? "";
+  const waitingOn = execution?.needs ?? (/file|upload|csv|pdf/i.test(need) ? "files" : /sign.?in|log.?in/i.test(need) ? "sign_in" : "browser");
   const starting = first && !done && !needs && !live;
   const needsDetails = !assignmentWorkEligibility(a, now.toISOString()).eligible;
   const canCheckBeforeStart = Boolean(a.sourceTarget && !a.ignoredReason && a.owner !== "student"
@@ -560,11 +561,7 @@ function TodayRow({
     item.phase === "ready_review"
       ? "Review"
       : needs
-        ? /file|upload|csv|pdf/i.test(need)
-          ? "Add files"
-          : /sign.?in|log.?in/i.test(need)
-            ? "Sign in"
-            : "Continue"
+        ? { files: "Add files", sign_in: "Sign in", answer: "Answer", browser: "Continue" }[waitingOn]
         : live
           ? "Watch"
           : done

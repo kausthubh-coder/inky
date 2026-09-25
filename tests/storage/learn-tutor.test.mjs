@@ -7,7 +7,7 @@ import { StudiSqliteDatabase } from "../../dist/electron/storage/database.js";
 import { LearnRepository, validateLearnRecords } from "../../dist/electron/storage/learn-records.js";
 import { LearnStateSchema } from "../../dist/shared/learn-state.js";
 import { computeReadiness, normalizeTopicWeights, planLearn } from "../../dist/shared/learn.js";
-import { publicTutorSession, PublicTutorSessionSchema, TutorModelInputSchema } from "../../dist/shared/tutor.js";
+import { normalizeTutorAnswer, typedAnswerMatches, publicTutorSession, PublicTutorSessionSchema, TutorModelInputSchema } from "../../dist/shared/tutor.js";
 import { pickExcerpts } from "../../dist/electron/agent/tutor-context.js";
 import { importLearnFile } from "../../dist/electron/agent/learn-import.js";
 
@@ -352,4 +352,20 @@ test("pickExcerpts finds relevant material beyond the opening chunk within its b
   assert.deepEqual(pickExcerpts(text, "the and for"), []);
   assert.deepEqual(pickExcerpts("", "Bayes"), []);
   assert.deepEqual(pickExcerpts(text, "Bayes", 0), []);
+});
+
+test("typed answers ignore a closing full stop, quotes and comma spacing", () => {
+  assert.equal(normalizeTutorAnswer("“[1,2,3]; 2 shifts.”"), normalizeTutorAnswer("[1, 2, 3]; 2 shifts"));
+  assert.equal(normalizeTutorAnswer("3.5"), "3.5");
+  assert.equal(normalizeTutorAnswer("n!"), "n!");
+  assert.notEqual(normalizeTutorAnswer("O(n)"), normalizeTutorAnswer("O(n^2)"));
+});
+
+test("a typed answer may add a unit word but not a hedge", () => {
+  assert.equal(typedAnswerMatches(["2"], "2 shifts."), true);
+  assert.equal(typedAnswerMatches(["O(n)"], "O(n) time"), true);
+  assert.equal(typedAnswerMatches(["2"], "20"), false);
+  assert.equal(typedAnswerMatches(["2"], "2 or three"), false);
+  assert.equal(typedAnswerMatches(["2"], "2 or 3"), false);
+  assert.equal(typedAnswerMatches(["true"], "true not false"), false);
 });

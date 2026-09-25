@@ -43,13 +43,13 @@ test("capabilities follow target, explicit work, claim, and submit facts", async
 
   const runtimeWorker = await buildAgentTurnForTools(
     { kind: "assignment", assignmentId: "a-1" },
-    ["browser_snapshot", "browser_submit", "assignment_request_takeover"],
+    ["browser_snapshot", "browser_submit", "assignment_tell_student"],
     "continue working",
   );
   assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/browser"), true);
   assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/assignment-effects"), true);
   assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/submit"), false);
-  assert.equal(runtimeWorker.toolNames.includes("assignment_request_takeover"), true);
+  assert.equal(runtimeWorker.toolNames.includes("assignment_tell_student"), true);
 
   const files = await buildAgentTurn({
     target: { kind: "assignment", assignmentId: "a-1" },

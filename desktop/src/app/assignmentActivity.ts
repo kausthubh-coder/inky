@@ -17,7 +17,7 @@ const labels: Record<string, string> = {
   bash: "Ran a command",
   assignment_record_answer_snapshot: "Saved a copy of your answers",
   assignment_start_review: "Checked the requirements and stopped for you",
-  assignment_request_takeover: "Asked for your help",
+  assignment_tell_student: "Told you something",
 };
 export type ActivityLine = {
   key: string;

@@ -138,6 +138,9 @@ export function AssignmentWorkspace({
         }),
       );
   const doubts = execution?.doubts ?? [];
+  const notices = phase === "working" ? execution?.notices ?? [] : [];
+  // Older pauses have no `needs`; their wording still tells a sign-in apart.
+  const waitingOn = execution?.needs ?? (/sign.?in|log.?in/i.test(execution?.returnPredicate ?? "") ? "sign_in" : "browser");
   const checklist = execution?.completionChecklist ?? [];
   const doubtCount =
     ["", "One", "Two", "Three"][doubts.length] ?? String(doubts.length);
@@ -231,6 +234,11 @@ export function AssignmentWorkspace({
                 {execution.lastError}
               </p>
             )}
+            {notices.length > 0 && (
+              <section className="rd-doubts" aria-label="Heads-up from Inky">
+                {notices.map((notice, index) => <p key={index}><strong>Heads-up:</strong> {notice}</p>)}
+              </section>
+            )}
             {phase === "needs_user" && execution && (
               <>
                 <p>
@@ -247,15 +255,17 @@ export function AssignmentWorkspace({
                     {adding ? "Adding…" : "Choose files"}
                   </button>
                 </div>
-                <button
-                  className="rd-button primary"
-                  disabled={busy !== null}
-                  onClick={() => onResume(execution.taskId)}
-                >
-                  {/sign.?in|log.?in/i.test(execution.returnPredicate ?? "")
-                    ? "I’ve signed in. Continue"
-                    : "I’m ready. Continue"}
-                </button>
+                {waitingOn === "answer" ? (
+                  <p className="rd-deadline">Reply below and I’ll carry on.</p>
+                ) : (
+                  <button
+                    className="rd-button primary"
+                    disabled={busy !== null}
+                    onClick={() => onResume(execution.taskId)}
+                  >
+                    {waitingOn === "sign_in" ? "I’ve signed in. Continue" : waitingOn === "files" ? "I’ve added them. Continue" : "I’m ready. Continue"}
+                  </button>
+                )}
                 {/* Cancelling is two steps on purpose: pause first, then stop. */}
                 <button
                   className="rd-quiet rd-stop-assignment"

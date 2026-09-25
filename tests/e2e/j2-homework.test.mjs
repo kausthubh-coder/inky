@@ -117,7 +117,7 @@ async function startAssignment(page, title) {
   const start = page.getByRole("button", { name: /Check and start|Start|Make Inky do this/ }).first();
   try {
     await start.waitFor({ state: "visible", timeout: 8_000 });
-    await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => /^(Check and start|Start|Make Inky do this)/.test(button.textContent?.trim() ?? "") && !button.disabled), undefined, { timeout: 8_000 });
+    await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => /^(Check and start|Start|Make Inky do this)/.test(button.textContent?.trim() ?? "") && !button.disabled), undefined, { timeout: 8_000, polling: 100 });
   } catch (error) {
     const onboarding = await publicState(page, "getSchoolOnboardingState");
     const library = await publicState(page, "getLibraryState");

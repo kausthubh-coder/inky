@@ -109,7 +109,20 @@ export type TutorSession = z.infer<typeof TutorSessionSchema>;
 export type TutorSessionResult = z.infer<typeof TutorSessionResultSchema>;
 export type TutorFinishInput = z.infer<typeof TutorFinishInputSchema>;
 export type TutorStartInput = z.input<typeof TutorStartInputSchema>;
-export const normalizeTutorAnswer = (value: string) => value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("en-US");
+// Spacing after commas and a closing full stop or quotes don't change an answer: "[1,2,3]." matches "[1, 2, 3]".
+export const normalizeTutorAnswer = (value: string) => value.normalize("NFKC").trim()
+  .replace(/^["'“”‘’]+|["'“”‘’]+$/g, "").replace(/\.$/, "").replace(/\s*([,;:])\s*/g, "$1 ").replace(/\s+/g, " ").trim().toLocaleLowerCase("en-US");
+
+/** An accepted answer followed only by a unit word counts ("2 shifts", "O(n) time"); a hedge like "2 or 3" doesn't. */
+export function typedAnswerMatches(accept: readonly string[], answer: string): boolean {
+  const given = normalizeTutorAnswer(answer);
+  return accept.some(item => {
+    const expected = normalizeTutorAnswer(item);
+    if (given === expected) return true;
+    const rest = given.startsWith(`${expected} `) ? given.slice(expected.length + 1) : null;
+    return rest !== null && /^\p{L}+(?: \p{L}+)?$/u.test(rest) && !/\b(?:or|not|maybe)\b/.test(rest);
+  });
+}
 export function tutorTimeLeft(session: Pick<TutorSession, "budgetSeconds" | "elapsedSeconds" | "activeSince">, now: string): number {
   return Math.max(0, session.budgetSeconds - session.elapsedSeconds - (session.activeSince ? Math.max(0, (Date.parse(now) - Date.parse(session.activeSince)) / 1000) : 0));
 }

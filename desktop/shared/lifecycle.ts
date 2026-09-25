@@ -93,6 +93,10 @@ export const AssignmentExecutionSchema = z.strictObject({
   turnCount: z.number().int().min(0).max(24).default(0),
   attemptCount: z.number().int().min(0).max(2),
   returnPredicate: z.string().trim().min(1).max(1_000).optional(),
+  /** What Inky is waiting on while paused, so the app can offer the right button. */
+  needs: z.enum(["answer", "sign_in", "files", "browser"]).optional(),
+  /** Things Inky told the student without stopping; they become review doubts. */
+  notices: z.array(z.string().trim().min(1).max(1_000)).max(20).optional(),
   reviewDeadline: IsoTimestampSchema.optional(),
   reviewSubmissionSource: z.enum(["rule", "student"]).optional(),
   handoffDeadline: IsoTimestampSchema.optional(),

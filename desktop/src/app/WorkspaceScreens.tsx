@@ -303,7 +303,7 @@ function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, select
 }
 
 const NOTIFICATION_ROWS: ReadonlyArray<{ kind: NotificationKind; label: string; hint: string }> = [
-  { kind: "handoff", label: "Inky needs you", hint: "A sign-in, a file, or a question it can't answer" },
+  { kind: "handoff", label: "Inky needs you", hint: "A sign-in, a file, a question, or a heads-up" },
   { kind: "review_ready", label: "Work is ready to look over", hint: "Answers are filled in, waiting for your review" },
   { kind: "work_start", label: "Inky starts an assignment", hint: "So you can watch if you want" },
   { kind: "scan_result", label: "A school check finishes", hint: "See what Inky found at school" },

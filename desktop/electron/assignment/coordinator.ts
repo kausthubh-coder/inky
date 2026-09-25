@@ -280,6 +280,7 @@ export class AssignmentExecutionCoordinator {
       execution = this.#store.lifecycle.putExecution({
         ...execution,
         phase: "working",
+        needs: undefined,
         lastError: undefined,
         updatedAt: this.#now(),
       });
@@ -483,15 +484,22 @@ export class AssignmentExecutionCoordinator {
         return toolResult(attempt);
       },
     });
-    const takeover = defineTool({
-      name: "assignment_request_takeover",
-      label: "Request student takeover",
-      description: "Pause for login, CAPTCHA, or another action only the student can safely complete.",
+    const tellStudent = defineTool({
+      name: "assignment_tell_student",
+      label: "Tell the student",
+      description: "Tell the student something they must do, decide or know, in one or two plain sentences. needs \"nothing\" keeps working and shows it as a heads-up at review; any other value pauses until they act or reply.",
       parameters: Type.Object({
-        reason: Type.String({ minLength: 1, maxLength: 1_000 }),
-        returnPredicate: Type.String({ minLength: 1, maxLength: 1_000 }),
+        message: Type.String({ minLength: 1, maxLength: 1_000 }),
+        needs: Type.Union([Type.Literal("nothing"), Type.Literal("answer"), Type.Literal("sign_in"), Type.Literal("files"), Type.Literal("browser")]),
       }, { additionalProperties: false }),
-      execute: async (_id, input) => toolResult(await this.#handoff(this.#requiredWorkingExecution(), input.reason, input.returnPredicate)),
+      execute: async (_id, input) => {
+        const execution = this.#requiredWorkingExecution();
+        const message = input.message.trim();
+        if (input.needs !== "nothing") return toolResult(await this.#handoff(execution, message, message, input.needs));
+        const told = this.#store.lifecycle.putExecution({ ...execution, notices: [...(execution.notices ?? []), message].slice(-20), updatedAt: this.#now() });
+        await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "A heads-up from Inky", body: message.slice(0, 500) });
+        return toolResult(told);
+      },
     });
     const unsupported = defineTool({
       name: "assignment_mark_unsupported",
@@ -538,7 +546,8 @@ export class AssignmentExecutionCoordinator {
           reviewSubmissionRequestedAt: current.submissionAttemptedAt ? current.reviewSubmissionRequestedAt : undefined,
           reviewSubmissionSource: current.submissionAttemptedAt ? current.reviewSubmissionSource : undefined,
           answerSnapshot: answers,
-          doubts: input.doubts ?? [],
+          // Heads-ups given during the work stay in front of the student and stop automatic submission.
+          doubts: [...(input.doubts ?? []), ...(current.notices ?? []).map(why => ({ where: "Heads-up", why }))].slice(0, 30),
           completionChecklist: input.completedRequirements.map((item) => ({
             requirement: item.requirement.trim(),
             evidence: item.evidence.trim(),
@@ -602,7 +611,7 @@ export class AssignmentExecutionCoordinator {
       }, { additionalProperties: false }),
       execute: async (_id, input) => toolResult(await this.#submit(input.ref, input.expectedConfirmationText)),
     });
-    return [recordAnswer, recovery, takeover, unsupported, review, noteUpsert, submit];
+    return [recordAnswer, recovery, tellStudent, unsupported, review, noteUpsert, submit];
   }
 
   async #submit(ref: string, expectedConfirmationText: string): Promise<AssignmentExecution> {
@@ -669,21 +678,23 @@ export class AssignmentExecutionCoordinator {
     return needsUser;
   }
 
-  async #handoff(execution: AssignmentExecution, reason: string, returnPredicate: string): Promise<AssignmentExecution> {
+  /** A message Inky chose to send isn't an error; only failures the app detects are shown as one. */
+  async #handoff(execution: AssignmentExecution, reason: string, returnPredicate: string, needs?: NonNullable<AssignmentExecution["needs"]>): Promise<AssignmentExecution> {
     const snapshot = await this.#browser.snapshot();
     const current = this.#requiredExecution(execution.taskId);
     if (current.phase !== execution.phase) return current;
     const needsUser = this.#store.lifecycle.putExecution({
       ...current,
       phase: "needs_user",
+      needs,
       returnPredicate: returnPredicate.trim(),
       handoffDeadline: new Date(Date.parse(this.#now()) + this.#handoffWindowMs).toISOString(),
-      lastError: reason.trim(),
+      lastError: needs ? undefined : reason.trim(),
       reviewCheckpoint: this.#checkpoint(snapshot, `Student handoff requested: ${reason.trim()}`),
       updatedAt: this.#now(),
     });
     this.#manager.pause(execution.taskId, "needs_user", reason.trim());
-    await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "Studi needs you in the browser", body: reason.trim().slice(0, 500) });
+    await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: HANDOFF_TITLES[needs ?? "browser"], body: reason.trim().slice(0, 500) });
     return needsUser;
   }
 
@@ -885,4 +896,8 @@ const TOOL_ACTION_LABELS: Record<string, string> = {
   browser_scroll: "Reading more of the page", browser_submit: "Submitting the assignment",
   browser_upload: "Attaching assignment files", browser_download: "Saving a school file",
   read: "Reading an assignment file", write: "Saving an assignment file", edit: "Editing an assignment file", bash: "Running a command in the assignment folder",
+};
+
+const HANDOFF_TITLES: Record<NonNullable<AssignmentExecution["needs"]>, string> = {
+  answer: "Inky has a question", sign_in: "Sign in so Inky can continue", files: "Inky needs a file", browser: "Studi needs you in the browser",
 };

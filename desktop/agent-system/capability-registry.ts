@@ -48,7 +48,7 @@ const toolsByCapability = Object.freeze({
   "assignment-effects": [
     "assignment_record_answer_snapshot",
     "assignment_record_recovery",
-    "assignment_request_takeover",
+    "assignment_tell_student",
     "assignment_mark_unsupported",
     "assignment_start_review",
     "note_upsert",
