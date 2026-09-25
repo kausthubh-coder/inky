@@ -18,24 +18,14 @@
 @media (max-height:650px) {
   .workspace-dialog { height:calc(100dvh - 24px); }
   .workspace-dialog .chat-browser > header { padding:6px 12px; }
-  .workspace-dialog .chat-browser-owner { padding:8px 12px; margin:0; }
   .workspace-dialog .chat-browser-slot { min-height:0; }
 }
-.check-purpose { color: var(--muted); margin-top: 0; }
-.check-current { display: flex; gap: 12px; align-items: center; margin: 24px 0 16px; }
-.check-pulse,.check-dot { width: 9px; height: 9px; flex-shrink: 0; border-radius: 50%; background: #b18726; }
-.check-pulse { animation: check-pulse 1.4s ease-in-out infinite; }
-.check-coverage { margin: 24px 0; padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; }
-.check-coverage ul { list-style: none; padding: 0; margin: 8px 0; }
-.check-coverage li { display:flex; gap:16px; justify-content:space-between; padding:12px 0; border-top:1px solid var(--line); }
-.check-coverage small,.check-result small { color: var(--muted); }
-.check-results h3 { font-size:16px; margin:24px 0 12px; }
+.check-result small { color: var(--muted); }
 .check-result { display:flex; align-items:center; justify-content:space-between; gap:16px; width:100%; text-align:left; padding:16px; border:1px solid var(--line); border-radius:12px; background:var(--paper); color:var(--ink); margin:8px 0; cursor:pointer; }
 .check-result > span:first-child { display:grid; gap:6px; }
 .check-result:hover { background:#f9f1d9; }
-.check-incomplete { padding:16px; background:#fbf1d6; border-radius:12px; margin-top:20px; }
 .workspace-dialog button:focus-visible,.workspace-dialog summary:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
 @keyframes workspace-enter { from { opacity:0; transform:translateY(8px) scale(.985); } to { opacity:1; transform:none; } }
 @keyframes check-pulse { 50% { opacity:.4; } }
-@media (prefers-reduced-motion:reduce) { .workspace-dialog,.check-pulse { animation:none; } }
+@media (prefers-reduced-motion:reduce) { .workspace-dialog { animation:none; } }
 @media (max-width:700px) { .workspace-dialog { width:calc(100vw - 24px); height:calc(100dvh - 32px); border-radius:18px; } .workspace-dialog .conversation-header { padding:12px; } .workspace-dialog .conversation-log { padding:16px; } .workspace-dialog .inky-composer { margin:12px; } .workspace-dialog .chat-presence > strong { font-size:20px; } }

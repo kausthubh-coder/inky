@@ -86,7 +86,7 @@
 .st-settings .connected-app-copy > small { display:none; }
 .st-settings .connection-feedback { border:0; background:none; padding:0; font-size:12.5px; color:var(--graphite); }
 .st-settings .connection-feedback__mark { display:none; }
-.st-settings .connected-app-row .quiet-button { border:0; background:var(--blotter); border-radius:8px; padding:6px 12px; color:var(--pencil); }
+.st-settings .connected-app-row .rd-quiet { padding:6px 12px; color:var(--pencil); }
 .st-settings .settings-note { display:grid; gap:10px; padding:0 16px; }
 .st-settings .settings-note label { display:grid; gap:4px; }
 .st-settings .settings-note button { justify-self:start; }

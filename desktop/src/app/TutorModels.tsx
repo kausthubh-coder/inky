@@ -96,8 +96,8 @@ function Population({ model, onExplore, disabled }: Props<"population_grid">) {
       )}
       <div className="rd-actions">
         {model.controls.includes("sampleSize") && (
-          <label>
-            Sample size{" "}
+          <label className="rd-slider">
+            Sample size
             <input
               type="range"
               min={1}

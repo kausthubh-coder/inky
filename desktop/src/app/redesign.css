@@ -537,9 +537,17 @@ h2 {
   text-align: center;
 }
 .rd-day.is-today header span {
+  color: var(--pencil);
+  font-weight: 800;
+}
+.rd-day.is-today header span::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin: 0 5px 1px 0;
   border-radius: 50%;
-  background: var(--highlighter);
-  box-shadow: 0 0 0 1.5px var(--pencil);
+  background: var(--pencil);
 }
 .rd-day > p {
   font-size: 12px;
@@ -1212,12 +1220,6 @@ h2 {
   flex: 1;
   min-height: 0;
 }
-.rd-learn-targets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: -8px 0 26px;
-}
 .rd-chip {
   border: 1px solid var(--rule);
   border-radius: 8px;
@@ -1229,118 +1231,6 @@ h2 {
   background: var(--blotter);
   color: var(--pencil);
   border-color: var(--blot2);
-}
-.rd-learn-row {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  padding: 14px 0;
-}
-.rd-learn-row > div {
-  flex: 1;
-}
-.rd-learn-row strong {
-  font-size: 16px;
-  font-weight: 700;
-}
-.rd-learn-row p {
-  color: var(--graphite);
-  font-size: 13px;
-  margin: 4px 0 0;
-}
-.rd-learn-path {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(110px, 1fr));
-  overflow: auto;
-  border-top: 1.5px solid var(--blot2);
-  margin: 14px 0 32px;
-}
-.rd-learn-path > div {
-  position: relative;
-  padding: 12px 8px 0 0;
-  font-size: 13px;
-  color: var(--graphite);
-}
-.rd-learn-path > div::before {
-  content: "";
-  position: absolute;
-  top: -5px;
-  left: 0;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #cfc6b6;
-}
-.rd-learn-path .on::before {
-  background: var(--pencil);
-  box-shadow: 0 0 0 3px var(--highlighter);
-}
-.rd-learn-path b {
-  display: block;
-  color: var(--pencil);
-  font-weight: 600;
-}
-.rd-topic {
-  display: grid;
-  grid-template-columns: 1fr 120px 110px;
-  gap: 18px;
-  align-items: center;
-  padding: 9px 0;
-  font-size: 14.5px;
-}
-.rd-topic .rd-link {
-  text-align: left;
-}
-.rd-topic > span {
-  font-size: 13px;
-  color: var(--graphite);
-  text-align: right;
-}
-.rd-level {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 3px;
-}
-.rd-level i {
-  height: 6px;
-  border-radius: 2px;
-  background: var(--blot2);
-}
-.rd-level i.filled {
-  background: var(--pencil);
-}
-.rd-source-note {
-  display: flex;
-  gap: 14px;
-  margin: 16px 0;
-  color: var(--graphite);
-  font-size: 12px;
-}
-.rd-source-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  flex-wrap: wrap;
-}
-.rd-source-actions label {
-  font-size: 12px;
-}
-.rd-source-actions select {
-  display: block;
-  margin-top: 4px;
-}
-.rd-source-form {
-  display: grid;
-  gap: 14px;
-  margin: 20px 0;
-}
-.rd-source-form label {
-  display: grid;
-  gap: 6px;
-  font-size: 13px;
-}
-.rd-source-form button {
-  justify-self: start;
 }
 .rd-tutor-heading {
   display: flex;
@@ -1381,31 +1271,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   max-width: 800px;
   margin: 0 auto;
   padding: 14px 24px 28px;
-}
-.rd-past {
-  padding: 5px 0;
-  font-size: 13px;
-  color: var(--graphite);
-}
-.rd-past summary {
-  display: flex;
-  gap: 10px;
-  cursor: pointer;
-}
-.rd-past b {
-  width: 130px;
-  color: var(--pencil);
-  font-weight: 600;
-  flex: none;
-}
-.rd-past summary > span {
-  flex: 1;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-.rd-past em {
-  font-style: normal;
 }
 .rd-tutor-says {
   display: flex;
@@ -1555,8 +1420,7 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   max-height: 300px;
   overflow: auto;
 }
-.rd-session-notice h1,
-.rd-session-result h1 {
+.rd-session-notice h1 {
   font:
     600 23px "Shantell Sans",
     cursive;
@@ -1568,11 +1432,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   margin-right: 14px;
 }
 @media (max-width: 600px) {
-  .rd-topic {
-    grid-template-columns: 1fr 70px 82px;
-    gap: 10px;
-    font-size: 13px;
-  }
   .rd-options {
     grid-template-columns: 1fr;
   }
@@ -1585,18 +1444,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .rd-past b {
-    width: 100px;
-  }
-  .rd-learn-row {
-    flex-wrap: wrap;
-  }
-  .rd-learn-row > div {
-    min-width: 65%;
-  }
-  .rd-source-note {
-    flex-wrap: wrap;
   }
   .rd-tutor-column {
     padding: 14px 22px;
@@ -1668,101 +1515,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 .rd-command-output { margin-top: 24px; background: #26221d; color: #d9f2e4; }
 .rd-command-output summary { padding: 10px 18px; cursor: pointer; font-size: 12.5px; }
 .rd-command-output pre { margin: 0; padding: 12px 18px; max-height: 260px; overflow: auto; overflow-wrap: anywhere; }
-.rd-rule-target {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin: 16px 0;
-}
-.rd-rule-target label {
-  display: grid;
-  gap: 5px;
-  font-size: 12px;
-}
-.rd-rule-modes {
-  display: flex;
-  gap: 0;
-  padding: 4px;
-  border: 0;
-  border-radius: 10px;
-  background: var(--blotter);
-  margin: 14px 0;
-  width: max-content;
-  max-width: 100%;
-}
-.rd-rule-modes legend {
-  font-size: 12px;
-  margin-bottom: 8px;
-}
-.rd-rule-modes label {
-  position: relative;
-  padding: 8px 14px;
-  border-radius: 7px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.rd-rule-modes label.selected {
-  background: var(--page);
-  box-shadow: 0 1px 2px #2b26211a;
-}
-.rd-rule-modes input {
-  position: absolute;
-  opacity: 0;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-}
-.rd-rule-modes label:has(:focus-visible) {
-  outline: 2px solid var(--pencil);
-  outline-offset: 2px;
-}
-.rd-rule-explanation,
-.rd-rule-footnote {
-  font-size: 12px !important;
-  color: var(--graphite);
-}
-.rd-rule-list {
-  margin: 22px 0 12px;
-}
-.rd-rule-list > div {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-  padding: 10px 0;
-  font-size: 13px;
-}
-.rd-rule-list > div > span {
-  flex: 1;
-}
-.rd-rule-list b {
-  font-weight: 600;
-}
-.rd-rule-checker {
-  margin: 18px 0;
-  font-size: 13px;
-}
-.rd-rule-checker label {
-  display: grid;
-  gap: 6px;
-  margin: 14px 0;
-  max-width: 360px;
-}
-.rd-memory-row {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  padding: 10px 0;
-  font-size: 13px;
-}
-.rd-memory-row > button:first-child {
-  flex: 1;
-  text-align: left;
-}
-.rd-memory-row > span {
-  color: var(--graphite);
-  font-size: 12px;
-}
 .rd-review-answer .assignment-work > .assignment-section-heading,
 .rd-review-answer .assignment-work > .assignment-document,
 .rd-review-answer .assignment-checklist,
@@ -1862,13 +1614,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   }
   .rd-file-reader {
     padding: 14px;
-  }
-  .rd-rule-modes {
-    width: 100%;
-  }
-  .rd-rule-modes label {
-    padding: 8px;
-    font-size: 12px;
   }
   .rd-school-workspace.chat-workspace {
     display: flex;
@@ -2043,14 +1788,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   background: var(--highlighter);
   box-shadow: var(--shadow);
 }
-.rd-learn .rd-topic .rd-link {
-  display: block;
-  width: 100%;
-  text-align: left;
-  font:
-    600 14.5px "Nunito Sans",
-    sans-serif;
-}
 .rd-learn .rd-section > h2 {
   font:
     700 15px/1.5 "Nunito Sans",
@@ -2060,10 +1797,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 .rd-learn .rd-section > span {
   color: var(--graphite);
   font-size: 12px;
-}
-.rd-learn-path .rd-link {
-  display: block;
-  margin-top: 5px;
 }
 .rd-review-answer .assignment-empty-copy {
   display: none;
@@ -2228,43 +1961,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 
 /* ===== Audit fixes: Learn sources =====
    One lead action. Everything else is a quiet button of the same height, on one line. */
-.rd-source-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 18px;
-  align-items: center;
-  padding: 18px 20px;
-  margin: 8px 0 14px;
-  border-radius: 16px;
-  background: var(--blotter);
-}
-.rd-source-hero strong { display: block; font-size: 16px; }
-.rd-source-hero p { margin: 2px 0 0; font-size: 13px; color: var(--graphite); }
-.rd-source-actions { gap: 8px; margin-top: 10px; font-size: 13px; }
-.rd-source-actions > .rd-muted { margin-right: 4px; }
-.rd-source-actions .rd-source-class {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-left: auto;
-  font-size: 13px;
-  color: var(--graphite);
-}
-.rd-source-actions .rd-source-class select {
-  display: inline-block;
-  height: 30px;
-  margin: 0;
-  padding: 0 26px 0 10px;
-  border: 0;
-  border-radius: 8px;
-  background-color: var(--blotter);
-  box-shadow: none;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--pencil);
-  max-width: 190px;
-}
-.rd-learn-targets button { height: 30px; }
 
 /* ===== Audit fixes: tutor session =====
    The lesson column lines up with the answer box under it. A paused session is one calm strip,

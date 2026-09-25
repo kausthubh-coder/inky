@@ -33,9 +33,9 @@ export function ScanStatus({ state, lifecycle, busy, onCheck, onDetails, onStopA
       <ChatMarkdown text={scan?.targetAssignmentId && !owner && complete ? scan.currentStep : description} />
     </div>
     <div className="scan-status__actions">
-      {owner ? <><button className="button button--paper" onClick={onOpenWork}>Open assignment<Icon name="right" size={16} /></button><button className="button button--paper" onClick={onWait}>{ownerPaused ? "Back to my week" : "Keep working in background"}</button>{owner.canStop && <button className="button button--paper" disabled={!canStopAssignmentForScan(busy)} onClick={() => onStopAndScan(owner.taskId)}>{busy === "cancel" ? "Stopping assignment…" : "Stop assignment and scan"}</button>}<small>Saved work stays available.</small></> : <>
+      {owner ? <><button className="button button--yellow" onClick={onOpenWork}>Open assignment<Icon name="right" size={16} /></button><button className="rd-quiet" onClick={onWait}>{ownerPaused ? "Back to my week" : "Keep working in background"}</button>{owner.canStop && <button className="rd-quiet" disabled={!canStopAssignmentForScan(busy)} onClick={() => onStopAndScan(owner.taskId)}>{busy === "cancel" ? "Stopping assignment…" : "Stop assignment and scan"}</button>}<small>Saved work stays available.</small></> : <>
         {running || needs ? onDetails && <button className={`button button--${needs ? "yellow" : "paper"}`} onClick={onDetails}>{needs ? "Help Inky" : "View scan"}<Icon name="right" size={16} /></button> : <button className="button button--yellow" onClick={onCheck} disabled={busy !== null}>{busy === "scan" || busy === "resume" || busy === "replay" ? "Starting scan…" : incomplete ? "Try scan again" : "Scan for homework"}<Icon name="search" size={16} /></button>}
-        {onDetails && !running && !needs && <button className="quiet-button" onClick={onDetails}>Scan details</button>}
+        {onDetails && !running && !needs && <button className="rd-quiet" onClick={onDetails}>Scan details</button>}
       </>}
     </div>
   </section>;

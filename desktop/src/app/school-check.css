@@ -91,4 +91,4 @@
 .school-check .scan-status__copy { flex-basis:180px; }
 .school-check .scan-status__actions { align-items:flex-start;margin-left:80px; }
 .school-check .scan-status__copy > h2 { font-size:20px; }
-.school-check .scan-status__actions .button { justify-content:flex-start;min-height:34px;padding:5px 10px;background:var(--panel);font-size:11px; }
+.school-check .scan-status__actions .button { justify-content:flex-start;min-height:34px;padding:5px 10px;font-size:11px; }

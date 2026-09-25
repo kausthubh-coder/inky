@@ -53,7 +53,7 @@ export function ConnectedAppRow({ toolkit, connection, feedback, access, disable
           {message}
         </span>
       </span>
-      {!(onboarding && active && !pending && !failed) && <button className={onboarding ? "fable-button" : "quiet-button"} type="button" disabled={disabled || pending} aria-describedby={statusId} onClick={() => !onboarding && check ? onCheck(toolkit) : onConnect(toolkit)}>{label}</button>}
+      {!(onboarding && active && !pending && !failed) && <button className={onboarding ? "fable-button" : "rd-quiet"} type="button" disabled={disabled || pending} aria-describedby={statusId} onClick={() => !onboarding && check ? onCheck(toolkit) : onConnect(toolkit)}>{label}</button>}
     </div>
   );
 }

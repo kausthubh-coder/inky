@@ -182,7 +182,7 @@ export function UpdateControls({
               : "Check for updates"}
         </button>
         <button
-          className="quiet-button"
+          className="rd-quiet"
           onClick={() => update.current?.close()}
         >
           {ready ? "Later" : "Close"}

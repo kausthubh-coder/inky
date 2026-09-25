@@ -91,6 +91,7 @@ export function Today({
     settings?.permissionRules.find((rule) => rule.scope === "global")?.mode ??
     onboarding.profile?.defaultPermission ??
     "do_not_attempt";
+  const specificRules = settings?.permissionRules.filter((rule) => rule.scope !== "global").length ?? 0;
   const queueSignature = JSON.stringify(
     lifecycle.manager.entries.map((entry) => [
       entry.assignmentId,
@@ -391,13 +392,7 @@ export function Today({
                 <h2 className="rd-label">Up next</h2>
                 <div className="rd-ruleline">
                   Inky's rule: <b>{RULE_LABELS[generalRule]}</b>
-                  <span>
-                    ·{" "}
-                    {settings?.permissionRules.filter(
-                      (rule) => rule.scope !== "global",
-                    ).length ?? 0}{" "}
-                    more specific
-                  </span>
+                  {specificRules > 0 && <span>· {specificRules} more specific</span>}
                   <button
                     className="rd-quiet"
                     aria-expanded={rulesOpen}
@@ -437,7 +432,7 @@ export function Today({
       <div className="rd-shelf">
         {view !== "all" && (
           <>
-            {(["later", "undated"] as const).map((key) => (
+            {(["later", "undated"] as const).filter(key => groups[key].length > 0).map((key) => (
               <button
                 className="rd-disclosure"
                 key={key}

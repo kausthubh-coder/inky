@@ -3,7 +3,6 @@
 .assignment-workspace button { -webkit-app-region:no-drag; }
 .assignment-heading { flex:none; position:relative; padding:27px 34px 22px; border-bottom:1px solid #d8cebc; border-top:6px solid var(--course-accent); }
 .assignment-course { display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#655b50; padding-right:44px; }
-.course-dot { flex:0 0 8px; width:8px; height:8px; background:var(--course-accent); border:1px solid #746658; border-radius:50%; }
 .assignment-heading h1 { margin:13px 45px 17px 0; font-size:31px; line-height:1.2; overflow-wrap:anywhere; }
 .assignment-close { position:absolute; right:23px; top:20px; }
 .assignment-meta { display:flex; align-items:center; flex-wrap:wrap; gap:9px 24px; font-size:12px; color:#766a5c; }
@@ -34,15 +33,13 @@
 .assignment-file-mark>b { position:absolute; top:18px; left:0; width:100%; text-align:center; font:700 8px 'Nunito Sans',sans-serif; color:#705337; letter-spacing:.02em; }
 .assignment-inky { display:flex; flex-direction:column; min-width:0; min-height:0; background:#f2eddf; border-left:1px solid #d8cebc; }
 .assignment-inky-scroll { flex:1; min-height:0; overflow:auto; padding:24px 25px 16px; scrollbar-width:thin; }
-.assignment-inky-intro { display:flex; align-items:center; gap:5px; margin:0 0 8px -7px; }
-.assignment-inky-intro>span:last-child { font:600 18px 'Shantell Sans',cursive; }
 .assignment-summary > h2 { font-size:23px; line-height:1.35; margin:0 0 12px; }
 .assignment-action-note { font-size:13px; line-height:1.75; color:#736656; margin:0 0 20px; overflow-wrap:anywhere; }
 .assignment-summary .assignment-blocked { color:#805020; }
 .assignment-summary>.assignment-primary { width:100%; display:flex; align-items:center; justify-content:center; gap:9px; min-height:48px; padding:10px 12px; font-size:14px; }
 .assignment-primary svg { flex-shrink:0; }
 .assignment-permission { display:block; text-align:center; color:#85745e; font-size:10px; margin-top:12px; }
-.assignment-summary>.quiet-button { margin-top:12px; }
+.assignment-summary>.rd-quiet { margin-top:12px; }
 .assignment-workspace .assignment-stop { margin-top:18px; }
 .workspace-dialog .assignment-inky .inky-composer { position:relative; flex:none; margin:14px 19px 20px; padding:11px 8px 9px 12px; border:1px solid #b6a790; background:var(--panel); border-radius:11px 9px 10px 8px; box-shadow:2px 2px 0 #ded4c3; }
 .workspace-dialog .assignment-inky .inky-composer textarea { padding:0; min-height:36px; max-height:100px; font-size:12px; line-height:1.6; border:0; resize:none; background:none; }
@@ -113,7 +110,6 @@
   .assignment-heading { padding-top:15px; padding-bottom:14px; }
   .assignment-heading h1 { margin:8px 40px 12px 0; }
   .assignment-inky-scroll { padding-top:12px; }
-  .assignment-inky-intro { display:none; }
   .assignment-page-scroll { padding-top:18px; }
   .assignment-summary > h2 { font-size:21px; }
   .assignment-action-note { margin-bottom:13px; }

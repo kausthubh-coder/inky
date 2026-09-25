@@ -373,13 +373,20 @@ export function AssignmentWorkspace({
                     Edit it myself
                   </button>
                 )}
+                {/* Doubts stop the rule from submitting, so only promise it when nothing is in doubt. */}
                 {reviewDeadline && (
                   <p className="rd-deadline rd-auto-submit">
-                    Submits automatically at{" "}
-                    <time dateTime={reviewDeadline}>
-                      {formatDeadline(reviewDeadline)}
-                    </time>{" "}
-                    (rule: do it and submit).
+                    {doubts.length ? (
+                      "I won’t hand this in on my own until you’ve looked at these."
+                    ) : (
+                      <>
+                        Submits automatically at{" "}
+                        <time dateTime={reviewDeadline}>
+                          {formatDeadline(reviewDeadline)}
+                        </time>{" "}
+                        (rule: do it and submit).
+                      </>
+                    )}
                   </p>
                 )}
               </>
@@ -393,11 +400,6 @@ export function AssignmentWorkspace({
                     : "Checking the school’s confirmation…"}
                 </li>
               </ol>
-            )}
-            {phase === "submitted" && (
-              <button className="rd-button" onClick={onClose}>
-                Back to Today
-              </button>
             )}
             {(phase === "failed" || phase === "preserved") && (
               <>
@@ -488,8 +490,12 @@ export function AssignmentWorkspace({
             <article className="rd-receipt">
               <Inky size={64} state="idle" />
               <h1>Handed in.</h1>
-              <p>{receipt.verifiedStatus}</p>
-              <time>{new Date(receipt.submittedAt).toLocaleString()}</time>
+              <p>
+                The school page says “{receipt.verifiedStatus}” ·{" "}
+                <time dateTime={receipt.submittedAt}>
+                  {new Date(receipt.submittedAt).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                </time>
+              </p>
               <div className="rd-receipt-pair">
                 <section>
                   <h2>Before</h2>

@@ -2,7 +2,6 @@ import type { Assignment, LifecycleState, SchoolOnboardingState, TaskSummary } f
 import { assignmentWorkEligibility } from "../../shared/index.js";
 import { assignmentState } from "./assignmentPresentation.js";
 import { Icon } from "./Icon.js";
-import { Inky } from "./Inky.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 
 export function AssignmentSummary({ assignment, task, execution, lifecycle, onboarding, busy, onStart, onCheckAssignment, onResume, onPause, onBrowser, onAnswer, onOpenWork, onOpenSchoolCheck, onOpenRules }: {
@@ -95,15 +94,8 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
   else if (canCheckDetails) { label = "Check assignment details"; action = () => onCheckAssignment(assignment.assignmentId); }
   const pending = otherWork ? null : busy === "assignment" ? (state === "needs_user" ? "Resuming…" : state === "ready_review" ? "Checking submission…" : canStart ? "Starting…" : null)
     : busy === "takeover" ? "Pausing…" : busy === "cancel" ? "Stopping…" : null;
-  const heading = state === "working" ? "I’m on it." : state === "needs_user" ? "I’ve kept your place."
-    : state === "ready_review" || state === "preserved" ? "Your work is ready."
-      : state === "submitted" ? "All handed in." : state === "failed" ? "I hit a snag."
-        : state === "cancelled" ? "We can start again." : state === "submitting" ? "Checking with your school."
-          : state === "ignored" || blocked ? "Here when you need me." : "Ready when you are.";
 
   return <section className="assignment-summary" aria-label="Inky’s assignment progress">
-      <div className="assignment-inky-intro"><Inky size={72} state={state === "working" ? "working" : state === "submitting" ? "thinking" : "idle"} /><span>Inky</span></div>
-      <h2 aria-live="polite">{heading}</h2>
       <div id="assignment-action-note" className={blocked ? "assignment-action-note assignment-blocked" : "assignment-action-note"}><ChatMarkdown text={terminalSchoolStatus || canCheckDetails ? eligibility.reason : blocked ?? note} /></div>
       <button className="button button--yellow assignment-primary" autoFocus onClick={action}
         disabled={(busy !== null && !(state === "working" && busy === "assignment")) || (Boolean(blocked) && !canCheckDetails && !terminalSchoolStatus) || state === "submitting"}
@@ -114,8 +106,8 @@ export function AssignmentSummary({ assignment, task, execution, lifecycle, onbo
     {canStart && !blocked && task && <small className="assignment-permission">{task.permission.maySubmit ? "Can attempt and submit · your saved rule" : "Stops before submission · you review first"}</small>}
     {canCheckDetails && <small>I’ll check the missing facts, then wait for you to start.</small>}
     {blocked && !canCheckDetails && !terminalSchoolStatus && (!task?.permission.mayAttempt
-      ? <button className="quiet-button" onClick={onOpenRules}>Homework rules <span aria-hidden="true"><Icon name="external" size={14} /></span></button>
-      : otherWork ? <button className="quiet-button" onClick={onOpenWork}>Go to current assignment <span aria-hidden="true"><Icon name="external" size={14} /></span></button>
-        : <button className="quiet-button" onClick={onOpenSchoolCheck}>Open school check <span aria-hidden="true"><Icon name="external" size={14} /></span></button>)}
+      ? <button className="rd-quiet" onClick={onOpenRules}>Homework rules <span aria-hidden="true"><Icon name="external" size={14} /></span></button>
+      : otherWork ? <button className="rd-quiet" onClick={onOpenWork}>Go to current assignment <span aria-hidden="true"><Icon name="external" size={14} /></span></button>
+        : <button className="rd-quiet" onClick={onOpenSchoolCheck}>Open school check <span aria-hidden="true"><Icon name="external" size={14} /></span></button>)}
   </section>;
 }
