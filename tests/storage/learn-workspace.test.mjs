@@ -41,3 +41,16 @@ test("study pages carry a no-network policy ahead of any page markup", () => {
   assert.match(document, /form-action 'none'/);
   assert.match(document, /window\.studi=\{explore:/);
 });
+
+test("cheatsheet deduplicates exact lines across the whole file", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "studi-cheatsheet-"));
+  try {
+    await addCheatsheetLines(directory, ["A stack is LIFO", "A stack is LIFO after each push"]);
+    await addCheatsheetLines(directory, Array.from({ length: 100 }, (_, index) => `Fact ${index}`));
+    await addCheatsheetLines(directory, ["A stack is LIFO", "A stack is LIFO after each push", "A queue is FIFO"]);
+    const lines = (await readFile(join(directory, "CHEATSHEET.md"), "utf8")).trim().split("\n");
+    assert.equal(lines.filter(line => line === "- A stack is LIFO").length, 1);
+    assert.equal(lines.filter(line => line === "- A stack is LIFO after each push").length, 1);
+    assert.equal(lines.filter(line => line === "- A queue is FIFO").length, 1);
+  } finally { await rm(directory, { recursive: true, force: true }); }
+});

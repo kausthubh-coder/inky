@@ -41,7 +41,7 @@ test('Learn page, selectable PDF and changed exam are deterministic and survive 
   const initial = server.inspect();
   assert.equal(initial.state.courses.length, 2);
   assert.equal(initial.truth.expectedExams.length, 1);
-  assert.deepEqual(initial.truth.expectedTopics.map(item => item.weight), [25, 45, 30]);
+  assert.deepEqual(initial.truth.expectedTopics.map(item => item.weight), [20, 35, 20, 25]);
   assert.equal(initial.truth.expectedExams[0].date, '2026-09-21T17:00:00.000Z');
   assert.match((await form(server.url + '/courses/structures')).html, /\/courses\/structures\/syllabus/);
   const page = await form(server.url + '/courses/structures/syllabus');
@@ -50,7 +50,7 @@ test('Learn page, selectable PDF and changed exam are deterministic and survive 
   assert.match((await form(server.url + '/courses/writing')).html, /No syllabus has been published/);
   const pdf = await (await fetch(server.url + '/files/structures-syllabus')).text();
   assert.match(pdf, /^%PDF-1\.4/);
-  assert.match(pdf, /Trees and heaps - 45%/);
+  assert.match(pdf, /Trees and heaps - 35%/);
   const observation = learnObservation(initial, server.url);
   assert.equal(gradeLearn(initial, observation, server.origins).passed, true);
   server.advance('exam-moved');

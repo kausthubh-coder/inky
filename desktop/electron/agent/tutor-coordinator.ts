@@ -175,10 +175,10 @@ export class TutorCoordinator {
     if (open && call.tool !== "tutor_say" && call.tool === open.tool && JSON.stringify(call.args) === JSON.stringify(open.args)) block = open;
     else block = this.repository.openBlock(sessionId, toolCallId, call);
     this.#publish(sessionId);
-    if (block.tool === "tutor_show_page" && block.status === "open") void this.#files(files => files.savePage(this.repository.session(sessionId), block.args.title, block.args.html), undefined);
+    if (block.tool === "tutor_show_page" && block.status === "open") await this.#files(files => files.savePage(this.repository.session(sessionId), block.args.title, block.args.html), undefined);
     if (block.tool === "tutor_finish") {
       const finished = this.repository.session(sessionId);
-      void this.#files(files => files.recordFinish(finished), undefined);
+      await this.#files(files => files.recordFinish(finished), undefined);
       return finished.result;
     }
     if (block.status !== "open") return { blockId: block.blockId, result: block.result };

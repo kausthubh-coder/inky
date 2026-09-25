@@ -75,7 +75,7 @@ export async function withLmsApp(options, run) {
         throw new Error("The dedicated QA Codex provider cache is unavailable for live homework verification.");
       }
     }
-    app = await _electron.launch({
+    const launch = () => _electron.launch({
       executablePath: electronPath,
       args: [mainEntry],
       cwd: projectRoot,
@@ -89,6 +89,7 @@ export async function withLmsApp(options, run) {
         STUDI_E2E_REVIEW_WINDOW_MS: String(options.reviewWindowMs ?? 150),
       },
     });
+    const readyPage = async () => {
     await app.firstWindow();
     let page;
     const deadline = Date.now() + 20_000;
@@ -109,7 +110,15 @@ export async function withLmsApp(options, run) {
       throw new Error(`Studi did not reach its app screen: ${JSON.stringify(surfaces)}`);
     }
     await page.setViewportSize({ width: 1120, height: 760 });
-    await run({ app, page, school, homeworkRoot, profileRoot });
+    return page;
+    };
+    app = await launch();
+    const page = await readyPage();
+    await run({ app, page, school, homeworkRoot, profileRoot, restart: async () => {
+      await app.close();
+      app = await launch();
+      return readyPage();
+    } });
   } finally {
     await app?.close().catch(() => undefined);
     await school?.close().catch(() => undefined);

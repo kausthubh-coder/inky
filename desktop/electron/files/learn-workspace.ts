@@ -49,8 +49,11 @@ export async function recordSessionNote(directory: string, note: SessionNote): P
 
 export async function addCheatsheetLines(directory: string, lines: readonly string[]): Promise<void> {
   if (!lines.length) return;
-  const existing = await readTail(join(directory, "CHEATSHEET.md"));
-  const fresh = [...new Set(lines)].filter(line => !existing.includes(line));
+  let existing = "";
+  try { existing = await readFile(join(directory, "CHEATSHEET.md"), "utf8"); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  const saved = new Set(existing.split(/\r?\n/).filter(line => line.startsWith("- ")).map(line => line.slice(2)));
+  const fresh = [...new Set(lines)].filter(line => !saved.has(line));
   if (fresh.length) await appendFile(join(directory, "CHEATSHEET.md"), fresh.map(line => `- ${line}\n`).join(""), "utf8");
 }
 

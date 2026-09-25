@@ -520,15 +520,24 @@ export function createScenario(
   if (scenarioId === "learn") {
     state.courses = courses.filter((item) => ["structures", "writing"].includes(item.id));
     state.activities = activities.filter((item) => item.id === "observation");
+    state.assets.push({
+      id: "structures-review", name: "CS-316-midterm-review.txt", mime: "text/plain", format: "text",
+      text: "CS 316 midterm review\n1. Trace a stack push and pop.\n2. Explain a loop invariant.\n3. Compare linear and binary search.\n4. Trace insertion sort on [3, 1, 2] and count shifts.",
+    });
+    state.activities.push(activity("structures-review-resource", "structures", "Midterm review sheet", {
+      kind: "lesson", moduleType: "resource", submissionChannel: "none", dueAt: null,
+      dueText: "No submission required", closeAt: null, attachments: ["structures-review"], requirements: [],
+    }));
     // Writing intentionally has no syllabus: a source-free Learn state must stay honest.
     state.syllabi = syllabi.filter((item) => item.courseId === "structures");
     state.exams = [{
       id: "structures-midterm", courseId: "structures", title: "CS 316 midterm exam",
       date: "2026-09-21T17:00:00.000Z",
       topics: [
-        { id: "stacks", title: "Stacks and queues", chapter: 1, weight: 25 },
-        { id: "trees", title: "Trees and heaps", chapter: 2, weight: 45 },
-        { id: "complexity", title: "Algorithm complexity", chapter: 3, weight: 30 },
+        { id: "stacks", title: "Stacks and queues", chapter: 1, weight: 20 },
+        { id: "trees", title: "Trees and heaps", chapter: 2, weight: 35 },
+        { id: "complexity", title: "Algorithm complexity", chapter: 3, weight: 20 },
+        { id: "sorting", title: "Insertion sort", chapter: 4, weight: 25 },
       ],
     }];
   }

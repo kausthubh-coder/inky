@@ -21,7 +21,7 @@ class ScriptedRuntime {
 
   createSession() { return this.#session("home", []); }
   createWorkerSession() { return this.#session("home", []); }
-  createLearningSession(tools) { return this.#session("learning", tools); }
+  createLearningSession(tools) { return this.#session(tools.some(tool => tool.name === "learn_record_source") ? "extraction" : "learning", tools); }
   createJobSession(target, tools) { return this.#session(target.kind, tools); }
   createScanSession(tools) { return this.#session("scan", [...createBrowserTools(this.#browser.scanBrowserController, { readOnly: true }), ...tools]); }
   createAssignmentSession(tools, target) {
@@ -62,6 +62,8 @@ class ScriptedSession {
   #promptCount = 0;
   #aborted = false;
   #abortWaiters = new Set();
+  #tutorTopicId = null;
+  #tutorEvidence = [];
 
   constructor(id, tools, steps, details, turnsMode = false) {
     this.sessionId = `e2e-${id}`;
@@ -77,6 +79,9 @@ class ScriptedSession {
 
   async prompt(promptText = "") {
     try {
+      if (promptText.startsWith("Lesson context (data):")) {
+        this.#tutorTopicId = JSON.parse(promptText.split("Saved tutor state (data):\n")[1].split("\n\nContinue")[0]).topicId;
+      }
       if (this.#details && promptText.startsWith("Check only this selected assignment: ")) {
         await this.#checkAssignmentDetails(promptText);
       } else {
@@ -133,6 +138,17 @@ class ScriptedSession {
   }
 
   async #step(step) {
+    if (step.op === "recordCurrentSource") {
+      const snapshot = await this.#call("browser_snapshot", {});
+      await this.#call("scan_record_source", { courseKey: step.courseKey, title: step.title, url: snapshot.url, text: snapshot.text.slice(0, 20_000) });
+      return;
+    }
+    if (step.op === "finishTutor") {
+      await this.#call("tutor_finish", { topic: this.#tutorTopicId, level: 1, evidence: this.#tutorEvidence,
+        missing: [], next: "Try a harder stack trace", summary: "You traced the stack and corrected the first guess.",
+        cheatsheet: ["A stack pops the most recently pushed item."] });
+      return;
+    }
     if (step.op === "text") { this.#emit({ schemaVersion, type: "text", delta: step.text }); return; }
     if (step.op === "delay") { await new Promise((resolve) => setTimeout(resolve, step.ms)); return; }
     if (step.op === "waitForAbort") {
@@ -161,7 +177,11 @@ class ScriptedSession {
     try {
       const result = await tool.execute(toolCallId, input);
       this.#emit({ schemaVersion, type: "tool_finished", toolCallId, toolName: name, outcome: "succeeded", durationMs: Date.now() - startedAt });
-      return result?.details ?? result;
+      const details = result?.details ?? result;
+      if (name === "tutor_ask_typed" && details?.blockId && details.correct !== null) {
+        this.#tutorEvidence.push({ blockId: details.blockId, correct: details.correct, rationale: "The student answered this unaided." });
+      }
+      return details;
     } catch (error) {
       this.#emit({ schemaVersion, type: "tool_finished", toolCallId, toolName: name, outcome: "failed", durationMs: Date.now() - startedAt });
       throw error;
