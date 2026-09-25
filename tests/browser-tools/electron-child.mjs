@@ -46,7 +46,7 @@ let schoolPostBlocked = false, ssoPostAllowed = false;
 const guard = installScanReadOnlyGuard(window.webContents.session, {
   signInHosts: [new URL(config.origins.unity).host],
   ltiLaunchHosts: [new URL(config.origins.statistics).host],
-  onBlocked: details => { if (details.url.includes("/assignments/exercise-05") && details.method === "POST") schoolPostBlocked = true; },
+  onScanWrite: (details, decision) => { if (decision.action === "block" && details.url.includes("/assignments/exercise-05") && details.method === "POST") schoolPostBlocked = true; },
 });
 guard.setScanActive(true);
 window.webContents.session.webRequest.onBeforeSendHeaders((details, callback) => {

@@ -26,7 +26,8 @@ export interface ScanReadOnlyGuardOptions {
   readonly signInHosts?: readonly string[];
   /** Exact hosts discovered from verified course-page LTI launch forms. */
   readonly ltiLaunchHosts?: readonly string[];
-  readonly onBlocked?: (request: Readonly<Pick<OnBeforeRequestListenerDetails, "method" | "resourceType" | "url">>) => void;
+  /** Every request during a scan that isn't a plain read, allowed or blocked, so a real-school run can prove it wrote nothing. */
+  readonly onScanWrite?: (request: Readonly<Pick<OnBeforeRequestListenerDetails, "method" | "resourceType" | "url">>, decision: ScanRequestDecision) => void;
 }
 
 export interface ScanReadOnlyGuard {
@@ -75,9 +76,9 @@ export function installScanReadOnlyGuard(
     (details, callback) => {
       const decision = classifyScanRequestWithPolicy(details, policy, scanActive);
       callback(decision.action === "block" ? { cancel: true } : {});
-      if (decision.action === "block") {
+      if (scanActive && decision.reason !== "read") {
         try {
-          options.onBlocked?.({ method: details.method, resourceType: details.resourceType, url: details.url });
+          options.onScanWrite?.({ method: details.method, resourceType: details.resourceType, url: details.url }, decision);
         } catch {
           // Observability must never change enforcement at the request boundary.
         }

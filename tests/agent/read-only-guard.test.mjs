@@ -46,21 +46,23 @@ test("school profiles default both exact-host allowlists", () => {
 
 test("session guard blocks scan form, fetch, and XHR writes but leaves assignment writes enabled", () => {
   const webRequest = fakeWebRequest();
-  const blocked = [];
+  const logged = [];
   const guard = installScanReadOnlyGuard(
     { webRequest },
-    { onBlocked: request => blocked.push(request) },
+    { onScanWrite: (request, decision) => logged.push({ ...request, ...decision }) },
   );
 
   assert.deepEqual(webRequest.request({ method: "POST", resourceType: "mainFrame" }), {});
 
   guard.setScanActive(true);
+  assert.deepEqual(webRequest.request({ method: "GET", resourceType: "mainFrame" }), {});
+  assert.equal(logged.length, 0, "plain reads and assignment work stay out of the scan write log");
   assert.deepEqual(webRequest.request({ method: "POST", resourceType: "mainFrame" }), { cancel: true });
   assert.deepEqual(webRequest.request({ method: "POST", resourceType: "xhr" }), { cancel: true });
   assert.deepEqual(webRequest.request({ method: "PUT", resourceType: "xhr" }), { cancel: true });
   assert.deepEqual(webRequest.request({ method: "PATCH", resourceType: "xhr" }), { cancel: true });
   assert.deepEqual(webRequest.request({ method: "DELETE", resourceType: "xhr" }), { cancel: true });
-  assert.equal(blocked.length, 5);
+  assert.deepEqual(logged.map(entry => `${entry.method} ${entry.action}`), ["POST block", "POST block", "PUT block", "PATCH block", "DELETE block"]);
 
   guard.setScanActive(false);
   assert.deepEqual(webRequest.request({ method: "POST", resourceType: "xhr" }), {});

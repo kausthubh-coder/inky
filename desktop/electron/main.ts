@@ -3,7 +3,7 @@ import { configureAppNavigation } from "./app-navigation.js";
 import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
-import { existsSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -1053,9 +1053,12 @@ function schoolBrowserPage(key: string): {view:WebContentsView;controller:Browse
   if (!window || window.isDestroyed()) throw new Error("The school browser is unavailable");
   const schoolSession = electronSession.fromPartition("persist:studi-school", {cache:true});
   schoolReadOnlyGuard ??= installScanReadOnlyGuard(schoolSession, {
-    onBlocked: request => {
+    // One line per non-read request during a scan, allowed or blocked: the evidence that a real-school scan wrote nothing.
+    onScanWrite: (request, decision) => {
       const url = new URL(request.url);
-      recordBrowserDiagnostic("scan_write_blocked", { method: request.method, resourceType: request.resourceType, url: url.origin + url.pathname });
+      const entry = { at: new Date().toISOString(), ...decision, method: request.method, resourceType: request.resourceType, url: url.origin + url.pathname };
+      if (decision.action === "block") recordBrowserDiagnostic("scan_write_blocked", entry);
+      try { appendFileSync(join(app.getPath("userData"), "scan-guard.jsonl"), JSON.stringify(entry) + "\n"); } catch { /* Logging never changes enforcement. */ }
     },
   });
   disposeSchoolDownloads ??= installSchoolDownloads(schoolSession, {
