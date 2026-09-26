@@ -40,6 +40,9 @@ import { parseDueDate } from "../../shared/due-date.js";
 import { runSchoolConnector, type ConnectorAssignmentRow } from "./connectors/index.js";
 import { assignmentScanChange, mergeScanChange, removedScanChanges } from "./refresh-diff.js";
 
+/** An external-tool link on a course page: its work and dates live on the vendor's site. */
+interface ExternalTool { readonly courseKey: string; readonly courseLabel: string; readonly title: string; readonly href: string }
+
 export interface ScanSessionRuntime {
   createScanSession(
     recordingTools: readonly ToolDefinition[],
@@ -66,6 +69,7 @@ export class SchoolScanCoordinator {
   #sourceChecksThisSession = 0;
   #rotateSession = false;
   #lastConnectorSignedIn = false;
+  #externalTools: readonly ExternalTool[] = [];
   readonly #maxSourcesPerSession: number;
   readonly #maxSessionsPerRun: number;
   readonly #activeLimitMs: number;
@@ -349,7 +353,28 @@ export class SchoolScanCoordinator {
     this.#readOnlyGuard?.setAllowedHosts?.(this.#store.school.getProfile() ?? undefined);
     this.#readOnlyGuard?.setScanActive(true);
     try { return await run(); }
-    finally { this.#readOnlyGuard?.setScanActive(false); }
+    finally {
+      this.#readOnlyGuard?.setScanActive(false);
+      await this.#reopenForSignIn();
+    }
+  }
+
+  /**
+   * A sign-in the scan hit while guarded was blocked, which leaves a blank page. Once the scan pauses for the
+   * student, the guard is off, so reopen the school page that asked for sign-in and let the school's own
+   * sign-in run. On resume, the round trip teaches Studi the sign-in hosts.
+   */
+  async #reopenForSignIn(): Promise<void> {
+    const scan = this.#store.school.latestScan();
+    const profile = this.#store.school.getProfile();
+    if (scan?.state !== "needs_user" || scan.handoff?.kind !== "school_sign_in" || !profile || typeof this.#browser.evaluateInPage !== "function") return;
+    try {
+      // A sign-in page that loaded is the student's to use; only a blank, blocked page is replaced.
+      if (await this.#browser.evaluateInPage<number>("document.body?.innerText?.trim().length ?? 0") > 0) return;
+      const rootHost = new URL(profile.schoolRoot).host;
+      const page = [...(this.#browser.navigationUrls ?? [])].reverse().find(url => new URL(url).host === rootHost) ?? profile.schoolRoot;
+      await this.#browser.navigate(page);
+    } catch (error) { this.#reportError(error, scan.scanId, "sign_in_reopen"); }
   }
 
   async #start(kind: SchoolScan["kind"], workflow: SchoolScanWorkflow | null = null, targetAssignmentId?: string, sourceScanTarget?: string, materialsCourseId?: string): Promise<SchoolOnboardingState> {
@@ -403,10 +428,13 @@ export class SchoolScanCoordinator {
         ? await this.#ingestConnector(scan.scanId, profile)
         : false;
       if (this.#lastConnectorSignedIn) this.#learnSignInHosts("onboarding");
-      if (connectorComplete) {
+      if (connectorComplete && !this.#externalTools.length) {
         await this.#finishStructured(scan.scanId);
         return this.state();
       }
+      const externalTools = this.#externalTools.length
+        ? `\n\n# External tools on course pages\nThese open vendor sites whose work and due dates exist only there. Open each from its course page, record the vendor's current work for that class, and skip tools that only hold reading (a textbook).\n${this.#externalTools.map(tool => `- ${tool.courseLabel}: ${tool.title} (${tool.href})`).join("\n")}`
+        : "";
 
     const noteEntries = retrieveNoteIndex(this.#store.notes.list(), { kind: "scan", schoolId: profile.profileId });
     const noteBodies = await Promise.all(noteEntries.map(async (entry) => ({ entry, document: await this.#store.notes.read(entry.noteId) })));
@@ -425,7 +453,7 @@ export class SchoolScanCoordinator {
       : "";
     return await this.#run(
       scan,
-      `Run a ${kind === "replay" ? "refresh" : "setup"} school check. ${connectorComplete ? "The signed-in LMS connector already saved its courses and LMS assignment rows. Do not reread unchanged LMS details. The remaining job is linked homework systems." : "The LMS connector left gaps. Check dashboard/calendar, course lists, and linked systems using the visible browser."} On each course page, take one full browser_snapshot, record the course, read all list rows with browser_rows, and record visible work in batches. Expand visible collapsed lists. Open a linked homework system only if the observed school page links to it; check its assignment index but do not record the same class/title/deadline twice. Never guess an LMS URL or revisit a course already checked in this run. Do not spend this setup check on university syllabus pages; that is a materials check. If sign-in blocks one system, record that system and request a handoff only after saving reachable work. Use only the six scan tools. Stop after dashboard/calendar, each observed course list, and linked indexes have been checked; the app finishes the scan.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${priorWorkflow}`,
+      `Run a ${kind === "replay" ? "refresh" : "setup"} school check. ${connectorComplete ? "The signed-in LMS connector already saved its courses and LMS assignment rows. Do not reread unchanged LMS details. The remaining job is linked homework systems." : "The LMS connector left gaps. Check dashboard/calendar, course lists, and linked systems using the visible browser."} On each course page, take one full browser_snapshot, record the course, read all list rows with browser_rows, and record visible work in batches. Expand visible collapsed lists. Open a linked homework system only if the observed school page links to it; check its assignment index but do not record the same class/title/deadline twice. Never guess an LMS URL or revisit a course already checked in this run. Do not spend this setup check on university syllabus pages; that is a materials check. If sign-in blocks one system, record that system and request a handoff only after saving reachable work. Use only the scan tools. Stop after dashboard/calendar, each observed course list, and linked indexes have been checked; the app finishes the scan.\n\n# School scan notes\n${notes}\n\n# Prior gaps\n${gaps}\n\n# Known linked systems\n${linked}${externalTools}${priorWorkflow}`,
     );
     } catch (error) {
       this.#fail(scan.scanId, `The scan could not start: ${errorMessage(error)}`);
@@ -435,6 +463,7 @@ export class SchoolScanCoordinator {
 
   async #ingestConnector(scanId: string, profile: SchoolProfile): Promise<boolean> {
     this.#lastConnectorSignedIn = false;
+    this.#externalTools = [];
     let result;
     try {
       result = await runSchoolConnector(this.#browser, profile.schoolRoot);
@@ -462,7 +491,17 @@ export class SchoolScanCoordinator {
       .filter(course => previouslyCompleted.has(course.courseId))
       .map(course => course.sourceTarget);
     const pageLists = await this.#readCoursePages(result.courses.map(course => ({ label: course.label, href: course.href, key: course.courseKey })), skipPages);
+    this.#externalTools = pageLists.externalTools ?? [];
     this.#lastConnectorSignedIn = result.courses.length > 0 || pageLists.courses.length > 0;
+    // Written dates ("Friday, 4 September 2026, 11:59 PM") need the school's zone. Adopt this computer's
+    // zone only when it turns a written date back into the exact instant Moodle's API gave for the same item.
+    if (!this.#store.school.getProfile()?.schoolTimeZone) {
+      const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const exact = new Map(result.rows.filter(row => row.dueAt).map(row => [exactTarget(row.href), new Date(row.dueAt!).toISOString()]));
+      const confirmed = pageLists.rows.some(row => row.dueText && exact.get(exactTarget(row.href))
+        === parseDueDate(row.dueText, { schoolTimeZone: zone, capturedAt })?.dueAt);
+      if (confirmed) this.#store.school.putProfile({ ...this.#store.school.getProfile()!, schoolTimeZone: zone, updatedAt: capturedAt });
+    }
     const makeEvidence = (target: string, summary: string): EvidenceReference => {
       const evidenceId = `evidence-${scanId}-connector-${randomUUID()}`;
       return {
@@ -524,6 +563,7 @@ export class SchoolScanCoordinator {
   async #readCoursePages(known: readonly { label: string; href: string; key: string }[], skipTargets: readonly string[]): Promise<{
     courses: Array<{ label: string; href: string; courseKey: string; code: null; sourceLabels: [] }>;
     rows: ConnectorAssignmentRow[];
+    externalTools: ExternalTool[];
     failures: string[];
     completedCourseKeys: string[];
     complete: boolean;
@@ -533,6 +573,13 @@ export class SchoolScanCoordinator {
         const known = ${JSON.stringify(known)};
         const skip = new Set(${JSON.stringify(skipTargets)});
         const sameOrigin = href => { try { return new URL(href, location.href).origin === location.origin; } catch { return false; } };
+        // Moodle adds screen-reader labels (" Assignment", " Quiz") inside activity links; titles leave them out.
+        const visibleText = element => {
+          if (!element) return '';
+          const copy = element.cloneNode(true);
+          copy.querySelectorAll('.accesshide, .sr-only, .visually-hidden').forEach(node => node.remove());
+          return copy.textContent.replace(/\\s+/g, ' ').trim();
+        };
         const seen = new Map(known.map(course => [new URL(course.href, location.href).href, course]));
         for (const link of document.querySelectorAll('a[href]')) {
           const href = new URL(link.href, location.href);
@@ -544,6 +591,7 @@ export class SchoolScanCoordinator {
         const rows = [];
         const failures = [];
         const completedCourseKeys = [];
+        const externalTools = [];
         for (const source of [...seen.values()].slice(0, 100)) {
           if (!sameOrigin(source.href)) continue;
           if (skip.has(source.href)) continue;
@@ -558,18 +606,23 @@ export class SchoolScanCoordinator {
             completedCourseKeys.push(courseKey);
             for (const element of page.querySelectorAll('tr.activity, li.activity, .activity.modtype_assign, .activity.modtype_quiz, .activity.modtype_lti')) {
               const cls = element.className?.toString() || '';
-          const kind = /modtype_quiz/.test(cls) ? 'quiz'
-                : /modtype_(assign|lti)/.test(cls) ? 'assignment' : null;
-              if (!kind) continue;
               const link = element.querySelector('a[href]');
-              if (!link?.textContent?.trim()) continue;
+              const title = visibleText(element.querySelector('.instancename') ?? link);
+              if (!link || !title) continue;
+              // An external tool (WebAssign, Gradescope, a textbook) is a doorway to a vendor site, not work itself.
+              if (/modtype_lti/.test(cls)) {
+                externalTools.push({ courseKey, courseLabel: source.label, title, href: new URL(link.getAttribute('href'), source.href).href });
+                continue;
+              }
+              const kind = /modtype_quiz/.test(cls) ? 'quiz' : /modtype_assign/.test(cls) ? 'assignment' : null;
+              if (!kind) continue;
               const cells = [...element.querySelectorAll('td')];
               const dueText = cells[1]?.textContent?.trim() || null;
               const statusText = cells[2]?.textContent?.trim() || null;
               rows.push({
                 assignmentKey: element.getAttribute('data-id') || link.href,
                 courseKey,
-                title: link.textContent.trim(),
+                title,
                 href: new URL(link.getAttribute('href'), source.href).href,
                 dueAt: null,
                 dueText,
@@ -579,13 +632,46 @@ export class SchoolScanCoordinator {
                 sourceLabels: []
               });
             }
+            // Moodle's per-class assignment and quiz lists carry every item's due date, submission state and grade,
+            // so finished work isn't shown as overdue and items the course page lists without a date get one.
+            const moodleCourse = new URL(source.href).pathname.endsWith('/course/view.php') ? new URL(source.href).searchParams.get('id') : null;
+            for (const [module, kind] of moodleCourse ? [['assign', 'assignment'], ['quiz', 'quiz']] : []) {
+              const index = new URL('/mod/' + module + '/index.php?id=' + moodleCourse, source.href).href;
+              const reply = await fetch(index, { credentials: 'same-origin', headers: { accept: 'text/html' } });
+              if (!reply.ok) continue;
+              const table = new DOMParser().parseFromString(await reply.text(), 'text/html').querySelector('table.generaltable');
+              if (!table) continue;
+              const headers = [...table.querySelectorAll('thead th')].map(cell => cell.textContent.trim().toLowerCase());
+              const column = pattern => headers.findIndex(header => pattern.test(header));
+              const [due, submission, grade] = [column(/due|closes/), column(/submission/), column(/grade/)];
+              for (const row of table.querySelectorAll('tbody tr')) {
+                const link = row.querySelector('a[href*="/mod/' + module + '/view.php"]');
+                if (!link) continue;
+                const cells = [...row.children];
+                const cell = at => at >= 0 ? cells[at]?.textContent?.replace(/\\s+/g, ' ').trim() || null : null;
+                const dueText = cell(due);
+                const graded = cell(grade);
+                rows.push({
+                  assignmentKey: link.href,
+                  courseKey,
+                  title: visibleText(link),
+                  href: new URL(link.getAttribute('href'), index).href,
+                  dueAt: null,
+                  dueText: dueText && dueText !== '-' ? dueText : null,
+                  statusText: graded && /\\d/.test(graded) ? 'Graded ' + graded : cell(submission),
+                  kind,
+                  instructions: null,
+                  sourceLabels: []
+                });
+              }
+            }
           } catch (error) { failures.push('Could not read course ' + source.label + ': ' + String(error)); }
         }
-        return { courses, rows, failures, completedCourseKeys, complete: seen.size > 0 && failures.length === 0 };
+        return { courses, rows, externalTools, failures, completedCourseKeys, complete: seen.size > 0 && failures.length === 0 };
       })()`);
     } catch (error) {
       this.#reportError(error, this.#store.school.latestScan()?.scanId ?? "", "course_pages");
-      return { courses: [], rows: [], failures: ["Course pages could not be read; the browser agent will continue."], completedCourseKeys: [], complete: false };
+      return { courses: [], rows: [], externalTools: [], failures: ["Course pages could not be read; the browser agent will continue."], completedCourseKeys: [], complete: false };
     }
   }
 
@@ -594,17 +680,19 @@ export class SchoolScanCoordinator {
     if (!profile) return;
     const rootHost = new URL(profile.schoolRoot).host;
     const chain = this.#browser.navigationUrls;
-    const last = chain.length - 1;
-    if (last < 2 || new URL(chain[last]!).host !== rootHost) return;
-    let start = -1;
-    for (let index = last - 1; index >= 0; index--) {
-      if (new URL(chain[index]!).host === rootHost) { start = index; break; }
-    }
-    if (start < 0 || !chain.slice(start + 1, last).some(url => new URL(url).host !== rootHost)) return;
+    const onRoot = (index: number) => new URL(chain[index]!).host === rootHost;
+    if (chain.length < 2 || !onRoot(chain.length - 1)) return;
+    // The last stretch away from the school before it came back is the sign-in. It starts after the previous
+    // school page, or at the link the student entered when sign-in began elsewhere (a portal, say).
+    let end = chain.length - 1;
+    while (end > 0 && onRoot(end - 1)) end--;
+    let start = end - 1;
+    while (start >= 0 && !onRoot(start)) start--;
+    if (end - start < 2) return;
     try {
       const learned = autofillSignInHosts(profile, {
         schoolRoot: profile.schoolRoot,
-        redirectChain: chain.slice(start, last + 1),
+        redirectChain: chain.slice(Math.max(start, 0), end + 1),
         context,
         signedIn: true,
       });
@@ -639,6 +727,14 @@ export class SchoolScanCoordinator {
           if (!reply.ok) continue;
           const page = new DOMParser().parseFromString(await reply.text(), 'text/html');
           forms.push(...collect(page, moduleUrl));
+          // The launch form often sits one step on, on a same-site launch page the tool page links or frames.
+          const launches = [...page.querySelectorAll('iframe[src], a[href]')]
+            .map(node => { try { return new URL(node.getAttribute('src') ?? node.getAttribute('href'), moduleUrl); } catch { return null; } })
+            .filter(url => url && url.origin === location.origin && /launch/i.test(url.pathname)).slice(0, 3);
+          for (const launch of launches) {
+            const next = await fetch(launch.href, { credentials: 'same-origin' });
+            if (next.ok) forms.push(...collect(new DOMParser().parseFromString(await next.text(), 'text/html'), launch.href));
+          }
         } catch { /* An unreadable module never widens the policy. */ }
       }
       return forms;
@@ -684,7 +780,7 @@ export class SchoolScanCoordinator {
     const dueAt = exactDueAt ?? (parsed?.precision === "datetime" ? parsed.dueAt : undefined);
     const deadlinePrecision = exactDueAt ? "datetime" as const : parsed?.precision ?? "unknown" as const;
     const status = row.statusText?.toLowerCase() ?? "";
-    const statusState = /not submitted|to do|unsubmitted/.test(status) ? "not_submitted" as const
+    const statusState = /not submitted|to do|unsubmitted|no submission|no attempt/.test(status) ? "not_submitted" as const
       : /graded/.test(status) ? "graded" as const
       : /submitted|turned in/.test(status) ? "submitted" as const
       : /locked|closed/.test(status) ? "locked" as const : "unknown" as const;
@@ -947,11 +1043,11 @@ export class SchoolScanCoordinator {
       },
     });
     const recordCourse = { ...courseTool, execute: async (...args: Parameters<typeof courseTool.execute>) => {
-      await courseTool.execute(...args);
-      const scan = this.#requiredRunningScan(scanId);
-      try { await this.#learnLtiLaunchHosts(scan.observedCourseIds.at(-1)!); }
+      // The course just recorded, not the last in the list: the connector may have listed every course already.
+      const { courseId } = (await courseTool.execute(...args)).details as { courseId: string };
+      try { await this.#learnLtiLaunchHosts(courseId); }
       catch (error) { this.#reportError(error, scanId, "lti_launch_hosts"); }
-      return toolResult({ saved: true, ids: scan.observedCourseIds.slice(-1) });
+      return toolResult({ saved: true, ids: [courseId] });
     } };
     const recordRows = defineTool({
       name: "scan_record_rows",
@@ -1043,7 +1139,24 @@ export class SchoolScanCoordinator {
       await handoffTool.execute(...args);
       return toolResult({ saved: true, state: "needs_user" });
     } };
-    const tools = [status, recordSystem, recordCourse, recordRows, recordSource, handoff];
+    // The class's standing facts, kept as a course note that homework and tutoring read back.
+    const classNote = defineTool({
+      name: "scan_record_class_note",
+      label: "Save what to know about a class",
+      description: "Save one short note about a verified class from its syllabus and course pages: grading breakdown, kinds of assignments and where they're submitted, late policy, exam dates, where materials live. Replaces the class's earlier note.",
+      parameters: Type.Object({
+        courseKey: Type.String({ minLength: 1, maxLength: 500 }),
+        text: Type.String({ minLength: 1, maxLength: 4000 }),
+      }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        const course = this.#store.school.listCourses().find(item => item.courseId === input.courseKey || item.label === input.courseKey);
+        if (!course || !this.#requiredRunningScan(scanId).observedCourseIds.includes(course.courseId)) throw new Error("Verify the class first");
+        await this.#store.notes.upsert({ scope: "course", subjectId: course.courseId, about: "knowledge", key: "class-overview",
+          title: `${course.label}: what to know`.slice(0, 200), content: input.text.trim(), updatedAt: this.#now() });
+        return toolResult({ saved: true, courseId: course.courseId });
+      },
+    });
+    const tools = [status, recordSystem, recordCourse, recordRows, recordSource, handoff, classNote];
     if (tools.some((tool, index) => tool.name !== SCAN_TOOL_NAMES[index])) throw new Error("Structured scan tools do not match the shared capability contract");
     return tools;
   }

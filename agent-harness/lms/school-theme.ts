@@ -37,9 +37,31 @@ const courseHref = (state: SchoolState, id: string) =>
     : `/courses/${id}`;
 const work = (state: SchoolState) =>
   state.activities.filter((item) => item.submissionChannel !== "none");
+const activityHref = (state: SchoolState, origins: Origins, item: Activity) =>
+  item.service === "statistics" ? `${origins.school}/mod/lti/view.php?id=${item.id}` : `${origins[item.service]}${themedHref(state, item)}`;
 function rows(state: SchoolState, origins: Origins, items: Activity[]): string {
-  return `<table><thead><tr><th>Activity</th><th>Due</th><th>Status</th></tr></thead><tbody>${items.map((item) => `<tr class="activity modtype_${item.moduleType ?? "assign"}" data-id="${esc(item.id)}"><td>${link(item.service === "statistics" ? `${origins.school}/mod/lti/view.php?id=${item.id}` : `${origins[item.service]}${themedHref(state, item)}`, item.title)}</td><td>${esc(item.dueText)}</td><td>${esc(item.status === "not_started" ? "Not submitted" : item.status)}</td></tr>`).join("")}</tbody></table>`;
+  return `<table><thead><tr><th>Activity</th><th>Due</th><th>Status</th></tr></thead><tbody>${items.map((item) => `<tr class="activity modtype_${item.moduleType ?? "assign"}" data-id="${esc(item.id)}"><td>${link(activityHref(state, origins, item), item.title)}</td><td>${esc(item.dueText)}</td><td>${esc(item.status === "not_started" ? "Not submitted" : item.status)}</td></tr>`).join("")}</tbody></table>`;
 }
+// Moodle 4 course pages: names only, each with its screen-reader module label, and no dates.
+const moduleLabels: Record<string, string> = { assign: "Assignment", quiz: "Quiz", lti: "External tool", resource: "File", page: "Page", url: "URL", folder: "Folder", forum: "Forum", zoom: "Zoom meeting" };
+function moodleActivities(state: SchoolState, origins: Origins, items: Activity[]): string {
+  return `<ul class="section img-text" data-for="cmlist">${items.map((item) => {
+    const type = item.moduleType ?? "assign", label = moduleLabels[type];
+    return `<li class="activity activity-wrapper ${type} modtype_${type}" id="module-${esc(item.id)}" data-for="cmitem" data-id="${esc(item.id)}"><div class="activityname"><a href="${esc(activityHref(state, origins, item))}" class="aalink"><span class="instancename">${esc(item.title)}${label ? `<span class="accesshide"> ${label}</span>` : ""}</span></a></div></li>`;
+  }).join("")}</ul>`;
+}
+// Moodle's userdate(): "Friday, 4 September 2026, 11:59 PM".
+function moodleDate(iso: string, timeZone: string): string {
+  const part = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })
+    .formatToParts(new Date(iso)).map((p) => [p.type, p.value]));
+  return `${part.weekday}, ${part.day} ${part.month} ${part.year}, ${part.hour}:${part.minute} ${part.dayPeriod}`;
+}
+// Online submissions only; an offline (in-person) assignment stays unsubmitted in Moodle even once graded.
+const submittedOnline = (state: SchoolState, item: Activity) =>
+  item.submissionChannel !== "in_person" &&
+  (["submitted", "graded"].includes(item.status) || state.submissions.some((s) => s.activityId === item.id));
+const gradeText = (item: Activity) =>
+  item.status === "graded" && item.gradeVisible && item.grade !== null ? `${item.grade.toFixed(2)} / ${(item.maxGrade ?? 100).toFixed(2)}` : "-";
 
 function unknownRows(state: SchoolState, origins: Origins, items: Activity[], showMore = false): string {
   const renderRow = (item: Activity) => `<tr><td>${link(`${origins[item.service]}${themedHref(state, item)}`, item.title)}</td><td>${esc(item.dueText)}</td><td>${esc(item.status === "not_started" ? "Not submitted" : item.status)}</td></tr>`;
@@ -218,6 +240,10 @@ export function createSchoolTheme(
     }
     if (surface === "school" && url.pathname === "/mod/lti/view.php") {
       const item = activityById(state, url.searchParams.get("id") ?? "");
+      if (item.service === "school") {
+        html(item.title, `<p>Course-Ready reader</p><p>${esc(item.instructions)}</p>`);
+        return true;
+      }
       if (item.service !== "statistics") {
         redirect(`${origins[item.service]}${themedHref(state, item)}`);
         return true;
@@ -282,15 +308,26 @@ export function createSchoolTheme(
             case "core_calendar_get_action_events_by_timesort":
               return {
                 data: {
-                  events: work(state)
-                    .filter((a) => a.service === "school")
+                  // Like Moodle: work still awaiting the student's action, plus meetings to join.
+                  events: state.activities
+                    .filter((a) => a.service === "school" && (a.moduleType === "zoom" || (a.submissionChannel !== "none" && !submittedOnline(state, a))))
                     .map((a) => ({
                       id: a.id,
                       name: a.title,
+                      instance: a.id,
+                      modulename: a.moduleType ?? "assign",
+                      eventtype: a.moduleType === "zoom" ? "zoom" : a.kind === "quiz" ? "close" : "due",
                       course: { id: a.courseId },
                       timestart: a.dueAt ? Date.parse(a.dueAt) / 1000 : null,
                       formattedtime: a.dueText,
+                      description: `<p>${esc(a.instructions)}</p>${a.attachments.map((id) => `<p><a href="${origins.school}/file-shim/${id}" target="_blank">${esc(state.assets.find((asset) => asset.id === id)?.name ?? id)}<span class="accesshide">(opens in new window)</span></a></p>`).join("")}`,
                       url: origins.school + themedHref(state, a),
+                      action: {
+                        name: a.moduleType === "zoom" ? "Join meeting" : a.kind === "quiz" ? "Attempt quiz now" : "Add submission",
+                        url: origins.school + themedHref(state, a),
+                        itemcount: 1,
+                        actionable: true,
+                      },
                     })),
                 },
                 error: false,
@@ -556,6 +593,29 @@ export function createSchoolTheme(
       );
       return true;
     }
+    // Moodle's per-course activity indexes, student view: the only place past work shows its date, submission and grade.
+    const index = moodle ? /^\/mod\/(assign|quiz)\/index\.php$/.exec(url.pathname)?.[1] : undefined;
+    if (index) {
+      const course = state.courses.find((c) => c.id === url.searchParams.get("id"));
+      if (!course) throw new SchoolError(404, "Course not found.");
+      const quiz = index === "quiz";
+      const items = state.activities
+        .filter((a) => a.courseId === course.id && a.service === "school" && a.moduleType === index)
+        .sort((a, b) => a.module.localeCompare(b.module, "en", { numeric: true }));
+      const headers = quiz ? ["Topic", "Quiz", "Quiz closes", "Grade"] : ["Topic", "Assignments", "Due date", "Submission", "Grade"];
+      const cells = (a: Activity, i: number) => [
+        i && items[i - 1]!.module === a.module ? "" : esc(a.module),
+        link(origins.school + themedHref(state, a), a.title),
+        a.dueAt ? moodleDate(a.dueAt, state.timezone) : "-",
+        ...(quiz ? [] : [submittedOnline(state, a) ? "Submitted for grading" : state.drafts[a.id] ? "Draft (not submitted)" : "No submission"]),
+        gradeText(a),
+      ];
+      html(
+        quiz ? "Quizzes" : "Assignments",
+        `<table class="generaltable mod_index"><thead><tr>${headers.map((h) => `<th class="header" scope="col">${h}</th>`).join("")}</tr></thead><tbody>${items.map((a, i) => `<tr>${cells(a, i).map((c) => `<td class="cell">${c}</td>`).join("")}</tr>`).join("")}</tbody></table>`,
+      );
+      return true;
+    }
     const courseId =
       url.pathname === "/course/view.php"
         ? url.searchParams.get("id")
@@ -586,13 +646,13 @@ export function createSchoolTheme(
       const modules = Array.from(
         { length: Math.ceil(ordered.length / 13) },
         (_, i) =>
-          `<section class="section" id="section-${i}"><details ${i === 0 ? "open" : ""}><summary>Week ${i + 1}</summary><section class="content"><details open><summary>Learning activities</summary>${rows(state, origins, ordered.slice(i * 13, i * 13 + 13))}</details></section></details></section>`,
+          `<section class="section" id="section-${i}"><details ${i === 0 ? "open" : ""}><summary>Week ${i + 1}</summary><section class="content"><details open><summary>Learning activities</summary>${(moodle ? moodleActivities : rows)(state, origins, ordered.slice(i * 13, i * 13 + 13))}</details></section></details></section>`,
       ).join("");
       const sources = `<p>${link(`${origins.university}/classes/${course.id}`, "University syllabus and exam dates")}</p><p>${["review", "past-quiz", "slides"].map((kind) => link(`/file-shim/${course.id}-${kind}`, kind === "review" ? "Midterm review sheet" : kind === "past-quiz" ? "Graded past quiz" : "Lecture slides")).join(" · ")}</p>${moodle && course.id === "programming" ? `<p>${link("/mod/assign/view.php?id=pacific-lab", "Submit Lab 3")}</p>` : ""}`;
       const body =
         sources +
         (moodle
-          ? modules
+          ? `<p><button type="button" data-expand-all>Expand all</button></p>${modules}`
           : `<nav>${link(`/courses/${course.id}/assignments`, "Assignments")}${link(`/courses/${course.id}/modules`, "Modules")}</nav><div id="course-app">${
               url.pathname.endsWith("/assignments")
                 ? rows(
@@ -606,13 +666,13 @@ export function createSchoolTheme(
         `${course.code} ${course.title}`,
         body,
         moodle
-          ? `window.M={cfg:{sesskey:${JSON.stringify(sesskey())}}};`
+          ? `window.M={cfg:{sesskey:${JSON.stringify(sesskey())}}};document.querySelector('[data-expand-all]').onclick=()=>document.querySelectorAll('#region-main details').forEach(d=>d.open=true);`
           : `const root=document.querySelector('#course-app');root.replaceWith(root.cloneNode(true));`,
       );
       return true;
     }
     const moduleId =
-      /^\/mod\/(assign|quiz|resource|page|url|folder|forum)\/view.php$/.test(
+      /^\/mod\/(assign|quiz|resource|page|url|folder|forum|zoom)\/view.php$/.test(
         url.pathname,
       )
         ? url.searchParams.get("id")

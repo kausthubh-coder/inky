@@ -116,7 +116,20 @@ test("sign-in hosts autofill only after a school-to-IdP-to-school handoff succee
     context: "needs_you",
     signedIn: false,
   }), /verified signed-in/);
-  assert.throws(() => autofillSignInHosts(undefined, {
+  // A real portal entry (NC State: WolfWare, Shibboleth, Duo, Moodle) learns the identity provider and Duo, not the portal.
+  assert.deepEqual(autofillSignInHosts(undefined, {
+    schoolRoot: "https://moodle-courses2527.wolfware.ncsu.edu/",
+    redirectChain: [
+      "https://wolfware.ncsu.edu/courses/my-wolfware/",
+      "https://shib.ncsu.edu/idp/profile/SAML2/Redirect/SSO?execution=e1s1",
+      "https://api-12345.duosecurity.com/frame/v4/auth",
+      "https://moodle-courses2527.wolfware.ncsu.edu/my/",
+    ],
+    context: "onboarding",
+    signedIn: true,
+  }).signInHosts, ["shib.ncsu.edu", "api-12345.duosecurity.com"]);
+  // Sign-in that began on another page (a portal): only pages that look like sign-in are learned.
+  assert.deepEqual(autofillSignInHosts(undefined, {
     schoolRoot: "https://school.example.edu/",
     redirectChain: [
       "https://untrusted.example/start",
@@ -125,7 +138,7 @@ test("sign-in hosts autofill only after a school-to-IdP-to-school handoff succee
     ],
     context: "needs_you",
     signedIn: true,
-  }), /from the school root/);
+  }).signInHosts, ["login.university.edu"]);
   assert.throws(() => autofillSignInHosts(undefined, {
     schoolRoot: "https://school.example.edu/",
     redirectChain: [
@@ -135,7 +148,7 @@ test("sign-in hosts autofill only after a school-to-IdP-to-school handoff succee
     ],
     context: "needs_you",
     signedIn: true,
-  }), /same school host/);
+  }), /end back on the school host/);
 });
 
 test("LTI hosts autofill only from launch form actions on verified course pages", () => {
@@ -316,3 +329,10 @@ function fakeWebRequest() {
     },
   };
 }
+
+test("hosts are learned from a full saved school profile, not only a bare host list", () => {
+  const profile = { schemaVersion: 1, profileId: "primary-school", studentName: "Student", schoolRoot: "https://school.example.edu/", signInHosts: ["login.university.edu"], ltiLaunchHosts: [], updatedAt: "2026-09-26T12:00:00.000Z" };
+  const pageUrl = "https://school.example.edu/mod/lti/view.php?id=7";
+  assert.deepEqual(autofillLtiLaunchHost(profile, { pageUrl, action: "https://webassign.example/launch", method: "post", fieldNames: ["lti_message_type", "resource_link_id"] }, [pageUrl]),
+    { signInHosts: ["login.university.edu"], ltiLaunchHosts: ["webassign.example"] });
+});

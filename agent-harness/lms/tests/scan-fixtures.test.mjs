@@ -49,14 +49,14 @@ test("unknown LMS needs a browser crawl and keeps all nine tasks reachable", asy
   assert.equal((await get(`${school.url}/api/v1/planner/items`)).status, 404);
   assert.equal((await get(`${school.url}/lib/ajax/service.php`)).status, 404);
 });
-test("noisy course has 130 activities, exactly nine real tasks, independent goldens and per-course Learn sources", async (t) => {
+test("noisy course has 136 activities, exactly thirteen real tasks, independent goldens and per-course Learn sources", async (t) => {
   const { school } = await fixture(t),
     { state, truth } = school.inspect();
   assert.equal(
     state.activities.filter((a) => a.courseId === "programming").length,
-    130,
+    136,
   );
-  assert.equal(truth.expectedAssignmentIds.length, 9);
+  assert.equal(truth.expectedAssignmentIds.length, 13);
   const expected = await loadExpected("moodle-noisy");
   for (const task of expected.assignments) {
     const id = task.href.split(/id=|\/assignments\//).at(-1),
@@ -68,15 +68,37 @@ test("noisy course has 130 activities, exactly nine real tasks, independent gold
       task.dueAt === null ? null : Date.parse(task.dueAt),
     );
     assert.equal(actual.workKind, task.kind);
+    assert.equal(actual.status, task.status ?? "not_started");
   }
   for (const course of state.courses)
     for (const suffix of ["syllabus", "review", "slides", "past-quiz"])
       assert.ok(state.assets.some((a) => a.id === `${course.id}-${suffix}`));
   const page = await get(school.url + "/course/view.php?id=programming");
   assert.equal(page.status, 200);
-  assert.equal((page.html.match(/<tr class="activity/g) ?? []).length, 130);
+  assert.equal((page.html.match(/<li class="activity/g) ?? []).length, 136);
   assert.match(page.html, /<section class="section"/);
-  assert.match(page.html, /<td>Oct 7<\/td>/);
+  assert.match(page.html, /<li class="activity activity-wrapper assign modtype_assign" id="module-exercise-05" data-for="cmitem" data-id="exercise-05">/);
+  assert.match(page.html, /<span class="instancename">Concept quiz<span class="accesshide"> Quiz<\/span><\/span>/);
+  assert.match(page.html, /modtype_zoom/);
+  assert.match(page.html, /<a href="[^"]+\/mod\/lti\/view\.php\?id=course-textbook" class="aalink"><span class="instancename">Course-Ready Textbook<span class="accesshide"> External tool<\/span>/);
+  assert.match((await get(school.url + "/mod/lti/view.php?id=course-textbook")).html, /Reading only; nothing is assigned or due here/);
+  assert.doesNotMatch(page.html, /Oct 7|11:59 PM|Submitted for grading/, "Moodle course pages list names only");
+  const assignments = await get(school.url + "/mod/assign/index.php?id=programming");
+  assert.equal(assignments.status, 200);
+  assert.match(assignments.html, /<table class="generaltable mod_index"><thead><tr><th class="header" scope="col">Topic<\/th><th class="header" scope="col">Assignments<\/th><th class="header" scope="col">Due date<\/th><th class="header" scope="col">Submission<\/th><th class="header" scope="col">Grade<\/th><\/tr><\/thead>/);
+  const row = (html, title) => new RegExp(`<tr>(?:(?!</tr>).)*>${title}</a>(?:(?!</tr>).)*</tr>`).exec(html)?.[0] ?? "";
+  assert.match(row(assignments.html, "Paper worksheet 1"), /Friday, 4 September 2026, 11:59 PM<\/td><td class="cell">No submission<\/td><td class="cell">57\.60 \/ 75\.00</);
+  assert.match(row(assignments.html, "Exercise 03"), /Wednesday, 2 September 2026, 11:59 PM<\/td><td class="cell">Submitted for grading<\/td><td class="cell">18\.00 \/ 20\.00</);
+  assert.match(row(assignments.html, "Exercise 04"), /Submitted for grading<\/td><td class="cell">-</);
+  assert.match(row(assignments.html, "Design document"), /<td class="cell">-<\/td><td class="cell">No submission/);
+  assert.match(row(assignments.html, "Exercise 05"), /href="[^"]+\/mod\/assign\/view\.php\?id=exercise-05"/);
+  assert.doesNotMatch(assignments.html, /WebAssign|Concept quiz|Office hours/);
+  const quizzes = (await get(school.url + "/mod/quiz/index.php?id=programming")).html;
+  assert.match(quizzes, /<th class="header" scope="col">Quiz closes<\/th>/);
+  assert.match(row(quizzes, "Warm-up quiz"), /Tuesday, 8 September 2026, 5:00 PM<\/td><td class="cell">8\.00 \/ 10\.00</);
+  assert.match(row(quizzes, "Concept quiz"), /Monday, 21 September 2026, 1:00 PM<\/td><td class="cell">-</);
+  assert.equal((await fetch(school.url + "/mod/assign/index.php?id=programming", { method: "POST" })).ok, false);
+  assert.equal((await get(school.url + "/mod/assign/index.php?id=nope")).status, 404);
   assert.match(page.html, /\/mod\/lti\/view.php/);
   assert.match(page.html, /<a href="\/mod\/assign\/view.php\?id=pacific-lab">Submit Lab 3<\/a>/);
   const labPage = await get(school.url + "/mod/assign/view.php?id=pacific-lab");
@@ -114,7 +136,13 @@ test("Moodle AJAX methods require sesskey; unknown writes fail; disabled connect
   const reply = await (
     await call("core_calendar_get_action_events_by_timesort")
   ).json();
-  assert.equal(reply[0].data.events.length, 7);
+  const events = reply[0].data.events;
+  assert.deepEqual(events.map((e) => e.id).sort(), ["concept-quiz", "design-doc", "exercise-05", "office-hours", "pacific-lab", "paper-worksheet", "project-final", "project-proposal", "reflection"]);
+  const zoom = events.find((e) => e.id === "office-hours");
+  assert.equal(zoom.modulename, "zoom");
+  assert.equal(zoom.action.name, "Join meeting");
+  assert.equal(events.find((e) => e.id === "concept-quiz").modulename, "quiz");
+  assert.match(events.find((e) => e.id === "exercise-05").description, /<a href="[^"]+\/file-shim\/starter-c" target="_blank">starter\.c<span class="accesshide">\(opens in new window\)<\/span><\/a>/);
   assert.equal((await call("core_course_get_contents")).status, 200);
   assert.equal(
     (await call("core_course_get_enrolled_courses_by_timeline_classification"))
@@ -187,6 +215,8 @@ test("separate-origin SSO waits for remembered push, rejects early/replayed tick
     root.headers.get("location"),
     school.origins.unity + "/sso/login",
   );
+  const index = await fetch(school.url + "/mod/assign/index.php?id=programming", { redirect: "manual" });
+  assert.equal(index.headers.get("location"), school.origins.unity + "/sso/login");
   const login = await fetch(root.headers.get("location"), {
     redirect: "manual",
   });
@@ -284,6 +314,7 @@ test("scan scoring rejects junk, duplicate, invented dates, wrong class, writes,
     assignments: expected.assignments.map((e) => ({
       ...e,
       sourceTarget: e.href.replace(/^(\w+):/, (_, s) => origins[s]),
+      ...(e.status ? { schoolStatus: { state: e.status } } : {}),
     })),
     metrics: {
       durationMs: 60000,
@@ -311,6 +342,7 @@ test("scan scoring rejects junk, duplicate, invented dates, wrong class, writes,
     (o) => (o.assignments[2].dueAt = "2026-10-07T00:00:00Z"),
     (o) => (o.assignments[0].course = "Other class"),
     (o) => (o.status = "timed_out"),
+    (o) => (o.assignments.find((a) => a.title === "Paper worksheet 1").schoolStatus.state = "not_submitted"),
   ]) {
     const o = structuredClone(observation);
     mutate(o);

@@ -157,7 +157,8 @@ class ScriptedSession {
     }
     if (step.op === "tool") { await this.#call(step.name, step.input ?? {}); return; }
     if (["typeByName", "clickByName", "uploadByName", "submitByName"].includes(step.op)) {
-      const snapshot = await this.#call("browser_snapshot", {});
+      // Long pages exceed one snapshot; search narrows it to the named control, as the agent would.
+      const snapshot = await this.#call("browser_snapshot", step.search ? { search: step.name } : {});
       const ref = findRef(snapshot, step.name);
       if (step.op === "typeByName") await this.#call("browser_type", { ref, text: step.text });
       if (step.op === "clickByName") await this.#call("browser_click", { ref });
@@ -197,6 +198,6 @@ function findRef(snapshot, name) {
   const exact = elements.find((element) => element.name?.trim().toLowerCase() === target);
   const partial = elements.find((element) => element.name?.trim().toLowerCase().includes(target));
   const ref = (exact ?? partial)?.ref;
-  if (!ref) throw new Error(`No visible school control matched ${JSON.stringify(name)}`);
+  if (!ref) throw new Error(`No visible school control matched ${JSON.stringify(name)} on ${snapshot?.url}: ${elements.map((element) => element.name).slice(0, 12).join(" / ")}`);
   return ref;
 }

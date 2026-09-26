@@ -72,6 +72,7 @@ export function evaluateScan({
     inventedDates = 0,
     correctTitles = 0,
     correctCourses = 0,
+    wrongStatuses = [],
     duplicates = 0;
   expected.assignments.forEach((row, i) => {
     const found = matches[i],
@@ -95,6 +96,9 @@ export function evaluateScan({
       correctDates++;
     if (row.dueAt === null)
       inventedDates += found.filter((a) => a.dueAt).length;
+    // Finished work must read as finished, not as new or overdue homework.
+    if (row.status && first.schoolStatus?.state !== row.status)
+      wrongStatuses.push(row.title);
   });
   inventedDates += actual.filter(
     (a) => a.dueAt && !recognized.includes(a),
@@ -144,6 +148,7 @@ export function evaluateScan({
     titleAccuracy: ratio(correctTitles, expected.assignments.length),
     courseAccuracy: ratio(correctCourses, expected.assignments.length),
     duplicates,
+    wrongStatuses: wrongStatuses.length,
     junkRows: actual.length - recognized.length,
     inventedDates,
     schoolWrites: Array.isArray(effects)
@@ -173,6 +178,7 @@ export function evaluateScan({
       name: "titles and courses",
       passed: metrics.titleAccuracy >= 0.98 && metrics.courseAccuracy >= 0.98,
     },
+    { name: "submitted and graded status", passed: wrongStatuses.length === 0 },
     {
       name: "zero duplicates, junk and invented dates",
       passed: duplicates === 0 && metrics.junkRows === 0 && inventedDates === 0,

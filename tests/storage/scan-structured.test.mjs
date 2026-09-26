@@ -71,7 +71,7 @@ test("three rejected rows skip their current source instead of looping", async (
   await withScan(async (tools, store) => {
     assert.deepEqual(tools.map(tool => tool.name), [
       "scan_status", "scan_record_system", "scan_record_course",
-      "scan_record_rows", "scan_record_source", "scan_request_handoff",
+      "scan_record_rows", "scan_record_source", "scan_request_handoff", "scan_record_class_note",
     ]);
     await tools.find(tool => tool.name === "scan_record_course").execute("course", { label: "Programming in C" });
     const courseId = store.school.listCourses()[0].courseId;
@@ -163,4 +163,19 @@ test("sign-in resume keeps a finished class and reads only the unfinished class"
     store.close();
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+test("a class note is saved once per verified class and replaced on the next check", async () => {
+  await withScan(async (tools) => {
+    await tools.find(tool => tool.name === "scan_record_course").execute("course", { label: "Programming in C" });
+    const note = tools.find(tool => tool.name === "scan_record_class_note");
+    await note.execute("note", { courseKey: "Programming in C", text: "Homework 40%, exams 60%. Late work loses 10% a day." });
+    await note.execute("note", { courseKey: "Programming in C", text: "Homework 40%, two midterms 30%, final 30%." });
+    await assert.rejects(note.execute("note", { courseKey: "Unknown class", text: "x" }), /Verify the class first/);
+  }, { idleLimitMs: 40, activeLimitMs: 500, watchdogIntervalMs: 10 }, async ({ coordinator, store }) => {
+    await coordinator.startScan();
+    const notes = store.notes.list().filter(entry => entry.scope === "course");
+    assert.equal(notes.length, 1);
+    assert.match((await store.notes.read(notes[0].noteId)).content, /two midterms/);
+  });
 });

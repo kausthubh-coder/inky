@@ -21,8 +21,8 @@ export async function verifyScanFixture(page, school, screenshot = async () => {
     if (school.scenarioId === "moodle-noisy") {
       await screenshot("course");
       await page.locator("details:not([open]) > summary").evaluateAll(elements => elements.forEach(element => element.click()));
-      assert.equal(await page.locator("tr.activity").count(), 130);
-      await page.getByRole("link", { name: "Concept quiz", exact: true }).click();
+      assert.equal(await page.locator("li.activity").count(), 136);
+      await page.getByRole("link", { name: "Concept quiz Quiz", exact: true }).click();
       await page.frameLocator("iframe").getByText("Two attempts.", { exact: false }).waitFor();
       await screenshot("quiz");
       await page.goto(school.url + "/mod/lti/view.php?id=webassign-1");

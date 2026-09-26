@@ -36,6 +36,7 @@ export const ActivitySchema = z.object({
   closeAt: z.string().nullable(),
   status: z.enum(["unknown", "not_started", "draft", "submitted", "graded"]),
   grade: z.number().nullable(),
+  maxGrade: z.number().positive().optional(),
   gradeVisible: z.boolean(),
   submissionChannel: z.enum([
     "lms",
@@ -52,7 +53,7 @@ export const ActivitySchema = z.object({
   maxAttempts: z.number().int().positive(),
   workKind: WorkKindSchema.optional(),
   visibility: z.enum(["course", "announcement_only"]).optional(),
-  moduleType: z.enum(["assign", "quiz", "resource", "page", "url", "folder", "forum", "lti", "label", "grade"]).optional(),
+  moduleType: z.enum(["assign", "quiz", "resource", "page", "url", "folder", "forum", "lti", "label", "grade", "zoom"]).optional(),
   requiredStudentFiles: z.array(z.string()).optional(),
   rubric: z.array(z.string()).optional(),
   wordLimit: z.number().int().positive().optional(),

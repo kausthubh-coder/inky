@@ -189,6 +189,7 @@ export function normalizedExpected(expected, origins) {
     course: item.course,
     title: item.title,
     dueAt: item.dueAt,
+    status: item.status,
     sourceTargets: [item.href, ...(item.aliases ?? [])].map(expand),
   }));
 }

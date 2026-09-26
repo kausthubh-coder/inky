@@ -157,10 +157,14 @@ export function autofillSignInHosts(
   }
   const root = parseCredentialFreeHttpUrl(observation.schoolRoot, "school root");
   const chain = observation.redirectChain.map(url => parseCredentialFreeHttpUrl(url, "sign-in redirect"));
-  if (chain.length < 3 || chain[0]?.host !== root.host || chain.at(-1)?.host !== root.host) {
-    throw new Error("Sign-in redirects must go from the school root back to the same school host");
+  if (chain.length < 2 || chain.at(-1)?.host !== root.host) {
+    throw new Error("Sign-in redirects must end back on the school host");
   }
-  const signInHosts = [...new Set(chain.slice(1, -1).map(url => url.host).filter(host => host !== root.host))];
+  // From the school and back, every host in between is sign-in. From another entry link (a portal), the
+  // entry page isn't sign-in, so only pages that look like one count.
+  const fromSchool = chain[0]?.host === root.host;
+  const signInHosts = [...new Set((fromSchool ? chain.slice(1, -1) : chain.slice(0, -1).filter(looksLikeSignIn))
+    .map(url => url.host).filter(host => host !== root.host))];
   if (signInHosts.length === 0) throw new Error("The sign-in redirect chain did not visit an identity-provider host");
   return mergeSchoolReadOnlyHosts(current, { signInHosts });
 }
@@ -222,6 +226,12 @@ function parseHttpUrl(value: string): URL | null {
   } catch {
     return null;
   }
+}
+
+/** Identity-provider pages: Shibboleth/SAML, CAS, OAuth/OIDC, ADFS, Duo and the big hosted providers. */
+function looksLikeSignIn(url: URL): boolean {
+  return /(^|\.)(login|sso|idp|auth|shib|cas|adfs|duosecurity\.com|okta\.com|microsoftonline\.com|accounts\.google\.com)(\.|$)/i.test(url.host)
+    || /\/(idp|saml2?|sso|cas|login|signin|oauth2?|authorize|adfs)(\/|$)/i.test(url.pathname);
 }
 
 function parseCredentialFreeHttpUrl(value: string, label: string): URL {

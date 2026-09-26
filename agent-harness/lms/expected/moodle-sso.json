@@ -92,6 +92,50 @@
       "aliases": [
         "school:/mod/lti/view.php?id=gradescope-1"
       ]
+    },
+    {
+      "course": "Programming in C",
+      "title": "Paper worksheet 1",
+      "dueAt": "2026-09-04T23:59:00-04:00",
+      "kind": "problem_set",
+      "status": "graded",
+      "href": "school:/mod/assign/view.php?id=paper-worksheet",
+      "aliases": [
+        "school:/assignments/paper-worksheet"
+      ]
+    },
+    {
+      "course": "Programming in C",
+      "title": "Exercise 03",
+      "dueAt": "2026-09-02T23:59:00-04:00",
+      "kind": "code",
+      "status": "graded",
+      "href": "school:/mod/assign/view.php?id=exercise-03",
+      "aliases": [
+        "school:/assignments/exercise-03"
+      ]
+    },
+    {
+      "course": "Programming in C",
+      "title": "Warm-up quiz",
+      "dueAt": "2026-09-08T17:00:00-04:00",
+      "kind": "quiz",
+      "status": "graded",
+      "href": "school:/mod/quiz/view.php?id=warmup-quiz",
+      "aliases": [
+        "school:/assignments/warmup-quiz"
+      ]
+    },
+    {
+      "course": "Programming in C",
+      "title": "Exercise 04",
+      "dueAt": "2026-09-09T23:59:00-04:00",
+      "kind": "code",
+      "status": "submitted",
+      "href": "school:/mod/assign/view.php?id=exercise-04",
+      "aliases": [
+        "school:/assignments/exercise-04"
+      ]
     }
   ],
   "syllabi": [
@@ -160,5 +204,9 @@
     "design-doc": "Oct 7, no time; do not invent a timestamp",
     "reflection": "Due Friday, no time; preserve wording",
     "project-proposal": "September 20, 2026, no time specified"
+  },
+  "excluded": {
+    "office-hours": "Zoom meeting from the calendar (Join meeting); not work to do",
+    "course-textbook": "Reading-only external tool on the course page; not work to do"
   }
 }

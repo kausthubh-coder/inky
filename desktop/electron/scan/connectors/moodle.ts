@@ -15,6 +15,31 @@ export interface MoodleConnectorPayload {
   readonly failures?: readonly ConnectorFailure[];
 }
 
+/**
+ * Page-side function source: school HTML to plain Markdown (links, lists, paragraphs), dropping
+ * screen-reader-only labels and icons. Runs in the school page, where DOMParser is available.
+ */
+export const MOODLE_MARKDOWN_FUNCTION = `((html) => {
+  const root = new DOMParser().parseFromString(html, 'text/html').body;
+  root.querySelectorAll('script, style, .accesshide, .sr-only, .visually-hidden, i.fa, i.icon, img').forEach(node => node.remove());
+  const walk = node => {
+    if (node.nodeType === 3) return node.textContent.replace(/\\s+/g, ' ');
+    if (node.nodeType !== 1) return '';
+    const inner = [...node.childNodes].map(walk).join('');
+    const tag = node.tagName.toLowerCase();
+    if (tag === 'a') {
+      const label = inner.trim();
+      const href = node.getAttribute('href');
+      return href && !href.startsWith('#') && label && label !== href ? '[' + label + '](' + new URL(href, location.href).href + ')' : label;
+    }
+    if (tag === 'br') return '\\n';
+    if (tag === 'li') return '\\n- ' + inner.trim();
+    if (/^(p|div|h[1-6]|ul|ol|table|tr|blockquote|section)$/.test(tag)) return '\\n\\n' + inner.trim() + '\\n\\n';
+    return inner;
+  };
+  return walk(root).replace(/[ \\t]+\\n/g, '\\n').replace(/\\n{3,}/g, '\\n\\n').trim();
+})`;
+
 const MOODLE_FETCH_SCRIPT = `(async () => {
   const origin = location.origin;
   const failures = [];
@@ -45,6 +70,10 @@ const MOODLE_FETCH_SCRIPT = `(async () => {
     { timesortfrom: 0, limitnum: 50 },
     'Moodle calendar'
   );
+  // Moodle sends descriptions as HTML; the page's own parser turns them into readable Markdown.
+  for (const event of calendar?.data?.events ?? []) {
+    if (typeof event.description === 'string') event.description = ${MOODLE_MARKDOWN_FUNCTION}(event.description);
+  }
   const courses = await call(
     'core_course_get_enrolled_courses_by_timeline_classification',
     { classification: 'all', limit: 0, offset: 0, sort: 'fullname' },
@@ -103,6 +132,8 @@ function unixDate(value: unknown): string | null {
   return new Date(seconds * 1000).toISOString();
 }
 
+const MEETING_MODULES = new Set(["zoom", "bigbluebuttonbn", "webex", "msteams", "googlemeet", "jitsi", "attendance", "scheduler"]);
+
 function moduleKind(event: Record<string, unknown>): string {
   const raw = text(event.modulename) ?? text(event.eventtype) ?? text(event.kind);
   if (!raw) return "assignment";
@@ -156,6 +187,8 @@ function parseMoodleEvents(payload: MoodleConnectorPayload): ConnectorAssignment
     if (!event || !href || !title) continue;
     const course = record(event.course);
     const action = record(event.action);
+    // Meetings and office hours share the calendar with homework but aren't work to do.
+    if (MEETING_MODULES.has(text(event.modulename)?.toLowerCase() ?? "") || /^(join|attend)\b/i.test(text(action?.name) ?? "")) continue;
     rows.push({
       assignmentKey: assignmentKey(href, event.instance ?? event.id),
       courseKey: identifier(course?.id) ?? identifier(event.courseid),

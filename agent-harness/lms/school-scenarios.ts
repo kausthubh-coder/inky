@@ -189,4 +189,68 @@ export function configureSchoolTheme(
         ),
       );
   }
+  if (moodle)
+    // Earlier weeks as a real Moodle shows them: finished work is gone from the calendar and its dates,
+    // submission state and grade live only in the assignment and quiz index pages. A graded paper
+    // worksheet has no online submission, so Moodle still lists it as a calendar action event.
+    state.activities.push(
+      task("paper-worksheet", "Paper worksheet 1", {
+        module: "Week 1",
+        submissionChannel: "in_person",
+        status: "graded",
+        grade: 57.6,
+        maxGrade: 75,
+        dueAt: "2026-09-05T03:59:00.000Z",
+        dueText: "Friday, 4 September 2026, 11:59 PM",
+        instructions: "Hand in the printed worksheet at the start of class.",
+      }),
+      task("exercise-03", "Exercise 03", {
+        module: "Week 1",
+        workKind: "code",
+        status: "graded",
+        grade: 18,
+        maxGrade: 20,
+        dueAt: "2026-09-03T03:59:00.000Z",
+        dueText: "Wednesday, 2 September 2026, 11:59 PM",
+      }),
+      task("warmup-quiz", "Warm-up quiz", {
+        module: "Week 2",
+        kind: "quiz",
+        moduleType: "quiz",
+        workKind: "quiz",
+        status: "graded",
+        grade: 8,
+        maxGrade: 10,
+        dueAt: "2026-09-08T21:00:00.000Z",
+        dueText: "Tuesday, 8 September 2026, 5:00 PM",
+      }),
+      task("exercise-04", "Exercise 04", {
+        module: "Week 2",
+        workKind: "code",
+        status: "submitted",
+        dueAt: "2026-09-10T03:59:00.000Z",
+        dueText: "Wednesday, 9 September 2026, 11:59 PM",
+      }),
+      task("office-hours", "Office hours", {
+        kind: "lesson",
+        moduleType: "zoom",
+        workKind: "reading",
+        submissionChannel: "none",
+        dueAt: "2026-09-15T18:00:00.000Z",
+        dueText: "Tuesday, 15 September 2026, 2:00 PM",
+        requirements: [],
+        instructions: "Weekly office hours on Zoom. Drop in with questions.",
+      }),
+      // An external tool that only holds reading: a doorway like WebAssign, but with no work behind it.
+      task("course-textbook", "Course-Ready Textbook", {
+        kind: "lesson",
+        moduleType: "lti",
+        workKind: "reading",
+        submissionChannel: "none",
+        dueAt: null,
+        dueText: "No submission required",
+        requirements: [],
+        instructions: "Chapter 3: Pointers and arrays. Chapter 4: Stacks. Reading only; nothing is assigned or due here.",
+      }),
+    );
 }

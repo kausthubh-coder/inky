@@ -8,7 +8,7 @@ import { createTutorTools, TUTOR_SYSTEM_PROMPT } from "./tutor-tools.js";
 export type LearningRuntime = Pick<AgentRuntime, "createLearningSession">;
 /** The goal's study folder. Optional: without a homework folder the tutor still works from the database. */
 export interface TutorFiles {
-  read(session: TutorSession): Promise<{ progress: string; cheatsheet: string } | null>;
+  read(session: TutorSession): Promise<{ progress: string; cheatsheet: string; classNote?: string } | null>;
   savePage(session: TutorSession, title: string, html: string): Promise<void>;
   recordFinish(session: TutorSession): Promise<void>;
 }

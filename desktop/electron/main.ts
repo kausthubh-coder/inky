@@ -619,7 +619,9 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   startSchoolScan: async (input) => {
     await requireReadyProviderForScan();
-    return runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startScan(input?.assignmentId));
+    const state = await runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startScan(input?.assignmentId));
+    if (!input?.assignmentId && state.scan?.state === "succeeded") void buildClassContext();
+    return state;
   },
   resumeSchoolScan: async () => {
     await requireReadyProviderForScan();
@@ -1946,6 +1948,26 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
   queueLearnExtraction();
 }
 
+/**
+ * After homework is found, get to know each class the way a student would: read its syllabus, study guides
+ * and exam plans (Learn fills with exams and topics) and save a short class note Inky reuses. One class at a
+ * time in the background; stops quietly when the browser is needed for something else.
+ */
+let buildingClassContext = false;
+async function buildClassContext(): Promise<void> {
+  if (buildingClassContext) return;
+  buildingClassContext = true;
+  try {
+    const known = new Set(requireLearnRepository().sources().flatMap(source => source.courseId ? [source.courseId] : []));
+    for (const course of (await requireSchoolScanCoordinator().state()).courses.filter(course => !known.has(course.courseId))) {
+      const state = await runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startMaterialsScan(course.courseId));
+      if (state.scan?.state === "needs_user") break;
+    }
+  } catch (error) {
+    requireTelemetryService().captureError(error, "scan", "school_scan", currentAgentSelection());
+  } finally { buildingClassContext = false; }
+}
+
 async function runScanWithTelemetry(
   mode: "start" | "resume" | "replay",
   run: () => Promise<SchoolOnboardingState>,
@@ -2400,20 +2422,29 @@ const LEVEL_NAMES = ['Not yet', 'Shaky', 'Getting there', 'Good', 'Solid'];
 
 /** The goal's study folder under the homework folder: notes the tutor reads back, and the pages it made. */
 function tutorFiles(): import('./agent/tutor-coordinator.js').TutorFiles {
-  const folderFor = async (session: import('../shared/tutor.js').TutorSession) => {
-    const root = (await requireLocalStore().productPreferences.get()).homeworkRoot;
-    if (!root) return null;
+  const goalOf = (session: import('../shared/tutor.js').TutorSession) => {
     const repository = requireLearnRepository();
     const goal = session.examId ? repository.exams().find(exam => exam.examId === session.examId) : undefined;
     const topic = repository.topic(session.topicId);
-    const courseId = goal?.courseId ?? topic.courseId;
+    return { title: goal?.title ?? topic.title, courseId: goal?.courseId ?? topic.courseId };
+  };
+  const folderFor = async (session: import('../shared/tutor.js').TutorSession) => {
+    const root = (await requireLocalStore().productPreferences.get()).homeworkRoot;
+    if (!root) return null;
+    const { title, courseId } = goalOf(session);
     const classLabel = courseId ? requireLocalStore().school.listCourses().find(course => course.courseId === courseId)?.label ?? null : null;
-    return goalFolder(root, { title: goal?.title ?? topic.title, classLabel });
+    return goalFolder(root, { title, classLabel });
   };
   return {
     read: async session => {
       const folder = await folderFor(session);
-      return folder ? readGoalNotes(folder) : null;
+      const notes = folder ? await readGoalNotes(folder) : { progress: "", cheatsheet: "" };
+      // What the setup check learned about the class (grading, assignment kinds, exam dates).
+      const { courseId } = goalOf(session);
+      const store = requireLocalStore();
+      const entry = courseId ? store.notes.list().find(note => note.scope === "course" && note.subjectId === courseId && note.key === "class-overview") : undefined;
+      const classNote = entry ? (await store.notes.read(entry.noteId))?.content ?? "" : "";
+      return notes.progress || notes.cheatsheet || classNote ? { ...notes, classNote } : null;
     },
     savePage: async (session, title, html) => {
       const folder = await folderFor(session);

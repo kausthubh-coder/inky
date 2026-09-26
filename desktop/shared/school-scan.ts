@@ -57,7 +57,8 @@ export function mergeSchoolReadOnlyHosts(
   current: SchoolReadOnlyHostsInput | undefined,
   additions: Partial<SchoolReadOnlyHosts>,
 ): SchoolReadOnlyHosts {
-  const policy = SchoolReadOnlyHostsSchema.parse(current ?? {});
+  // Callers pass the whole school profile; only its two host lists matter here.
+  const policy = SchoolReadOnlyHostsSchema.parse({ signInHosts: current?.signInHosts, ltiLaunchHosts: current?.ltiLaunchHosts });
   return SchoolReadOnlyHostsSchema.parse({
     signInHosts: [...policy.signInHosts, ...(additions.signInHosts ?? [])],
     ltiLaunchHosts: [...policy.ltiLaunchHosts, ...(additions.ltiLaunchHosts ?? [])],
@@ -178,7 +179,7 @@ export const SchoolScanSchema = z.strictObject({
 
 export const SCAN_TOOL_NAMES = [
   "scan_status", "scan_record_system", "scan_record_course", "scan_record_rows",
-  "scan_record_source", "scan_request_handoff",
+  "scan_record_source", "scan_request_handoff", "scan_record_class_note",
 ] as const;
 
 // The legacy definitions remain for the evidence validators shared by focused
