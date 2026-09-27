@@ -8,7 +8,7 @@ Decided with the student on 2026-09-27 after the first real WolfWare run (see do
 ## Decisions
 - **Inky (GPT-6 Sol) leads every scan on every school system.** The zero-token Moodle/Canvas readers become tools, not a pipeline. Keep the zero-token path in mind for a future "check without AI" mode.
 - **Playbooks per system, each with a fallback.** Moodle and Canvas: "use your Studi tools first". If a tool errors or leaves a gap (missing column, customised school), switch to the browser for that class and get the same information by hand. Any other system (Google Classroom, Blackboard, D2L, custom): browser from the start, with a guide to where things usually live.
-- **Save everything, categorised.** Items have `category`: work (default), exam, meeting, resource, grade. Only work goes into the student's week and Today; the rest is class context. The old problem was wrong categorisation, not saving.
+- **Save everything useful, categorised.** Items have `category`: work (default), exam, resource, grade. Only work goes into the student's week and Today; the rest is class context. The old problem was wrong categorisation, not saving. Meetings and office hours aren't saved at all.
 - **Learn setup by the agent.** Record upcoming exams (with dates), resources (syllabus, study guides, past exams, slides, assignments as practice) and a class note (grading, kinds of work, where it's submitted, exam dates). Class folders are created.
 - **Email at every depth.** Connected email (school Gmail) since the last check: deadline changes, announcements, exam info. Read-only, never changes read state.
 - **Reasoning always high.** "How hard Inky thinks" is removed from Settings. High is a ceiling, so reasoning stays dynamic. Scans previously ran at the lowest effort.

@@ -81,12 +81,14 @@ const SchoolProfileRecordSchema = z.strictObject({
     try { new Intl.DateTimeFormat("en-US", { timeZone: value }); return true; }
     catch { return false; }
   }, "Expected an IANA time zone").optional(),
+  /** How much school checks read: normal gets the important things, deep gets as much as possible. */
+  scanDepth: z.enum(["normal", "deep"]).default("normal"),
   updatedAt: IsoTimestampSchema,
 });
 
 type ParsedSchoolProfile = z.infer<typeof SchoolProfileRecordSchema>;
-export type SchoolProfile = Omit<ParsedSchoolProfile, "signInHosts" | "ltiLaunchHosts"> &
-  Partial<Pick<ParsedSchoolProfile, "signInHosts" | "ltiLaunchHosts">>;
+export type SchoolProfile = Omit<ParsedSchoolProfile, "signInHosts" | "ltiLaunchHosts" | "scanDepth"> &
+  Partial<Pick<ParsedSchoolProfile, "signInHosts" | "ltiLaunchHosts" | "scanDepth">>;
 
 // Older in-memory profile literals may omit the new fields. Parsing and
 // persistence still materialize both arrays through the schema defaults.
@@ -180,6 +182,7 @@ export const SchoolScanSchema = z.strictObject({
 export const SCAN_TOOL_NAMES = [
   "scan_status", "scan_record_system", "scan_record_course", "scan_record_rows",
   "scan_record_source", "scan_request_handoff", "scan_record_class_note",
+  "scan_set_category", "scan_record_exam", "scan_record_school_memory", "school_read_class", "school_read_email",
 ] as const;
 
 // The legacy definitions remain for the evidence validators shared by focused
@@ -257,6 +260,7 @@ export const SaveSchoolProfileInputSchema = z.strictObject({
   defaultPermission: PermissionModeSchema,
   scanCadence: ScanCadenceSchema,
   schoolTimeZone: SchoolProfileRecordSchema.shape.schoolTimeZone,
+  scanDepth: z.enum(["normal", "deep"]).optional(),
 });
 
 export type SchoolScan = z.infer<typeof SchoolScanSchema>;

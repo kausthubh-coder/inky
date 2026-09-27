@@ -470,6 +470,14 @@ export function SettingsScreen({
   const [feedbackOpen, setFeedbackOpen] = useState(chrome.settingsLanding === "feedback");
   const [appsOpen, setAppsOpen] = useState(false);
   const [saved, setSaved] = useState(0);
+  const [depth, setDepth] = useState(onboarding.profile?.scanDepth ?? "normal");
+  const saveDepth = (next: "normal" | "deep") => {
+    const profile = onboarding.profile;
+    if (!profile || !window.studi) return;
+    setDepth(next);
+    void window.studi.saveSchoolProfile({ studentName: profile.studentName, schoolRoot: profile.schoolRoot, defaultPermission: profile.defaultPermission,
+      scanCadence: profile.scanCadence, ...(profile.schoolTimeZone ? { schoolTimeZone: profile.schoolTimeZone } : {}), scanDepth: next });
+  };
   const pendingSave = useRef<string | null>(null);
   const snapshot = JSON.stringify([settings, workspace?.selectedProviderId, workspace?.selectedModelId, workspace?.selectedReasoningEffort, telemetry?.enabled, telemetry?.replayEnabled]);
   useEffect(() => {
@@ -508,18 +516,6 @@ export function SettingsScreen({
               {workspace?.models.filter(model => model.providerId === workspace.selectedProviderId).map(model => <option key={model.id} value={model.id}>{model.name}</option>)}
             </select>
           </SettingsRow>
-          <SettingsRow title="How hard Inky thinks" description="Harder is slower and uses more of your plan.">
-            <div className="st-effort" role="group" aria-label="Thinking effort">
-              {([['low', 'Quick'], ['medium', 'Normal'], ['high', 'Hard']] as const).map(([value, label]) => <button key={value} disabled={!workspace || disabled}
-                aria-pressed={workspace?.selectedReasoningEffort === value} onClick={() => workspace && save(() => onSelectAgentRuntime(workspace.selectedProviderId, workspace.selectedModelId, value))}>{label}</button>)}
-            </div>
-          </SettingsRow>
-          <details className="st-more-effort"><summary>More effort options{workspace && !['low', 'medium', 'high'].includes(workspace.selectedReasoningEffort) ? ` · ${workspace.selectedReasoningEffort}` : ''}</summary>
-            <SettingsRow title="All thinking levels"><select aria-label="All thinking levels" value={workspace?.selectedReasoningEffort ?? 'medium'} disabled={!workspace || disabled}
-              onChange={event => workspace && save(() => onSelectAgentRuntime(workspace.selectedProviderId, workspace.selectedModelId, event.target.value as AgentReasoningEffort))}>
-              <option value="off">Off</option><option value="minimal">Minimal</option><option value="low">Quick</option><option value="medium">Normal</option><option value="high">Hard</option><option value="xhigh">Extra hard</option>
-            </select></SettingsRow>
-          </details>
         </SettingsGroup>
         <MemorySettings />
       </>}
@@ -555,6 +551,12 @@ export function SettingsScreen({
             <button className="st-primary" disabled={disabled || scan?.state === "running"} onClick={onCheckSchool}>{scan?.state === "needs_user" ? "Continue check" : "Check now"}</button>
           </SettingsRow>
           {scan?.handoff && <p className="st-muted">{scan.handoff.reason}</p>}
+          <SettingsRow title="How deep checks go" description={depth === "deep" ? "As much as possible: every item's instructions, all materials. Uses more of your plan." : "The important things: all your work, each class's syllabus and exams, email."}>
+            <div className="st-effort" role="group" aria-label="How deep checks go">
+              {(["normal", "deep"] as const).map(value => <button key={value} disabled={disabled || !onboarding.profile}
+                aria-pressed={depth === value} onClick={() => saveDepth(value)}>{value === "normal" ? "Normal" : "Deep"}</button>)}
+            </div>
+          </SettingsRow>
           <SettingsRow title="Check automatically" description="Read-only. Inky never submits or posts during a check.">
             <select aria-label="Check automatically" disabled={disabled} value={schedule?.cadence ?? "manual"}
               onChange={event => save(() => onSchedule(event.target.value as "manual" | "daily" | "weekly", schedule?.localTime ?? "09:00", event.target.value === "weekly" ? schedule?.weekday ?? 1 : undefined))}>

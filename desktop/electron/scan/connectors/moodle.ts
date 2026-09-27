@@ -187,10 +187,9 @@ function parseMoodleEvents(payload: MoodleConnectorPayload): ConnectorAssignment
     if (!event || !href || !title) continue;
     const course = record(event.course);
     const action = record(event.action);
-    // Meetings and office hours share the calendar with homework; they're kept as class context, not work.
-    const meeting = MEETING_MODULES.has(text(event.modulename)?.toLowerCase() ?? "") || /^(join|attend)\b/i.test(text(action?.name) ?? "");
+    // Meetings and office hours share the calendar with homework but aren't worth keeping.
+    if (MEETING_MODULES.has(text(event.modulename)?.toLowerCase() ?? "") || /^(join|attend)\b/i.test(text(action?.name) ?? "")) continue;
     rows.push({
-      ...(meeting ? { category: "meeting" as const } : {}),
       assignmentKey: assignmentKey(href, event.instance ?? event.id),
       courseKey: identifier(course?.id) ?? identifier(event.courseid),
       title,

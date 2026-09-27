@@ -72,6 +72,7 @@ test("three rejected rows skip their current source instead of looping", async (
     assert.deepEqual(tools.map(tool => tool.name), [
       "scan_status", "scan_record_system", "scan_record_course",
       "scan_record_rows", "scan_record_source", "scan_request_handoff", "scan_record_class_note",
+      "scan_set_category", "scan_record_exam", "scan_record_school_memory", "school_read_class", "school_read_email",
     ]);
     await tools.find(tool => tool.name === "scan_record_course").execute("course", { label: "Programming in C" });
     const courseId = store.school.listCourses()[0].courseId;

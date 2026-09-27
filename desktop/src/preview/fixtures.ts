@@ -450,7 +450,7 @@ export function installDevPreview(): void {
       return { target, job: conversation(target) };
     },
     getSchoolOnboardingState: async () => onboarding,
-    saveSchoolProfile: async (input) => { onboarding = { ...onboarding, profile: onboarding.profile ? { ...onboarding.profile, ...input, updatedAt: new Date().toISOString() } : onboarding.profile }; return onboarding; },
+    saveSchoolProfile: async (input) => { onboarding = { ...onboarding, profile: onboarding.profile ? { ...onboarding.profile, ...input, scanDepth: input.scanDepth ?? onboarding.profile.scanDepth ?? "normal", updatedAt: new Date().toISOString() } : onboarding.profile }; return onboarding; },
     startSchoolScan: startPreviewScan,
     resumeSchoolScan: () => startPreviewScan(onboarding.scan?.targetAssignmentId ? { assignmentId: onboarding.scan.targetAssignmentId } : undefined),
     replaySchoolScan: startPreviewScan,

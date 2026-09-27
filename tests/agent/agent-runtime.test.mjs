@@ -447,7 +447,7 @@ test("scan session accepts its dedicated browser without a general browser contr
       assert.equal(session.toolNames.includes("browser_snapshot"), true);
       assert.equal(session.toolNames.includes("browser_rows"), true);
       assert.equal(session.toolNames.includes("browser_submit"), false);
-      assert.equal(diagnostics.find(event => event.kind === "session_created")?.payload.reasoning_effort, "low");
+      assert.equal(diagnostics.find(event => event.kind === "session_created")?.payload.reasoning_effort, "high");
     } finally {
       session.dispose();
     }

@@ -257,7 +257,7 @@ export class PiAgentRuntime implements AgentRuntime {
         nextTarget,
         tools,
         (await buildRuntimeInstructions("scan", tools.map((tool) => tool.name))).text,
-        "low",
+        "high",
       );
     return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "scan"));
   }

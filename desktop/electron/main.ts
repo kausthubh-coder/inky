@@ -55,6 +55,8 @@ import {
   type UsageState,
   transitionTask,
   assignmentWorkEligibility,
+  connectedAppIsActive,
+  DEFAULT_AGENT_REASONING_EFFORT,
 } from "../shared/index.js";
 import { getDevelopmentUrl } from "./development-url.js";
 import { buildDiagnosticsSnapshot, writeDiagnosticsSnapshot } from "./diagnostics.js";
@@ -83,7 +85,7 @@ import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
 import { AppKernel } from "./lifecycle/kernel.js";
 import { ManagerCoordinator } from "./manager/coordinator.js";
-import { SchoolScanCoordinator } from "./scan/coordinator.js";
+import { SchoolScanCoordinator, type SchoolEmail } from "./scan/coordinator.js";
 import { type LocalStore, openLocalStore, STORAGE_SCHEMA_VERSION } from "./storage/index.js";
 import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
@@ -413,7 +415,8 @@ const ipcHandlers: StudiIpcHandlers = {
   selectAgentModel: async ({ providerId, modelId, reasoningEffort }) => {
     const runtime = requireAgentRuntime();
     runtime.selectModel(providerId, modelId);
-    runtime.setReasoningEffort(reasoningEffort);
+    // Reasoning is always high: a ceiling, not a minimum, so Inky still thinks only as much as each step needs.
+    runtime.setReasoningEffort(DEFAULT_AGENT_REASONING_EFFORT);
     await persistAgentRuntimeChoice();
     requireTelemetryService().capture("studi_model_selected", { provider: providerId, model: modelId, reasoning_effort: reasoningEffort });
     requireTelemetryService().setPerson({ selected_provider: providerId, selected_model: modelId, selected_reasoning: reasoningEffort });
@@ -619,9 +622,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   startSchoolScan: async (input) => {
     await requireReadyProviderForScan();
-    const state = await runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startScan(input?.assignmentId));
-    if (!input?.assignmentId && state.scan?.state === "succeeded") void buildClassContext();
-    return state;
+    return runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startScan(input?.assignmentId));
   },
   resumeSchoolScan: async () => {
     await requireReadyProviderForScan();
@@ -1790,6 +1791,12 @@ async function initializeDesktopAgent(): Promise<void> {
         const prior = repository.sources().find(item => item.courseId === source.courseId && item.sourceTarget === source.sourceTarget);
         return repository.importSource({ ...source, kind: 'scan', ...(prior ? { sourceId: prior.sourceId } : {}) });
       },
+      recordExam: async (exam) => {
+        const repository = requireLearnRepository();
+        const same = repository.exams().find(item => item.courseId === exam.courseId && item.title.trim().toLowerCase() === exam.title.toLowerCase());
+        return repository.setExam({ ...(same ? { examId: same.examId } : {}), courseId: exam.courseId, title: exam.title, date: exam.date ?? same?.date ?? null, kind: 'exam' });
+      },
+      readSchoolEmail: readSchoolEmail,
       onError: (error, scanId, toolName) => requireTelemetryService().captureError(error, "scan", "school_scan", {
         ...currentAgentSelection(), scan_id: scanId, ...(toolName ? { tool_name: toolName } : {}),
       }),
@@ -1858,6 +1865,31 @@ function disposeProtectedRuntimeNow(): Promise<void> {
   browserView = null;
   browserController = null;
   return stopped;
+}
+
+/**
+ * The school check's view of connected Gmail: messages since a date, read-only. Fetching through the Gmail API
+ * never marks mail read. Null means no Gmail is connected, which the scan treats as "skip this step".
+ */
+async function readSchoolEmail(input: { since: string; query?: string }): Promise<SchoolEmail[] | null> {
+  if (isSelfTest) return null;
+  const gateway = requireAuthCoordinator();
+  const apps = await gateway.connectedApps();
+  if (!apps.configured || !apps.toolkits.some(item => item.toolkit === 'gmail')) return null;
+  if (!connectedAppIsActive(await gateway.connectedAppConnection('gmail'))) return null;
+  const query = `after:${input.since.slice(0, 10).replaceAll('-', '/')} ${input.query ?? ''}`.trim();
+  const result = await gateway.executeConnectedAppTool('gmail', 'GMAIL_FETCH_EMAILS', { query, max_results: 40, include_payload: false });
+  if (result.error) throw new Error(`Gmail couldn't be read: ${result.error}`);
+  const value = result.data.value as { messages?: unknown[]; data?: { messages?: unknown[] } } | unknown[] | null;
+  const messages = Array.isArray(value) ? value : value?.messages ?? value?.data?.messages ?? [];
+  const text = (item: Record<string, unknown>, ...keys: string[]) => keys.map(key => item[key]).find((field): field is string => typeof field === 'string' && field.trim() !== '') ?? '';
+  return messages.flatMap(raw => {
+    if (!raw || typeof raw !== 'object') return [];
+    const item = raw as Record<string, unknown>;
+    const preview = item.preview && typeof item.preview === 'object' ? text(item.preview as Record<string, unknown>, 'body') : '';
+    return [{ from: text(item, 'sender', 'from').slice(0, 200), subject: text(item, 'subject').slice(0, 300),
+      receivedAt: text(item, 'messageTimestamp', 'date', 'internalDate'), preview: (preview || text(item, 'snippet', 'messageText')).replace(/\s+/g, ' ').slice(0, 400) }];
+  });
 }
 
 function loadConnectedAppTools() {
@@ -1946,26 +1978,6 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
   await appKernel.start();
   for (const intent of pendingNotifications.splice(0)) await appKernel.notify(intent);
   queueLearnExtraction();
-}
-
-/**
- * After homework is found, get to know each class the way a student would: read its syllabus, study guides
- * and exam plans (Learn fills with exams and topics) and save a short class note Inky reuses. One class at a
- * time in the background; stops quietly when the browser is needed for something else.
- */
-let buildingClassContext = false;
-async function buildClassContext(): Promise<void> {
-  if (buildingClassContext) return;
-  buildingClassContext = true;
-  try {
-    const known = new Set(requireLearnRepository().sources().flatMap(source => source.courseId ? [source.courseId] : []));
-    for (const course of (await requireSchoolScanCoordinator().state()).courses.filter(course => !known.has(course.courseId))) {
-      const state = await runScanWithTelemetry("start", () => requireSchoolScanCoordinator().startMaterialsScan(course.courseId));
-      if (state.scan?.state === "needs_user") break;
-    }
-  } catch (error) {
-    requireTelemetryService().captureError(error, "scan", "school_scan", currentAgentSelection());
-  } finally { buildingClassContext = false; }
 }
 
 async function runScanWithTelemetry(
@@ -2228,7 +2240,7 @@ async function applyPersistedAgentRuntime(): Promise<void> {
       // Keep the catalog default when the saved subscription has no installed model.
     }
   }
-  runtime.setReasoningEffort(preferences.agentReasoningEffort);
+  runtime.setReasoningEffort(DEFAULT_AGENT_REASONING_EFFORT);
   requireTelemetryService().setPerson({
     selected_provider: runtime.selectedProviderId,
     selected_model: runtime.selectedModelId,
