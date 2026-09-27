@@ -48,7 +48,8 @@ test("J1: onboarding scans the isolated LMS and Today matches expected.json", as
     await page.getByRole("button", { name: /All work/ }).click();
 
     const onboarding = await publicState(page, "getSchoolOnboardingState");
-    const actual = onboarding.assignments.map((assignment) => ({
+    // Meetings and other class context are saved too; the week holds only work.
+    const actual = onboarding.assignments.filter((assignment) => (assignment.category ?? "work") === "work").map((assignment) => ({
       course: onboarding.courses.find((course) => course.courseId === assignment.courseId)?.label,
       title: assignment.title,
       dueAt: assignment.dueAt ?? null,

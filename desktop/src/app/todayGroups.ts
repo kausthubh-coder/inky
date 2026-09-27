@@ -49,6 +49,8 @@ export function todayGroups(
   weekStart.setHours(0, 0, 0, 0);
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
   for (const assignment of all.values()) {
+    // Meetings, resources, grade items and exams are class context, not work in the student's week.
+    if ((assignment.category ?? "work") !== "work") continue;
     const task = taskMap.get(assignment.assignmentId) ?? null;
     const execution =
       lifecycle.execution?.assignmentId === assignment.assignmentId

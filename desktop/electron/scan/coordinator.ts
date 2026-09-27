@@ -795,6 +795,7 @@ export class SchoolScanCoordinator {
       sourceIdentity: identity,
       origin: prior?.origin ?? "school",
       ...classifyAssignmentKind(row.title, row.instructions ?? ""),
+      ...(row.category ? { category: row.category } : {}),
       kindEvidence: evidence,
       ...(dueAt ? { dueAt, deadlinePrecision, deadlineEvidence: evidence } : {}),
       ...(row.dueText ? { dueText: row.dueText } : {}),
@@ -1859,6 +1860,7 @@ For login, request a school_sign_in handoff with the exact blocker; resume this 
   }
 
   #ensureTaskOrigin(assignment: Assignment, scanId: string): void {
+    if ((assignment.category ?? "work") !== "work") return;
     const existing = this.#store.tasks.listAll().find((task) => task.assignmentId === assignment.assignmentId);
     const task = existing ?? this.#createTaskOrigin(assignment, scanId);
     this.#manager?.reconcileQueue();

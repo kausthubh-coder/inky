@@ -15,6 +15,8 @@ export const AssignmentSchema = z.strictObject({
   origin: z.enum(["manual", "school"]).optional(),
   owner: z.enum(["student", "inky"]).optional(),
   ownerPreviousMode: z.enum(["do_not_attempt", "attempt", "auto_submit"]).optional(),
+  /** What the item is. Only work (the default) goes into the student's week; the rest is class context. */
+  category: z.enum(["work", "exam", "meeting", "resource", "grade"]).optional(),
   kind: AssignmentKindSchema.optional(),
   possibleKinds: z.array(AssignmentKindSchema).max(7).optional(),
   kindConfidence: z.enum(["explicit", "uncertain"]).optional(),

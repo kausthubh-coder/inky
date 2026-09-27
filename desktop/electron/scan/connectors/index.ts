@@ -29,6 +29,8 @@ export interface ConnectorAssignmentRow {
   readonly dueText: string | null;
   readonly statusText: string | null;
   readonly kind: string;
+  /** Anything but work is saved as class context and kept out of the student's week. */
+  readonly category?: "work" | "exam" | "meeting" | "resource" | "grade";
   readonly instructions: string | null;
   readonly sourceLabels: readonly ConnectorSourceLabel[];
 }

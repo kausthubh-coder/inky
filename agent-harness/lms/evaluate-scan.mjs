@@ -45,7 +45,8 @@ export function evaluateScan({
   previous = null,
   slo = null,
 }) {
-  const actual = observation.assignments ?? [],
+  // Meetings, resources, exams and grade items are saved as class context; only work is graded as rows.
+  const actual = (observation.assignments ?? []).filter((row) => (row.category ?? "work") === "work"),
     courses = observation.courses ?? [];
   function identity(row) {
     try {
