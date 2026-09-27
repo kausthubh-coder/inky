@@ -59,6 +59,15 @@ test("Moodle timeline and course replies become coordinator-ready rows", async (
   ]);
 });
 
+test("Moodle calendar rows use the activity's own name and plain due text", async () => {
+  const payload = await fixture("moodle");
+  payload.calendar.data.events[0] = { ...payload.calendar.data.events[0], name: "Concept quiz should be completed", activityname: "Concept quiz",
+    formattedtime: '<a href="https://moodle.cedar.example/calendar/view.php?view=day&amp;time=1">Wednesday, 23 September</a>, 11:59 PM' };
+  const [quiz] = parseMoodleConnectorPayload(payload).assignments;
+  assert.equal(quiz.title, "Concept quiz");
+  assert.equal(quiz.dueText, "Wednesday, 23 September, 11:59 PM");
+});
+
 test("Moodle iCal fallback preserves unknown date precision and maps only known courses", async () => {
   const snapshot = parseMoodleConnectorPayload(await fixture("moodle-ical"));
 

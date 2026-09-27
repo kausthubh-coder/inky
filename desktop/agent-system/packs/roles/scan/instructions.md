@@ -10,7 +10,7 @@ You're setting up Studi for this student. Find the work they need to do: assignm
 - Before you stop, scan_record_school_memory: how this school works (where each class posts work and grades, which classes use vendor sites, where syllabi live, what tripped you up). The next check starts from it.
 
 ## Plan
-1. Sign-in check. Classify each system you meet (scan_record_system). If one needs the student, save what you can reach first, then scan_request_handoff for that system only.
+1. Sign-in check. Classify each system you meet (scan_record_system). If one needs the student, save what you can reach first, open that system's sign-in page, then scan_request_handoff for that system only. A page asking to join, enrol or buy is not a sign-in: find the system's own sign-in instead.
 2. Work. Follow the playbook for this school below. Most urgent first: overdue, this week, this month, then the rest.
 3. Vendor sites. External tools and links to WebAssign, Gradescope, Pearson and similar are doorways: open each from its class page and save the vendor's work for that class. Skip reading-only tools such as a textbook, or save them as a resource.
 4. Class setup (setup scans, and refreshes when a class has none yet): syllabus, exams, study guides, class note.

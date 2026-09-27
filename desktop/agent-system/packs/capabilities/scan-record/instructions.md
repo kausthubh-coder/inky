@@ -11,7 +11,7 @@ Scan recording tools accept only facts observed in this scan. Record as you go a
 - scan_record_school_memory {text}: how this school works, for the next check.
 - school_read_class {courseKey}: fast read of a Moodle class page's sections and activities.
 - school_read_email {query?}: connected school email since the last check, read-only.
-- scan_request_handoff: pause one blocked system on the page where the student can act, after saving what you can reach.
+- scan_request_handoff: pause one blocked system on its sign-in page, after saving what you can reach.
 
 Keep exact visible titles, links, due text and status text. Unknown is valid. Never invent a date, time, year, status, class, link or instruction. Keep due text separate from late cutoffs and release dates. If sources conflict, keep the conflict in the instructions and leave the disputed fact unknown.
 

@@ -80,9 +80,13 @@ export async function readDocumentText(browser: Pick<BrowserController, "fetchDo
   if (!isPdf(data)) {
     if (!html) throw new Error("This link isn't a PDF or a web page.");
     const raw = Buffer.from(data).toString("utf8");
-    const signIn = looksLikeSignIn(new URL(url)) || /<input[^>]+type=["']?password|name=["']?(SAMLRequest|SAMLResponse)\b/i.test(raw);
     const page = raw.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
+    // A sign-in step: a sign-in address, a password box, a SAML message, or a short page that is only a form posting
+    // itself (single sign-on hand-offs submit by script, with a Continue button for browsers without JavaScript).
+    const selfPosting = /<form[^>]+method=["']?post/i.test(raw) && page.length < 2_000
+      && (/\.submit\(\)/.test(raw) || /<noscript>[\s\S]*?<(input|button)[^>]*type=["']?submit/i.test(raw));
+    const signIn = looksLikeSignIn(new URL(url)) || selfPosting || /<input[^>]+type=["']?password|name=["']?(SAMLRequest|SAMLResponse)\b/i.test(raw);
     return { url, text: page.slice(0, MAX_TEXT * 3), signIn };
   }
   const pages: string[] = [];

@@ -1727,7 +1727,7 @@ export class SchoolScanCoordinator {
     const requestHandoff = defineTool({
       name: "scan_request_handoff",
       label: "Request student sign-in",
-      description: "Pause the scan for a school or linked-system sign-in in the visible browser. Stop after this tool succeeds.",
+      description: "Pause the scan for a school or linked-system sign-in in the visible browser. First open that system's sign-in page (its Sign in or Log in link, or the page it redirects to), so the student lands where they can sign in; never leave them on an enrolment, join, purchase or error page. Stop after this tool succeeds.",
       parameters: Type.Object({
         kind: Type.Union([Type.Literal("school_sign_in"), Type.Literal("linked_system_sign_in")]),
         linkedSystemId: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })),

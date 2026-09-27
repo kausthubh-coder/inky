@@ -110,6 +110,14 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+/** Moodle formats some calendar fields as HTML (a date wrapped in a link to the day view). */
+function plainText(value: unknown): string | null {
+  const html = text(value);
+  if (!html) return null;
+  return text(html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, "\"").replace(/&#0*39;/g, "'").replace(/&amp;/g, "&").replace(/\s+/g, " "));
+}
+
 function identifier(value: unknown): string | null {
   if (typeof value === "string" && value.trim()) return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
@@ -183,7 +191,9 @@ function parseMoodleEvents(payload: MoodleConnectorPayload): ConnectorAssignment
   for (const value of data.events) {
     const event = record(value);
     const href = absoluteHref(event?.url, payload.origin);
-    const title = text(event?.name) ?? text(event?.title);
+    // The event name is phrased for the calendar ("Quiz 3 should be completed", "Essay is due"); the activity's own
+    // name is what the class page shows.
+    const title = plainText(event?.activityname) ?? plainText(event?.name) ?? plainText(event?.title);
     if (!event || !href || !title) continue;
     const course = record(event.course);
     const action = record(event.action);
@@ -195,7 +205,7 @@ function parseMoodleEvents(payload: MoodleConnectorPayload): ConnectorAssignment
       title,
       href,
       dueAt: unixDate(event.timesort ?? event.timestart),
-      dueText: text(event.formattedtime) ?? text(event.dueText),
+      dueText: plainText(event.formattedtime) ?? plainText(event.dueText),
       statusText: text(event.statusText) ?? text(event.status) ?? text(action?.status),
       kind: moduleKind(event),
       instructions: text(event.description),

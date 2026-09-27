@@ -105,4 +105,16 @@ test("the whole text of a school document is read in one call, from a PDF or a p
   assert.ok(pdf.text.length > 0);
   const page = await readDocumentText(browser, `${origin}/syllabus`);
   assert.equal(page.text, "Syllabus Midterm 1 is October 8.");
+  assert.equal(page.signIn, false);
+});
+
+test("a link that lands on a single sign-on step is reported as sign-in, not as the document", async () => {
+  const page = html => ({ fetchDownload: async () => new Response(html, { headers: { "content-type": "text/html" } }) });
+  const selfPosting = `<html><body onload="document.forms[0].submit()"><form method="post" action="/idp/profile/SSO?execution=e1s1">
+    <input type="hidden" name="shib_idp_ls_value" value="x"><noscript><p>Since your browser does not support JavaScript, press Continue.</p>
+    <button type="submit" name="_eventId_proceed">Continue</button></noscript></form></body></html>`;
+  assert.equal((await readDocumentText(page(selfPosting), "https://go.school.test/guide")).signIn, true);
+  assert.equal((await readDocumentText(page('<form><input type="password" name="pw"></form>'), "https://school.test/guide")).signIn, true);
+  const search = `<html><body><h1>Study guide</h1><p>${"Topics for the exam. ".repeat(200)}</p><form method="post"><button type="submit">Search</button></form></body></html>`;
+  assert.equal((await readDocumentText(page(search), "https://school.test/guide")).signIn, false, "a real page with a form is still a document");
 });
