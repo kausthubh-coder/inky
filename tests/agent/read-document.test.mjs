@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
 
-import { createReadDocumentTool } from "../../dist/electron/browser/read-document.js";
+import { createReadDocumentTool, readDocumentText } from "../../dist/electron/browser/read-document.js";
 import { schoolPdf } from "../fixtures/school-pdf.mjs";
 
 test("read_document follows a Moodle resource redirect and reads text or scanned PDF pages", async (t) => {
@@ -89,4 +89,20 @@ test("read_document rejects an HTML sign-in response and invalid page without re
     createReadDocumentTool(pdfBrowser).execute("page", { page: 3 }),
     /has 2 pages/,
   );
+});
+
+test("the whole text of a school document is read in one call, from a PDF or a page", async (t) => {
+  const server = createServer((request, response) => {
+    if (request.url === "/syllabus.pdf") { response.writeHead(200, { "content-type": "application/pdf" }); response.end(schoolPdf()); return; }
+    if (request.url === "/syllabus") { response.writeHead(200, { "content-type": "text/html" }); response.end("<html><body><script>ignored()</script><h1>Syllabus</h1><p>Midterm&nbsp;1 is October 8.</p></body></html>"); return; }
+    response.writeHead(404).end();
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => { server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); });
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const browser = { fetchDownload: (url, signal) => fetch(url, { signal }) };
+  const pdf = await readDocumentText(browser, `${origin}/syllabus.pdf`);
+  assert.ok(pdf.text.length > 0);
+  const page = await readDocumentText(browser, `${origin}/syllabus`);
+  assert.equal(page.text, "Syllabus Midterm 1 is October 8.");
 });

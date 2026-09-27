@@ -336,3 +336,10 @@ test("hosts are learned from a full saved school profile, not only a bare host l
   assert.deepEqual(autofillLtiLaunchHost(profile, { pageUrl, action: "https://webassign.example/launch", method: "post", fieldNames: ["lti_message_type", "resource_link_id"] }, [pageUrl]),
     { signInHosts: ["login.university.edu"], ltiLaunchHosts: ["webassign.example"] });
 });
+
+test("an LTI 1.3 login initiation from a verified course page is a launch", () => {
+  const pageUrl = "https://school.example.edu/mod/lti/launch.php?id=9";
+  const learned = autofillLtiLaunchHost(undefined, { pageUrl, action: "https://bc.vitalsource.test/lti1-3/login_initiations/1", method: "post",
+    fieldNames: ["iss", "login_hint", "target_link_uri", "lti_message_hint", "client_id"] }, [pageUrl]);
+  assert.deepEqual(learned.ltiLaunchHosts, ["bc.vitalsource.test"]);
+});

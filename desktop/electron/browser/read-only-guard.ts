@@ -250,6 +250,8 @@ function isLtiLaunchFieldSet(names: ReadonlySet<string>): boolean {
   return (
     (names.has("lti_message_type") && names.has("resource_link_id"))
     || (names.has("id_token") && names.has("state"))
+    // LTI 1.3 starts with a third-party login initiation before the id_token launch.
+    || (names.has("iss") && names.has("login_hint") && names.has("target_link_uri"))
   );
 }
 

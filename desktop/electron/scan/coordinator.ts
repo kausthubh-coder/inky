@@ -25,6 +25,7 @@ import {
 import { retrieveNoteIndex } from "../../agent-system/retrieve.js";
 import type { AgentSession, AgentSessionTarget, ScanSessionControl } from "../agent/runtime.js";
 import type { BrowserController } from "../browser/controller.js";
+import { readDocumentText } from "../browser/read-document.js";
 import { autofillLtiLaunchHost, autofillSignInHosts, type ScanReadOnlyGuard } from "../browser/read-only-guard.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
@@ -450,7 +451,7 @@ export class SchoolScanCoordinator {
         ? connectorComplete
           ? `Studi's ${system} tools already read every class and saved the work below. Review it, fix categories and fill gaps.`
           : `Studi's ${system} tools read part of the school; a class or list failed (see gaps). Get the missing facts in the browser.`
-        : "Studi couldn't read this school with its tools. Read it in the browser.";
+        : "Studi couldn't read this school with its tools. Read it in the browser. If sign-in reveals Moodle or Canvas, use that playbook and inspect every class's work lists and external tools.";
       const externalTools = this.#externalTools.length
         ? `\n\n# External tools on class pages\n${this.#externalTools.map(tool => `- ${tool.courseLabel}: ${tool.title} (${tool.href})`).join("\n")}`
         : "";
@@ -1137,21 +1138,29 @@ export class SchoolScanCoordinator {
     const recordSource = defineTool({
       name: "scan_record_source",
       label: "Save course study source",
-      description: "Save a syllabus or study guide from its currently open course page for Learn.",
+      description: "Save a syllabus, study guide, exam review or past exam for Learn by its link (a PDF or a page). Studi reads the whole file itself, so you don't need to read it page by page first; give text only when the link can't be read.",
       parameters: Type.Object({
         courseKey: Type.String({ minLength: 1, maxLength: 500 }),
         title: Type.String({ minLength: 1, maxLength: 300 }),
         url: Type.String({ minLength: 1, maxLength: 4096 }),
-        text: Type.String({ minLength: 1, maxLength: 20000 }),
+        text: Type.Optional(Type.String({ minLength: 1, maxLength: 20000 })),
       }, { additionalProperties: false }),
       execute: async (_id, input) => {
         if (!this.#recordSyllabus) return toolResult({ saved: false, reason: "Study source storage is unavailable" });
         const course = this.#store.school.listCourses().find(item => item.courseId === input.courseKey || item.label === input.courseKey);
         if (!course || !this.#requiredRunningScan(scanId).observedCourseIds.includes(course.courseId)) throw new Error("Verify the source's class first");
-        const snapshot = await this.#observe(scanId);
         const source = SafeSourceTargetSchema.parse(input.url);
-        if (exactTarget(source) !== exactTarget(snapshot.url) || !normalizeFact(snapshot.text).includes(normalizeFact(input.text))) throw new Error("Open the source and quote its visible text");
-        await this.#recordSyllabus({ courseId: course.courseId, title: input.title, text: input.text, sourceTarget: source });
+        // The school's own file is the evidence: read it through the signed-in browser. A quote is only the fallback
+        // for pages the reader can't fetch, and then it must be visible on the open page.
+        let text = await readDocumentText(this.#browser, source).then(read => read.text, () => "");
+        if (text.length < 200) {
+          const snapshot = await this.#observe(scanId);
+          if (!input.text || exactTarget(source) !== exactTarget(snapshot.url) || !normalizeFact(snapshot.text).includes(normalizeFact(input.text))) {
+            throw new Error("Studi couldn't read this link. Open it and quote its visible text, or report it as unreadable.");
+          }
+          text = input.text;
+        }
+        await this.#recordSyllabus({ courseId: course.courseId, title: input.title, text, sourceTarget: source });
         const scan = this.#requiredRunningScan(scanId);
         this.#store.school.putScan({ ...scan, materialSourceCount: scan.materialSourceCount + 1, updatedAt: this.#now() });
         return toolResult({ saved: true, courseId: course.courseId });
@@ -1321,7 +1330,8 @@ export class SchoolScanCoordinator {
           const courses = this.#store.school.listCourses();
           const matches = courses.filter(course => identity
             ? courseIdentity(this.#store, course) === identity
-            : courseObservations(course).some(observation => exactTarget(observation.sourceTarget) === exactTarget(sourceTarget) && sameFact(observation.label, input.label)));
+            : course.sourceIdentity === `url|${exactTarget(sourceTarget)}` ||
+              courseObservations(course).some(observation => exactTarget(observation.sourceTarget) === exactTarget(sourceTarget) && sameFact(observation.label, input.label)));
           if (!identity && matches.length > 1) throw new Error("Several classes match this observation; open the course page before recording it");
           let priorCourse = matches[0];
           if (!priorCourse && exactTarget(sourceTarget) !== exactTarget(snapshot.url)) {
@@ -1643,11 +1653,8 @@ export class SchoolScanCoordinator {
       }, { additionalProperties: false }),
       execute: async (_toolCallId, input) => {
         const scan = this.#requiredRunningScan(scanId);
-        if (input.kind === "linked_system_sign_in" && !scan.targetAssignmentId) {
-          if (!input.linkedSystemId || !scan.observedLinkedSystemIds.includes(input.linkedSystemId)) {
-            throw new Error("A linked-system handoff requires a linked system observed in this scan");
-          }
-        }
+        // The sign-in page itself (the snapshot below) is the evidence; an id Studi doesn't know is just dropped.
+        const linkedSystemId = input.linkedSystemId && scan.observedLinkedSystemIds.includes(input.linkedSystemId) ? input.linkedSystemId : undefined;
         const snapshot = await this.#observe(scanId);
         const evidence = this.#evidence(scanId, snapshot, "Observed a page that requires the student's sign-in.");
         let next = this.#store.school.putScan({
@@ -1657,7 +1664,7 @@ export class SchoolScanCoordinator {
           currentStep: input.reason.trim(),
           handoff: {
             kind: input.kind,
-            ...(input.linkedSystemId === undefined ? {} : { linkedSystemId: input.linkedSystemId }),
+            ...(linkedSystemId === undefined ? {} : { linkedSystemId }),
             reason: input.reason.trim(),
             requestedAt: this.#now(),
             evidence,
