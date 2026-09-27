@@ -4,6 +4,9 @@ const MAX_ELEMENTS = 80;
 const MAX_TEXT_LENGTH = 8_000;
 const ACTION_SETTLE_MS = 180;
 const SUBMISSION_PATTERN = /\b(submit|turn in|hand in|finish attempt|send answers?|complete attempt)\b/i;
+/** Pages whose text still counts as seen when the agent records what they listed. */
+const RECENT_PAGES = 40;
+const looseText = (text: string) => text.toLowerCase().replace(/&amp;/g, "&").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 const INTERACTIVE_ROLES = new Set([
   "button",
   "checkbox",
@@ -84,8 +87,12 @@ export class BrowserController {
   /** The last few pages read in full, so a row seen a moment ago can still be saved after moving on. */
   #recentTexts: string[] = [];
 
-  constructor(target: BrowserTarget) {
+  /** Told before a plain link on an untouched page is clicked, so a site that posts its page loads can still be read. */
+  readonly #onLinkClick: ((pageUrl: string) => void) | undefined;
+
+  constructor(target: BrowserTarget, options: { onLinkClick?: (pageUrl: string) => void } = {}) {
     this.#target = target;
+    this.#onLinkClick = options.onLinkClick;
     target.debugger.on?.("detach", () => {
       this.pageChanged();
     });
@@ -138,10 +145,10 @@ export class BrowserController {
     return url === this.#target.getURL() || this.#observedLinks.has(url);
   }
 
-  /** Whether one of the last few pages read showed this text. */
+  /** Whether a page read during this check showed this text, ignoring case, spacing and punctuation. */
   recentlyShowed(fragment: string): boolean {
-    const wanted = fragment.replace(/\s+/g, " ").trim().toLowerCase();
-    return wanted.length > 0 && this.#recentTexts.some(text => text.includes(wanted));
+    const wanted = looseText(fragment);
+    return wanted.length > 0 && this.#recentTexts.some(text => ` ${text} `.includes(` ${wanted} `));
   }
 
   /**
@@ -304,7 +311,7 @@ export class BrowserController {
     };
     for (const element of elements) if (element.href) this.#observedLinks.add(element.href);
     this.rememberUrls(text);
-    if (!options.search) this.#recentTexts = [...this.#recentTexts, text.replace(/\s+/g, " ").toLowerCase()].slice(-6);
+    this.#recentTexts = [...this.#recentTexts, looseText(`${text} ${elements.map(element => element.name ?? "").join(" ")}`)].slice(-RECENT_PAGES);
     const previous = observed ? this.#diffBaseline : this.#lastSnapshot;
     this.#lastSnapshot = snapshot;
     // A plain re-read of the page the model already has returns only what changed (like Codex's accessibility
@@ -431,6 +438,16 @@ export class BrowserController {
           connected: Boolean(element.isConnected),
           disabled: Boolean(element.disabled || element.getAttribute?.("aria-disabled") === "true"),
           submission: type === "submit" && Boolean(element.form),
+          link: tag === "a" || element.getAttribute?.("role") === "link",
+          // Anything typed, ticked, chosen or attached on this page; posting it could hand in work.
+          touched: [...document.querySelectorAll("input, textarea, select")].some(field => {
+            const kind = String(field.type || "").toLowerCase();
+            if (kind === "hidden" || kind === "submit" || kind === "button") return false;
+            if (kind === "file") return field.files?.length > 0;
+            if (kind === "checkbox" || kind === "radio") return field.checked !== field.defaultChecked || (field.checked && field.offsetParent !== null);
+            if (field.tagName === "SELECT") return [...field.options].some(option => option.selected !== option.defaultSelected);
+            return field.value !== field.defaultValue;
+          }),
           ltiLaunch: Boolean(element.form && String(element.form.method).toUpperCase() === "POST" && (() => {
             const names = new Set([...element.form.querySelectorAll('input[name]')].map(input => input.name.toLowerCase()));
             return (names.has("lti_message_type") && names.has("resource_link_id")) || (names.has("id_token") && names.has("state"));
@@ -450,6 +467,7 @@ export class BrowserController {
     if (value.connected !== true || value.disabled === true) {
       throw new Error("The referenced element is no longer available or is disabled");
     }
+    if (value.link === true && !value.touched && !SUBMISSION_PATTERN.test(label)) this.#onLinkClick?.(this.#target.getURL());
     await this.#callOn(objectId, "function () { this.scrollIntoView({ block: 'center' }); this.click(); return true; }");
     return this.#afterAction();
   }

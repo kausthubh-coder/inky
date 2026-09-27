@@ -28,6 +28,8 @@ export interface ConnectorAssignmentRow {
   readonly dueAt: string | null;
   readonly dueText: string | null;
   readonly statusText: string | null;
+  /** The agent's reading of statusText; without it Studi reads common wording itself. */
+  readonly statusState?: "not_submitted" | "submitted" | "graded" | "locked";
   readonly kind: string;
   /** Anything but work is saved as class context and kept out of the student's week. */
   readonly category?: "work" | "exam" | "resource" | "grade";

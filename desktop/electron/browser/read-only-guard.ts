@@ -15,10 +15,12 @@ const READ_ONLY_MOODLE_METHODS = new Set([
 const READ_ONLY_MOODLE_PREFIXES = ["core_calendar_get_", "core_course_get_"];
 const HTTP_METHODS_WITHOUT_WRITES = new Set(["GET", "HEAD"]);
 
-type GuardRequest = Pick<OnBeforeRequestListenerDetails, "method" | "uploadData" | "url">;
+type GuardRequest = Pick<OnBeforeRequestListenerDetails, "method" | "uploadData" | "url"> & Partial<Pick<OnBeforeRequestListenerDetails, "resourceType">>;
+/** How long a link click may take to turn into its page load. */
+const LINK_NAVIGATION_MS = 5_000;
 
 export type ScanRequestDecision =
-  | { readonly action: "allow"; readonly reason: "assignment" | "read" | "sign_in" | "lti_launch" | "moodle_read" }
+  | { readonly action: "allow"; readonly reason: "assignment" | "read" | "sign_in" | "lti_launch" | "moodle_read" | "link_navigation" }
   | { readonly action: "block"; readonly reason: "scan_write" };
 
 export interface ScanReadOnlyGuardOptions {
@@ -34,6 +36,11 @@ export interface ScanReadOnlyGuard {
   readonly scanActive: boolean;
   setAllowedHosts(hosts: SchoolReadOnlyHostsInput | undefined): void;
   setScanActive(active: boolean): void;
+  /**
+   * The agent clicked a plain link on this page, with nothing typed, ticked or attached on it. Some sites (WebAssign,
+   * older portals) load their next page by posting a hidden form; the next such page load on the same site is allowed.
+   */
+  allowLinkNavigation(pageUrl: string): void;
   dispose(): void;
 }
 
@@ -70,11 +77,16 @@ export function installScanReadOnlyGuard(
   let policy = compilePolicy(options);
   let scanActive = false;
   let disposed = false;
+  let linkNavigation: { host: string; until: number } | null = null;
 
   session.webRequest.onBeforeRequest(
     { urls: ["http://*/*", "https://*/*"] },
     (details, callback) => {
-      const decision = classifyScanRequestWithPolicy(details, policy, scanActive);
+      let decision = classifyScanRequestWithPolicy(details, policy, scanActive);
+      if (decision.action === "block" && linkNavigation && isLinkNavigation(details, linkNavigation)) {
+        linkNavigation = null;
+        decision = { action: "allow", reason: "link_navigation" };
+      }
       callback(decision.action === "block" ? { cancel: true } : {});
       if (scanActive && decision.reason !== "read") {
         try {
@@ -98,6 +110,11 @@ export function installScanReadOnlyGuard(
         return;
       }
       scanActive = active;
+      linkNavigation = null;
+    },
+    allowLinkNavigation(pageUrl) {
+      const url = parseHttpUrl(pageUrl);
+      linkNavigation = url && scanActive ? { host: normalizeHostname(url.host), until: Date.now() + LINK_NAVIGATION_MS } : null;
     },
     dispose() {
       if (disposed) return;
@@ -184,6 +201,11 @@ function classifyScanRequestWithPolicy(
   if (policy.signInHosts.has(normalizeHostname(url.host))) return { action: "allow", reason: "sign_in" };
 
   const fields = requestFields(request.uploadData);
+  // Signing in is not school work: SAML sign-in messages, and posts to sign-in pages (Shibboleth, CAS, ADFS, Okta,
+  // Microsoft, Google, a school's own login form), as long as nothing is uploaded.
+  if (method === "POST" && !hasUpload(request.uploadData) && (fields.names.has("samlrequest") || fields.names.has("samlresponse") || isSignInEndpoint(url))) {
+    return { action: "allow", reason: "sign_in" };
+  }
   if (
     method === "POST" &&
     policy.ltiLaunchHosts.has(normalizeHostname(url.host)) &&
@@ -228,8 +250,28 @@ function parseHttpUrl(value: string): URL | null {
   }
 }
 
+/** A page load posted by a link click just made on the same site, carrying no file. */
+function isLinkNavigation(request: GuardRequest, allowance: { host: string; until: number }): boolean {
+  const url = parseHttpUrl(request.url);
+  return Date.now() <= allowance.until && request.method.toUpperCase() === "POST" && request.resourceType === "mainFrame"
+    && !!url && normalizeHostname(url.host) === allowance.host && !hasUpload(request.uploadData);
+}
+
+function hasUpload(uploadData: GuardRequest["uploadData"]): boolean {
+  return !!uploadData?.some(item => item.file || item.blobUUID || /filename=/i.test(item.bytes?.subarray(0, 64_000).toString("latin1") ?? ""));
+}
+
+/**
+ * Where a sign-in form posts: a sign-in path (/idp/, /saml2/, /cas/, /login, /oauth2/, /adfs/...) on any host, or a
+ * hosted identity provider. Stricter than looksLikeSignIn, which also trusts host names like "auth.".
+ */
+function isSignInEndpoint(url: URL): boolean {
+  return /(^|\.)(duosecurity\.com|okta\.com|microsoftonline\.com|accounts\.google\.com)$/i.test(url.hostname)
+    || /\/(idp|saml2?|sso|cas|login|signin|oauth2?|adfs)(\/|$)/i.test(url.pathname);
+}
+
 /** Identity-provider pages: Shibboleth/SAML, CAS, OAuth/OIDC, ADFS, Duo and the big hosted providers. */
-function looksLikeSignIn(url: URL): boolean {
+export function looksLikeSignIn(url: URL): boolean {
   return /(^|\.)(login|sso|idp|auth|shib|cas|adfs|duosecurity\.com|okta\.com|microsoftonline\.com|accounts\.google\.com)(\.|$)/i.test(url.host)
     || /\/(idp|saml2?|sso|cas|login|signin|oauth2?|authorize|adfs)(\/|$)/i.test(url.pathname);
 }

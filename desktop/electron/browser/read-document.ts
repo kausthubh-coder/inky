@@ -4,6 +4,7 @@ import { defineTool } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
 import type { BrowserController } from "./controller.js";
+import { looksLikeSignIn } from "./read-only-guard.js";
 
 const MAX_BYTES = 50_000_000;
 const MAX_TEXT = 20_000;
@@ -69,17 +70,20 @@ async function downloadDocument(browser: Pick<BrowserController, "fetchDownload"
 
 /**
  * The whole text of a school document (every PDF page, or a web page's readable text), so a syllabus can be
- * saved for Learn without the agent reading it page by page.
+ * saved for Learn without the agent reading it page by page. signIn means the link landed on the school's sign-in
+ * instead (a login form or a single sign-on step), and the text is that page, not the document.
  */
-export async function readDocumentText(browser: Pick<BrowserController, "fetchDownload">, sourceUrl: string, signal?: AbortSignal): Promise<{ url: string; text: string }> {
+export async function readDocumentText(browser: Pick<BrowserController, "fetchDownload">, sourceUrl: string, signal?: AbortSignal): Promise<{ url: string; text: string; signIn: boolean }> {
   const timeout = AbortSignal.timeout(90_000);
   const bounded = signal ? AbortSignal.any([signal, timeout]) : timeout;
   const { data, url, html } = await downloadDocument(browser, sourceUrl, bounded);
   if (!isPdf(data)) {
     if (!html) throw new Error("This link isn't a PDF or a web page.");
-    const page = Buffer.from(data).toString("utf8").replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ")
+    const raw = Buffer.from(data).toString("utf8");
+    const signIn = looksLikeSignIn(new URL(url)) || /<input[^>]+type=["']?password|name=["']?(SAMLRequest|SAMLResponse)\b/i.test(raw);
+    const page = raw.replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ")
       .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/\s+/g, " ").trim();
-    return { url, text: page.slice(0, MAX_TEXT * 3) };
+    return { url, text: page.slice(0, MAX_TEXT * 3), signIn };
   }
   const pages: string[] = [];
   for (let page = 1, total = 1; page <= total && page <= 40; page++) {
@@ -89,7 +93,7 @@ export async function readDocumentText(browser: Pick<BrowserController, "fetchDo
     pages.push(read.details.text);
     if (pages.join("\n").length > MAX_TEXT * 3) break;
   }
-  return { url, text: pages.join("\n").slice(0, MAX_TEXT * 3) };
+  return { url, text: pages.join("\n").slice(0, MAX_TEXT * 3), signIn: false };
 }
 
 async function readResponse(response: Response, signal: AbortSignal): Promise<Uint8Array> {

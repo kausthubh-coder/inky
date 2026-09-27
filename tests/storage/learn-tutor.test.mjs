@@ -376,6 +376,20 @@ test("an exam found by the school check and again in a syllabus is one exam", ()
   assert.equal(sameExam({ title: "C and Software Tools, Exam 1", date: null }, { title: "Exam 1", date: "2026-09-22" }), true);
   assert.equal(sameExam({ title: "Final Exam (section 005)", date: "2026-12-03" }, { title: "Final Exam (section 602)", date: "2026-12-07" }), false, "one final per section");
   assert.equal(sameExam({ title: "Midterm 1", date: "2026-10-08" }, { title: "Midterm 2", date: "2026-11-10" }), false);
+  // Worded differently by the school check and a review page, on the same date.
+  assert.equal(sameExam({ title: "Midterm 2", date: "2026-11-10" }, { title: "Midterm 2 during classtime in classroom", date: "2026-11-10" }), true);
+  assert.equal(sameExam({ title: "Final Exam — Section 005", date: "2026-12-03" }, { title: "Final Exam Dec3 noon-2:30pm classroom", date: "2026-12-03" }), true);
+  assert.equal(sameExam({ title: "ST 370 Final Exam", date: null }, { title: "Final Exam — Section 005", date: "2026-12-03" }), true);
+  assert.equal(sameExam({ title: "Exam 1", date: null }, { title: "Exam 10", date: "2026-12-03" }), false);
+});
+
+test("a syllabus can name the saved exam it means, however it words it", async () => {
+  await fixture(async ({ repo }) => {
+    const checked = repo.setExam({ courseId: "course", title: "Final", date: null, kind: "exam" });
+    const source = repo.importSource({ courseId: "course", title: "Review", kind: "scan", sourceTarget: "https://school.test/review", text: "The cumulative test is December 3, 2026." });
+    repo.applyExtraction(source.sourceId, source.contentHash, { exams: [{ key: "cumulative", title: "Cumulative test", date: "2026-12-03", quote: "The cumulative test is December 3, 2026.", sameAs: checked.examId }], topics: [] });
+    assert.deepEqual(repo.exams().map(exam => [exam.examId, exam.date]), [[checked.examId, "2026-12-03"]]);
+  });
 });
 
 test("a syllabus reuses an exam the school check already saved and only fills its date", async () => {

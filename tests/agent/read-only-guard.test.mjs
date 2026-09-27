@@ -82,10 +82,38 @@ test("only exact named sign-in hosts bypass scan write blocking", () => {
   assert.deepEqual(classifyScanRequest(request({ method: "POST", url: "https://idp.vendor.test/oidc/callback" }), options), {
     action: "allow", reason: "sign_in",
   });
-  assert.deepEqual(classifyScanRequest(request({ method: "POST", url: "https://login.university.edu.evil.test/saml" }), options), {
+  assert.deepEqual(classifyScanRequest(request({ method: "POST", url: "https://login.university.edu.evil.test/submit" }), options), {
     action: "block", reason: "scan_write",
   });
   assert.throws(() => classifyScanRequest(request(), { signInHosts: ["*.university.edu"] }), /exact HTTP\(S\) host names/);
+});
+
+test("sign-in steps pass on any host, but never with an upload", () => {
+  const allowed = { action: "allow", reason: "sign_in" };
+  // The IdP a portal-linked class redirects to, and the class site's own SAML endpoint, before either was learned.
+  assert.deepEqual(classifyScanRequest(request({ method: "POST", url: "https://shib.school.edu/idp/profile/SAML2/POST/SSO", body: "SAMLRequest=abc&RelayState=x" })), allowed);
+  assert.deepEqual(classifyScanRequest(request({ method: "POST", url: "https://courses.school.edu/Shibboleth.sso/SAML2/POST", body: "SAMLResponse=abc" })), allowed);
+  assert.deepEqual(classifyScanRequest(request({ method: "POST", url: "https://moodle.school.edu/login/index.php", body: "username=a&password=b" })), allowed);
+  assert.deepEqual(classifyScanRequest(request({ method: "POST", url: "https://api-1.duosecurity.com/frame/v4/auth", body: "device=phone" })), allowed);
+  assert.deepEqual(classifyScanRequest({ method: "POST", url: "https://moodle.school.edu/login/index.php", uploadData: [{ bytes: Buffer.from("x"), file: "C:/homework.pdf" }] }),
+    { action: "block", reason: "scan_write" });
+  assert.deepEqual(classifyScanRequest(request({ method: "POST", url: "https://moodle.school.edu/mod/assign/view.php", body: "action=submit" })),
+    { action: "block", reason: "scan_write" }, "school work stays blocked");
+});
+
+test("a link click lets its one posted page load through, on the same site only", () => {
+  const webRequest = fakeWebRequest();
+  const guard = installScanReadOnlyGuard({ webRequest });
+  guard.setScanActive(true);
+  const page = { method: "POST", resourceType: "mainFrame", url: "https://www.vendor.test/v4cgi/student.pl", body: "course=1&view=past" };
+  assert.deepEqual(webRequest.request(page), { cancel: true }, "without a click, a posted page load is blocked");
+  guard.allowLinkNavigation("https://www.vendor.test/v4cgi/student.pl?course=1");
+  assert.deepEqual(webRequest.request({ ...page, resourceType: "xhr" }), { cancel: true }, "only a page load, not a background request");
+  assert.deepEqual(webRequest.request({ ...page, url: "https://other.test/student.pl" }), { cancel: true }, "only the same site");
+  assert.deepEqual(webRequest.request(page), {});
+  assert.deepEqual(webRequest.request(page), { cancel: true }, "the allowance is used once");
+  guard.allowLinkNavigation("https://www.vendor.test/home");
+  assert.deepEqual(webRequest.request({ ...page, body: undefined, uploadData: [{ bytes: Buffer.from("x"), file: "C:/essay.docx" }] }), { cancel: true }, "never with a file");
 });
 
 test("sign-in hosts autofill only after a school-to-IdP-to-school handoff succeeds", () => {

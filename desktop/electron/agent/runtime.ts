@@ -38,7 +38,7 @@ import {
   type UsageEventKind,
 } from "../../shared/index.js";
 import type { BrowserController } from "../browser/controller.js";
-import { compactBrowserSnapshotContext } from "../browser/context.js";
+import { createBrowserContextCompactor } from "../browser/context.js";
 import { createBrowserTools } from "../browser/tools.js";
 import {
   addUsage,
@@ -510,8 +510,9 @@ export class PiAgentRuntime implements AgentRuntime {
     const onPayload = session.agent.onPayload;
     if (tools.some(tool => tool.name === "browser_snapshot")) {
       const previousTransform = session.agent.transformContext;
+      const compact = createBrowserContextCompactor();
       session.agent.transformContext = async (messages, signal) =>
-        compactBrowserSnapshotContext(previousTransform ? await previousTransform(messages, signal) : messages);
+        compact(previousTransform ? await previousTransform(messages, signal) : messages);
     }
     session.agent.onPayload = async (payload, model) => {
       const prepared = (await onPayload?.(payload, model)) ?? payload;

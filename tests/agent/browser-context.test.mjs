@@ -1,32 +1,42 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { compactBrowserSnapshotContext } from "../../dist/electron/browser/context.js";
+import { createBrowserContextCompactor } from "../../dist/electron/browser/context.js";
 
-test("browser context keeps the last two snapshots and preserves transcript evidence", () => {
-  const snapshot = (id) => ({ role: "toolResult", toolName: "browser_snapshot", toolCallId: id,
-    content: [{ type: "text", text: `Page ${id} with detailed content` }], isError: false, timestamp: id });
-  const original = [snapshot(1), snapshot(2), { ...snapshot(3), toolName: "browser_rows" }, snapshot(4)];
-  const compact = compactBrowserSnapshotContext(original);
-  assert.match(compact[0].content[0].text, /Earlier browser snapshot omitted/);
-  assert.equal(compact[1].content[0].text, original[1].content[0].text);
-  assert.equal(compact[2].content[0].text, original[2].content[0].text);
-  assert.equal(compact[3].content[0].text, original[3].content[0].text);
-  assert.equal(original[0].content[0].text, "Page 1 with detailed content");
-  assert.equal(compact[0].toolCallId, original[0].toolCallId);
+const result = (id, toolName, text) => ({ role: "toolResult", toolName, toolCallId: String(id), isError: false, timestamp: id,
+  content: [{ type: "text", text }] });
+const texts = messages => messages.map(message => message.content[0].text ?? message.content[0].type);
+
+test("nothing is shortened until recent results pass the budget", () => {
+  const compact = createBrowserContextCompactor({ budget: 10_000 });
+  const history = [result(1, "browser_snapshot", "Page 1".padEnd(3000, "x")), result(2, "read_document", "Doc".padEnd(3000, "y"))];
+  assert.deepEqual(texts(compact(history)), texts(history));
 });
 
-test("older large results keep their opening as a note and older images are dropped", () => {
-  const page = (id, size) => ({ role: "toolResult", toolName: "read_document", toolCallId: id, isError: false, timestamp: id,
-    content: [{ type: "text", text: `Page ${id} `.padEnd(size, "x") }] });
+test("older results are shortened in one batch and then sent identically, so the prompt cache holds", () => {
+  const compact = createBrowserContextCompactor({ budget: 10_000 });
   const image = { role: "toolResult", toolName: "browser_screenshot", toolCallId: "shot", isError: false, timestamp: 0,
     content: [{ type: "image", mimeType: "image/png", data: "AAAA" }] };
-  const original = [image, page(1, 6000), page(2, 6000), page(3, 6000), page(4, 6000), page(5, 100), page(6, 100)];
-  const compact = compactBrowserSnapshotContext(original);
-  assert.match(compact[0].content[0].text, /Earlier image omitted/);
-  assert.match(compact[1].content[0].text, /^Page 1 x+\n\[Earlier result shortened/);
-  assert.ok(compact[1].content[0].text.length < 1_000);
-  for (const index of [2, 3, 4]) assert.equal(compact[index].content[0].text, original[index].content[0].text, "the three latest large results stay whole");
-  assert.equal(compact[5].content[0].text, original[5].content[0].text, "small results are never shortened");
-  assert.equal(original[1].content[0].text.length, 6000, "the transcript itself is untouched");
+  const history = [image, result(1, "browser_snapshot", "Page 1".padEnd(4000, "x")), result(2, "read_document", "Doc".padEnd(4000, "y")),
+    result(3, "scan_status", "small"), result(4, "browser_snapshot", "Page 4".padEnd(4000, "z")), result(5, "scan_record_rows", "saved")];
+  const first = compact(history);
+  assert.match(first[0].content[0].text, /Earlier image omitted/);
+  assert.match(first[1].content[0].text, /Earlier browser snapshot omitted/);
+  assert.match(first[2].content[0].text, /^Docy+\n\[Earlier result shortened/);
+  assert.equal(first[3].content[0].text, "small", "small results are never shortened");
+  assert.equal(first[4].content[0].text, history[4].content[0].text, "the latest full snapshot stays");
+  assert.equal(first[5].content[0].text, "saved");
+  const next = compact([...history, result(6, "browser_click", "clicked"), result(7, "browser_snapshot", "Page 7".padEnd(3000, "w"))]);
+  assert.deepEqual(texts(next.slice(0, first.length)), texts(first), "earlier messages are unchanged between batches");
+  assert.equal(history[2].content[0].text.length, 4000, "the transcript itself is untouched");
+});
+
+test("a change-only read keeps its base until a newer full read replaces it", () => {
+  const compact = createBrowserContextCompactor({ budget: 5_000 });
+  const history = [result(1, "browser_snapshot", "Base page".padEnd(3000, "x")),
+    result(2, "browser_snapshot", "Only what changed since your last read of this page".padEnd(3000, "d")), result(3, "scan_status", "ok"), result(4, "scan_status", "ok")];
+  assert.equal(compact(history)[0].content[0].text, history[0].content[0].text);
+  const later = compact([...history, result(5, "browser_snapshot", "New page".padEnd(6000, "n")), result(6, "scan_status", "ok"), result(7, "scan_status", "ok")]);
+  assert.match(later[0].content[0].text, /Earlier browser snapshot omitted/);
+  assert.equal(later[4].content[0].text, "New page".padEnd(6000, "n"));
 });

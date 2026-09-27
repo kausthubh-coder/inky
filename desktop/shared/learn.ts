@@ -62,18 +62,20 @@ export type Readiness = z.infer<typeof ReadinessSchema>;
 export interface LearnSession { sessionId: string; topicId: string; startedAt: string; finishedAt: string | null; status: string }
 
 /**
- * Whether two exams in the same class are the same exam, found once by the school check and again in a syllabus:
- * the same name (ignoring case, a leading class code and bracketed notes like "(Section 005)") on the same or an
- * unknown date, or, when one has no date, one name ending with the other ("ST 370 Final Exam" and "Final Exam").
- * Two finals on different dates (one per section) stay separate.
+ * The backstop for when the model didn't name the saved exam it meant: whether two exams in the same class are the
+ * same exam. The same name (ignoring case, a leading class code and bracketed notes) on the same or an unknown date;
+ * the same kind of exam ("Final", "Midterm 2", "Exam 1") on the same date, however the rest is worded; or, when one
+ * has no date, one name containing the other ("ST 370 Final Exam" and "Final Exam"). Two finals on different dates
+ * (one per section) stay separate.
  */
 export function sameExam(a: { title: string; date: string | null }, b: { title: string; date: string | null }): boolean {
   const core = (title: string) => title.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/^[a-z]{2,5}\s?\d{3}\w?\b/, " ").replace(/[^a-z0-9]+/g, " ").trim();
+  const kind = (title: string) => title.match(/\b(final|midterm(?: \d+)?|(?:exam|test) \d+)\b/)?.[1] ?? null;
   const [first, second] = [core(a.title), core(b.title)];
   if (!first || !second) return false;
   if (first === second) return !a.date || !b.date || a.date === b.date;
-  if (a.date && b.date) return false;
-  return first.endsWith(second) || second.endsWith(first);
+  if (a.date && b.date) return a.date === b.date && kind(first) !== null && kind(first) === kind(second);
+  return ` ${first} `.includes(` ${second} `) || ` ${second} `.includes(` ${first} `);
 }
 
 /** Missing weights are unknown. Never silently invent equal exam shares. */
@@ -156,7 +158,9 @@ export const LearnExamInputSchema = z.strictObject({
   kind: ExamSchema.shape.kind.optional(), scopeNote: z.string().trim().max(2000).nullable().optional(),
 });
 export const LearnExtractionSchema = z.strictObject({
-  exams: z.array(z.strictObject({ key: title, title, date: LearnDateSchema.nullable(), quote: z.string().min(1).max(2000) })).max(30),
+  exams: z.array(z.strictObject({ key: title, title, date: LearnDateSchema.nullable(), quote: z.string().min(1).max(2000),
+    /** The saved exam this is, when the model recognised it among the class's known exams. */
+    sameAs: z.string().min(1).max(200).nullable().optional() })).max(30),
   topics: z.array(z.strictObject({ key: title, examKey: title.nullable(), title, chapter: LearnTopicSchema.shape.chapter,
     weight: LearnTopicSchema.shape.weight, quote: z.string().min(1).max(2000) })).max(300),
 });

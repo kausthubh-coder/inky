@@ -14,9 +14,12 @@ export function installSchoolDownloads(session: Session, options: {
   destination(contents: WebContents): Promise<HomeworkFiles>;
   onError(error: Error): void;
   onSaved?(path: string): void;
+  /** Pages that only sign in in the background never save files. */
+  ignore?(contents: WebContents): boolean;
 }): () => void {
   const pending = new Set<() => void>();
   const download = (event: Event, item: DownloadItem, contents: WebContents) => {
+    if (options.ignore?.(contents)) { event.preventDefault(); return; }
     let directory = "";
     let source: string;
     try {

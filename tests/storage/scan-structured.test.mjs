@@ -27,7 +27,7 @@ class Browser {
   }
 }
 
-async function withScan(script, options, run) {
+async function withScan(script, options, run, SchoolBrowser = Browser) {
   const dir = await mkdtemp(join(tmpdir(), "studi-structured-scan-"));
   const store = await openLocalStore(dir);
   let session;
@@ -45,7 +45,7 @@ async function withScan(script, options, run) {
       return session;
     },
   };
-  const coordinator = new SchoolScanCoordinator(store, runtime, new Browser(), {
+  const coordinator = new SchoolScanCoordinator(store, runtime, new SchoolBrowser(), {
     now: () => "2026-09-13T16:00:00.000Z",
     ...options,
   });
@@ -78,13 +78,31 @@ test("three rejected rows skip their current source instead of looping", async (
     const courseId = store.school.listCourses()[0].courseId;
     const rows = tools.find(tool => tool.name === "scan_record_rows");
     const input = { courseKey: courseId, rows: [{ title: "Invented quiz", href: "https://school.example.edu/mod/quiz/view.php?id=999", kind: "quiz" }] };
-    for (let count = 0; count < 3; count++) await assert.rejects(rows.execute("bad", input), /does not show the claimed row/);
+    for (let count = 0; count < 3; count++) await assert.rejects(rows.execute("bad", input), /No page read in this check shows/);
     const skipped = await rows.execute("skip", input);
     assert.equal(JSON.parse(skipped.content[0].text).skipped, true);
   }, {}, async ({ coordinator }) => {
     const state = await coordinator.startScan();
     assert.equal(state.scan.state, "partial");
     assert.match(state.scan.failures.join(" "), /three rejected row attempts/);
+  });
+});
+
+test("the agent says what a site's status wording means", async () => {
+  await withScan(async (tools, store) => {
+    await tools.find(tool => tool.name === "scan_record_course").execute("course", { label: "Programming in C" });
+    const courseKey = store.school.listCourses()[0].courseId;
+    const rows = tools.find(tool => tool.name === "scan_record_rows");
+    const row = (id, extra) => ({ title: `HW ${id}`, href: `https://school.example.edu/hw?dep=${id}`, statusText: "Current Score: 10 / 10 Points", kind: "homework", ...extra });
+    await rows.execute("rows", { courseKey, rows: [row(8, { state: "graded" }), row(9, {})] });
+  }, {}, async ({ coordinator, store }) => {
+    await coordinator.startScan();
+    const status = title => store.assignments.listAll().find(item => item.title === title)?.schoolStatus.state;
+    assert.equal(status("HW 8"), "graded");
+    assert.equal(status("HW 9"), "unknown", "without the agent's reading, unfamiliar wording stays unknown");
+  }, class extends Browser {
+    canNavigateObserved() { return true; }
+    recentlyShowed() { return true; }
   });
 });
 

@@ -114,7 +114,8 @@ export class LearnRepository {
       // An exam the school check or another syllabus already saved for this class is the same exam, not a new one.
       const classExams = this.exams().filter(exam => exam.courseId === source.courseId && exam.sourceId !== sourceId && !exam.hidden);
       const examIds = new Map(extraction.exams.map(exam => [exam.key,
-        previousExams.find(previous => normalizeTutorAnswer(previous.title) === normalizeTutorAnswer(exam.title))?.examId
+        [...previousExams, ...classExams].find(known => known.examId === exam.sameAs)?.examId
+          ?? previousExams.find(previous => normalizeTutorAnswer(previous.title) === normalizeTutorAnswer(exam.title))?.examId
           ?? classExams.find(other => sameExam(other, exam))?.examId
           ?? stableId("exam", sourceId, normalizeTutorAnswer(exam.title))]));
       const previousTopics = this.topics().filter(topic => topic.sourceId === sourceId);

@@ -81,6 +81,7 @@ import { startSelectedAssignment } from "./assignment/start-selected.js";
 import { BrowserController } from "./browser/controller.js";
 import { installScanReadOnlyGuard, type ScanReadOnlyGuard } from "./browser/read-only-guard.js";
 import { installSchoolDownloads } from "./browser/native-downloads.js";
+import { completeBackgroundSignIn, isBackgroundSignIn } from "./browser/background-sign-in.js";
 import { HomeworkFiles } from "./files/homework-files.js";
 import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
@@ -1067,6 +1068,7 @@ function schoolBrowserPage(key: string): {view:WebContentsView;controller:Browse
   });
   disposeSchoolDownloads ??= installSchoolDownloads(schoolSession, {
     stagingRoot: join(app.getPath("userData"), "school-downloads"),
+    ignore: isBackgroundSignIn,
     destination: async contents => {
       const page = [...browserPages].find(([, entry]) => entry.view.webContents === contents)?.[0];
       if (!page) throw new Error("This school page is no longer open. Try downloading the file again.");
@@ -1086,7 +1088,7 @@ function schoolBrowserPage(key: string): {view:WebContentsView;controller:Browse
     },
   });
   const view = new WebContentsView({webPreferences:{session:schoolSession,nodeIntegration:false,contextIsolation:true,sandbox:true}});
-  const controller = new BrowserController(view.webContents);
+  const controller = new BrowserController(view.webContents, { onLinkClick: pageUrl => schoolReadOnlyGuard?.allowLinkNavigation(pageUrl) });
   browserPages.set(key,{view,controller});
   view.setVisible(false);
   window.contentView.addChildView(view);
@@ -1750,7 +1752,7 @@ async function initializeDesktopAgent(): Promise<void> {
     })),
     today: learnToday,
   }, files: tutorFiles() });
-  learnExtractionWorker = new LearnExtractionWorker(requireLearnRepository(), agentRuntime, { onError: reportLearningError });
+  learnExtractionWorker = new LearnExtractionWorker(requireLearnRepository(), agentRuntime, { onError: reportLearningError, classNote: readClassNote });
   runtimeLoginAttempt = new ProviderLoginAttemptOwner(async (providerId, signal, interaction) => {
     await requireAgentRuntime().loginProvider(providerId, signal, {
       openExternal: (url) => shell.openExternal(url),
@@ -1794,9 +1796,14 @@ async function initializeDesktopAgent(): Promise<void> {
       },
       recordExam: async (exam) => {
         const repository = requireLearnRepository();
-        const same = repository.exams().find(item => item.courseId === exam.courseId && !item.hidden && sameExam(item, exam));
-        return repository.setExam({ ...(same ? { examId: same.examId } : {}), courseId: exam.courseId, title: exam.title, date: exam.date ?? same?.date ?? null, kind: 'exam' });
+        const classExams = repository.exams().filter(item => item.courseId === exam.courseId && !item.hidden);
+        // The exam the agent named, else one that is plainly the same exam.
+        const same = classExams.find(item => item.examId === exam.examId) ?? classExams.find(item => sameExam(item, exam));
+        repository.setExam({ ...(same ? { examId: same.examId } : {}), courseId: exam.courseId, title: exam.title, date: exam.date ?? same?.date ?? null, kind: 'exam' });
+        return listClassExams(exam.courseId);
       },
+      listExams: listClassExams,
+      completeSignIn: url => completeBackgroundSignIn(electronSession.fromPartition("persist:studi-school", { cache: true }), url),
       readSchoolEmail: readSchoolEmail,
       onError: (error, scanId, toolName) => requireTelemetryService().captureError(error, "scan", "school_scan", {
         ...currentAgentSelection(), scan_id: scanId, ...(toolName ? { tool_name: toolName } : {}),
@@ -2454,9 +2461,7 @@ function tutorFiles(): import('./agent/tutor-coordinator.js').TutorFiles {
       const notes = folder ? await readGoalNotes(folder) : { progress: "", cheatsheet: "" };
       // What the setup check learned about the class (grading, assignment kinds, exam dates).
       const { courseId } = goalOf(session);
-      const store = requireLocalStore();
-      const entry = courseId ? store.notes.list().find(note => note.scope === "course" && note.subjectId === courseId && note.key === "class-overview") : undefined;
-      const classNote = entry ? (await store.notes.read(entry.noteId))?.content ?? "" : "";
+      const classNote = courseId ? await readClassNote(courseId) : "";
       return notes.progress || notes.cheatsheet || classNote ? { ...notes, classNote } : null;
     },
     savePage: async (session, title, html) => {
@@ -2484,6 +2489,18 @@ function currentLearnState() {
   const repository = requireLearnRepository();
   repository.syncHomeworkHints(workedAssignments().map(({ assignmentId, courseId, title }) => ({ assignmentId, courseId, title })));
   return repository.learnState(learnToday(), learnSelectedGoal);
+}
+
+function listClassExams(courseId: string): { examId: string; title: string; date: string | null }[] {
+  return requireLearnRepository().exams().filter(exam => exam.courseId === courseId && !exam.hidden)
+    .map(({ examId, title, date }) => ({ examId, title, date }));
+}
+
+/** What the setup check learned about a class (grading, assignment kinds, the student's section, exam dates). */
+async function readClassNote(courseId: string): Promise<string> {
+  const store = requireLocalStore();
+  const entry = store.notes.list().find(note => note.scope === "course" && note.subjectId === courseId && note.key === "class-overview");
+  return entry ? (await store.notes.read(entry.noteId))?.content ?? "" : "";
 }
 
 function queueLearnExtraction(sourceId?: string): void {

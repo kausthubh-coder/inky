@@ -42,6 +42,8 @@ import { runSchoolConnector, type ConnectorAssignmentRow } from "./connectors/in
 import { assignmentScanChange, mergeScanChange, removedScanChanges } from "./refresh-diff.js";
 
 /** An external-tool link on a course page: its work and dates live on the vendor's site. */
+export interface ScanExam { readonly examId: string; readonly title: string; readonly date: string | null }
+
 export interface SchoolEmail { readonly from: string; readonly subject: string; readonly receivedAt: string; readonly preview: string }
 
 interface ExternalTool { readonly courseKey: string; readonly courseLabel: string; readonly title: string; readonly href: string }
@@ -65,7 +67,9 @@ export class SchoolScanCoordinator {
   readonly #ownerSubject: string | undefined;
   readonly #onError: (error: unknown, scanId: string, toolName?: string) => void;
   readonly #recordSyllabus: ((source: { courseId: string; title: string; text: string; sourceTarget: string }) => Promise<unknown>) | undefined;
-  readonly #recordExam: ((exam: { courseId: string; title: string; date: string | null }) => Promise<unknown>) | undefined;
+  readonly #recordExam: ((exam: { courseId: string; title: string; date: string | null; examId?: string }) => Promise<ScanExam[]>) | undefined;
+  readonly #listExams: ((courseId: string) => ScanExam[]) | undefined;
+  readonly #completeSignIn: ((url: string) => Promise<void>) | undefined;
   readonly #readSchoolEmail: ((input: { since: string; query?: string }) => Promise<SchoolEmail[] | null>) | undefined;
   /** Counts successful recording calls, so review work (categories, exams, notes) isn't mistaken for a stall. */
   #progress = 0;
@@ -97,7 +101,11 @@ export class SchoolScanCoordinator {
       readonly manager?: Pick<ManagerCoordinator, "enqueue" | "resolvePermission" | "reconcileQueue" | "allowsAutomaticWork">;
       readonly onError?: (error: unknown, scanId: string, toolName?: string) => void;
       readonly recordSyllabus?: (source: { courseId: string; title: string; text: string; sourceTarget: string }) => Promise<unknown>;
-      readonly recordExam?: (exam: { courseId: string; title: string; date: string | null }) => Promise<unknown>;
+      /** Saves an exam (updating examId when given) and returns the class's saved exams. */
+      readonly recordExam?: (exam: { courseId: string; title: string; date: string | null; examId?: string }) => Promise<ScanExam[]>;
+      readonly listExams?: (courseId: string) => ScanExam[];
+      /** Let the school's single sign-on finish for a link, out of sight, so its document can be downloaded. */
+      readonly completeSignIn?: (url: string) => Promise<void>;
       /** Connected school email, read-only; null when none is connected. */
       readonly readSchoolEmail?: (input: { since: string; query?: string }) => Promise<SchoolEmail[] | null>;
       readonly maxSourcesPerSession?: number;
@@ -118,6 +126,8 @@ export class SchoolScanCoordinator {
     this.#onError = options.onError ?? (() => undefined);
     this.#recordSyllabus = options.recordSyllabus;
     this.#recordExam = options.recordExam;
+    this.#listExams = options.listExams;
+    this.#completeSignIn = options.completeSignIn;
     this.#readSchoolEmail = options.readSchoolEmail;
     this.#maxSourcesPerSession = options.maxSourcesPerSession ?? 8;
     this.#maxSessionsPerRun = options.maxSessionsPerRun ?? 8;
@@ -612,7 +622,20 @@ export class SchoolScanCoordinator {
         const courses = [];
         const rows = [];
         const failures = [];
+        const notes = [];
         const completedCourseKeys = [];
+        // A quiz's own page says whether it was attempted and graded, and when it closes.
+        const readQuiz = async href => {
+          try {
+            const page = (await (await fetch(href, { credentials: 'same-origin' })).text()).replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ');
+            const final = page.match(/final grade for this quiz is\\s*([\\d.]+\\s*\\/\\s*[\\d.]+)/i);
+            const closes = page.match(/\\b(?:Closes|Closed|Due):?\\s*((?:Mon|Tues|Wednes|Thurs|Fri|Satur|Sun)day,?\\s[^|]{6,60}?\\d{1,2}:\\d{2}\\s*[AP]M)/i);
+            return {
+              statusText: final ? 'Graded ' + final[1] : /\\b(Finished|Submitted)\\b/.test(page) ? 'Submitted' : /No attempts have been made/i.test(page) ? 'No attempt' : null,
+              dueText: closes ? closes[1].trim() : null,
+            };
+          } catch { return null; }
+        };
         const externalTools = [];
         for (const source of [...seen.values()].slice(0, 100)) {
           if (!sameOrigin(source.href)) continue;
@@ -678,13 +701,7 @@ export class SchoolScanCoordinator {
                 let statusText = graded && /\\d/.test(graded) ? 'Graded ' + graded : cell(submission);
                 const mark = cells.map(item => item.textContent.replace(/\\s+/g, ' ').trim()).find(text => /\\d+(\\.\\d+)?\\s*\\/\\s*\\d+/.test(text));
                 if (!statusText && mark) statusText = 'Graded ' + mark;
-                if (!statusText && module === 'quiz') {
-                  try {
-                    const page = (await (await fetch(link.href, { credentials: 'same-origin' })).text()).replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ');
-                    const final = page.match(/final grade for this quiz is\\s*([\\d.]+\\s*\\/\\s*[\\d.]+)/i);
-                    statusText = final ? 'Graded ' + final[1] : /\\b(Finished|Submitted)\\b/.test(page) ? 'Submitted' : /No attempts have been made/i.test(page) ? 'No attempt' : null;
-                  } catch { /* The quiz page is unreadable; its status stays unknown. */ }
-                }
+                if (!statusText && module === 'quiz') statusText = (await readQuiz(link.href))?.statusText ?? null;
                 rows.push({
                   assignmentKey: link.href,
                   courseKey,
@@ -699,9 +716,19 @@ export class SchoolScanCoordinator {
                 });
               }
             }
+            // Quizzes the class page lists but no quiz list covered (a missing or unusual list page): read each one's own page.
+            const covered = new Set(rows.filter(row => row.courseKey === courseKey && (row.statusText || row.dueText)).map(row => row.href));
+            let unread = 0;
+            for (const row of rows.filter(row => row.courseKey === courseKey && row.kind === 'quiz' && !covered.has(row.href))) {
+              const quiz = await readQuiz(row.href);
+              row.statusText = quiz?.statusText ?? row.statusText;
+              row.dueText = row.dueText || quiz?.dueText || null;
+              if (!row.statusText) unread += 1;
+            }
+            if (unread) notes.push('No status found for ' + unread + ' quiz(zes) in ' + source.label + '; check them in the browser.');
           } catch (error) { failures.push('Could not read course ' + source.label + ': ' + String(error)); }
         }
-        return { courses, rows, externalTools, failures, completedCourseKeys, complete: seen.size > 0 && failures.length === 0 };
+        return { courses, rows, externalTools, failures: [...failures, ...notes], completedCourseKeys, complete: seen.size > 0 && failures.length === 0 };
       })()`);
     } catch (error) {
       this.#reportError(error, this.#store.school.latestScan()?.scanId ?? "", "course_pages");
@@ -822,10 +849,10 @@ export class SchoolScanCoordinator {
     const dueAt = exactDueAt ?? (parsed?.precision === "datetime" ? parsed.dueAt : undefined);
     const deadlinePrecision = exactDueAt ? "datetime" as const : parsed?.precision ?? "unknown" as const;
     const status = row.statusText?.toLowerCase() ?? "";
-    const statusState = /not submitted|to do|unsubmitted|no submission|no attempt/.test(status) ? "not_submitted" as const
+    const statusState = row.statusState ?? (/not submitted|to do|unsubmitted|no submission|no attempt/.test(status) ? "not_submitted" as const
       : /graded/.test(status) ? "graded" as const
       : /submitted|turned in/.test(status) ? "submitted" as const
-      : /locked|closed/.test(status) ? "locked" as const : "unknown" as const;
+      : /locked|closed/.test(status) ? "locked" as const : "unknown" as const);
     const assignmentId = prior?.assignmentId ?? stableId("assignment", identity);
     const assignment = this.#store.assignments.put({
       schemaVersion: STUDI_SCHEMA_VERSION,
@@ -978,7 +1005,7 @@ export class SchoolScanCoordinator {
         : "";
       const sourcePrompt = scan.sourceScanTarget ? `\nThis is only a check of the student's link ${scan.sourceScanTarget} and its observed links. Do not expand it to the whole school.` : "";
       await session.prompt(structured
-        ? `${prompt}\n\nSchool root: ${this.#requiredProfile().schoolRoot}\nToday: ${this.#now()}\nKnown courses: ${JSON.stringify(this.#store.school.listCourses().map(course => ({ id: course.courseId, label: course.label, url: course.sourceTarget })))}\nSaved items: ${JSON.stringify(this.#store.assignments.listAll().map(item => ({ id: item.assignmentId, class: this.#store.school.listCourses().find(course => course.courseId === item.courseId)?.label, title: item.title, url: item.sourceTarget, due: item.dueAt ?? item.dueText ?? null, status: item.schoolStatus?.text ?? null, category: item.category ?? "work" })))}\nCurrent progress: ${JSON.stringify({ courses: this.#requiredRunningScan(scan.scanId).observedCourseIds.length, rows: this.#requiredRunningScan(scan.scanId).observedAssignmentIds.length, failures: this.#requiredRunningScan(scan.scanId).failures })}`
+        ? `${prompt}\n\nSchool root: ${this.#requiredProfile().schoolRoot}\nToday: ${this.#now()}\nKnown courses: ${JSON.stringify(this.#store.school.listCourses().map(course => ({ id: course.courseId, label: course.label, url: course.sourceTarget, exams: this.#listExams?.(course.courseId) ?? [] })))}\nSaved items: ${JSON.stringify(this.#store.assignments.listAll().map(item => ({ id: item.assignmentId, class: this.#store.school.listCourses().find(course => course.courseId === item.courseId)?.label, title: item.title, url: item.sourceTarget, due: item.dueAt ?? item.dueText ?? null, status: item.schoolStatus?.text ?? null, category: item.category ?? "work" })))}\nCurrent progress: ${JSON.stringify({ courses: this.#requiredRunningScan(scan.scanId).observedCourseIds.length, rows: this.#requiredRunningScan(scan.scanId).observedAssignmentIds.length, failures: this.#requiredRunningScan(scan.scanId).failures })}`
         : `${assignmentScope || prompt}${sourcePrompt}${syllabusPrompt}\n\n# Durable scan checkpoint\n${JSON.stringify(this.#checkpoint(scan.scanId))}\nThese saved IDs support resuming this scan. Take a new browser snapshot before new claims or actions.`);
     } catch (error) {
       const current = this.#store.school.getScan(scan.scanId);
@@ -1115,6 +1142,9 @@ export class SchoolScanCoordinator {
           href: Type.String({ minLength: 1, maxLength: 4096 }),
           dueText: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
           statusText: Type.Optional(Type.String({ minLength: 1, maxLength: 1000 })),
+          state: Type.Optional(Type.Union([Type.Literal("not_submitted"), Type.Literal("submitted"), Type.Literal("graded"), Type.Literal("locked")], {
+            description: "What statusText means: not_submitted (still to do), submitted (handed in, not marked), graded (marked or full credit), locked (closed without a submission).",
+          })),
           kind: Type.String({ minLength: 1, maxLength: 50 }),
           instructions: Type.Optional(Type.String({ minLength: 1, maxLength: 8000 })),
         }, { additionalProperties: false }), { minItems: 1, maxItems: 100 }),
@@ -1130,11 +1160,13 @@ export class SchoolScanCoordinator {
         try {
           for (const row of input.rows) {
             const href = SafeSourceTargetSchema.parse(row.href);
-            // Evidence is a matching link on this page, or a title (and due text) on a page read moments ago
-            // whose link appeared in this check; lists built from buttons, like WebAssign's, have no plain links.
+            // Evidence is a matching link on this page, or a title (and due text) on a page read during this check
+            // whose link also appeared; lists built from buttons, like some vendor sites', have no plain links.
             const seenRecently = (this.#browser.canNavigateObserved?.(href) ?? false) && (this.#browser.recentlyShowed?.(row.title) ?? false)
               && (!row.dueText || this.#browser.recentlyShowed(row.dueText));
-            if (!seenRecently && !await observed(href, row.title, row.dueText)) throw new Error(`The current page does not show the claimed row: ${row.title}`);
+            if (!seenRecently && !await observed(href, row.title, row.dueText)) {
+              throw new Error(`No page read in this check shows "${row.title}"${row.dueText ? ` with "${row.dueText}"` : ""} and its link. Copy the title and due text exactly as the page shows them, or read the page that lists it first.`);
+            }
           }
         } catch (error) {
           rejected.set(key, (rejected.get(key) ?? 0) + 1);
@@ -1162,7 +1194,7 @@ export class SchoolScanCoordinator {
           this.#saveConnectorRow(scanId, course.courseId, {
             assignmentKey: row.href, courseKey: course.courseId, title: row.title, href: row.href,
             dueAt: null, dueText: row.dueText ?? null, statusText: row.statusText ?? null,
-            kind: row.kind, instructions: row.instructions ?? null, sourceLabels: [],
+            ...(row.statusText && row.state ? { statusState: row.state } : {}), kind: row.kind, instructions: row.instructions ?? null, sourceLabels: [],
           }, "browser", makeEvidence);
           ids.push(...this.#requiredRunningScan(scanId).observedAssignmentIds.filter(id => !before.includes(id)));
           saved += 1;
@@ -1187,12 +1219,21 @@ export class SchoolScanCoordinator {
         const source = SafeSourceTargetSchema.parse(input.url);
         // The school's own file is the evidence: read it through the signed-in browser. A quote is only the fallback
         // for pages the reader can't fetch, and then it must be visible on the open page.
-        let text = await readDocumentText(this.#browser, source).then(read => read.text, () => "");
+        const read = () => readDocumentText(this.#browser, source).catch(() => null);
+        let document = await read();
+        // Behind the school's single sign-on: let it finish in the background, then read the real file.
+        if (document?.signIn && this.#completeSignIn) {
+          await this.#completeSignIn(source).catch(error => this.#reportError(error, scanId, "document_sign_in"));
+          document = await read();
+        }
+        let text = document && !document.signIn ? document.text : "";
         this.#browser.rememberUrls(text);
         if (text.length < 200) {
           const snapshot = await this.#observe(scanId);
           if (!input.text || exactTarget(source) !== exactTarget(snapshot.url) || !normalizeFact(snapshot.text).includes(normalizeFact(input.text))) {
-            throw new Error("Studi couldn't read this link. Open it and quote its visible text, or report it as unreadable.");
+            throw new Error(document?.signIn
+              ? "This link asks for a school sign-in Studi couldn't finish on its own. Open it in the browser: if the document shows, quote its text; if a sign-in shows, ask the student to sign in."
+              : "Studi couldn't read this link. Open it and quote its visible text, or report it as unreadable.");
           }
           text = input.text;
         }
@@ -1254,17 +1295,18 @@ export class SchoolScanCoordinator {
     const recordExam = defineTool({
       name: "scan_record_exam",
       label: "Save an upcoming exam",
-      description: "Save a midterm, final, test or exam for a verified class so Learn can plan for it. Give the date (YYYY-MM-DD) only when the school states it. Saving the same title again updates it.",
+      description: "Save a midterm, final, test or exam for a verified class so Learn can plan for it. Name it as the school does (\"Midterm 2\", \"Final Exam\"), without times or rooms. Give the date (YYYY-MM-DD) only when the school states it. If the class already has this exam saved (listed with the class, or returned by this tool), pass its examId to update it instead of adding another. Returns the class's saved exams.",
       parameters: Type.Object({
         courseKey: Type.String({ minLength: 1, maxLength: 500 }),
         title: Type.String({ minLength: 1, maxLength: 200 }),
         date: Type.Optional(Type.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" })),
+        examId: Type.Optional(Type.String({ minLength: 1, maxLength: 200 })),
       }, { additionalProperties: false }),
       execute: async (_id, input) => {
         if (!this.#recordExam) return toolResult({ saved: false, reason: "Learn isn't available" });
         const course = verifiedCourse(input.courseKey);
-        await this.#recordExam({ courseId: course.courseId, title: input.title.trim(), date: input.date ?? null });
-        return toolResult({ saved: true, courseId: course.courseId });
+        const exams = await this.#recordExam({ courseId: course.courseId, title: input.title.trim(), date: input.date ?? null, ...(input.examId ? { examId: input.examId } : {}) });
+        return toolResult({ saved: true, courseId: course.courseId, exams });
       },
     });
     const schoolMemory = defineTool({
@@ -1306,7 +1348,7 @@ export class SchoolScanCoordinator {
           if (!sections.length) throw new Error('No Moodle sections on this page; read it in the browser instead.');
           return sections;
         })()`);
-        return toolResult({ courseId: course.courseId, sections });
+        return toolResult({ courseId: course.courseId, savedExams: this.#listExams?.(course.courseId) ?? [], sections });
       },
     });
     const readEmail = defineTool({
