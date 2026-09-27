@@ -101,12 +101,27 @@ test("recording reuses a full observation without a new AX request or filtered s
 test("diff snapshots show only new page content and still require full evidence", async () => {
   const nodes = [axNode(1, "link", "Week 1")];
   const controller = new BrowserController(fakeTarget(nodes));
-  await controller.snapshot();
+  await controller.snapshot({ mode: "full" });
   nodes.push(axNode(2, "StaticText", "Week 2 revealed"));
   const diff = await controller.snapshot({ mode: "diff" });
   assert.match(diff.text, /Week 2 revealed/);
   assert.doesNotMatch(diff.text, /Week 1/);
   await assert.rejects(controller.evidenceSnapshot(), /full browser_snapshot/);
+});
+
+test("a plain re-read of the same page returns only its changes but keeps the full page as evidence", async () => {
+  const nodes = [axNode(1, "link", "Week 1")];
+  const controller = new BrowserController(fakeTarget(nodes));
+  await controller.snapshot({ mode: "auto" });
+  const unchanged = await controller.snapshot({ mode: "auto" });
+  assert.equal(unchanged.text, "No change since your last read of this page.");
+  assert.match((await controller.snapshot()).text, /Week 1/, "Studi's own reads always get the whole page");
+  nodes.push(axNode(2, "StaticText", "Week 2 revealed"));
+  const changed = await controller.snapshot({ mode: "auto" });
+  assert.match(changed.text, /Week 2 revealed/);
+  assert.doesNotMatch(changed.text, /Week 1/);
+  assert.match((await controller.evidenceSnapshot()).text, /Week 1/, "recording still sees the whole page");
+  assert.match((await controller.snapshot({ mode: "full" })).text, /Week 1/);
 });
 
 test("browser_rows reads 130 activity rows in three pages and iframe text appears in snapshot", async () => {

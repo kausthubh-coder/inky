@@ -170,6 +170,8 @@ class ScriptedSession {
   }
 
   async #call(name, input) {
+    // The script finds controls in its latest read, so it reads whole pages rather than just their changes.
+    if (name === "browser_snapshot" && !input?.mode && !input?.search && !input?.ref) input = { ...input, mode: "full" };
     const tool = this.#tools.get(name);
     if (!tool) throw new Error(`The authentic ${name} tool was not supplied. Available: ${[...this.#tools.keys()].join(", ")}`);
     const toolCallId = `e2e-${name}-${Date.now()}-${Math.random().toString(16).slice(2)}`;

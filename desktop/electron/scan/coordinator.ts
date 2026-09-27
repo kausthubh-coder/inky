@@ -673,6 +673,18 @@ export class SchoolScanCoordinator {
                 const cell = at => at >= 0 ? cells[at]?.textContent?.replace(/\\s+/g, ' ').trim() || null : null;
                 const dueText = cell(due);
                 const graded = cell(grade);
+                // Status from the named columns, else any cell that looks like a mark ("8.00 / 10.00"). Schools often
+                // hide quiz marks in the list, so a quiz still without one is read from its own page.
+                let statusText = graded && /\\d/.test(graded) ? 'Graded ' + graded : cell(submission);
+                const mark = cells.map(item => item.textContent.replace(/\\s+/g, ' ').trim()).find(text => /\\d+(\\.\\d+)?\\s*\\/\\s*\\d+/.test(text));
+                if (!statusText && mark) statusText = 'Graded ' + mark;
+                if (!statusText && module === 'quiz') {
+                  try {
+                    const page = (await (await fetch(link.href, { credentials: 'same-origin' })).text()).replace(/<[^>]+>/g, ' ').replace(/\\s+/g, ' ');
+                    const final = page.match(/final grade for this quiz is\\s*([\\d.]+\\s*\\/\\s*[\\d.]+)/i);
+                    statusText = final ? 'Graded ' + final[1] : /\\b(Finished|Submitted)\\b/.test(page) ? 'Submitted' : /No attempts have been made/i.test(page) ? 'No attempt' : null;
+                  } catch { /* The quiz page is unreadable; its status stays unknown. */ }
+                }
                 rows.push({
                   assignmentKey: link.href,
                   courseKey,
@@ -680,7 +692,7 @@ export class SchoolScanCoordinator {
                   href: new URL(link.getAttribute('href'), index).href,
                   dueAt: null,
                   dueText: dueText && dueText !== '-' ? dueText : null,
-                  statusText: graded && /\\d/.test(graded) ? 'Graded ' + graded : cell(submission),
+                  statusText,
                   kind,
                   instructions: null,
                   sourceLabels: []
@@ -695,6 +707,14 @@ export class SchoolScanCoordinator {
       this.#reportError(error, this.#store.school.latestScan()?.scanId ?? "", "course_pages");
       return { courses: [], rows: [], externalTools: [], failures: ["Course pages could not be read; the browser agent will continue."], completedCourseKeys: [], complete: false };
     }
+  }
+
+  /** A class named by the agent: its Studi id, its name, or its class page address all work. */
+  #findCourse(key: string): ReturnType<LocalStore["school"]["listCourses"]>[number] | undefined {
+    const courses = this.#store.school.listCourses();
+    const byKey = courses.find(course => course.courseId === key || course.sourceIdentity === key || course.label === key);
+    if (byKey || !/^https?:\/\//i.test(key)) return byKey;
+    try { return courses.find(course => exactTarget(course.sourceTarget) === exactTarget(key)); } catch { return undefined; }
   }
 
   #learnSignInHosts(context: "onboarding" | "needs_you"): void {
@@ -868,7 +888,15 @@ export class SchoolScanCoordinator {
       status: "verified" as const,
       evidence: course.evidence,
     }));
-    const failures = [...scan.failures];
+    const failures = scan.failures.filter(failure => {
+      const courseLabel = /^Could not read course (.+): Error: HTTP 500$/.exec(failure)?.[1];
+      if (!courseLabel) return true;
+      // A failed fast fetch is recovered when the agent opened that class page
+      // and recorded it from a fresh browser snapshot in this scan.
+      return !courses.some(course => course.label.includes(courseLabel) &&
+        course.lastVerifiedScanId === scanId && !course.evidence.evidenceId.includes("-connector-") &&
+        exactTarget(course.evidence.sourceTarget) === exactTarget(course.sourceTarget));
+    });
     if (!courses.length) failures.push("No courses could be checked.");
     if (scan.purpose === "materials" && scan.materialSourceCount === 0) failures.push("No readable study material was verified for this class.");
     const complete = failures.length === 0 && courses.length > 0;
@@ -896,6 +924,8 @@ export class SchoolScanCoordinator {
 
   async #run(scan: SchoolScan, prompt: string, sessionsRemaining = this.#maxSessionsPerRun): Promise<SchoolOnboardingState> {
     this.#sourceChecksThisSession = 0;
+    // Everything Studi already saved for this school (class pages, items, vendor doorways) can be opened directly.
+    this.#browser.rememberUrls?.([...this.#store.school.listCourses().map(course => course.sourceTarget), ...this.#store.assignments.listAll().flatMap(item => item.sourceTarget ? [item.sourceTarget] : []), ...this.#externalTools.map(tool => tool.href)]);
     this.#rotateSession = false;
     let reply = "";
     let terminalOutcome: "completed" | "failed" | "aborted" | null = null;
@@ -1050,7 +1080,9 @@ export class SchoolScanCoordinator {
       execute: async (_id, input) => {
         const snapshot = await this.#observe(scanId);
         const url = SafeSourceTargetSchema.parse(input.url);
-        if (exactTarget(url) !== exactTarget(snapshot.url) && !snapshot.elements.some(element => element.href && exactTarget(element.href) === exactTarget(url))) {
+        // The system's address must have appeared somewhere in this check (the open page, a link, a syllabus).
+        const seen = this.#browser.canNavigateObserved?.(url) ?? false;
+        if (!seen && exactTarget(url) !== exactTarget(snapshot.url) && !snapshot.elements.some(element => element.href && exactTarget(element.href) === exactTarget(url))) {
           throw new Error("Open or observe the system before recording its access state");
         }
         const scan = this.#requiredRunningScan(scanId);
@@ -1088,7 +1120,7 @@ export class SchoolScanCoordinator {
         }, { additionalProperties: false }), { minItems: 1, maxItems: 100 }),
       }, { additionalProperties: false }),
       execute: async (_id, input) => {
-        const course = this.#store.school.listCourses().find(item => item.courseId === input.courseKey || item.sourceIdentity === input.courseKey || item.label === input.courseKey);
+        const course = this.#findCourse(input.courseKey);
         if (!course) throw new Error("Record this class before its work");
         const scan = this.#requiredRunningScan(scanId);
         if (!scan.observedCourseIds.includes(course.courseId)) throw new Error("Verify this class during the current check");
@@ -1097,9 +1129,12 @@ export class SchoolScanCoordinator {
         if ((rejected.get(key) ?? 0) >= 3) return toolResult({ saved: 0, skipped: true, reason: "Three rejected attempts; move to another source." });
         try {
           for (const row of input.rows) {
-            if (!/^(assignment|quiz|exam|project|homework|discussion)$/i.test(row.kind)) throw new Error(`Not school work: ${row.kind}`);
             const href = SafeSourceTargetSchema.parse(row.href);
-            if (!await observed(href, row.title, row.dueText)) throw new Error(`The current page does not show the claimed row: ${row.title}`);
+            // Evidence is a matching link on this page, or a title (and due text) on a page read moments ago
+            // whose link appeared in this check; lists built from buttons, like WebAssign's, have no plain links.
+            const seenRecently = (this.#browser.canNavigateObserved?.(href) ?? false) && (this.#browser.recentlyShowed?.(row.title) ?? false)
+              && (!row.dueText || this.#browser.recentlyShowed(row.dueText));
+            if (!seenRecently && !await observed(href, row.title, row.dueText)) throw new Error(`The current page does not show the claimed row: ${row.title}`);
           }
         } catch (error) {
           rejected.set(key, (rejected.get(key) ?? 0) + 1);
@@ -1138,7 +1173,7 @@ export class SchoolScanCoordinator {
     const recordSource = defineTool({
       name: "scan_record_source",
       label: "Save course study source",
-      description: "Save a syllabus, study guide, exam review or past exam for Learn by its link (a PDF or a page). Studi reads the whole file itself, so you don't need to read it page by page first; give text only when the link can't be read.",
+      description: "Save a syllabus, study guide, exam review or past exam for Learn by its link (a PDF or a page). Studi reads the whole file itself and returns its lines about exams, grading and deadlines, so there is no need to read it page by page; give text only when the link can't be read.",
       parameters: Type.Object({
         courseKey: Type.String({ minLength: 1, maxLength: 500 }),
         title: Type.String({ minLength: 1, maxLength: 300 }),
@@ -1147,12 +1182,13 @@ export class SchoolScanCoordinator {
       }, { additionalProperties: false }),
       execute: async (_id, input) => {
         if (!this.#recordSyllabus) return toolResult({ saved: false, reason: "Study source storage is unavailable" });
-        const course = this.#store.school.listCourses().find(item => item.courseId === input.courseKey || item.label === input.courseKey);
+        const course = this.#findCourse(input.courseKey);
         if (!course || !this.#requiredRunningScan(scanId).observedCourseIds.includes(course.courseId)) throw new Error("Verify the source's class first");
         const source = SafeSourceTargetSchema.parse(input.url);
         // The school's own file is the evidence: read it through the signed-in browser. A quote is only the fallback
         // for pages the reader can't fetch, and then it must be visible on the open page.
         let text = await readDocumentText(this.#browser, source).then(read => read.text, () => "");
+        this.#browser.rememberUrls(text);
         if (text.length < 200) {
           const snapshot = await this.#observe(scanId);
           if (!input.text || exactTarget(source) !== exactTarget(snapshot.url) || !normalizeFact(snapshot.text).includes(normalizeFact(input.text))) {
@@ -1163,7 +1199,11 @@ export class SchoolScanCoordinator {
         await this.#recordSyllabus({ courseId: course.courseId, title: input.title, text, sourceTarget: source });
         const scan = this.#requiredRunningScan(scanId);
         this.#store.school.putScan({ ...scan, materialSourceCount: scan.materialSourceCount + 1, updatedAt: this.#now() });
-        return toolResult({ saved: true, courseId: course.courseId });
+        // The lines a student would underline, so the class note and exams need no second read of the file.
+        const keyLines = [...new Set(text.split(/(?<=[.!?])\s+|\n+/).map(line => line.trim())
+          .filter(line => line.length > 8 && /\b(exam|midterm|final|quiz|test|grad(e|ing)|late|due|homework|project|lab|webassign|gradescope|github|submit)/i.test(line)))]
+          .join("\n").slice(0, 2_000);
+        return toolResult({ saved: true, courseId: course.courseId, keyLines });
       },
     });
     const handoff = { ...handoffTool, execute: async (...args: Parameters<typeof handoffTool.execute>) => {
@@ -1180,7 +1220,7 @@ export class SchoolScanCoordinator {
         text: Type.String({ minLength: 1, maxLength: 4000 }),
       }, { additionalProperties: false }),
       execute: async (_id, input) => {
-        const course = this.#store.school.listCourses().find(item => item.courseId === input.courseKey || item.label === input.courseKey);
+        const course = this.#findCourse(input.courseKey);
         if (!course || !this.#requiredRunningScan(scanId).observedCourseIds.includes(course.courseId)) throw new Error("Verify the class first");
         await this.#store.notes.upsert({ scope: "course", subjectId: course.courseId, about: "knowledge", key: "class-overview",
           title: `${course.label}: what to know`.slice(0, 200), content: input.text.trim(), updatedAt: this.#now() });
@@ -1188,7 +1228,7 @@ export class SchoolScanCoordinator {
       },
     });
     const verifiedCourse = (courseKey: string) => {
-      const course = this.#store.school.listCourses().find(item => item.courseId === courseKey || item.label === courseKey);
+      const course = this.#findCourse(courseKey);
       if (!course || !this.#requiredRunningScan(scanId).observedCourseIds.includes(course.courseId)) throw new Error("Verify the class first");
       return course;
     };

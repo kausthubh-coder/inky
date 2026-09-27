@@ -6,7 +6,7 @@ import test from "node:test";
 import { StudiSqliteDatabase } from "../../dist/electron/storage/database.js";
 import { LearnRepository, validateLearnRecords } from "../../dist/electron/storage/learn-records.js";
 import { LearnStateSchema } from "../../dist/shared/learn-state.js";
-import { computeReadiness, normalizeTopicWeights, planLearn } from "../../dist/shared/learn.js";
+import { computeReadiness, normalizeTopicWeights, planLearn, sameExam } from "../../dist/shared/learn.js";
 import { normalizeTutorAnswer, typedAnswerMatches, publicTutorSession, PublicTutorSessionSchema, TutorModelInputSchema } from "../../dist/shared/tutor.js";
 import { pickExcerpts } from "../../dist/electron/agent/tutor-context.js";
 import { importLearnFile } from "../../dist/electron/agent/learn-import.js";
@@ -368,4 +368,24 @@ test("a typed answer may add a unit word but not a hedge", () => {
   assert.equal(typedAnswerMatches(["2"], "2 or three"), false);
   assert.equal(typedAnswerMatches(["2"], "2 or 3"), false);
   assert.equal(typedAnswerMatches(["true"], "true not false"), false);
+});
+
+test("an exam found by the school check and again in a syllabus is one exam", () => {
+  assert.equal(sameExam({ title: "Final Exam (section 005)", date: "2026-12-03" }, { title: "Final Exam (Section 005)", date: "2026-12-03" }), true);
+  assert.equal(sameExam({ title: "ST 370 Final Exam", date: null }, { title: "Final Exam", date: "2026-12-03" }), true);
+  assert.equal(sameExam({ title: "C and Software Tools, Exam 1", date: null }, { title: "Exam 1", date: "2026-09-22" }), true);
+  assert.equal(sameExam({ title: "Final Exam (section 005)", date: "2026-12-03" }, { title: "Final Exam (section 602)", date: "2026-12-07" }), false, "one final per section");
+  assert.equal(sameExam({ title: "Midterm 1", date: "2026-10-08" }, { title: "Midterm 2", date: "2026-11-10" }), false);
+});
+
+test("a syllabus reuses an exam the school check already saved and only fills its date", async () => {
+  await fixture(async ({ repo }) => {
+    const checked = repo.setExam({ courseId: "course", title: "Midterm 1", date: null, kind: "exam" });
+    const source = repo.importSource({ courseId: "course", title: "Syllabus", kind: "scan", sourceTarget: "https://school.test/syllabus", text: "Midterm 1 is October 8, 2026." });
+    repo.applyExtraction(source.sourceId, source.contentHash, { exams: [{ key: "m1", title: "MIDTERM 1", date: "2026-10-08", quote: "Midterm 1 is October 8, 2026." }], topics: [] });
+    assert.equal(repo.exams().length, 1);
+    assert.equal(repo.exams()[0].examId, checked.examId);
+    assert.equal(repo.exams()[0].title, "Midterm 1");
+    assert.equal(repo.exams()[0].date, "2026-10-08");
+  });
 });

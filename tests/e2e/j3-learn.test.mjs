@@ -28,7 +28,7 @@ test("J3: class material, five lesson phases, study page, files and restart", as
       { op: "recordCurrentSource", courseKey: "Data Structures", title: "CS 316 syllabus" },
     ]],
     extraction: [[{ op: "tool", name: "learn_record_source", input: {
-      exams: [{ key: "cs316-midterm", title: "CS 316 midterm exam", date: "2026-09-21", quote: "CS 316 midterm exam" }],
+      exams: [{ key: "cs316-midterm", title: "CS 316 midterm exam", date: new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10), quote: "CS 316 midterm exam" }],
       topics: [{ key: "stacks", examKey: "cs316-midterm", title: "Stacks and queues", chapter: 1, weight: 25, quote: "Stacks and queues" }],
     } }]],
     learning: [[

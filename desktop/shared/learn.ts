@@ -61,6 +61,21 @@ export type MasteryEvidence = z.infer<typeof MasteryEvidenceSchema>;
 export type Readiness = z.infer<typeof ReadinessSchema>;
 export interface LearnSession { sessionId: string; topicId: string; startedAt: string; finishedAt: string | null; status: string }
 
+/**
+ * Whether two exams in the same class are the same exam, found once by the school check and again in a syllabus:
+ * the same name (ignoring case, a leading class code and bracketed notes like "(Section 005)") on the same or an
+ * unknown date, or, when one has no date, one name ending with the other ("ST 370 Final Exam" and "Final Exam").
+ * Two finals on different dates (one per section) stay separate.
+ */
+export function sameExam(a: { title: string; date: string | null }, b: { title: string; date: string | null }): boolean {
+  const core = (title: string) => title.toLowerCase().replace(/\([^)]*\)/g, " ").replace(/^[a-z]{2,5}\s?\d{3}\w?\b/, " ").replace(/[^a-z0-9]+/g, " ").trim();
+  const [first, second] = [core(a.title), core(b.title)];
+  if (!first || !second) return false;
+  if (first === second) return !a.date || !b.date || a.date === b.date;
+  if (a.date && b.date) return false;
+  return first.endsWith(second) || second.endsWith(first);
+}
+
 /** Missing weights are unknown. Never silently invent equal exam shares. */
 export function normalizeTopicWeights(topics: readonly LearnTopic[]): Record<string, number> | null {
   if (!topics.length || new Set(topics.map(topic => topic.topicId)).size !== topics.length || topics.some(topic => topic.weight === null || !Number.isFinite(topic.weight) || topic.weight <= 0 || topic.origin === "homework_hint")) return null;

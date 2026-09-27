@@ -8,7 +8,7 @@ import type { BrowserController } from "./controller.js";
 const MAX_BYTES = 50_000_000;
 const MAX_TEXT = 20_000;
 
-type DocumentBrowser = Pick<BrowserController, "downloadSource" | "fetchDownload">;
+type DocumentBrowser = Pick<BrowserController, "downloadSource" | "fetchDownload"> & Partial<Pick<BrowserController, "rememberUrls">>;
 
 export function createReadDocumentTool(browser: DocumentBrowser) {
   return defineTool({
@@ -29,7 +29,9 @@ export function createReadDocumentTool(browser: DocumentBrowser) {
       if (!isPdf(data)) {
         throw new Error("The school link returned a web page or unsupported file, not a PDF. Check sign-in and open the document link shown on the page.");
       }
-      return await readPdfPage(data, input.page ?? 1, url, bounded);
+      const page = await readPdfPage(data, input.page ?? 1, url, bounded);
+      browser.rememberUrls?.(page.details.text);
+      return page;
     },
   });
 }

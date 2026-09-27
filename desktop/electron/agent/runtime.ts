@@ -455,7 +455,13 @@ export class PiAgentRuntime implements AgentRuntime {
     reasoningEffort: AgentReasoningEffort = this.#thinkingLevel,
   ): Promise<PiAgentSession> {
     const sessionCwd = target.cwd ?? this.#cwd;
-    const settingsManager = SettingsManager.inMemory();
+    // Browsing sessions summarise their history at about 80k tokens, like Codex's automatic compaction, long
+    // before the model's limit, so later calls don't re-send every page read so far. Recent turns stay verbatim.
+    const window = this.#model?.contextWindow ?? 0;
+    const browsing = tools.some(tool => tool.name === "browser_snapshot");
+    const settingsManager = SettingsManager.inMemory(browsing && window > 120_000
+      ? { compaction: { enabled: true, reserveTokens: window - 80_000, keepRecentTokens: 20_000 } }
+      : undefined);
     const resourceLoader = new DefaultResourceLoader({
       cwd: sessionCwd,
       agentDir: this.#agentDir,

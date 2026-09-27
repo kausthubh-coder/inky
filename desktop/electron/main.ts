@@ -56,6 +56,7 @@ import {
   transitionTask,
   assignmentWorkEligibility,
   connectedAppIsActive,
+  sameExam,
   DEFAULT_AGENT_REASONING_EFFORT,
 } from "../shared/index.js";
 import { getDevelopmentUrl } from "./development-url.js";
@@ -1793,7 +1794,7 @@ async function initializeDesktopAgent(): Promise<void> {
       },
       recordExam: async (exam) => {
         const repository = requireLearnRepository();
-        const same = repository.exams().find(item => item.courseId === exam.courseId && item.title.trim().toLowerCase() === exam.title.toLowerCase());
+        const same = repository.exams().find(item => item.courseId === exam.courseId && !item.hidden && sameExam(item, exam));
         return repository.setExam({ ...(same ? { examId: same.examId } : {}), courseId: exam.courseId, title: exam.title, date: exam.date ?? same?.date ?? null, kind: 'exam' });
       },
       readSchoolEmail: readSchoolEmail,

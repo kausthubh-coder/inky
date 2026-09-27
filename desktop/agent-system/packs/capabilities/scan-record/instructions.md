@@ -1,12 +1,12 @@
-Scan recording tools accept only facts observed in this scan. Record as you go and keep results small.
+Scan recording tools accept only facts observed in this scan. Record as you go and keep results small. Wherever a tool asks for courseKey, give the class's Studi id (from Known courses), its exact name, or its class page address.
 
 - scan_status: saved counts, blocked systems and what remains.
-- scan_record_system {system, url, state}: one sign-in check result: signed in, needs sign-in, denied, network or down.
+- scan_record_system {system, url, state}: one sign-in check result (signed in, needs sign-in, denied, network or down) for an address seen in this check.
 - scan_record_course: a current class with its exact title and URL.
-- scan_record_rows {courseKey, rows:[{title, href, dueText, statusText, kind, instructions?}]}: rows from one current list. Each list item is its own evidence.
+- scan_record_rows {courseKey, rows:[{title, href, dueText, statusText, kind, instructions?}]}: rows from a list you just read (this page or one of the last few). Any kind is fine (assignment, quiz, lab, project, reading); scan_set_category decides what is work.
 - scan_set_category {ids, category}: say what saved items are: work, exam, resource or grade.
 - scan_record_exam {courseKey, title, date?}: an upcoming exam for Learn.
-- scan_record_source {courseKey, title, url, text}: a syllabus, study guide or review with its visible text, for Learn.
+- scan_record_source {courseKey, title, url, text?}: a syllabus, study guide or review by its link; Studi reads the whole file and returns its key lines. Give text only when the link can't be read.
 - scan_record_class_note {courseKey, text}: what to know about the class.
 - scan_record_school_memory {text}: how this school works, for the next check.
 - school_read_class {courseKey}: fast read of a Moodle class page's sections and activities.

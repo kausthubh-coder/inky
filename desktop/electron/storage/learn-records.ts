@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { OpaqueIdSchema } from "../../shared/ids.js";
 import { IsoTimestampSchema } from "../../shared/schema-version.js";
-import { ExamSchema, LearnExamInputSchema, LearnExtractionSchema, LearnSourceInputSchema, LearnSourceSchema, LearnTopicSchema, TopicMasterySchema, TopicMasterySummarySchema, planLearn,
+import { ExamSchema, LearnExamInputSchema, LearnExtractionSchema, LearnSourceInputSchema, LearnSourceSchema, LearnTopicSchema, TopicMasterySchema, TopicMasterySummarySchema, planLearn, sameExam,
   type Exam, type LearnExtraction, type LearnSource, type LearnTopic, type MasteryEvidence, type TopicMastery } from "../../shared/learn.js";
 import { EVIDENCE_PHASES, TUTOR_PHASES, TutorBlockAnswerSchema, TutorBlockSchema, TutorCallSchema, TutorFinishInputSchema, TutorMessageSchema, TutorSessionSchema, TutorSessionSummarySchema,
   normalizeTutorAnswer, typedAnswerMatches, tutorTimeLeft, type TutorBlock, type TutorPhase, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
@@ -111,8 +111,11 @@ export class LearnRepository {
       const goal = source.examId ? this.#get("learn_exams", source.examId, ExamSchema) : null;
       if (goal) return this.#applyToGoal(source, goal, extraction);
       const previousExams = this.exams().filter(exam => exam.sourceId === sourceId);
+      // An exam the school check or another syllabus already saved for this class is the same exam, not a new one.
+      const classExams = this.exams().filter(exam => exam.courseId === source.courseId && exam.sourceId !== sourceId && !exam.hidden);
       const examIds = new Map(extraction.exams.map(exam => [exam.key,
         previousExams.find(previous => normalizeTutorAnswer(previous.title) === normalizeTutorAnswer(exam.title))?.examId
+          ?? classExams.find(other => sameExam(other, exam))?.examId
           ?? stableId("exam", sourceId, normalizeTutorAnswer(exam.title))]));
       const previousTopics = this.topics().filter(topic => topic.sourceId === sourceId);
       const topicKeyToId = new Map(extraction.topics.map(topic => {
@@ -131,6 +134,11 @@ export class LearnRepository {
       for (const extracted of extraction.exams) {
         const examId = examIds.get(extracted.key)!;
         const old = this.#get("learn_exams", examId, ExamSchema);
+        // A merged exam keeps its name and owner; this syllabus only fills in a date it didn't have.
+        if (old && old.sourceId !== sourceId) {
+          if (!old.date && extracted.date) this.#put("learn_exams", examId, { ...old, date: extracted.date, dateOrigin: "source", updatedAt: now });
+          continue;
+        }
         this.#put("learn_exams", examId, ExamSchema.parse({ ...old, examId, courseId: old?.courseId ?? source.courseId, title: extracted.title,
           date: old?.dateOrigin === "student" ? old.date : extracted.date, dateOrigin: old?.dateOrigin ?? "source", sourceId, updatedAt: now }));
       }

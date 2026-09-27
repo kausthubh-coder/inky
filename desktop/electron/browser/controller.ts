@@ -66,7 +66,8 @@ export interface SnapshotOptions {
   readonly ref?: string;
   readonly selector?: string;
   readonly depth?: number;
-  readonly mode?: "full" | "diff";
+  /** "auto" (the model's plain re-read) returns only changes on the same page; internal reads get the whole page. */
+  readonly mode?: "full" | "diff" | "auto";
 }
 
 export class BrowserController {
@@ -80,6 +81,8 @@ export class BrowserController {
   #diffBaseline: BrowserSnapshot | null = null;
   readonly #navigationUrls: string[] = [];
   readonly #observedLinks = new Set<string>();
+  /** The last few pages read in full, so a row seen a moment ago can still be saved after moving on. */
+  #recentTexts: string[] = [];
 
   constructor(target: BrowserTarget) {
     this.#target = target;
@@ -133,6 +136,23 @@ export class BrowserController {
   canNavigateObserved(rawUrl: string): boolean {
     const url = parseSchoolUrl(rawUrl);
     return url === this.#target.getURL() || this.#observedLinks.has(url);
+  }
+
+  /** Whether one of the last few pages read showed this text. */
+  recentlyShowed(fragment: string): boolean {
+    const wanted = fragment.replace(/\s+/g, " ").trim().toLowerCase();
+    return wanted.length > 0 && this.#recentTexts.some(text => text.includes(wanted));
+  }
+
+  /**
+   * Addresses seen anywhere in this check (written in a page or document, or saved by Studi) may be opened later.
+   * Opening what the school showed isn't guessing; an address that never appeared still is.
+   */
+  rememberUrls(source: string | readonly string[]): void {
+    const found = typeof source === "string" ? source.match(/https?:\/\/[^\s"'<>)\]]+/g) ?? [] : source;
+    for (const raw of found) {
+      try { this.#observedLinks.add(parseSchoolUrl(raw.replace(/[.,;:]+$/, ""))); } catch { /* Not a school web address. */ }
+    }
   }
 
   async downloadSource(ref?: string): Promise<string> {
@@ -283,17 +303,26 @@ export class BrowserController {
       ...(options.search ? { search: options.search } : {}),
     };
     for (const element of elements) if (element.href) this.#observedLinks.add(element.href);
+    this.rememberUrls(text);
+    if (!options.search) this.#recentTexts = [...this.#recentTexts, text.replace(/\s+/g, " ").toLowerCase()].slice(-6);
     const previous = observed ? this.#diffBaseline : this.#lastSnapshot;
     this.#lastSnapshot = snapshot;
+    // A plain re-read of the page the model already has returns only what changed (like Codex's accessibility
+    // diffs); the full page stays here as evidence. Narrowed or paged reads, and mode "full", are returned whole.
+    const plain = options.mode === "auto" && !options.search && !options.ref && !options.selector && options.offset === undefined;
+    const samePage = previous?.url === snapshot.url && previous.revision === snapshot.revision;
     if (observed) {
       this.#observedSnapshot = options.mode === "diff" ? null : snapshot;
-      this.#diffBaseline = snapshot;
+      // Only reads the model receives (its tool always sets a mode) define what it has already seen.
+      if (options.mode !== undefined && !options.search && !options.ref && !options.selector) this.#diffBaseline = snapshot;
     }
-    if (options.mode === "diff" && previous?.url === snapshot.url && previous.revision === snapshot.revision) {
+    if ((options.mode === "diff" || plain) && previous && samePage) {
       const oldText = new Set(previous.text.split("\n"));
       const oldElements = new Set(previous.elements.map(element => `${element.ref}:${element.name}:${element.value ?? ""}`));
-      return { ...snapshot, text: snapshot.text.split("\n").filter(line => !oldText.has(line)).join("\n"),
-        elements: snapshot.elements.filter(element => !oldElements.has(`${element.ref}:${element.name}:${element.value ?? ""}`)) };
+      const text = snapshot.text.split("\n").filter(line => !oldText.has(line)).join("\n");
+      const elements = snapshot.elements.filter(element => !oldElements.has(`${element.ref}:${element.name}:${element.value ?? ""}`));
+      return { ...snapshot, text: text || (elements.length ? "" : "No change since your last read of this page."), elements,
+        ...(plain ? { note: "Only what changed since your last read of this page; use mode \"full\" to see all of it." } : {}) };
     }
     return snapshot;
   }

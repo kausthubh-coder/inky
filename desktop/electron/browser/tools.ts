@@ -20,7 +20,7 @@ export function createBrowserTools(
       depth: Type.Optional(Type.Integer({ minimum: 0, maximum: 20 })),
       mode: Type.Optional(Type.Union([Type.Literal("full"), Type.Literal("diff")])),
     }, { additionalProperties: false }),
-    execute: async (_toolCallId, input) => result(await controller.snapshot(input)),
+    execute: async (_toolCallId, input) => result(await controller.snapshot({ ...input, mode: input.mode ?? "auto" })),
   });
   const navigate = defineTool({
     name: "browser_navigate",
