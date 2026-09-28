@@ -103,7 +103,6 @@ export function DashboardScreen({
   onVerifySubmission,
   onOpenArtifact,
   onScanAgain,
-  onCheckAssignment,
   onStopAndScan,
   onConnectRuntime,
   onCompleteRuntimeLogin,
@@ -138,7 +137,6 @@ export function DashboardScreen({
   onVerifySubmission: (taskId: string, confirmation: string) => void;
   onOpenArtifact: (taskId: string) => void;
   onScanAgain: () => void;
-  onCheckAssignment: (assignmentId: string) => void;
   onStopAndScan: (taskId: string) => void;
   onConnectRuntime: () => void;
   onCompleteRuntimeLogin: (code: string) => void;
@@ -232,7 +230,6 @@ export function DashboardScreen({
         mood={inkyState}
         actionError={error}
         onStart={onStart}
-        onCheckAssignment={id => { setSchoolOpen(true); setChatView("expanded"); onCheckAssignment(id); }}
         onOpenWork={onOpenDesk}
         onOpenSchoolCheck={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }}
         onOpenRules={() => chrome.onNavigate("settings", "rules")}

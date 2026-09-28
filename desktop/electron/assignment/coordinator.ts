@@ -195,7 +195,7 @@ export class AssignmentExecutionCoordinator {
         workerSessionPath: lease.workerSessionPath,
         updatedAt: this.#now(),
       });
-      await this.#run(execution, "Begin the assignment from the current visible page.");
+      await this.#run(execution, "Begin the assignment. Start by reading the assignment page and everything it links to, then do the work.");
       return this.#store.lifecycle.getExecution(execution.taskId);
     });
   }
@@ -386,7 +386,7 @@ export class AssignmentExecutionCoordinator {
     if (current?.phase === "ready_review" && current.reviewDeadline && current.reviewDeadline <= this.#now() &&
       !current.reviewSubmissionRequestedAt && !this.#manager.isWorkerRunning && this.#store.lifecycle.getSchedule()?.state !== "paused") {
       const assignment = this.#requiredAssignment(current.assignmentId);
-      if (this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit && !current.doubts?.length) await this.submitByRule(current.taskId);
+      if (this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit && !current.doubts?.length && !pastDueWithoutLateWindow(assignment, this.#now())) await this.submitByRule(current.taskId);
     }
     for (const execution of this.#store.lifecycle.listExpiredReviewHandoffs(this.#now())) {
       if (this.#matchesExecutionOwner(execution) && !this.#manager.isWorkerRunning) await this.#preserve(execution);
@@ -418,6 +418,9 @@ export class AssignmentExecutionCoordinator {
     if (!permission.mayAttempt) throw new Error("Your current rule no longer allows Dot to handle this assignment.");
     if (source === "rule" && !permission.maySubmit) throw new Error("Your current rule lets Dot prepare this work; you submit it yourself.");
     if (source === "rule" && execution.doubts?.length) throw new Error("Resolve Dot's doubts before submitting this work.");
+    // Starting no longer waits for a confirmed deadline, so the rule never hands in late work by itself
+    // unless the school says late work is accepted right now. The student can still hand it in.
+    if (source === "rule" && pastDueWithoutLateWindow(assignment, this.#now())) throw new Error("The deadline has passed; hand this one in yourself if the school still takes it.");
     if (execution.handoffDeadline && execution.handoffDeadline <= this.#now()) throw new Error("The review window ended. Check the school page before submitting.");
     if (execution.reviewSubmissionRequestedAt || execution.submissionAttemptedAt) throw new Error("Submission was already requested. Check its result instead of sending it again.");
     if (this.#manager.isWorkerRunning) throw new Error("Dot is finishing the current turn. Try again in a moment.");
@@ -1189,4 +1192,11 @@ function stopReason(result: WorkerTurnResult, nudgedOut: boolean, turnsLeft: boo
 
 function asksForPassword(snapshot: Pick<BrowserSnapshot, "elements">): boolean {
   return snapshot.elements.some(element => /password|passcode|passphrase/i.test(element.name) && /textbox|input|searchbox/i.test(element.role));
+}
+
+function pastDueWithoutLateWindow(assignment: { dueAt?: string | undefined; latePolicy?: { state: string; until?: string | undefined } | undefined }, now: string): boolean {
+  const due = Date.parse(assignment.dueAt ?? "");
+  if (!Number.isFinite(due) || due > Date.parse(now)) return false;
+  const until = Date.parse(assignment.latePolicy?.until ?? "");
+  return !(assignment.latePolicy?.state === "accepted" && Number.isFinite(until) && until > Date.parse(now));
 }

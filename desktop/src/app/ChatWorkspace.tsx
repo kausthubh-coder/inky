@@ -43,7 +43,6 @@ interface ChatProps {
   actionError: string | null;
   scanBusy: string | null;
   onStart: (id: string) => void;
-  onCheckAssignment: (assignmentId: string) => void;
   onOpenWork: () => void;
   onOpenSchoolCheck: () => void;
   onOpenRules: () => void;
@@ -726,7 +725,6 @@ export function ChatWorkspace(props: ChatProps) {
         onBrowser={openBrowser}
         onSchoolSlot={props.onSchoolSlot}
         onStart={props.onStart}
-        onCheckAssignment={props.onCheckAssignment}
         onResume={props.onResume}
         onPause={props.onTakeover}
         onCancel={props.onCancel}

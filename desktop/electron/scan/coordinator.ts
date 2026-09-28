@@ -2066,7 +2066,7 @@ For login, request a school_sign_in handoff with the exact blocker; resume this 
     const succeeded = failures.length === 0;
     const evidence = [...assignment.evidence].reverse().find(item => item.evidenceId.includes(scan.scanId));
     const finished = this.#store.school.putScan({ ...scan, state: succeeded ? "succeeded" : "partial", updatedAt: this.#now(), completedAt: this.#now(), handoff: null,
-      currentStep: succeeded ? terminal ? "School status checked. This assignment will not be started." : "Assignment details checked. Ready when you choose to start." : "Saved assignment details. Some questions remain.",
+      currentStep: succeeded ? terminal ? "Updated. The school already has this one." : "Updated this assignment's details." : "Updated what Dot could read. Some details are still unclear.",
       failures: [...new Set(failures)], coverage: [{ target, status: succeeded ? "verified" : "partial", ...(succeeded ? { evidence } : { failure: failures[0] }) }],
     });
     this.#updateProfileState(this.#requiredProfile().onboardingCompletedAt ? "ready" : "profile_saved");

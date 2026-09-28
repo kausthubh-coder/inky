@@ -44,7 +44,7 @@ export function composerPlaceholder(state: HomeworkRecord["state"] | undefined, 
 
 export function AssignmentWorkspace({
   assignment, task, execution, lifecycle, onboarding, workspace, busy, messages, thinking, composer, error,
-  onClose, onBrowser, onSchoolSlot, onStart, onCheckAssignment, onResume, onPause, onCancel, onOpenWork, onOpenRules, onOpenArtifact, onRetry, onSuggest,
+  onClose, onBrowser, onSchoolSlot, onStart, onResume, onPause, onCancel, onOpenWork, onOpenRules, onOpenArtifact, onRetry, onSuggest,
 }: {
   assignment: Assignment;
   task: TaskSummary | null;
@@ -61,7 +61,6 @@ export function AssignmentWorkspace({
   onBrowser: () => void;
   onSchoolSlot: (bounds: SchoolPageBounds | null) => void;
   onStart: (taskId: string) => void;
-  onCheckAssignment: (assignmentId: string) => void;
   onResume: (taskId: string) => void;
   onPause: (taskId: string) => void;
   onCancel: (taskId: string) => void;
@@ -296,7 +295,7 @@ export function AssignmentWorkspace({
         if (otherLive) return { title: "Dot is on another assignment.", body: "This one can go next.", actions: <>{task && primary("Do this next", () => void act(() => window.studi!.queueAssignmentNext({ taskId: task.task.taskId })))}{quiet("Go to it", onOpenWork)}</> };
         if (onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user") return { title: "Dot is reading your school.", body: "It can start this when the check finishes." };
         const eligibility = assignmentWorkEligibility(assignment, new Date().toISOString());
-        if (!eligibility.eligible) return { title: "Dot needs to check the page first.", body: eligibility.reason, actions: <>{primary("Check and start", () => onCheckAssignment(assignment.assignmentId), !assignment.sourceTarget)}{quiet("I'll do it myself", () => setOwner("student"))}</> };
+        if (!eligibility.eligible) return { title: "Dot can't start this one.", body: eligibility.reason };
         return {
           title: "Start when you're ready.",
           body: mode === "auto_submit" ? "Dot does it, checks it, and hands it in after your review time." : "Dot does it and checks it. Then you look it over and hand it in.",

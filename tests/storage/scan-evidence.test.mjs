@@ -305,17 +305,19 @@ test("a list cannot attach another assignment's requirements to the selected ass
   assert.equal((await scan.startScan()).scan.state, "partial");
 }));
 
-test("eligibility excludes completed, stale, incomplete and overdue work; extension must still be open", async () => fixture(async ({ scan, runtime, browser }) => {
+test("only hard stops block a start; Dot reads stale, incomplete or overdue work itself", async () => fixture(async ({ scan, runtime, browser }) => {
   runtime.next = async tools => {
     const ready = await recordReady(tools, browser);
-    for (const state of ["unknown", "submitted", "graded", "locked"]) assert.equal(assignmentWorkEligibility({ ...ready, schoolStatus: { ...ready.schoolStatus, state } }, now).eligible, false);
-    assert.equal(assignmentWorkEligibility(ready, "2026-09-14T00:00:00.000Z").eligible, false);
-    assert.equal(assignmentWorkEligibility({ ...ready, requirementsState: "partial" }, now).eligible, false);
-    const overdue = { ...ready, dueAt: "2026-09-11T23:59:00.000Z" };
-    assert.equal(assignmentWorkEligibility(overdue, now).eligible, false);
-    const extended = { ...overdue, latePolicy: { state: "accepted", text: "Late submissions accepted until September 15", until: "2026-09-15T23:59:00.000Z", evidence: ready.deadlineEvidence } };
-    assert.equal(assignmentWorkEligibility(extended, now).eligible, true);
-    assert.equal(assignmentWorkEligibility({ ...extended, latePolicy: { ...extended.latePolicy, until: now } }, now).eligible, false);
+    for (const state of ["submitted", "graded", "locked"]) assert.equal(assignmentWorkEligibility({ ...ready, schoolStatus: { ...ready.schoolStatus, state } }, now).eligible, false);
+    assert.equal(assignmentWorkEligibility({ ...ready, owner: "student" }, now).eligible, false);
+    assert.equal(assignmentWorkEligibility({ ...ready, ignoredReason: "already_done" }, now).eligible, false);
+    assert.equal(assignmentWorkEligibility({ ...ready, sourceTarget: undefined }, now).eligible, false);
+    assert.equal(assignmentWorkEligibility({ ...ready, category: "resource" }, now).eligible, false);
+    // None of these stop a start any more: Dot opens the page and reads what it needs.
+    assert.equal(assignmentWorkEligibility({ ...ready, schoolStatus: { ...ready.schoolStatus, state: "unknown" } }, now).eligible, true);
+    assert.equal(assignmentWorkEligibility({ ...ready, requirementsState: "partial", missingRequirements: ["No rubric posted"] }, now).eligible, true);
+    assert.equal(assignmentWorkEligibility({ ...ready, dueAt: "2026-09-11T23:59:00.000Z" }, now).eligible, true);
+    assert.equal(assignmentWorkEligibility(ready, "2026-09-14T00:00:00.000Z").eligible, true);
     await finishPartial(tools);
   };
   assert.equal((await scan.startScan()).scan.state, "partial");
@@ -335,13 +337,3 @@ test("list deadlines cannot be borrowed from another assignment", async () => fi
   assert.equal((await scan.startScan()).scan.state, "partial");
 }));
 
-test("fresh status and deadline cannot revive stale attachment instructions", async () => fixture(async ({ scan, runtime, browser }) => {
-  runtime.next = async tools => {
-    const ready = await recordReady(tools, browser);
-    const stale = { ...ready, requirementEvidence: ready.requirementEvidence.map(item => ({ ...item, evidence: { ...item.evidence, kind: "document", capturedAt: "2026-08-01T00:00:00.000Z" } })) };
-    assert.equal(assignmentWorkEligibility(stale, now).eligible, false);
-    assert.match(assignmentWorkEligibility(stale, now).reason, /instructions and attached materials/);
-    await finishPartial(tools);
-  };
-  assert.equal((await scan.startScan()).scan.state, "partial");
-}));

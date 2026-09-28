@@ -230,6 +230,28 @@ test("the worker cannot bypass review to submit, even under an auto-submit rule"
   });
 });
 
+test("the rule never hands in late work by itself unless the school takes late work", async () => {
+  await withStore(async store => {
+    let now = initialNow;
+    seedTask(store, "late", "2026-09-01T11:00:00.000Z");
+    store.permissionRules.put(rule("auto", "auto_submit", now));
+    const browser = new FakeBrowser("Answer page", "Submitted successfully");
+    const runtime = new ScriptedRuntime([
+      tools => invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer field contains x = 4" }], summary: "Ready" }),
+    ]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => now, reviewWindowMs: 60_000, handoffWindowMs: 180_000 });
+    try {
+      assert.equal((await execution.start("task-late")).phase, "ready_review", "overdue work can still be started and done");
+      now = "2026-09-01T12:01:01.000Z";
+      await execution.reconcileDeadlines();
+      assert.equal(store.lifecycle.getExecution("task-late").phase, "ready_review");
+      assert.equal(browser.submitClicks, 0);
+      await assert.rejects(execution.submitByRule("task-late"), /deadline has passed/);
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
+
 for (const mode of ["ready", "doubts", "heads-up", "paused"]) test(`timed review submission respects ${mode} state and retains readable actions`, async () => {
   await withStore(async (store, root) => {
     let now = initialNow;

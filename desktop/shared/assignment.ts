@@ -58,34 +58,17 @@ export type AssignmentWorkEligibility = { eligible: boolean; reason: string };
 
 // This is a decision about saved school facts, never a grant of permission.
 // Legacy records without these facts remain discoverable but cannot auto-run.
-export function assignmentWorkEligibility(assignment: Assignment, now: string): AssignmentWorkEligibility {
+// Whether Dot may start this homework. Only hard stops live here. Dot reads the page, the instructions,
+// attachments and the deadline itself as the first part of its run, so incomplete or stale saved details,
+// a rubric the teacher never posted, or an unconfirmed deadline don't block a start.
+export function assignmentWorkEligibility(assignment: Assignment, _now: string): AssignmentWorkEligibility {
   const blocked = (reason: string): AssignmentWorkEligibility => ({ eligible: false, reason });
   if ((assignment.category ?? "work") !== "work") return blocked("This is class material, not homework to do.");
   if (assignment.ignoredReason) return blocked("You marked this assignment as done or not homework.");
   if (assignment.owner === "student") return blocked("You chose to do this assignment yourself.");
-  if (!assignment.sourceTarget) return blocked("Add a school source and check the instructions before Dot starts.");
-  const status = assignment.schoolStatus;
-  if (!status || status.state === "unknown") return blocked("Check whether this assignment is already submitted.");
-  if (status.state === "submitted" || status.state === "graded") return blocked("The school already records this work as submitted or graded.");
-  if (status.state === "locked") return blocked("The school has locked this assignment.");
-  const currentTime = Date.parse(now);
-  const fresh = (evidence: EvidenceReference | undefined) => {
-    const age = evidence ? currentTime - Date.parse(evidence.capturedAt) : NaN;
-    return Number.isFinite(age) && age >= 0 && age <= 24 * 60 * 60 * 1000;
-  };
-  if (!fresh(status.evidence)) return blocked("Refresh the school's submission status before starting.");
-  if (assignment.requirementsState !== "complete" || !assignment.requirementEvidence?.length || assignment.missingRequirements?.length) {
-    return blocked("Read the remaining assignment instructions before starting.");
-  }
-  if (!assignment.requirementEvidence.every(item => fresh(item.evidence))) return blocked("Refresh the assignment instructions and attached materials before starting.");
-  if (!assignment.dueAt || (!assignment.dueDateOverride && (assignment.deadlinePrecision !== "datetime" || !fresh(assignment.deadlineEvidence)))) {
-    return blocked("Confirm the exact deadline before starting.");
-  }
-  if (Date.parse(assignment.dueAt) <= currentTime) {
-    const late = assignment.latePolicy;
-    if (late?.state !== "accepted" || !fresh(late.evidence) || !late.until || Date.parse(late.until) <= currentTime) {
-      return blocked("The deadline has passed; confirm a current late-submission window.");
-    }
-  }
-  return { eligible: true, reason: "Current school evidence shows unfinished work with requirements and an open deadline." };
+  if (!assignment.sourceTarget) return blocked("Add a school link so Dot can open the assignment.");
+  const status = assignment.schoolStatus?.state;
+  if (status === "submitted" || status === "graded") return blocked("The school already records this work as submitted or graded.");
+  if (status === "locked") return blocked("The school has locked this assignment.");
+  return { eligible: true, reason: "Dot opens the assignment and reads what it needs as it starts." };
 }

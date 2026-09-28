@@ -278,18 +278,8 @@ async function prepareAndStartAssignment(taskId: string): Promise<void> {
   if (!task) throw new Error("This assignment is no longer in your week.");
   const assignment = store.assignments.get(task.assignmentId);
   if (!assignment) throw new Error("This assignment is no longer available.");
-  if (assignment.owner === "student" || assignment.ignoredReason) {
-    throw new Error("You chose to handle this assignment yourself.");
-  }
-  if (!assignmentWorkEligibility(assignment, new Date().toISOString()).eligible) {
-    const checked = await requireSchoolScanCoordinator().startScan(assignment.assignmentId);
-    if (checked.scan?.state !== "succeeded") {
-      throw new Error(checked.scan?.failures[0] ?? "Dot could not finish checking this assignment's instructions.");
-    }
-  }
-  const current = store.assignments.get(task.assignmentId);
-  if (!current) throw new Error("This assignment disappeared during its school check.");
-  const eligibility = assignmentWorkEligibility(current, new Date().toISOString());
+  // Starting never runs a school check: Dot reads the page and its instructions itself, on the assignment page.
+  const eligibility = assignmentWorkEligibility(assignment, new Date().toISOString());
   if (!eligibility.eligible) throw new Error(eligibility.reason);
   await startSelectedAssignment(store, requireManagerCoordinator(), requireAssignmentExecutionCoordinator(), taskId);
 }
