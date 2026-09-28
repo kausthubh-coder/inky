@@ -7,7 +7,7 @@ export default {
     // prebuilds rather than attempting to combine identical per-arch files.
     osxUniversal: { x64ArchFiles: "**/@napi-rs/canvas-darwin-{arm64,x64}/*.node" },
     icon: "assets/studi-icon",
-    extraResource: ["assets/studi-icon.png", "assets/studi-icon.ico", "THIRD_PARTY_NOTICES.md"],
+    extraResource: ["assets/studi-icon.png", "assets/studi-icon.ico", "assets/sounds", "THIRD_PARTY_NOTICES.md"],
     ignore: [
       /^\/(?:\.agent|\.agents|\.studi-harness|\.studi-lms|agent-harness|\.openai|\.playwright-mcp|\.vercel|convex|desktop|docs|landing|out|release|scripts|tests|worker)(?:\/|$)/,
       /^\/\.env(?:\.|$)/,

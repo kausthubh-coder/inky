@@ -1,52 +1,28 @@
 import { useEffect, useRef, useState } from "react";
-import type { NotificationIntent, UpdateState } from "../../shared/index.js";
+import type { UpdateState } from "../../shared/index.js";
 import { Character } from "./Character.js";
 import { Icon } from "./Icon.js";
 
-const notificationKinds = {
-  handoff: { icon: "hand", label: "Needs you" },
-  work_start: { icon: "right", label: "Starting work" },
-  review_ready: { icon: "check", label: "Ready to review" },
-  scan_result: { icon: "search", label: "School scan" },
-  failure: { icon: "warning", label: "Needs attention" },
-} as const;
 
-export function UpdateControls({
-  onNotification,
-  openUpdates = 0,
-}: {
-  onNotification: (target: NotificationIntent["target"]) => void;
-  /** Bumped by the account menu to open the updates dialog. */
-  openUpdates?: number;
-}) {
+/** "Update ready" appears in the bar only when a new Studi is waiting. */
+export function UpdateControls() {
   const [state, setState] = useState<UpdateState | null>(null);
-  const [notes, setNotes] = useState<NotificationIntent[]>([]);
   const [error, setError] = useState("");
   const [downloaded, setDownloaded] = useState(false);
   const update = useRef<HTMLDialogElement>(null);
-  const notifications = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    if (openUpdates > 0 && !update.current?.open) update.current?.showModal();
-  }, [openUpdates]);
   useEffect(() => {
     let mounted = true;
     const read = async () => {
       if (!window.studi) return;
       try {
-        const [next, items] = await Promise.all([
-          window.studi.getUpdateState(),
-          window.studi.getNotifications(),
-        ]);
-        if (mounted) {
-          setState(next);
-          setNotes(items);
-        }
+        const next = await window.studi.getUpdateState();
+        if (mounted) setState(next);
       } catch {
         /* Keep the last snapshot; explicit actions report failure. */
       }
     };
     void read();
-    const timer = setInterval(() => void read(), 2500);
+    const timer = setInterval(() => void read(), 60_000);
     return () => {
       mounted = false;
       clearInterval(timer);
@@ -84,7 +60,6 @@ export function UpdateControls({
               : state.phase === "error"
                 ? "Couldn’t check for updates."
                 : "Keep Studi up to date.";
-  const unread = notes.filter((note) => !note.clickedAt).length;
   return (
     <>
       {ready && (
@@ -95,15 +70,6 @@ export function UpdateControls({
           Update ready
         </button>
       )}
-      <button
-        className="rd-chrome-icon notification-toggle"
-        aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}
-        onClick={() => notifications.current?.showModal()}
-      >
-        <Icon name="bell" />
-        <span>Notifications</span>
-        {unread > 0 && <b aria-hidden="true">{unread}</b>}
-      </button>
       <dialog
         className="studi-update-dialog"
         ref={update}
@@ -194,58 +160,6 @@ export function UpdateControls({
               ? "Unsigned Mac build · download and replace"
               : "Your saved work stays with you."}
         </small>
-      </dialog>
-      <dialog
-        ref={notifications}
-        className="studi-notifications"
-        aria-labelledby="notifications-title"
-      >
-        <header>
-          <div>
-            <h2 id="notifications-title">Notifications</h2>
-            <small>{unread ? `${unread} new` : "All caught up"}</small>
-          </div>
-          <button
-            className="chat-icon"
-            aria-label="Close notifications"
-            onClick={() => notifications.current?.close()}
-          >
-            ×
-          </button>
-        </header>
-        {error && (
-          <p className="chat-error" role="alert">
-            {error}
-          </p>
-        )}
-        {notes.length === 0 && (
-          <p className="notification-empty">
-            When there’s news about your work, it’ll be here.
-          </p>
-        )}
-        {notes.map((note) => (
-          <button
-            key={note.notificationId}
-            className={`notification-item ${note.clickedAt ? "is-read" : ""}`}
-            onClick={() => {
-              void window.studi
-                ?.readNotification({ notificationId: note.notificationId })
-                .then((items) => {
-                  setNotes(items);
-                  notifications.current?.close();
-                  onNotification(note.target);
-                })
-                .catch(() =>
-                  setError("Couldn’t mark that notification as read."),
-                );
-            }}
-          >
-            <span className={`notification-kind notification-kind--${note.kind}`}><Icon name={notificationKinds[note.kind].icon} size={18} />{notificationKinds[note.kind].label}</span>
-            <strong>{note.title}</strong>
-            <span>{note.body}</span>
-            <time>{new Date(note.createdAt).toLocaleString()}</time>
-          </button>
-        ))}
       </dialog>
     </>
   );

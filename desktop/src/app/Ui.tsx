@@ -1,131 +1,38 @@
 import { UpdateControls } from "./UpdateControls.js";
 import { Icon } from "./Icon.js";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
-import { DEFAULT_AGENT_PROVIDER_ID, agentProviderName, agentRuntimeAttentionCopy, providerLoginActive, selectedProvider, type AgentRuntimeAttention, type NotificationIntent, type ProviderLoginHandoff, type StudiWorkspaceState } from "../../shared/index.js";
+import { DEFAULT_AGENT_PROVIDER_ID, agentProviderName, agentRuntimeAttentionCopy, providerLoginActive, selectedProvider, type AgentRuntimeAttention, type ProviderLoginHandoff, type StudiWorkspaceState } from "../../shared/index.js";
 
 export type AppScreen = "week" | "settings" | "learn";
 export type SettingsLanding = "settings" | "usage" | "feedback" | "rules";
 
+// The bar holds only what the student uses: home, the two modes, the school check, an update when one is
+// ready, and settings. Notifications arrive from the OS; account, usage and feedback live in Settings.
 export function AppChrome({
   schoolStatus,
   onSchool,
-  chatName,
   screen,
-  settingsLanding,
-  studentName,
-  deskOpen,
-  deskBusy,
   onNavigate,
-  onOpenDesk,
-  onNotification,
-  onSignOut,
 }: {
   schoolStatus?: string;
   onSchool?: () => void;
   chatName?: string | undefined;
   screen: AppScreen;
-  settingsLanding: SettingsLanding;
-  studentName: string;
-  deskOpen: boolean;
-  deskBusy: boolean;
   onNavigate: (screen: AppScreen, landing?: SettingsLanding) => void;
-  onOpenDesk: () => void;
-  onNotification: (target: NotificationIntent["target"]) => void;
-  onSignOut: () => void;
 }) {
-  const [accountOpen, setAccountOpen] = useState(false);
-  const [updatesSignal, setUpdatesSignal] = useState(0);
-  const [accountNotice, setAccountNotice] = useState<string | null>(null);
-  const accountMenuRef = useRef<HTMLDivElement>(null);
-  const accountButtonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!accountOpen) return undefined;
-
-    const closeOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !accountMenuRef.current?.contains(event.target)) {
-        setAccountOpen(false);
-      }
-    };
-    const closeWithEscape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      setAccountOpen(false);
-      accountButtonRef.current?.focus();
-    };
-
-    document.addEventListener("pointerdown", closeOutside);
-    document.addEventListener("keydown", closeWithEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOutside);
-      document.removeEventListener("keydown", closeWithEscape);
-    };
-  }, [accountOpen]);
-
-  const displayName = studentName || "Student";
   const schoolTone = schoolStatus === "Checking school now" ? "is-busy" : schoolStatus === "School needs sign-in" ? "is-attention" : "is-ok";
-  const closeAccountMenu = () => {
-    setAccountOpen(false);
-    setAccountNotice(null);
-  };
-  const openSettings = (landing: SettingsLanding) => {
-    closeAccountMenu();
-    onNavigate("settings", landing);
-  };
-
   return (
     <header className="app-chrome">
       <button className="brand-lockup brand-home" type="button" onClick={() => onNavigate("week")} aria-label="Open dashboard"><strong>studi</strong></button>
       <nav className={`rd-mode-switch ${screen === "learn" ? "is-learn" : ""}`} aria-label="Studi mode">{screen !== "settings" && <span className="rd-mode-thumb" aria-hidden="true" />}<button aria-current={screen === "week" ? "page" : undefined} onClick={() => onNavigate("week")}>Homework</button><button aria-current={screen === "learn" ? "page" : undefined} onClick={() => onNavigate("learn")}>Learn</button></nav>
       <div className="chrome-end">
         {onSchool && <button className={`rd-chrome-icon rd-school-status ${schoolTone}`} aria-label={schoolStatus ?? "School check"} title={schoolStatus ?? "School check"} onClick={onSchool}><Icon name="school" size={19} />{schoolTone !== "is-ok" && <span>{schoolStatus}</span>}<i aria-hidden="true" /></button>}
-        <UpdateControls onNotification={onNotification} openUpdates={updatesSignal}/>
-        <button className="chrome-settings" type="button" aria-label="Settings" title="Settings" aria-current={screen === "settings" ? "page" : undefined} onClick={() => openSettings("settings")}><Icon name="settings" size={19} /></button>
-        <div className="account-menu-wrap" ref={accountMenuRef}>
-          <button ref={accountButtonRef} className="account-chip" type="button" aria-label={`Account for ${displayName}`} title={displayName} aria-haspopup="menu" aria-expanded={accountOpen} onClick={() => setAccountOpen((open) => { if (!open) setAccountNotice(null); return !open; })}>
-            <span aria-hidden="true">{displayName.slice(0, 1).toUpperCase()}</span>
-            <Icon name="down" size={14} />
-          </button>
-          {accountOpen ? (
-            <div className="account-menu" role="menu" aria-label="Profile menu">
-              <ProfileMenuItem icon="settings" label="App updates" onClick={() => { closeAccountMenu(); setUpdatesSignal((value) => value + 1); }} />
-              <ProfileMenuItem icon="usage" label="Usage" active={screen === "settings" && settingsLanding === "usage"} onClick={() => openSettings("usage")} />
-              <ProfileMenuItem icon="invite" label="Invite friend" onClick={() => setAccountNotice("Invite friends is coming soon.")} />
-              <ProfileMenuItem icon="feedback" label="Feedback" active={screen === "settings" && settingsLanding === "feedback"} onClick={() => openSettings("feedback")} />
-              <ProfileMenuItem icon="settings" label="Settings" active={screen === "settings" && settingsLanding === "settings"} onClick={() => openSettings("settings")} />
-              <ProfileMenuItem icon="logout" label="Log out" danger onClick={() => { closeAccountMenu(); onSignOut(); }} />
-              {accountNotice ? <p className="account-menu__notice" role="status">{accountNotice}</p> : null}
-            </div>
-          ) : null}
-        </div>
+        <UpdateControls />
+        <button className="chrome-settings" type="button" aria-label="Settings" title="Settings" aria-current={screen === "settings" ? "page" : undefined} onClick={() => onNavigate("settings", "settings")}><Icon name="settings" size={19} /></button>
       </div>
     </header>
   );
-}
-
-type ProfileMenuIconName = "usage" | "invite" | "feedback" | "settings" | "logout";
-
-function ProfileMenuItem({ icon, label, active = false, danger = false, onClick }: { icon: ProfileMenuIconName; label: string; active?: boolean; danger?: boolean; onClick: () => void }) {
-  return (
-    <button className={`${active ? "is-active" : ""} ${danger ? "is-danger" : ""}`} type="button" role="menuitem" onClick={onClick}>
-      <ProfileMenuIcon name={icon} />
-      <span>{label}</span>
-      {danger ? null : <span className="account-menu__arrow" aria-hidden="true"><Icon name="right" size={14} /></span>}
-    </button>
-  );
-}
-
-function ProfileMenuIcon({ name }: { name: ProfileMenuIconName }) {
-  if (name === "settings") return <Icon name="settings" size={16} />;
-  const paths = {
-    usage: <><path d="M4 12V8" /><path d="M8 12V4" /><path d="M12 12V6" /></>,
-    invite: <><circle cx="6" cy="6" r="2.25" /><path d="M2.75 13c.45-2.2 1.55-3.25 3.25-3.25S8.8 10.8 9.25 13" /><path d="M12 4v4M10 6h4" /></>,
-    feedback: <><path d="M3 3.5h10v7H7l-3.5 2v-2H3z" /><path d="M5.5 6h5M5.5 8h3.5" /></>,
-    settings: <><circle cx="8" cy="8" r="2.25" /><path d="M8 2.5v1.1M8 12.4v1.1M2.5 8h1.1M12.4 8h1.1M4.1 4.1l.8.8M11.1 11.1l.8.8M11.9 4.1l-.8.8M4.9 11.1l-.8.8" /></>,
-    logout: <><path d="M7 3H3.5v10H7" /><path d="M9.5 5.5 12 8l-2.5 2.5M6 8h6" /></>,
-  } satisfies Record<ProfileMenuIconName, ReactNode>;
-
-  return <svg className="account-menu__icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
 export function PaperCard({ id, tone = "paper", className = "", children }: { id?: string; tone?: "paper" | "yellow" | "coral" | "mint" | "sky" | "pink" | "lavender"; className?: string; children: ReactNode }) {

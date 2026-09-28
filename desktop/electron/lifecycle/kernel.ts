@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
 import {
   Menu,
@@ -426,7 +426,8 @@ export class AppKernel {
     if (!soundId) return;
     const path = bundledNotificationSoundPath(soundId);
     if (!path || this.#window.isDestroyed()) return;
-    this.#window.webContents.send(PLAY_NOTIFICATION_SOUND_CHANNEL, pathToFileURL(path).href);
+    // Sent as data so it plays whether the window came from a file or a dev server.
+    this.#window.webContents.send(PLAY_NOTIFICATION_SOUND_CHANNEL, `data:audio/wav;base64,${readFileSync(path).toString("base64")}`);
   }
 
   #assertUsable(): void {

@@ -315,13 +315,30 @@ function NotificationSettings({ preferences, busy, onSave, onPreview }: {
   </>;
 }
 
+function UpdateRow() {
+  const [state, setState] = useState<Awaited<ReturnType<StudiRendererApi["getUpdateState"]>> | null>(null);
+  const [checking, setChecking] = useState(false);
+  useEffect(() => { void window.studi?.getUpdateState().then(setState).catch(() => undefined); }, []);
+  const words = !state ? "" : state.capability === "unavailable" ? "Updates aren't available in a development build."
+    : state.phase === "ready" ? "A new Studi is ready. Use Update ready at the top."
+      : state.phase === "checking" || state.phase === "downloading" ? "Checking…" : state.error ? "Couldn't check for updates." : "You're up to date.";
+  return <SettingsRow title="App updates" description={words}>
+    <button className="st-quiet" disabled={checking || state?.capability === "unavailable"} onClick={() => {
+      setChecking(true);
+      void window.studi?.checkForUpdates().then(setState).catch(() => undefined).finally(() => setChecking(false));
+    }}>Check for updates</button>
+  </SettingsRow>;
+}
+
+// Dot runs on the student's own ChatGPT or Claude plan, so Studi has no monthly cap to show a share of.
+// These are the real counts; cache re-reads are left out because they repeat the same prompt every turn.
 function UsageCard({ usage }: { entitlement: Entitlement | null; usage: UsageState | null }) {
-  const percentage = usage && usage.tokenAllowance > 0 ? Math.round(100 * usage.totalTokens / usage.tokenAllowance) : null;
+  const count = new Intl.NumberFormat(undefined, { notation: "compact", maximumFractionDigits: 1 });
+  const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
   return <SettingsGroup title="This month">
     {!usage ? <p className="st-muted">Connect to see your latest usage.</p> : <div className="st-usage">
-      <div><strong>{percentage === null ? "Usage unavailable" : `${percentage}% of your monthly usage`}</strong><span>{usage.assignmentsWorked} assignments</span></div>
-      <div className="st-meter" role="progressbar" aria-label="Monthly usage" aria-valuenow={Math.min(100, percentage ?? 0)} aria-valuemin={0} aria-valuemax={100}><span style={{ width: `${Math.min(100, percentage ?? 0)}%` }} /></div>
-      <small>Tutor-session and school-check counts aren't recorded yet.</small>
+      <div><strong>{plural(usage.assignmentsWorked, "assignment")} · {plural(usage.inkyTurns, "turn")}</strong><span>{count.format(usage.inputTokens + usage.outputTokens)} tokens</span></div>
+      <small>Dot works on your own AI plan, so its limits are your plan's limits. Studi tells you if you hit one.</small>
     </div>}
   </SettingsGroup>;
 }
@@ -566,6 +583,7 @@ export function SettingsScreen({
           </SettingsRow>
           {diagnosticsReceipt && <small role="status">{diagnosticsReceipt.status === "saved" ? `Saved ${diagnosticsReceipt.fileName}` : "Nothing was written."}</small>}
           {feedbackOpen && <FeedbackSettings busy={disabled} onFeedback={onFeedback} />}
+          <UpdateRow />
         </SettingsGroup>
       </>}
       </div>
