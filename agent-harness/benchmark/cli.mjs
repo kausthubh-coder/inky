@@ -8,13 +8,14 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   "lms-module": { type: "string" }, scenario: { type: "string", default: "smoke" }, seed: { type: "string", default: "42" },
   model: { type: "string", default: "gpt-6-sol" }, provider: { type: "string", default: "openai-codex" }, effort: { type: "string", default: "high" },
   phases: { type: "string", default: "cold" }, show: { type: "boolean", default: false },
+  "scan-depth": { type: "string", default: "normal" },
 } });
 if (positionals[0] === "live") {
   if (!values["lms-module"]) throw new Error("live requires --lms-module path/to/server.mjs");
   const { runLive } = await import("./live-runner.mjs");
   const { path, record } = await runLive({ lmsModule: values["lms-module"], buildRoot: values.build, gitSha: values.revision,
     scenarioId: values.scenario, seed: Number(values.seed), model: values.model, provider: values.provider, effort: values.effort,
-    budgetMs: Number(values["budget-ms"]), maxToolCalls: Number(values["max-tool-calls"]), phases: values.phases.split(","), show: values.show });
+    budgetMs: Number(values["budget-ms"]), maxToolCalls: Number(values["max-tool-calls"]), phases: values.phases.split(","), show: values.show, scanDepth: values["scan-depth"] });
   console.log(JSON.stringify({ path, error: record.error ?? null, phases: record.phases.map(phase => ({ name: phase.name, status: phase.status, scanState: phase.scanState, passed: phase.grade.passed, metrics: phase.metrics })) }));
   const expectsHandoff = record.config.phases.includes("resume");
   process.exitCode = !record.error && record.phases.length === record.config.phases.length && record.phases.every(phase =>

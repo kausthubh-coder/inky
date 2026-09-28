@@ -596,6 +596,7 @@ export function createSchoolTheme(
     // Moodle's per-course activity indexes, student view: the only place past work shows its date, submission and grade.
     const index = moodle ? /^\/mod\/(assign|quiz)\/index\.php$/.exec(url.pathname)?.[1] : undefined;
     if (index) {
+      if (state.scenarioId === "moodle-broken-index") throw new SchoolError(500, "Class activity index unavailable.");
       const course = state.courses.find((c) => c.id === url.searchParams.get("id"));
       if (!course) throw new SchoolError(404, "Course not found.");
       const quiz = index === "quiz";
@@ -623,6 +624,8 @@ export function createSchoolTheme(
             url.pathname,
           )?.[1];
     if (courseId) {
+      if (state.scenarioId === "moodle-broken-index" && request.headers["sec-fetch-dest"] === "empty")
+        throw new SchoolError(500, "Fast class read unavailable.");
       const course = state.courses.find((c) => c.id === courseId);
       if (!course) throw new SchoolError(404, "Course not found.");
       if (state.faults.courseFailurePending) {

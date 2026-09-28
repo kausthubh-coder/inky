@@ -25,6 +25,16 @@ const get = async (url) => {
     headers: response.headers,
   };
 };
+test("broken Moodle indexes force browser fallback without hiding course pages", async (t) => {
+  const { school } = await fixture(t, "moodle-broken-index");
+  const expected = await loadExpected("moodle-broken-index");
+  assert.deepEqual(expected.assignments, (await loadExpected("moodle-noisy")).assignments);
+  for (const kind of ["assign", "quiz"]) {
+    assert.equal((await get(`${school.url}/mod/${kind}/index.php?id=programming`)).status, 500);
+  }
+  assert.equal((await fetch(`${school.url}/course/view.php?id=programming`, { headers: { "sec-fetch-dest": "empty" } })).status, 500);
+  assert.equal((await get(`${school.url}/course/view.php?id=programming`)).status, 200);
+});
 test("unknown LMS needs a browser crawl and keeps all nine tasks reachable", async (t) => {
   const { school } = await fixture(t, "unknown-lms");
   const expected = await loadExpected("unknown-lms");

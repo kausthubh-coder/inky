@@ -20,6 +20,8 @@ app.setPath("userData", join(config.runRoot, "electron"));
 const allowedOrigins = new Set(config.origins.map(url => new URL(url).origin));
 let window, store, manager, coordinator, activeSession, runtime, calls = 0, phaseCalls = 0, modelCalls = 0;
 let exhausted = false, phaseEvents = [], phaseName = "setup", sequence = 0;
+let recordedExams = [], recordedSources = [], emailReads = [];
+const saveSetupRecord = async (kind, value) => appendFile(join(config.runRoot, "setup-records.jsonl"), JSON.stringify({ phase: phaseName, kind, value }) + "\n");
 let scanGuardActive = false;
 let traceWrites = Promise.resolve();
 const violations = [];
@@ -89,13 +91,23 @@ async function initialize() {
   } };
   coordinator = new SchoolScanCoordinator(store, scanRuntime, browser, { manager, now: () => config.clock,
     readOnlyGuard: { setScanActive: active => { scanGuardActive = active; }, setAllowedHosts: () => {} },
+    recordExam: async exam => { await saveSetupRecord("exam", exam); recordedExams.push(exam); return { saved: true }; },
+    recordSyllabus: async source => { await saveSetupRecord("source", source); recordedSources.push(source); return { saved: true }; },
+    readSchoolEmail: async input => {
+      const query = input.query?.toLowerCase();
+      const messages = config.email.filter(message => message.receivedAt >= input.since && (!query || `${message.from} ${message.subject} ${message.preview}`.toLowerCase().includes(query)));
+      const read = { ...input, messages };
+      await saveSetupRecord("email", read);
+      emailReads.push(read);
+      return messages;
+    },
     onError: error => trace({ kind: "scan_error", error: error.message }) });
-  await coordinator.saveProfile({ studentName: "Synthetic student", schoolRoot: config.schoolUrl, defaultPermission: "attempt", scanCadence: "manual" });
+  await coordinator.saveProfile({ studentName: "Synthetic student", schoolRoot: config.schoolUrl, defaultPermission: "attempt", scanCadence: "manual", scanDepth: config.scanDepth });
   process.send?.({ type: "ready", model: runtime.selectedModelId, effort: runtime.selectedReasoningEffort, sdkVersion: PiAgentRuntime.sdkVersion });
 }
 
 async function runPhase(name) {
-  phaseName = name; phaseCalls = 0; modelCalls = 0; phaseEvents = [];
+  phaseName = name; phaseCalls = 0; modelCalls = 0; phaseEvents = []; recordedExams = []; recordedSources = []; emailReads = [];
   const started = performance.now();
   let error = null, state;
   try {
@@ -105,8 +117,10 @@ async function runPhase(name) {
   const generations = phaseEvents.filter(event => event.kind === "diagnostic" && event.diagnostic.kind === "generation");
   const total = key => generations.every(event => typeof event.diagnostic.payload[key] === "number") ? generations.reduce((sum, event) => sum + event.diagnostic.payload[key], 0) : null;
   const usage = { inputTokens: total("$ai_input_tokens"), outputTokens: total("$ai_output_tokens"), cacheReadTokens: total("$ai_cache_read_input_tokens"), cacheWriteTokens: total("$ai_cache_creation_input_tokens") };
+  const notes = await Promise.all(store.notes.list().map(async entry => ({ ...entry, content: (await store.notes.read(entry.noteId))?.content ?? null })));
   const result = { name, status: error ? exhausted ? "budget_exceeded" : "failed" : "completed", error, scanState: state.scan?.state ?? null,
     assignments: state.assignments, courses: state.courses, scan: state.scan,
+    recordedExams, recordedSources, emailReads, notes,
     queue: manager.state().entries.map(entry => ({ ...entry, assignmentId: store.tasks.get(entry.taskId)?.assignmentId, state: store.tasks.get(entry.taskId)?.state })), policyViolations: [...violations],
     metrics: { durationMs: performance.now() - started, toolCalls: phaseCalls, modelCalls, usage },
   };

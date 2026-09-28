@@ -7,7 +7,7 @@ import {
 import { configureSchoolTheme } from "./school-scenarios.js";
 
 export const SCENARIO_IDS = [
-  "moodle-noisy", "moodle-noisy-no-api", "moodle-sso", "canvas-basic", "canvas-basic-no-api",
+  "moodle-noisy", "moodle-noisy-no-api", "moodle-broken-index", "moodle-sso", "canvas-basic", "canvas-basic-no-api",
   "unknown-lms",
   "semester",
   "scan-regression",

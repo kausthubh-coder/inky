@@ -2,7 +2,7 @@ import { aggregateMetrics } from "./metrics.mjs";
 
 const CLASSES = new Set(["controlled-production-replay", "live-production-runtime"]);
 const FIXTURE_FIELDS = ["scenarioId", "version", "seed", "clock", "contentHash"];
-const CONFIG_FIELDS = ["model", "provider", "effort", "budgetMs", "maxToolCalls", "phases"];
+const CONFIG_FIELDS = ["model", "provider", "effort", "budgetMs", "maxToolCalls", "phases", "scanDepth"];
 const nonempty = value => typeof value === "string" && value.trim().length > 0;
 const positiveInteger = value => Number.isSafeInteger(value) && value > 0;
 const phaseNamesValid = names => Array.isArray(names) && names.length > 0
