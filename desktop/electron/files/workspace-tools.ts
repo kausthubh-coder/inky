@@ -221,8 +221,10 @@ function restrictedShell(workspaceDirectory: string): BashOperations {
       if (!Number.isFinite(seconds) || seconds <= 0) throw new TypeError("Shell timeout must be a positive number of seconds");
       const timeout = Math.min(seconds * 1000, SHELL_TIMEOUT_MS);
       const executable = process.platform === "win32" ? "powershell.exe" : "/bin/bash";
+      // PowerShell reads [ ] in its starting folder as a wildcard, so a folder like "exercise_11 [e03b26]"
+      // left it in its own install folder. Enter the workspace by literal path before the student's command.
       const args = process.platform === "win32"
-        ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", command]
+        ? ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command", `Set-Location -LiteralPath '${workspaceDirectory.replace(/'/g, "''")}'; ${command}`]
         : ["--noprofile", "--norc", "-c", command];
       const env = restrictedEnvironment(options.env);
       return new Promise<{ exitCode: number | null }>((resolvePromise, reject) => {

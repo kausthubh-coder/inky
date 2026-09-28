@@ -94,3 +94,21 @@ test("workspace coding tools reject traversal, links, elevation, and global inst
     await rm(outside, { recursive: true, force: true });
   }
 });
+
+test("the shell starts inside folders named like Studi's, with spaces, brackets and quotes", async () => {
+  const parent = await mkdtemp(join(tmpdir(), "studi-assignment-name-"));
+  const root = join(parent, "CSC 230 (002) Fall 2026 C and Software Tools", "exercise_11 [e03b26] O'Brien");
+  try {
+    const { mkdir } = await import("node:fs/promises");
+    await mkdir(root, { recursive: true });
+    await writeFile(join(root, "input-1.txt"), "3 1 2\n");
+    const shellName = process.platform === "win32" ? "powershell" : "bash";
+    const shell = tool(createWorkspaceCodingTools(root), shellName);
+    const command = process.platform === "win32" ? "(Get-Location).Path; Get-Content input-1.txt" : "pwd; cat input-1.txt";
+    const result = await execute(shell, { command, timeout: 60 });
+    assert.match(result.content[0].text, /exercise_11 \[e03b26\] O'Brien/);
+    assert.match(result.content[0].text, /3 1 2/);
+  } finally {
+    await rm(parent, { recursive: true, force: true });
+  }
+});

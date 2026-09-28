@@ -21,7 +21,6 @@ import {
 } from "../../shared/index.js";
 import { noteIsAllowed, retrieveNoteIndex, searchNotes, type NoteRetrievalContext } from "../../agent-system/retrieve.js";
 import type { BrowserController } from "../browser/controller.js";
-import { formatSnapshot } from "../browser/controller.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
 import type { AssignmentSessionPlan, ManagerCoordinator, WorkerTurnResult } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
@@ -464,7 +463,6 @@ export class AssignmentExecutionCoordinator {
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
     if (!assignment.sourceTarget) throw new Error("Add a school link before starting this homework.");
     if (this.#browserForAssignment && (!this.#browser.state.url || this.#browser.state.url === "about:blank")) await this.#browser.navigate(assignment.sourceTarget);
-    const snapshot = await this.#browser.snapshot();
     const noteEntries = retrieveNoteIndex(this.#store.notes.list(), this.#noteContext(assignment.assignmentId, assignment.courseId), "automatic");
     const notes = await Promise.all(noteEntries.map(async (entry) => ({ entry, content: (await this.#store.notes.read(entry.noteId))?.content ?? null })));
     const receipt = this.#store.lifecycle.getSubmissionReceipt(execution.taskId);
@@ -472,10 +470,14 @@ export class AssignmentExecutionCoordinator {
     const folderListing = homeworkFiles ? await homeworkFiles.list() : [];
     const prompt = [
       "# Assignment",
+        // The saved facts without their evidence metadata; Dot reads the page and its links itself.
         JSON.stringify({ taskId: execution.taskId, title: assignment.title, sourceTarget: assignment.sourceTarget,
-          dueAt: assignment.dueAt ?? null, dueText: assignment.dueText, schoolStatus: assignment.schoolStatus,
-          latePolicy: assignment.latePolicy, instructions: assignment.instructions ?? null,
-          requirements: assignment.requirementEvidence, missingRequirements: assignment.missingRequirements }, null, 2),
+          dueAt: assignment.dueAt ?? null, dueText: assignment.dueText,
+          schoolStatus: assignment.schoolStatus ? { state: assignment.schoolStatus.state, text: assignment.schoolStatus.text } : null,
+          latePolicy: assignment.latePolicy ? { state: assignment.latePolicy.state, text: assignment.latePolicy.text, until: assignment.latePolicy.until } : null,
+          instructions: assignment.instructions ?? null,
+          requirements: assignment.requirementEvidence?.map(item => ({ text: item.text, from: item.evidence.sourceTarget })),
+          missingRequirements: assignment.missingRequirements }, null, 2),
         "Before entering answers, inspect this assignment's current submission state and cutoff. If already submitted, graded, locked, or the allowed submission window has closed, stop and report the change; do not overwrite or repeat schoolwork.",
       "# Class",
       JSON.stringify(this.#classContext(assignment.assignmentId, assignment.courseId), null, 2),
@@ -484,15 +486,15 @@ export class AssignmentExecutionCoordinator {
       "# Task budget",
       `Up to ${execution.taskBudget.maxAgentTurns} student-directed turns; ${execution.turnCount} already used. At most two meaningfully different recovery plans.`,
       "# Relevant notes",
-      notes.length ? JSON.stringify(notes, null, 2) : "No relevant notes are stored.",
+      notes.length ? notes.map(({ entry, content }) => `## ${entry.title} (${entry.scope}${entry.about === "preference" ? ", the student's preference" : ""})\n${content ?? ""}`).join("\n\n") : "No relevant notes are stored.",
       "# Last submission receipt",
-      receipt ? JSON.stringify(receipt, null, 2) : "No submission receipt exists for this task.",
+      receipt ? `Handed in ${receipt.submittedAt}: "${receipt.verifiedStatus}".` : "No submission receipt exists for this task.",
       "# Homework folder",
       homeworkFiles
         ? JSON.stringify({ available: true, entries: folderListing.map(({ path, kind, size, modifiedAt }) => ({ path, kind, size, modifiedAt })) }, null, 2)
         : "No homework folder is selected. File tools and shell are unavailable.",
-      "# Visible browser snapshot",
-      formatSnapshot(snapshot),
+      "# Open page",
+      `${this.#browser.state?.title || assignment.title} · ${this.#browser.state?.url || assignment.sourceTarget}. Take a snapshot to read it.`,
       "# Instruction",
       instruction,
     ].join("\n\n");
@@ -564,7 +566,8 @@ export class AssignmentExecutionCoordinator {
           .map(task => this.#store.lifecycle.getExecution(task.taskId)).filter(Boolean).at(-1);
         return { title: item.title, kind: item.kind ?? null, dueAt: item.dueAt ?? null, schoolStatus: item.schoolStatus?.state ?? "unknown", ...(run ? { lastRun: run.phase } : {}) };
       });
-    const materials = this.#classMaterials(courseId).slice(0, 6).map(item => ({ title: item.title, link: item.sourceTarget, excerpt: item.text.slice(0, 800) }));
+    // Titles and links only: Dot opens a material when it needs it.
+    const materials = this.#classMaterials(courseId).slice(0, 6).map(item => ({ title: item.title, link: item.sourceTarget }));
     return { name: course?.label ?? null, materials, relatedAssignments: related };
   }
 
