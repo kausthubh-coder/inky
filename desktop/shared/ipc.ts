@@ -26,6 +26,7 @@ import {
   SelectedConversationSchema,
 } from "./agent-job.js";
 import { LifecycleStateSchema, NotificationIntentSchema, type NotificationIntent } from "./lifecycle.js";
+import type { EngineTopic } from "./product.js";
 import { ArtifactDocumentSchema } from "./artifact.js";
 import {
   BrowserLayoutModeSchema,
@@ -319,6 +320,7 @@ export const ContractManifestSchema = z.strictObject({
     z.strictObject({ method: z.literal('resumeTutorSession'), channel: z.literal('studi:tutor-resume') }),
     z.strictObject({ method: z.literal('cancelTutorSession'), channel: z.literal('studi:tutor-cancel') }),
     z.strictObject({ method: z.literal('submitReviewedAssignment'), channel: z.literal('studi:assignment-submit-reviewed') }),
+    z.strictObject({ method: z.literal('watchHandIn'), channel: z.literal('studi:assignment-watch-hand-in') }),
     z.strictObject({method:z.literal('correctAssignment'),channel:z.literal('studi:assignment-correct')}),
     z.strictObject({method:z.literal('addAssignment'),channel:z.literal('studi:assignment-add')}),
     z.strictObject({method:z.literal('setAssignmentOwner'),channel:z.literal('studi:assignment-owner')}),
@@ -466,6 +468,8 @@ export const studiIpcRegistry = Object.freeze({
   resumeTutorSession: { channel: 'studi:tutor-resume', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema }), resultSchema: PublicTutorSessionSchema },
   cancelTutorSession: { channel: 'studi:tutor-cancel', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema }), resultSchema: PublicTutorSessionSchema },
   submitReviewedAssignment: { channel: 'studi:assignment-submit-reviewed', requestSchema: z.strictObject({ taskId: OpaqueIdSchema }), resultSchema: LifecycleStateSchema },
+  // The student presses Submit on the school page; Dot watches for the school's confirmation.
+  watchHandIn: { channel: 'studi:assignment-watch-hand-in', requestSchema: z.strictObject({ taskId: OpaqueIdSchema }), resultSchema: LifecycleStateSchema },
   correctAssignment: { channel: 'studi:assignment-correct', requestSchema: CorrectAssignmentInputSchema, resultSchema: SchoolOnboardingStateSchema },
   addAssignment: { channel: 'studi:assignment-add', requestSchema: AddAssignmentInputSchema, resultSchema: SchoolOnboardingStateSchema },
   setAssignmentOwner: { channel: 'studi:assignment-owner', requestSchema: SetAssignmentOwnerInputSchema, resultSchema: SchoolOnboardingStateSchema },
@@ -770,6 +774,7 @@ export type StudiIpcHandlers = IpcHandlers<StudiIpcRegistry>;
 
 export type StudiRendererApi = StudiApi & {
   readonly onLifecycleActivated: (listener: (target: NotificationIntent["target"]) => void) => () => void;
+  readonly onEngineChanged: (listener: (topics: readonly EngineTopic[]) => void) => () => void;
   readonly onNotificationSound: (listener: (fileUrl: string) => void) => () => void;
 };
 

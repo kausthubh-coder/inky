@@ -119,6 +119,7 @@ export class LifecycleRepository {
   }
 
   putExecution(value: unknown): AssignmentExecution {
+    queueMicrotask(() => this.database.changed("homework"));
     const parsed = parseValue(AssignmentExecutionSchema, value, "assignment execution");
     const prior = this.getExecution(parsed.taskId);
     // Tool continuations may carry a snapshot from before more stream events arrived.
@@ -137,6 +138,7 @@ export class LifecycleRepository {
   }
 
   recordActivity(taskId: string, event: AgentRunEvent, action?: AssignmentAction, command?: AssignmentCommandOutput): void {
+    queueMicrotask(() => this.database.changed("homework"));
     this.database.transaction(() => {
       const execution = this.getExecution(taskId);
       if (!execution) return;
@@ -148,7 +150,7 @@ export class LifecycleRepository {
       if (action) {
         const last = actions.at(-1);
         const pending = action.toolCallId ? actions.findIndex(item => item.toolCallId === action.toolCallId) : -1;
-        if (pending >= 0) actions[pending] = { ...actions[pending]!, outcome: action.outcome, label: action.label || actions[pending]!.label };
+        if (pending >= 0) actions[pending] = { ...actions[pending]!, outcome: action.outcome, label: action.label || actions[pending]!.label, ...(action.result ? { result: action.result } : {}) };
         else if (action.kind === "text" && last?.kind === "text") actions[actions.length - 1] = { ...last, label: (last.label + action.label).slice(-4000) };
         else actions.push(action);
       }
@@ -177,6 +179,11 @@ export class LifecycleRepository {
   latestExecution(): AssignmentExecution | null {
     const row = this.database.handle.prepare("SELECT task_id, assignment_id, phase, review_deadline, updated_at, record_json FROM assignment_executions ORDER BY updated_at DESC, task_id LIMIT 1").get() as ExecutionRow | undefined;
     return row ? parseExecutionRow(row) : null;
+  }
+
+  readyCount(): number {
+    const row = this.database.handle.prepare("SELECT COUNT(*) AS count FROM assignment_executions WHERE phase = 'ready_review'").get() as { count: number };
+    return row.count;
   }
 
   listExpiredReviewHandoffs(now: string): AssignmentExecution[] {

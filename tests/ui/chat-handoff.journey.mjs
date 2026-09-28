@@ -19,7 +19,7 @@ export async function verifyChatHandoff(page, base = "http://127.0.0.1:4174") {
     };
   });
 
-  await page.getByRole("textbox", { name: "Message Inky" }).fill("I'm signed in now");
+  await page.getByRole("textbox", { name: "Message Dot" }).fill("I'm signed in now");
   await page.getByRole("button", { name: "Send message", exact: true }).click();
   await page.getByText("I'm signed in now", { exact: true }).waitFor();
   assert.deepEqual((await page.locator(".student-bubble").innerText()).split(/\n+/), ["You", "I'm signed in now"]);

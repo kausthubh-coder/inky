@@ -26,7 +26,7 @@ export const TutorModelInputSchema = z.discriminatedUnion("model", [
   z.strictObject({ ...topicScope, model: z.literal("function_plot"), params: z.strictObject({ family: z.enum(["linear", "quadratic", "sine"]), a: z.number().min(-100).max(100), b: z.number().min(-100).max(100), c: z.number().min(-100).max(100), xMin: z.number().min(-100).max(100), xMax: z.number().min(-100).max(100) }), controls: z.array(z.enum(["a", "b", "c", "reset"])).max(4) }),
   z.strictObject({ ...topicScope, model: z.literal("code_runner"), params: z.strictObject({ language: z.literal("javascript"), code: z.string().max(12000), instructions: text, timeoutMs: z.number().int().min(50).max(1000) }), controls: z.array(z.enum(["edit", "run", "reset"])).max(3) }),
 ]);
-/** A study page Inky writes for one idea: self-contained HTML that runs sandboxed with no network. */
+/** A study page Chalky writes for one idea: self-contained HTML that runs sandboxed with no network. */
 export const TutorShowPageInputSchema = z.strictObject({ ...topicScope, title: z.string().trim().min(1).max(120), purpose: z.string().trim().min(1).max(300), html: z.string().min(1).max(60_000) });
 export const TutorAssessmentSchema = z.strictObject({
   topic: OpaqueIdSchema, level: z.number().int().min(0).max(4),
@@ -35,7 +35,7 @@ export const TutorAssessmentSchema = z.strictObject({
 });
 export const TutorFinishInputSchema = TutorAssessmentSchema.extend({
   assessments: z.array(TutorAssessmentSchema).max(30).optional(),
-  /** For a goal outside school: the outline Inky proposes after the first check. */
+  /** For a goal outside school: the outline Chalky proposes after the first check. */
   outline: z.array(z.string().trim().min(1).max(200)).max(12).optional(),
   /** Facts worth memorising, added to the goal's cheat sheet. */
   cheatsheet: z.array(z.string().trim().min(1).max(300)).max(10).optional(),

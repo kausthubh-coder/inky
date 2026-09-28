@@ -20,14 +20,15 @@ import {
   type SchoolOnboardingState,
   type StudiWorkspaceState,
 } from "../../shared/index.js";
-import { Inky, type InkyState } from "./Inky.js";
+import { Character } from "./Character.js";
+import type { DotState } from "../../shared/characters/states.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { ProviderLoginHandoffView } from "./Ui.js";
 
 type OnboardingStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 
-const STEP_COPY: Record<OnboardingStep, { inky: InkyState; pill: string; title: string; body: string; me?: string }> = {
+const STEP_COPY: Record<OnboardingStep, { inky: DotState; pill: string; title: string; body: string; me?: string }> = {
   0: { inky: "hello", pill: "saying hi", title: "Hey", body: "Nice. Now I need the AI you already pay for, so I can do the work." },
   1: { inky: "working", pill: "your AI", title: "Which one do you have?", body: "ChatGPT or Claude. Pick the one you pay for and I'll do the work with it." },
   2: { inky: "idle", pill: "connected apps", title: "Bring your school apps?", body: "Connect the places where notes, files, and messages live. You can add more later." },
@@ -42,9 +43,9 @@ const STEP_COPY: Record<OnboardingStep, { inky: InkyState; pill: string; title: 
 };
 
 const PERMISSIONS: Array<{ value: PermissionMode; title: string; detail: string; recommended?: boolean }> = [
-  { value: "do_not_attempt", title: "Don't try it", detail: "I'll leave it alone." },
-  { value: "attempt", title: "Do it, I'll submit", detail: "I do the work. You hit submit.", recommended: true },
-  { value: "auto_submit", title: "Do it and submit", detail: "Only if you really want that." },
+  { value: "do_not_attempt", title: "Leave it to me", detail: "I'll leave it alone." },
+  { value: "attempt", title: "Do it, I'll hand it in", detail: "I do the work. You press Submit.", recommended: true },
+  { value: "auto_submit", title: "Do it and hand it in", detail: "Only if you really want that." },
 ];
 
 const CADENCES: Array<{ value: "manual" | "daily" | "weekly"; title: string }> = [
@@ -126,12 +127,12 @@ export function OnboardingScreen({
 
   return (
     <main className="fable-onboarding" data-studi-app-ready="true">
-      <section className="fable-window" role="application" aria-label="Talking to Inky">
+      <section className="fable-window" role="application" aria-label="Talking to Dot">
         <div className={`fable-stage ${browserStage ? "with-browser" : ""}`}>
           <section className="fable-talk">
-            <div className="fable-inky-wrap"><Inky state={inkyState} size={browserStage ? 84 : 200} label={`Inky is ${inkyState}`} /></div>
+            <div className="fable-inky-wrap"><Character state={inkyState} size={browserStage ? 84 : 200} label={`Dot is ${inkyState}`} /></div>
             <div className="fable-copy">
-              <div className="fable-who">talking to Inky</div>
+              <div className="fable-who">talking to Dot</div>
               <div className="fable-bubbles" aria-live="polite">
                 {(browserStage ? chat : [{ id: step, ...current }]).map((message) => (
                   <div className="fable-message" key={`${message.id}-${message.pill}`}>

@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { commandOutput } from "./command-output.js";
+import { commandOutput, commandSummary } from "./command-output.js";
 
 import { defineTool, type ToolDefinition } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
@@ -10,6 +10,7 @@ import {
   OpaqueIdSchema,
   LifecycleStateSchema,
   STUDI_SCHEMA_VERSION,
+  readSubmissionConfirmation,
   type AssignmentExecution,
   type BrowserCheckpoint,
   type BrowserSnapshot,
@@ -78,6 +79,7 @@ export class AssignmentExecutionCoordinator {
   readonly #classMaterials: ClassMaterials;
   /** Work that was running when Studi quit; carryOnAfterRestart picks it back up. */
   #restarted: string | null = null;
+  #handInWatch: ReturnType<typeof setTimeout> | null = null;
 
   private constructor(
     store: LocalStore,
@@ -274,6 +276,36 @@ export class AssignmentExecutionCoordinator {
     return this.#requiredExecution(taskId);
   }
 
+  /**
+   * The student hands in on the school page themselves. Dot reads the page every few seconds
+   * for the school's confirmation and saves the receipt, for up to 30 minutes.
+   */
+  watchHandIn(taskId: string, everyMs = 3_000, forMs = 30 * 60_000): void {
+    this.#assertUsable();
+    const execution = this.#requiredExecution(taskId);
+    if (execution.phase !== "ready_review" || !execution.reviewCheckpoint) throw new Error(`Task ${taskId} is not waiting for submission review`);
+    if (this.#handInWatch) clearTimeout(this.#handInWatch);
+    const page = this.#browserForAssignment?.(execution.assignmentId) ?? this.#defaultBrowser;
+    const until = Date.now() + forMs;
+    const look = async () => {
+      this.#handInWatch = null;
+      const current = this.#store.lifecycle.getExecution(taskId);
+      if (this.#disposed || current?.phase !== "ready_review" || !current.reviewCheckpoint || Date.now() > until) return;
+      try {
+        const post = await page.snapshot();
+        const status = readSubmissionConfirmation(current.reviewCheckpoint.summary, post.text);
+        if (status) {
+          this.#recordStudentSubmission(taskId, status, post);
+          return;
+        }
+      } catch {
+        // The page may be mid-navigation after Submit; look again.
+      }
+      if (!this.#disposed) this.#handInWatch = setTimeout(() => void look(), everyMs);
+    };
+    this.#handInWatch = setTimeout(() => void look(), Math.min(everyMs, 1_000));
+  }
+
   async verifyStudentSubmission(taskId: string, confirmationText: string): Promise<AssignmentExecution> {
     this.#assertUsable();
     const execution = this.#requiredExecution(taskId);
@@ -286,6 +318,12 @@ export class AssignmentExecutionCoordinator {
     if (!status || !post.text.toLowerCase().includes(status.toLowerCase())) {
       throw new Error("The visible page does not contain the claimed submission confirmation");
     }
+    return this.#recordStudentSubmission(taskId, status, post);
+  }
+
+  #recordStudentSubmission(taskId: string, status: string, post: BrowserSnapshot): AssignmentExecution {
+    const execution = this.#requiredExecution(taskId);
+    if (execution.phase !== "ready_review" || !execution.reviewCheckpoint) throw new Error("This assignment is no longer waiting for review.");
     const receiptId = `receipt-${randomUUID()}`;
     this.#store.lifecycle.putSubmissionReceipt({
       schemaVersion: STUDI_SCHEMA_VERSION,
@@ -369,17 +407,17 @@ export class AssignmentExecutionCoordinator {
     const assignment = this.#requiredAssignment(execution.assignmentId);
     if (execution.phase !== "ready_review") throw new Error("This assignment is not ready for review.");
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (!permission.mayAttempt) throw new Error("Your current rule no longer allows Inky to handle this assignment.");
-    if (source === "rule" && !permission.maySubmit) throw new Error("Your current rule lets Inky prepare this work; you submit it yourself.");
-    if (source === "rule" && execution.doubts?.length) throw new Error("Resolve Inky's doubts before submitting this work.");
+    if (!permission.mayAttempt) throw new Error("Your current rule no longer allows Dot to handle this assignment.");
+    if (source === "rule" && !permission.maySubmit) throw new Error("Your current rule lets Dot prepare this work; you submit it yourself.");
+    if (source === "rule" && execution.doubts?.length) throw new Error("Resolve Dot's doubts before submitting this work.");
     if (execution.handoffDeadline && execution.handoffDeadline <= this.#now()) throw new Error("The review window ended. Check the school page before submitting.");
     if (execution.reviewSubmissionRequestedAt || execution.submissionAttemptedAt) throw new Error("Submission was already requested. Check its result instead of sending it again.");
-    if (this.#manager.isWorkerRunning) throw new Error("Inky is finishing the current turn. Try again in a moment.");
+    if (this.#manager.isWorkerRunning) throw new Error("Dot is finishing the current turn. Try again in a moment.");
     this.#store.lifecycle.putExecution({ ...execution, reviewSubmissionRequestedAt: this.#now(), reviewSubmissionSource: source, updatedAt: this.#now() });
     try {
       await this.#manager.runWorkerTurn(`${source === "student" ? "The student clicked Submit for this reviewed assignment, including any visible doubts." : "The review timer ended and the saved rule allows submission."} Take a fresh snapshot and use browser_submit with the current submit control. Set expectedConfirmationText to an affirmative status or receipt that will appear only after submission, such as "Submission received" or "Submitted; not yet graded"; never use the submit button label or the current "Not submitted" status. Do not rewrite answers or repeat an already attempted effect. If permission or page state changed, report the problem.`, event => this.#recordActivity(taskId, event));
       const latest = this.#requiredExecution(taskId);
-      if (latest.phase === "ready_review") await this.#submissionHandoff(latest, "Inky could not verify a submission. Check the saved answers and school page before continuing.", "Submission needs you");
+      if (latest.phase === "ready_review") await this.#submissionHandoff(latest, "Dot could not verify a submission. Check the saved answers and school page before continuing.", "Submission needs you");
     } catch (error) {
       const latest = this.#requiredExecution(taskId);
       if (latest.phase === "ready_review") await this.#submissionHandoff(latest, `Submission could not continue: ${errorMessage(error)}`.slice(0, 500), "Submission needs you");
@@ -390,6 +428,7 @@ export class AssignmentExecutionCoordinator {
 
   dispose(): void {
     this.#disposed = true;
+    if (this.#handInWatch) clearTimeout(this.#handInWatch);
     this.#stopRunNotes();
   }
 
@@ -534,10 +573,27 @@ export class AssignmentExecutionCoordinator {
       const safeEvent: AgentRunEvent = event.type === "tool_started"
         ? { schemaVersion: 1, type: event.type, toolCallId: event.toolCallId, toolName: event.toolName }
         : { schemaVersion: 1, type: event.type, toolCallId: event.toolCallId, toolName: event.toolName, outcome: event.outcome, durationMs: event.durationMs };
-      this.#store.lifecycle.recordActivity(taskId, safeEvent, { ...base, kind: "tool", toolCallId: event.toolCallId, label, outcome }, commandOutput(event, base.occurredAt));
+      const command = commandOutput(event, base.occurredAt);
+      const target = event.type === "tool_started" ? this.#activityTarget(event) : undefined;
+      const result = event.type === "tool_finished" ? (event.outcome === "failed" ? "failed" : command ? commandSummary(command.text) : undefined) : undefined;
+      this.#store.lifecycle.recordActivity(taskId, safeEvent, {
+        ...base, kind: "tool", toolCallId: event.toolCallId, label, outcome, tool: event.toolName,
+        ...(target ? { target } : {}), ...(result ? { result } : {}),
+      }, command);
     } else if (event.type === "retry") {
       this.#store.lifecycle.recordActivity(taskId, event, { ...base, kind: "retry", label: (event.reason ?? "Trying the connection again").slice(0, 4000), outcome: event.phase === "started" ? "started" : event.outcome });
     } else this.#store.lifecycle.recordActivity(taskId, event);
+  }
+
+  /** What a tool call acted on, for the thread: a page address, a file, a control or a command. */
+  #activityTarget(event: Extract<AgentRunEvent, { type: "tool_started" }>): string | undefined {
+    if (!event.arguments || typeof event.arguments !== "object") return undefined;
+    const args = event.arguments as Record<string, unknown>;
+    const text = (value: unknown) => typeof value === "string" && value.trim() ? value.trim().replace(/\s+/g, " ").slice(0, 300) : undefined;
+    const element = typeof args.ref === "string" ? this.#browser.lastSnapshot?.elements.find(item => item.ref === args.ref)?.name : undefined;
+    const url = text(args.url)?.replace(/^https?:\/\//, "");
+    const path = text(args.path)?.split(/[\\/]/).at(-1);
+    return url ?? path ?? text(element) ?? text(args.command) ?? text(args.query) ?? text(args.pattern) ?? text(args.title);
   }
 
   #activityLabel(event: Extract<AgentRunEvent, { type: "tool_started" | "tool_finished" }>): string | null {
@@ -609,7 +665,7 @@ export class AssignmentExecutionCoordinator {
         const message = input.message.trim();
         if (input.needs !== "nothing") return toolResult(await this.#handoff(execution, message, message, input.needs));
         const told = this.#store.lifecycle.putExecution({ ...execution, notices: [...(execution.notices ?? []), message].slice(-20), updatedAt: this.#now() });
-        await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "A heads-up from Inky", body: message.slice(0, 500) });
+        await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "A heads-up from Dot", body: message.slice(0, 500) });
         return toolResult(told);
       },
     });
@@ -823,7 +879,7 @@ export class AssignmentExecutionCoordinator {
     return needsUser;
   }
 
-  /** A message Inky chose to send isn't an error; only failures the app detects are shown as one. */
+  /** A message Dot chose to send isn't an error; only failures the app detects are shown as one. */
   async #handoff(execution: AssignmentExecution, reason: string, returnPredicate: string, needs?: NonNullable<AssignmentExecution["needs"]>): Promise<AssignmentExecution> {
     const snapshot = await this.#browser.snapshot();
     const current = this.#requiredExecution(execution.taskId);
@@ -1081,7 +1137,7 @@ const TOOL_ACTION_LABELS: Record<string, string> = {
 };
 
 const HANDOFF_TITLES: Record<NonNullable<AssignmentExecution["needs"]>, string> = {
-  answer: "Inky has a question", sign_in: "Sign in so Inky can continue", files: "Inky needs a file", browser: "Studi needs you in the browser",
+  answer: "Dot has a question", sign_in: "Sign in so Dot can continue", files: "Dot needs a file", browser: "Studi needs you in the browser",
 };
 
 // The words the student sees when Dot stops and needs them, with the real cause.

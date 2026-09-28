@@ -12,6 +12,10 @@ export const AssignmentActionSchema = z.strictObject({
   kind: z.enum(["text", "tool", "retry"]), label: z.string().min(1).max(4000),
   toolCallId: z.string().min(1).optional(),
   outcome: z.enum(["started", "succeeded", "failed"]).optional(),
+  /** For tool steps: which tool, what it acted on, and a short result, shown as a tool call. */
+  tool: z.string().min(1).max(100).optional(),
+  target: z.string().min(1).max(300).optional(),
+  result: z.string().min(1).max(200).optional(),
 });
 export type AssignmentAction = z.infer<typeof AssignmentActionSchema>;
 
@@ -93,9 +97,9 @@ export const AssignmentExecutionSchema = z.strictObject({
   turnCount: z.number().int().min(0).max(24).default(0),
   attemptCount: z.number().int().min(0).max(2),
   returnPredicate: z.string().trim().min(1).max(1_000).optional(),
-  /** What Inky is waiting on while paused, so the app can offer the right button. */
+  /** What Dot is waiting on while paused, so the app can offer the right button. */
   needs: z.enum(["answer", "sign_in", "files", "browser"]).optional(),
-  /** Things Inky told the student without stopping; they become review doubts. */
+  /** Things Dot told the student without stopping; they become review doubts. */
   notices: z.array(z.string().trim().min(1).max(1_000)).max(20).optional(),
   reviewDeadline: IsoTimestampSchema.optional(),
   reviewSubmissionSource: z.enum(["rule", "student"]).optional(),

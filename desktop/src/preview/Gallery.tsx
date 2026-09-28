@@ -66,6 +66,7 @@ export function PreviewGallery() {
               {source?.root ?? "Run bun run preview:ui for checkout details."}
             </small>
           </p>
+          <p><a href="/?preview=characters">Dot, Chalky and the icon →</a></p>
         </div>
       </header>
       <div className="preview-workbench-body">

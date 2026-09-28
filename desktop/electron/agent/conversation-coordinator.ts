@@ -30,6 +30,8 @@ import {
   type AgentRunEvent,
   type ConversationTarget,
   type SelectedConversation,
+  type AddAssignmentInput,
+  type CorrectAssignmentInput,
 } from "../../shared/index.js";
 import type { ManagerCoordinator } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
@@ -58,6 +60,11 @@ export interface ConversationCoordinatorOptions {
   readonly trace?: AgentTrace;
   readonly connectedAppTools?: () => Promise<readonly ToolDefinition[]>;
   readonly learning?: LearningConversationHooks;
+  /** Adding and correcting homework from chat; the "+ Add homework" form moved here. */
+  readonly homework?: {
+    readonly add: (input: AddAssignmentInput) => Promise<unknown>;
+    readonly correct: (input: CorrectAssignmentInput) => Promise<unknown>;
+  };
 }
 
 export type AssignmentWorkRunner = (
@@ -78,6 +85,8 @@ export class ConversationCoordinator {
   readonly #now: () => string;
   readonly #connectedAppTools: () => Promise<readonly ToolDefinition[]>;
   readonly #learning: LearningConversationHooks | undefined;
+  readonly #homework: ConversationCoordinatorOptions["homework"];
+  readonly #savedThisTurn = new Map<string, { noteId: string; title: string }[]>();
   readonly #learnSourceTexts: string[] = [];
   readonly #sessions = new Map<string, AgentSession>();
   readonly #running = new Set<string>();
@@ -102,6 +111,7 @@ export class ConversationCoordinator {
     this.#now = options.now ?? (() => new Date().toISOString());
     this.#connectedAppTools = options.connectedAppTools ?? (async () => []);
     this.#learning = options.learning;
+    this.#homework = options.homework;
     this.trace = options.trace ?? new AgentTrace({ now: this.#now });
     this.#manager.setBeforeAssignmentWork(async (assignmentId) => {
       const persisted = this.#store.agentJobs.getByTarget({
@@ -178,7 +188,7 @@ export class ConversationCoordinator {
     this.#assertUsable();
     const target = ConversationTargetSchema.parse(rawTarget);
     const text = rawText.trim();
-    if (!text) throw new TypeError("Inky needs a message");
+    if (!text) throw new TypeError("Dot needs a message");
     if (text.length > 100_000) throw new TypeError("The message is too long");
     let job = this.#requiredJob(target);
     if (metadata.clientMessageId) {
@@ -187,7 +197,7 @@ export class ConversationCoordinator {
       );
       if (prior) {
         if (this.#running.has(job.jobId))
-          throw new Error("Inky is still answering that message.");
+          throw new Error("Dot is still answering that message.");
         const reply = job.messages.find(
           (m) => m.role === "assistant" && m.turnIndex === prior.turnIndex,
         );
@@ -220,9 +230,10 @@ export class ConversationCoordinator {
       }
     }
     if (this.#running.has(job.jobId))
-      throw new Error("Inky is already answering in this conversation");
+      throw new Error("Dot is already answering in this conversation");
     this.#running.add(job.jobId);
     this.#activity.set(job.jobId, "thinking");
+    this.#store.database.changed("conversation");
     this.#cancelled.delete(job.jobId);
 
     const turnIndex = job.turnIndex + 1;
@@ -351,7 +362,7 @@ export class ConversationCoordinator {
       let errorCount = 0;
       const observeRuntimeEvent = (event: AgentRunEvent) => {
         const observedAt = Date.now();
-        if (event.type === "text") this.#activity.set(job.jobId, "typing");
+        if (event.type === "text") { this.#activity.set(job.jobId, "typing"); this.#store.database.changed("conversation"); }
         if (event.type === "text" && firstTokenAt === null)
           firstTokenAt = observedAt;
         if (event.type === "tool_finished") {
@@ -411,12 +422,15 @@ export class ConversationCoordinator {
         usage: usage ? withTotalTokens(usage) : null,
         cumulativeUsage: withTotalTokens(this.#cumulativeUsage),
       });
+      const memories = this.#savedThisTurn.get(job.jobId)?.slice(-10) ?? [];
+      this.#savedThisTurn.delete(job.jobId);
       const assistantMessage = reply
         ? AgentMessageSchema.parse({
             messageId: randomUUID(),
             role: "assistant",
             text: reply,
             ...(outcome === "completed" ? {} : { recovery: outcome }),
+            ...(memories.length ? { memories } : {}),
             createdAt: this.#now(),
             turnIndex,
           })
@@ -495,6 +509,7 @@ export class ConversationCoordinator {
       if (target.kind === "assignment") this.#requestedStarts.delete(target.assignmentId);
       this.#running.delete(job.jobId);
       this.#activity.delete(job.jobId);
+      this.#store.database.changed("conversation");
       this.#cancelled.delete(job.jobId);
     }
   }
@@ -591,7 +606,7 @@ export class ConversationCoordinator {
     );
     if (!session.sessionPath) {
       session.dispose();
-      throw new Error("Pi did not persist the Inky job session");
+      throw new Error("Pi did not persist the Dot job session");
     }
     this.#sessions.set(job.jobId, session);
     this.#save(
@@ -670,7 +685,7 @@ export class ConversationCoordinator {
       name: "queue_start",
       label: "Start assignment",
       description:
-        "Start one verified assignment after the student clearly asks Inky to do it.",
+        "Start one verified assignment after the student clearly asks Dot to do it.",
       parameters: Type.Object(
         { taskId: Type.String({ minLength: 1, maxLength: 256 }) },
         { additionalProperties: false },
@@ -709,11 +724,36 @@ export class ConversationCoordinator {
       execute: async (_id, input) => toolResult(this.#manager.reorderQueue(input.taskIds)),
     });
     const owner = defineTool({
-      name: "assignment_set_owner", label: "Change who does this homework", description: "When the student explicitly asks, mark homework as theirs or give it back to Inky under the previous rules. This does not grant extra permission or start work.",
+      name: "assignment_set_owner", label: "Change who does this homework", description: "When the student explicitly asks, mark homework as theirs or give it back to Dot under the previous rules. This does not grant extra permission or start work.",
       parameters: Type.Object({ assignmentId: Type.String({ minLength: 1, maxLength: 256 }), owner: Type.Union([Type.Literal("student"), Type.Literal("inky")]) }, { additionalProperties: false }),
       execute: async (_id, input) => { await this.#manager.setAssignmentOwner(input.assignmentId, input.owner); return toolResult({ assignment: this.#store.assignments.get(input.assignmentId), queue: this.#manager.state() }); },
     });
-    return [status, inspect, start, cancel, reorder, owner, search, ...this.#preferenceTools({ kind: "home" })];
+    const add = defineTool({
+      name: "homework_add", label: "Add homework", description: "When the student gives you homework Studi doesn't have, add it: a school link (Dot reads the page) or a title. Pass the link or title exactly as the student gave it; courseId only if they named a class.",
+      parameters: Type.Object({ text: Type.String({ minLength: 1, maxLength: 4096 }), courseId: Type.Optional(Type.String({ minLength: 1, maxLength: 256 })) }, { additionalProperties: false }),
+      execute: async (_id, input) => toolResult(await this.#requiredHomework().add(input)),
+    });
+    const correct = defineTool({
+      name: "homework_correct", label: "Fix homework details", description: "When the student corrects homework: a new due date (dueAt as ISO time), or that it isn't homework or is already done. Only for what the student said.",
+      parameters: Type.Object({
+        assignmentId: Type.String({ minLength: 1, maxLength: 256 }),
+        correction: Type.Union([Type.Literal("due_date"), Type.Literal("not_homework"), Type.Literal("already_done")]),
+        dueAt: Type.Optional(Type.String({ minLength: 1, maxLength: 64 })),
+      }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        const change: CorrectAssignmentInput = input.correction === "due_date"
+          ? { assignmentId: input.assignmentId, correction: "due_date", dueAt: new Date(input.dueAt ?? "").toISOString() }
+          : { assignmentId: input.assignmentId, correction: input.correction };
+        await this.#requiredHomework().correct(change);
+        return toolResult({ assignment: this.#store.assignments.get(input.assignmentId) });
+      },
+    });
+    return [status, inspect, start, cancel, reorder, owner, add, correct, search, ...this.#preferenceTools({ kind: "home" })];
+  }
+
+  #requiredHomework(): NonNullable<ConversationCoordinatorOptions["homework"]> {
+    if (!this.#homework) throw new Error("Adding homework isn't available here. Ask the student to add it from their school.");
+    return this.#homework;
   }
 
   #preferenceTools(target: ConversationTarget): readonly ToolDefinition[] {
@@ -740,6 +780,8 @@ export class ConversationCoordinator {
         if (previous && input.expectedRevision !== previous.revision) throw new Error("Read the existing preference and use its current revision before updating");
         const result = await this.#store.notes.upsert({ scope: "student", subjectId: this.#ownerSubject, about: "preference", key: input.key, title: input.title, content: input.content },
           { expectedRevision: input.expectedRevision ?? null, assertAuthorized: () => this.#assertUsable() });
+        const jobId = this.#requiredJob(target).jobId;
+        this.#savedThisTurn.set(jobId, [...(this.#savedThisTurn.get(jobId) ?? []), { noteId: result.frontmatter.noteId, title: result.frontmatter.title }]);
         return toolResult(result);
       },
     });
@@ -786,9 +828,9 @@ export class ConversationCoordinator {
       execute: async () => {
         const assignment = this.#store.assignments.get(assignmentId)!;
         if (!this.#manager.resolvePermission(assignmentId, assignment.courseId).mayAttempt) {
-          throw new Error("Your homework rules don't allow Inky to work on this assignment. Change its homework rule to allow an attempt first.");
+          throw new Error("Your homework rules don't allow Dot to work on this assignment. Change its homework rule to allow an attempt first.");
         }
-        if (this.#manager.state().lease) throw new Error("Inky is already working in the school browser. Pause that work before starting this assignment.");
+        if (this.#manager.state().lease) throw new Error("Dot is already working in the school browser. Pause that work before starting this assignment.");
         const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId && ["discovered", "queued", "failed", "cancelled"].includes(task.state));
         if (tasks.length !== 1) throw new Error("This assignment has no single task ready to start. Check its current work status first.");
         this.#requestedStarts.set(assignmentId, tasks[0]!.taskId);

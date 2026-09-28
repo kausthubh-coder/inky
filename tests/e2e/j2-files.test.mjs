@@ -33,9 +33,9 @@ test("J2 files: coding work stays in the homework folder and uploads the require
     } },
   ];
   await withLmsApp({ scenario: "coding-multifile", script: (school) => singleAssignmentScript(school, [work]) }, async ({ page, school, homeworkRoot }) => {
-    await completeOnboarding(page, school.url, "Do it, I'll submit");
+    await completeOnboarding(page, school.url, "Do it, I'll hand it in");
     await page.getByText("Rainfall calculator: multi-file C project", { exact: true }).click();
-    await page.getByRole("button", { name: /Check and start|Start|Make Inky do this/ }).first().click();
+    await page.getByRole("region", { name: "Your move" }).getByRole("button", { name: /^(Check and start|Start)$/ }).click();
     await waitForPublicState(page, "getLifecycleState", (state) => state.execution?.phase === "ready_review");
     assert.equal(committedSubmissions(school).length, 0);
     const created = (await readdir(homeworkRoot, { recursive: true })).map((name) => basename(name)).filter((name) => Object.hasOwn(files, name));

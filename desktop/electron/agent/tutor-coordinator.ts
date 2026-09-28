@@ -146,7 +146,7 @@ export class TutorCoordinator {
       if (failure) throw new Error(failure);
       this.repository.markMessagesDelivered(sessionId, pendingMessages.map(message => message.messageId));
       const latest = this.repository.state(sessionId);
-      if (latest.status === "active") this.repository.transition(sessionId, "paused", "Inky paused before finishing. Resume to continue from the saved work.");
+      if (latest.status === "active") this.repository.transition(sessionId, "paused", "Chalky paused before finishing. Resume to continue from the saved work.");
     } catch (error) {
       if (!running.stopped && !this.#disposed) {
         const latest = this.repository.session(sessionId);

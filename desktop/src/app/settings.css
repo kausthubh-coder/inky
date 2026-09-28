@@ -114,7 +114,7 @@
 .st-rule-modes { flex-wrap:nowrap; padding:3px; border-radius:10px; background:var(--blot2); gap:2px; }
 .st-rule-modes button { background:none; white-space:nowrap; padding:6px 10px; font-size:13px; }
 .st-memory > div { display:contents; }
-.st-memory { display:grid; grid-template-columns:minmax(0,1fr) auto 60px; gap:16px; padding-block:10px; }
+.st-memory { display:grid; grid-template-columns:minmax(0,1fr) auto auto 60px; align-items:center; gap:16px; padding-block:10px; }
 .st-memory small { font-size:12.5px; }
 .st-memory .st-danger { justify-self:end; color:var(--pencil); font-weight:600; }
 .st-memory .st-text:first-child { font-weight:400; font-size:14.5px; }
@@ -125,3 +125,13 @@
 #settings-you .st-group:last-child .st-control button { white-space:nowrap; }
 .st-avatar { background:#f4d1e2; border:1px solid var(--pencil); text-transform:uppercase; }
 @media(max-width:650px) { .st-global-rule { flex-direction:column; align-items:flex-start; } }
+.st-rule-choices { display: flex; flex-direction: column; gap: 2px; }
+.st-rule-choices button { display: flex; align-items: flex-start; gap: 12px; padding: 12px 12px; border: 0; border-radius: 12px; background: none; color: var(--pencil); text-align: left; cursor: pointer; }
+.st-rule-choices button:hover:not(:disabled) { background: var(--blotter); }
+.st-rule-choices button[aria-checked="true"] { background: var(--page); box-shadow: 0 0 0 1.5px var(--pencil); }
+.st-rule-choices strong { display: block; font-size: 15px; }
+.st-rule-choices small { display: block; margin-top: 2px; font-size: 13.5px; line-height: 1.45; color: var(--graphite); }
+.st-radio { flex: none; width: 18px; height: 18px; margin-top: 2px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--graphite); }
+.st-rule-choices button[aria-checked="true"] .st-radio { box-shadow: inset 0 0 0 5px var(--pencil); }
+.st-memory-group h3 { margin: 14px 0 2px; font: 800 13px/1.4 "Nunito Sans", sans-serif; color: var(--graphite); letter-spacing: 0; }
+.st-memory-group:first-of-type h3 { margin-top: 4px; }

@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import type { EngineTopic } from "../../shared/product.js";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
@@ -628,12 +629,28 @@ const requiredIndexes = [
   },
 ] as const;
 
+/** What changed, so screens re-read only what they show. */
+export type StoreTopic = EngineTopic;
+
 export class StudiSqliteDatabase {
   readonly handle!: DatabaseSync;
   readonly databasePath: string;
   readonly failureInjector: StorageFailureInjector | undefined;
   #closed = false;
   #transactionDepth = 0;
+  readonly #changeListeners = new Set<(topic: StoreTopic) => void>();
+
+  /** Hears every write, by topic. The app pushes these to the screens instead of making them poll. */
+  onChange(listener: (topic: StoreTopic) => void): () => void {
+    this.#changeListeners.add(listener);
+    return () => this.#changeListeners.delete(listener);
+  }
+
+  changed(topic: StoreTopic): void {
+    for (const listener of this.#changeListeners) {
+      try { listener(topic); } catch { /* A screen update can never block a write. */ }
+    }
+  }
 
   constructor(
     databasePath: string,

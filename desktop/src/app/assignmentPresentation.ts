@@ -14,14 +14,12 @@ export function courseLabel(
   );
 }
 
-// Keep a class's existing calendar color everywhere its assignments appear.
-export function courseTone(course: string): number {
-  return (
-    [...course].reduce(
-      (total, character) => total + character.charCodeAt(0),
-      0,
-    ) % 6
-  );
+// Classes get colours in the order the school lists them, so two classes never share one
+// until there are more than six. Without the list, fall back to the label.
+export function courseTone(course: string, courses?: SchoolOnboardingState["courses"]): number {
+  const index = courses?.findIndex((item) => item.label === course || item.courseId === course) ?? -1;
+  if (index >= 0) return index % 6;
+  return [...course].reduce((total, character) => total + character.charCodeAt(0), 0) % 6;
 }
 
 export function taskStatusCopy(
@@ -42,7 +40,7 @@ export function taskStatusCopy(
     case "queued":
       return { label: "Queued", tone: "plain" };
     case "working":
-      return { label: "Inky is working", tone: "yellow" };
+      return { label: "Dot is working", tone: "yellow" };
     case "needs_user":
       return { label: "Paused · needs you", tone: "coral" };
     case "ready_review":

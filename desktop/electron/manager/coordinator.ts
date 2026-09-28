@@ -131,7 +131,7 @@ export class ManagerCoordinator {
   async startFromConversation(taskId: string): Promise<unknown> {
     this.#assertUsable();
     if (!this.#startAssignment) throw new Error("Assignment execution is not ready");
-    if (this.#store.manager.getLease()) throw new Error("Inky is already on another page.");
+    if (this.#store.manager.getLease()) throw new Error("Dot is already on another page.");
     this.#requiredTask(taskId);
     return this.#startAssignment(taskId);
   }
@@ -143,7 +143,7 @@ export class ManagerCoordinator {
     }
     const task = this.#requiredTask(input.taskId);
     const requestOrigin = input.requestOrigin ?? "student";
-    if (requestOrigin === "automatic" && this.#workStartMode !== "automatic") throw new Error("Inky starts homework only when you ask.");
+    if (requestOrigin === "automatic" && this.#workStartMode !== "automatic") throw new Error("Dot starts homework only when you ask.");
     const assignment = this.#store.assignments.get(task.assignmentId);
     if (!assignment) {
       throw new Error(`Assignment ${task.assignmentId} does not exist`);
@@ -578,7 +578,7 @@ export class ManagerCoordinator {
       this.#transition(
         entry.taskId,
         "discovered",
-        manual ? "Inky starts homework only when you ask." : permission.mayAttempt ? eligibility.reason : "Stored permission no longer allows an attempt",
+        manual ? "Dot starts homework only when you ask." : permission.mayAttempt ? eligibility.reason : "Stored permission no longer allows an attempt",
         `manager-${randomUUID()}`,
       );
       this.#store.manager.removeQueueEntry(entry.taskId);

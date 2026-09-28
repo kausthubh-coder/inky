@@ -113,6 +113,10 @@ export class AppKernel {
     return this.#execution.state(this.#window.isVisible());
   }
 
+  setTrayTooltip(text: string): void {
+    this.#tray?.setToolTip(text);
+  }
+
   configureSchedule(
     cadence: "manual" | "daily" | "weekly",
     timezone = Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -260,7 +264,7 @@ export class AppKernel {
       if (next) {
         try {
           const assignment = this.#store.assignments.get(next.assignmentId);
-          await this.notify({ kind: "work_start", target: { type: "task", id: next.taskId }, title: "Inky is about to start", body: `I'm about to start ${assignment?.title ?? "your homework"}. You can take over from Studi.`.slice(0, 500) });
+          await this.notify({ kind: "work_start", target: { type: "task", id: next.taskId }, title: "Dot is about to start", body: `I'm about to start ${assignment?.title ?? "your homework"}. You can take over from Studi.`.slice(0, 500) });
           // A rule or ownership command may have arrived while the notification was being saved.
           this.#manager.reconcileQueue();
           const current = this.#manager.state().entries.find(entry => entry.taskId === next.taskId);
@@ -270,7 +274,7 @@ export class AppKernel {
         catch (error) {
           // Keep a permitted queue entry for retry; never claim that execution started.
           this.#assignmentRetryAt = Date.parse(this.#now()) + 5 * 60_000;
-          if (!(error instanceof VisibleBrowserBusyError)) await this.notify({ kind: "failure", target: { type: "task", id: next.taskId }, title: "Homework could not start", body: error instanceof Error ? error.message.slice(0, 500) : "Inky could not start this homework." });
+          if (!(error instanceof VisibleBrowserBusyError)) await this.notify({ kind: "failure", target: { type: "task", id: next.taskId }, title: "Homework could not start", body: error instanceof Error ? error.message.slice(0, 500) : "Dot could not start this homework." });
         }
       }
     }
@@ -431,11 +435,11 @@ export class AppKernel {
 }
 
 const PREVIEW_COPY: Record<NotificationKind, { title: string; body: string }> = {
-  handoff: { title: "Needs you", body: "Inky is waiting for you to finish something in the page." },
+  handoff: { title: "Needs you", body: "Dot is waiting for you to finish something in the page." },
   review_ready: { title: "Ready to look over", body: "An assignment is sitting on the school page for you." },
-  scan_result: { title: "Scan finished", body: "Inky finished looking at your classes." },
-  failure: { title: "Something went wrong", body: "Inky had to stop and needs another look." },
-  work_start: { title: "Inky is about to start", body: "I'm about to start your next homework. You can take over from Studi." },
+  scan_result: { title: "Scan finished", body: "Dot finished looking at your classes." },
+  failure: { title: "Something went wrong", body: "Dot had to stop and needs another look." },
+  work_start: { title: "Dot is about to start", body: "I'm about to start your next homework. You can take over from Studi." },
 };
 
 function bundledNotificationSoundPath(soundId: NotificationSoundId): string | null {

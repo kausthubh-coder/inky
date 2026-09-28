@@ -68,7 +68,7 @@ const assignments = [
 const { dueAt: _previewDueAt, ...undatedPreview } = assignment("assignment-project", "Final project · reading notes", "2026-09-05T23:59:00.000Z");
 assignments.push(undatedPreview);
 
-const permission = { mode: "attempt" as const, mayAttempt: true, maySubmit: false, matchedRuleId: "preview-global", rationale: "A saved rule lets Inky try this and stop before submit." };
+const permission = { mode: "attempt" as const, mayAttempt: true, maySubmit: false, matchedRuleId: "preview-global", rationale: "A saved rule lets Dot try this and stop before submit." };
 
 export function installDevPreview(): void {
   const preview = parsePreviewConfig(window.location.search);
@@ -174,7 +174,7 @@ export function installDevPreview(): void {
       ...permission,
       mode: "auto_submit",
       maySubmit: true,
-      rationale: "A saved rule lets Inky do this assignment and submit after review.",
+      rationale: "A saved rule lets Dot do this assignment and submit after review.",
     };
     settings.permissionRules = [
       {
@@ -364,6 +364,7 @@ export function installDevPreview(): void {
       return lifecycle.manager;
     },
     submitReviewedAssignment:async()=>{throw new Error("Preview cannot submit schoolwork.");},
+    watchHandIn:async()=>lifecycle,
 
     getRuntimeInfo: async () => ({ app: `${version}-preview`, electron: "simulated", chrome: "simulated", node: "simulated" }),
     getContractManifest: async () => CONTRACT_MANIFEST,
@@ -416,7 +417,7 @@ export function installDevPreview(): void {
     stopScopedConversation: async target => {stopRequested=true;chatActivity='idle';return {job:conversation(target),activity:'idle'};},
     sendScanMessage: async ({text,clientMessageId}) => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,messages:[...onboarding.scan.messages,{messageId:clientMessageId,clientMessageId,role:"user",text,createdAt:new Date().toISOString()}]}};return onboarding; },
     pauseSchoolScan: async () => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,state:"needs_user",currentStep:"You have the page."}};return onboarding; },
-    finishSchoolScan: async () => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,state:"partial",currentStep:"Saved what Inky found so far",failures:[...onboarding.scan.failures,"You ended this check before all sources were verified."]}};return onboarding; },
+    finishSchoolScan: async () => { if(onboarding.scan) onboarding={...onboarding,scan:{...onboarding.scan,state:"partial",currentStep:"Saved what Dot found so far",failures:[...onboarding.scan.failures,"You ended this check before all sources were verified."]}};return onboarding; },
     getConversationState: async () => ({job:conversation({kind:'home'}),activity:chatActivity}),
     stopConversation: async () => {stopRequested=true;chatActivity='idle';return {job:conversation({kind:'home'}),activity:'idle'};},
     getNotifications: async () => lifecycle.latestNotification ? [lifecycle.latestNotification] : [],
@@ -460,7 +461,7 @@ export function installDevPreview(): void {
     startNextAssignment: async () => api.startAssignment({ taskId: tasks[0]!.task.taskId }),
     startAssignment: async ({ taskId }) => {
       if (lifecycle.execution && isLivePhase(lifecycle.execution.phase)) {
-        throw new Error("Inky is already on another page.");
+        throw new Error("Dot is already on another page.");
       }
       const item = tasks.find((task) => task.task.taskId === taskId);
       if (!item) throw new Error("That assignment is not in the preview.");
@@ -545,6 +546,7 @@ export function installDevPreview(): void {
     captureUiTelemetry: async () => true,
     exportDiagnostics: async () => ({ status: "cancelled" as const }),
     onLifecycleActivated: () => () => undefined,
+    onEngineChanged: () => () => undefined,
     onNotificationSound: () => () => undefined,
   };
 

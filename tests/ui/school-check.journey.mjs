@@ -5,7 +5,7 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   await page.setViewportSize({ width: 1280, height: 760 });
   await page.goto(`${base}/preview.html?preview=chat-handoff`);
   await page.getByRole("button", { name: "Sign in to WebAssign", exact: true }).waitFor();
-  assert.equal(await page.locator(".scan-report .inky-mascot").count(), 1);
+  assert.equal(await page.locator(".scan-report .character").count(), 1);
   assert.equal(await page.getByRole("heading", { name: "Signed in", exact: true }).count(), 1);
   assert.equal(await page.locator(".scan-report").getByText("WebAssign needs you to sign in before I can keep checking.", { exact: true }).count(), 1);
   await page.getByRole("button", { name: "Sign in to WebAssign", exact: true }).click();
@@ -77,6 +77,6 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   await page.getByRole("button", { name: "Scan again", exact: true }).waitFor();
   await page.locator(".scan-change").first().click();
   await page.getByRole("button", { name: "Back to your week", exact: true }).waitFor();
-  assert.equal(await page.locator(".rd-work-heading").getByText("IBM Sorting Machine", { exact: true }).isVisible(), true);
+  assert.equal(await page.locator(".ag-head h1").innerText(), "IBM Sorting Machine");
   return "Scan sign-in toolbar, result, details/focus, deadline change, narrow window, discovery, pause, failure and assignment navigation passed.";
 }

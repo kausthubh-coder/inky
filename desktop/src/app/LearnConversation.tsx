@@ -97,7 +97,7 @@ export function LearnConversation({
     <div className="rd-learn-chatbox">
       {last && !sheet && (
         <button className="rd-conversation-peek" onClick={() => setSheet(true)}>
-          <span>Inky</span>
+          <span>Chalky</span>
           <span>{last.text}</span>
         </button>
       )}
@@ -111,7 +111,7 @@ export function LearnConversation({
         <button
           type="button"
           className="composer-mascot"
-          aria-label="Open your conversation with Inky"
+          aria-label="Open your conversation with Chalky"
           onClick={() => setSheet(true)}
         >
           <Icon name="note" size={20} />
@@ -120,8 +120,8 @@ export function LearnConversation({
         <div className="inky-composer-line">
           <textarea
             rows={1}
-            aria-label="Message Inky about learning"
-            placeholder="Hey Inky…"
+            aria-label="Message Chalky about learning"
+            placeholder="Hey Chalky…"
             value={draft}
             maxLength={20000}
             onChange={(event) => save(event.target.value)}
@@ -174,7 +174,7 @@ export function LearnConversation({
       {sheet && (
         <WorkspaceDialog
           className="rd-sheet-dialog"
-          label="You and Inky"
+          label="You and Chalky"
           onClose={() => setSheet(false)}
         >
           <ConversationTimeline

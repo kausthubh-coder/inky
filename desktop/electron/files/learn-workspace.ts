@@ -4,7 +4,7 @@ import { requireHomeworkWorkspace, safeSegment } from "./workspace.js";
 
 /**
  * One folder per Learn goal, like a study folder a student keeps by hand:
- * PROGRESS.md (what they showed, what's missing, what's next), CHEATSHEET.md and the study pages Inky made.
+ * PROGRESS.md (what they showed, what's missing, what's next), CHEATSHEET.md and the study pages Chalky made.
  * The database stays the authority for levels; these files are readable notes the tutor reads back next time.
  */
 export interface GoalFolderInput { title: string; classLabel: string | null }

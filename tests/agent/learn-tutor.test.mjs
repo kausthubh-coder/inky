@@ -59,7 +59,7 @@ test("real tool definitions wait for student actions, persist results, and expos
     assert.equal(coordinator.state(started.sessionId).result.level, 1);
     assert.equal(runtime.creations[0].tools.length, 8);
     assert.equal(repo.session(started.sessionId).blocks[0].phase, "independent");
-    assert.match(runtime.creations[0].systemPrompt, /Homework Inky did.*never evidence/);
+    assert.match(runtime.creations[0].systemPrompt, /Homework Dot did.*never evidence/);
   } finally { await coordinator.dispose(); }
 }));
 

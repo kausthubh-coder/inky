@@ -23,7 +23,7 @@ test("needs_user and idle visible browsers belong to the student", () => {
   assert.equal(browserDriver({ layout: "desk", executionPhase: "ready_review" }), "student");
 });
 
-test("the drive overlay stays over the page the whole time Inky is driving", () => {
+test("the drive overlay stays over the page the whole time Dot is driving", () => {
   assert.equal(driveOverlayActive({ driver: "inky" }), true);
   assert.equal(driveOverlayActive({ driver: "student" }), false);
   assert.equal(driveOverlayActive({ driver: "none" }), false);

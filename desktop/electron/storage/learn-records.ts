@@ -223,7 +223,7 @@ export class LearnRepository {
     this.#put("learn_topics", topic.topicId, topic);
     return topic;
   }
-  /** Main supplies verified homework Inky actually worked. Titles remain hints, never exam scope or mastery. */
+  /** Main supplies verified homework Dot actually worked. Titles remain hints, never exam scope or mastery. */
   syncHomeworkHints(items: readonly { assignmentId: string; courseId: string; title: string }[]): void {
     this.database.transaction(() => {
       const active = new Set<string>();

@@ -9,7 +9,7 @@ import { completeOnboarding, committedSubmissions, publicState, schoolPage, sing
 // this file because it makes real model calls through the dedicated QA cache.
 test("live J2: GPT-6 Sol solves and submits the fake-school quiz once", { timeout: 600_000 }, async () => {
   await withLmsApp({ scenario: "quiz", live: true, reviewWindowMs: 5_000, script: school => singleAssignmentScript(school, []) }, async ({ page, school }) => {
-    await completeOnboarding(page, school.url, "Do it and submit");
+    await completeOnboarding(page, school.url, "Do it and hand it in");
     await page.getByText("Stacks, queues, and complexity quiz", { exact: true }).first().click();
     await page.getByRole("button", { name: /Check and start|Start/ }).first().click();
     await waitForPublicState(page, "getLifecycleState", state => ["ready_review", "submitted", "needs_user"].includes(state.execution?.phase), 300_000);
@@ -24,7 +24,7 @@ test("live J2: GPT-6 Sol solves and submits the fake-school quiz once", { timeou
 
 test("live J2: coding work waits for the student, then submits one verified file set", { timeout: 600_000 }, async () => {
   await withLmsApp({ scenario: "coding-multifile", live: true, script: school => singleAssignmentScript(school, []) }, async ({ app, page, school }) => {
-    await completeOnboarding(page, school.url, "Do it, I'll submit");
+    await completeOnboarding(page, school.url, "Do it, I'll hand it in");
     await page.getByText("Rainfall calculator: multi-file C project", { exact: true }).first().click();
     await page.getByRole("button", { name: /Check and start|Start/ }).first().click();
     const state = await waitForPublicState(page, "getLifecycleState", value => ["ready_review", "needs_user"].includes(value.execution?.phase), 300_000);

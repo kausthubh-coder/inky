@@ -34,7 +34,7 @@ export async function buildInstructions(
   role: AgentRole,
   capabilities: readonly CapabilityName[],
 ): Promise<BuiltInstructions> {
-  const ids = ["core/inky", `roles/${role}`, ...[...new Set(capabilities)].sort().map((name) => `capabilities/${name}`)];
+  const ids = ["core/dot", `roles/${role}`, ...[...new Set(capabilities)].sort().map((name) => `capabilities/${name}`)];
   const packs = await Promise.all(ids.map(loadPack));
   const text = packs.map((pack) => `# Pack: ${pack.id}\n\n${pack.text}`).join("\n\n");
   const hash = createHash("sha256")

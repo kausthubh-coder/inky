@@ -3,7 +3,7 @@ import { ChatMarkdown } from "./ChatMarkdown.js";
 import type { LifecycleState, SchoolOnboardingState } from "../../shared/index.js";
 import { ScanStatus } from "./ScanStatus.js";
 import { scanBrowserOwner } from "./scanBrowserOwner.js";
-import { Inky } from "./Inky.js";
+import { Character } from "./Character.js";
 import { Icon } from "./Icon.js";
 import { formatDateTime } from "./Ui.js";
 import { courseTone } from "./assignmentPresentation.js";
@@ -111,12 +111,12 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
       })}</ul>
     </>}
     {scan.coverage.length > 0 && <section className="scan-detail-note"><h3>Sources checked</h3>{scan.coverage.map((item, index) => <p key={index}><strong>{item.target}</strong> · {item.status === "verified" ? "Checked" : item.failure ?? "Needs another look"}</p>)}</section>}
-    {scan.failures.length > 0 && <section className="scan-detail-note"><h3>Inky’s notes</h3>{scan.failures.map((note, index) => <ChatMarkdown key={index} text={note} />)}</section>}
+    {scan.failures.length > 0 && <section className="scan-detail-note"><h3>Dot’s notes</h3>{scan.failures.map((note, index) => <ChatMarkdown key={index} text={note} />)}</section>}
     <section className="scan-detail-activity"><h3>What happened</h3>
       <p><time dateTime={scan.startedAt}>{formatDateTime(scan.startedAt)}</time><span>Started this scan.</span></p>
       {scan.messages.map(message => <div className="scan-activity-entry" key={message.messageId}>
         <time dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>
-        <div><strong>{message.role === "user" ? "You" : "Inky"}</strong>
+        <div><strong>{message.role === "user" ? "You" : "Dot"}</strong>
           {message.role === "user" ? <p className="scan-student-message">{message.text}</p> : <ChatMarkdown text={message.text} />}
         </div>
       </div>)}
@@ -130,7 +130,7 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
     {scan && <div className="scan-report-date"><strong>{reportLabel}</strong><time dateTime={timestamp}>{formatDateTime(timestamp!)}</time>{view.running && <span className="scan-live-label"><i />In progress</span>}</div>}
     {owner ? <ScanStatus state={state} lifecycle={lifecycle} busy={busy} onCheck={onCheck} onStopAndScan={onStopAndScan} onWait={onWait} onOpenWork={onOpenWork} /> : <>
       <div className={`scan-result-hero ${!scan ? "is-first" : ""}`}>
-        <Inky state={view.mood} size={82} />
+        <Character state={view.mood} size={82} />
         <div className="scan-result-copy" role="status" aria-live="polite">
           <h2>{view.running ? "Checking your classes." : view.title}</h2>
           <ChatMarkdown text={heroDescription} />
@@ -160,7 +160,7 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
           const dueCount = assignments.filter(item => item.dueAt || item.dueText).length;
           const found = dueCount || newCount ? `${dueCount} due${newCount ? `, ${newCount} new` : ""}` : "";
           const detail = checked ? found || "checked" : progress === "reading" ? found ? `${found} · still reading` : "reading the course page" : found || "waiting";
-          return <div className={`scan-progress-row scan-course-row course-accent-${courseTone(course.label)} is-${progress}`} key={course.courseId}>
+          return <div className={`scan-progress-row scan-course-row course-accent-${courseTone(course.label, state.courses)} is-${progress}`} key={course.courseId}>
             <ProgressMark state={progress} />
             <span className="scan-progress-copy"><strong>{course.label}</strong><small>{detail}</small></span>
           </div>;

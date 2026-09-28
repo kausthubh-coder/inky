@@ -23,7 +23,7 @@ export async function verifySettings(page, base) {
     await button("Switch account").click();
     assert.equal(await button("Disconnect ChatGPT").count(),1);
     await button("Switch account").click();
-    await button("+ Tell Inky something to remember").click();
+    await button("+ Tell Dot something to remember").click();
     await page.getByLabel("Memory title",{exact:true}).fill("Use diagrams");
     await page.getByLabel("What to remember",{exact:true}).fill("Show a diagram before equations.");
     await button("Done").click();
@@ -41,7 +41,7 @@ export async function verifySettings(page, base) {
     for(const value of ["","0","121","1.5"]) {await timer.fill(value);await timer.press("Tab");assert.equal(await timer.getAttribute("aria-invalid"),"true");}
     await timer.fill("23");await timer.press("Tab");
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).preferences.reviewMinutes===23);
-    await page.getByLabel("When Inky starts",{exact:true}).selectOption("automatic");
+    await page.getByLabel("When Dot starts",{exact:true}).selectOption("automatic");
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).preferences.workStartMode==="automatic");
     await button("Do it and submit").click();
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).permissionRules.find(r=>r.scope==="global").mode==="auto_submit");
@@ -81,9 +81,9 @@ export async function verifySettings(page, base) {
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).preferences.notifications.quietHours.start==="21:30");
     await quiet.uncheck();
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).preferences.notifications.quietHours==="off");
-    await page.getByLabel("Sound for Inky needs you").selectOption("silent");
+    await page.getByLabel("Sound for Dot needs you").selectOption("silent");
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).preferences.notifications.kinds.handoff.sound==="silent");
-    await button("Preview Inky needs you").click();
+    await button("Preview Dot needs you").click();
     await page.getByRole("status").filter({hasText:/No banner shown/}).waitFor();
     results.push("schedule changes, connected-app expansion, quiet-hours defaults/persistence and sound preview");
     await tab("You").click();await button("Tell us").click();

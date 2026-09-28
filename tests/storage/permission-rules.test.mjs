@@ -105,3 +105,14 @@ test("after onboarding, saving the school profile (scan depth, schedule) never c
     assert.deepEqual(store.permissionRules.listByScope("global").map(item => [item.ruleId, item.mode]), [["settings-global", "do_not_attempt"]]);
   });
 });
+
+test("writes announce what changed, so screens re-read instead of polling", async () => {
+  await fixture(async store => {
+    const topics = [];
+    store.database.onChange(topic => topics.push(topic));
+    store.permissionRules.put(rule("global", { scope: "global" }, "attempt"));
+    await store.notes.list();
+    await new Promise(resolve => queueMicrotask(resolve));
+    assert.deepEqual(topics, ["homework"]);
+  });
+});

@@ -109,6 +109,9 @@ export type NotificationTestReceipt = z.infer<typeof NotificationTestReceiptSche
 
 export const LIFECYCLE_ACTIVATED_CHANNEL = "studi:lifecycle-activated" as const;
 export const PLAY_NOTIFICATION_SOUND_CHANNEL = "studi:play-notification-sound" as const;
+/** The engine tells the screens what changed; they re-read instead of polling. */
+export const ENGINE_CHANGED_CHANNEL = "studi:engine-changed" as const;
+export type EngineTopic = "homework" | "school" | "conversation";
 
 export const ProductPreferencesSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,

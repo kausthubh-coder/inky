@@ -37,7 +37,7 @@ export interface CapabilityContext {
 
 const toolsByCapability = Object.freeze({
   home: ["home_status"],
-  queue: ["queue_inspect", "queue_start", "queue_cancel", "queue_reorder", "assignment_set_owner"],
+  queue: ["queue_inspect", "queue_start", "queue_cancel", "queue_reorder", "assignment_set_owner", "homework_add", "homework_correct"],
   "notes-search": ["note_search"],
   "notes-read": ["note_read"],
   preferences: ["note_upsert"],
@@ -112,7 +112,7 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
       if (toolName === "browser_submit" && capability === "submit") continue;
       if (names.includes(toolName)) selected.add(capability);
     }
-    if (normalized.startsWith("manager_") || normalized.startsWith("queue_")) selected.add("queue");
+    if (normalized.startsWith("manager_") || normalized.startsWith("queue_") || normalized.startsWith("homework_")) selected.add("queue");
     if (normalized.startsWith("browser_")) selected.add("browser");
     if (normalized.startsWith("assignment_") && !["assignment_read", "assignment_start", "assignment_set_owner"].includes(normalized)) selected.add("assignment-effects");
     if (normalized.startsWith("scan_record_") || normalized === "scan_request_handoff") selected.add("scan-record");

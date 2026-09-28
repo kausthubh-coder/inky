@@ -6,7 +6,7 @@ import { TutorModel } from "./TutorModels.js";
 import { StudyPage } from "./StudyPage.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import { Icon } from "./Icon.js";
-import { Inky } from "./Inky.js";
+import { Character } from "./Character.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
 
@@ -74,7 +74,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, onStart, o
   const remaining = Math.max(0, session.budgetSeconds - session.elapsedSeconds - (session.activeSince ? Math.max(0, (clock - Date.parse(session.activeSince)) / 1000) : 0));
   const closed = !["active", "paused"].includes(session.status);
 
-  // Inky's lines belong to the question that follows them; answered questions collapse to one row each.
+  // Chalky's lines belong to the question that follows them; answered questions collapse to one row each.
   const asked = session.blocks.filter((block): block is Asked => block.tool !== "tutor_say" && block.tool !== "tutor_finish");
   const active = asked.find(block => block.status === "open");
   const since = (active ? asked[asked.indexOf(active) - 1] : asked.at(-1))?.sequence ?? -1;
@@ -105,8 +105,8 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, onStart, o
         <Icon name="note" size={20} />
       </button>
       <div className="inky-composer-line">
-        <textarea rows={1} aria-label="Message Inky about this session" maxLength={10000} value={message}
-          placeholder={active ? "Stuck? Ask Inky about this question" : "Ask Inky anything about this topic"}
+        <textarea rows={1} aria-label="Message Chalky about this session" maxLength={10000} value={message}
+          placeholder={active ? "Stuck? Ask Chalky about this question" : "Ask Chalky anything about this topic"}
           onChange={event => { setMessage(event.target.value); messageId.current = null; localStorage.setItem("studi-tutor-message:" + session.sessionId, event.target.value); }}
           onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
         <button className="chat-send" disabled={busy || closed || (!message.trim() && session.status !== "active")} aria-label={message.trim() ? "Send message" : "Pause session"}>
@@ -140,13 +140,13 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, onStart, o
             </li>)}
           </ol>}
           {session.status === "paused" && <div className="rd-session-notice">
-            <Inky size={52} state="idle" />
+            <Character kind="chalky" size={52} state="idle" />
             <div className="rd-session-notice-text"><h1>Right where we left off.</h1><p>{session.error ?? "Your answers and drafts are saved."}</p></div>
             <button className="rd-quiet" disabled={busy} onClick={() => void run(() => window.studi!.cancelTutorSession({ sessionId: session.sessionId }))}>End session</button>
             <button className="rd-button rd-primary" disabled={busy} onClick={() => void run(() => window.studi!.resumeTutorSession({ sessionId: session.sessionId }))}>Resume</button>
           </div>}
           {!closed && (voice.length > 0 || !active) && <div className="rd-tutor-says" role={active ? undefined : "status"}>
-            <Inky size={52} state={active ? "idle" : "thinking"} />
+            <Character kind="chalky" size={52} state={active ? "idle" : "thinking"} />
             <div className="tu-voice">{voice.length ? voice.map((text, index) => <ChatMarkdown key={index} text={text} />) : <p>Thinking about what comes next…</p>}</div>
           </div>}
           {active && !closed && <TutorBlockView key={active.blockId} block={active} sessionId={session.sessionId} disabled={busy || session.status !== "active"}
@@ -158,7 +158,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, onStart, o
         </div>
       </div>
       <div className="rd-tutor-composer">{composer}</div>
-      {sheet && <WorkspaceDialog className="rd-sheet-dialog" label="You and Inky" onClose={() => setSheet(false)}>
+      {sheet && <WorkspaceDialog className="rd-sheet-dialog" label="You and Chalky" onClose={() => setSheet(false)}>
         <ConversationTimeline composer={composer} error={error} onClose={() => setSheet(false)} onOpenContext={context => {
           void (async () => {
             await flushDraft.current();
@@ -184,7 +184,7 @@ function WrapUp({ session, asked, goal, topicTitle, onStart, onLeave }: {
     const right = scores.reduce((sum, score) => sum + score.right, 0), total = scores.reduce((sum, score) => sum + score.total, 0);
     const weakest = [...scores].sort((a, b) => a.right / a.total - b.right / b.total)[0];
     return <section className="tu-wrap">
-      <div className="rd-tutor-says"><Inky size={52} state="done" /><div className="tu-voice"><p>{total ? `${right} out of ${total}.` : "Quiz stopped."} {result?.summary ?? ""}</p></div></div>
+      <div className="rd-tutor-says"><Character kind="chalky" size={52} state="proud" /><div className="tu-voice"><p>{total ? `${right} out of ${total}.` : "Quiz stopped."} {result?.summary ?? ""}</p></div></div>
       {scores.length > 0 && <>
         <div className="lr-head"><h2>{goal?.title ?? "Quiz"} · by topic</h2></div>
         <ul className="tu-scores">{scores.map(score => <li key={score.topicId}><span>{topicTitle(score.topicId)}</span>
@@ -198,7 +198,7 @@ function WrapUp({ session, asked, goal, topicTitle, onStart, onLeave }: {
   }
   const changed = result && result.level !== null && result.level !== result.previousLevel;
   return <section className="tu-wrap">
-    <div className="rd-tutor-says"><Inky size={52} state={session.status === "completed" ? "done" : "idle"} />
+    <div className="rd-tutor-says"><Character kind="chalky" size={52} state={session.status === "completed" ? "proud" : "idle"} />
       <h1>{session.status === "completed" ? "That's today's session." : session.status === "expired" ? "Time's up for today." : "We stopped here."}</h1></div>
     <ChatMarkdown text={result?.summary ?? session.error ?? "Your answers so far are saved."} />
     {result && <p className="tu-level">

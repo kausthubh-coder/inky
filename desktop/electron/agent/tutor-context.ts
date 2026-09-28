@@ -1,7 +1,7 @@
 import type { LearnRepository } from "../storage/learn-records.js";
 import type { TutorSession } from "../../shared/tutor.js";
 
-/** Homework Inky already did in the goal's class, as main knows it. */
+/** Homework Dot already did in the goal's class, as main knows it. */
 export interface WorkedHomework { courseId: string; title: string; instructions?: string | undefined; requirements: string[] }
 export interface TutorContextSources {
   courseLabel(courseId: string): string | null;

@@ -1,6 +1,8 @@
 import { WebContentsView, type BrowserWindow } from "electron";
 
-import { driveOverlayActive, inkySvg, type BrowserDriver } from "../../shared/index.js";
+import { driveOverlayActive, type BrowserDriver } from "../../shared/index.js";
+import { characterSvg } from "../../shared/characters/rig.js";
+import { CHARACTER_CSS } from "../../shared/characters/style.js";
 
 export const SCHOOL_PANE_RADIUS = 22;
 
@@ -110,8 +112,8 @@ function overlayDataUrl(): string {
     inset: 0;
     border-radius: 22px 20px 24px 18px;
     background:
-      linear-gradient(to right, rgba(138,184,232,0.42), transparent 22%, transparent 78%, rgba(138,184,232,0.42)),
-      linear-gradient(to bottom, rgba(138,184,232,0.28), transparent 18%, transparent 82%, rgba(138,184,232,0.28));
+      linear-gradient(to right, rgba(246,201,69,0.38), transparent 22%, transparent 78%, rgba(246,201,69,0.38)),
+      linear-gradient(to bottom, rgba(246,201,69,0.24), transparent 18%, transparent 82%, rgba(246,201,69,0.24));
   }
   html[data-driver="inky"] .fade {
     animation: veil 2.4s ease-in-out infinite alternate;
@@ -121,14 +123,11 @@ function overlayDataUrl(): string {
     display: flex; align-items: flex-end; gap: 8px;
     pointer-events: none;
   }
-  .inky-mascot { display: block; width: 88px; height: 88px; line-height: 0; overflow: visible; pointer-events: none; }
-  .inky-mascot svg { display: block; width: 100%; height: 100%; overflow: visible; }
-  .inky-mascot .body { transform-box: view-box; transform-origin: 50% 88.333%; animation: inky-lean 2.4s ease-in-out infinite; }
-  .inky-mascot .eyes.blink { transform-box: fill-box; transform-origin: center; animation: inky-blink 4.2s infinite; }
-  .inky-mascot .extra.pointer { transform-box: view-box; transform-origin: 80% 65%; animation: inky-click .84s ease-in-out infinite; }
+  ${CHARACTER_CSS}
+  .inky .character { width: 88px; height: 88px; pointer-events: none; }
   .cap {
     pointer-events: auto;
-    background: #8ab8e8; border: 2px solid #3b342c; color: #3b342c;
+    background: #f7c948; border: 2px solid #3b342c; color: #3b342c;
     border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px;
     padding: 5px 11px; margin-bottom: 14px;
     font: inherit; font-size: 12px; font-weight: 800;
@@ -168,14 +167,11 @@ function overlayDataUrl(): string {
     cursor: pointer;
   }
   .ask-row button:active { transform: translate(2px, 2px); box-shadow: none; }
-  .ask-go { background: #8ab8e8; }
+  .ask-go { background: #f7c948; }
   .ask-keep { background: #fffdf6; }
   @keyframes veil { from { opacity: 0.55; } to { opacity: 1; } }
-  @keyframes inky-blink { 0%, 91%, 100% { transform: scaleY(1); } 94% { transform: scaleY(0.08); } }
-  @keyframes inky-lean { 0%, 100% { transform: rotate(-2deg) translateX(0); } 50% { transform: rotate(3deg) translateX(2px); } }
-  @keyframes inky-click { 0%, 100% { transform: rotate(-8deg); } 50% { transform: rotate(6deg) translate(3px, 4px); } }
   @media (prefers-reduced-motion: reduce) {
-    .fade, .inky-mascot .body, .inky-mascot .extra, .inky-mascot .eyes { animation: none !important; }
+    .fade { animation: none !important; }
     html[data-driver="inky"] .fade { opacity: 0.85; }
   }
 </style>
@@ -195,7 +191,7 @@ function overlayDataUrl(): string {
   </div>
   <div class="inky">
     <button type="button" class="cap" data-action="ask">Takeover</button>
-    <span class="inky-mascot" data-state="steering">${inkySvg("steering")}</span>
+    <span class="character dot" data-state="steering">${characterSvg("dot")}</span>
   </div>
   <script>
     document.addEventListener("click", (event) => {

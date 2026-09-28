@@ -153,3 +153,15 @@ html[data-preview-desktop="darwin"]::after {
     display: none;
   }
 }
+
+/* ?preview=characters: every state for Dot and Chalky, and the icon at the sizes the app uses. */
+.character-sheet { min-height: 100vh; padding: 32px 40px 80px; background: #fbf7ee; color: #2b2621; font: 15px/1.5 "Nunito Sans", system-ui, sans-serif; }
+.character-sheet h1 { margin: 0 0 20px; font: 800 28px "Shantell Sans", cursive; }
+.character-sheet-icons { display: flex; align-items: flex-end; gap: 24px; }
+.character-sheet-live { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin: 28px 0; }
+.character-sheet-live p { display: flex; flex-wrap: wrap; gap: 4px; margin: 10px 0 0; }
+.character-sheet-live button { font: inherit; font-size: 13px; border: 0; border-radius: 8px; padding: 5px 10px; background: #f2ebdd; cursor: pointer; }
+.character-sheet-live button[aria-pressed="true"] { background: #f6c945; font-weight: 700; }
+.character-sheet-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; margin-top: 18px; }
+.character-sheet-grid figure { display: flex; align-items: flex-end; gap: 12px; margin: 0; padding: 12px 14px; border-radius: 12px; background: #fffdf8; box-shadow: 0 0 0 1px #ebe4d6; }
+.character-sheet-grid figcaption { margin-left: auto; font-weight: 700; font-size: 13px; color: #7f766b; }

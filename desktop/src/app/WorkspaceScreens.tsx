@@ -5,19 +5,15 @@ import type { TimelineContext } from "../../shared/conversation-timeline.js";
 import { MemorySettings } from "./MemorySettings.js";
 import { HomeworkRules } from "./HomeworkRules.js";
 import { FeedbackSettings } from "./FeedbackSettings.js";
-import { ScanStatus } from "./ScanStatus.js";
 import { ConnectedAppRow } from "./ConnectedAppRow.js";
 import type { ConnectionFeedbackMap } from "./useConnectedApps.js";
 import { ChatWorkspace, type ChatView } from "./ChatWorkspace.js";
-import { Today } from "./Today.js";
+import { HomeworkHome } from "./HomeworkHome.js";
 import type { Assignment } from "../../shared/index.js";
 import { Icon } from "./Icon.js";
 import { SettingsNavigation, settingsTab, type SettingsSectionId } from "./SettingsNavigation.js";
-import { calendarWeek, localDateKey } from "./weekCalendar.js";
-import { courseTone, taskStatusCopy } from "./assignmentPresentation.js";
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -43,7 +39,6 @@ import {
   type StudiRendererApi,
   type SchoolPageBounds,
   type TaskDetail,
-  type TaskSummary,
   type TelemetryState,
   type UsageState,
   AGENT_PROVIDERS,
@@ -54,21 +49,14 @@ import {
   type AgentProviderId,
   type ProviderStatus,
 } from "../../shared/index.js";
-import {
-  DeskDrawer,
-  deskInkyState,
-  type DeskPanel,
-} from "./DeskScreen.js";
-import { Inky } from "./Inky.js";
+import { deskDotState, type DeskPanel } from "./DeskScreen.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import {
   AppChrome,
   type AppScreen,
   type SettingsLanding,
-  PaperCard,
   ProviderLoginHandoffView,
   RuntimeAttentionBanner,
-  StatusPill,
   formatDateTime,
 } from "./Ui.js";
 
@@ -164,46 +152,18 @@ export function DashboardScreen({
   );
   const [schoolOpen, setSchoolOpen] = useState(false);
   const [askedAssignment, setAskedAssignment] = useState<Assignment | null>(null);
-  const [clock, setClock] = useState(() => new Date());
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [boardView, setBoardView] = useState<"week" | "undated">(() => readDevPreviewConfig()?.id === "week-undated" ? "undated" : "week");
-  useEffect(() => {
-    const tick = () => setClock(new Date());
-    const timer = setInterval(tick, 30_000);
-    window.addEventListener("focus", tick);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("focus", tick);
-    };
-  }, []);
   useEffect(() => {
     if (panel.kind !== "closed") { setSchoolOpen(panel.kind === "school"); setChatView("expanded"); }
   }, [panel]);
-  const [feedback, setFeedback] = useState("");
-  const [noteOpen, setNoteOpen] = useState(false);
-  const verified = onboarding.assignments.filter(
-    (assignment) =>
-      assignment.lastVerifiedScanId && assignment.evidence.length > 0,
-  );
   const taskByAssignment = new Map(
     (library?.tasks ?? []).map((item) => [item.assignment.assignmentId, item]),
   );
-  const week = useMemo(
-    () => calendarWeek(clock, weekOffset),
-    [clock, weekOffset],
-  );
-  const days = week.days;
   const scan = onboarding.scan;
-  const dueToday = verified.filter(
-    (assignment) =>
-      assignment.dueAt &&
-      localDateKey(new Date(assignment.dueAt)) === localDateKey(clock),
-  ).length;
   const runtimeAttention = classifyAgentRuntimeAttention(
     workspace ? selectedProvider(workspace) : null,
     scan?.state === "failed" ? (scan.failures[0] ?? scan.currentStep) : null,
   );
-  const inkyState = deskInkyState({
+  const inkyState = deskDotState({
     ...(lifecycle.execution ? { execution: lifecycle.execution } : {}),
     ...(workspace ? { driver: workspace.browser.driver } : {}),
     ...(scan ? { scanState: scan.state } : {}),
@@ -251,7 +211,7 @@ export function DashboardScreen({
         }}
       />
       <div className="page dashboard-page">
-        <Today onboarding={onboarding} lifecycle={lifecycle} library={library} settings={settings} onOpen={onAssignment} onStart={onStart} onAsk={assignment => { setAskedAssignment(assignment); setChatView("compact"); }} onSchool={() => { setSchoolOpen(true); setChatView("expanded"); }} onRefresh={onRefresh} onSettings={() => chrome.onNavigate("settings", "rules")} />
+        <HomeworkHome onboarding={onboarding} lifecycle={lifecycle} library={library} settings={settings} onOpen={onAssignment} onStart={onStart} onAsk={assignment => { setAskedAssignment(assignment); setChatView("compact"); }} onSchool={() => { setSchoolOpen(true); setChatView("expanded"); }} onRefresh={onRefresh} onSettings={() => chrome.onNavigate("settings", "rules")} />
         <RuntimeAttentionBanner attention={runtimeAttention} workspace={workspace} busy={busy !== null} onConnect={onConnectRuntime} onCompleteLogin={onCompleteRuntimeLogin} onCancelLogin={onCancelRuntimeLogin} onSwitchProvider={onSwitchProvider} />
         {error && panel.kind === "closed" && <p className="error-note" role="alert">{error}</p>}
       </div>
@@ -290,24 +250,12 @@ export function DashboardScreen({
   );
 }
 
-function AssignmentCard({ assignmentId, item, title, dueAt, course, tone, selected, onAssignment }: { assignmentId: string; item?: TaskSummary; title: string; dueAt?: string; course: string; tone: number; selected: boolean; onAssignment: (assignmentId: string) => void }) {
-  const status = item ? taskStatusCopy(item.task.state, item.assignment) : null;
-  return (
-    <button className={`assignment-card course-accent-${tone} ${selected ? "is-selected" : ""}`} onClick={() => onAssignment(assignmentId)}>
-      <small>{course}</small>
-      <strong>{title}</strong>
-      {dueAt && <span>{new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(dueAt))}</span>}
-      {status && <StatusPill tone={status.tone}>{status.label}</StatusPill>}
-    </button>
-  );
-}
-
 const NOTIFICATION_ROWS: ReadonlyArray<{ kind: NotificationKind; label: string; hint: string }> = [
-  { kind: "handoff", label: "Inky needs you", hint: "A sign-in, a file, a question, or a heads-up" },
+  { kind: "handoff", label: "Dot needs you", hint: "A sign-in, a file, a question, or a heads-up" },
   { kind: "review_ready", label: "Work is ready to look over", hint: "Answers are filled in, waiting for your review" },
-  { kind: "work_start", label: "Inky starts an assignment", hint: "So you can watch if you want" },
-  { kind: "scan_result", label: "A school check finishes", hint: "See what Inky found at school" },
-  { kind: "failure", label: "Something went wrong", hint: "Inky had to stop and saved what it could" },
+  { kind: "work_start", label: "Dot starts an assignment", hint: "So you can watch if you want" },
+  { kind: "scan_result", label: "A school check finishes", hint: "See what Dot found at school" },
+  { kind: "failure", label: "Something went wrong", hint: "Dot had to stop and saved what it could" },
 ];
 
 const SOUND_OPTIONS: ReadonlyArray<{ id: NotificationSoundId; label: string }> = [
@@ -328,8 +276,8 @@ function NotificationSettings({ preferences, busy, onSave, onPreview }: {
   if (!preferences) return <p role="status">Notification settings are unavailable.</p>;
   const hours = preferences.quietHours;
   return <>
-    <SettingsRow highlight title="Let Inky tap you" description="A small banner and sound, even when Studi is open.">
-      <SettingsToggle label="Let Inky tap you" checked={preferences.enabled} disabled={busy} onChange={enabled => onSave({ ...preferences, enabled })} />
+    <SettingsRow highlight title="Let Dot tap you" description="A small banner and sound, even when Studi is open.">
+      <SettingsToggle label="Let Dot tap you" checked={preferences.enabled} disabled={busy} onChange={enabled => onSave({ ...preferences, enabled })} />
     </SettingsRow>
     <SettingsGroup title="Tell me when">
       {NOTIFICATION_ROWS.map(row => {
@@ -353,7 +301,7 @@ function NotificationSettings({ preferences, busy, onSave, onPreview }: {
       {notice && <p className="st-muted" role="status">{notice}</p>}
     </SettingsGroup>
     <SettingsGroup title="Quiet hours">
-      <SettingsRow title="Don't tap me at night" description="Inky keeps working. Check your notifications in the morning.">
+      <SettingsRow title="Don't tap me at night" description="Dot keeps working. Check your notifications in the morning.">
         <SettingsToggle label="Quiet hours" checked={hours !== "off"} disabled={busy} onChange={enabled => onSave({ ...preferences, quietHours: enabled ? { start: "22:00", end: "08:00" } : "off" })} />
       </SettingsRow>
       {hours !== "off" && <SettingsRow title="From / until" description="Uses this computer's local time.">
@@ -509,7 +457,7 @@ export function SettingsScreen({
               onCancelLogin={onCancelRuntimeLogin} onDisconnect={() => onDisconnectRuntime(entry.id)} />;
           })}
         </SettingsGroup>
-        <SettingsGroup title="How Inky thinks">
+        <SettingsGroup title="How Dot thinks">
           <SettingsRow title="Model" description="Choose a model included in your subscription.">
             <select aria-label="Model" value={workspace?.selectedModelId ?? ""} disabled={!workspace || disabled}
               onChange={event => workspace && save(() => onSelectAgentRuntime(workspace.selectedProviderId, event.target.value, workspace.selectedReasoningEffort))}>
@@ -517,28 +465,29 @@ export function SettingsScreen({
             </select>
           </SettingsRow>
         </SettingsGroup>
-        <MemorySettings />
+        <MemorySettings onboarding={onboarding} />
       </>}
       {section === "homework" && <>
         <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={disabled}
           onSaveRule={input => save(() => onSaveRule(input))} onDeleteRule={id => save(() => onDeleteRule(id))}
-          onGiveBack={assignmentId => save(() => window.studi!.setAssignmentOwner({ assignmentId, owner: "inky" }))} />
+          onGiveBack={assignmentId => save(() => window.studi!.setAssignmentOwner({ assignmentId, owner: "inky" }))}
+          onCheckSchool={onCheckSchool} />
         <SettingsGroup title="Timing and files">
-          <SettingsRow title="When Inky starts" description="Only for homework your rules allow.">
-            <select aria-label="When Inky starts" disabled={!preferences || disabled} value={preferences?.workStartMode ?? "manual"}
+          <SettingsRow title="When Dot starts" description="Only for homework your rules allow.">
+            <select aria-label="When Dot starts" disabled={!preferences || disabled} value={preferences?.workStartMode ?? "manual"}
               onChange={event => preferences && changePreference(preferences.reviewMinutes, preferences.handoffMinutes, event.target.value as "manual" | "automatic")}>
               <option value="manual">Only when I ask</option><option value="automatic">Automatically</option>
             </select>
           </SettingsRow>
-          <SettingsRow title="Time to look it over" description="Then Inky submits only if your rule allows it.">
+          <SettingsRow title="Time to look it over" description="Then Dot submits only if your rule allows it.">
             <SettingsMinutes label="Time to look it over (minutes)" value={preferences?.reviewMinutes ?? 30} max={120} disabled={!preferences || disabled}
               onChange={value => preferences && changePreference(value, preferences.handoffMinutes)} />
           </SettingsRow>
           <div id="settings-folder"><SettingsRow title="Homework folder" description={<span data-homework-root>{preferences?.homeworkRoot ?? "No folder selected"}</span>}>
             <button className="st-quiet" disabled={disabled} onClick={() => save(onSelectHomeworkRoot)}>Change</button>
           </SettingsRow></div>
-          <details className="st-more-effort"><summary>When Inky needs you</summary>
-          <SettingsRow title="Time to wait when Inky needs you" description="Then save your answers and move on.">
+          <details className="st-more-effort"><summary>When Dot needs you</summary>
+          <SettingsRow title="Time to wait when Dot needs you" description="Then save your answers and move on.">
             <SettingsMinutes label="Time to wait for you (minutes)" value={preferences?.handoffMinutes ?? 30} max={240} disabled={!preferences || disabled}
               onChange={value => preferences && changePreference(preferences.reviewMinutes, value)} />
           </SettingsRow>
@@ -558,7 +507,7 @@ export function SettingsScreen({
                 aria-pressed={depth === value} onClick={() => saveDepth(value)}>{value === "normal" ? "Normal" : "Deep"}</button>)}
             </div>
           </SettingsRow>
-          <SettingsRow title="Check automatically" description="Read-only. Inky never submits or posts during a check.">
+          <SettingsRow title="Check automatically" description="Read-only. Dot never submits or posts during a check.">
             <select aria-label="Check automatically" disabled={disabled} value={schedule?.cadence ?? "manual"}
               onChange={event => save(() => onSchedule(event.target.value as "manual" | "daily" | "weekly", schedule?.localTime ?? "09:00", event.target.value === "weekly" ? schedule?.weekday ?? 1 : undefined))}>
               <option value="manual">When I ask</option><option value="daily">Every day</option><option value="weekly">Every week</option>
@@ -572,7 +521,7 @@ export function SettingsScreen({
             </select>
           </SettingsRow>}
         </SettingsGroup>
-        <SettingsGroup title="Where Inky looks">
+        <SettingsGroup title="Where Dot looks">
           {onboarding.profile && <SettingsRow title={host(onboarding.profile.schoolRoot)} description="Your school's main site">
             <small>{onboarding.profile.onboardingState === "needs_sign_in" ? "Needs a sign-in" : "Not checked yet"}</small>
             <button className="st-quiet" disabled={disabled} onClick={() => onOpenSite(onboarding.profile!.schoolRoot)}>Open</button>
@@ -646,7 +595,7 @@ function ProviderCard({ entry, provider, workspace, busy, onSelect, onConnect, o
   const anyLoginActive = providerLoginActive(workspace.providerLogin);
   const [details, setDetails] = useState(false);
   const description = classifyAgentRuntimeAttention(provider) === "usage" ? "Ran out of usage"
-    : ready ? selected ? "Connected · Inky uses this" : "Connected" : provider.state === "needs_login" ? "Not connected" : "Connection unavailable";
+    : ready ? selected ? "Connected · Dot uses this" : "Connected" : provider.state === "needs_login" ? "Not connected" : "Connection unavailable";
   return <div className={`st-provider ${selected && ready ? "st-provider-selected" : ""}`} data-provider={entry.id}>
     <SettingsRow title={entry.id === "anthropic" ? "Claude Pro or Max" : entry.plan} description={description}>
       {ready && !selected && <button className="st-outline" disabled={busy} onClick={onSelect}>Use {entry.name}</button>}

@@ -45,7 +45,9 @@ test("J1: onboarding scans the isolated LMS and Today matches expected.json", as
   const expected = await expectedAssignments("moodle-noisy.json");
   await withLmsApp({ scenario: "moodle-noisy", script: vendorScan }, async ({ page, school }) => {
     await completeOnboarding(page, school.url);
-    await page.getByRole("button", { name: /All work/ }).click();
+    await page.getByRole("button", { name: "All", exact: true }).click();
+    // All opens on "To do"; work the school already has is under "All".
+    await page.getByRole("group", { name: "Show" }).getByRole("button", { name: "All", exact: true }).click();
 
     const onboarding = await publicState(page, "getSchoolOnboardingState");
     // Meetings and other class context are saved too; the week holds only work.

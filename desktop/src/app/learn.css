@@ -125,7 +125,7 @@
   .tu-past li > span:first-child { display: none; }
 }
 
-/* A study page Inky wrote, sandboxed. */
+/* A study page Dot wrote, sandboxed. */
 .tu-page { position: relative; margin: 14px 0 12px; }
 .tu-page figcaption { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--graphite); }
 .tu-page iframe { display: block; width: 100%; border: 1.5px dashed color-mix(in srgb, var(--graphite) 60%, transparent); border-radius: 12px; background: var(--page); }

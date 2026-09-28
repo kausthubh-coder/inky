@@ -63,6 +63,35 @@ test("due schedules coalesce missed occurrences and preserve wall-clock time acr
   }
 });
 
+test("Dot reads the school's confirmation after the student presses Submit", async () => {
+  await withStore(async (store) => {
+    const now = initialNow;
+    seedTask(store, "hand-in", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", now));
+    const browser = new FakeBrowser("Submission status: No submission");
+    const runtime = new ScriptedRuntime([
+      async (tools) => invoke(tools, "assignment_start_review", {
+        answers: "1. x = 4",
+        completedRequirements: [{ requirement: "Question 1", evidence: "The answer field contains x = 4." }],
+        summary: "Submission status: No submission",
+      }),
+    ]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+    manager.enqueue({ taskId: "task-hand-in" });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => now, notify: () => {}, browserWork: new VisibleBrowserWork(store) });
+    assert.equal((await execution.startNext()).phase, "ready_review");
+    execution.watchHandIn("task-hand-in", 5, 2_000);
+    browser.text = "Submission status: Draft (not submitted)";
+    await new Promise((done) => setTimeout(done, 40));
+    assert.equal(store.lifecycle.getExecution("task-hand-in").phase, "ready_review", "a draft is not a hand-in");
+    browser.text = "Submission status: Submitted for grading";
+    await new Promise((done) => setTimeout(done, 40));
+    assert.equal(store.lifecycle.getExecution("task-hand-in").phase, "submitted");
+    assert.equal(store.lifecycle.getSubmissionReceipt("task-hand-in").verifiedStatus, "Submitted for grading");
+    execution.dispose();
+  });
+});
+
 test("attempt-only work retains its browser lease through review and saves Markdown before continuing the queue", async () => {
   await withStore(async (store) => {
     let now = initialNow;

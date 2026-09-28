@@ -5,7 +5,8 @@ import { computeReadiness, orderGoals, type Exam } from "../../shared/learn.js";
 import type { PublicTutorSession, TutorStartInput } from "../../shared/tutor.js";
 import { AppChrome } from "./Ui.js";
 import type { ChromeProps } from "./WorkspaceScreens.js";
-import { Inky, type InkyState } from "./Inky.js";
+import { Character } from "./Character.js";
+import type { ChalkyState } from "../../shared/characters/states.js";
 import { courseTone } from "./assignmentPresentation.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { LearnConversation } from "./LearnConversation.js";
@@ -113,7 +114,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
       <div className="rd-learn-scroll">
         <div className="rd-column lr-column">
           <header className="rd-hello">
-            <Inky size={64} state={busy || reading.length || scanning ? "thinking" : hello.inky} />
+            <Character kind="chalky" size={64} state={busy || reading.length || scanning ? "thinking" : hello.inky} />
             <div><h1>{hello.title}</h1><p>{hello.body}</p></div>
           </header>
 
@@ -124,7 +125,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
           {!state && !error && <p className="lr-muted" role="status">Opening your learning plan…</p>}
 
           {(scanning || reading.length > 0) && <p className="lr-status" role="status">
-            <Inky size={26} state="scanning" />
+            <Character kind="chalky" size={26} state="thinking" />
             {scanning ? "Looking through your classes for exams and study guides. Read-only; keep going." : `Reading ${reading.map(source => source.title).join(", ")}…`}
           </p>}
           {failed.map(source => <p key={source.sourceId} className="lr-status is-bad" role="alert">
@@ -182,7 +183,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
   );
 }
 
-function helloFor(state: LearnState | null, goal: Exam | null, courseLabel: (courseId: string | null) => string | null): { title: string; body: string; inky: InkyState } {
+function helloFor(state: LearnState | null, goal: Exam | null, courseLabel: (courseId: string | null) => string | null): { title: string; body: string; inky: ChalkyState } {
   if (!state || !goal) return { title: "What are you getting ready for?", body: "Give me anything about it. I'll work out the exams, the topics and a plan.", inky: "hello" };
   const topics = state.topics.filter(topic => topic.examId === goal.examId && topic.origin !== "homework_hint");
   const next = state.plan.todayTopic ? ` Next up: ${state.plan.todayTopic.title}.` : "";
@@ -199,7 +200,7 @@ function helloFor(state: LearnState | null, goal: Exam | null, courseLabel: (cou
   if (!goal.date) return { title: `${goal.title}, no date yet.`, body, inky: "idle" };
   const days = daysUntil(goal.date);
   const title = days < 0 ? `${goal.title} was on ${shortDate(goal.date)}.` : days === 0 ? `${goal.title} is today.` : days === 1 ? `${goal.title} is tomorrow.` : `${goal.title} in ${days} days.`;
-  return { title, body, inky: days >= 0 && days <= 2 ? "working" : "idle" };
+  return { title, body, inky: days >= 0 && days <= 2 ? "explaining" : "idle" };
 }
 
 function GoalList({ goals, state, selected, courseLabel, onSelect }: {

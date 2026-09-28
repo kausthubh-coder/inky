@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { STUDY_PAGE_MESSAGE, studyPageDocument } from "../../shared/study-page.js";
 
 /**
- * A page Inky wrote for this question. It runs in an opaque-origin sandbox with scripts only:
+ * A page Chalky wrote for this question. It runs in an opaque-origin sandbox with scripts only:
  * no same-origin access, no forms, no popups, no navigation, and a policy that blocks every network request.
  * The only way out is studi.explore(label), which reports what the student tried.
  */

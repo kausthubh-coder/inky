@@ -14,3 +14,11 @@ export function commandOutput(event: AgentRunEvent, recordedAt: string): Assignm
   return { toolCallId: event.toolCallId, shell: event.toolName, outcome: event.outcome,
     text: text.slice(-20_000), truncated: text.length > 20_000, durationMs: event.durationMs, recordedAt };
 }
+
+/** A few words for the thread: the line that says how tests went, or the last line of output. */
+export function commandSummary(text: string): string | undefined {
+  const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const verdict = [...lines].reverse().find(line => /\b\d+\s+(passed|failed|passing|failing|errors?)\b|\bok\b|\bFAIL(ED)?\b/i.test(line));
+  const line = verdict ?? lines.at(-1);
+  return line ? line.slice(0, 80) : undefined;
+}

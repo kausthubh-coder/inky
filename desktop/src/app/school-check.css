@@ -83,10 +83,10 @@
 .scan-browser-continue { display:inline-flex;align-items:center;gap:8px;margin-left:12px;font-size:12px; }
 @keyframes scan-dots { 0%,100% { opacity:.38;transform:translateX(-2px); } 50% { opacity:1;transform:translateX(1px); } }
 @media(max-width:900px){.scan-result-hero{align-items:flex-start;flex-wrap:wrap;gap:12px}.scan-result-copy{flex-basis:calc(100% - 98px)}.scan-hero-action{margin-left:98px}.scan-result-copy h2{font-size:22px}.scan-progress-row{grid-template-columns:25px minmax(0,1fr) auto;padding-inline:7px}.scan-course-row{padding-left:11px}}
-@media(max-width:760px){.scan-report .scan-change{gap:10px;padding:14px 12px}.scan-change-copy>strong{font-size:14px;gap:5px}.scan-change-date{font-size:11px;white-space:normal;max-width:96px}.scan-report .scan-change>.scan-change-symbol{width:33px;height:39px}.scan-result-footer{align-items:flex-start}.scan-report-date{margin-bottom:20px}.scan-class-list li{align-items:flex-start}.scan-result-hero>.inky-mascot{width:70px!important;height:70px!important}.scan-result-copy{flex-basis:calc(100% - 82px)}.scan-hero-action{margin-left:82px}.scan-progress-copy strong{white-space:normal}.scan-resume-action{align-items:flex-start;flex-direction:column}}
+@media(max-width:760px){.scan-report .scan-change{gap:10px;padding:14px 12px}.scan-change-copy>strong{font-size:14px;gap:5px}.scan-change-date{font-size:11px;white-space:normal;max-width:96px}.scan-report .scan-change>.scan-change-symbol{width:33px;height:39px}.scan-result-footer{align-items:flex-start}.scan-report-date{margin-bottom:20px}.scan-class-list li{align-items:flex-start}.scan-result-hero>.character{width:70px!important;height:70px!important}.scan-result-copy{flex-basis:calc(100% - 82px)}.scan-hero-action{margin-left:82px}.scan-progress-copy strong{white-space:normal}.scan-resume-action{align-items:flex-start;flex-direction:column}}
 @media(prefers-reduced-motion:reduce){.scan-reading-dots{animation:none}}
 
-/* When assignment work owns the browser, keep this a single Inky state instead of stacking a second hero. */
+/* When assignment work owns the browser, keep this a single Dot state instead of stacking a second hero. */
 .school-check .scan-status { margin:0;padding:0;border:0;background:transparent;box-shadow:none; }
 .school-check .scan-status__copy { flex-basis:180px; }
 .school-check .scan-status__actions { align-items:flex-start;margin-left:80px; }

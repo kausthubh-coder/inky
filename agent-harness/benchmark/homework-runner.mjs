@@ -8,7 +8,7 @@ import { allAssignmentsScript, completeOnboarding, publicState, withLmsApp } fro
 import { gradeHomework } from "../lms/grade-homework.mjs";
 import { parseFaults } from "./faults.mjs";
 
-const RULES = { attempt: "Do it, I'll submit", submit: "Do it and submit" };
+const RULES = { attempt: "Do it, I'll hand it in", submit: "Do it and hand it in" };
 const SETTLED = new Set(["ready_review", "submitted", "needs_user", "failed", "preserved"]);
 const FINAL = new Set(["submitted", "needs_user", "failed", "preserved"]);
 const REVIEW_WINDOW_MS = 5_000;
@@ -45,8 +45,11 @@ export async function runHomework({ scenario = "homework-mix", rule = "attempt",
         return current;
       };
       let current = await settle(item => SETTLED.has(item?.execution?.phase), perAssignmentMs);
-      // Under "Do it and hand it in", review ends with Dot handing it in by itself.
-      if (rule === "submit" && current?.execution?.phase === "ready_review") current = await settle(item => FINAL.has(item?.execution?.phase), perAssignmentMs + 180_000);
+      // Under "Do it and hand it in", review ends with Dot handing it in by itself,
+      // unless it has doubts: then it waits for the student, which is already the end.
+      if (rule === "submit" && current?.execution?.phase === "ready_review" && !current.execution.doubts?.length) {
+        current = await settle(item => FINAL.has(item?.execution?.phase) || Boolean(item?.execution?.doubts?.length), perAssignmentMs + 180_000);
+      }
       run.minutes = +((Date.now() - began) / 60_000).toFixed(1);
       run.phase = current?.execution?.phase ?? current?.task.state ?? null;
       run.needs = current?.execution?.needs ?? null;

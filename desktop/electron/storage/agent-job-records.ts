@@ -85,6 +85,7 @@ export class AgentJobRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   put(value: unknown, sessionPath: string | null = null): PersistedAgentJob {
+    queueMicrotask(() => this.database.changed("conversation"));
     const job = AgentJobSchema.parse(value);
     const { messages, ...jobWithoutMessages } = job;
     const stored = StoredAgentJobSchema.parse({ ...jobWithoutMessages, sessionPath });

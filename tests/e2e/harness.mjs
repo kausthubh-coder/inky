@@ -131,7 +131,7 @@ export async function withLmsApp(options, run) {
   }
 }
 
-export async function completeOnboarding(page, schoolUrl, permission = "Do it, I'll submit") {
+export async function completeOnboarding(page, schoolUrl, permission = "Do it, I'll hand it in") {
   await page.getByRole("button", { name: "Let's do it" }).click();
   await page.getByRole("button", { name: "Let's go" }).click();
   await page.getByRole("button", { name: "Continue" }).click();

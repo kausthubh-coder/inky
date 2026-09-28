@@ -324,6 +324,7 @@ export class AssignmentRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   put(value: unknown): Assignment {
+    queueMicrotask(() => this.database.changed("homework"));
     const parsed = parseRecord(AssignmentSchema, value, "assignment");
     const prior = this.get(parsed.assignmentId);
     const override = prior?.dueDateOverride ?? parsed.dueDateOverride;
@@ -405,6 +406,7 @@ export class PermissionRuleRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   put(value: unknown): PermissionRule {
+    queueMicrotask(() => this.database.changed("homework"));
     const parsed = parseRecord(PermissionRuleSchema, value, "permission rule");
     const record = parsed.scope === "assignment"
       ? { ...parsed, assignmentId: resolveRecordId(this.database, "assignment", parsed.assignmentId) }
@@ -467,6 +469,7 @@ export class PermissionRuleRepository {
   }
 
   delete(ruleId: string): boolean {
+    queueMicrotask(() => this.database.changed("homework"));
     const rule = this.get(ruleId);
     if (!rule) return false;
     // Remove the whole target so an older permission can never reappear.
@@ -567,6 +570,7 @@ export class TaskRepository {
   }
 
   append(input: AppendTaskEventInput): Task {
+    queueMicrotask(() => this.database.changed("homework"));
     const event = this.parseTaskEvent(input.event);
     const projection = parseRecord(TaskSchema, input.projection, "task projection");
     this.assertAppendMatches(event, projection, input.expectedRevision);

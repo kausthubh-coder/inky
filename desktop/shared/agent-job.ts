@@ -51,6 +51,8 @@ export const AgentMessageSchema = z.strictObject({
   clientMessageId: z.string().uuid().optional(),
   assignmentRefs: z.array(AssignmentReferenceSchema).max(20).optional(),
   recovery: z.enum(["failed","aborted"]).optional(),
+  /** What Dot saved to memory during this reply, so the thread can show it with Undo. */
+  memories: z.array(z.strictObject({ noteId: z.string().min(1).max(128), title: z.string().min(1).max(200) })).max(10).optional(),
 });
 
 export const AgentJobSchema = z.strictObject({

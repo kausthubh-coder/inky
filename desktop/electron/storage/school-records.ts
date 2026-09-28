@@ -68,6 +68,7 @@ export class SchoolRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   putProfile(value: unknown): SchoolProfile {
+    queueMicrotask(() => this.database.changed("school"));
     const profile = parseValue(SchoolProfileSchema, value, "school profile");
     this.database.handle.prepare(`
       INSERT INTO school_profile(singleton_id, updated_at, record_json)
@@ -125,6 +126,7 @@ export class SchoolRepository {
   }
 
   putScan(value: unknown): SchoolScan {
+    queueMicrotask(() => this.database.changed("school"));
     const scan = this.#canonicalScan(parseValue(SchoolScanSchema, value, "school scan"));
     this.database.handle.prepare(`
       INSERT INTO school_scans(scan_id, state, started_at, updated_at, completed_at, record_json)

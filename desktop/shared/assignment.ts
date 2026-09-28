@@ -63,7 +63,7 @@ export function assignmentWorkEligibility(assignment: Assignment, now: string): 
   if ((assignment.category ?? "work") !== "work") return blocked("This is class material, not homework to do.");
   if (assignment.ignoredReason) return blocked("You marked this assignment as done or not homework.");
   if (assignment.owner === "student") return blocked("You chose to do this assignment yourself.");
-  if (!assignment.sourceTarget) return blocked("Add a school source and check the instructions before Inky starts.");
+  if (!assignment.sourceTarget) return blocked("Add a school source and check the instructions before Dot starts.");
   const status = assignment.schoolStatus;
   if (!status || status.state === "unknown") return blocked("Check whether this assignment is already submitted.");
   if (status.state === "submitted" || status.state === "graded") return blocked("The school already records this work as submitted or graded.");

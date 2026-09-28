@@ -1,6 +1,6 @@
 import type { SettingsLanding } from "./Ui.js";
 export const SETTINGS_SECTIONS = [
-  { id: "inky", label: "Inky", hint: "Your AI and what Inky remembers." },
+  { id: "inky", label: "Dot", hint: "Your AI and what Dot remembers." },
   { id: "homework", label: "Homework", hint: "Rules, timing and files." },
   { id: "school", label: "School", hint: "School checks and connected apps." },
   { id: "notifications", label: "Notifications", hint: "Sounds, banners and quiet hours." },

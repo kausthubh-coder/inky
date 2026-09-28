@@ -46,14 +46,6 @@ html[data-desktop] .fable-onboarding, html[data-desktop] .loading-screen { min-h
 .chat-dashboard { background: radial-gradient(circle at 1px 1px, #e9e0cd 1px, transparent 1.2px) 0 0 / 24px 24px, var(--paper); }
 .chat-dashboard .dashboard-page { width: min(1540px, calc(100% - 64px)); padding-top: 25px; }
 .scan-retry { display: inline-flex; gap: 6px; align-items: center; margin-top: 5px; padding: 5px 9px; border: 1px solid #d8cebc; border-radius: 7px; background: var(--panel); font-size: 11px; }
-.chat-dashboard .day-column { min-height: 200px; }
-.chat-dashboard .day-column>header { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 36px; margin-bottom: 5px; }
-.chat-dashboard .day-column>header strong { font-size: 13px; }
-.chat-dashboard .day-column>header small { font-size: 10px; }
-.chat-dashboard .assignment-card { padding: 12px 10px 12px 12px; border-width: 1.5px; border-radius: 12px 15px 13px 11px; gap: 7px; }
-.chat-dashboard .assignment-card>small { font-size: 9px; line-height: 1.4; overflow-wrap: anywhere; }
-.chat-dashboard .assignment-card>strong { font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
-.chat-dashboard .assignment-card::before { top: 15px; }
 .scan-refresh:disabled svg { animation: spin 2s linear infinite; }
 
 .chat-workspace { width: min(740px, calc(100% - 48px)); margin: 22px auto 22px; }
@@ -107,11 +99,10 @@ html[data-desktop] .fable-onboarding, html[data-desktop] .loading-screen { min-h
   .settings-page { gap: 22px; grid-template-columns: 160px minmax(0, 1fr); }
   .settings-sidebar h1 { font-size: 24px; }
   .settings-heading h2 { font-size: 22px; }
-  .settings-heading .inky-mascot { display: none; }
+  .settings-heading .character { display: none; }
 }
 @media (max-height: 650px) {
   .chat-dashboard .dashboard-page { padding-top: 10px; }
-  .chat-dashboard .day-column { min-height: 130px; }
   .chat-workspace { margin-bottom: 12px; margin-top: 12px; }
   .chat-view-expanded { margin-top: 0; }
   .settings-sidebar { top: 65px; max-height: calc(100dvh - 80px); }
@@ -129,7 +120,7 @@ html[data-desktop] .fable-onboarding, html[data-desktop] .loading-screen { min-h
 
 /* Scan activity sits above the week, where its next action is always visible. */
 .scan-status{display:flex;align-items:center;gap:18px;margin:8px 0 24px;padding:20px 24px;border:1.5px solid var(--line);border-radius:16px 12px 17px 13px;background:var(--panel);box-shadow:3px 3px 0 rgb(59 52 44 / 12%)}
-.scan-status>.inky-mascot{flex:none}
+.scan-status>.character{flex:none}
 .scan-status--running{background:#edf5fc;border-color:#799bb7}
 .scan-status--needs{background:#fff0c2;border-color:#a77823;box-shadow:3px 3px 0 rgb(167 120 35 / 18%)}
 .scan-status--incomplete{background:#fff0e9;border-color:#b78270}

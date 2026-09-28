@@ -1,11 +1,13 @@
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
+import { onEngineChange } from "./engineChanges.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
-import { AssignmentWorkspace } from "./AssignmentWorkspace.js";
+import { AssignmentWorkspace, composerPlaceholder } from "./AssignmentWorkspace.js";
 import { SchoolCheck } from "./SchoolCheck.js";
 import { Icon } from "./Icon.js";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { homeworkRecord } from "../../shared/index.js";
 import type {
   Assignment,
   AssignmentReference,
@@ -16,10 +18,12 @@ import type {
   StudiWorkspaceState,
   TaskSummary,
 } from "../../shared/index.js";
-import { Inky, type InkyState } from "./Inky.js";
+import { Character } from "./Character.js";
+import type { DotState } from "../../shared/characters/states.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { chatTimeline } from "./chatTimeline.js";
+import { useSchoolSlot } from "./schoolSlot.js";
 
 export type ChatView = "home" | "compact" | "expanded";
 interface ChatProps {
@@ -35,7 +39,7 @@ interface ChatProps {
   workspace: StudiWorkspaceState | null;
   assignment: Assignment | null;
   task: TaskSummary | null;
-  mood: InkyState;
+  mood: DotState;
   actionError: string | null;
   scanBusy: string | null;
   onStart: (id: string) => void;
@@ -125,19 +129,20 @@ export function ChatWorkspace(props: ChatProps) {
         ? lifecycle.execution
         : (task?.execution ?? null)
       : null;
+  const record = assignment
+    ? homeworkRecord({ assignment, task: task?.task ?? null, execution, mayAttempt: task?.permission.mayAttempt ?? false })
+    : null;
   const activeExecution = lifecycle.execution;
   const workingAnywhere =
     activeExecution &&
     ["working", "needs_user", "ready_review", "submitting"].includes(
       activeExecution.phase,
     );
+  // The send button turns into Stop only while Dot is working; pauses and reviews have their own Stop.
   const stoppableAssignment =
-    execution && ["working", "needs_user", "ready_review"].includes(execution.phase)
+    execution?.phase === "working"
       ? execution
-      : activeExecution &&
-          ["working", "needs_user", "ready_review"].includes(
-            activeExecution.phase,
-          )
+      : !assignment && activeExecution?.phase === "working"
         ? activeExecution
         : null;
   const messages = school
@@ -155,7 +160,7 @@ export function ChatWorkspace(props: ChatProps) {
   useEffect(() => {
     setScanDetails(false);
   }, [onboarding.scan?.scanId]);
-  const mood: InkyState =
+  const mood: DotState =
     chat?.activity === "typing"
       ? "thinking"
       : active
@@ -165,7 +170,7 @@ export function ChatWorkspace(props: ChatProps) {
           : "idle";
   const status =
     chat?.activity === "typing"
-      ? "Inky is typing…"
+      ? "Dot is typing…"
       : active
         ? "Thinking it through…"
         : workingAnywhere
@@ -219,10 +224,10 @@ export function ChatWorkspace(props: ChatProps) {
       }
     };
     void read();
-    const timer = setInterval(() => void read(), 650);
+    const stop = onEngineChange(["conversation"], () => void read());
     return () => {
       mounted.current = false;
-      clearInterval(timer);
+      stop();
     };
   }, []);
   useEffect(() => {
@@ -381,6 +386,11 @@ export function ChatWorkspace(props: ChatProps) {
     setQuery(null);
     el.focus();
   };
+  const suggest = (text: string) => {
+    saveDraft({ ...draftRef.current, text });
+    input.current?.focus();
+  };
+  const suggestions = homeSuggestions(onboarding, lifecycle);
   const openBrowser = () => {
     void window.studi
       ?.selectBrowserPage(school ? { kind: "school" } : target)
@@ -461,7 +471,7 @@ export function ChatWorkspace(props: ChatProps) {
               key={message.messageId}
               className={`chat-bubble ${message.role === "user" ? "student-bubble" : "inky-bubble"}`}
             >
-              <small>{message.role === "user" ? "You" : "Inky"}</small>
+              <small>{message.role === "user" ? "You" : "Dot"}</small>
               {Boolean(message.assignmentRefs?.length) && (
                 <div className="chat-refs">
                   {message.assignmentRefs?.map((ref) => (
@@ -506,21 +516,23 @@ export function ChatWorkspace(props: ChatProps) {
           void (draft.text.trim() ? send() : stop());
         }}
       >
-        {
+        {(school || (!assignment && view === "home")) && (
           <button
             type="button"
             className="composer-mascot"
-            aria-label="Open your conversation with Inky"
+            aria-label="Open your conversation with Dot"
             onClick={() =>
               assignment || school ? setSheet(true) : onView("compact")
             }
           >
             <Icon name="note" size={20} />
           </button>
-        }
-        <span className="rd-composer-context">
-          {school ? "School check" : (contextAssignment?.title ?? "Home")}
-        </span>
+        )}
+        {(school || (!assignment && contextAssignment)) && (
+          <span className="rd-composer-context">
+            {school ? "School check" : contextAssignment?.title}
+          </span>
+        )}
         {draft.refs.length > 0 && (
           <div className="chat-refs">
             {draft.refs.map((ref) => (
@@ -583,13 +595,15 @@ export function ChatWorkspace(props: ChatProps) {
         <div className="inky-composer-line">
           <textarea
             ref={input}
-            aria-label="Message Inky"
+            aria-label="Message Dot"
             placeholder={
               school
                 ? "Steer this check…"
-                : contextAssignment
-                  ? "Ask about this assignment…"
-                  : "Hey Inky…"
+                : assignment
+                  ? composerPlaceholder(record?.state, record?.needs)
+                  : contextAssignment
+                    ? "Ask about this assignment…"
+                    : "Hey Dot…"
             }
             disabled={
               school &&
@@ -604,6 +618,9 @@ export function ChatWorkspace(props: ChatProps) {
             {...(query !== null && matches[option]
               ? { "aria-activedescendant": `chat-option-${option}` }
               : {})}
+            onFocus={() => {
+              if (view === "home" && !assignment && !school) onView("compact");
+            }}
             onChange={(e) => {
               saveDraft({ ...draft, text: e.target.value });
               const match = e.target.value
@@ -708,6 +725,9 @@ export function ChatWorkspace(props: ChatProps) {
         composer={composer}
         onClose={() => onView("home")}
         error={error || props.actionError}
+        assignments={onboarding.assignments}
+        suggestions={suggestions}
+        onSuggest={suggest}
       />
     ) : assignment && view !== "home" ? (
       <AssignmentWorkspace
@@ -716,10 +736,11 @@ export function ChatWorkspace(props: ChatProps) {
         execution={execution}
         lifecycle={lifecycle}
         onboarding={onboarding}
+        workspace={workspace}
         busy={props.scanBusy}
-        conversation={conversation}
+        messages={chat?.job.messages ?? []}
+        thinking={active}
         composer={composer}
-        browser={schoolBrowser}
         error={
           (error || props.actionError) && (
             <p className="chat-error" role="alert">
@@ -729,34 +750,38 @@ export function ChatWorkspace(props: ChatProps) {
         }
         onClose={() => onView("home")}
         onBrowser={openBrowser}
-        onCloseBrowser={() => setBrowser(false)}
+        onSchoolSlot={props.onSchoolSlot}
         onStart={props.onStart}
         onCheckAssignment={props.onCheckAssignment}
         onResume={props.onResume}
         onPause={props.onTakeover}
         onCancel={props.onCancel}
         onOpenWork={props.onOpenWork}
-        onOpenSchoolCheck={props.onOpenSchoolCheck}
         onOpenRules={props.onOpenRules}
         onOpenArtifact={props.onOpenArtifact}
-        onVerifySubmission={props.onVerifySubmission}
+        onRetry={(message) => {
+          const messages = chat?.job.messages ?? [];
+          const original = messages.slice(0, messages.indexOf(message)).reverse().find((m) => m.role === "user");
+          if (original) void send(original.text, original.assignmentRefs ?? []);
+        }}
+        onSuggest={suggest}
       />
     ) : (
       <section
         className={`chat-workspace chat-view-${view} ${browser ? "chat-with-browser" : ""} ${school ? "rd-school-workspace" : ""}`}
-        aria-label="Your conversation with Inky"
+        aria-label="Your conversation with Dot"
       >
         {view !== "home" && (
-          <section className="conversation-paper" aria-label="Chat with Inky">
+          <section className="conversation-paper" aria-label="Chat with Dot">
             <header className="conversation-header">
               <div
                 className={`chat-presence ${chat?.activity === "typing" ? "is-typing" : ""}`}
               >
-                <Inky state={mood} size={54} label={status} />
+                <Character state={mood} size={54} label={status} />
                 <strong>
                   {school
                     ? "School check"
-                    : (assignment?.title ?? "Chat with Inky")}
+                    : (assignment?.title ?? "Chat with Dot")}
                 </strong>
                 <small role="status">{school ? "Your school" : status}</small>
               </div>
@@ -815,7 +840,7 @@ export function ChatWorkspace(props: ChatProps) {
                 onView("expanded");
               }}
             >
-              <Inky state={mood} size={42} label={status} />
+              <Character state={mood} size={42} label={status} />
               <span>
                 <strong>
                   {active ? "I’m thinking about your message." : status}
@@ -823,7 +848,7 @@ export function ChatWorkspace(props: ChatProps) {
                 <small>
                   {onboarding.assignments.find(
                     (a) => a.assignmentId === activeExecution?.assignmentId,
-                  )?.title ?? "Your conversation with Inky"}
+                  )?.title ?? "Your conversation with Dot"}
                 </small>
               </span>
               <span><Icon name="external" size={14} /></span>
@@ -845,7 +870,7 @@ export function ChatWorkspace(props: ChatProps) {
     );
   return (
     <>
-      {view === "home" ? (
+      {view === "home" || (!assignment && !school) ? (
         content
       ) : (
         <WorkspaceDialog
@@ -853,7 +878,7 @@ export function ChatWorkspace(props: ChatProps) {
             assignment || school ? "rd-full-dialog" : "rd-sheet-dialog"
           }
           label={
-            school ? "School check" : (assignment?.title ?? "Chat with Inky")
+            school ? "School check" : (assignment?.title ?? "Chat with Dot")
           }
           onClose={() => onView("home")}
         >
@@ -863,7 +888,7 @@ export function ChatWorkspace(props: ChatProps) {
       {sheet && (
         <WorkspaceDialog
           className="rd-sheet-dialog rd-nested-sheet"
-          label="Chat with Inky"
+          label="Chat with Dot"
           onClose={() => setSheet(false)}
         >
           <ConversationTimeline
@@ -871,6 +896,9 @@ export function ChatWorkspace(props: ChatProps) {
             composer={composer}
             onClose={() => setSheet(false)}
             error={error || props.actionError}
+            assignments={onboarding.assignments}
+            suggestions={suggestions}
+            onSuggest={suggest}
           />
         </WorkspaceDialog>
       )}
@@ -896,48 +924,7 @@ function SchoolBrowser({
   busy?: boolean;
 }) {
   const slot = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    let frame = 0;
-    const report = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        const rect = slot.current?.getBoundingClientRect();
-        if (
-          !rect ||
-          document.querySelector(
-            "dialog[open]:not(.workspace-dialog), .rd-nested-sheet[open], .account-menu",
-          )
-        ) {
-          onSlot(null);
-          return;
-        }
-        onSlot({
-          x: Math.round(rect.x),
-          y: Math.round(rect.y),
-          width: Math.round(rect.width),
-          height: Math.round(rect.height),
-        });
-      });
-    };
-    const resize = new ResizeObserver(report);
-    if (slot.current) resize.observe(slot.current);
-    const mutations = new MutationObserver(report);
-    mutations.observe(document.body, {
-      attributes: true,
-      attributeFilter: ["open"],
-      subtree: true,
-      childList: true,
-    });
-    window.addEventListener("resize", report);
-    report();
-    return () => {
-      resize.disconnect();
-      mutations.disconnect();
-      cancelAnimationFrame(frame);
-      window.removeEventListener("resize", report);
-      onSlot(null);
-    };
-  }, [onSlot]);
+  useSchoolSlot(slot, onSlot);
   return (
     <aside className="chat-browser">
       <div className={`rd-browser-bar ${onContinue ? "is-handoff" : ""}`}>
@@ -976,4 +963,21 @@ function SchoolBrowser({
       </div>
     </aside>
   );
+}
+
+/** Things an empty chat offers, built from the student's real week. */
+function homeSuggestions(onboarding: SchoolOnboardingState, lifecycle: LifecycleState): string[] {
+  const now = Date.now();
+  const title = (id: string | undefined) => onboarding.assignments.find((item) => item.assignmentId === id)?.title;
+  const waiting = lifecycle.execution?.phase === "needs_user" ? title(lifecycle.execution.assignmentId) : undefined;
+  const next = onboarding.assignments
+    .filter((item) => (item.category ?? "work") === "work" && !item.ignoredReason && item.owner !== "student" && Date.parse(item.dueAt ?? "") > now
+      && !["submitted", "graded"].includes(item.schoolStatus?.state ?? ""))
+    .sort((a, b) => Date.parse(a.dueAt!) - Date.parse(b.dueAt!))[0];
+  return [
+    "What's left before Friday?",
+    ...(waiting ? [`What does ${waiting} need from me?`] : []),
+    ...(next ? [`Start ${next.title}`] : []),
+    "Add homework from a link",
+  ];
 }

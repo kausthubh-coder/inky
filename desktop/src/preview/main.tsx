@@ -2,10 +2,15 @@ import { StudiApp } from "../app/StudiApp.js";
 import { mountRenderer } from "../renderer.js";
 import { installDevPreview } from "./fixtures.js";
 import { PreviewGallery } from "./Gallery.js";
+import { CharacterSheet } from "./CharacterSheet.js";
 import { parsePreviewConfig } from "./scenarios.js";
 import "./preview.css";
 
 export function startPreview(): void {
+  if (new URLSearchParams(location.search).get("preview") === "characters") {
+    mountRenderer(<CharacterSheet />);
+    return;
+  }
   const config = parsePreviewConfig(location.search);
   if (!config) {
     mountRenderer(<PreviewGallery />);

@@ -198,7 +198,7 @@ function NumberLine({ model, onExplore, disabled }: Props<"number_line">) {
   if (max <= min)
     return (
       <p role="alert">
-        This number line has an invalid range. Ask Inky to try again.
+        This number line has an invalid range. Ask Chalky to try again.
       </p>
     );
   return (
@@ -290,7 +290,7 @@ function FunctionPlot({ model, onExplore, disabled }: Props<"function_plot">) {
     { a, b, c } = coefficients;
   if (xMax <= xMin)
     return (
-      <p role="alert">This plot has an invalid range. Ask Inky to try again.</p>
+      <p role="alert">This plot has an invalid range. Ask Chalky to try again.</p>
     );
   const values = Array.from({ length: 201 }, (_, i) => {
     const x = xMin + ((xMax - xMin) * i) / 200;

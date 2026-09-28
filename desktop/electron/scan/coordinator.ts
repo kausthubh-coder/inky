@@ -370,7 +370,7 @@ export class SchoolScanCoordinator {
       state: "partial",
       completedAt: this.#now(),
       updatedAt: this.#now(),
-      currentStep: "Saved what Inky found so far",
+      currentStep: "Saved what Dot found so far",
       failures: addUnique(scan.failures, "You ended this check before all sources were verified."),
       handoff: null,
     });
@@ -459,7 +459,7 @@ export class SchoolScanCoordinator {
         ? await this.#ingestConnector(scan.scanId, profile)
         : false;
       if (this.#lastConnectorSignedIn) this.#learnSignInHosts("onboarding");
-      // The fast read above is a head start, never the whole scan: Inky always reviews, follows vendor
+      // The fast read above is a head start, never the whole scan: Dot always reviews, follows vendor
       // sites, sets up classes, reads email and writes school memory.
       const system = this.#lms === "moodle" ? "Moodle" : this.#lms === "canvas" ? "Canvas" : "a system Studi has no tools for";
       const headStart = this.#lms
@@ -937,7 +937,7 @@ export class SchoolScanCoordinator {
       state: complete ? "succeeded" : "partial",
       updatedAt: this.#now(),
       completedAt: this.#now(),
-      currentStep: complete ? "School check complete" : "Saved what Inky found; some sources remain unchecked",
+      currentStep: complete ? "School check complete" : "Saved what Dot found; some sources remain unchecked",
       coverage,
       failures,
       handoff: null,

@@ -42,6 +42,8 @@ import {
   type AuthState,
   type LifecycleState,
   type AssignmentExecution,
+  type EngineTopic,
+  ENGINE_CHANGED_CHANNEL,
   type RuntimeInfo,
   type SchoolOnboardingState,
   type StudiIpcHandlers,
@@ -87,6 +89,8 @@ import { HomeworkFiles } from "./files/homework-files.js";
 import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
 import { AppKernel } from "./lifecycle/kernel.js";
+import { AppStatusIcon } from "./app-status.js";
+import { dotState } from "../shared/characters/states.js";
 import { ManagerCoordinator } from "./manager/coordinator.js";
 import { SchoolScanCoordinator, type SchoolEmail } from "./scan/coordinator.js";
 import { type LocalStore, openLocalStore, STORAGE_SCHEMA_VERSION } from "./storage/index.js";
@@ -168,6 +172,7 @@ let tutorTimelineCache: {
 } | null = null;
 let assignmentExecutionCoordinator: AssignmentExecutionCoordinator | null = null;
 let appKernel: AppKernel | null = null;
+let appStatusIcon: AppStatusIcon | null = null;
 let mainWindow: BrowserWindow | null = null;
 let authCoordinator: AuthCoordinator | null = null;
 let telemetryService: TelemetryService | null = null;
@@ -276,7 +281,7 @@ async function prepareAndStartAssignment(taskId: string): Promise<void> {
   if (!assignmentWorkEligibility(assignment, new Date().toISOString()).eligible) {
     const checked = await requireSchoolScanCoordinator().startScan(assignment.assignmentId);
     if (checked.scan?.state !== "succeeded") {
-      throw new Error(checked.scan?.failures[0] ?? "Inky could not finish checking this assignment's instructions.");
+      throw new Error(checked.scan?.failures[0] ?? "Dot could not finish checking this assignment's instructions.");
     }
   }
   const current = store.assignments.get(task.assignmentId);
@@ -418,7 +423,7 @@ const ipcHandlers: StudiIpcHandlers = {
   selectAgentModel: async ({ providerId, modelId, reasoningEffort }) => {
     const runtime = requireAgentRuntime();
     runtime.selectModel(providerId, modelId);
-    // Reasoning is always high: a ceiling, not a minimum, so Inky still thinks only as much as each step needs.
+    // Reasoning is always high: a ceiling, not a minimum, so Dot still thinks only as much as each step needs.
     runtime.setReasoningEffort(DEFAULT_AGENT_REASONING_EFFORT);
     await persistAgentRuntimeChoice();
     requireTelemetryService().capture("studi_model_selected", { provider: providerId, model: modelId, reasoning_effort: reasoningEffort });
@@ -569,6 +574,10 @@ const ipcHandlers: StudiIpcHandlers = {
     return withReadyTutor('resuming your tutor', tutor => tutor.resume(sessionId));
   },
   cancelTutorSession: ({ sessionId }) => requireTutorCoordinator().cancel(sessionId),
+  watchHandIn: async ({ taskId }) => {
+    requireAssignmentExecutionCoordinator().watchHandIn(taskId);
+    return requireAppKernel().state();
+  },
   submitReviewedAssignment: async ({ taskId }) => {
     await requireReadyProvider('handing in your homework');
     await requireAssignmentExecutionCoordinator().submitReviewed(taskId);
@@ -605,7 +614,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   getManagerState: () => requireManagerCoordinator().state(),
   send: async ({ target, text, ...metadata }) => {
-    await requireReadyProvider("Inky can answer");
+    await requireReadyProvider("Dot can answer");
     const result = await requireConversationCoordinator().send(target, text, metadata);
     return result;
   },
@@ -1166,6 +1175,14 @@ function browserPageBusy(key:string): boolean {
   return (key === "school" && scan?.state === "running") || Boolean(execution && key === `assignment:${execution.assignmentId}` && ["working","submitting"].includes(execution.phase));
 }
 
+function refreshAppStatus(): void {
+  const store = localStore;
+  if (!appStatusIcon || !store) return;
+  const execution = store.lifecycle.getActiveExecution();
+  const state = dotState({ phase: execution?.phase, steering: currentBrowserDriver() === "inky", scan: store.school.latestScan()?.state });
+  appStatusIcon.update(state, store.lifecycle.readyCount());
+}
+
 function currentBrowserDriver() {
   const scan = localStore?.school.latestScan();
   const execution = localStore?.lifecycle.getActiveExecution();
@@ -1591,6 +1608,7 @@ async function initializeStorage(): Promise<void> {
     },
   });
   localStore.lifecycle.onExecutionChange(recordExecutionChange);
+  localStore.database.onChange(announceChange);
   if (uiScenario === "partial-dashboard" || uiScenario === "desk-handoff") seedProductUiScenario(localStore, uiScenario);
   if (uiScenario && uiScenario !== "onboarding-welcome") {
     localStore.school.putProfile({
@@ -1791,6 +1809,19 @@ async function initializeDesktopAgent(): Promise<void> {
     {
       connectedAppTools: loadConnectedAppTools, ownerSubject,
       learning: createLearningConversationHooks(requireLearnRepository()),
+      homework: {
+        add: async (input) => {
+          if (/^https?:\/\//i.test(input.text.trim())) await requireReadyProviderForScan();
+          const result = await requireHomeworkCoordinator().addAssignment(input);
+          appKernel?.requestReconcile();
+          return result;
+        },
+        correct: async (input) => {
+          const result = await requireHomeworkCoordinator().correctAssignment(input);
+          appKernel?.requestReconcile();
+          return result;
+        },
+      },
     },
   );
   unsubscribeConversationTrace = requireTelemetryService().subscribeToTrace(conversationCoordinator.trace);
@@ -1856,6 +1887,8 @@ function disposeProtectedRuntimeNow(): Promise<void> {
   homeworkCoordinator = null;
   runtimeLoginAttempt?.dispose();
   runtimeLoginAttempt = null;
+  appStatusIcon?.dispose();
+  appStatusIcon = null;
   appKernel?.dispose();
   appKernel = null;
   assignmentExecutionCoordinator?.dispose();
@@ -2000,6 +2033,9 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
     appKernel.configureSchedule(profile.scanCadence);
   }
   await appKernel.start();
+  const kernel = appKernel;
+  appStatusIcon = new AppStatusIcon(window, text => kernel.setTrayTooltip(text));
+  refreshAppStatus();
   for (const intent of pendingNotifications.splice(0)) await appKernel.notify(intent);
   // Homework that was running when Studi quit carries on by itself once the model is ready.
   void requireReadyProvider("carrying on your homework")
@@ -2073,6 +2109,20 @@ function captureQueueTransition(
     ...currentAgentSelection(),
     ...assignmentLabels(state.execution?.assignmentId),
   });
+}
+
+// Writes are batched for 80 ms and pushed to the screens, which re-read what they show.
+const pendingTopics = new Set<EngineTopic>();
+let announceTimer: ReturnType<typeof setTimeout> | null = null;
+function announceChange(topic: EngineTopic): void {
+  pendingTopics.add(topic);
+  announceTimer ??= setTimeout(() => {
+    announceTimer = null;
+    const topics = [...pendingTopics];
+    pendingTopics.clear();
+    if (topics.includes("homework") || topics.includes("school")) refreshAppStatus();
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(ENGINE_CHANGED_CHANNEL, topics);
+  }, 80);
 }
 
 // Every assignment state change goes to PostHog. The school page runs in its own view, so replay never sees it;
@@ -2271,7 +2321,7 @@ async function persistAgentRuntimeChoice(): Promise<void> {
   });
 }
 
-/** A subscription the student just connected becomes the one Inky uses. */
+/** A subscription the student just connected becomes the one Dot uses. */
 async function adoptConnectedProvider(providerId: AgentProviderId): Promise<void> {
   const runtime = requireAgentRuntime();
   if (runtime.selectedProviderId !== providerId) runtime.selectProvider(providerId);
@@ -2370,7 +2420,7 @@ interface NotificationSelfTestObservation {
 
 function requireConversationCoordinator(): ConversationCoordinator {
   if (!conversationCoordinator) {
-    throw new Error("Inky conversations are not ready");
+    throw new Error("Dot conversations are not ready");
   }
   return conversationCoordinator;
 }
@@ -2472,7 +2522,7 @@ function learnSourceCourse(courseId: string | null, examId: string | null): stri
   return goalCourse;
 }
 
-/** Homework Inky actually worked on for this student, with its verified instructions. */
+/** Homework Dot actually worked on for this student, with its verified instructions. */
 function workedAssignments() {
   const repository = requireLearnRepository();
   const store = requireLocalStore();

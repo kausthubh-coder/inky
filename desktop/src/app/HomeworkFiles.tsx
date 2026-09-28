@@ -1,3 +1,4 @@
+import "./homework-files.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { AssignmentCommandOutput } from "../../shared/index.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";

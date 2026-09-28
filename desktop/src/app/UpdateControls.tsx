@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { NotificationIntent, UpdateState } from "../../shared/index.js";
-import { Inky } from "./Inky.js";
+import { Character } from "./Character.js";
 import { Icon } from "./Icon.js";
 
 const notificationKinds = {
@@ -116,12 +116,12 @@ export function UpdateControls({
         >
           ×
         </button>
-        <Inky
+        <Character
           state={
             pending ? "thinking" : error || state?.error ? "needs" : "idle"
           }
           size={76}
-          label="Inky"
+          label="Dot"
         />
         <p className="update-kicker">STUDI UPDATES</p>
         <h2 id="update-title">{title}</h2>

@@ -98,7 +98,7 @@ export const StudiWorkspaceStateSchema = z.strictObject({
   selectedReasoningEffort: AgentReasoningEffortSchema,
 });
 
-/** The subscription Inky is using right now. */
+/** The subscription Dot is using right now. */
 export function selectedProvider(workspace: Pick<StudiWorkspaceState, "providers" | "selectedProviderId">): ProviderStatus {
   const [first] = workspace.providers;
   const selected = workspace.providers.find((provider) => provider.providerId === workspace.selectedProviderId) ?? first;
@@ -106,7 +106,7 @@ export function selectedProvider(workspace: Pick<StudiWorkspaceState, "providers
   return selected;
 }
 
-/** The model Inky would use for a subscription: the catalog's preferred one when installed, else the first. */
+/** The model Dot would use for a subscription: the catalog's preferred one when installed, else the first. */
 export function defaultModelFor(models: readonly AgentModel[], providerId: AgentProviderId): AgentModel | undefined {
   const candidates = models.filter((model) => model.providerId === providerId);
   for (const modelId of agentProvider(providerId).preferredModelIds) {
