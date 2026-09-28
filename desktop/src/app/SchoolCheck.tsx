@@ -172,7 +172,8 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
         {scan.failures.map((failure, index) => <div className="scan-failure" key={`${failure}-${index}`}><Icon name="warning" size={16} /><ChatMarkdown text={failure} /></div>)}
       </section> : null}
 
-      {view.running && <button className="scan-finish-button" disabled={disabled} onClick={onPause}>Finish with what you found</button>}
+      {/* The scan's own request stays busy until it ends, so stopping can't wait on it. */}
+      {view.running && <button className="scan-finish-button" onClick={onPause}>Stop and keep what Dot found</button>}
       {/* The one decision while the check waits, like the assignment page: sign in or hand the page back. */}
       {view.paused && <section className="ag-move scan-move" aria-label="Your move">
         <h2>{view.signIn ? "Sign in on the school page." : "You have the page."}</h2>

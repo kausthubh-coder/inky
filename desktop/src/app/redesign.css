@@ -23,6 +23,9 @@ body {
     400 15px/1.5 "Nunito Sans",
     sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
 }
 [data-mode="learn"] {
   --highlighter: #cdbcf0;

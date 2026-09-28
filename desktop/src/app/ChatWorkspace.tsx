@@ -285,8 +285,7 @@ export function ChatWorkspace(props: ChatProps) {
           setQuery(null);
           return;
         }
-        if (browser) setBrowser(false);
-        else onView("home");
+        onView("home");
       }
     };
     document.addEventListener("keydown", close);
@@ -761,20 +760,6 @@ export function ChatWorkspace(props: ChatProps) {
                 <small role="status">{school ? "Your school" : status}</small>
               </div>
               <div className="conversation-actions">
-                {(school || assignment) && (
-                  <button
-                    className="chat-icon"
-                    aria-label={
-                      browser ? "Close school browser" : "Open school browser"
-                    }
-                    aria-expanded={browser}
-                    onClick={() =>
-                      browser ? setBrowser(false) : openBrowser()
-                    }
-                  >
-                    <Icon name="browser" />
-                  </button>
-                )}
                 {school || assignment ? (
                   <button
                     className="rd-quiet rd-work-back"

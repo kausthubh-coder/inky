@@ -1,17 +1,73 @@
 /* Week, list and All. Class colour comes from course-accent-N (app.css). Only "needs you" gets red. */
-.hw-home .rd-hello h1 {
-  font: 800 30px/1.15 "Shantell Sans", cursive;
-  letter-spacing: -0.02em;
+/* The headline: Dot, what it means for you, and the one thing to do, on one baseline grid. */
+.hw-hello {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 18px;
+  row-gap: 14px;
+  margin-bottom: 22px;
 }
-.hw-home .hw-fix {
-  min-height: 44px;
-  padding: 0 20px;
+.hw-hello.is-plain {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+/* The drawing carries a floor shadow below the face; lift it so the face, not the shadow, lines up with the text. */
+.hw-hello > .character {
+  transform: translateY(-3px);
+}
+.hw-hello-copy {
+  min-width: 0;
+}
+.hw-hello h1 {
+  margin: 0;
+  font: 700 28px/1.18 "Shantell Sans", cursive;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  font-kerning: normal;
+}
+.hw-hello p {
+  max-width: 58ch;
+  margin: 5px 0 0;
+  font-size: 15.5px;
+  line-height: 1.45;
+  color: var(--graphite);
+  text-wrap: pretty;
+}
+.hw-hello-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hw-hello .hw-fix {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 18px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
+  letter-spacing: 0;
 }
 .hw-views {
-  align-self: flex-start;
-  margin-top: 8px;
+  height: 40px;
+  align-items: stretch;
+}
+.hw-views button {
+  padding: 0 14px;
+  font-size: 14px;
+}
+@media (max-width: 900px) {
+  .hw-hello {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .hw-hello-actions {
+    grid-column: 2 / -1;
+    justify-content: space-between;
+  }
+  .hw-hello.is-plain .hw-hello-actions {
+    grid-column: 1 / -1;
+  }
+  .hw-hello h1 {
+    font-size: 25px;
+  }
 }
 .hw-conflict {
   margin: 0 0 12px;
@@ -303,7 +359,6 @@
 @media (max-width: 900px) {
   .hw-days, .hw-soon { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
   .hw-day { min-height: 0; }
-  .hw-home .rd-hello { flex-wrap: wrap; }
 }
 
 /* The chat grows up out of the chat box, over the week. */

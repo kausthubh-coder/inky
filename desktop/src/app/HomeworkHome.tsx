@@ -82,17 +82,19 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
 
   return (
     <div className={`rd-column hw-home ${view === "week" ? "rd-wide" : ""}`}>
-      <header className="rd-hello">
-        {view !== "all" && <Character state={headline.dot} size={68} label="Dot" />}
-        <div>
+      <header className={`hw-hello ${view === "all" ? "is-plain" : ""}`}>
+        {view !== "all" && <Character state={headline.dot} size={64} label="Dot" />}
+        <div className="hw-hello-copy">
           <h1>{view === "all" ? "Everything Dot found" : headline.title}</h1>
           <p>{view === "all" ? "By class. Open anything that looks wrong." : headline.sub}</p>
         </div>
-        {view !== "all" && primary}
-        <div className="rd-segment hw-views" role="group" aria-label="Homework view">
-          {(["week", "list", "all"] as const).map((name) => (
-            <button key={name} aria-pressed={view === name} onClick={() => setView(name)}>{name === "week" ? "Week" : name === "list" ? "List" : "All"}</button>
-          ))}
+        <div className="hw-hello-actions">
+          {view !== "all" && primary}
+          <div className="rd-segment hw-views" role="group" aria-label="Homework view">
+            {(["week", "list", "all"] as const).map((name) => (
+              <button key={name} aria-pressed={view === name} onClick={() => setView(name)}>{name === "week" ? "Week" : name === "list" ? "List" : "All"}</button>
+            ))}
+          </div>
         </div>
       </header>
       {error && <p className="rd-error" role="alert">{error}</p>}

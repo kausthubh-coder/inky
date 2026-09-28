@@ -12,7 +12,7 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   // One Continue, in the card under Dot; the page itself has no bar of its own.
   await page.getByRole("region", { name: "Your move" }).getByRole("button", { name: "I've signed in, continue" }).waitFor();
   assert.equal(await page.locator(".chat-browser").getByRole("button").count(), 0);
-  await page.getByRole("button", { name: "Close school browser" }).click();
+  assert.equal(await page.getByRole("button", { name: /school browser/ }).count(), 0, "the school check always shows the page");
 
   const setScan = async (state, options = {}) => {
     await page.evaluate(async ({ state, options }) => {
@@ -67,7 +67,7 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   assert.equal(await page.getByText("3 due, 1 new", { exact: true }).count(), 1);
   assert.equal(await page.getByText("reading the course page", { exact: true }).count(), 1);
   assert.equal(await page.getByText("MA 241 calendar could not be opened.", { exact: true }).count(), 1);
-  await page.getByRole("button", { name: "Finish with what you found", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Stop and keep what Dot found", exact: true }).waitFor();
   assert.equal(await page.locator(".inky-composer").count(), 1);
   await setScan("needs_user", { handoff: true });
   await page.getByRole("button", { name: "Sign in to WebAssign", exact: true }).waitFor();
