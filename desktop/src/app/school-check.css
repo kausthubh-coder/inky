@@ -92,3 +92,5 @@
 .school-check .scan-status__actions { align-items:flex-start;margin-left:80px; }
 .school-check .scan-status__copy > h2 { font-size:20px; }
 .school-check .scan-status__actions .button { justify-content:flex-start;min-height:34px;padding:5px 10px;font-size:11px; }
+/* "Back to assignment" after a one-assignment update sat on top of the next heading. */
+.scan-report > .button--paper { margin: 4px 0 20px; }

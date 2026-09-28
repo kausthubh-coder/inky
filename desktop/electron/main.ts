@@ -1174,7 +1174,7 @@ function refreshAppStatus(): void {
   const store = localStore;
   if (!appStatusIcon || !store) return;
   const execution = store.lifecycle.getActiveExecution();
-  const state = dotState({ phase: execution?.phase, steering: currentBrowserDriver() === "inky", scan: store.school.latestScan()?.state });
+  const state = dotState({ phase: execution?.phase, steering: currentBrowserDriver() === "inky", scan: store.school.shownScan()?.state });
   appStatusIcon.update(state, store.lifecycle.readyCount());
 }
 

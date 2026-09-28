@@ -230,6 +230,21 @@ test("the worker cannot bypass review to submit, even under an auto-submit rule"
   });
 });
 
+test("School check shows the last school-wide scan, not a finished one-assignment update", async () => {
+  await withStore(async store => {
+    seedTask(store, "shown", "2026-09-02T12:00:00.000Z");
+    const scan = (scanId, state, extra = {}) => store.school.putScan({ schemaVersion: 1, scanId, kind: "replay", state, startedAt: initialNow, updatedAt: initialNow,
+      ...(state === "running" || state === "needs_user" ? {} : { completedAt: initialNow }), currentStep: "Checking", coverage: [], failures: state === "failed" ? ["Studi stopped"] : [], handoff: null,
+      observedCourseIds: [], observedAssignmentIds: [], observedLinkedSystemIds: [], ...extra });
+    scan("scan-school", "succeeded");
+    scan("scan-one", "failed", { targetAssignmentId: "assignment-shown" });
+    assert.equal(store.school.latestScan().scanId, "scan-one");
+    assert.equal(store.school.shownScan().scanId, "scan-school");
+    scan("scan-one-live", "running", { targetAssignmentId: "assignment-shown" });
+    assert.equal(store.school.shownScan().scanId, "scan-one-live", "an update in progress still shows");
+  });
+});
+
 test("the rule never hands in late work by itself unless the school takes late work", async () => {
   await withStore(async store => {
     let now = initialNow;

@@ -175,6 +175,21 @@ export class SchoolRepository {
     return row ? this.#canonicalScan(parseScanRow(row.scan_id, row)) : null;
   }
 
+  /**
+   * The scan the School check shows: one still running or waiting, otherwise the last school-wide scan.
+   * A finished one-assignment update (from "Details look wrong") doesn't take over the screen.
+   */
+  shownScan(): SchoolScan | null {
+    const latest = this.latestScan();
+    if (!latest?.targetAssignmentId || latest.state === "running" || latest.state === "needs_user") return latest;
+    const row = this.database.handle.prepare(`
+      SELECT scan_id FROM school_scans
+      WHERE json_extract(record_json, '$.targetAssignmentId') IS NULL
+      ORDER BY rowid DESC LIMIT 1
+    `).get() as { scan_id: string } | undefined;
+    return row ? this.getScan(String(row.scan_id)) : latest;
+  }
+
   listScans(limit = 100): SchoolScan[] {
     if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("Scan history limit must be between 1 and 1000.");
     const rows = this.database.handle.prepare("SELECT scan_id FROM school_scans ORDER BY started_at DESC, rowid DESC LIMIT ?").all(limit);

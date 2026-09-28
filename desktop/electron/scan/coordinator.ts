@@ -165,7 +165,7 @@ export class SchoolScanCoordinator {
     const workflow = this.#store.school.getWorkflow();
     return SchoolOnboardingStateSchema.parse({
       profile,
-      scan: this.#store.school.latestScan(),
+      scan: this.#store.school.shownScan(),
       courses,
       assignments,
       assignmentConflicts: this.#store.assignmentConflicts,
@@ -215,7 +215,9 @@ export class SchoolScanCoordinator {
   }
 
   async startScan(assignmentId?: string): Promise<SchoolOnboardingState> {
-    return this.#browserWork.startScan(() => this.#withReadOnly(() => this.#start("first_scan", null, assignmentId)));
+    const state = await this.#browserWork.startScan(() => this.#withReadOnly(() => this.#start("first_scan", null, assignmentId)));
+    // The screen shows the last school-wide scan, but whoever asked for a one-assignment update gets its result.
+    return assignmentId ? { ...state, scan: this.#store.school.latestScan() } : state;
   }
 
   async startSourceScan(sourceTarget: string): Promise<SchoolOnboardingState> {
@@ -246,6 +248,13 @@ export class SchoolScanCoordinator {
   }
 
   async resume(): Promise<SchoolOnboardingState> {
+    const state = await this.#resume();
+    const resumed = this.#store.school.latestScan();
+    // Like startScan: a resumed one-assignment update returns its own result, not the screen's scan.
+    return resumed?.targetAssignmentId ? { ...state, scan: resumed } : state;
+  }
+
+  async #resume(): Promise<SchoolOnboardingState> {
     return this.#browserWork.resumeScan(() => this.#withReadOnly(async () => {
       this.#assertUsable();
       const scan = this.#store.school.latestScan();
