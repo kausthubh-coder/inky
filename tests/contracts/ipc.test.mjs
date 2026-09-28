@@ -41,7 +41,7 @@ const redesignMethods = {
   pauseTutorSession: 'studi:tutor-pause',
   resumeTutorSession: 'studi:tutor-resume',
   cancelTutorSession: 'studi:tutor-cancel',
-  submitAssignmentByRule: 'studi:assignment-submit-rule',
+  submitReviewedAssignment: 'studi:assignment-submit-reviewed',
   correctAssignment: 'studi:assignment-correct',
   addAssignment: 'studi:assignment-add',
   setAssignmentOwner: 'studi:assignment-owner',

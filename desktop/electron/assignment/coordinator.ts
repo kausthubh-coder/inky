@@ -6,6 +6,7 @@ import { Type } from "typebox";
 
 import {
   AssignmentExecutionSchema,
+  isLivePhase,
   OpaqueIdSchema,
   LifecycleStateSchema,
   STUDI_SCHEMA_VERSION,
@@ -21,7 +22,7 @@ import { retrieveNoteIndex, type NoteRetrievalContext } from "../../agent-system
 import type { BrowserController } from "../browser/controller.js";
 import { formatSnapshot } from "../browser/controller.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
-import type { AssignmentSessionPlan, ManagerCoordinator } from "../manager/coordinator.js";
+import type { AssignmentSessionPlan, ManagerCoordinator, WorkerTurnResult } from "../manager/coordinator.js";
 import type { LocalStore } from "../storage/index.js";
 import { HomeworkFiles } from "../files/homework-files.js";
 import { createWorkspaceCodingTools } from "../files/workspace-tools.js";
@@ -29,6 +30,10 @@ import { openAssignmentWorkspace } from "../files/workspace.js";
 import { createBrowserUploadTool } from "../browser/tools.js";
 import { createBrowserDownloadTool } from "../browser/downloads.js";
 import { createPdfReadTool } from "../files/pdf-tool.js";
+
+const HAND_IN_ACTION = /(?:^|_)(?:SUBMIT|TURN_IN|TURNIN|PUSH|COMMIT|CREATE_(?:A_)?PULL_REQUEST|MERGE|SEND|SHARE|PUBLISH|POST|REPLY|INVITE)(?:_|$)/;
+const MAX_NUDGES = 3;
+const RULE_STOPPED = "Your rule changed, so Dot stopped. Your work so far is saved; change the rule to let Dot carry on.";
 
 export type ExecutionNotification = Omit<NotificationIntent, "schemaVersion" | "notificationId" | "createdAt">;
 export type ExecutionNotificationSink = (intent: ExecutionNotification) => void | Promise<void>;
@@ -180,6 +185,8 @@ export class AssignmentExecutionCoordinator {
         ...execution,
         phase: "working",
         lastError: undefined,
+        turnCount: 0,
+        attemptCount: 0,
         updatedAt: this.#now(),
       });
       await this.#run(working, [
@@ -275,6 +282,8 @@ export class AssignmentExecutionCoordinator {
   ): Promise<{ readonly outcome: "completed" | "failed" | "aborted"; readonly text: string }> {
     this.#assertUsable();
     let execution = this.#requiredExecution(taskId);
+    const assignment = this.#requiredAssignment(execution.assignmentId);
+    if (!this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) throw new Error(RULE_STOPPED);
     if (execution.phase === "needs_user") {
       this.#manager.resumePaused(taskId, "Student replied to the assignment handoff");
       execution = this.#store.lifecycle.putExecution({
@@ -388,22 +397,59 @@ export class AssignmentExecutionCoordinator {
       instruction,
     ].join("\n\n");
     try {
-      const result = await this.continueTurn(execution.taskId, prompt);
-      const persisted = this.#store.agentJobs.getByTarget({kind:"assignment", assignmentId:execution.assignmentId});
-      if (persisted) this.#store.agentJobs.put({...persisted.job, messages:[...persisted.job.messages, {messageId:randomUUID(),role:"assistant",text:result.text || "This work turn ended. Check the assignment status below.",createdAt:this.#now(),turnIndex:persisted.job.turnIndex}]}, persisted.sessionPath);
-      const current = this.#store.lifecycle.getExecution(execution.taskId);
-      if (current?.phase === "working") {
-        await this.#handoff(current, result.outcome === "completed"
-          ? "The assignment worker ended without recording a verified outcome."
-          : `The assignment worker ${result.outcome} before recording a verified outcome.`,
-        "The student has inspected the visible page and asked Studi to continue.");
-      }
+      await this.#keepGoing(execution.taskId, await this.continueTurn(execution.taskId, prompt), true);
     } catch (error) {
       const current = this.#store.lifecycle.getExecution(execution.taskId);
       if (current?.phase === "working") {
         await this.#handoff(current, `The assignment worker stopped: ${errorMessage(error)}`, "The student has resolved the visible browser problem.");
       }
     }
+  }
+
+  /** A student's message while Dot works on an assignment. It ends the same way as any other work turn. */
+  async replyTurn(taskId: string, prompt: string, observe?: (event: AgentRunEvent) => void): Promise<WorkerTurnResult> {
+    this.#assertUsable();
+    const execution = this.#requiredExecution(taskId);
+    // A student reply opens a fresh allowance of turns; the limit only stops Dot from nudging itself forever.
+    if (execution.phase === "needs_user" || execution.turnCount >= execution.taskBudget.maxAgentTurns) {
+      this.#store.lifecycle.putExecution({ ...execution, turnCount: 0, attemptCount: 0, updatedAt: this.#now() });
+    }
+    const result = await this.continueTurn(taskId, prompt, observe);
+    await this.#keepGoing(taskId, result, false);
+    return result;
+  }
+
+  // Every work turn ends here, whatever started it. A worker that stops without recording a result is nudged
+  // up to three times; then the student is asked, with the real reason.
+  async #keepGoing(taskId: string, first: WorkerTurnResult, recordFirst: boolean): Promise<void> {
+    let result = first;
+    for (let nudge = 1; ; nudge += 1) {
+      if (recordFirst || nudge > 1) this.#recordReply(taskId, result);
+      const current = this.#store.lifecycle.getExecution(taskId);
+      if (current?.phase !== "working") return;
+      const assignment = this.#requiredAssignment(current.assignmentId);
+      const continueHint = "The student has inspected the visible page and asked Studi to continue.";
+      if (!this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) {
+        await this.#handoff(current, RULE_STOPPED, continueHint);
+        return;
+      }
+      const stalled = result.reason === "stalled";
+      const turnsLeft = current.turnCount < current.taskBudget.maxAgentTurns;
+      if ((result.outcome !== "completed" && !stalled) || nudge > MAX_NUDGES || !turnsLeft) {
+        await this.#handoff(current, stopReason(result, nudge > MAX_NUDGES, turnsLeft), continueHint);
+        return;
+      }
+      result = await this.continueTurn(taskId, stalled
+        ? "That turn made no progress for several minutes and was stopped. Take a fresh snapshot, then carry on from where the work is."
+        : `You ended the turn without recording a result (reminder ${nudge} of ${MAX_NUDGES}). Carry on with the work. Finish with assignment_start_review, ask with assignment_tell_student if you need the student, or call assignment_mark_unsupported if it truly can't be done.`);
+    }
+  }
+
+  #recordReply(taskId: string, result: WorkerTurnResult): void {
+    const assignmentId = this.#store.lifecycle.getExecution(taskId)?.assignmentId;
+    const persisted = assignmentId ? this.#store.agentJobs.getByTarget({ kind: "assignment", assignmentId }) : undefined;
+    if (!persisted || !result.text.trim()) return;
+    this.#store.agentJobs.put({ ...persisted.job, messages: [...persisted.job.messages, { messageId: randomUUID(), role: "assistant", text: result.text, createdAt: this.#now(), turnIndex: persisted.job.turnIndex }] }, persisted.sessionPath);
   }
 
   #recordActivity(taskId: string, event: AgentRunEvent): void {
@@ -477,8 +523,9 @@ export class AssignmentExecutionCoordinator {
           evidence: this.#checkpoint(snapshot, `Recovery ${ordinal}: ${input.result.trim()}`),
           recordedAt: this.#now(),
         });
-        this.#store.lifecycle.putExecution({ ...execution, attemptCount: ordinal, updatedAt: this.#now() });
-        if (ordinal === 2) {
+        const runAttempts = Math.min(execution.attemptCount + 1, execution.taskBudget.maxRecoveryAttempts);
+        this.#store.lifecycle.putExecution({ ...execution, attemptCount: runAttempts, updatedAt: this.#now() });
+        if (runAttempts >= execution.taskBudget.maxRecoveryAttempts) {
           await this.#handoff(this.#requiredExecution(execution.taskId), "Two different browser recovery plans failed.", "The student has resolved the browser failure and asked Studi to continue.");
         }
         return toolResult(attempt);
@@ -584,7 +631,7 @@ export class AssignmentExecutionCoordinator {
         if (input.scope === "course") subjectId = assignment.courseId;
         if (input.scope === "pattern") {
           if (!input.patternId) throw new Error("A confirmed pattern id is required for a pattern note");
-          const confirmed = this.#store.manager.listConfirmedPatterns(assignment.assignmentId, assignment.courseId).some((match) => match.patternId === input.patternId);
+          const confirmed = this.#manager.matchedPatterns(assignment.assignmentId, assignment.courseId).includes(input.patternId);
           if (!confirmed) throw new Error(`Pattern ${input.patternId} is not confirmed for this assignment`);
           subjectId = input.patternId;
         }
@@ -787,8 +834,26 @@ export class AssignmentExecutionCoordinator {
     try { connected = await this.#connectedAppTools(); } catch { /* Connected apps cannot disable local tools. */ }
     return {
       cwd: workspace.assignmentDirectory,
-      tools: [...this.#tools, ...files, upload, download, pdf, ...connected],
+      tools: [...this.#tools, ...files, upload, download, pdf, ...connected.map(tool => this.#handInGate(tool, assignmentId))],
     };
+  }
+
+  // A connected-app action that hands work in (push, pull request, send, share, post) passes the same check as
+  // browser_submit: the rule must allow handing in, and the hand-in must have been asked for.
+  #handInGate(tool: ToolDefinition, assignmentId: string): ToolDefinition {
+    if (tool.name !== "connected_apps_execute") return tool;
+    return { ...tool, execute: async (...args: Parameters<ToolDefinition["execute"]>) => {
+      const slug = String((args[1] as { toolSlug?: unknown }).toolSlug ?? "");
+      if (HAND_IN_ACTION.test(slug)) {
+        const assignment = this.#requiredAssignment(assignmentId);
+        const execution = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId)
+          .map(task => this.#store.lifecycle.getExecution(task.taskId)).find(item => item && isLivePhase(item.phase));
+        if (!this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit || !execution?.reviewSubmissionRequestedAt) {
+          throw new Error("This action would hand the work in. Only the hand-in step may do that, and only when the student's rule allows it. Save the work instead and tell the student what to send or push.");
+        }
+      }
+      return tool.execute(...args);
+    } };
   }
 
   async assignmentFiles(assignmentId:string) { return (await this.#assignmentWorkspace(assignmentId)).files.list(); }
@@ -862,7 +927,7 @@ export class AssignmentExecutionCoordinator {
       kind: "assignment",
       assignmentId,
       courseId,
-      confirmedPatternIds: this.#store.manager.listConfirmedPatterns(assignmentId, courseId).map((match) => match.patternId),
+      confirmedPatternIds: this.#manager.matchedPatterns(assignmentId, courseId),
       courseAssignmentIds: this.#store.assignments.listByCourse(courseId).map((assignment) => assignment.assignmentId),
     };
   }
@@ -901,3 +966,12 @@ const TOOL_ACTION_LABELS: Record<string, string> = {
 const HANDOFF_TITLES: Record<NonNullable<AssignmentExecution["needs"]>, string> = {
   answer: "Inky has a question", sign_in: "Sign in so Inky can continue", files: "Inky needs a file", browser: "Studi needs you in the browser",
 };
+
+// The words the student sees when Dot stops and needs them, with the real cause.
+function stopReason(result: WorkerTurnResult, nudgedOut: boolean, turnsLeft: boolean): string {
+  if (result.reason === "stalled") return "I stopped making progress, so I paused. My work so far is saved; tell me how to carry on.";
+  if (result.outcome === "failed") return `I had to stop: ${result.reason ?? "the model request failed"}. My work so far is saved.`;
+  if (!turnsLeft) return "I've used this run's turns without finishing. My work so far is saved; tell me how to carry on.";
+  if (nudgedOut) return "I kept stopping without finishing or asking you anything. Look at the page and tell me how to carry on.";
+  return "I stopped before recording a result. My work so far is saved; tell me how to carry on.";
+}

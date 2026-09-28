@@ -363,7 +363,7 @@ export function installDevPreview(): void {
       lifecycle = { ...lifecycle, manager: { ...lifecycle.manager, entries: [entry, ...lifecycle.manager.entries.filter(entry => entry.taskId !== taskId)] } };
       return lifecycle.manager;
     },
-    submitAssignmentByRule:async()=>{throw new Error("Preview cannot submit schoolwork.");},
+    submitReviewedAssignment:async()=>{throw new Error("Preview cannot submit schoolwork.");},
 
     getRuntimeInfo: async () => ({ app: `${version}-preview`, electron: "simulated", chrome: "simulated", node: "simulated" }),
     getContractManifest: async () => CONTRACT_MANIFEST,

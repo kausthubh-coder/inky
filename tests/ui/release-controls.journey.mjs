@@ -75,7 +75,7 @@ export async function verifyReleaseControls(page, base) {
       await page.locator('time[datetime="2026-09-04T03:30:00.000Z"]').innerText(),
       new Date('2026-09-04T03:30:00.000Z').toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}),
     );
-    assert.match(await page.locator('.rd-auto-submit').innerText(),/rule: do it and submit/);
+    assert.match(await page.locator('.rd-auto-submit').innerText(),/rule: do it and hand it in/);
     await button('Edit it myself').click();
     await page.getByRole('button',{name:/I’m ready. Continue/}).waitFor();
     results.push('Mockup D leads with doubts, names actions, and shows the actual auto-submit time and rule');

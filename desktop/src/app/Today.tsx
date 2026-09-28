@@ -89,7 +89,6 @@ export function Today({
   const label = (id: string) => courseLabel(id, onboarding.courses);
   const generalRule =
     settings?.permissionRules.find((rule) => rule.scope === "global")?.mode ??
-    onboarding.profile?.defaultPermission ??
     "do_not_attempt";
   const specificRules = settings?.permissionRules.filter((rule) => rule.scope !== "global").length ?? 0;
   const queueSignature = JSON.stringify(
@@ -413,6 +412,11 @@ export function Today({
                   onDeleteRule={(ruleId) =>
                     void run(() =>
                       window.studi!.deletePermissionRule({ ruleId }),
+                    )
+                  }
+                  onGiveBack={(assignmentId) =>
+                    void run(() =>
+                      window.studi!.setAssignmentOwner({ assignmentId, owner: "inky" }),
                     )
                   }
                 />

@@ -3,7 +3,7 @@ import type { BrowserSnapshot, BrowserState } from "../../shared/index.js";
 const MAX_ELEMENTS = 80;
 const MAX_TEXT_LENGTH = 8_000;
 const ACTION_SETTLE_MS = 180;
-const SUBMISSION_PATTERN = /\b(submit|turn in|hand in|finish attempt|send answers?|complete attempt)\b/i;
+const SUBMISSION_PATTERN = /\b(submit|turn in|hand in|finish attempt|send answers?|complete attempt|post (?:reply|response|to (?:the )?forum)|publish|mark (?:as )?(?:done|complete))\b/i;
 /** Pages whose text still counts as seen when the agent records what they listed. */
 const RECENT_PAGES = 40;
 const looseText = (text: string) => text.toLowerCase().replace(/&amp;/g, "&").replace(/[^\p{L}\p{N}]+/gu, " ").trim();

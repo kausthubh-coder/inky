@@ -41,6 +41,7 @@ import {
   type ContractManifest,
   type AuthState,
   type LifecycleState,
+  type AssignmentExecution,
   type RuntimeInfo,
   type SchoolOnboardingState,
   type StudiIpcHandlers,
@@ -100,11 +101,11 @@ const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(moduleDirectory, "preload.cjs");
 const rendererPath = resolve(moduleDirectory, "..", "client", "index.html");
 const appIconPath = app.isPackaged
-  ? join(process.resourcesPath, "studi-inky.png")
-  : resolve(moduleDirectory, "..", "..", "assets", "studi-inky.png");
+  ? join(process.resourcesPath, "studi-icon.png")
+  : resolve(moduleDirectory, "..", "..", "assets", "studi-icon.png");
 const trayIconPath = app.isPackaged
-  ? join(process.resourcesPath, "studi-inky.ico")
-  : resolve(moduleDirectory, "..", "..", "assets", "studi-inky.ico");
+  ? join(process.resourcesPath, "studi-icon.ico")
+  : resolve(moduleDirectory, "..", "..", "assets", "studi-icon.ico");
 const isSelfTest = !app.isPackaged && process.env.STUDI_SELF_TEST === "1";
 const isE2e = isSelfTest && Boolean(process.env.STUDI_E2E_RUNTIME_MODULE);
 const uiScenario = isSelfTest ? process.env.STUDI_UI_SCENARIO : undefined;
@@ -568,7 +569,7 @@ const ipcHandlers: StudiIpcHandlers = {
     return withReadyTutor('resuming your tutor', tutor => tutor.resume(sessionId));
   },
   cancelTutorSession: ({ sessionId }) => requireTutorCoordinator().cancel(sessionId),
-  submitAssignmentByRule: async ({ taskId }) => {
+  submitReviewedAssignment: async ({ taskId }) => {
     await requireReadyProvider('handing in your homework');
     await requireAssignmentExecutionCoordinator().submitReviewed(taskId);
     requireAppKernel().requestReconcile();
@@ -737,14 +738,15 @@ const ipcHandlers: StudiIpcHandlers = {
       ruleId: input.ruleId ?? `setting-${randomUUID()}`,
       updatedAt: new Date().toISOString(),
     });
-    if (input.scope === 'pattern') requireManagerCoordinator().confirmKindMatches(input.courseId, input.patternId);
     requireManagerCoordinator().reconcileQueue();
+    await requireManagerCoordinator().stopWorkNoLongerAllowed();
     requireAppKernel().requestReconcile();
     return readProductSettings();
   },
   deletePermissionRule: async ({ ruleId }) => {
     requireLocalStore().permissionRules.delete(ruleId);
     requireManagerCoordinator().reconcileQueue();
+    await requireManagerCoordinator().stopWorkNoLongerAllowed();
     requireAppKernel().requestReconcile();
     return readProductSettings();
   },
@@ -1588,6 +1590,7 @@ async function initializeStorage(): Promise<void> {
       appVersion: app.getVersion(),
     },
   });
+  localStore.lifecycle.onExecutionChange(recordExecutionChange);
   if (uiScenario === "partial-dashboard" || uiScenario === "desk-handoff") seedProductUiScenario(localStore, uiScenario);
   if (uiScenario && uiScenario !== "onboarding-welcome") {
     localStore.school.putProfile({
@@ -1945,7 +1948,7 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
   );
   if (!isCurrent()) return;
   requireConversationCoordinator().setAssignmentWorkRunner((taskId, prompt, observe) =>
-    requireAssignmentExecutionCoordinator().continueTurn(taskId, prompt, observe),
+    requireAssignmentExecutionCoordinator().replyTurn(taskId, prompt, observe),
   );
   appKernel = new AppKernel(
     requireLocalStore(),
@@ -1974,7 +1977,7 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
       focusBrowser: () => browserView?.webContents.focus(),
       runScheduledAssignment: async (taskId) => {
         await requireReadyProvider('starting your homework');
-        await requireAssignmentExecutionCoordinator().start(taskId);
+        await prepareAndStartAssignment(taskId);
       },
       iconPath: appIconPath,
     },
@@ -2052,6 +2055,32 @@ function captureQueueTransition(
     ...currentAgentSelection(),
     ...assignmentLabels(state.execution?.assignmentId),
   });
+}
+
+// Every assignment state change goes to PostHog. The school page runs in its own view, so replay never sees it;
+// at each hand-off, review, hand-in and failure a small screenshot of it goes along.
+function recordExecutionChange(previous: AssignmentExecution | null, next: AssignmentExecution): void {
+  if (previous?.phase === next.phase) return;
+  const telemetry = telemetryService;
+  if (!telemetry) return;
+  const title = localStore?.assignments.get(next.assignmentId)?.title;
+  telemetry.capture("studi_assignment_state", {
+    task_id: next.taskId, assignment_id: next.assignmentId, ...(title ? { assignment_title: title } : {}),
+    from: previous?.phase ?? null, to: next.phase,
+    ...(next.needs ? { needs: next.needs } : {}), ...(next.lastError ? { last_error: next.lastError.slice(0, 2_000) } : {}),
+  });
+  if (!["needs_user", "ready_review", "submitted", "failed"].includes(next.phase)) return;
+  const page = browserPages.get(`assignment:${next.assignmentId}`);
+  if (!page || page.view.webContents.isDestroyed()) return;
+  void page.view.webContents.capturePage().then(image => {
+    if (image.isEmpty()) return;
+    const small = image.getSize().width > 960 ? image.resize({ width: 960, quality: "good" }) : image;
+    telemetry.capture("studi_page_screenshot", {
+      task_id: next.taskId, assignment_id: next.assignmentId, phase: next.phase,
+      url: page.view.webContents.getURL().slice(0, 2_000),
+      image: `data:image/jpeg;base64,${small.toJPEG(60).toString("base64")}`,
+    });
+  }).catch(() => undefined);
 }
 
 function observeExecutionNotification(intent: ExecutionNotification): void {

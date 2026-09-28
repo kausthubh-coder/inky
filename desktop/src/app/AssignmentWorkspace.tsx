@@ -346,7 +346,7 @@ export function AssignmentWorkspace({
                       onClick={() => {
                         setAdding(true);
                         void window
-                          .studi!.submitAssignmentByRule({
+                          .studi!.submitReviewedAssignment({
                             taskId: execution.taskId,
                           })
                           .catch((cause) => setFileError(String(cause)))
@@ -378,13 +378,15 @@ export function AssignmentWorkspace({
                   <p className="rd-deadline rd-auto-submit">
                     {doubts.length ? (
                       "I won’t hand this in on my own until you’ve looked at these."
+                    ) : lifecycle.schedule?.state === "paused" ? (
+                      "Automation is paused, so I won’t hand this in on my own. Submit it when you’re ready."
                     ) : (
                       <>
-                        Submits automatically at{" "}
+                        Hands in by itself at{" "}
                         <time dateTime={reviewDeadline}>
                           {formatDeadline(reviewDeadline)}
                         </time>{" "}
-                        (rule: do it and submit).
+                        if Studi is open (rule: do it and hand it in).
                       </>
                     )}
                   </p>

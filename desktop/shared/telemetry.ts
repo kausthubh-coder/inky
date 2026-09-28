@@ -23,6 +23,9 @@ export const TelemetryEventNameSchema = z.enum([
   "studi_error",
   "studi_agent_trace",
   "studi_diagnostic",
+  "studi_agent_step",
+  "studi_assignment_state",
+  "studi_page_screenshot",
   "$ai_generation",
 ]);
 

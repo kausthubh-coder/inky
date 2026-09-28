@@ -913,9 +913,7 @@ export class ConversationCoordinator {
       kind: "assignment",
       assignmentId: assignment.assignmentId,
       courseId: assignment.courseId,
-      confirmedPatternIds: this.#store.manager
-        .listConfirmedPatterns(assignment.assignmentId, assignment.courseId)
-        .map((match) => match.patternId),
+      confirmedPatternIds: this.#manager.matchedPatterns(assignment.assignmentId, assignment.courseId),
       courseAssignmentIds: this.#store.assignments
         .listByCourse(assignment.courseId)
         .map((item) => item.assignmentId),

@@ -34,7 +34,7 @@ export async function verifyWorkspacePreview(page, base = "http://127.0.0.1:4174
     const autoSubmit = page.locator('time[datetime="2026-09-04T03:30:00.000Z"]');
     await autoSubmit.waitFor();
     assert.equal(await autoSubmit.innerText(), new Date("2026-09-04T03:30:00.000Z").toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }));
-    assert.match(await page.locator(".rd-auto-submit").innerText(), /rule: do it and submit/);
+    assert.match(await page.locator(".rd-auto-submit").innerText(), /rule: do it and hand it in/);
     await page.evaluate(async () => {
       const library = await window.studi.getLibraryState();
       const review = library.tasks.find(item => item.execution?.phase === "ready_review");

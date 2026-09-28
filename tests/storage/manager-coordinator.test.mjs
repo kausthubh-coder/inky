@@ -320,9 +320,7 @@ test("uncertain quiz/essay labels never grant a stronger kind rule and retain we
     store.assignments.put({ ...original, kind: "quiz", possibleKinds: ["quiz", "essay"], kindConfidence: "uncertain", kindEvidence: original.deadlineEvidence });
     store.permissionRules.put(rule("global", "global", "attempt", now));
     store.permissionRules.put({ ...rule("quiz", "pattern", "auto_submit", now), courseId: original.courseId, patternId: "quiz" });
-    manager.confirmKindMatches(original.courseId, "quiz");
-    assert.equal(store.manager.listConfirmedPatterns(original.assignmentId, original.courseId).length, 0);
-    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "attempt");
+    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "attempt", "a guessed kind never takes the kind's wider rule");
     store.permissionRules.put({ ...rule("essay", "pattern", "do_not_attempt", now), courseId: original.courseId, patternId: "essay" });
     assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "do_not_attempt");
     store.assignments.put({ ...original, possibleKinds: [], kindConfidence: "uncertain" });
@@ -330,9 +328,7 @@ test("uncertain quiz/essay labels never grant a stronger kind rule and retain we
     assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "do_not_attempt", "unknown must not fall through to global submission");
     store.assignments.put({ ...original, kind: "quiz", possibleKinds: ["quiz"], kindConfidence: "explicit", kindEvidence: original.deadlineEvidence });
     store.permissionRules.put(rule("global", "global", "attempt", now));
-    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "attempt", "an observed label alone cannot widen permission");
-    manager.confirmKindMatches(original.courseId, "quiz");
-    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "auto_submit");
+    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "auto_submit", "a kind the school states clearly takes its kind rule");
     store.assignments.put({ ...original, possibleKinds: ["quiz", "essay"], kindConfidence: "uncertain" });
     assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "do_not_attempt", "a stale confirmed label cannot override new uncertainty");
     store.permissionRules.put({ ...rule("student-exception", "assignment", "attempt", now), assignmentId: original.assignmentId });
@@ -361,26 +357,41 @@ test("assignment browser controls recheck the lease and current permission for n
   } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 });
 
-test("scheduled starts require auto-submit while attempt-only work remains explicitly startable", async () => {
+test("both do-it rules start by themselves; leave-it work never does and a downgrade withdraws its start", async () => {
   const root = await mkdtemp(join(tmpdir(), "studi-scheduled-permission-"));
   const store = await openLocalStore(root);
   const manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
   try {
-    seedTask(store, "automatic", due);
-    seedTask(store, "manual-attempt", due);
+    seedTask(store, "attempt", due);
+    seedTask(store, "submit", due);
+    seedTask(store, "leave", due);
     store.permissionRules.put(rule("global", "global", "attempt", now));
-    store.permissionRules.put({ ...rule("automatic", "assignment", "auto_submit", now), assignmentId: "assignment-automatic" });
+    store.permissionRules.put({ ...rule("submit", "assignment", "auto_submit", now), assignmentId: "assignment-submit" });
+    store.permissionRules.put({ ...rule("leave", "assignment", "do_not_attempt", now), assignmentId: "assignment-leave" });
     manager.setWorkStartMode("automatic");
     manager.setSchedulingEnabled(true);
-    assert.deepEqual(manager.state().entries.map(entry => entry.taskId), ["task-automatic"]);
-    assert.ok(manager.state().entries[0].scheduledStartAt);
-    manager.enqueue({ taskId: "task-manual-attempt", requestOrigin: "student" });
-    assert.equal(manager.state().entries.find(entry => entry.taskId === "task-manual-attempt").scheduledStartAt, undefined);
-    store.permissionRules.put({ ...rule("automatic", "assignment", "attempt", now), assignmentId: "assignment-automatic" });
+    assert.deepEqual(manager.state().entries.map(entry => entry.taskId).sort(), ["task-attempt", "task-submit"]);
+    assert.ok(manager.state().entries.every(entry => entry.scheduledStartAt));
+    store.permissionRules.put({ ...rule("attempt", "assignment", "do_not_attempt", now), assignmentId: "assignment-attempt" });
     manager.reconcileQueue();
-    assert.ok(manager.state().entries.every(entry => entry.scheduledStartAt === undefined), "downgrading an existing scheduled entry withdraws its promise");
-    const lease = await manager.startTask("task-manual-attempt");
-    assert.equal(lease.taskId, "task-manual-attempt", "an explicit student start still allows attempt-only work");
+    assert.deepEqual(manager.state().entries.map(entry => entry.taskId), ["task-submit"], "changing a rule to leave it withdraws its start");
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("a rule for a kind of work covers homework of that kind found later, and a guessed kind never widens it", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-kind-rule-"));
+  const store = await openLocalStore(root);
+  const manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+  try {
+    store.permissionRules.put(rule("global", "global", "do_not_attempt", now));
+    store.permissionRules.put({ ...rule("quizzes", "pattern", "attempt", now), courseId: "course-later", patternId: "quiz" });
+    seedTask(store, "later", due);
+    const later = store.assignments.get("assignment-later");
+    const evidence = later.requirementEvidence[0].evidence;
+    store.assignments.put({ ...later, kind: "quiz", kindConfidence: "explicit", kindEvidence: evidence });
+    assert.equal(manager.resolvePermission("assignment-later", "course-later").mayAttempt, true, "a quiz found after the rule was saved gets the quiz rule");
+    store.assignments.put({ ...later, kind: "quiz", kindConfidence: "uncertain", possibleKinds: ["quiz", "essay"] });
+    assert.equal(manager.resolvePermission("assignment-later", "course-later").mayAttempt, false, "a guessed kind keeps the safer rule");
   } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 });
 

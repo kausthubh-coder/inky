@@ -606,6 +606,42 @@ test("restart during review preserves answers and hands off without claiming the
   }
 });
 
+test("changing the rule to leave it stops running work at once, and resuming waits until the rule allows it", async () => {
+  await withStore(async store => {
+    seedTask(store, "rule-change", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    let stop;
+    const listeners = new Set();
+    const runtime = {
+      async createWorkerSession() { return runtime.session("worker"); },
+      async createAssignmentSession() { return runtime.session("assignment"); },
+      session: kind => ({
+        sessionId: `${kind}-1`, sessionPath: `${kind}-1.jsonl`, toolNames: [],
+        subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
+        prompt: async () => {
+          if (kind === "assignment") await new Promise(resolve => { stop = resolve; });
+          for (const listener of listeners) listener({ schemaVersion: 1, type: "terminal", outcome: kind === "assignment" ? "aborted" : "completed" });
+        },
+        abort: async () => stop?.(), compact: async () => {}, replace: async () => {}, dispose() {},
+      }),
+    };
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    manager.enqueue({ taskId: "task-rule-change" });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => initialNow });
+    const running = execution.startNext();
+    while (!manager.isWorkerRunning) await new Promise(resolve => setTimeout(resolve, 5));
+    store.permissionRules.put(rule("leave", "do_not_attempt", "2026-09-01T12:01:00.000Z"));
+    await manager.stopWorkNoLongerAllowed();
+    await running;
+    const stopped = store.lifecycle.getExecution("task-rule-change");
+    assert.equal(stopped.phase, "needs_user");
+    assert.match(stopped.lastError, /Your rule changed/);
+    await assert.rejects(execution.continueTurn("task-rule-change", "carry on"), /Your rule changed/);
+    execution.dispose();
+    manager.dispose();
+  });
+});
+
 class FakeBrowser {
   revision = 0;
   refRefreshes = 0;

@@ -91,3 +91,17 @@ test("specific exceptions retain precedence after a broader rule is updated", as
     assert.equal(resolvePermission(context, store.permissionRules.listAll()).mode, "do_not_attempt");
   });
 });
+
+test("after onboarding, saving the school profile (scan depth, schedule) never changes the rule for all homework", async () => {
+  const { SchoolScanCoordinator } = await import("../../dist/electron/scan/coordinator.js");
+  await fixture(async store => {
+    const scan = new SchoolScanCoordinator(store, {}, {}, { now: () => now });
+    const profile = { studentName: "Avery", schoolRoot: "https://school.example.edu/", defaultPermission: "attempt", scanCadence: "manual" };
+    await scan.saveProfile(profile);
+    assert.equal(store.permissionRules.listByScope("global")[0].mode, "attempt", "onboarding's choice becomes the rule");
+    store.school.putProfile({ ...store.school.getProfile(), onboardingState: "ready" });
+    store.permissionRules.put(rule("settings-global", { scope: "global" }, "do_not_attempt"));
+    await scan.saveProfile({ ...profile, scanDepth: "deep" });
+    assert.deepEqual(store.permissionRules.listByScope("global").map(item => [item.ruleId, item.mode]), [["settings-global", "do_not_attempt"]]);
+  });
+});

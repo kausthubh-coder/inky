@@ -86,7 +86,7 @@ test("workspace coding tools reject traversal, links, elevation, and global inst
     );
 
     const shellName = process.platform === "win32" ? "powershell" : "bash";
-    for (const command of ["sudo whoami", "bun add -g left-pad", "python -m pip install requests"]) {
+    for (const command of ["sudo whoami", "bun add -g left-pad", "python -m pip install requests", "git push origin main"]) {
       await assert.rejects(execute(tool(tools, shellName), { command, timeout: 10 }), /private workspace boundary|\.venv/);
     }
   } finally {

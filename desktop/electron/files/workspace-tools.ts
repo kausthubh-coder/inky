@@ -24,6 +24,8 @@ const BLOCKED_SHELL = [
   /(?:^|[\s"'])(?:[A-Za-z]:[\\/]|\\\\|\/(?:Users|home|etc|var|opt|root|Library|Applications)(?:[\\/]|$))/i,
   /(?:^|[\\/])\.\.(?:[\\/]|$)/,
   /(?:\$HOME|\$env:(?:USERPROFILE|HOME)|%USERPROFILE%|%HOME%|~[\\/])/i,
+  // Pushing to a class repository hands work in; Studi never does that from the shell.
+  /\bgit\s+push\b/i,
 ];
 
 export function createWorkspaceCodingTools(workspaceDirectory: string): ToolDefinition[] {

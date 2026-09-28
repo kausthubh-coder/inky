@@ -50,7 +50,17 @@ export interface EnqueueAssignmentInput {
 export interface ManagerCoordinatorOptions {
   readonly now?: () => string;
   readonly startAssignment?: (taskId: string) => Promise<unknown>;
+  /** A worker turn is stopped after this long with no event, or this long in total. */
+  readonly watchdog?: { readonly idleMs: number; readonly totalMs: number };
 }
+
+export type WorkerTurnResult = {
+  readonly outcome: "completed" | "failed" | "aborted";
+  readonly text: string;
+  /** Why a turn failed or stopped: the provider's reason, or "stalled" when the watchdog stopped it. */
+  readonly reason?: string;
+};
+const DEFAULT_WATCHDOG = { idleMs: 5 * 60_000, totalMs: 45 * 60_000 };
 
 export class ManagerCoordinator {
   readonly #store: LocalStore;
@@ -63,6 +73,7 @@ export class ManagerCoordinator {
   #schedulingEnabled = false;
   #disposed = false;
   #beforeAssignmentWork: ((assignmentId: string) => Promise<void>) | null = null;
+  #watchdog = DEFAULT_WATCHDOG;
 
   private constructor(
     store: LocalStore,
@@ -88,6 +99,7 @@ export class ManagerCoordinator {
       options.startAssignment ?? null,
     );
     coordinator.#workStartMode = (await store.productPreferences.get()).workStartMode ?? "manual";
+    if (options.watchdog) coordinator.#watchdog = options.watchdog;
     await coordinator.#recover();
     return coordinator;
   }
@@ -114,21 +126,13 @@ export class ManagerCoordinator {
     return this.#store.tasks.get(lease.taskId)?.assignmentId === assignmentId ? lease.taskId : null;
   }
 
+  // Chat starts work the same way as the Start button: the shared starter re-reads stale details,
+  // then checks the rule and eligibility, instead of refusing here.
   async startFromConversation(taskId: string): Promise<unknown> {
     this.#assertUsable();
     if (!this.#startAssignment) throw new Error("Assignment execution is not ready");
     if (this.#store.manager.getLease()) throw new Error("Inky is already on another page.");
-    const task = this.#requiredTask(taskId);
-    const assignment = this.#store.assignments.get(task.assignmentId);
-    if (!assignment?.lastVerifiedScanId || assignment.evidence.length === 0) {
-      throw new Error(`Task ${taskId} is not backed by a verified scanned assignment`);
-    }
-    const existing = this.#store.manager.getQueueEntry(taskId);
-    if (existing && !this.#refreshStartPermission(existing)) {
-      throw new Error(`Task ${taskId} is blocked by stored permission rules`);
-    }
-    this.enqueue({ taskId, retry: true });
-    this.steerNext(taskId);
+    this.#requiredTask(taskId);
     return this.#startAssignment(taskId);
   }
 
@@ -237,12 +241,15 @@ export class ManagerCoordinator {
     });
   }
 
-  // Called only when the student explicitly saves a rule for this kind.
-  confirmKindMatches(courseId: string, kind: string): void {
-    for (const assignment of this.#store.assignments.listByCourse(courseId)) {
-      if (assignment.kind === kind && assignment.kindConfidence === "explicit" && assignment.kindEvidence) this.#store.manager.confirmPatternMatch({ schemaVersion: 1, assignmentId: assignment.assignmentId, courseId: assignment.courseId, patternId: kind, confirmedAt: this.#now() });
-    }
-    this.reconcileQueue();
+  /** Patterns this assignment belongs to: ones the student confirmed, plus its own kind when the school states it clearly.
+   *  A clear kind counts for homework found later too, so "CSC 316 quizzes: do it" covers next week's quiz. */
+  matchedPatterns(assignmentId: string, courseId: string): string[] {
+    const assignment = this.#store.assignments.get(assignmentId);
+    const clearKind = assignment?.kindConfidence === "explicit" && assignment.kindEvidence ? assignment.kind : undefined;
+    const confirmed = this.#store.manager.listConfirmedPatterns(assignmentId, courseId)
+      .map(match => match.patternId)
+      .filter(patternId => !AssignmentKindSchema.safeParse(patternId).success);
+    return [...new Set([...confirmed, ...(clearKind ? [clearKind] : [])])];
   }
 
   cancel(taskId: string): void {
@@ -275,6 +282,16 @@ export class ManagerCoordinator {
   }
 
   async abortWorkerTurn(): Promise<void> { await this.#workerSession?.abort(); }
+
+  /** After a rule change: stop the work in progress straight away if its rule no longer lets Dot work on it. */
+  async stopWorkNoLongerAllowed(): Promise<void> {
+    const lease = this.#store.manager.getLease();
+    const task = lease ? this.#store.tasks.get(lease.taskId) : undefined;
+    const assignment = task ? this.#store.assignments.get(task.assignmentId) : undefined;
+    // A submission already in flight finishes; interrupting it could leave the school half-updated.
+    if (!assignment || task?.state === "submitting") return;
+    if (!this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) await this.#workerSession?.abort();
+  }
 
   async startNext(
     assignmentTools: AssignmentSessionPlanInput = [],
@@ -368,22 +385,36 @@ export class ManagerCoordinator {
   async runWorkerTurn(
     prompt: string,
     observe?: (event: AgentRunEvent) => void,
-  ): Promise<{ readonly outcome: "completed" | "failed" | "aborted"; readonly text: string }> {
+  ): Promise<WorkerTurnResult> {
     this.#assertUsable();
-    if (!this.#workerSession) throw new Error("No assignment worker session owns the browser");
+    const session = this.#workerSession;
+    if (!session) throw new Error("No assignment worker session owns the browser");
     if (this.#workerRunning) throw new Error("The assignment worker is already handling a turn");
     this.#workerRunning = true;
     let text = "";
-    let outcome: "completed" | "failed" | "aborted" = "failed";
-    const unsubscribe = this.#workerSession.subscribe((event) => {
+    let outcome: WorkerTurnResult["outcome"] = "failed";
+    let reason: string | undefined;
+    const startedAt = Date.now();
+    let lastEventAt = startedAt;
+    const unsubscribe = session.subscribe((event) => {
+      lastEventAt = Date.now();
       observe?.(event);
       if (event.type === "text") text += event.delta;
-      if (event.type === "terminal") outcome = event.outcome;
+      if (event.type === "terminal") { outcome = event.outcome; reason ??= event.reason; }
     });
+    // The watchdog: a turn that goes quiet, or runs far too long, is stopped so the run can recover.
+    const watchdog = setInterval(() => {
+      const now = Date.now();
+      if (now - lastEventAt < this.#watchdog.idleMs && now - startedAt < this.#watchdog.totalMs) return;
+      reason = "stalled";
+      clearInterval(watchdog);
+      void session.abort();
+    }, Math.min(5_000, this.#watchdog.idleMs));
     try {
-      await this.#workerSession.prompt(prompt);
-      return { outcome, text };
+      await session.prompt(prompt);
+      return { outcome: reason === "stalled" ? "aborted" : outcome, text, ...(reason ? { reason } : {}) };
     } finally {
+      clearInterval(watchdog);
       unsubscribe();
       this.#workerRunning = false;
     }
@@ -481,10 +512,7 @@ export class ManagerCoordinator {
       mode: "do_not_attempt" as const, mayAttempt: false, maySubmit: false,
       matchedRuleId: null, rationale: conflict.reason,
     };
-    const matchedPatternIds = this.#store.manager
-      .listConfirmedPatterns(assignmentId, courseId)
-      .filter(match => !AssignmentKindSchema.safeParse(match.patternId).success || (assignment?.kind === match.patternId && assignment.kindConfidence === "explicit" && assignment.kindEvidence))
-      .map((match) => match.patternId);
+    const matchedPatternIds = this.matchedPatterns(assignmentId, courseId);
     const rules = this.#store.permissionRules.listAll();
     const baseline = resolvePermission(
       { assignmentId, courseId, matchedPatternIds },
@@ -515,7 +543,7 @@ export class ManagerCoordinator {
     if (this.#schedulingEnabled && this.allowsAutomaticWork && this.#store.lifecycle.getSchedule()?.state !== "paused") {
       for (const task of this.#store.tasks.listByState("discovered")) {
         const assignment = this.#store.assignments.get(task.assignmentId);
-        if (!assignment || !this.#resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit || !assignmentWorkEligibility(assignment, this.#now()).eligible) continue;
+        if (!assignment || !this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt || !assignmentWorkEligibility(assignment, this.#now()).eligible) continue;
         if (this.#plannedStart(assignment, this.#now())) this.enqueue({ taskId: task.taskId, requestOrigin: "automatic" });
       }
     }
@@ -529,7 +557,8 @@ export class ManagerCoordinator {
   #plannedStart(assignment: NonNullable<ReturnType<LocalStore["assignments"]["get"]>>, enqueuedAt: string): string | undefined {
     const schedule = this.#store.lifecycle.getSchedule();
     if (!this.#schedulingEnabled || !this.allowsAutomaticWork || schedule?.state === "paused") return undefined;
-    if (!this.#resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit) return undefined;
+    // Both "do it" rules may start by themselves; handing in is checked separately, at submit time.
+    if (!this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) return undefined;
     return plannedAssignmentStart(assignment, enqueuedAt, schedule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
   }
 

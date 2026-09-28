@@ -258,6 +258,7 @@ export class PiAgentRuntime implements AgentRuntime {
         tools,
         (await buildRuntimeInstructions("scan", tools.map((tool) => tool.name))).text,
         "high",
+        "scan",
       );
     return new PiBackedAgentSession(await createPiSession(target), createPiSession, (usage) => this.addUsage(usage, "scan"));
   }
@@ -279,6 +280,8 @@ export class PiAgentRuntime implements AgentRuntime {
         nextTarget,
         tools,
         (await buildRuntimeInstructions(role, tools.map((tool) => tool.name))).text,
+        this.#thinkingLevel,
+        role,
       );
     return new PiBackedAgentSession(
       await createPiSession(sessionTarget),
@@ -297,7 +300,7 @@ export class PiAgentRuntime implements AgentRuntime {
     }
     // The caller supplies only the tutor/extraction tools. #createPiSession
     // disables built-in tools, extensions, and local context-file loading.
-    const create = (nextTarget: AgentSessionTarget) => this.#createPiSession(nextTarget, tools, systemPrompt);
+    const create = (nextTarget: AgentSessionTarget) => this.#createPiSession(nextTarget, tools, systemPrompt, this.#thinkingLevel, "learn");
     return new PiBackedAgentSession(await create(target), create, usage => this.addUsage(usage, 'conversation'));
   }
 
@@ -453,6 +456,7 @@ export class PiAgentRuntime implements AgentRuntime {
     tools: readonly ToolDefinition[],
     systemPrompt: string,
     reasoningEffort: AgentReasoningEffort = this.#thinkingLevel,
+    purpose = "assignment",
   ): Promise<PiAgentSession> {
     const sessionCwd = target.cwd ?? this.#cwd;
     // Browsing sessions summarise their history at about 80k tokens, like Codex's automatic compaction, long
@@ -500,7 +504,7 @@ export class PiAgentRuntime implements AgentRuntime {
       throw error;
     });
     // Observe the provider's final request without forcing a faster service tier.
-    const diagnostics = new RuntimeDiagnostics(session.sessionId, this.#onDiagnostic);
+    const diagnostics = new RuntimeDiagnostics(session.sessionId, this.#onDiagnostic, { purpose, ...(target.assignmentId ? { assignmentId: target.assignmentId } : {}) });
     diagnostics.record("session_created", {
       system_prompt: systemPrompt, model: this.#model.id, provider: this.#model.provider,
       reasoning_effort: reasoningEffort, tools: tools.map(tool => ({ name: tool.name, description: tool.description, parameters: tool.parameters })),

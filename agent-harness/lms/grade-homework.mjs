@@ -46,7 +46,8 @@ export function gradeHomework({ state, effects }, activityId, { mayHandIn }) {
   }
   const work = submission ?? draft;
   const quality = work ? spec.check({ answer: work.answer ?? "", files: work.files ?? [] }) : { correct: false, detail: "nothing saved" };
+  const answer = work?.answer ? work.answer.slice(0, 600) : null;
   // Handed in exactly when allowed: once under "Do it and hand it in", never under "Do it, I'll hand it in".
   const handInRight = mayHandIn ? commits === 1 : commits === 0;
-  return { activityId, doable: true, handedIn: commits, correct: quality.correct, handInRight, detail: quality.detail };
+  return { activityId, doable: true, handedIn: commits, correct: quality.correct, handInRight, detail: quality.detail, answer };
 }

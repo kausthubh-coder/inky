@@ -10,6 +10,7 @@ import { parseFaults } from "./faults.mjs";
 
 const RULES = { attempt: "Do it, I'll submit", submit: "Do it and submit" };
 const SETTLED = new Set(["ready_review", "submitted", "needs_user", "failed", "preserved"]);
+const FINAL = new Set(["submitted", "needs_user", "failed", "preserved"]);
 const REVIEW_WINDOW_MS = 5_000;
 
 export async function runHomework({ scenario = "homework-mix", rule = "attempt", perAssignmentMs = 600_000, only, faults = [] } = {}) {
@@ -45,11 +46,12 @@ export async function runHomework({ scenario = "homework-mix", rule = "attempt",
       };
       let current = await settle(item => SETTLED.has(item?.execution?.phase), perAssignmentMs);
       // Under "Do it and hand it in", review ends with Dot handing it in by itself.
-      if (rule === "submit" && current?.execution?.phase === "ready_review") current = await settle(item => item?.execution?.phase !== "ready_review", perAssignmentMs + 120_000);
+      if (rule === "submit" && current?.execution?.phase === "ready_review") current = await settle(item => FINAL.has(item?.execution?.phase), perAssignmentMs + 180_000);
       run.minutes = +((Date.now() - began) / 60_000).toFixed(1);
       run.phase = current?.execution?.phase ?? current?.task.state ?? null;
       run.needs = current?.execution?.needs ?? null;
       run.error = current?.execution?.lastError ?? null;
+      run.doubts = current?.execution?.doubts?.length ?? 0;
       if (!SETTLED.has(run.phase ?? "")) run.error = run.error ?? "Timed out";
       // Free the school page for the next assignment. The saved draft stays on the school site.
       if (["working", "needs_user", "ready_review", "submitting"].includes(current?.execution?.phase)) {
@@ -59,7 +61,8 @@ export async function runHomework({ scenario = "homework-mix", rule = "attempt",
     inspection = school.inspect();
     usage = await sessionUsage(join(profileRoot, "studi-data", "pi"));
   });
-  const grades = runs.map(run => ({ ...run, ...gradeHomework(inspection, run.activityId, { mayHandIn: rule === "submit" }) }));
+  // Dot never hands in by rule while it has doubts; holding that work for the student is the right call.
+  const grades = runs.map(run => ({ ...run, ...gradeHomework(inspection, run.activityId, { mayHandIn: rule === "submit" && !run.doubts }) }));
   const doable = grades.filter(grade => grade.doable);
   const scorecard = {
     kind: "homework", scenario, rule, faults, revision, startedAt,

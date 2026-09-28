@@ -317,7 +317,7 @@ function fakeTarget(nodes, options = {}) {
 
 
 test("explicit draft-save buttons can post a form while final and ambiguous submits stay gated", async () => {
-  for (const label of ["Save draft", "Save as draft", "Submit assignment", "Continue"]) {
+  for (const label of ["Save draft", "Save as draft", "Submit assignment", "Continue", "Post reply", "Publish"]) {
     const target = fakeTarget([axNode(1, "button", label)], {
       inspection: { connected: true, disabled: false, submission: true, label },
     });
@@ -341,7 +341,7 @@ test("read-only scan tools omit submission and restrict answer fields and keyboa
     assert.equal(tools.some(tool => tool.name === "browser_submit"), false);
     const snapshot = await controller.snapshot();
     const click = () => tools.find(tool => tool.name === "browser_click").execute("scan", { ref: snapshot.elements[0].ref });
-    if (["Submit assignment", "Continue"].includes(label)) {
+    if (["Submit assignment", "Continue", "Mark as done"].includes(label)) {
       await assert.rejects(click(), error => {
         const summary = JSON.parse(error.message);
         assert.equal(summary.status, "failed");

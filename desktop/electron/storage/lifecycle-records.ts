@@ -80,8 +80,17 @@ function parseReceiptRow(row: ReceiptRow): SubmissionReceipt {
   return record;
 }
 
+type ExecutionListener = (previous: AssignmentExecution | null, next: AssignmentExecution) => void;
+
 export class LifecycleRepository {
+  readonly #listeners = new Set<ExecutionListener>();
   constructor(private readonly database: StudiSqliteDatabase) {}
+
+  /** Hears every saved change to an assignment's execution, after it is written. */
+  onExecutionChange(listener: ExecutionListener): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  }
 
   putSchedule(value: unknown): AutomationSchedule {
     const schedule = parseValue(AutomationScheduleSchema, value, "automation schedule");
@@ -121,6 +130,9 @@ export class LifecycleRepository {
       ON CONFLICT(task_id) DO UPDATE SET assignment_id=excluded.assignment_id, phase=excluded.phase,
         review_deadline=excluded.review_deadline, updated_at=excluded.updated_at, record_json=excluded.record_json
     `).run(execution.taskId, execution.assignmentId, execution.phase, execution.reviewDeadline ?? null, execution.updatedAt, json(AssignmentExecutionSchema, execution));
+    for (const listener of this.#listeners) {
+      try { listener(prior, execution); } catch { /* A listener can never block saving homework. */ }
+    }
     return execution;
   }
 

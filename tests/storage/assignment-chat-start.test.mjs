@@ -83,7 +83,9 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
         await chat.send(target, "do it", metadata);
         assert.equal(starts, 1, "retried message delivery cannot start another worker");
       } else {
-        assert.equal(starts, 0);
+        // A changed rule reaches the shared starter, which refuses it; the other cases stop before starting.
+        assert.equal(starts, scenario === "permission changed" ? 1 : 0);
+        assert.notEqual(manager.state().lease?.taskId, "task-selected", "the addressed assignment never takes the browser");
         assert.equal(result.outcome, scenario === "cancel" ? "aborted" : "failed");
         if (scenario !== "cancel") assert.match(result.text, /couldn’t start this assignment/);
       }

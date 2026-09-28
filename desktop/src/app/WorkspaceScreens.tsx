@@ -521,7 +521,8 @@ export function SettingsScreen({
       </>}
       {section === "homework" && <>
         <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={disabled}
-          onSaveRule={input => save(() => onSaveRule(input))} onDeleteRule={id => save(() => onDeleteRule(id))} />
+          onSaveRule={input => save(() => onSaveRule(input))} onDeleteRule={id => save(() => onDeleteRule(id))}
+          onGiveBack={assignmentId => save(() => window.studi!.setAssignmentOwner({ assignmentId, owner: "inky" }))} />
         <SettingsGroup title="Timing and files">
           <SettingsRow title="When Inky starts" description="Only for homework your rules allow.">
             <select aria-label="When Inky starts" disabled={!preferences || disabled} value={preferences?.workStartMode ?? "manual"}

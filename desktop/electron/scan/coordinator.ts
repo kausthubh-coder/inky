@@ -199,13 +199,18 @@ export class SchoolScanCoordinator {
       updatedAt: this.#now(),
     };
     this.#store.school.putProfile(profile);
-    this.#store.permissionRules.put({
-      schemaVersion: STUDI_SCHEMA_VERSION,
-      ruleId: "onboarding-default",
-      scope: "global",
-      mode: profile.defaultPermission,
-      updatedAt: profile.updatedAt,
-    });
+    // Onboarding's choice becomes the rule for all homework once. After that the rule belongs to
+    // Homework rules; saving the profile again (scan depth, schedule) must never change it.
+    const hasGlobalRule = this.#store.permissionRules.listAll().some(rule => rule.scope === "global");
+    if (previous?.onboardingState !== "ready" || !hasGlobalRule) {
+      this.#store.permissionRules.put({
+        schemaVersion: STUDI_SCHEMA_VERSION,
+        ruleId: "onboarding-default",
+        scope: "global",
+        mode: profile.defaultPermission,
+        updatedAt: profile.updatedAt,
+      });
+    }
     return this.state();
   }
 
