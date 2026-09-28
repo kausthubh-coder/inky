@@ -24,10 +24,10 @@ export const TaskStateSchema = z.enum([
 
 export type TaskState = z.infer<typeof TaskStateSchema>;
 
+// Saved work ("preserved") can carry on like stopped or failed work; only handed-in and ignored work is final.
 export const TERMINAL_TASK_STATES = Object.freeze([
   "ignored",
   "submitted",
-  "preserved",
 ] as const satisfies readonly TaskState[]);
 
 export const TASK_TRANSITIONS = Object.freeze({
@@ -39,7 +39,7 @@ export const TASK_TRANSITIONS = Object.freeze({
   ready_review: Object.freeze(["submitting", "submitted", "preserved", "needs_user", "cancelled"]),
   submitting: Object.freeze(["submitted", "needs_user", "working", "failed"]),
   submitted: Object.freeze([]),
-  preserved: Object.freeze([]),
+  preserved: Object.freeze(["queued", "ignored"]),
   failed: Object.freeze(["queued", "ignored"]),
   cancelled: Object.freeze(["queued", "ignored"]),
 } as const satisfies Readonly<Record<TaskState, readonly TaskState[]>>);

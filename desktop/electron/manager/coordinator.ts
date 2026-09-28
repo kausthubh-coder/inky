@@ -148,7 +148,7 @@ export class ManagerCoordinator {
     if (!assignment) {
       throw new Error(`Assignment ${task.assignmentId} does not exist`);
     }
-    const retrying = input.retry === true && (task.state === "failed" || task.state === "cancelled");
+    const retrying = input.retry === true && (task.state === "failed" || task.state === "cancelled" || task.state === "preserved");
     if (task.state !== "discovered" && task.state !== "queued" && !retrying) {
       throw new Error(`Task ${task.taskId} cannot be queued from ${task.state}`);
     }

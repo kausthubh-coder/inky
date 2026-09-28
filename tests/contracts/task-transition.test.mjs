@@ -22,7 +22,7 @@ const expectedTransitions = {
   ready_review: ["submitting", "submitted", "preserved", "needs_user", "cancelled"],
   submitting: ["submitted", "needs_user", "working", "failed"],
   submitted: [],
-  preserved: [],
+  preserved: ["queued", "ignored"],
   failed: ["queued", "ignored"],
   cancelled: ["queued", "ignored"],
 };
@@ -32,9 +32,9 @@ function command(to) {
   return { ...taskTransitionCommand, to };
 }
 
-test("stopped tasks can be queued again while completed work stays terminal", () => {
+test("stopped and saved tasks can be queued again while handed-in work stays terminal", () => {
   assert.deepEqual(TASK_TRANSITIONS, expectedTransitions);
-  assert.deepEqual([...TERMINAL_TASK_STATES], ["ignored", "submitted", "preserved"]);
+  assert.deepEqual([...TERMINAL_TASK_STATES], ["ignored", "submitted"]);
 });
 
 test("every allowed transition returns a new task and event", () => {

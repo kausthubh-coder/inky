@@ -245,6 +245,26 @@ test("School check shows the last school-wide scan, not a finished one-assignmen
   });
 });
 
+test("saved work carries on: a preserved run can be started again", async () => {
+  await withStore(async store => {
+    let now = initialNow;
+    seedTask(store, "again", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", now));
+    const review = tools => invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer field contains x = 4" }], summary: "Ready" });
+    const runtime = new ScriptedRuntime([review, review]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => now, reviewWindowMs: 60_000, handoffWindowMs: 120_000 });
+    try {
+      assert.equal((await execution.start("task-again")).phase, "ready_review");
+      now = "2026-09-01T12:03:00.000Z";
+      await execution.reconcileDeadlines();
+      assert.equal(store.tasks.get("task-again").state, "preserved");
+      manager.enqueue({ taskId: "task-again", retry: true });
+      assert.equal((await execution.start("task-again")).phase, "ready_review", "Carry on runs Dot again");
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
+
 test("the rule never hands in late work by itself unless the school takes late work", async () => {
   await withStore(async store => {
     let now = initialNow;
