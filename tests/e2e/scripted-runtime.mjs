@@ -120,6 +120,7 @@ class ScriptedSession {
     const prefix = "Check only this selected assignment: ";
     const firstLine = promptText.split("\n", 1)[0].trimEnd();
     const assignment = JSON.parse(firstLine.slice(prefix.length, -1));
+    const details = this.#details.byTitle?.[assignment.title] ?? this.#details;
     let snapshot = await this.#call("browser_snapshot", {});
     if (snapshot.url !== assignment.sourceTarget) {
       await this.#call("browser_click", { ref: findRef(snapshot, assignment.title) });
@@ -128,11 +129,11 @@ class ScriptedSession {
     await this.#call("scan_record_assignment", {
       courseId: assignment.courseId,
       title: assignment.title,
-      instructions: this.#details.instructions,
-      requirementExcerpts: this.#details.requirements.map((text) => ({ text })),
+      instructions: details.instructions,
+      requirementExcerpts: details.requirements.map((text) => ({ text })),
       requirementsComplete: true,
       missingRequirements: [],
-      dueText: this.#details.dueText,
+      dueText: details.dueText,
       schoolStatus: { state: "not_submitted", text: "Not submitted" },
     });
   }

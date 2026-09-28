@@ -66,6 +66,7 @@ export async function withLmsApp(options, run) {
       scenarioId: options.scenario,
       seed: options.seed ?? 42,
       runDirectory: lmsRoot,
+      faults: options.faults,
     });
     await writeFile(scriptPath, JSON.stringify(typeof options.script === "function" ? options.script(school) : options.script ?? {}, null, 2));
     if (options.live) {
@@ -216,5 +217,27 @@ export function singleAssignmentScript(school, assignmentTurns) {
     ]],
     details: { instructions: activity.instructions, requirements: activity.requirements, dueText: activity.dueText },
     assignment: assignmentTurns,
+  };
+}
+
+// Record every activity in the school, class by class, with per-title details for the pre-start check.
+export function allAssignmentsScript(school) {
+  const state = school.inspect().state;
+  const hrefFor = activity => `${school.origins[activity.service]}/assignments/${encodeURIComponent(activity.id)}`;
+  return {
+    scan: [[
+      { op: "tool", name: "browser_snapshot" },
+      ...state.courses.flatMap(course => [
+        { op: "tool", name: "browser_navigate", input: { url: `${school.url}/courses/${encodeURIComponent(course.id)}` } },
+        { op: "tool", name: "browser_snapshot" },
+        { op: "tool", name: "scan_record_course", input: { label: course.title } },
+        { op: "tool", name: "scan_record_rows", input: { courseKey: course.title, rows: state.activities.filter(activity => activity.courseId === course.id).map(activity => ({
+          title: activity.title, href: hrefFor(activity), dueText: activity.dashboardDueText ?? activity.dueText,
+          statusText: "Not submitted", kind: activity.kind === "quiz" ? "quiz" : "assignment",
+        })) } },
+      ]),
+    ]],
+    details: { byTitle: Object.fromEntries(state.activities.map(activity => [activity.title, { instructions: activity.instructions, requirements: activity.requirements, dueText: activity.dueText }])) },
+    assignment: [],
   };
 }

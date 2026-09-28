@@ -9,6 +9,7 @@ const { values, positionals } = parseArgs({ allowPositionals: true, options: {
   model: { type: "string", default: "gpt-6-sol" }, provider: { type: "string", default: "openai-codex" }, effort: { type: "string", default: "high" },
   phases: { type: "string", default: "cold" }, show: { type: "boolean", default: false },
   "scan-depth": { type: "string", default: "normal" },
+  rule: { type: "string", default: "attempt" }, only: { type: "string" }, fault: { type: "string", multiple: true },
 } });
 if (positionals[0] === "live") {
   if (!values["lms-module"]) throw new Error("live requires --lms-module path/to/server.mjs");
@@ -28,6 +29,12 @@ if (positionals[0] === "live") {
   const phase = record.phases[0];
   console.log(JSON.stringify({ path, status: phase.status, passed: phase.grade.passed, checks: phase.grade.checks.length, failed: phase.grade.checks.filter(item => !item.passed) }));
   process.exitCode = phase.grade.passed ? 0 : 1;
+} else if (positionals[0] === "homework") {
+  const { runHomework, formatScorecard } = await import("./homework-runner.mjs");
+  const result = await runHomework({ scenario: values.scenario === "smoke" ? "homework-mix" : values.scenario, rule: values.rule, only: values.only?.split(","), faults: values.fault ?? [] });
+  console.log(formatScorecard(result));
+  console.log(`
+Scorecard: ${result.path}`);
 } else if (positionals[0] === "compare") {
   const { compareRuns } = await import("./comparison.mjs");
   const [baseline, candidate] = await Promise.all(positionals.slice(1, 3).map(async path => JSON.parse(await readFile(path, "utf8"))));
@@ -36,4 +43,4 @@ if (positionals[0] === "live") {
   if (values.output) await writeJson(values.output, comparison);
   console.log(JSON.stringify(comparison, null, 2));
   process.exitCode = comparison.comparable && comparison.candidate.passed ? 0 : 1;
-} else throw new Error("Usage: bun run benchmark -- replay [--build dist] | compare baseline.json candidate.json [--output comparison.json]");
+} else throw new Error("Usage: bun run benchmark -- replay [--build dist] | homework [--rule attempt|submit] [--only id,id] [--fault spec]... | compare baseline.json candidate.json [--output comparison.json]");

@@ -36,7 +36,12 @@ export interface StartLmsOptions {
   privateLibrary?: string;
   initialState?: SchoolState;
   replayDirectory?: string;
+  /** Faults on a schedule: slow pages, or a school event after N page requests or M minutes. */
+  faults?: FaultPlan[];
 }
+export type FaultPlan =
+  | { slow: string; ms: number }
+  | { event: string; afterRequests?: number; atMinute?: number; service?: Service };
 const baseServices: Service[] = ["school", "statistics", "builds", "feedback"];
 export async function startLms(options: StartLmsOptions) {
   const replay = options.replayDirectory ? await loadRecording(options.replayDirectory) : null;
@@ -124,12 +129,28 @@ export async function startLms(options: StartLmsOptions) {
       }
     }
   }
+  let requests = 0;
+  const slow = (options.faults ?? []).flatMap((plan) => "slow" in plan ? [{ pattern: new RegExp(plan.slow), ms: plan.ms }] : []);
+  const pending = (options.faults ?? []).flatMap((plan) => "event" in plan ? [plan] : []);
+  const fire = (plan: Extract<FaultPlan, { event: string }>) => {
+    pending.splice(pending.indexOf(plan), 1);
+    store.advance(plan.event, plan.service ? { service: plan.service } : {});
+    if (plan.event === "expire-session") csrf[plan.service ?? "school"] = randomUUID();
+  };
+  const timers = pending.filter((plan) => plan.atMinute !== undefined)
+    .map((plan) => setTimeout(() => { if (pending.includes(plan)) fire(plan); }, plan.atMinute! * 60_000));
   async function handle(
     service: Surface,
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> {
     const url = new URL(request.url ?? "/", origins[service]);
+    if (url.pathname !== "/favicon.ico") {
+      requests += 1;
+      for (const plan of pending.filter((item) => item.afterRequests !== undefined && requests > item.afterRequests!)) fire(plan);
+      const delay = slow.find((rule) => rule.pattern.test(url.pathname))?.ms;
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    }
     response.setHeader("Cache-Control", "no-store");
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("Referrer-Policy", "same-origin");
@@ -485,6 +506,7 @@ export async function startLms(options: StartLmsOptions) {
     close: async () => {
       if (closed) return;
       closed = true;
+      timers.forEach(clearTimeout);
       await Promise.all(servers.map(closeServer));
       store.close();
     },
