@@ -255,7 +255,8 @@ export function AssignmentWorkspace({
         working ? (driving ? "steering" : "working") : "idle", startedAt ? clock(startedAt) : undefined);
     }
     talk(after);
-    if (run?.phase === "working") (run.notices ?? []).forEach((notice, index) => dot(`notice-${index}`, <p><strong>Heads-up:</strong> {notice}</p>, "working"));
+    // Heads-ups are news from the run: shown in the thread while working and after, never as a checklist.
+    if (run && ["working", "ready_review", "submitting", "submitted"].includes(run.phase)) (run.notices ?? []).forEach((notice, index) => dot(`notice-${index}`, <p><strong>Heads-up:</strong> {notice}</p>, run.phase === "working" ? "working" : "idle"));
     if (state === "waiting") {
       const text = run?.returnPredicate ?? run?.lastError ?? { sign_in: "The school wants you to sign in. I've kept my place.", files: "I need a file to carry on.", answer: "I have a question before I go on.", browser: "I need you on the page for a moment." }[record.needs ?? "browser"];
       dot("waiting", <div className="ag-text"><ChatMarkdown text={text} /></div>, "needs");
@@ -322,29 +323,33 @@ export function AssignmentWorkspace({
         return { title: "Dot needs you on the page.", body: run.returnPredicate ?? "Do what's needed on the right, then let Dot carry on.", actions: <>{primary("I'm done, carry on", () => onResume(run.taskId))}{stop}</> };
       case "ready": {
         if (!run) return null;
+        // Doubts are Dot's judgement calls; the student marks each one fine or asks for a change.
         const checks = doubts.length > 0 && (
           <div className="ag-checks">
             {doubts.map((doubt, index) => settled.includes(index)
               ? <div className="ag-check is-ok" key={index}><Icon name="check" size={14} /><b>{doubt.where}</b></div>
               : <div className="ag-check" key={index}><b>{doubt.where}</b><small>{doubt.why}</small>
-                  <div className="ag-opts"><button className="rd-button" onClick={() => settle(index)}>That's right</button><button className="rd-quiet" onClick={() => onSuggest(`Change ${doubt.where}: `)}>Change it</button></div></div>)}
+                  <div className="ag-opts"><button className="rd-button" onClick={() => settle(index)}>Looks fine</button><button className="rd-quiet" onClick={() => onSuggest(`Change ${doubt.where}: `)}>Change it</button></div></div>)}
           </div>
         );
+        const calls = open ? `Dot made ${open === 1 ? "a call" : `${open} calls`} you might want to change.` : null;
+        const handIn = primary(pending ? "Handing in…" : "Hand it in", () => void act(() => window.studi!.submitReviewedAssignment({ taskId: run.taskId })), open > 0);
         if (handing) return { title: "Press Submit on the school page.", body: "It's on the right. Dot sees it when the school confirms, and saves the receipt.", actions: quiet("Back to my work", () => setHanding(false)) };
         if (task?.permission.maySubmit) {
           const deadline = run.reviewDeadline && !run.reviewSubmissionRequestedAt && lifecycle.schedule?.state !== "paused" ? clock(run.reviewDeadline) : null;
           return {
-            title: open ? `Check ${open === 1 ? "this" : "these"}, then it goes in.` : "Ready to hand in.",
-            ...(open ? {} : { body: deadline && !doubts.length ? `Dot hands it in at ${deadline} if Studi is open, or now if you say so.` : "Dot hands it in when you say so." }),
+            title: calls ?? "Ready to hand in.",
+            body: open ? "Mark each one, then it goes in." : run.notices?.length ? "Dot left you a heads-up, so it won't hand this in by itself. Hand it in once you've read it." : deadline && !doubts.length ? `Dot hands it in at ${deadline} if Studi is open, or now if you say so.` : "Dot hands it in when you say so.",
             extra: checks,
-            actions: <>{primary(pending ? "Handing in…" : "Hand it in now", () => void act(() => window.studi!.submitReviewedAssignment({ taskId: run.taskId })), open > 0)}{quiet("Edit it myself", () => onPause(run.taskId))}</>,
+            actions: <>{handIn}{quiet("Edit it myself", () => onPause(run.taskId))}</>,
           };
         }
+        // "Do it, I'll hand it in": Dot never hands in by itself, but does when the student asks.
         return {
-          title: open ? `Check ${open === 1 ? "this" : "these"}, then hand it in.` : "Ready for you to hand in.",
-          ...(open ? {} : { body: "Dot opens the page and watches for the school's confirmation." }),
+          title: calls ?? "Ready for you to hand in.",
+          body: open ? "Mark each one, then hand it in." : "Dot can hand it in now, or you can submit it on the school page yourself.",
           extra: checks,
-          actions: <>{primary("Go hand it in", () => void act(async () => { await window.studi!.watchHandIn({ taskId: run.taskId }); setHanding(true); }), open > 0)}{quiet("Edit it myself", () => onPause(run.taskId))}</>,
+          actions: <>{handIn}{quiet("I'll submit it on the page", () => void act(async () => { await window.studi!.watchHandIn({ taskId: run.taskId }); setHanding(true); }))}{quiet("Edit it myself", () => onPause(run.taskId))}</>,
         };
       }
       case "stopped":

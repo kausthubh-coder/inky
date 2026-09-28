@@ -245,6 +245,30 @@ test("School check shows the last school-wide scan, not a finished one-assignmen
   });
 });
 
+test("under \"Do it, I'll hand it in\" Dot hands in once when the student asks, never by itself", async () => {
+  await withStore(async store => {
+    let now = initialNow;
+    seedTask(store, "asked", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", now));
+    const browser = new FakeBrowser("Answer page", "Submitted successfully");
+    const runtime = new ScriptedRuntime([
+      tools => invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer field contains x = 4" }], summary: "Ready" }),
+      async tools => { await browser.snapshot(); await invoke(tools, "browser_submit", { ref: browser.currentRef, confirmation: "SUBMIT", expectedConfirmationText: "Submitted successfully" }); },
+    ]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => now, reviewWindowMs: 60_000, handoffWindowMs: 600_000 });
+    try {
+      assert.equal((await execution.start("task-asked")).phase, "ready_review");
+      now = "2026-09-01T12:02:00.000Z";
+      await execution.reconcileDeadlines();
+      assert.equal(browser.submitClicks, 0, "the rule never hands in by itself");
+      await execution.submitReviewed("task-asked");
+      assert.equal(store.tasks.get("task-asked").state, "submitted");
+      assert.equal(browser.submitClicks, 1);
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
+
 test("saved work carries on: a preserved run can be started again", async () => {
   await withStore(async store => {
     let now = initialNow;
@@ -336,8 +360,12 @@ for (const mode of ["ready", "doubts", "heads-up", "paused"]) test(`timed review
       } else {
         assert.equal(browser.submitClicks, 0);
         assert.equal(store.lifecycle.getExecution("task-timer").phase, "ready_review");
-        if (mode === "doubts" || mode === "heads-up") await assert.rejects(execution.submitByRule("task-timer"), /doubt/i);
-        if (mode === "heads-up") assert.deepEqual(store.lifecycle.getExecution("task-timer").doubts, [{ where: "Heads-up", why: "This computer has no graphing tool, so I drew the graph by hand." }]);
+        if (mode === "doubts") await assert.rejects(execution.submitByRule("task-timer"), /doubt/i);
+        if (mode === "heads-up") {
+          await assert.rejects(execution.submitByRule("task-timer"), /heads-up/i);
+          assert.deepEqual(store.lifecycle.getExecution("task-timer").doubts, [], "a heads-up is news, not a question");
+          assert.deepEqual(store.lifecycle.getExecution("task-timer").notices, ["This computer has no graphing tool, so I drew the graph by hand."]);
+        }
       }
     } finally { execution.dispose(); manager.dispose(); }
   });

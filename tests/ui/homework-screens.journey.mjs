@@ -70,7 +70,7 @@ export async function verifyHomeworkScreens(page, base, evidenceDirectory) {
     await open("desk-review");
     const hand = page.locator(".ag-move .rd-primary");
     assert.equal(await hand.isDisabled(), true, "open doubts come first");
-    while (await page.getByRole("button", { name: "That's right" }).count()) await page.getByRole("button", { name: "That's right" }).first().click();
+    while (await page.getByRole("button", { name: "Looks fine" }).count()) await page.getByRole("button", { name: "Looks fine" }).first().click();
     assert.equal(await hand.isDisabled(), false);
     await shot("assignment-review");
 

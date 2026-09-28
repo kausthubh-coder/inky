@@ -58,8 +58,8 @@ test("J2: attempt-only stops at review, student submits once, and Studi shows th
 
     // The student settles Dot's doubts, then hands in on the school page; Dot reads the confirmation itself.
     const move = page.getByRole("region", { name: "Your move" });
-    while (await move.getByRole("button", { name: "That's right" }).count()) await move.getByRole("button", { name: "That's right" }).first().click();
-    await move.getByRole("button", { name: "Go hand it in" }).click();
+    while (await move.getByRole("button", { name: "Looks fine" }).count()) await move.getByRole("button", { name: "Looks fine" }).first().click();
+    await move.getByRole("button", { name: "I'll submit it on the page" }).click();
     const schoolTab = schoolPage(app, school.url);
     await schoolTab.reload();
     await schoolTab.getByRole("button", { name: "Submit assignment" }).click();

@@ -385,7 +385,7 @@ export class AssignmentExecutionCoordinator {
     if (current?.phase === "ready_review" && current.reviewDeadline && current.reviewDeadline <= this.#now() &&
       !current.reviewSubmissionRequestedAt && !this.#manager.isWorkerRunning && this.#store.lifecycle.getSchedule()?.state !== "paused") {
       const assignment = this.#requiredAssignment(current.assignmentId);
-      if (this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit && !current.doubts?.length && !pastDueWithoutLateWindow(assignment, this.#now())) await this.submitByRule(current.taskId);
+      if (this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit && !current.doubts?.length && !current.notices?.length && !pastDueWithoutLateWindow(assignment, this.#now())) await this.submitByRule(current.taskId);
     }
     for (const execution of this.#store.lifecycle.listExpiredReviewHandoffs(this.#now())) {
       if (this.#matchesExecutionOwner(execution) && !this.#manager.isWorkerRunning) await this.#preserve(execution);
@@ -417,6 +417,8 @@ export class AssignmentExecutionCoordinator {
     if (!permission.mayAttempt) throw new Error("Your current rule no longer allows Dot to handle this assignment.");
     if (source === "rule" && !permission.maySubmit) throw new Error("Your current rule lets Dot prepare this work; you submit it yourself.");
     if (source === "rule" && execution.doubts?.length) throw new Error("Resolve Dot's doubts before submitting this work.");
+    // A heads-up is news the student should read before work goes in by itself.
+    if (source === "rule" && execution.notices?.length) throw new Error("Dot left a heads-up; it hands in by itself only after you've seen it.");
     // Starting no longer waits for a confirmed deadline, so the rule never hands in late work by itself
     // unless the school says late work is accepted right now. The student can still hand it in.
     if (source === "rule" && pastDueWithoutLateWindow(assignment, this.#now())) throw new Error("The deadline has passed; hand this one in yourself if the school still takes it.");
@@ -425,7 +427,7 @@ export class AssignmentExecutionCoordinator {
     if (this.#manager.isWorkerRunning) throw new Error("Dot is finishing the current turn. Try again in a moment.");
     this.#store.lifecycle.putExecution({ ...execution, reviewSubmissionRequestedAt: this.#now(), reviewSubmissionSource: source, updatedAt: this.#now() });
     try {
-      await this.#manager.runWorkerTurn(`${source === "student" ? "The student clicked Submit for this reviewed assignment, including any visible doubts." : "The review timer ended and the saved rule allows submission."} Take a fresh snapshot and use browser_submit with the current submit control. Set expectedConfirmationText to an affirmative status or receipt that will appear only after submission, such as "Submission received" or "Submitted; not yet graded"; never use the submit button label or the current "Not submitted" status. Do not rewrite answers or repeat an already attempted effect. If permission or page state changed, report the problem.`, event => this.#recordActivity(taskId, event));
+      await this.#manager.runWorkerTurn(`${source === "student" ? "The student clicked Submit for this reviewed assignment, including any visible doubts." : "The review timer ended and the saved rule allows submission."} Take a fresh snapshot. If the work isn't on the page yet (for example a file upload), open the submission form and attach the finished files from the folder with browser_upload first. Then use browser_submit with the current submit control. Set expectedConfirmationText to an affirmative status or receipt that will appear only after submission, such as "Submission received" or "Submitted; not yet graded"; never use the submit button label or the current "Not submitted" status. Do not rewrite answers or repeat an already attempted effect. If permission or page state changed, report the problem.`, event => this.#recordActivity(taskId, event));
       const latest = this.#requiredExecution(taskId);
       if (latest.phase === "ready_review") await this.#submissionHandoff(latest, "Dot could not verify a submission. Check the saved answers and school page before continuing.", "Submission needs you");
     } catch (error) {
@@ -730,7 +732,8 @@ export class AssignmentExecutionCoordinator {
           reviewSubmissionSource: current.submissionAttemptedAt ? current.reviewSubmissionSource : undefined,
           answerSnapshot: answers,
           // Heads-ups given during the work stay in front of the student and stop automatic submission.
-          doubts: [...(input.doubts ?? []), ...(current.notices ?? []).map(why => ({ where: "Heads-up", why }))].slice(0, 30),
+          // Only Dot's judgement calls ask the student to decide; heads-ups stay news, shown in the thread.
+          doubts: (input.doubts ?? []).slice(0, 30),
           completionChecklist: input.completedRequirements.map((item) => ({
             requirement: item.requirement.trim(),
             evidence: item.evidence.trim(),
@@ -1062,7 +1065,10 @@ export class AssignmentExecutionCoordinator {
         const assignment = this.#requiredAssignment(assignmentId);
         const execution = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId)
           .map(task => this.#store.lifecycle.getExecution(task.taskId)).find(item => item && isLivePhase(item.phase));
-        if (!this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit || !execution?.reviewSubmissionRequestedAt) {
+        const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
+        // The rule may hand in by itself, or the student asked for this hand-in ("Do it, I'll hand it in" still lets them ask).
+        const asked = execution?.reviewSubmissionSource === "student" && permission.mayAttempt;
+        if (!execution?.reviewSubmissionRequestedAt || !(permission.maySubmit || asked)) {
           throw new Error("This action would hand the work in. Only the hand-in step may do that, and only when the student's rule allows it. Save the work instead and tell the student what to send or push.");
         }
       }
