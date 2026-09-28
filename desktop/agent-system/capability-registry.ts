@@ -74,8 +74,11 @@ export function selectCapabilities(context: CapabilityContext): readonly Capabil
 
   const selected: CapabilityName[] = ["assignment", "notes-search", "notes-read"];
   if (!context.hasBrowserClaim) selected.splice(1, 0, "assignment-start");
+  // Between work turns an assignment chat can also remember a preference the student asks for.
+  const idle = context.phase !== "working" || !context.hasBrowserClaim;
+  if (idle) selected.push("preferences");
   if ((context.composioTools?.length ?? 0) > 0) selected.push("composio");
-  if (context.phase !== "working" || !context.hasBrowserClaim) return selected;
+  if (idle) return selected;
 
   selected.push("browser", "assignment-effects");
   if (context.filesAvailable) selected.push("files");

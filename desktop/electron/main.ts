@@ -1721,7 +1721,17 @@ async function initializeDesktopAgent(): Promise<void> {
   const ownerSubject = identity && (identity.status === "approved" || identity.status === "offline") ? identity.user.subject : undefined;
   if (!ownerSubject) throw new Error('Sign in before opening your learning workspace.');
   learnRepository = new LearnRepository(requireLocalStore().database, ownerSubject);
-  memoryCoordinator = new MemoryCoordinator(requireLocalStore().notes, ownerSubject);
+  // Everything Dot has written down on this device belongs to its student: the school, classes, kinds and assignments.
+  memoryCoordinator = new MemoryCoordinator(requireLocalStore().notes, ownerSubject, () => {
+    const store = requireLocalStore();
+    const profile = store.school.getProfile();
+    return [
+      ...(profile ? [{ scope: "school" as const, subjectId: profile.profileId }] : []),
+      ...store.school.listCourses().map(course => ({ scope: "course" as const, subjectId: course.courseId })),
+      ...store.assignments.listAll().map(assignment => ({ scope: "assignment" as const, subjectId: assignment.assignmentId })),
+      ...store.notes.list().filter(note => note.scope === "pattern").map(note => ({ scope: "pattern" as const, subjectId: note.subjectId })),
+    ];
+  });
   const dataRoot = join(app.getPath("userData"), "studi-data");
   const runtimeOptions: Parameters<typeof PiAgentRuntime.create>[0] = {
     cwd: dataRoot,
@@ -1933,6 +1943,9 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
       browserWork: requireVisibleBrowserWork(),
       connectedAppTools: loadConnectedAppTools,
       browserForAssignment: id => schoolBrowserPage(`assignment:${id}`).controller,
+      classMaterials: courseId => requireLearnRepository().sources()
+        .filter(source => source.courseId === courseId && source.status === "ready")
+        .map(source => ({ title: source.title, sourceTarget: source.sourceTarget, text: source.text })),
       reviewWindowMs: isSelfTest && process.env.STUDI_E2E_REVIEW_WINDOW_MS
         ? Number(process.env.STUDI_E2E_REVIEW_WINDOW_MS) : productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
@@ -1988,6 +2001,11 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
   }
   await appKernel.start();
   for (const intent of pendingNotifications.splice(0)) await appKernel.notify(intent);
+  // Homework that was running when Studi quit carries on by itself once the model is ready.
+  void requireReadyProvider("carrying on your homework")
+    .then(() => requireAssignmentExecutionCoordinator().carryOnAfterRestart())
+    .then(() => appKernel?.requestReconcile())
+    .catch(error => telemetryService?.captureError(error, "queue", "assignment", currentAgentSelection()));
   queueLearnExtraction();
 }
 

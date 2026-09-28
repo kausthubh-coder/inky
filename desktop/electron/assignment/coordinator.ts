@@ -18,7 +18,7 @@ import {
   type NotificationIntent,
   type AgentRunEvent,
 } from "../../shared/index.js";
-import { retrieveNoteIndex, type NoteRetrievalContext } from "../../agent-system/retrieve.js";
+import { noteIsAllowed, retrieveNoteIndex, searchNotes, type NoteRetrievalContext } from "../../agent-system/retrieve.js";
 import type { BrowserController } from "../browser/controller.js";
 import { formatSnapshot } from "../browser/controller.js";
 import { VisibleBrowserWork } from "../browser/work-ownership.js";
@@ -33,7 +33,15 @@ import { createPdfReadTool } from "../files/pdf-tool.js";
 
 const HAND_IN_ACTION = /(?:^|_)(?:SUBMIT|TURN_IN|TURNIN|PUSH|COMMIT|CREATE_(?:A_)?PULL_REQUEST|MERGE|SEND|SHARE|PUBLISH|POST|REPLY|INVITE)(?:_|$)/;
 const MAX_NUDGES = 3;
+const RUN_ENDS = new Set<AssignmentExecution["phase"]>(["needs_user", "ready_review", "submitted", "preserved", "failed"]);
+const RUN_ENDING: Partial<Record<AssignmentExecution["phase"], string>> = {
+  needs_user: "waiting for the student", ready_review: "ready for the student to check", submitted: "handed in",
+  preserved: "stopped, answers saved", failed: "stopped without finishing",
+};
 const RULE_STOPPED = "Your rule changed, so Dot stopped. Your work so far is saved; change the rule to let Dot carry on.";
+
+/** The class's saved materials (syllabus, notes, handouts) for the start of each run. */
+export type ClassMaterials = (courseId: string) => readonly { title: string; sourceTarget: string | null; text: string }[];
 
 export type ExecutionNotification = Omit<NotificationIntent, "schemaVersion" | "notificationId" | "createdAt">;
 export type ExecutionNotificationSink = (intent: ExecutionNotification) => void | Promise<void>;
@@ -66,6 +74,10 @@ export class AssignmentExecutionCoordinator {
   readonly #tools: ToolDefinition[];
   readonly #connectedAppTools: ConnectedAppToolProvider;
   #disposed = false;
+  readonly #stopRunNotes: () => void;
+  readonly #classMaterials: ClassMaterials;
+  /** Work that was running when Studi quit; carryOnAfterRestart picks it back up. */
+  #restarted: string | null = null;
 
   private constructor(
     store: LocalStore,
@@ -80,6 +92,7 @@ export class AssignmentExecutionCoordinator {
       readonly browserWork?: VisibleBrowserWork;
       readonly browserForAssignment?: (id:string) => BrowserController;
       readonly connectedAppTools?: ConnectedAppToolProvider;
+      readonly classMaterials?: ClassMaterials;
     },
   ) {
     this.#store = store;
@@ -94,6 +107,10 @@ export class AssignmentExecutionCoordinator {
     this.#handoffWindowMs = options.handoffWindowMs ?? this.#reviewWindowMs;
     this.#tools = this.#createTools();
     this.#connectedAppTools = options.connectedAppTools ?? (async () => []);
+    this.#classMaterials = options.classMaterials ?? (() => []);
+    this.#stopRunNotes = store.lifecycle.onExecutionChange((previous, next) => {
+      if (previous?.phase !== next.phase && RUN_ENDS.has(next.phase)) void this.#writeRunNote(next).catch(() => undefined);
+    });
   }
 
   static async create(
@@ -109,6 +126,7 @@ export class AssignmentExecutionCoordinator {
       readonly browserWork?: VisibleBrowserWork;
       readonly browserForAssignment?: (id:string) => BrowserController;
       readonly connectedAppTools?: ConnectedAppToolProvider;
+      readonly classMaterials?: ClassMaterials;
     } = {},
   ): Promise<AssignmentExecutionCoordinator> {
     const coordinator = new AssignmentExecutionCoordinator(store, manager, browser, options);
@@ -174,6 +192,23 @@ export class AssignmentExecutionCoordinator {
   }
 
   async resume(taskId: string): Promise<AssignmentExecution> {
+    const returnPredicate = this.#requiredExecution(taskId).returnPredicate;
+    return this.#resumeWith(taskId, [
+      "The student clicked 'I’m done — check' and explicitly asked you to resume this assignment now. Do not ask for permission to resume again.",
+      `Inspect the current page to verify the remaining browser condition: ${returnPredicate ?? "the blocking page state has cleared"}.`,
+      "Continue under the fresh stored assignment permission. If the answer is already complete, verify it and call assignment_start_review. Request another handoff only for a concrete unresolved blocker.",
+    ].join("\n"));
+  }
+
+  /** After a restart, carry on with the work that was running, in the same session, if the rule still allows it. */
+  async carryOnAfterRestart(): Promise<void> {
+    const taskId = this.#restarted;
+    this.#restarted = null;
+    if (!taskId || this.#store.lifecycle.getExecution(taskId)?.phase !== "needs_user") return;
+    await this.#resumeWith(taskId, "Studi restarted while you were working on this assignment, and the page was reloaded. Take a fresh snapshot, check what is already saved on the page and in the folder, and carry on from there. Do not redo finished steps.");
+  }
+
+  async #resumeWith(taskId: string, instruction: string): Promise<AssignmentExecution> {
     this.#assertUsable();
     this.#requiredExecution(taskId);
     return this.#browserWork.resumeAssignment(taskId, async () => {
@@ -189,11 +224,7 @@ export class AssignmentExecutionCoordinator {
         attemptCount: 0,
         updatedAt: this.#now(),
       });
-      await this.#run(working, [
-        "The student clicked 'I’m done — check' and explicitly asked you to resume this assignment now. Do not ask for permission to resume again.",
-        `Inspect the current page to verify the remaining browser condition: ${execution.returnPredicate ?? "the blocking page state has cleared"}.`,
-        "Continue under the fresh stored assignment permission. If the answer is already complete, verify it and call assignment_start_review. Request another handoff only for a concrete unresolved blocker.",
-      ].join("\n"));
+      await this.#run(working, instruction);
       return this.#requiredExecution(taskId);
     });
   }
@@ -319,7 +350,7 @@ export class AssignmentExecutionCoordinator {
       if (waiting.answerSnapshot) await this.#preserve(waiting);
       else {
         this.#manager.cancel(waiting.taskId);
-        this.#store.lifecycle.putExecution({ ...waiting, phase: "failed", handoffDeadline: undefined, lastError: "The handoff expired. Inky released the school page; no answer snapshot had been saved.", updatedAt: this.#now() });
+        this.#store.lifecycle.putExecution({ ...waiting, phase: "failed", handoffDeadline: undefined, lastError: `I waited for you until ${new Date(waiting.handoffDeadline).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" })}, then let the school page go. Nothing was handed in; press Try again when you're ready.`, updatedAt: this.#now() });
       }
     }
   }
@@ -359,6 +390,22 @@ export class AssignmentExecutionCoordinator {
 
   dispose(): void {
     this.#disposed = true;
+    this.#stopRunNotes();
+  }
+
+  // Every run ends with a note, whatever the ending: what happened, what was checked, what's open.
+  // The next run on this assignment reads it; Dot adds class-wide lessons itself with note_upsert.
+  async #writeRunNote(execution: AssignmentExecution): Promise<void> {
+    const steps = (execution.actions ?? []).filter(action => action.kind === "tool" && action.outcome !== "started").slice(-20);
+    const lines = [
+      `Run ended ${execution.updatedAt}: ${RUN_ENDING[execution.phase] ?? execution.phase}.`,
+      ...(execution.lastError ? [`Why: ${execution.lastError}`] : []),
+      ...(execution.completionChecklist?.length ? ["", "Checked:", ...execution.completionChecklist.map(item => `- ${item.requirement}: ${item.evidence}`)] : []),
+      ...(execution.doubts?.length ? ["", "Open questions:", ...execution.doubts.map(doubt => `- ${doubt.where}: ${doubt.why}`)] : []),
+      ...(steps.length ? ["", "Steps:", ...steps.map(action => `- ${action.label.split("\n")[0]!.slice(0, 200)}${action.outcome === "failed" ? " (failed)" : ""}`)] : []),
+    ];
+    await this.#store.notes.upsert({ scope: "assignment", subjectId: execution.assignmentId, about: "work", key: "run-log",
+      title: "What happened on the last run", content: lines.join("\n"), updatedAt: this.#now() });
   }
 
   async #run(execution: AssignmentExecution, instruction: string): Promise<void> {
@@ -379,6 +426,8 @@ export class AssignmentExecutionCoordinator {
           latePolicy: assignment.latePolicy, instructions: assignment.instructions ?? null,
           requirements: assignment.requirementEvidence, missingRequirements: assignment.missingRequirements }, null, 2),
         "Before entering answers, inspect this assignment's current submission state and cutoff. If already submitted, graded, locked, or the allowed submission window has closed, stop and report the change; do not overwrite or repeat schoolwork.",
+      "# Class",
+      JSON.stringify(this.#classContext(assignment.assignmentId, assignment.courseId), null, 2),
       "# Fresh stored permission",
       JSON.stringify(permission, null, 2),
       "# Task budget",
@@ -450,6 +499,22 @@ export class AssignmentExecutionCoordinator {
     const persisted = assignmentId ? this.#store.agentJobs.getByTarget({ kind: "assignment", assignmentId }) : undefined;
     if (!persisted || !result.text.trim()) return;
     this.#store.agentJobs.put({ ...persisted.job, messages: [...persisted.job.messages, { messageId: randomUUID(), role: "assistant", text: result.text, createdAt: this.#now(), turnIndex: persisted.job.turnIndex }] }, persisted.sessionPath);
+  }
+
+  // What the class looks like around this assignment: its name, its saved materials, and how related work went.
+  #classContext(assignmentId: string, courseId: string) {
+    const course = this.#store.school.listCourses().find(item => item.courseId === courseId);
+    const related = this.#store.assignments.listByCourse(courseId)
+      .filter(item => item.assignmentId !== assignmentId)
+      .sort((a, b) => (b.dueAt ?? "").localeCompare(a.dueAt ?? ""))
+      .slice(0, 8)
+      .map(item => {
+        const run = this.#store.tasks.listAll().filter(task => task.assignmentId === item.assignmentId)
+          .map(task => this.#store.lifecycle.getExecution(task.taskId)).filter(Boolean).at(-1);
+        return { title: item.title, kind: item.kind ?? null, dueAt: item.dueAt ?? null, schoolStatus: item.schoolStatus?.state ?? "unknown", ...(run ? { lastRun: run.phase } : {}) };
+      });
+    const materials = this.#classMaterials(courseId).slice(0, 6).map(item => ({ title: item.title, link: item.sourceTarget, excerpt: item.text.slice(0, 800) }));
+    return { name: course?.label ?? null, materials, relatedAssignments: related };
   }
 
   #recordActivity(taskId: string, event: AgentRunEvent): void {
@@ -611,22 +676,28 @@ export class AssignmentExecutionCoordinator {
     });
     const noteUpsert = defineTool({
       name: "note_upsert",
-      label: "Save a scoped assignment note",
-      description: "After review evidence exists, save one bounded course, confirmed-pattern, or assignment note. Notes never alter permission or count as evidence.",
+      label: "Save a note",
+      description: "Save what you learned so later work goes better, whenever you learn it: how this class wants work done (course), how a kind of work goes (pattern), or notes on this assignment. Save a student preference only when the student asked you to remember it, quoting their words. Notes never change permission or count as evidence.",
       parameters: Type.Object({
-        scope: Type.Union([Type.Literal("course"), Type.Literal("pattern"), Type.Literal("assignment")]),
+        scope: Type.Union([Type.Literal("course"), Type.Literal("pattern"), Type.Literal("assignment"), Type.Literal("preference")]),
         patternId: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
-        about: Type.Union([Type.Literal("how-to"), Type.Literal("knowledge"), Type.Literal("work")]),
+        about: Type.Union([Type.Literal("how-to"), Type.Literal("knowledge"), Type.Literal("work"), Type.Literal("preference")]),
         key: Type.String({ minLength: 1, maxLength: 128, pattern: "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$" }),
         title: Type.String({ minLength: 1, maxLength: 200 }),
         content: Type.String({ minLength: 1, maxLength: 100_000 }),
+        requestQuote: Type.Optional(Type.String({ minLength: 1, maxLength: 2_000 })),
       }, { additionalProperties: false }),
       execute: async (_id, input) => {
         const execution = this.#activeExecution();
-        if (!execution || execution.phase !== "ready_review" || !execution.reviewCheckpoint) {
-          throw new Error("A note can be saved only after current browser evidence starts review");
-        }
+        if (!execution) throw new Error("Notes are saved while working on an assignment");
         const assignment = this.#requiredAssignment(execution.assignmentId);
+        if (input.scope === "preference") {
+          if (!this.#ownerSubject) throw new Error("Sign in before saving a personal preference");
+          const said = this.#store.agentJobs.getByTarget({ kind: "assignment", assignmentId: assignment.assignmentId })?.job.messages
+            .filter(message => message.role === "user").some(message => input.requestQuote && message.text.includes(input.requestQuote));
+          if (!said) throw new Error("Save a preference only when the student asked you to remember it; quote their words in requestQuote");
+          return toolResult(await this.#store.notes.upsert({ scope: "student", subjectId: this.#ownerSubject, about: "preference", key: input.key, title: input.title, content: input.content, updatedAt: this.#now() }));
+        }
         let subjectId = assignment.assignmentId;
         if (input.scope === "course") subjectId = assignment.courseId;
         if (input.scope === "pattern") {
@@ -638,7 +709,7 @@ export class AssignmentExecutionCoordinator {
         const note = await this.#store.notes.upsert({
           scope: input.scope,
           subjectId,
-          about: input.about,
+          about: input.about === "preference" ? "knowledge" : input.about,
           key: input.key,
           title: input.title,
           content: input.content,
@@ -658,7 +729,34 @@ export class AssignmentExecutionCoordinator {
       }, { additionalProperties: false }),
       execute: async (_id, input) => toolResult(await this.#submit(input.ref, input.expectedConfirmationText)),
     });
-    return [recordAnswer, recovery, tellStudent, unsupported, review, noteUpsert, submit];
+    const workingOn = () => {
+      const execution = this.#activeExecution();
+      if (!execution) throw new Error("Notes are read while working on an assignment");
+      return this.#requiredAssignment(execution.assignmentId);
+    };
+    const noteSearch = defineTool({
+      name: "note_search",
+      label: "Search notes",
+      description: "Search notes about this class, this kind of work, this school and related assignments: how work is done, what graders wanted, where things live, the student's preferences.",
+      parameters: Type.Object({ query: Type.String({ minLength: 1, maxLength: 500 }) }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        const assignment = workingOn();
+        return toolResult(await searchNotes(this.#store.notes, this.#noteContext(assignment.assignmentId, assignment.courseId), input.query));
+      },
+    });
+    const noteRead = defineTool({
+      name: "note_read",
+      label: "Read a note",
+      description: "Read one note found with note_search.",
+      parameters: Type.Object({ noteId: Type.String({ minLength: 1, maxLength: 128 }) }, { additionalProperties: false }),
+      execute: async (_id, input) => {
+        const assignment = workingOn();
+        const entry = this.#store.notes.list().find(candidate => candidate.noteId === input.noteId);
+        if (!entry || !noteIsAllowed(entry, this.#noteContext(assignment.assignmentId, assignment.courseId), "search")) throw new Error(`Note ${input.noteId} is not available to this assignment`);
+        return toolResult(await this.#store.notes.read(input.noteId));
+      },
+    });
+    return [recordAnswer, recovery, tellStudent, unsupported, review, noteUpsert, noteSearch, noteRead, submit];
   }
 
   async #submit(ref: string, expectedConfirmationText: string): Promise<AssignmentExecution> {
@@ -735,7 +833,7 @@ export class AssignmentExecutionCoordinator {
       phase: "needs_user",
       needs,
       returnPredicate: returnPredicate.trim(),
-      handoffDeadline: new Date(Date.parse(this.#now()) + this.#handoffWindowMs).toISOString(),
+      handoffDeadline: this.#waitUntil(current, needs),
       lastError: needs ? undefined : reason.trim(),
       reviewCheckpoint: this.#checkpoint(snapshot, `Student handoff requested: ${reason.trim()}`),
       updatedAt: this.#now(),
@@ -743,6 +841,17 @@ export class AssignmentExecutionCoordinator {
     this.#manager.pause(execution.taskId, "needs_user", reason.trim());
     await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: HANDOFF_TITLES[needs ?? "browser"], body: reason.trim().slice(0, 500) });
     return needsUser;
+  }
+
+  // Waiting for the student to sign in, add a file or answer lasts until an hour before the due date (at most a day),
+  // so a lunch break doesn't cost the work. Other hand-offs keep the short window.
+  #waitUntil(execution: AssignmentExecution, needs?: AssignmentExecution["needs"]): string {
+    const now = Date.parse(this.#now());
+    const short = now + this.#handoffWindowMs;
+    if (!needs || needs === "browser") return new Date(short).toISOString();
+    const due = this.#store.assignments.get(execution.assignmentId)?.dueAt;
+    const beforeDue = due ? Date.parse(due) - 60 * 60_000 : now + 24 * 60 * 60_000;
+    return new Date(Math.max(short, Math.min(beforeDue, now + 24 * 60 * 60_000))).toISOString();
   }
 
   async #preserve(execution: AssignmentExecution): Promise<void> {
@@ -804,13 +913,18 @@ export class AssignmentExecutionCoordinator {
       await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "Restore saved answers", body: reason });
       return;
     }
-    if (execution.phase === "working" || execution.phase === "submitting") {
-      const reason = execution.phase === "submitting"
-        ? "Studi restarted after a submission effect began; the result requires student verification and will not be repeated."
-        : "Studi restarted during assignment work. Inspect the visible browser before asking Studi to resume.";
+    if (execution.phase === "submitting") {
+      const reason = "Studi restarted after a submission effect began; the result requires student verification and will not be repeated.";
       this.#store.lifecycle.putExecution({ ...execution, phase: "needs_user", lastError: reason, returnPredicate: "The student has inspected the visible browser and asked Studi to resume.", updatedAt: this.#now() });
       this.#manager.pause(execution.taskId, "needs_user", reason);
       await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "Assignment paused after restart", body: reason });
+    }
+    if (execution.phase === "working") {
+      // Held for a moment: carryOnAfterRestart resumes it once the model is ready. If it can't, the student sees this.
+      const reason = "Studi restarted during this work. Press Carry on and I'll pick up where I was.";
+      this.#store.lifecycle.putExecution({ ...execution, phase: "needs_user", lastError: reason, returnPredicate: "Studi restarted during the work; the page was reloaded.", updatedAt: this.#now() });
+      this.#manager.pause(execution.taskId, "needs_user", reason);
+      this.#restarted = execution.taskId;
     }
     await this.reconcileDeadlines();
   }
@@ -923,8 +1037,11 @@ export class AssignmentExecutionCoordinator {
   }
 
   #noteContext(assignmentId: string, courseId: string): NoteRetrievalContext {
+    const schoolId = this.#store.school.getProfile()?.profileId;
     return {
       kind: "assignment",
+      ...(this.#ownerSubject ? { studentId: this.#ownerSubject } : {}),
+      ...(schoolId ? { schoolId } : {}),
       assignmentId,
       courseId,
       confirmedPatternIds: this.#manager.matchedPatterns(assignmentId, courseId),

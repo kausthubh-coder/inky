@@ -13,6 +13,7 @@ import {
 import {
   noteIsAllowed,
   retrieveNoteIndex,
+  searchNotes,
   type NoteRetrievalContext,
 } from "../../agent-system/retrieve.js";
 import { AgentTrace } from "../../agent-system/trace.js";
@@ -646,7 +647,7 @@ export class ConversationCoordinator {
           throw new Error("Read this source through a connected app or ask the student to paste it before importing");
         })];
     }
-    return this.#assignmentTools(target.assignmentId);
+    return [...this.#assignmentTools(target.assignmentId), ...this.#preferenceTools(target).filter(tool => tool.name === "note_upsert")];
   }
 
   #homeTools(): readonly ToolDefinition[] {
@@ -850,58 +851,8 @@ export class ConversationCoordinator {
     );
   }
 
-  async #searchNotes(
-    target: ConversationTarget,
-    query: string,
-  ): Promise<unknown[]> {
-    const context = this.#noteContext(target);
-    const allowed = retrieveNoteIndex(
-      this.#store.notes.list(),
-      context,
-      "search",
-      64,
-    );
-    const terms = query
-      .trim()
-      .toLocaleLowerCase()
-      .split(/[^\p{L}\p{N}._-]+/u)
-      .filter((term) => term.length > 1);
-    const matches: Array<{
-      noteId: string;
-      scope: string;
-      subjectId: string;
-      about: string;
-      title: string;
-      preview: string;
-      score: number;
-    }> = [];
-    for (const entry of allowed) {
-      const document = await this.#store.notes.read(entry.noteId);
-      if (!document) continue;
-      const haystack =
-        `${entry.title}\n${entry.key}\n${document.content}`.toLocaleLowerCase();
-      const score = terms.reduce(
-        (total, term) => total + (haystack.includes(term) ? 1 : 0),
-        0,
-      );
-      if (score)
-        matches.push({
-          noteId: entry.noteId,
-          scope: entry.scope,
-          subjectId: entry.subjectId,
-          about: entry.about,
-          title: entry.title,
-          preview: document.content.slice(0, 500),
-          score,
-        });
-    }
-    return matches
-      .sort(
-        (left, right) =>
-          right.score - left.score || left.noteId.localeCompare(right.noteId),
-      )
-      .slice(0, 25)
-      .map(({ score: _score, ...match }) => match);
+  async #searchNotes(target: ConversationTarget, query: string): Promise<unknown[]> {
+    return searchNotes(this.#store.notes, this.#noteContext(target), query);
   }
 
   #noteContext(target: ConversationTarget): NoteRetrievalContext {
@@ -909,8 +860,11 @@ export class ConversationCoordinator {
     const assignment = this.#store.assignments.get(target.assignmentId);
     if (!assignment)
       throw new Error(`Assignment ${target.assignmentId} does not exist`);
+    const schoolId = this.#store.school.getProfile()?.profileId;
     return {
       kind: "assignment",
+      ...(this.#ownerSubject ? { studentId: this.#ownerSubject } : {}),
+      ...(schoolId ? { schoolId } : {}),
       assignmentId: assignment.assignmentId,
       courseId: assignment.courseId,
       confirmedPatternIds: this.#manager.matchedPatterns(assignment.assignmentId, assignment.courseId),

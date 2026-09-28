@@ -382,6 +382,57 @@ for (const recordedOwner of [undefined, "student-a"]) test(`restart preserves ${
   });
 });
 
+test("work that was running when Studi quit carries on by itself after a restart", async () => {
+  await withStore(async store => {
+    seedTask(store, "carry-on", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    const ask = tools => invoke(tools, "assignment_tell_student", { message: "Which unit should I use?", needs: "answer" });
+    const review = tools => invoke(tools, "assignment_start_review", {
+      answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer is filled in" }], summary: "Ready",
+    });
+    const runtime = new ScriptedRuntime([ask, review]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    const first = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => initialNow });
+    let restored;
+    try {
+      await first.start("task-carry-on");
+      // Studi quits mid-work: the task and its execution are still saved as working.
+      manager.resumePaused("task-carry-on", "test: back to work");
+      store.lifecycle.putExecution({ ...store.lifecycle.getExecution("task-carry-on"), phase: "working", needs: undefined });
+      first.dispose();
+      restored = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser("about:blank"), { now: () => initialNow });
+      assert.match(store.lifecycle.getExecution("task-carry-on").lastError, /restarted/);
+      await restored.carryOnAfterRestart();
+      assert.equal(store.lifecycle.getExecution("task-carry-on").phase, "ready_review", "the same run finished without the student pressing anything");
+    } finally { first.dispose(); restored?.dispose(); manager.dispose(); }
+  });
+});
+
+test("homework sees the student's preferences and how the school works, and every run leaves a note", async () => {
+  await withStore(async store => {
+    seedTask(store, "memory", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    store.school.putProfile({ schemaVersion: 1, profileId: "primary-school", studentName: "Avery", schoolRoot: "https://school.example.edu/", defaultPermission: "attempt", scanCadence: "manual", onboardingState: "ready", missedCourseFeedback: [], scanDepth: "normal", updatedAt: initialNow });
+    await store.notes.upsert({ scope: "student", subjectId: "student-a", about: "preference", key: "voice", title: "Write in first person", content: "Always write essays in first person." });
+    await store.notes.upsert({ scope: "school", subjectId: "primary-school", about: "scan", key: "how-this-school-works", title: "How this school works", content: "WebAssign opens from each course page." });
+    const runtime = new ScriptedRuntime([tools => invoke(tools, "assignment_start_review", {
+      answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer is filled in" }], summary: "Ready",
+    })]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => initialNow, ownerSubject: "student-a" });
+    try {
+      await execution.start("task-memory");
+      const prompt = runtime.prompts.find(text => text?.includes("# Relevant notes"));
+      assert.match(prompt, /Write in first person/);
+      assert.match(prompt, /How this school works/);
+      await new Promise(resolve => setTimeout(resolve, 50));
+      const runNote = store.notes.list().find(note => note.scope === "assignment" && note.key === "run-log");
+      assert.ok(runNote, "the run left a note");
+      assert.match((await store.notes.read(runNote.noteId)).content, /ready for the student to check/);
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
+
 test("auto-submit rejects confirmation text that was already visible before the effect", async () => {
   await withStore(async (store) => {
     seedTask(store, "preexisting-confirmation", "2026-09-02T12:00:00.000Z");
@@ -696,7 +747,8 @@ class ScriptedRuntime {
       sessionPath: target.resumeSessionPath ?? `${kind}-${this.sessionNumber}.jsonl`,
       toolNames: tools.map((tool) => tool.name),
       subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
-      prompt: async () => {
+      prompt: async (text) => {
+        (this.prompts ??= []).push(text);
         if (kind === "assignment") {
           const script = this.scripts[this.turn++];
           if (!script) throw new Error("No assignment script remains");
