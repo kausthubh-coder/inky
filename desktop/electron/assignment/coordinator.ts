@@ -80,6 +80,10 @@ export class AssignmentExecutionCoordinator {
   /** Work that was running when Studi quit; carryOnAfterRestart picks it back up. */
   #restarted: string | null = null;
   #handInWatch: ReturnType<typeof setTimeout> | null = null;
+  #signInWatch: ReturnType<typeof setTimeout> | null = null;
+  readonly #signInCheckMs: number;
+  /** One notification per school sign-out: set when Dot asks for a sign-in, cleared when the student is back. */
+  #signInAsked = false;
 
   private constructor(
     store: LocalStore,
@@ -95,6 +99,7 @@ export class AssignmentExecutionCoordinator {
       readonly browserForAssignment?: (id:string) => BrowserController;
       readonly connectedAppTools?: ConnectedAppToolProvider;
       readonly classMaterials?: ClassMaterials;
+      readonly signInCheckMs?: number;
     },
   ) {
     this.#store = store;
@@ -110,6 +115,7 @@ export class AssignmentExecutionCoordinator {
     this.#tools = this.#createTools();
     this.#connectedAppTools = options.connectedAppTools ?? (async () => []);
     this.#classMaterials = options.classMaterials ?? (() => []);
+    this.#signInCheckMs = options.signInCheckMs ?? 10_000;
     this.#stopRunNotes = store.lifecycle.onExecutionChange((previous, next) => {
       if (previous?.phase !== next.phase && RUN_ENDS.has(next.phase)) void this.#writeRunNote(next).catch(() => undefined);
     });
@@ -129,6 +135,7 @@ export class AssignmentExecutionCoordinator {
       readonly browserForAssignment?: (id:string) => BrowserController;
       readonly connectedAppTools?: ConnectedAppToolProvider;
       readonly classMaterials?: ClassMaterials;
+      readonly signInCheckMs?: number;
     } = {},
   ): Promise<AssignmentExecutionCoordinator> {
     const coordinator = new AssignmentExecutionCoordinator(store, manager, browser, options);
@@ -217,6 +224,7 @@ export class AssignmentExecutionCoordinator {
       this.#assertUsable();
       const execution = this.#requiredExecution(taskId);
       if (execution.phase !== "needs_user") throw new Error(`Task ${taskId} is not waiting for the student`);
+      if (execution.needs === "sign_in") this.#signInAsked = false;
       this.#manager.resumePaused(taskId, "Student returned after the requested handoff");
       const working = this.#store.lifecycle.putExecution({
         ...execution,
@@ -429,6 +437,7 @@ export class AssignmentExecutionCoordinator {
   dispose(): void {
     this.#disposed = true;
     if (this.#handInWatch) clearTimeout(this.#handInWatch);
+    if (this.#signInWatch) clearTimeout(this.#signInWatch);
     this.#stopRunNotes();
   }
 
@@ -895,8 +904,37 @@ export class AssignmentExecutionCoordinator {
       updatedAt: this.#now(),
     });
     this.#manager.pause(execution.taskId, "needs_user", reason.trim());
-    await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: HANDOFF_TITLES[needs ?? "browser"], body: reason.trim().slice(0, 500) });
+    const repeat = needs === "sign_in" && this.#signInAsked;
+    if (!repeat) await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: HANDOFF_TITLES[needs ?? "browser"], body: reason.trim().slice(0, 500) });
+    if (needs === "sign_in") {
+      this.#signInAsked = true;
+      this.#watchSignIn(execution.taskId, execution.assignmentId, snapshot);
+    }
     return needsUser;
+  }
+
+  // Dot notices the sign-in by itself: once the page it was waiting on has no password box, it carries on.
+  // Pages that never showed one can't be told apart, so those wait for "I've signed in".
+  #watchSignIn(taskId: string, assignmentId: string, before: BrowserSnapshot): void {
+    if (this.#signInWatch) clearTimeout(this.#signInWatch);
+    this.#signInWatch = null;
+    if (!asksForPassword(before)) return;
+    const page = this.#browserForAssignment?.(assignmentId) ?? this.#defaultBrowser;
+    const look = async () => {
+      this.#signInWatch = null;
+      const current = this.#store.lifecycle.getExecution(taskId);
+      if (this.#disposed || current?.phase !== "needs_user" || current.needs !== "sign_in") return;
+      try {
+        if (!asksForPassword(await page.snapshot())) {
+          await this.#resumeWith(taskId, "You were waiting for the student to sign in, and the sign-in page is gone: they signed in. Take a fresh snapshot and carry on from where you stopped. Do not redo finished steps.");
+          return;
+        }
+      } catch {
+        // The page may be mid-redirect after signing in; look again.
+      }
+      if (!this.#disposed) this.#signInWatch = setTimeout(() => void look(), this.#signInCheckMs);
+    };
+    this.#signInWatch = setTimeout(() => void look(), this.#signInCheckMs);
   }
 
   // Waiting for the student to sign in, add a file or answer lasts until an hour before the due date (at most a day),
@@ -1147,4 +1185,8 @@ function stopReason(result: WorkerTurnResult, nudgedOut: boolean, turnsLeft: boo
   if (!turnsLeft) return "I've used this run's turns without finishing. My work so far is saved; tell me how to carry on.";
   if (nudgedOut) return "I kept stopping without finishing or asking you anything. Look at the page and tell me how to carry on.";
   return "I stopped before recording a result. My work so far is saved; tell me how to carry on.";
+}
+
+function asksForPassword(snapshot: Pick<BrowserSnapshot, "elements">): boolean {
+  return snapshot.elements.some(element => /password|passcode|passphrase/i.test(element.name) && /textbox|input|searchbox/i.test(element.role));
 }

@@ -437,6 +437,38 @@ test("work that was running when Studi quit carries on by itself after a restart
   });
 });
 
+test("Dot notices the student signed in and carries on, with one notification for the sign-out", async () => {
+  await withStore(async store => {
+    seedTask(store, "sign-in", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", initialNow));
+    const browser = new FakeBrowser();
+    let signedOut = true;
+    const snapshot = browser.snapshot.bind(browser);
+    browser.snapshot = async () => {
+      const page = await snapshot();
+      return signedOut ? { ...page, elements: [...page.elements, { ref: "password", role: "textbox", name: "Password" }] } : page;
+    };
+    const ask = tools => invoke(tools, "assignment_tell_student", { message: "Sign in to the school, please.", needs: "sign_in" });
+    const review = tools => invoke(tools, "assignment_start_review", {
+      answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer is filled in" }], summary: "Ready",
+    });
+    const runtime = new ScriptedRuntime([ask, review]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    const notices = [];
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow, signInCheckMs: 5, notify: notice => notices.push(notice) });
+    try {
+      await execution.start("task-sign-in");
+      assert.equal(store.lifecycle.getExecution("task-sign-in").needs, "sign_in");
+      await new Promise(done => setTimeout(done, 30));
+      assert.equal(store.lifecycle.getExecution("task-sign-in").phase, "needs_user", "still signed out, still waiting");
+      signedOut = false;
+      for (let tries = 0; tries < 50 && store.lifecycle.getExecution("task-sign-in").phase !== "ready_review"; tries += 1) await new Promise(done => setTimeout(done, 10));
+      assert.equal(store.lifecycle.getExecution("task-sign-in").phase, "ready_review", "Dot carried on without the student pressing anything");
+      assert.equal(notices.filter(notice => notice.kind === "handoff").length, 1);
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
+
 test("homework sees the student's preferences and how the school works, and every run leaves a note", async () => {
   await withStore(async store => {
     seedTask(store, "memory", "2026-09-02T12:00:00.000Z");

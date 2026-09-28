@@ -36,7 +36,7 @@ const STEP_COPY: Record<OnboardingStep, { inky: DotState; pill: string; title: s
   4: { inky: "idle", pill: "class link", title: "Where's class?", body: "Paste the link you open for homework. Moodle, Canvas, Classroom, or whatever yours is." },
   5: { inky: "thinking", pill: "the default", title: "When I find homework…", body: "What should I do? You can change this later." },
   6: { inky: "idle", pill: "how often", title: "How often should I check?", body: "I'll look even if you close Studi." },
-  7: { inky: "waiting", pill: "your turn", title: "Your turn.", body: "Sign in on the right. I can't see your password.", me: "Opening school." },
+  7: { inky: "waiting", pill: "your turn", title: "Your turn.", body: "Sign in on the right. I can't see your password. If your school asks, tick “remember this device” so I stay signed in.", me: "Opening school." },
   8: { inky: "scanning", pill: "looking around", title: "Looking around.", body: "I’m checking your classes, instructions, and due dates. This may take a few minutes. You can watch me on the right.", me: "I'm signed in. Look around." },
   9: { inky: "needs", pill: "needs you", title: "Another site wants you to sign in.", body: "Do that on the right, then tell me." },
   10: { inky: "done", pill: "ready", title: "Your week is ready.", body: "If you told me to try assignments, I'll start the first one when you open your week. You still submit it." },

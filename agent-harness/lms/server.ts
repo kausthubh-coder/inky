@@ -38,6 +38,11 @@ export interface StartLmsOptions {
   replayDirectory?: string;
   /** Faults on a schedule: slow pages, or a school event after N page requests or M minutes. */
   faults?: FaultPlan[];
+  /**
+   * Sign-in lives in a session cookie (no expiry date), like real single sign-on. A browser that
+   * lost it, for example after an app restart that didn't keep it, is signed out.
+   */
+  sessionCookies?: boolean;
 }
 export type FaultPlan =
   | { slow: string; ms: number }
@@ -139,12 +144,34 @@ export async function startLms(options: StartLmsOptions) {
   };
   const timers = pending.filter((plan) => plan.atMinute !== undefined)
     .map((plan) => setTimeout(() => { if (pending.includes(plan)) fire(plan); }, plan.atMinute! * 60_000));
+  const issued: Partial<Record<Surface, string>> = {};
+  // Session-cookie mode: check the cookie before the page, hand one out with the first signed-in response.
+  function sessionCookie(service: Surface, request: IncomingMessage, response: ServerResponse): void {
+    const name = `cedar_session_${service}`;
+    const sent = (request.headers.cookie ?? "").split(/;\s*/).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
+    const current = issued[service];
+    if (current && sent !== current && store.read().sessions[service as Service]) {
+      store.change("session_changed", { service, signedIn: false, reason: "session_cookie_missing" }, (state) => {
+        state.sessions[service as Service] = false;
+      });
+      delete issued[service];
+    }
+    const writeHead = response.writeHead.bind(response) as (...args: unknown[]) => ServerResponse;
+    (response as { writeHead: (...args: unknown[]) => ServerResponse }).writeHead = (...args: unknown[]) => {
+      if (store.read().sessions[service as Service] && (!issued[service] || sent !== issued[service])) {
+        issued[service] = randomUUID();
+        response.appendHeader("Set-Cookie", `${name}=${issued[service]}; Path=/; HttpOnly; SameSite=Lax`);
+      }
+      return writeHead(...args);
+    };
+  }
   async function handle(
     service: Surface,
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> {
     const url = new URL(request.url ?? "/", origins[service]);
+    if (options.sessionCookies) sessionCookie(service, request, response);
     if (url.pathname !== "/favicon.ico") {
       requests += 1;
       for (const plan of pending.filter((item) => item.afterRequests !== undefined && requests > item.afterRequests!)) fire(plan);

@@ -17,6 +17,7 @@ import {
   WebContentsView,
   ipcMain,
   nativeImage,
+  powerMonitor,
   safeStorage,
   session as electronSession,
   shell,
@@ -87,6 +88,7 @@ import { installSchoolDownloads } from "./browser/native-downloads.js";
 import { completeBackgroundSignIn, isBackgroundSignIn } from "./browser/background-sign-in.js";
 import { HomeworkFiles } from "./files/homework-files.js";
 import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
+import { SchoolSessionKeeper } from "./browser/school-session.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
 import { AppKernel } from "./lifecycle/kernel.js";
 import { AppStatusIcon } from "./app-status.js";
@@ -129,6 +131,7 @@ const ownsSingleInstance = !app.isPackaged || app.requestSingleInstanceLock();
 const canStart = startupProfileConfigured && !squirrelStartup && ownsSingleInstance;
 let selfTestFinished = false;
 let localStore: LocalStore | null = null;
+let schoolSessionKeeper: SchoolSessionKeeper | null = null;
 let storageSelfTestObservation: StorageSelfTestObservation | null = null;
 let agentSelfTestObservation: AgentSelfTestObservation | null = null;
 let browserSelfTestObservation: BrowserSelfTestObservation | null = null;
@@ -329,6 +332,8 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   signOut: async () => {
     if (isSelfTest) return selfTestAuthState;
+    // Signing out of Studi (which also releases the device) deletes the saved school sign-in.
+    await schoolSessionKeeper?.forget().catch(() => undefined);
     await disposeProtectedRuntime();
     ensureGateTray();
     const state = await requireAuthCoordinator().signOut();
@@ -1599,6 +1604,27 @@ function isSuccessfulStorageObservation(value: unknown): value is StorageSelfTes
   );
 }
 
+// School sign-ins survive a restart: session cookies are saved encrypted and put back before any school page loads.
+async function keepSchoolSignedIn(): Promise<void> {
+  if (schoolSessionKeeper) return;
+  const keeper = new SchoolSessionKeeper(
+    electronSession.fromPartition("persist:studi-school", { cache: true }),
+    join(app.getPath("userData"), "school-session.bin"),
+    safeStorage,
+    { schoolRoot: () => localStore?.school.getProfile()?.schoolRoot ?? null },
+  );
+  schoolSessionKeeper = keeper;
+  try {
+    const restored = await keeper.restore();
+    if (restored) recordBrowserDiagnostic("school_session_restored", { cookies: restored });
+  } catch (error) {
+    recordBrowserDiagnostic("school_session_restore_failed", { message: formatError(error) });
+  }
+  keeper.start();
+  powerMonitor.on("suspend", () => keeper.setAsleep(true));
+  powerMonitor.on("resume", () => keeper.setAsleep(false));
+}
+
 async function initializeStorage(): Promise<void> {
   const dataRoot = join(app.getPath("userData"), "studi-data");
   localStore = await openLocalStore(dataRoot, {
@@ -1609,6 +1635,7 @@ async function initializeStorage(): Promise<void> {
   });
   localStore.lifecycle.onExecutionChange(recordExecutionChange);
   localStore.database.onChange(announceChange);
+  await keepSchoolSignedIn();
   if (uiScenario === "partial-dashboard" || uiScenario === "desk-handoff") seedProductUiScenario(localStore, uiScenario);
   if (uiScenario && uiScenario !== "onboarding-welcome") {
     localStore.school.putProfile({
@@ -2849,6 +2876,8 @@ app.on("before-quit", (event) => {
   event.preventDefault();
   if (appShutdown) return;
   appShutdown = (async () => {
+    schoolSessionKeeper?.stop();
+    await schoolSessionKeeper?.save().catch(error => recordBrowserDiagnostic("school_session_save_failed", { message: formatError(error) }));
     await disposeProtectedRuntime();
     if (telemetryService && !telemetryShutdownFinished) await telemetryService.shutdown();
   })().catch(error => console.error('Studi shutdown failed', error)).finally(() => {

@@ -67,6 +67,7 @@ export async function withLmsApp(options, run) {
       seed: options.seed ?? 42,
       runDirectory: lmsRoot,
       faults: options.faults,
+      sessionCookies: options.sessionCookies,
     });
     await writeFile(scriptPath, JSON.stringify(typeof options.script === "function" ? options.script(school) : options.script ?? {}, null, 2));
     if (options.live) {
