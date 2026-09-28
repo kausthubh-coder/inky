@@ -9,6 +9,7 @@ Design exploration only. Nothing here ships in the app, and no production code c
 | `learn-concept.html` | Clickable mock of the new Learn dashboard and tutor session. Build notes under each frame name the data and rule for every part. States are linkable: `#learn/empty`, `#learn/exams`, `#tutor/scene`. |
 | `learn-plan.html` | Learn build plan: data model, tutor phases and tools, visuals, practice tests, harness, user stories with expected behaviour, build order. `LEARN-PLAN.md` is the earlier text draft. |
 | `scan-plan.html` | Scanner audit (why a real scan took 99 minutes), comparison with other agent browsers, new scan design, scan stories, and one build order covering scanning and Learn. |
+| `homework-build-plan.html` | Homework build plan: clickable prototype of every homework screen, state and rule; rules audit; making Dot reliable; memory; icon and characters; staying signed in; how testing works; PostHog; order of work. |
 | `SPEC.md` | How each part decides what to show, and the data behind it. |
 | `inky.js`, `inky.css` | Inky's artwork and animations, copied from `desktop/shared/inky.ts` and `desktop/src/app/app.css` so the mock uses the real mascot. |
 

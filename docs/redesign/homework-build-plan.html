@@ -1,0 +1,1211 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Studi · homework build plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&family=Nunito:wght@700;800&family=Shantell+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="characters.css">
+<style>
+/* The app's own tokens (desktop/src/app/redesign.css). */
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--highlighter:#f6c945;--redpen:#b3452f;--coral:#f28b6f;--green:#2e7d4f;
+ --shadow:0 0 0 1.5px var(--pencil),0 2.5px 0 1.5px var(--pencil)}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;color:var(--pencil);font:16px/1.55 "Nunito Sans",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:1120px;margin:0 auto;padding:56px 28px 140px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p,li{text-wrap:pretty}
+h1{font:800 42px/1.1 "Shantell Sans",cursive;margin-bottom:12px}
+h2{font-size:27px;font-weight:800;margin:90px 0 8px;scroll-margin-top:20px}
+h3{font-size:17px;font-weight:800;margin:30px 0 6px}
+.lead{font-size:19px;color:var(--graphite);max-width:760px;margin:0}
+.muted{color:var(--graphite)}
+.kicker{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--graphite);margin-bottom:6px}
+code{font:13.5px ui-monospace,Consolas,monospace;background:var(--blotter);padding:1px 5px;border-radius:4px}
+ol,ul{padding-left:20px;margin:8px 0}
+li{margin:6px 0}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:15px}
+th,td{text-align:left;vertical-align:top;padding:9px 14px 9px 0;border-bottom:1px solid var(--rule)}
+th{font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--graphite)}
+.sev{display:block;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.sev.high{color:var(--redpen)}.sev.med{color:#a86b00}.sev.low{color:var(--graphite)}
+.toc{display:flex;flex-wrap:wrap;gap:8px 22px;margin:28px 0 0;font-weight:700}
+.toc a{color:var(--graphite);text-decoration:none}
+.toc a:hover{color:var(--pencil)}
+/* how testing works */
+.layers{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:16px}
+.layer{background:var(--page);border-radius:14px;box-shadow:0 0 0 1px var(--rule);padding:16px}
+.layer > b{display:block;font-size:16px}
+.layer .cmd{display:block;margin:6px 0 8px;font:12.5px ui-monospace,Consolas,monospace;color:var(--graphite)}
+.layer p{margin:0 0 6px;font-size:14.5px}
+.layer p.no{color:var(--graphite)}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:14px 0;font-weight:700}
+.flow span{background:var(--page);box-shadow:0 0 0 1px var(--rule);border-radius:10px;padding:6px 12px}
+.flow i{font-style:normal;color:var(--graphite);font-weight:400}
+
+/* ---------- prototype controls ---------- */
+.controls{position:sticky;top:0;z-index:20;background:var(--paper);padding:12px 0 10px;display:flex;flex-wrap:wrap;gap:10px 22px;align-items:flex-end;border-bottom:1px solid var(--rule)}
+.controls label{display:grid;gap:3px;font-size:12px;font-weight:800;color:var(--graphite);letter-spacing:.03em}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--blotter);border-radius:10px;padding:3px;gap:2px}
+.seg button{font:inherit;font-weight:700;font-size:14px;border:0;background:none;color:var(--graphite);padding:5px 11px;border-radius:8px;cursor:pointer;letter-spacing:0}
+.seg button.on{background:var(--page);color:var(--pencil);box-shadow:0 1px 2px rgba(43,38,33,.14)}
+.controls select{font:600 14px "Nunito Sans";padding:6px 8px;border-radius:9px;border:0;background:var(--blotter);color:var(--pencil)}
+.hint{font-size:14px;color:var(--graphite);margin:10px 0 0}
+.shot{margin-top:14px;border-radius:14px;overflow:hidden;box-shadow:0 0 0 1px rgba(43,38,33,.1),0 14px 40px -14px rgba(43,38,33,.22)}
+.fit{position:relative;overflow:hidden}
+
+/* ---------- the app ---------- */
+.app{position:absolute;left:0;top:0;width:1280px;height:820px;transform-origin:0 0;background:var(--paper);font-size:15px;overflow:hidden}
+.app button{font:inherit;cursor:pointer}
+.app [data-go]{cursor:pointer}
+.app svg.i{display:block;flex:none}
+.topbar{display:flex;align-items:center;height:60px;padding:0 28px;position:relative;z-index:6}
+.brand{font:800 22px "Nunito";letter-spacing:-.02em}
+.modes{margin:0 auto;display:flex;background:var(--blotter);border-radius:12px;padding:3px}
+.modes span{width:108px;text-align:center;padding:6px 0;border-radius:10px;font-weight:800;color:var(--graphite)}
+.modes span.on{background:var(--highlighter);color:var(--pencil);box-shadow:var(--shadow)}
+.icons{display:flex;gap:6px;align-items:center;position:relative}
+.icons .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center}
+.icons .ic:hover,.icons .ic.on{background:var(--blotter)}
+.icons .me{width:28px;height:28px;border-radius:50%;background:#f3d3ea;border:1.5px solid var(--pencil);display:grid;place-items:center;font-size:12px;font-weight:800;margin-left:6px}
+.btn{font-weight:800;font-size:14px;border:0;padding:8px 14px;border-radius:10px;color:var(--pencil);white-space:nowrap;background:var(--blotter);transition:transform .12s;display:inline-flex;align-items:center;gap:6px}
+.btn:active{transform:scale(.97)}
+.btn:hover{filter:brightness(.97)}
+.btn.yellow{background:var(--highlighter);box-shadow:var(--shadow)}
+.btn.white{background:var(--page);box-shadow:0 0 0 1.5px var(--pencil)}
+.btn.link{background:none;padding:8px 4px;color:var(--graphite)}
+.btn.link:hover{color:var(--pencil)}
+.btn.big{padding:12px 20px;font-size:15.5px;border-radius:12px}
+.slot{display:block}
+.scroll{height:calc(100% - 60px);overflow-y:auto;padding-bottom:120px}
+.hello{display:flex;align-items:center;gap:18px}
+.hello .slot{width:70px;height:70px;flex:0 0 70px}
+.hello h4{font:800 30px/1.15 "Shantell Sans";margin:0}
+.hello p{margin:4px 0 0;color:var(--graphite);font-size:16px}
+.hello .act{margin-left:4px;align-self:center}
+.tgl{margin-left:auto;align-self:flex-start;margin-top:8px;display:flex;background:var(--blotter);border-radius:10px;padding:3px;font-size:14px}
+.tgl span{padding:4px 13px;border-radius:8px;color:var(--graphite)}
+.tgl span.on{background:var(--page);color:var(--pencil);font-weight:700;box-shadow:0 1px 2px rgba(43,38,33,.12)}
+.page-wrap{padding:6px 120px 0}
+.narrow{padding:6px 220px 0}
+.pop{position:absolute;z-index:8;background:var(--page);border-radius:12px;box-shadow:0 0 0 1px rgba(43,38,33,.12),0 12px 30px -10px rgba(43,38,33,.3);padding:6px;width:240px;font-size:14px;animation:drop .14s ease-out}
+.pop p{margin:4px 10px 6px;font-size:12px;font-weight:800;color:var(--graphite)}
+.pop span{display:block;padding:7px 10px;border-radius:8px}
+.pop span:hover{background:var(--blotter)}
+.pop hr{border:0;border-top:1px solid var(--rule);margin:5px 4px}
+/* week */
+.bar{display:flex;align-items:center;margin:24px 0 8px;font-weight:800}
+.bar .nav{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.bar .nav b{width:34px;height:30px;border-radius:8px;background:var(--blotter);display:grid;place-items:center}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:0 8px;font-size:13.5px}
+.day{min-height:196px;padding:0 4px 6px;border-radius:12px}
+.day.today{background:var(--blotter)}
+.day .dh{display:flex;justify-content:space-between;color:var(--graphite);padding:8px 6px}
+.day .dh b{color:var(--pencil)}
+.card{background:#efe9f6;border-left:3px solid #b7a3dd;border-radius:6px 10px 10px 6px;padding:8px 10px;margin:0 2px 8px;line-height:1.3;transition:transform .12s,box-shadow .12s;font-size:13.5px}
+.card:hover{transform:translateY(-1px);box-shadow:0 4px 10px -6px rgba(43,38,33,.35)}
+.card b{display:block;font-weight:700;font-size:14.5px}
+.card small{display:block;color:var(--graphite);margin-top:3px}
+.card small.need{color:var(--redpen);font-weight:700}
+.c-st{background:#e9f4ee;border-color:#7fbf9f}
+.c-c230{background:#fbeae4;border-color:var(--coral)}
+.c-c281{background:#fbf1dc;border-color:#e3b35c}
+.c-c316{background:#efe9f6;border-color:#b7a3dd}
+.card.needs{box-shadow:0 0 0 1.5px var(--redpen)}
+.day .none{color:var(--graphite);padding:0 6px}
+.donel{display:flex;align-items:center;gap:5px;color:var(--graphite);padding:3px 8px;border-radius:7px;font-size:13px}
+.donel:hover{background:rgba(43,38,33,.06);color:var(--pencil)}
+.donel svg{color:var(--green)}
+.soon{display:grid;grid-template-columns:repeat(7,1fr);gap:0 8px}
+.soon .card{margin:0 2px}
+/* rows */
+.group{margin-top:22px}
+.group h5{font-size:14px;font-weight:800;margin:0 0 2px;display:flex;gap:8px}
+.group h5 span{color:var(--graphite);font-weight:600}
+.row{display:grid;grid-template-columns:8px 1fr auto 30px;gap:12px;align-items:center;padding:10px 6px;border-bottom:1px solid var(--rule);position:relative;border-radius:8px}
+.row:hover{background:rgba(242,235,221,.55)}
+.tone{width:4px;height:30px;border-radius:3px;background:#b7a3dd;display:block}
+.tone.c-st{background:#7fbf9f}.tone.c-c230{background:var(--coral)}.tone.c-c281{background:#e3b35c}
+.row b{display:block;font-size:15.5px;font-weight:700}
+.row small{color:var(--graphite);font-size:13.5px}
+.row small em{font-style:normal;color:var(--redpen);font-weight:700}
+.more{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--graphite)}
+.more:hover,.more.open{background:var(--blotter);color:var(--pencil)}
+.row .pop{right:0;top:46px}
+.ruleline{margin-top:16px;font-size:14px;color:var(--graphite)}
+.ruleline u,.why u{color:var(--pencil);text-underline-offset:3px}
+.search{display:flex;gap:8px;align-items:center;margin-top:18px;background:var(--page);border-radius:10px;box-shadow:0 0 0 1px var(--rule);padding:9px 12px;color:var(--graphite)}
+.empty-note{color:var(--graphite);padding:10px 6px;margin:0}
+
+/* ---------- assignment page: the agent on the left, what it's working on at the right ---------- */
+.ag{display:flex;flex-direction:column;height:100%}
+.ag-head{display:flex;align-items:center;gap:12px;height:56px;flex:none;padding:0 20px;position:relative}
+.ag-head .tone{height:20px}
+.ag-head b{font-size:16px}
+.ag-head .meta{color:var(--graphite);font-size:14px}
+.ag-head .pop{right:20px;top:50px}
+.ag-body{flex:1;min-height:0;display:grid;grid-template-columns:456px 1fr}
+/* the conversation */
+.convo{display:flex;flex-direction:column;min-height:0;padding:0 22px 18px 24px}
+.turns{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:18px;font-size:15px;line-height:1.55;padding-top:18px}
+.turn .who{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:800;margin-bottom:2px}
+.turn .who .slot{width:34px;height:34px;margin:-4px 0 -2px -2px}
+.turn.still .who .ink2,.turn.still .who .ink2 *{animation:none!important}
+.turn .who small{font-weight:500;font-size:12.5px;color:var(--graphite)}
+.turn p{margin:0 0 0 42px;color:var(--pencil)}
+.turn p + p{margin-top:6px}
+.turn.cont{margin-top:-10px}
+.turn.cont .who{display:none}
+.sys{font-size:12.5px;color:var(--graphite);display:flex;align-items:center;gap:10px}
+.sys::before,.sys::after{content:"";flex:1;height:1px;background:var(--rule)}
+.you{align-self:flex-end;background:var(--blotter);padding:8px 13px;border-radius:16px 16px 4px 16px;max-width:84%;line-height:1.45;font-size:14.5px}
+.mem{color:var(--graphite);font-size:12.5px;margin-left:42px}
+.app .mem svg.i{display:inline-block;vertical-align:-2px;margin-right:5px;color:var(--green)}
+.mem u{color:var(--pencil);text-underline-offset:3px}
+.calls{margin:10px 0 0 42px;display:flex;flex-direction:column;gap:7px;font-size:14px}
+.call{display:grid;grid-template-columns:15px auto 1fr auto;gap:9px;align-items:center;color:var(--graphite);white-space:nowrap}
+.call svg{color:var(--graphite)}
+.call b{font-weight:700;color:var(--pencil)}
+.call code{font:12.5px ui-monospace,Consolas,monospace;background:none;padding:0;color:var(--graphite);overflow:hidden;text-overflow:ellipsis}
+.call small{font-size:12.5px;font-variant-numeric:tabular-nums}
+.call.run b::after{content:"…";animation:pulse 1.4s ease-in-out infinite}
+.call.run svg{color:var(--pencil)}
+.fold{margin:8px 0 0 42px;align-self:flex-start;display:flex;gap:7px;align-items:center;background:none;border:0;padding:3px 0;color:var(--graphite);font-size:14px}
+.fold svg:first-child{color:var(--green)}
+.fold:hover{color:var(--pencil)}
+.tips{display:flex;flex-direction:column;gap:1px;margin:2px 0 0 32px}
+.tips span{padding:6px 10px;border-radius:9px;color:#5f564c;font-size:14px;display:flex;gap:8px;align-items:center}
+.tips span:hover{background:var(--blotter);color:var(--pencil)}
+.tips span svg{color:var(--graphite)}
+/* your move: a prompt above the chat box, like an agent asking for approval */
+.move{margin-top:12px;border-radius:16px;background:var(--page);box-shadow:0 0 0 1px rgba(43,38,33,.1),0 1px 2px rgba(43,38,33,.05),0 10px 26px -14px rgba(43,38,33,.35);padding:14px 16px;animation:grow .2s cubic-bezier(.23,1,.32,1)}
+.move h5{font:800 16px/1.3 "Nunito Sans";margin:0}
+.move p{margin:3px 0 0;font-size:14px;color:#5f564c;line-height:1.45}
+.move .acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px}
+.checks{margin-top:8px}
+.chk{border-top:1px solid var(--rule);padding:9px 0;display:grid;grid-template-columns:1fr auto;gap:1px 12px;align-items:center}
+.chk b{font-size:14px;font-weight:700}
+.chk small{grid-column:1;color:var(--graphite);font-size:12.5px;line-height:1.4}
+.chk .opts{grid-row:1/3;grid-column:2;display:flex;gap:4px}
+.chk .opts .btn{padding:5px 10px;font-size:12.5px}
+.chk.ok{display:flex;gap:7px;color:var(--graphite)}
+.chk.ok b{font-weight:500}
+.chk.ok svg{color:var(--green)}
+.composer{display:flex;align-items:center;gap:12px;background:var(--page);border-radius:16px;box-shadow:0 0 0 1.5px var(--pencil);padding:12px 12px 12px 16px;color:var(--graphite)}
+.composer span{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.composer .send{width:34px;height:34px;border-radius:10px;background:var(--blotter);display:grid;place-items:center;color:var(--graphite)}
+.composer .send.stop{background:var(--pencil);color:var(--page)}
+.convo .composer{margin-top:12px}
+/* what Dot is working on */
+.view{margin:0 16px 0 0;background:var(--page);border-radius:16px 16px 0 0;box-shadow:0 0 0 1px rgba(43,38,33,.07),0 2px 4px rgba(43,38,33,.04),0 14px 34px -14px rgba(43,38,33,.2);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.view-tabs{display:flex;align-items:stretch;gap:6px;height:48px;padding:0 16px;flex:none;border-bottom:1px solid var(--rule)}
+.view-tabs span{display:flex;gap:7px;align-items:center;padding:0 6px;font-size:14px;font-weight:600;color:var(--graphite);box-shadow:inset 0 -2px 0 transparent;transition:color .15s,box-shadow .15s}
+.view-tabs span svg{color:#b3a99c;transition:color .15s}
+.view-tabs span:hover{color:var(--pencil)}
+.view-tabs span.on{color:var(--pencil);box-shadow:inset 0 -2px 0 var(--pencil)}
+.view-tabs span.on svg{color:var(--pencil)}
+.view-tabs .live{width:6px;height:6px;border-radius:50%;background:var(--coral);margin-left:1px;animation:pulse 1.4s ease-in-out infinite}
+.chrome{display:flex;align-items:center;gap:10px;height:42px;padding:0 10px 0 14px;flex:none;border-bottom:1px solid var(--rule);background:#faf7f0}
+.chrome .nav{display:flex;gap:2px;color:#b3a99c}
+.chrome .url{flex:1;min-width:0;background:var(--page);box-shadow:inset 0 0 0 1px var(--rule);border-radius:8px;padding:5px 10px;font:12.5px ui-monospace,Consolas,monospace;color:#6f6456;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chrome .who{font-size:12.5px;color:var(--graphite);white-space:nowrap;display:flex;gap:6px;align-items:center}
+.chrome .who i{width:7px;height:7px;border-radius:50%;background:var(--coral);animation:pulse 1.4s ease-in-out infinite}
+.chrome .btn{padding:6px 11px;font-size:13px}
+.pane{flex:1;min-height:0;overflow:hidden;position:relative}
+.pad{padding:24px 28px;height:100%;overflow-y:auto}
+.lab{font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--graphite);margin:0 0 8px}
+.facts{display:grid;grid-template-columns:140px 1fr;gap:16px 20px;font-size:15px;max-width:640px;margin:0}
+.facts dt{color:var(--graphite);font-weight:700;font-size:13.5px;padding-top:2px}
+.facts dd{margin:0;font-variant-numeric:tabular-nums}
+.facts dd small{color:var(--graphite)}
+.facts dd em{font-style:normal;color:var(--redpen);font-weight:700}
+.facts ul{margin:0;padding-left:18px}
+.facts u{color:var(--graphite);text-underline-offset:3px}
+.facts u:hover{color:var(--pencil)}
+.req-head{display:flex;align-items:baseline;gap:10px;margin:0 0 6px}
+.req-head b{font-size:15px}
+.req-head span{font-size:13px;font-weight:700;color:var(--green)}
+.req{display:grid;grid-template-columns:20px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--rule);align-items:start}
+.req:last-child{border:0}
+.req svg{color:var(--green);margin-top:2px}
+.req b{font-weight:600;font-size:14.5px}
+.req code{font:12.5px ui-monospace,Consolas,monospace;color:var(--graphite);background:none;padding:0;margin-top:3px;white-space:nowrap}
+.sec{margin-top:26px}
+.ans{display:grid;grid-template-columns:30px 1fr;gap:4px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--rule);font-size:15px;font-variant-numeric:tabular-nums}
+.ans span{width:22px;height:22px;border-radius:50%;background:var(--blotter);display:grid;place-items:center;font-size:12px;font-weight:800;color:#6f6456}
+.ans.todo{color:var(--graphite)}
+.ans.todo span{background:none;box-shadow:inset 0 0 0 1.5px var(--rule)}
+.term{background:#2b2621;border-radius:12px;padding:14px 16px;font:13px/1.7 ui-monospace,Consolas,monospace;color:#e9e1d2;white-space:pre-wrap;box-shadow:0 1px 2px rgba(43,38,33,.2)}
+.term .p{color:var(--highlighter)}
+.term .ok{color:#9fd4b4}
+.term .dim{color:#9a8f80}
+.term .sum{color:#fff;font-weight:700}
+.doc{font:15.5px/1.75 Georgia,serif;max-width:600px;color:#332d27}
+.doc b{display:block;font-size:20px;margin-bottom:8px;color:var(--pencil)}
+.doc p{margin:0}
+.files{display:flex;gap:2px;flex-wrap:wrap;margin:-8px 0 14px -8px;font-size:13.5px}
+.files span{display:flex;gap:6px;align-items:center;padding:6px 10px;border-radius:8px;color:var(--graphite)}
+.files span:hover{background:var(--blotter);color:var(--pencil)}
+.files span.on{background:var(--blotter);color:var(--pencil);font-weight:700}
+.files .t-pdf{color:#c8553d}.files .t-c{color:#4f7fc1}.files .t-doc{color:#3f6fb5}.files .t-mk{color:#8a7f70}.files .t-term{color:var(--pencil)}
+.drop{border:2px dashed #d8cfbd;border-radius:14px;display:grid;place-items:center;height:240px;color:var(--graphite);text-align:center}
+.drop b{display:block;color:var(--pencil);font-size:17px}
+.school{height:100%;background:#f6f7fb;font-size:13.5px;position:relative}
+.school .sb{background:#223a63;color:#fff;padding:12px 20px;font-weight:700}
+.school .sb.vendor{background:#1f5c8f}
+.school .sc{padding:18px 28px}
+.school .sc small{color:#667;font-weight:700;letter-spacing:.04em}
+.school .sc h5{font-size:22px;margin:4px 0;color:#223}
+.school .sc p{margin:2px 0;color:#445}
+.school .box{background:#fff;border:1px solid #cfd6e4;border-radius:8px;padding:12px 16px;margin-top:12px;max-width:600px}
+.school .box b{display:block;margin-bottom:4px}
+.school .fld{border:1px solid #9fb0cc;border-radius:5px;min-height:34px;padding:6px 9px;margin-top:5px;background:#fff}
+.school .fld.f{background:#fffbe6;box-shadow:0 0 0 2px rgba(246,201,69,.55)}
+.school .sbtn{display:inline-block;margin-top:12px;background:#2a5db0;color:#fff;font-weight:700;padding:8px 16px;border-radius:5px}
+.school .sbtn.glow{box-shadow:0 0 0 4px rgba(246,201,69,.9)}
+.school .signin{width:340px;margin:36px auto;background:#fff;border:1px solid #cfd6e4;border-radius:10px;padding:22px}
+.school .signin .fld{min-height:32px;color:#889}
+.school .signin label{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px;background:#fff7d6;padding:6px 8px;border-radius:6px}
+.school .signin label i{width:14px;height:14px;border:1.5px solid #556;border-radius:3px}
+.stamp{display:inline-block;border:2.5px solid var(--green);color:var(--green);border-radius:9px;padding:5px 16px;font:800 21px "Shantell Sans";letter-spacing:.05em;text-transform:uppercase;transform:rotate(-3deg);margin:2px 0 12px -2px}
+.ba{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px;max-width:600px}
+.ba div{background:var(--paper);border-radius:10px;padding:12px 14px;font-size:14.5px}
+.ba b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--graphite);margin-bottom:3px}
+
+/* ---------- chat: grows out of the chat box ---------- */
+.veil{position:absolute;inset:0;background:rgba(251,247,238,.72);z-index:9;animation:fade .18s ease-out}
+.dock{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);width:720px;z-index:10;background:var(--page);border-radius:18px;box-shadow:0 0 0 1.5px var(--pencil);display:flex;flex-direction:column}
+.dock.open{box-shadow:0 0 0 1.5px var(--pencil),0 22px 60px -20px rgba(43,38,33,.5)}
+.dock .composer{box-shadow:none;background:none;border-radius:0}
+.dock.open .composer{border-top:1px solid var(--rule)}
+.chat{padding:44px 20px 14px;-webkit-mask-image:linear-gradient(transparent 6px,#000 44px);mask-image:linear-gradient(transparent 6px,#000 44px);display:flex;flex-direction:column;gap:12px;max-height:600px;overflow:hidden;justify-content:flex-end;font-size:15px;animation:grow .2s ease-out}
+.chat .d{grid-template-columns:32px 1fr;gap:10px}
+.chat .d .slot{width:32px;height:32px}
+.chat .hi{font:800 22px "Shantell Sans";margin:0}
+.dock .x{position:absolute;z-index:2;right:10px;top:8px;width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--graphite)}
+.dock .x:hover{background:var(--blotter)}
+.mini{margin-top:8px;border-radius:12px;box-shadow:0 0 0 1px var(--rule);overflow:hidden}
+.mini > div{display:grid;grid-template-columns:8px 1fr auto;gap:12px;align-items:center;padding:8px 10px 8px 12px;border-bottom:1px solid var(--rule)}
+.mini > div:last-child{border:0}
+.mini > div:hover{background:var(--paper)}
+.mini b{display:block;font-size:14.5px}
+.mini small{color:var(--graphite);font-size:13px}
+.mini small em{font-style:normal;color:var(--redpen);font-weight:700}
+.mini .tone{height:26px}
+
+/* ---------- rules and memory pages ---------- */
+.set h4{font:800 30px "Shantell Sans";margin:10px 0 4px}
+.set .sub{color:var(--graphite);margin:0 0 8px}
+.set h6{font-size:14px;font-weight:800;margin:24px 0 8px}
+.opt{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:11px 14px;border-radius:12px;margin-bottom:6px;background:var(--page);box-shadow:0 0 0 1px var(--rule)}
+.opt.on{box-shadow:0 0 0 2px var(--pencil)}
+.opt i{width:18px;height:18px;border-radius:50%;border:2px solid var(--graphite);margin-top:2px}
+.opt.on i{border-color:var(--pencil);background:radial-gradient(var(--pencil) 0 4px,transparent 5px)}
+.opt b{display:block}
+.opt small{color:var(--graphite);font-size:13.5px}
+.exc{display:grid;grid-template-columns:8px 1fr auto 30px;gap:12px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--rule)}
+.exc small{display:block;color:var(--graphite);font-size:13px}
+.exc .val{font-weight:700;font-size:14px;background:var(--blotter);border-radius:8px;padding:5px 10px}
+.why{margin-top:16px;background:var(--page);border-radius:12px;box-shadow:0 0 0 1px var(--rule);padding:12px 16px;font-size:14px}
+.why b{display:block;margin-bottom:2px}
+.mem-row{display:grid;grid-template-columns:1fr auto 30px;gap:12px;align-items:center;padding:9px 6px;border-bottom:1px solid var(--rule)}
+.mem-row small{display:block;color:var(--graphite);font-size:13px}
+
+@keyframes grow{from{opacity:0;transform:translateY(10px)}}
+@keyframes drop{from{opacity:0;transform:translateY(-4px)}}
+@keyframes fade{from{opacity:0}}
+@keyframes pulse{50%{opacity:.45}}
+@media (prefers-reduced-motion:reduce){.chat,.veil,.pop,.move,.chrome .who i,.call.run b::after{animation:none}}
+@media (max-width:900px){.layers{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<p class="kicker">Studi · homework build plan · September 27, 2026</p>
+<h1>Homework, done right.</h1>
+<p class="lead">This plan is homework only. It covers:</p>
+<ul class="lead">
+  <li>the week board, the list, the assignment page and chat, in every state and under every rule;</li>
+  <li>Dot doing the work reliably, and reading and writing memories;</li>
+  <li>the new icon and character animations;</li>
+  <li>staying signed in;</li>
+  <li>how testing works;</li>
+  <li>recording everything in PostHog.</li>
+</ul>
+<p class="lead">Learn is not in this plan.</p>
+<nav class="toc">
+  <a href="#try">Try it</a><a href="#screens">Screens</a><a href="#rules">Rules audit</a><a href="#dot">Dot does the work</a><a href="#memory">Memory</a><a href="#icon">Icon and characters</a><a href="#signin">Staying signed in</a><a href="#testing">How testing works</a><a href="#posthog">PostHog</a><a href="#order">Order of work</a><a href="#decide">Decisions</a>
+</nav>
+
+<!-- ============================== try it ============================== -->
+<h2 id="try">Try it</h2>
+<p class="muted">This is a clickable model of the new homework screens, built with the app's own colours, fonts, icons and characters. Click anything: cards, rows, buttons, tabs, the chat box, the settings icon. It behaves like the app will. Press <b>Start</b> and Dot works through its steps, then hands you the result to check.</p>
+<div class="proto-wrap">
+<div class="controls" id="controls">
+  <label>Screen<div class="seg" id="c-screen"></div></label>
+  <label>Rule for all homework<div class="seg" id="c-rule"></div></label>
+  <label>Assignment<select id="c-assign"></select></label>
+  <label>Its state<select id="c-state"></select></label>
+  <label>Kind of work<select id="c-kind"></select></label>
+</div>
+<div class="shot"><div class="fit"><div class="app" id="proto"></div></div></div>
+</div>
+<p class="hint">Three paths to try:</p>
+<ol class="hint">
+  <li>Open <b>HW 12</b> from the week, click <b>I've signed in</b>, and watch Dot finish.</li>
+  <li>Open <b>exercise_11</b>, settle the two notes, then hand it in. Switch the rule above to see how the ending changes.</li>
+  <li>Click the chat box on the week and try each suggestion.</li>
+</ol>
+
+<!-- ============================== screens ============================== -->
+<h2 id="screens">Screens</h2>
+<p class="muted">Every screen starts from two questions: what is the student thinking when they land here, and what is the one thing they'll do next? The answer to the first goes at the top in plain words. The answer to the second is the one yellow button. Everything else is there to back those up, or it goes.</p>
+
+<h3>The assignment page</h3>
+<p>The page works like Codex or Claude Code: the agent on the left, what it's working on at the right.</p>
+<ul>
+  <li><b>Left: Dot's turns.</b> Dot writes a short plan, then each action shows as a tool call: an icon, a verb, the target in monospace, and the result ("Ran make test · 12 passed", "Opened webassign.net/…", "Edited sort.c · +48 −3"). The call Dot is on pulses. When Dot finishes, the calls fold into "Worked for 6m 12s · 7 steps". Your messages and Dot's replies continue in the same thread, and saved memories show inline with Undo.</li>
+  <li><b>Your move.</b> When Dot needs you, a yellow prompt sits above the chat box, like an agent asking for approval. It holds the one decision and its buttons: sign in, answer a question, settle two doubts and hand it in. When nothing is needed, there's no prompt, and the send button becomes Stop while Dot works.</li>
+  <li><b>Right: what Dot is working on.</b> The school page or vendor site in a small browser frame with its address, marked "Dot is using this page" with <b>Take over</b>. The work (answers, draft or files) is another tab. <b>Details</b> holds the due date, class, what the school says, the rule, the late policy and where Dot found it. The right tab opens by itself for each state.</li>
+  <li><b>Header.</b> The title, class and due date. Whose turn it is shows in the page itself, not as a status label.</li>
+</ul>
+<table>
+  <tr><th>State</th><th>What you're thinking</th><th>What Dot says</th><th>Your move</th><th>What's on the right</th></tr>
+  <tr><td>Not started</td><td>What is this, and what will Dot do with it?</td><td>"Ready when you are."</td><td><b>Start</b></td><td>Brief: what it asks, Dot's plan, what happens at the end. Ideas for telling Dot how you want it done.</td></tr>
+  <tr><td>Rule says leave it</td><td>Why hasn't Dot done this?</td><td>"This one's yours." It names the rule.</td><td><b>Let Dot do this one</b></td><td>Brief. Today the Start button is disabled with no way forward.</td></tr>
+  <tr><td>Starts later</td><td>When will it happen?</td><td>"Starting tonight at 7."</td><td><b>Start now</b></td><td>Brief. Today "Do it, I submit" work says "Queued" forever (rules finding 3).</td></tr>
+  <tr><td>Working</td><td>Is it getting somewhere? Can I step in?</td><td>"Working on it." with the step and its number</td><td>None needed. <b>Stop</b> and <b>Take over</b> are there.</td><td>The page Dot is on, live. Steps tick in the conversation.</td></tr>
+  <tr><td>Needs a sign-in</td><td>What do you need from me?</td><td>"Sign in to WebAssign."</td><td><b>I've signed in</b> (Dot also notices by itself)</td><td>The sign-in page, with a reminder to tick "remember this device".</td></tr>
+  <tr><td>Needs an answer</td><td>What's the question?</td><td>The question itself</td><td>One click on a suggested answer, or type one</td><td>The work so far.</td></tr>
+  <tr><td>Needs a file</td><td>Which file?</td><td>"I need handout-4.pdf."</td><td><b>Choose file</b></td><td>A drop area.</td></tr>
+  <tr><td>Ready for you</td><td>Is it right? What should I check?</td><td>"Done. Check two things."</td><td>Settle each note, then hand in</td><td>The work on the sheet, with each requirement and its proof. Dot's message lists what to check, each with <b>That's right</b> or <b>Change it</b>.</td></tr>
+  <tr><td>Handing in</td><td>Did it go through?</td><td>"Handing it in."</td><td>None</td><td>The school page.</td></tr>
+  <tr><td>Handed in</td><td>Is it really in? What did it say?</td><td>"Handed in." with the school's words and the time</td><td><b>Walk me through it</b></td><td>The receipt, stamped, with before and after.</td></tr>
+  <tr><td>Handed in at school</td><td>Do I need to do anything?</td><td>"Nothing to do. The school has it."</td><td><b>See it on the school page</b></td><td>The school page.</td></tr>
+  <tr><td>Stopped, saved</td><td>Did I lose the work?</td><td>"Stopped. Your work is saved."</td><td><b>Carry on</b></td><td>The work so far.</td></tr>
+  <tr><td>Stuck</td><td>What went wrong?</td><td>"I got stuck." with the real reason</td><td><b>Try again</b></td><td>The page where it happened. Today the reason is lost (<code>manager/coordinator.ts:381</code>).</td></tr>
+  <tr><td>Yours</td><td>Can I still get help?</td><td>"You're doing this one."</td><td><b>Give it to Dot</b></td><td>Brief.</td></tr>
+</table>
+<h3>Where the right side's content comes from</h3>
+<table>
+  <tr><th>Tab</th><th>What it is</th><th>Where it comes from</th></tr>
+  <tr><td>School page / WebAssign</td><td>The real page Dot is driving, not a picture of it.</td><td>One live Chromium page per assignment (<code>browserPages</code>, key <code>assignment:&lt;id&gt;</code>, <code>main.ts:1090</code>) in the signed-in session <code>persist:studi-school</code>. The screen leaves an empty slot and the engine places the page over it (<code>layoutSchoolBrowser</code>, <code>main.ts:1115</code>). Popups are opened in the same page (<code>main.ts:1099</code>). So when Dot goes from Moodle to WebAssign, the tab follows it, and its name and address come from the page's current address. Dot's face and <b>Take over</b> are a second layer drawn over the page (<code>drive-overlay.ts</code>).</td></tr>
+  <tr><td>Files / Draft</td><td>The assignment's own folder.</td><td>Handouts Dot downloaded, its drafts and code, and your uploads (<code>HomeworkFiles.tsx</code>, <code>files/workspace.ts</code>). The terminal tab is the output of Dot's restricted shell (<code>workspace-tools.ts</code>).</td></tr>
+  <tr><td>Answers</td><td>What Dot typed into a quiz or WebAssign, question by question.</td><td>The answer snapshot Dot saves with <code>assignment_record_answer_snapshot</code>.</td></tr>
+  <tr><td>Details</td><td>Due date, class, what the school says, the rule, the late policy.</td><td>The assignment record (<code>dueAt</code>, <code>schoolStatus</code>, <code>latePolicy</code>) and the rule that applies.</td></tr>
+  <tr><td>Receipt</td><td>Before and after, and what was handed in.</td><td>The submission receipt the engine saves when the school confirms.</td></tr>
+</table>
+<ul>
+  <li><b>Connected apps</b> (GitHub, Google Docs) have no page. Dot uses them through their APIs, so they show as tool calls in the conversation ("Pushed sort.c to github.com/…"). What they made appears in Files as a link.</li>
+  <li><b>One limit to design around:</b> the live page is a native layer above the screen, so nothing can be drawn on top of it. Menus, the chat panel and dialogs have to sit beside it, or the page hides while they're open, as it does today.</li>
+</ul>
+<p>What changes from today's page (<code>AssignmentWorkspace.tsx</code>):</p>
+<ul>
+  <li>Today the status, the headline, the buttons, the proof and the chat are stacked in one narrow column. The new page separates the conversation (left) from the thing being worked on (right), and puts your one decision in a prompt above the chat box.</li>
+    <li>Today Dot's steps are a feed of four lines. They become real tool calls with targets and results. Dot's doubts become rows in the prompt, each settled with one click.</li>
+  <li>Today, under "Do it, I submit", you hand in and then type the school's confirmation words into a form (<code>AssignmentWork.tsx:134</code>). New: you press Submit on the school page and Dot reads the confirmation itself.</li>
+  <li>The kind of work changes what the work tab shows: answers for quizzes and WebAssign, a draft for essays, files and test output for code. Today <code>kind</code> changes nothing on the page.</li>
+</ul>
+
+<h3>Chat</h3>
+<p>You click the chat box to ask something quick without leaving where you are. So the chat isn't a separate page or a sheet covering the app. The chat box grows upward into a panel, and the week stays visible behind it.</p>
+<table>
+  <tr><th>What you want</th><th>What the chat does</th></tr>
+  <tr><td>A quick answer ("what's left before Friday?")</td><td>Dot answers with the assignments themselves, as rows with their buttons. You act from the answer.</td></tr>
+  <tr><td>To add homework</td><td>You tell Dot, or paste a link. It replaces the "+ Add homework" button and its form.</td></tr>
+  <tr><td>To start or stop work</td><td>"Start Reflection 4". The reply carries the row, so you can open it.</td></tr>
+  <tr><td>Dot to remember something</td><td>"Saved to memory" with <b>Undo</b>, in the thread. It shows up on the memory page.</td></tr>
+  <tr><td>To fix a mistake</td><td>"The due date moved to Monday." Dot changes it and shows the row.</td></tr>
+  <tr><td>Nothing in mind yet</td><td>An empty chat offers things you can ask, built from your real week.</td></tr>
+</table>
+<p>What changes from today (<code>ConversationTimeline.tsx</code>, <code>ChatWorkspace.tsx</code>):</p>
+<ul>
+  <li>The "Everything / What Inky did" tabs go.</li>
+  <li>The tag and time on every message go. The context shows once, when it changes.</li>
+  <li>Your messages are bubbles; Dot's are plain text beside its face.</li>
+  <li>Dot's own updates ("Started Homework 1") are quiet one-line entries. Repeats for one assignment fold into the latest.</li>
+  <li>On an assignment page, the same conversation is the left column, about that assignment.</li>
+</ul>
+
+<h3>Week</h3>
+<table>
+  <tr><th>Today</th><th>New</th></tr>
+  <tr><td>The headline counts: "One thing needs you." (<code>Today.tsx:194</code>). The fix sits in a separate "Needs you" section.</td><td>The headline names the one fix and has its button.</td></tr>
+  <tr><td>Clicking a card switches to the list (<code>:362</code>).</td><td>Clicking a card opens the assignment.</td></tr>
+  <tr><td>Cards show the full class name and a status that ignores what the school says.</td><td>Title, short class code, one plain line. Only "Needs you" gets colour.</td></tr>
+  <tr><td>Done work disappears, so a day can say "Nothing due" when something was.</td><td>Done work stays on its day as one quiet line with a tick.</td></tr>
+  <tr><td>A strip under the board: "No due date 1", "+ Add homework", "All work →".</td><td>The strip goes:
+    <ul>
+      <li><b>Coming up</b> shows what's after this week, and work with no date says "Whenever".</li>
+      <li>Adding homework moves to the chat box.</li>
+      <li>Everything else is one click away on the <b>Week / List / All</b> switch.</li>
+    </ul></td></tr>
+</table>
+
+<h3>List and All</h3>
+<ul>
+  <li><b>List</b> is what to do, in order: <b>Needs you</b>, <b>This week</b>, <b>Later</b>. A row has the title, one line, one button named for the next step, and a "···" menu with every correction. Clicking the row opens the assignment. Today a row expands into up to four buttons, details and chips (<code>Today.tsx:504-791</code>).</li>
+  <li><b>All</b> is everything Dot has found, by class, with search and <b>To do / Done / All</b>. Done rows say what happened and open the receipt.</li>
+</ul>
+
+<h3>Rules and memory</h3>
+<ul>
+  <li><b>Rules:</b> one page:
+    <ul>
+      <li>the rule for all homework, each choice explained in a sentence;</li>
+      <li>exceptions;</li>
+      <li>"You're doing these";</li>
+      <li>when Dot starts.</li>
+    </ul>
+    It opens from the settings icon and from the rule shown in any assignment's Brief.</li>
+  <li><b>Memory:</b> "What Dot remembers" shows everything, grouped, and each item says where it came from. Today the page shows student preferences only (<code>main.ts:1721</code>).</li>
+</ul>
+
+<h3>The UI polish</h3>
+<ul>
+  <li><b>Short class codes.</b> There's no short-code field; <code>CourseSchema</code> only has <code>label</code>. Derive "CSC 316" from the label.</li>
+  <li><b>Colours that don't collide.</b> Today a class's colour is the sum of its label's letter codes, mod 6 (<code>assignmentPresentation.ts:18</code>), so two classes can share one. Give classes colours in order.</li>
+  <li><b>One set of words.</b> Today one rule has three names. From now on it's <b>Leave it to me</b>, <b>Do it, I'll hand it in</b> and <b>Do it and hand it in</b> everywhere.</li>
+  <li><b>Hierarchy.</b> One yellow button per screen, a quiet fill for second actions, and links only inside sentences. Shantell Sans is only for Dot's voice.</li>
+  <li><b>Motion.</b> The chat grows in 200 ms, cards lift on hover, and Dot blends between states. All of it respects reduced motion.</li>
+  <li><b>Pushed updates</b> instead of polling. The chat polls every 0.65–1.2 s today (<code>ChatWorkspace.tsx:208</code>).</li>
+  <li><b>Remove dead code:</b> <code>DeskDrawer</code> (imported, never rendered), <code>boardView</code>, <code>weekOffset</code>, <code>AssignmentCard</code>, the add-homework form, and the old CSS these screens replace.</li>
+</ul>
+
+<!-- ============================== rules ============================== -->
+<h2 id="rules">Rules: how they work, and do they work?</h2>
+<h3>How they work today</h3>
+<ul>
+  <li>There are three choices (<code>shared/permission.ts:11</code>):
+    <ul>
+      <li><b>leave it</b> (<code>do_not_attempt</code>);</li>
+      <li><b>do it, I hand in</b> (<code>attempt</code>);</li>
+      <li><b>do it and hand in</b> (<code>auto_submit</code>).</li>
+    </ul>
+    With no rule at all, Dot leaves the work alone.</li>
+  <li>A rule can cover all homework, one class, one kind of work in a class, or one assignment. The most specific wins: assignment, then kind, then class, then all (<code>permission.ts:121</code>).</li>
+  <li>Three things force "leave it" whatever the rules say: "I'll do it myself", an ignored assignment, and a class that merged badly (<code>manager/coordinator.ts:473-483</code>).</li>
+  <li><b>Do it, I hand in:</b> Dot stops at "Ready for you". You hand it in on the school page and type the confirmation you see, and Dot checks the page says so (<code>assignment/coordinator.ts:233</code>).</li>
+  <li><b>Do it and hand in:</b> after your review time, Dot hands it in. It only does this if it has no doubts, the schedule isn't paused and Studi is open (<code>:299-304</code>). Otherwise it saves the answer.</li>
+</ul>
+<h3>Do they work? The audit</h3>
+<p>Mostly yes:</p>
+<ul>
+  <li>Every start and every hand-in re-checks the current rule.</li>
+  <li>Dot can't use the hand-in tool without your click or the rule's timer, and chat can't trigger it.</li>
+  <li>The permission and lifecycle tests all pass: 45 of 45, run against today's build.</li>
+</ul>
+<p>But these problems are real:</p>
+<table>
+  <tr><th>#</th><th>Problem</th><th>Evidence</th><th>Fix</th></tr>
+  <tr><td>1<span class="sev high">high</span></td><td>Changing scan depth in Settings silently resets your rule for all homework, and can <i>widen</i> it.</td><td><code>saveDepth</code> resends the old <code>profile.defaultPermission</code> (<code>WorkspaceScreens.tsx:474</code>), which rewrites the global rule (<code>scan/coordinator.ts:202</code>). There are two sources of truth.</td><td>Onboarding writes the rule once, and <code>saveProfile</code> never touches rules. Delete <code>defaultPermission</code> from the profile.</td></tr>
+  <tr><td>2<span class="sev med">medium</span></td><td>Changing a rule doesn't stop live work.</td><td>There's no abort, unlike "I'll do it myself" (<code>:215</code>). A running 120 s command finishes; then the next tool call fails and the work sits in "needs you".</td><td>Stop straight away, save the work, and show "Your rule changed". Resuming re-checks the rule first.</td></tr>
+  <tr><td>3<span class="sev med">medium</span></td><td>"Starts by itself" never starts "Do it, I hand in" work, so those rows show "Queued" forever.</td><td>Scheduled starts need <code>maySubmit</code> (<code>:518, :532</code>), but the scan queues attempt-only work anyway (<code>scan/coordinator.ts:2077</code>). Onboarding promises "I'll start the first one when you open your week".</td><td>Let scheduled starts run for both "do it" rules; handing in is a separate check. See decision 2.</td></tr>
+  <tr><td>4<span class="sev med">medium</span></td><td>A rule for a kind of work ("CSC 316 quizzes: do it") doesn't apply to quizzes found later.</td><td>A kind is confirmed only at the moment the rule is saved (<code>main.ts:740</code>). An unconfirmed kind can only ever restrict (<code>:486-500</code>).</td><td>The scan records how sure it is of each kind. Clear kinds get the rule; guesses get the safer rule, as today.</td></tr>
+  <tr><td>5<span class="sev med">medium</span></td><td>"I'll do it myself" shows up as an editable exception, but editing it does nothing.</td><td><code>owner === "student"</code> short-circuits before any rule is read (<code>:473</code>).</td><td>Show it as its own "You're doing these" list, with "Give it back to Dot".</td></tr>
+  <tr><td>6<span class="sev med">medium</span></td><td>Some ways of handing work in aren't caught under "Do it, I hand in".</td><td>Clicks are blocked by button words like "submit" (<code>controller.ts:6</code>). A "Post reply" or "Done" button isn't blocked, and neither is <code>git push</code> or a connected-app write (<code>workspace-tools.ts:20</code>).</td><td>One hand-in gate covers every action that hands work in: a click that posts a form on a submission page, <code>git push</code> to a class repository, and connected-app writes. Each goes through the hand-in check.</td></tr>
+  <tr><td>7<span class="sev low">low</span></td><td>"Hands in automatically at 9 PM" shows even when the schedule is paused.</td><td><code>AssignmentWorkspace.tsx:190</code></td><td>Say "if Studi is open", and say when it's paused.</td></tr>
+  <tr><td>8<span class="sev low">low</span></td><td>Misleading names. <code>submitAssignmentByRule</code> actually does a student submit, and "Rule for this assignment →" isn't about the assignment.</td><td><code>main.ts:571</code>, <code>Today.tsx:701</code></td><td>Rename it. The link opens Rules with the assignment chosen, and the assignment header shows the rule and where it comes from.</td></tr>
+  <tr><td>9<span class="sev low">low</span></td><td>A class that merged badly forces "leave it" with no explanation.</td><td><code>:478-483</code></td><td>Show it on the Rules page with how to fix it.</td></tr>
+</table>
+<p class="muted">Each fix gets a test; findings 1, 2, 4, 5 and 7 have none today. The rule is also checked in 14 places across three layers. The single start path (next section) cuts that to two gates, "may start" and "may hand in", plus the per-tool check that already exists.</p>
+
+<!-- ============================== dot ============================== -->
+<h2 id="dot">Dot does the work, reliably</h2>
+<h3>How a run works today</h3>
+<div class="flow"><span>Start</span><i>→ are the details fresh?</i><span>take the school page</span><i>→</i><span>Pi session, shared with the assignment's chat</span><i>→</i><span>tools: school page, files, terminal, documents, tell the student</span><i>→</i><span>record answers → Ready for you</span><i>→</i><span>hand in: rule timer or your click</span></div>
+<p>At the start, Dot gets:</p>
+<ul>
+  <li>the assignment;</li>
+  <li>the rule;</li>
+  <li>notes about the class and the assignment;</li>
+  <li>the last receipt;</li>
+  <li>the folder listing;</li>
+  <li>a snapshot of the page (<code>assignment/coordinator.ts:355-389</code>).</li>
+</ul>
+<p>It does <b>not</b> get the class name, the class's materials or exams, related assignments, how the school works, or your preferences.</p>
+<h3>What goes wrong, and the fix</h3>
+<table>
+  <tr><th>Gap</th><th>Evidence</th><th>Fix</th></tr>
+  <tr><td>Gives up the moment the model stops early</td><td>It hands off straight away with "ended without recording a verified outcome" (<code>coordinator.ts:395</code>).</td><td><b>Keep going:</b> up to 3 nudges ("you haven't recorded a result; carry on or ask"), then ask you.</td></tr>
+  <tr><td>No watchdog</td><td>A turn has no step or time limit (<code>manager/coordinator.ts:384</code>). Only the scan has one.</td><td>Stop a turn after 5 minutes with no progress, or 45 minutes in total, then nudge. After two stops, ask you.</td></tr>
+  <tr><td>Your reply can leave work stuck</td><td>A reply runs through chat, and nothing checks the phase afterwards (<code>conversation-coordinator.ts:362</code>).</td><td>Every turn, whatever started it, ends with the same keep-going check.</td></tr>
+  <tr><td>Three ways to start, each different</td><td>Chat is blocked by stale details, while the button re-reads them (<code>manager/coordinator.ts:130</code> vs <code>main.ts:275</code>).</td><td><b>One start</b> for the button, chat and the schedule. It re-reads the page first if the details are stale.</td></tr>
+  <tr><td>Limits end badly</td><td>At 24 turns, every resume fails again. After 30 minutes with no saved answer, the run fails (<code>:289, :309</code>).</td><td>At the limit, Dot asks you. Waits for a sign-in or a file last until an hour before the due date, and the work is saved, not failed.</td></tr>
+  <tr><td>Errors lose their reason</td><td>Only the outcome is recorded (<code>manager/coordinator.ts:381</code>).</td><td>Keep the reason: "Your ChatGPT limit is reached. I'll carry on at 3 PM."</td></tr>
+  <tr><td>A restart stops everything</td><td>Working runs become "needs you" (<code>coordinator.ts:760</code>).</td><td>After a restart, carry on in the same session: re-read the page, then continue.</td></tr>
+  <tr><td>The recovery limit is hard-coded</td><td><code>ordinal === 2</code>, counted across the whole task (<code>:481</code>).</td><td>Use <code>maxRecoveryAttempts</code>, counted per run.</td></tr>
+  <tr><td>No method</td><td>The instructions don't say how to approach the work (<code>turn-builder.ts:71</code>).</td><td><b>Dot's method:</b>
+    <ol>
+      <li>Understand everything.</li>
+      <li>Find where the work lives.</li>
+      <li>Do it the way the class expects.</li>
+      <li>Check it: run the tests, redo the maths, walk the rubric.</li>
+      <li>Put it where it goes.</li>
+      <li>Hand it over with proof and doubts.</li>
+    </ol></td></tr>
+  <tr><td>Thin starting context</td><td>See above.</td><td>Add the class name and overview note, how the school works, related assignments and how they went, the class's saved materials, and your preferences.</td></tr>
+  <tr><td>Can't look things up in notes</td><td><code>note_search</code> and <code>note_read</code> are listed for assignments but never attached (<code>capability-registry.ts:158</code>).</td><td>Attach them.</td></tr>
+  <tr><td>State spread over several records</td><td>The task, execution, lease, attempts and receipts each hold part of it.</td><td><b>One record</b> per assignment: Not started → Working ⇄ Waiting for you → Ready → Handed in, or Stopped with the reason and the saved answer. The engine pushes changes to the screens.</td></tr>
+</table>
+
+<!-- ============================== memory ============================== -->
+<h2 id="memory">Memory: Dot reads and writes it</h2>
+<table>
+  <tr><th>Today</th><th>Fix</th></tr>
+  <tr><td>Your preferences never reach homework. The note filter is built without <code>studentId</code>, so only "primary" matches (<code>coordinator.ts:860</code>, <code>retrieve.ts:37</code>).</td><td>Pass the student id. A test checks that a saved preference appears in the homework prompt.</td></tr>
+  <tr><td>School memory ("how this school works") is dropped for homework (<code>retrieve.ts:39</code>).</td><td>Include it.</td></tr>
+  <tr><td>Dot can write notes only after review starts (<code>coordinator.ts:579</code>).</td><td>Dot writes at any time: class notes, notes on kinds of work, and assignment notes. It saves a preference only when you said it. Every run ends with a note, including failures and hand-offs: what worked, what the grader wanted, and where things live.</td></tr>
+  <tr><td>"Remember X" in an assignment chat can't save anything (<code>conversation-coordinator.ts:836</code>).</td><td>Any chat can save a memory.</td></tr>
+  <tr><td>Settings shows preferences only. Class, school and assignment notes are hidden.</td><td>"What Dot remembers" shows all of them, with the source, Edit and Forget.</td></tr>
+  <tr><td>"I saved this" is only Dot's words.</td><td>An inline "Saved to memory: … · Undo" line in the thread.</td></tr>
+</table>
+
+<!-- ============================== icon ============================== -->
+<h2 id="icon">Icon and characters</h2>
+<div id="cast" style="display:flex;gap:26px;align-items:flex-end;margin-top:14px;flex-wrap:wrap"></div>
+<ul>
+  <li><b>Icon:</b> a bold yellow S, drawn as a shape so it doesn't depend on a font (<code>assets/studi-icon.svg</code>). <code>scripts/render-icons.mjs</code> renders the PNG, the ICO and the landing favicon. Every <code>studi-inky</code> path is replaced.</li>
+  <li><b>Live icon badge</b> (<code>electron/app-status.ts</code>):
+    <ul>
+      <li>needs you: a coral "!" and one taskbar flash;</li>
+      <li>ready to check: a green count;</li>
+      <li>working or scanning: a pencil or magnifier, plus a progress bar;</li>
+      <li>otherwise: the plain S.</li>
+    </ul>
+    The Mac Dock and the tray show the same status.</li>
+  <li><b>Characters:</b> Dot is on every homework surface, including the school-page overlay. It's drawn once (<code>shared/characters/rig.ts</code>) and moved by a small controller (<code>characterMotion.ts</code>):
+    <ul>
+      <li>each state holds for at least 600 ms, and the latest request wins;</li>
+      <li>loops blend instead of snapping;</li>
+      <li>off-screen characters rest;</li>
+      <li>the eyes follow the pointer;</li>
+      <li>with reduced motion on, it shows still poses.</li>
+    </ul></li>
+  <li><b>States:</b> <code>dotState()</code> replaces <code>deskInkyState</code> and adds <b>review</b> for "Ready for you". The same function drives the icon badge. All 20 <code>&lt;Inky&gt;</code> call sites move to <code>&lt;Character&gt;</code>, then <code>shared/inky.ts</code> and its CSS are deleted.</li>
+  <li><b>Name:</b> homework copy and the agent packs say Dot (<code>packs/core/inky</code> → <code>packs/core/dot</code>). Stored field names stay the same, so no migration is needed.</li>
+  <li><b>Already started (uncommitted):</b> the icon files, the rig, the motion controller, <code>Character.tsx</code>, <code>states.ts</code> and a preview sheet.</li>
+</ul>
+
+<!-- ============================== sign in ============================== -->
+<h2 id="signin">Staying signed in</h2>
+<ul>
+  <li><b>Why sign-ins are lost:</b> school pages use the saved session <code>persist:studi-school</code> (<code>main.ts:1059</code>). But Chromium drops cookies with no expiry date when the app quits, and single sign-on often uses exactly those. Nothing in Studi keeps them.</li>
+  <li><b>Keep them:</b>
+    <ul>
+      <li>save the school's session cookies on quit and every 10 minutes, encrypted with <code>safeStorage</code>;</li>
+      <li>restore them on launch, before any school page loads;</li>
+      <li>drop them after 14 days;</li>
+      <li>delete the file on sign-out or when the device is released.</li>
+    </ul></li>
+  <li><b>Keep the session alive</b> while Studi runs in the tray and the computer is awake:
+    <ul>
+      <li>Moodle: <code>core_session_time_remaining</code>, then <code>core_session_touch</code>. Both are already allowed as read-only (<code>read-only-guard.ts:10</code>).</li>
+      <li>Canvas: a read-only GET.</li>
+      <li>Anything else: load the school's root page every 20 minutes.</li>
+    </ul></li>
+  <li><b>Remind once:</b> "If your school asks, tick 'remember this device'." It shows on the sign-in step and on "Needs you: sign in". Studi never types or ticks anything itself.</li>
+  <li><b>When the school signs you out:</b>
+    <ul>
+      <li>you get one notification, never repeated for the same sign-out;</li>
+      <li>work that needs the school page waits, and everything else carries on;</li>
+      <li>once you sign in, the waiting work carries on by itself.</li>
+    </ul>
+    Today the whole scan stops (<code>scan/coordinator.ts:1727</code>).</li>
+</ul>
+
+<!-- ============================== testing ============================== -->
+<h2 id="testing">How testing works</h2>
+<p>Studi has four kinds of test. Each proves something different, and only the last two use a real model.</p>
+<div class="layers">
+  <div class="layer"><b>1. Quick checks</b><span class="cmd">bun run verify --changed</span><p>Typecheck plus unit tests for the parts you changed: rules, storage, tools, screen logic. No app window, no model, about a minute.</p><p class="no">It proves the pieces are right, not that Dot can do homework.</p></div>
+  <div class="layer"><b>2. The fake school</b><span class="cmd">bun run lms -- start --scenario quiz</span><p>A pretend school website on your machine (<code>agent-harness/lms</code>). It can look like Moodle, Canvas or an unknown school site. It has a WebAssign-like site, a Duo-style sign-in, 22 made-up semesters, and a hidden answer key Studi never sees. Faults can be triggered mid-run: sign-outs, moved deadlines, failed downloads.</p><p class="no">It's the stage. On its own it tests nothing.</p></div>
+  <div class="layer"><b>3. Scan benchmark</b><span class="cmd">bun run benchmark -- live --scenario moodle-noisy</span><p>Starts the fake school, runs Studi's real scan engine with GPT-6 Sol in a hidden window, then grades what it saved against the answer key: found, dates, statuses, junk, time and tokens.</p><p class="no">It covers scans only. Nothing grades homework this way yet.</p></div>
+  <div class="layer"><b>4. Homework runs</b><span class="cmd">bun run test:e2e · tests/live</span><p><b>e2e:</b> the whole app on the fake school with a <i>scripted</i> model that gives fixed replies. It proves the plumbing: stop at review, hand in once, takeover, stop. <b>live:</b> a real model on 2 tasks, pass or fail, run by hand.</p><p class="no">Just one quiz and one coding task, with no scores or comparison.</p></div>
+</div>
+<h3>What we add: a homework benchmark</h3>
+<div class="flow"><span>fake school: homework-mix</span><i>→</i><span>Studi's real homework engine + GPT-6 Sol</span><i>→</i><span>graders compare with the answer key</span><i>→</i><span>scorecard per build</span></div>
+<ul>
+  <li><b><code>homework-mix</code> scenario:</b> a quiz, code with tests, an essay with a rubric, an upload, a WebAssign-style set, a repository, and one task Dot can't do.</li>
+  <li><b><code>bun run benchmark -- homework</code>:</b> a sibling of <code>electron-scan.mjs</code> that runs real assignment execution under each rule. It uses the graders that exist but have never been wired in (<code>grade-work.mjs</code>, <code>grade-code.mjs</code>).</li>
+  <li><b>Faults as a schedule</b>, not code per scenario: <code>--fault expire-session@tool:20</code>, <code>--fault slow:/mod/*=4000ms</code>, <code>--fault deadline-change@minute:3</code>. This also adds a slow-page rule and a session-cookie login mode, which "staying signed in" needs.</li>
+  <li><b>A scorecard per build</b> (<code>.studi-harness/scorecards/&lt;revision&gt;.json</code>, plus a table against the last build):
+    <ul>
+      <li>work graded correct;</li>
+      <li>handed in exactly when allowed;</li>
+      <li>asked the student when it should have;</li>
+      <li>stuck count;</li>
+      <li>minutes;</li>
+      <li>cost in dollars, from the Pi logs' <code>usage.cost.total</code>;</li>
+      <li>errors;</li>
+      <li>scan results: found, dates and statuses.</li>
+    </ul>
+    The numbers are reported, not gated. Two must always be 0: hand-ins that weren't allowed, and writes to the school during a scan.</li>
+  <li><b>First, fix a bug in the tester's uncommitted edits:</b> <code>CONFIG_FIELDS</code> in <code>benchmark/comparison.mjs:5</code> lacks <code>scanDepth</code>, so every new live run fails validation.</li>
+  <li><b>Tidy up:</b>
+    <ul>
+      <li><code>tests/ui/*.journey.mjs</code> never run, because verify only picks up <code>*.test.mjs</code>;</li>
+      <li><code>tests/browser-tools</code> has nothing that runs it;</li>
+      <li>the test-studi skill says "GPT-5.6 Sol", but the code uses <code>gpt-6-sol</code>.</li>
+    </ul>
+    Fix each of these or delete it.</li>
+</ul>
+
+<!-- ============================== posthog ============================== -->
+<h2 id="posthog">PostHog: record everything</h2>
+<p>The private beta is you and one friend, so everything is recorded, with no consent step. Replay and events are already on by default, with full text (<code>telemetry/service.ts:520</code>, <code>renderer.ts:57</code>). What's missing:</p>
+<ul>
+  <li>An event for <b>every Dot step</b> in scans and homework (tool, duration, outcome, page URL and title), <b>every error</b> with its assignment or scan, and <b>cost per turn</b> in dollars.</li>
+  <li>Rule changes, memory writes, hand-ins, and every change in an assignment's state.</li>
+  <li><b>The school page:</b> it runs in its own view, so replay can't see it. Attach a screenshot of it to each hand-off, error and hand-in.</li>
+  <li>Each person identified by their Studi account, so the two of you can be told apart. Each replay is linked to the scan or assignment it shows.</li>
+  <li>Passwords and sign-in codes stay hidden, as you asked before. Today only the provider sign-in code is marked <code>data-secret</code> (<code>Ui.tsx:189</code>); every code field gets it.</li>
+</ul>
+
+<!-- ============================== order ============================== -->
+<h2 id="order">Order of work</h2>
+<ol>
+  <li><b>Measure first.</b> Fix the <code>scanDepth</code> bug. Add <code>homework-mix</code>, the homework benchmark, the fault schedule and the scorecard. Record today's baseline.</li>
+  <li><b>PostHog events</b> for every step, error and cost, so real use is visible from day one.</li>
+  <li><b>Rules fixes.</b> Finding 1 first (small and high), then 2–9, each with a test.</li>
+  <li><b>Make Dot reliable:</b> one start, keep going, the watchdog, carrying on after a restart, kept error reasons, the method and the context. Then memory reading and writing. Measure again.</li>
+  <li><b>One record per assignment</b>, with pushed updates.</li>
+  <li><b>Icon and characters:</b> finish what's started, swap every call site, rename to Dot, then the live icon.</li>
+  <li><b>Screens:</b> the assignment page and chat first, then week, list, All, rules and memory, as in the prototype, checked in the preview at 1120 and 800 px.</li>
+  <li><b>Staying signed in</b>, measured with the new faults.</li>
+  <li><b>Real assignments, read-only</b> (the file-based ones in your folder), then your full test.</li>
+</ol>
+<p class="muted">Each step ends with <code>bun run verify --changed</code>, the scorecard where Dot's behaviour changed, preview screenshots where screens changed, and a commit.</p>
+
+<h2 id="decide">Decisions</h2>
+<ol>
+  <li><b>Dot everywhere</b>, including the loading and update screens (recommended), or keep blue Inky there?</li>
+  <li><b>Should Dot start by itself for "Do it, I'll hand it in" work?</b> I recommend yes, because handing in still waits for you.</li>
+  <li><b>Web access for Dot</b> (programming docs, formulas)? It would help code and maths work. This is your call on academic integrity.</li>
+  <li><b>Saved sign-in cookies:</b> 14 days, or until the school's own expiry?</li>
+  <li><b>The icon and character code I've started:</b> keep it as the start of step 6 (recommended), or remove it?</li>
+</ol>
+</main>
+
+<script src="characters.js"></script>
+<script>
+// ---------- data: one made-up week; today is Wednesday Sep 23 ----------
+const TONE = { "CSC 316": "c-c316", "CSC 230": "c-c230", "ST 370": "c-st", "CSC 281": "c-c281" };
+const FULL = { "CSC 316": "CSC 316 Data Structures", "CSC 230": "CSC 230 C and Software Tools", "ST 370": "ST 370 Probability", "CSC 281": "CSC 281 Ethics in Computing" };
+const DAYS = [["Monday", "Sep 21"], ["Tuesday", "Sep 22"], ["Wednesday", "Sep 23"], ["Thursday", "Sep 24"], ["Friday", "Sep 25"], ["Saturday", "Sep 26"], ["Sunday", "Sep 27"]];
+const TODAY = 2;
+const A = [
+  { id: "hw12", title: "HW 12", course: "ST 370", day: 3, due: "Thu 11:59 PM", left: "1 day left", kind: "vendor", state: "needs_sign_in", step: 1 },
+  { id: "ex11", title: "exercise_11", course: "CSC 230", day: 2, due: "today 11:59 PM", left: "8 hours left", kind: "code", state: "review", step: 5 },
+  { id: "hw1", title: "Homework 1", course: "CSC 316", day: 3, due: "Thu 7:59 PM", left: "1 day left", kind: "quiz", state: "working", step: 2 },
+  { id: "refl", title: "Reflection 4", course: "CSC 281", day: 4, due: "Fri 11:59 PM", left: "2 days left", kind: "essay", state: "not_started", step: 0 },
+  { id: "ibm", title: "IBM Sorting Machine", course: "CSC 316", day: 0, due: "Mon 7:59 PM", overdue: true, kind: "quiz", state: "not_started", step: 0 },
+  { id: "hw3", title: "HW 3", course: "CSC 316", day: 1, due: "Tue 7:59 PM", kind: "quiz", state: "school_done", step: 5 },
+  { id: "lab4", title: "Lab 4 report", course: "CSC 230", day: 1, due: "Tue 11:59 PM", kind: "upload", state: "handed_in", step: 5 },
+  { id: "hw13", title: "HW 13", course: "ST 370", when: "Thu, Oct 1", due: "Oct 1 11:59 PM", left: "8 days left", kind: "vendor", state: "not_started", step: 0 },
+  { id: "p2", title: "Project 2", course: "CSC 230", when: "Tue, Oct 6", due: "Oct 6 11:59 PM", left: "13 days left", kind: "code", state: "scheduled", step: 0 },
+  { id: "notes", title: "Final project reading notes", course: "CSC 316", when: "Whenever", kind: "upload", state: "yours", step: 0 },
+  { id: "hw2", title: "HW 2", course: "ST 370", when: "Sep 17", due: "Sep 17", kind: "vendor", state: "handed_in", step: 5 },
+];
+const KINDS = { quiz: "Quiz on the school page", code: "Code with tests", essay: "Essay with a rubric", vendor: "Vendor site (WebAssign)", upload: "File upload" };
+const RULES = { leave: "Leave it to me", attempt: "Do it, I'll hand it in", submit: "Do it and hand it in" };
+const STATES = {
+  not_started: "Not started", scheduled: "Starts later", working: "Working", needs_sign_in: "Needs a sign-in", needs_answer: "Needs an answer",
+  needs_files: "Needs a file", review: "Ready for you", handing_in: "Handing in", handed_in: "Handed in by Dot", school_done: "Handed in at school",
+  saved: "Stopped, saved", stuck: "Stuck", yours: "You're doing it",
+};
+const NEEDS = ["needs_sign_in", "needs_answer", "needs_files", "review", "stuck"];
+const DONE = ["handed_in", "school_done"];
+const STEPS = {
+  quiz: ["Read the instructions and 2 attached files", "Opened the quiz on Moodle", "Answered questions 1–3", "Answered questions 4–6", "Checked each answer against the notes"],
+  code: ["Read the handout and the rubric", "Copied the starter code into its folder", "Wrote sort.c and main.c", "Ran make test: 12 of 12 pass", "Went through the rubric line by line"],
+  essay: ["Read the prompt and the rubric", "Read this week's two readings", "Wrote a 480-word draft", "Checked it against the rubric", "Saved reflection-4.docx"],
+  vendor: ["Opened WebAssign from Moodle", "Read the 8 questions", "Worked questions 1–5", "Worked questions 6–8", "Checked units on every answer"],
+  upload: ["Read the lab instructions", "Filled in the lab template", "Exported lab4.pdf", "Checked the upload rules", "Put the file ready to upload"],
+};
+const TOOLS = {
+  quiz: ["file", "globe", "pen", "pen", "check"], code: ["file", "term", "pen", "term", "check"], essay: ["file", "file", "pen", "check", "pen"],
+  vendor: ["globe", "file", "pen", "pen", "check"], upload: ["file", "pen", "term", "check", "file"],
+};
+const PLAN = {
+  quiz: "I'll read the notes, answer the 6 questions on Moodle, then check each one.",
+  code: "I'll read the handout, write the sort in its own folder, and run the 12 tests.",
+  essay: "I'll read the prompt and both readings, write a draft, then go through the rubric.",
+  vendor: "I'll open WebAssign, work the 8 questions, and check the units on each.",
+  upload: "I'll fill in the lab template, export it as a PDF, and check the upload rules.",
+};
+const ASKS = {
+  quiz: ["6 questions on sorting and running time", "One attempt, saved as you go", "Open notes"],
+  code: ["Write an in-place, stable sort in C", "Must pass the 12 provided tests", "Hand in sort.c and main.c"],
+  essay: ["400 to 600 words on who is responsible when software fails", "Cite two of this week's readings", "Graded with the 4-line rubric"],
+  vendor: ["8 questions on expected value and variance", "3 tries per question", "Answers need units"],
+  upload: ["Fill in the lab report template", "One PDF, under 10 MB", "Upload on the school page"],
+};
+const TIPS = {
+  quiz: ["Show your reasoning on written answers", "Ask me before guessing", "Use my class notes"],
+  vendor: ["Show all your working", "Give answers to two decimals", "Ask me before using the last try"],
+  code: ["Use recursion where it fits", "Comment every function", "Don't change the starter files"],
+  essay: ["Write in first person", "Keep it under 500 words", "Use the Floridi reading"],
+  upload: ["Keep the template's headings", "Put my name on the first page", "Keep it to two pages"],
+};
+const ASKED = {
+  quiz: ["Question 4 says “support your answer”. Should I write two sentences, or a full proof?", "Two sentences", "A full proof"],
+  vendor: ["The rubric says “show your work”, but the answer box only takes a number. Should I attach my working as a file?", "Yes, attach it", "No, just the number"],
+  code: ["The handout allows any stable sort. Should I use merge sort, like the lecture did?", "Yes, merge sort", "No, insertion sort"],
+  essay: ["The prompt allows a personal example. Should I use the internship story from your notes?", "Yes, use it", "No, keep it general"],
+  upload: ["The template has an optional “Discussion” section. Should I fill it in?", "Yes, fill it in", "No, leave it out"],
+};
+const WORK_TAB = { quiz: "Answers", vendor: "Answers", essay: "Draft", code: "Files", upload: "Files" };
+const ANSWERS = {
+  quiz: ["B. Merge sort", "A. O(n²)", "O(n log n)", "One comparison per pass, so n − 1 passes in the worst case", "Stable: equal keys keep their order", "C"],
+  vendor: ["3.5", "2.92", "7", "5.83", "0.25", "7", "35/12 ≈ 2.92", "1.71 points"],
+};
+const DOUBTS = {
+  code: [["The handout says “stable”.", "I used a stable merge, not the faster unstable one."], ["No rubric line on formatting.", "I kept the starter code's style."]],
+  essay: [["The prompt allows “one or two” readings.", "I cited two: Floridi and Moor."], ["No rubric line on a title.", "I added a short one."]],
+  quiz: [["Question 5 can be read two ways.", "I used the textbook's meaning of “stable”."], ["Question 4 asks to “support your answer”.", "I gave the reasoning in two sentences."]],
+  vendor: [["Question 7 doesn't say how to round.", "I gave the fraction and two decimals."], ["Question 8 wants units.", "I used “points”, as on HW 11."]],
+  upload: [["The template has an optional section.", "I filled it in."], ["No file name is given.", "I named it lab4.pdf."]],
+};
+const REQS = {
+  code: [["Sorts in place", "test_sort_inplace passes"], ["Handles empty input", "test_empty passes"], ["Header comment with your name", "line 1 of sort.c"]],
+  essay: [["400 to 600 words", "482 words"], ["Cites two readings", "Floridi (p. 3), Moor (p. 7)"], ["First person", "your saved preference"]],
+  quiz: [["All 6 questions answered", "saved on the school page"], ["Q4 explains the running time", "O(n log n), with reasoning"]],
+  vendor: [["All 8 answered", "WebAssign shows 8 of 8"], ["Units on every answer", "the grader wanted units on HW 11"]],
+  upload: [["PDF under 10 MB", "lab4.pdf, 1.2 MB"], ["Uses the lab template", "headings match"]],
+};
+const MEM = [
+  ["About you", [["Show MATLAB output with every answer", "You said it · Sep 18"]]],
+  ["Your classes", [["CSC 230: prefers recursion for merge steps", "You said it while Dot worked on exercise_11"], ["CSC 316: code goes to GitHub Classroom, not Moodle", "Dot learned it from the syllabus"], ["ST 370: the grader wants units on every answer", "Dot learned it from HW 11's feedback"]]],
+  ["Your school", [["WebAssign opens from each Moodle course page", "Dot learned it while scanning"], ["Sign-in goes through NC State's Shibboleth", "Dot learned it while scanning"]]],
+  ["From assignments", [["HW 11: question 6 needed two decimal places", "End-of-run note · Sep 16"]]],
+];
+const ui = { screen: "week", id: "hw12", rule: "attempt", tab: null, chat: false, log: [], adding: false, menu: null, gear: false, filter: "todo", exception: true };
+
+const ICON = {
+  file: '<path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>', info: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+  list: '<path d="M9 7h11M9 12h11M9 17h11M4.5 7h.01M4.5 12h.01M4.5 17h.01"/>', stamp: '<path d="M8 21h8M6 17h12v-3a3 3 0 0 0-3-3h-1V9a2 2 0 1 0-4 0v2H9a3 3 0 0 0-3 3z"/>',
+  code: '<path d="m8 8-4 4 4 4M16 8l4 4-4 4M13.5 5l-3 14"/>', done: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12.2 2.4 2.4 4.6-5"/>', globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/>',
+  pen: '<path d="M4 20h4L18.5 9.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="m13.5 8.5 3 3"/>', term: '<path d="m5 8 4 4-4 4M12 16h7"/>', chev: '<path d="m7 10 5 5 5-5"/>',
+  back: '<path d="M19 12H5m6-6-6 6 6 6"/>', bell: '<path d="M6 9a6 6 0 0 1 12 0c0 7 3 7 3 8H3c0-1 3-1 3-8ZM10 21h4"/>',
+  settings: '<path d="m9 3-.6 2.2-2 .9-2-.6-2 3.4L4 10.5v3l-1.6 1.6 2 3.4 2-.6 2 .9L9 21h4l.6-2.2 2-.9 2 .6 2-3.4-1.6-1.6v-3l1.6-1.6-2-3.4-2 .6-2-.9L13 3z"/><circle cx="11" cy="12" r="3"/>',
+  note: '<path d="M5 4h14v12h-8l-6 4z"/><path d="M8 8h8M8 12h5"/>', send: '<path d="M12 19V5m-6 6 6-6 6 6"/>', check: '<path d="m5 12 4 4L19 6"/>',
+  close: '<path d="m6 6 12 12M6 18 18 6"/>', search: '<circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>', right: '<path d="m10 6 6 6-6 6"/>',
+  more: '<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>', hand: '<path d="M8 12V6a2 2 0 0 1 4 0v6-8a2 2 0 0 1 4 0v8-5a2 2 0 0 1 4 0v8c0 4-3 6-7 6-3 0-5-2-7-5l-3-4a2 2 0 0 1 3-2l2 2"/>',
+};
+const icon = (name, size = 18) => `<svg class="i" viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${size < 16 ? 1.6 : 1.8}" stroke-linecap="round" stroke-linejoin="round">${ICON[name]}</svg>`;
+const find = id => A.find(a => a.id === id);
+const lc = t => t[0].toLowerCase() + t.slice(1);
+const ruleFor = a => a.state === "yours" ? "leave" : a.override ?? (ui.exception && a.course === "CSC 316" && a.kind === "quiz" ? "submit" : ui.rule);
+const ruleSource = a => a.override ? "this assignment only" : ui.exception && a.course === "CSC 316" && a.kind === "quiz" ? "your rule for CSC 316 quizzes" : "your rule for all homework";
+const siteName = a => a.kind === "vendor" ? "WebAssign" : "School page";
+const doubtsOf = a => a.doubts ??= DOUBTS[a.kind].map(([q, did]) => ({ q, did, ok: false }));
+const openDoubts = a => doubtsOf(a).filter(d => !d.ok).length;
+function line(a) {
+  return ({
+    not_started: ruleFor(a) === "leave" ? "Left to you by your rule" : "Starts when you ask", scheduled: "Dot starts tonight, 7 PM", working: "Dot is on it",
+    needs_sign_in: "Needs you: sign in", needs_answer: "Needs you: a question", needs_files: "Needs you: a file", review: "Ready to check",
+    handing_in: "Handing in", handed_in: "Handed in by Dot", school_done: "Handed in at school", saved: "Stopped, work saved", stuck: "Dot got stuck", yours: "You're doing this",
+  })[a.state];
+}
+function action(a) {
+  return ({
+    not_started: ruleFor(a) === "leave" ? "Open" : "Start", scheduled: "Start now", working: "Watch", needs_sign_in: "Sign in", needs_answer: "Answer", needs_files: "Add file",
+    review: "Check it", handing_in: "Watch", handed_in: "Receipt", school_done: "Open", saved: "Carry on", stuck: "See why", yours: "Open",
+  })[a.state];
+}
+const dotFor = a => ({ working: a.kind === "quiz" || a.kind === "vendor" ? "steering" : "working", handing_in: "steering", needs_sign_in: "needs", needs_answer: "needs", needs_files: "needs", stuck: "needs", review: "review", handed_in: "done", school_done: "done", scheduled: "sleep", not_started: "hello" })[a.state] ?? "idle";
+const dotSlot = state => `<span class="slot" data-dot="${state}"></span>`;
+const phrase = a => NEEDS.includes(a.state) ? `<em>${line(a).startsWith("Dot") ? line(a) : lc(line(a))}</em>` : line(a).startsWith("Dot") ? line(a) : lc(line(a));
+const when = a => a.overdue && !DONE.includes(a.state) ? "<em>Overdue since Mon</em>" : !a.due ? "Whenever" : DONE.includes(a.state) ? a.due : `Due ${a.due}`;
+
+// ---------- shared pieces ----------
+const topbar = () => `<div class="topbar"><span class="brand">studi</span><div class="modes"><span class="on">Homework</span><span>Learn</span></div><div class="icons"><span class="ic">${icon("bell")}</span><span class="ic ${ui.gear ? "on" : ""}" data-go="gear">${icon("settings")}</span><span class="me">K</span>${ui.gear ? `<div class="pop" style="right:0;top:42px"><span data-go="rules">Homework rules</span><span data-go="memory">What Dot remembers</span><hr><span>Settings</span></div>` : ""}</div></div>`;
+const tgl = () => `<div class="tgl">${[["week", "Week"], ["list", "List"], ["all", "All"]].map(([k, v]) => `<span class="${ui.screen === k ? "on" : ""}" data-go="${k}">${v}</span>`).join("")}</div>`;
+const menuFor = a => `<div class="pop"><p>Something wrong?</p><span>Wrong due date</span><span>This isn't homework</span><span data-go="set:${a.id}:school_done">I already handed it in</span><span>Details look wrong</span><hr>${a.state === "yours" ? `<span data-go="set:${a.id}:not_started">Give it to Dot</span>` : `<span data-go="set:${a.id}:yours">I'll do it myself</span>`}</div>`;
+
+function headline() {
+  const needs = A.filter(a => NEEDS.includes(a.state));
+  const first = needs[0], working = A.find(a => a.state === "working");
+  if (first) {
+    const fix = {
+      needs_sign_in: [`${first.title} needs your ${first.kind === "vendor" ? "WebAssign" : "school"} sign-in.`, "Sign in"],
+      needs_answer: [`Dot has a question about ${first.title}.`, "Answer it"],
+      needs_files: [`${first.title} needs a file from you.`, "Add the file"],
+      review: [`${first.title} is ready to check.`, "Check it"],
+      stuck: [`Dot got stuck on ${first.title}.`, "See why"],
+    }[first.state];
+    const rest = needs.length > 1 ? `Then ${needs.length - 1} more. Everything else is on track.` : "Everything else is on track.";
+    return { dot: "needs", h: fix[0], p: rest, btn: `<button class="btn yellow big act" data-go="open:${first.id}">${fix[1]}</button>` };
+  }
+  if (working) return { dot: "working", h: `Dot is on ${working.title}.`, p: "Open it to watch, or get on with your day.", btn: "" };
+  const next = A.find(a => a.state === "not_started" && a.day != null);
+  return { dot: "idle", h: "Nothing needs you.", p: next ? `${next.title} is next. ${line(next)}.` : "Your week is clear.", btn: "" };
+}
+const hello = () => { const h = headline(); return `<div class="hello">${dotSlot(h.dot)}<div><h4>${h.h}</h4><p>${h.p}</p></div>${h.btn}${tgl()}</div>`; };
+
+// ---------- week, list, all ----------
+function card(a, extra = "") {
+  const need = NEEDS.includes(a.state) && a.state !== "review";
+  const late = a.overdue && !DONE.includes(a.state);
+  return `<div class="card ${TONE[a.course]} ${need ? "needs" : ""}" data-go="open:${a.id}"><b>${a.title}</b><small>${a.course}${extra}</small><small class="${need || late ? "need" : ""}">${late && !need ? "Overdue · " : ""}${line(a)}</small></div>`;
+}
+function week() {
+  const day = d => {
+    const items = A.filter(a => a.day === d);
+    return items.filter(a => !DONE.includes(a.state)).map(a => card(a)).join("")
+      + items.filter(a => DONE.includes(a.state)).map(a => `<div class="donel" data-go="open:${a.id}">${icon("check", 13)}${a.title}</div>`).join("")
+      || `<div class="none">Nothing due</div>`;
+  };
+  const soon = A.filter(a => a.day == null && !DONE.includes(a.state));
+  return `<div class="scroll"><div class="page-wrap">${hello()}
+    <div class="bar">This week<div class="nav"><b>${icon("back", 15)}</b>Sep 21 – 27<b style="transform:scaleX(-1)">${icon("back", 15)}</b></div></div>
+    <div class="days">${DAYS.map(([d, n], i) => `<div class="day ${i === TODAY ? "today" : ""}"><div class="dh"><span>${d}</span>${i === TODAY ? `<b>${n}</b>` : `<span>${n}</span>`}</div>${day(i)}</div>`).join("")}</div>
+    ${soon.length ? `<div class="bar">Coming up</div><div class="soon">${soon.map(a => card(a, ` · ${a.when}`)).join("")}</div>` : ""}
+  </div></div>`;
+}
+function row(a, lead) {
+  return `<div class="row" data-go="open:${a.id}"><span class="tone ${TONE[a.course]}"></span><div><b>${a.title}</b><small>${a.course} · ${when(a)} · ${phrase(a)}</small></div><button class="btn ${lead ? "yellow" : ""}" data-go="act:${a.id}">${action(a)}</button><span class="more ${ui.menu === a.id ? "open" : ""}" data-go="menu:${a.id}">${icon("more")}</span>${ui.menu === a.id ? menuFor(a) : ""}</div>`;
+}
+function list() {
+  const todo = A.filter(a => !DONE.includes(a.state));
+  const needs = todo.filter(a => NEEDS.includes(a.state));
+  const thisWeek = todo.filter(a => !NEEDS.includes(a.state) && a.day != null);
+  const later = todo.filter(a => !NEEDS.includes(a.state) && a.day == null);
+  const group = (name, items, lead) => items.length ? `<div class="group"><h5>${name} <span>${items.length}</span></h5>${items.map((a, i) => row(a, lead && i === 0)).join("")}</div>` : "";
+  return `<div class="scroll"><div class="narrow">${hello()}
+    ${group("Needs you", needs, true)}${group("This week", thisWeek, !needs.length)}${group("Later", later, false)}
+    <p class="ruleline">Dot's rule for all homework: ${lc(RULES[ui.rule])} · <u data-go="rules">Change</u></p>
+  </div></div>`;
+}
+function all() {
+  const show = A.filter(a => ui.filter === "all" || (ui.filter === "done") === DONE.includes(a.state));
+  const courses = Object.keys(FULL).filter(c => show.some(a => a.course === c));
+  return `<div class="scroll"><div class="narrow">
+    <div class="hello"><div><h4>Everything Dot found</h4><p>By class. Open anything that looks wrong.</p></div>${tgl()}</div>
+    <div class="search">${icon("search", 16)}<span style="flex:1">Search homework</span><div class="tgl" style="margin:0">${["todo", "done", "all"].map(f => `<span class="${ui.filter === f ? "on" : ""}" data-go="filter:${f}">${{ todo: "To do", done: "Done", all: "All" }[f]}</span>`).join("")}</div></div>
+    ${courses.map(c => `<div class="group"><h5>${FULL[c]} <span>${show.filter(a => a.course === c).length}</span></h5>${show.filter(a => a.course === c).map(a => row(a, false)).join("")}</div>`).join("") || `<p class="empty-note">Nothing here.</p>`}
+  </div></div>`;
+}
+
+// ---------- the assignment page ----------
+const B = (label, go, cls = "") => `<button class="btn big ${cls}" data-go="${go}">${label}</button>`;
+// Each of Dot's steps is one or more tool calls: [step, icon, verb, target, result].
+const CALLS = {
+  quiz: [[0, "file", "Read", "lecture-7.pdf", "12 slides"], [0, "file", "Read", "sorting-notes.md", ""], [1, "globe", "Opened", "moodle.ncsu.edu/mod/quiz/attempt.php", "Quiz 1"], [2, "pen", "Answered", "Questions 1–3", ""], [3, "pen", "Answered", "Questions 4–6", ""], [4, "done", "Checked", "6 answers against the notes", "6 of 6"]],
+  code: [[0, "file", "Read", "handout.pdf", "3 pages"], [0, "file", "Read", "rubric.pdf", "4 lines"], [1, "term", "Ran", "cp -r starter exercise_11", ""], [2, "pen", "Edited", "sort.c", "+48 −3"], [2, "pen", "Edited", "main.c", "+12"], [3, "term", "Ran", "make test", "12 passed"], [4, "done", "Checked", "the rubric", "3 of 3"]],
+  essay: [[0, "file", "Read", "prompt.pdf", ""], [0, "file", "Read", "rubric.pdf", "4 lines"], [1, "file", "Read", "Floridi, chapter 2", ""], [1, "file", "Read", "Moor, “What is computer ethics?”", ""], [2, "pen", "Wrote", "reflection-4.docx", "482 words"], [3, "done", "Checked", "the rubric", "4 of 4"], [4, "file", "Saved", "reflection-4.docx", ""]],
+  vendor: [[0, "globe", "Opened", "webassign.net/web/Student/Assignment", "HW 12"], [1, "file", "Read", "Questions 1–8", ""], [2, "pen", "Answered", "Questions 1–5", ""], [3, "pen", "Answered", "Questions 6–8", ""], [4, "done", "Checked", "units on every answer", "8 of 8"]],
+  upload: [[0, "file", "Read", "lab-instructions.pdf", ""], [1, "pen", "Filled in", "lab-template.docx", ""], [2, "term", "Exported", "lab4.pdf", "1.2 MB"], [3, "done", "Checked", "the upload rules", "PDF, under 10 MB"], [4, "file", "Ready", "lab4.pdf", ""]],
+};
+const URLS = { quiz: "moodle.ncsu.edu/mod/quiz/attempt.php?attempt=48213", code: "moodle.ncsu.edu/mod/assign/view.php?id=22917", essay: "moodle.ncsu.edu/mod/assign/view.php?id=23108", vendor: "webassign.net/web/Student/Assignment-Responses/last?dep=31415", upload: "moodle.ncsu.edu/mod/assign/view.php?id=22960" };
+
+// Your move: the one thing the student has to do, as a prompt above the chat box.
+function move(a) {
+  const r = ruleFor(a), id = a.id, site = a.kind === "vendor" ? "WebAssign" : "the school page";
+  const M = (h, p, acts, extra = "") => ({ h, p, acts, extra });
+  switch (a.state) {
+    case "not_started": return r === "leave"
+      ? M("This one's left to you.", `By ${ruleSource(a)}. Dot can still do it if you want.`, B("Let Dot do this one", `override:${id}`, "yellow") + B("Change rules", "rules", "link"))
+      : M("Start when you're ready.", r === "submit" ? "Dot does it, checks it, and hands it in after your review time." : "Dot does it and checks it. Then you look it over and hand it in.", B("Start", `start:${id}`, "yellow") + B("I'll do it myself", `set:${id}:yours`, "link"));
+    case "scheduled": return M("Dot starts tonight at 7.", "Your rules let Dot start by itself. You'll get a notification.", B("Start now", `start:${id}`, "yellow") + B("Not tonight", `set:${id}:not_started`, "link"));
+    case "needs_sign_in": return M(`Sign in to ${a.kind === "vendor" ? "WebAssign" : "your school"}.`, "It's open on the right. Tick “remember this device” if it asks. Dot carries on as soon as you're in.", B("I've signed in", `resume:${id}`, "yellow") + B("Stop", `set:${id}:saved`, "link"));
+    case "needs_answer": return M("Answer Dot's question.", "", B(ASKED[a.kind][1], `answer:${id}:${ASKED[a.kind][1]}`, "yellow") + B(ASKED[a.kind][2], `answer:${id}:${ASKED[a.kind][2]}`, "white"));
+    case "needs_files": return M("Dot needs handout-4.pdf.", "The instructions name it, but it isn't on the school page.", B("Choose file", `resume:${id}`, "yellow") + B("Stop", `set:${id}:saved`, "link"));
+    case "review": {
+      const n = openDoubts(a);
+      const checks = `<div class="checks">${doubtsOf(a).map((d, i) => d.ok
+        ? `<div class="chk ok">${icon("check", 14)}<b>${d.q}</b></div>`
+        : `<div class="chk"><b>${d.q}</b><small>${d.did}</small><div class="opts"><button class="btn white" data-go="ok:${id}:${i}">That's right</button><button class="btn" data-go="change:${id}:${i}">Change it</button></div></div>`).join("")}</div>`;
+      if (a.handing) return M(`Press Submit on ${site}.`, "It's on the right. Dot sees it when the school confirms, and saves the receipt.", B("Back to my work", `unhand:${id}`, "link"));
+      if (r === "leave") return M("Your rule changed, so Dot stopped.", "The work is saved.", B("Let Dot finish", `override:${id}`, "yellow"));
+      if (r === "submit") return M(n ? "Check two things, then it goes in." : "Ready to hand in.", n ? "" : "Dot hands it in at 9:00 PM if Studi is open, or now if you say so.", B("Hand it in now", `set:${id}:handing_in`, n ? "white" : "yellow") + B("Don't hand in", `set:${id}:saved`, "link"), n ? checks : "");
+      return M(n ? "Check two things, then hand it in." : "Ready for you to hand in.", n ? "" : "Dot will take you to the right page and watch for the school's confirmation.", B("Go hand it in", `hand:${id}`, n ? "white" : "yellow") + B("Edit it myself", `set:${id}:saved`, "link"), n ? checks : "");
+    }
+    case "saved": return M("Stopped. Nothing was handed in.", "Dot can carry on from where it stopped.", B("Carry on", `resume:${id}`, "yellow") + B("I'll do it myself", `set:${id}:yours`, "link"));
+    case "stuck": return M("Dot got stuck.", "Try again, or do this one yourself. Everything so far is saved.", B("Try again", `resume:${id}`, "yellow") + B("I'll do it myself", `set:${id}:yours`, "link"));
+    case "yours": return M("You're doing this one.", "Dot won't touch it. Ask it anything about the assignment.", B("Give it to Dot", `set:${id}:not_started`, ""));
+    default: return null;
+  }
+}
+const fileTab = ([n, t], on) => `<span class="${on ? "on" : ""}"><i class="t-${t}" style="display:flex">${icon(t === "term" ? "term" : t === "c" ? "code" : "file", 14)}</i>${n}</span>`;
+function preview(a, upTo = 5) {
+  if (a.kind === "quiz" || a.kind === "vendor") {
+    const all = ANSWERS[a.kind], have = Math.round(all.length * Math.max(0, upTo - 2) / 3);
+    return all.map((t, i) => `<div class="ans ${i < have ? "" : "todo"}"><span>${i + 1}</span>${i < have ? t : "Not answered yet"}</div>`).join("");
+  }
+  if (upTo < 3) return `<p class="muted" style="margin:0">Nothing yet. Dot's work shows here as it goes.</p>`;
+  if (a.kind === "code") return `<div class="files">${[["handout.pdf", "pdf"], ["sort.c", "c"], ["main.c", "c"], ["Makefile", "mk"], ["Terminal", "term"]].map((f, i) => fileTab(f, i === 4)).join("")}</div><div class="term"><span class="p">$</span> make test
+<span class="dim">cc -Wall -o sort_test sort.c main.c test.c</span>
+running 12 tests
+test_sort_inplace  <span class="ok">ok</span>
+test_empty         <span class="ok">ok</span>
+test_stable        <span class="ok">ok</span>
+<span class="dim">… 9 more</span>
+<span class="sum">12 passed</span>, 0 failed <span class="dim">· 0.4s</span></div>`;
+  if (a.kind === "essay") return `<div class="files">${[["prompt.pdf", "pdf"], ["rubric.pdf", "pdf"], ["reflection-4.docx", "doc"]].map((f, i) => fileTab(f, i === 2)).join("")}</div><div class="doc"><b>Who is responsible?</b><p>When I first read Moor's argument, I assumed responsibility sat with whoever wrote the code. This week's readings changed my mind. Floridi treats responsibility as something shared across everyone who shaped the system, and that fits what I saw in my own group project…</p></div>`;
+  return `<div class="files">${[["lab-instructions.pdf", "pdf"], ["lab4.pdf", "pdf"]].map((f, i) => fileTab(f, i === 1)).join("")}</div><div class="doc"><b>Lab 4: Pointers and memory</b><p>1. Objective. 2. Method. 3. Results. 4. Discussion.</p></div>`;
+}
+const reqs = a => `<div class="sec"><div class="req-head"><b>Requirements</b><span>${REQS[a.kind].length} of ${REQS[a.kind].length} met</span></div>${REQS[a.kind].map(([t, e]) => `<div class="req">${icon("done", 17)}<div><b>${t}</b><br><code>${e}</code></div></div>`).join("")}</div>`;
+function details(a) {
+  const r = ruleFor(a);
+  const due = a.overdue && !DONE.includes(a.state) ? `<em>Overdue since Mon</em>` : a.due ? `${a.due}${a.left && !DONE.includes(a.state) ? ` <small>· ${a.left}</small>` : ""}` : "Whenever";
+  return `<div class="pad"><dl class="facts">
+    <dt>Due</dt><dd>${due}</dd>
+    <dt>Class</dt><dd>${FULL[a.course]}</dd>
+    <dt>The school says</dt><dd>${a.state === "school_done" ? "Graded" : a.state === "handed_in" ? "Submitted for grading" : "Not submitted"} · <u data-go="view:site">Open</u></dd>
+    <dt>Rule</dt><dd>${RULES[r]} <small>· from ${ruleSource(a)}</small> · <u data-go="rules">Change</u></dd>
+    <dt>Late work</dt><dd>${a.kind === "vendor" ? "Not accepted" : "10% off per day, up to 3 days"}</dd>
+    <dt>Found on</dt><dd>Moodle, ${FULL[a.course]} page</dd>
+  </dl></div>`;
+}
+function pane(a, view) {
+  if (view === "receipt") return `<div class="pad"><span class="stamp">Handed in</span><p style="margin:0">The school page says “Submitted for grading”.<br><span class="muted">Wed, Sep 23 · 3:40 PM</span></p><div class="ba"><div><b>Before</b>No submission</div><div><b>After</b>Submitted for grading · ${a.kind === "quiz" || a.kind === "vendor" ? "all questions answered" : "1 file"}</div></div><div class="sec" style="max-width:600px"><p class="lab">What was handed in</p>${preview(a)}</div></div>`;
+  if (view === "details") return details(a);
+  if (view === "work") {
+    if (a.state === "needs_files") return `<div class="pad"><div class="drop"><div><b>Drop handout-4.pdf here</b>or use “Choose file” on the left</div></div></div>`;
+    if (a.state === "review") return `<div class="pad">${preview(a)}${reqs(a)}</div>`;
+    return `<div class="pad">${preview(a, ["not_started", "scheduled", "yours"].includes(a.state) ? 0 : a.step)}</div>`;
+  }
+  const vendor = a.kind === "vendor", bar = `<div class="sb ${vendor ? "vendor" : ""}">${vendor ? "WebAssign" : "Moodle · NC State"}</div>`;
+  if (a.state === "needs_sign_in") return `<div class="school">${bar}<div class="signin"><b>Sign in to ${vendor ? "WebAssign" : "NC State"}</b><div class="fld">${vendor ? "Username" : "Unity ID"}</div><div class="fld">Password</div><label><i></i>Remember this device for 30 days</label><span class="sbtn" data-go="resume:${a.id}">Sign in</span></div></div>`;
+  const submitting = a.handing || a.state === "handing_in";
+  const body = submitting || DONE.includes(a.state) || !(a.kind === "quiz" || vendor)
+    ? `<div class="box"><b>Submission status</b>${DONE.includes(a.state) ? "Submitted for grading" : a.state === "handing_in" ? "Submitting…" : submitting ? "Draft saved. Not submitted." : "No attempt"}${a.handing && a.state === "review" ? `<br><span class="sbtn glow" data-go="set:${a.id}:handed_in">Submit assignment</span>` : ""}</div>`
+    : `<div class="box"><b>Question ${a.step >= 3 ? (vendor ? 6 : 4) : 2}</b>${a.step >= 3 ? (vendor ? "A fair die is rolled twice. Find E[X + Y]." : "Explain the running time and support your answer.") : vendor ? "Find the variance of one roll of a fair die." : "What is the worst-case running time of bubble sort?"}<div class="fld ${a.step >= 2 && a.state === "working" ? "f" : ""}">${a.step < 2 ? "" : a.step >= 3 ? (vendor ? "7" : "One comparison per pass, so n − 1 passes…") : vendor ? "2.92" : "A. O(n²)"}</div></div>`;
+  return `<div class="school">${bar}<div class="sc"><small>${a.course} · ${a.kind === "quiz" ? "QUIZ" : vendor ? "HOMEWORK" : "ASSIGNMENT"}</small><h5>${a.title}</h5><p>${a.due ? `Due ${a.due}` : "No due date"}</p>${body}</div></div>`;
+}
+function turns(a) {
+  const s = a.state, out = [];
+  const dot = (body, mood = "idle", time = "") => out.push(`<div class="turn"><div class="who">${dotSlot(mood)}Dot${time ? ` <small>${time}</small>` : ""}</div>${body}</div>`);
+  const talk = list => list.forEach(m => out.push(m.you ? `<div class="you">${m.you}</div>` : m.mem ? `<div class="mem">${icon("check", 13)}Saved to memory: “${m.mem}” · <u>Undo</u></div>` : `<div class="turn"><div class="who">${dotSlot(dotFor(a) === "hello" ? "idle" : dotFor(a))}Dot</div><p>${m.dot}</p></div>`));
+  const early = (a.msgs ?? []).filter(m => m.early), mid = (a.msgs ?? []).filter(m => !m.early && !m.after), after = (a.msgs ?? []).filter(m => m.after);
+  const started = a.step > 0 || !["not_started", "scheduled", "yours", "school_done"].includes(s);
+  const finished = ["review", "handing_in", "handed_in"].includes(s);
+
+  if (s === "school_done") dot(`<p>The school already has this one, so I left it alone. Ask me anything about it.</p>`);
+  if (s === "yours") dot(`<p>This one's yours, so I won't touch it. I can still explain it or check your answers if you ask.</p>`);
+  if (!started && !["school_done", "yours"].includes(s)) {
+    dot(`<p>${ruleFor(a) === "leave" ? "Your rule leaves this one to you." : s === "scheduled" ? "I'll start tonight at 7." : "Ready when you are."} ${PLAN[a.kind]}</p>`, "hello");
+    talk(early);
+    if (!early.length && ruleFor(a) !== "leave") out.push(`<div class="tips">${TIPS[a.kind].map(t => `<span data-go="steer:${a.id}:${t}">${icon("right", 14)}${t}</span>`).join("")}</div>`);
+  }
+  if (started) {
+    talk(early);
+    out.push(`<div class="sys">You started this · 4:02 PM</div>`);
+    const calls = CALLS[a.kind].filter(([st]) => finished || st < a.step || (s === "working" && st === a.step));
+    const runAt = s === "working" ? calls.findIndex(([st]) => st === a.step) : -1;
+    const list = `<div class="calls">${calls.map(([, ic, verb, target, result], i) => `<div class="call ${i === runAt ? "run" : ""}">${icon(ic, 14)}<b>${verb}</b><code>${target}</code><small>${i === runAt ? "" : result}</small></div>`).join("")}</div>`;
+    const body = finished && !ui.steps
+      ? `<p>${PLAN[a.kind]}</p><button class="fold" data-go="steps">${icon("check", 14)}Worked for 6m 12s · ${CALLS[a.kind].length} steps ${icon("chev", 14)}</button>`
+      : `<p>${PLAN[a.kind]}</p>${list}${finished ? `<button class="fold" data-go="steps">Hide steps ${icon("chev", 14)}</button>` : ""}`;
+    dot(body, s === "working" ? dotFor(a) : "idle", "4:02 PM");
+  }
+  talk(mid);
+  if (s === "needs_sign_in") dot(`<p>${a.kind === "vendor" ? "WebAssign" : "The school"} wants you to sign in. I've kept my place.</p>`, "needs");
+  if (s === "needs_answer") dot(`<p>${ASKED[a.kind][0]}</p>`, "needs");
+  if (s === "needs_files") dot(`<p>I need <b>handout-4.pdf</b>. The instructions name it, but it isn't on the school page.</p>`, "needs");
+  if (s === "stuck") dot(`<p>I got stuck: ${a.kind === "vendor" ? "WebAssign timed out" : "the page wouldn't save my answer"} three times in a row. Everything I did is saved.</p>`, "needs");
+  if (s === "saved") dot(`<p>Stopped. Everything I did is saved, and nothing was handed in.</p>`);
+  if (finished) {
+    const n = openDoubts(a);
+    dot(`<p>Done. ${REQS[a.kind].length} of ${REQS[a.kind].length} requirements pass, and my work is on the right.</p>${n ? `<p>I made ${n === 2 ? "two calls" : "one call"} I'd like you to check.</p>` : ""}`, "review", "4:08 PM");
+  }
+  talk(after);
+  if (s === "handed_in" && !a.walked) out.push(`<div class="tips">${["Walk me through it", "What would lose points?"].map(t => `<span data-go="walk:${a.id}">${icon("right", 14)}${t}</span>`).join("")}</div>`);
+  // Back-to-back Dot messages share one header, like any agent thread. Only the newest face moves.
+  const grouped = out.map((h, i) => i && h.startsWith('<div class="turn">') && out[i - 1].startsWith('<div class="turn') ? h.replace('<div class="turn">', '<div class="turn cont">') : h);
+  const newest = grouped.map((h, i) => h.startsWith('<div class="turn">') ? i : -1).filter(i => i >= 0).pop();
+  return grouped.map((h, i) => h.startsWith('<div class="turn">') && i !== newest ? h.replace('<div class="turn">', '<div class="turn still">') : h).join("");
+}
+const TAB_ICON = { receipt: "stamp", details: "info", site: "globe", quiz: "list", vendor: "list", code: "code", essay: "file", upload: "folder" };
+function assignment() {
+  const a = find(ui.id), m = move(a), onSite = a.kind === "quiz" || a.kind === "vendor";
+  const views = [...(a.state === "handed_in" ? ["receipt"] : []), "site", "work", "details"];
+  const auto = a.handing ? "site" : ({
+    not_started: "details", scheduled: "details", yours: "details", working: onSite ? "site" : "work", needs_sign_in: "site", needs_answer: "work",
+    needs_files: "work", review: "work", handing_in: "site", handed_in: "receipt", school_done: "site", saved: "work", stuck: "site",
+  })[a.state];
+  const view = views.includes(ui.tab) ? ui.tab : auto;
+  const liveView = a.state === "working" ? (onSite ? "site" : "work") : a.state === "handing_in" ? "site" : null;
+  const name = { receipt: "Receipt", details: "Details", work: WORK_TAB[a.kind], site: siteName(a) };
+  const working = ["working", "handing_in"].includes(a.state);
+  const place = { not_started: "Tell Dot how you want it…", scheduled: "Tell Dot how you want it…", working: "Steer Dot as it works…", needs_answer: "Or type your own answer…", review: "Ask for a change…" }[a.state] ?? "Ask Dot about this…";
+  const chrome = view === "site" ? `<div class="chrome"><span class="nav">${icon("back", 16)}<span style="transform:scaleX(-1);display:flex">${icon("back", 16)}</span></span><span class="url">${URLS[a.kind]}</span>${liveView === "site" ? `<span class="who"><i></i>Dot is using this page</span>${a.state === "working" ? `<button class="btn white" data-go="set:${a.id}:saved">${icon("hand", 14)}Take over</button>` : ""}` : ""}</div>` : "";
+  return `<div class="ag">
+    <div class="ag-head"><button class="btn" data-go="back">${icon("back", 16)}Week</button><span class="tone ${TONE[a.course]}"></span><b>${a.title}</b><span class="meta">${a.course} · ${a.overdue && !DONE.includes(a.state) ? "Overdue" : a.due ? `Due ${a.due}` : "Whenever"}</span><span class="more ${ui.menu === "page" ? "open" : ""}" style="margin-left:auto" data-go="menu:page">${icon("more")}</span>${ui.menu === "page" ? menuFor(a) : ""}</div>
+    <div class="ag-body">
+      <section class="convo"><div class="turns">${turns(a)}</div>
+        ${m ? `<div class="move"><h5>${m.h}</h5>${m.p ? `<p>${m.p}</p>` : ""}${m.extra}<div class="acts">${m.acts}</div></div>` : ""}
+        <div class="composer" data-go="type:${a.id}"><span>${place}</span><i class="send ${working ? "stop" : ""}" ${working ? `data-go="set:${a.id}:saved"` : ""}>${working ? icon("close", 15) : icon("send", 17)}</i></div>
+      </section>
+      <section class="view"><div class="view-tabs">${views.map(v => `<span class="${v === view ? "on" : ""}" data-go="view:${v}">${icon(TAB_ICON[v === "work" ? a.kind : v], 16)}${name[v]}${v === liveView ? `<i class="live"></i>` : ""}</span>`).join("")}</div>${chrome}<div class="pane">${pane(a, view)}</div></section>
+    </div></div>`;
+}
+
+// ---------- rules and memory ----------
+function rules() {
+  const why = { leave: "Dot leaves it alone. You can still ask about it.", attempt: "Dot does the work and stops at “Ready for you”. You hand it in; Dot checks the school says so.", submit: "Dot does the work and hands it in after your review time, but never while it has doubts, and only if Studi is open." };
+  const excRow = (tone, title, sub, val, go) => `<div class="exc"><span class="tone ${tone}"></span><div><b>${title}</b><small>${sub}</small></div><span class="val">${val}</span><span class="more" data-go="${go}">${icon("close", 15)}</span></div>`;
+  return `<div class="scroll"><div class="narrow set"><button class="btn" data-go="back">${icon("back", 16)}Back</button><h4>Homework rules</h4><p class="sub">What Dot may do when it finds homework. The most specific rule wins: one assignment, then a kind of work in a class, then a class, then all homework.</p>
+    <h6>All homework</h6>${Object.entries(RULES).map(([k, v]) => `<div class="opt ${ui.rule === k ? "on" : ""}" data-go="rule:${k}"><i></i><div><b>${v}</b><small>${why[k]}</small></div></div>`).join("")}
+    <h6>Exceptions</h6>
+    ${ui.exception ? excRow("c-c316", "CSC 316 · Quizzes", "Also applies to quizzes found later", RULES.submit, "drop-exception") : ""}
+    ${A.filter(a => a.override).map(a => excRow(TONE[a.course], a.title, "Just this assignment", RULES[a.override], `unoverride:${a.id}`)).join("")}
+    ${!ui.exception && !A.some(a => a.override) ? `<p class="empty-note">No exceptions. Everything follows the rule above.</p>` : ""}
+    <div style="margin-top:10px"><button class="btn">+ Add an exception</button></div>
+    <h6>You're doing these</h6>${A.filter(a => a.state === "yours").map(a => `<div class="exc"><span class="tone ${TONE[a.course]}"></span><div><b>${a.title}</b><small>Dot won't touch it, and rules don't apply.</small></div><button class="btn" data-go="set:${a.id}:not_started">Give it to Dot</button><span></span></div>`).join("") || `<p class="empty-note">None.</p>`}
+    <div class="why"><b>When Dot starts</b>By itself, for work your rules allow · <u>Change</u></div>
+  </div></div>`;
+}
+function memory() {
+  return `<div class="scroll"><div class="narrow set"><button class="btn" data-go="back">${icon("back", 16)}Back</button><h4>What Dot remembers</h4><p class="sub">Dot reads these every time it works, and adds to them as it learns. Edit or forget anything.</p>
+    ${MEM.map(([g, items]) => `<h6>${g}</h6>${items.map(([t, s]) => `<div class="mem-row"><div>${t}<small>${s}</small></div><button class="btn link">Edit</button><span class="more">${icon("more")}</span></div>`).join("")}`).join("")}
+  </div></div>`;
+}
+
+// ---------- chat: the chat box grows upward ----------
+const ASK = {
+  left: "What's left before Friday?", start: "Start Reflection 4", add: "Add homework", mem: "Always write essays in first person",
+  add2: "Reading response for CSC 281, due Monday",
+};
+function chatRows(ids) {
+  return `<div class="mini">${ids.map(find).map(a => `<div data-go="open:${a.id}"><span class="tone ${TONE[a.course]}"></span><div><b>${a.title}</b><small>${a.course} · ${when(a)} · ${phrase(a)}</small></div><button class="btn" data-go="act:${a.id}">${action(a)}</button></div>`).join("")}</div>`;
+}
+function dock() {
+  const holder = "Ask Dot, or paste a link to add homework…";
+  const box = `<div class="composer" data-go="chat"><span>${holder}</span><i class="send">${icon("send", 17)}</i></div>`;
+  if (!ui.chat) return `<div class="dock">${box}</div>`;
+  const asked = new Set(ui.log.filter(m => m.key).map(m => m.key));
+  const offers = ui.adding ? ["add2"] : ["left", "start", "add", "mem"].filter(k => !asked.has(k));
+  const log = ui.log.map(m => m.you ? `<div class="you">${m.you}</div>`
+    : m.mem ? `<div class="mem" style="padding-left:42px">Saved to memory: “${m.mem}” · <u data-go="forget">Undo</u></div>`
+      : `<div class="d">${dotSlot("idle")}<div>${m.dot}${m.rows ? chatRows(m.rows) : ""}</div></div>`).join("");
+  const intro = ui.log.length ? "" : `<div class="d">${dotSlot("hello")}<div><p class="hi">Hey Kausthubh.</p><span class="muted">Ask about your week, start something, or tell me about new homework.</span></div></div>`;
+  return `<div class="veil" data-go="close-chat"></div><div class="dock open"><span class="x" data-go="close-chat">${icon("close", 17)}</span><div class="chat">${intro}${log}
+    ${offers.length ? `<div class="tips" style="padding-left:34px">${offers.map(k => `<span data-go="say:${k}">${icon("right", 14)}${ASK[k]}</span>`).join("")}</div>` : ""}</div>${box}</div>`;
+}
+function say(key) {
+  ui.log.push({ you: ASK[key], key });
+  if (key === "left") {
+    const items = A.filter(a => !DONE.includes(a.state) && a.state !== "yours" && (a.day != null && a.day <= 4));
+    ui.log.push({ dot: `${items.length} things are due by Friday. ${items.filter(a => NEEDS.includes(a.state)).length} need you.`, rows: items.map(a => a.id) });
+  } else if (key === "start") {
+    const a = find("refl");
+    if (ruleFor(a) === "leave") ui.log.push({ dot: "Your rule leaves Reflection 4 to you. Open it if you want me to do just this one.", rows: ["refl"] });
+    else { a.state = "working"; a.step = 0; ui.log.push({ dot: "On it. I'll tell you when it's ready to check.", rows: ["refl"] }); }
+  } else if (key === "add") { ui.adding = true; ui.log.push({ dot: "Paste a link from your school, or tell me the title and when it's due." }); }
+  else if (key === "add2") {
+    ui.adding = false;
+    if (!find("rr")) A.push({ id: "rr", title: "Reading response", course: "CSC 281", when: "Mon, Sep 28", due: "Mon Sep 28 11:59 PM", left: "5 days left", kind: "essay", state: "not_started", step: 0 });
+    ui.log.push({ dot: "Added. I'll check CSC 281's page for the details.", rows: ["rr"] });
+  } else if (key === "mem") {
+    MEM[0][1].unshift(["Essays: write in first person", "You said it · today"]);
+    ui.log.push({ mem: "Essays: write in first person" }, { dot: "Got it. I'll use first person in every essay." });
+  }
+}
+
+// ---------- render and interaction ----------
+const app = document.getElementById("proto");
+let lastScreen = "week";
+function render() {
+  const body = { week, list, all, assignment, rules, memory }[ui.screen]();
+  const home = ["week", "list", "all"].includes(ui.screen);
+  app.innerHTML = (ui.screen === "assignment" ? "" : topbar()) + body + (home ? dock() : "");
+  app.querySelectorAll("[data-dot]").forEach(slot => { const el = mascot("dot", slot.dataset.dot); el.style.width = el.style.height = "100%"; slot.replaceChildren(el); });
+  syncControls();
+  fit();
+}
+const landed = a => { a.state = "handed_in"; a.handing = false; (a.msgs ??= []).push({ dot: "Handed in. The school says “Submitted for grading”.", after: true }, { mem: `${a.course}: ${a.kind === "code" ? "tests must pass before hand-in" : "the grader checks every requirement line"}`, after: true }); };
+const talk = (a, you, dot, mem) => {
+  const where = ["not_started", "scheduled"].includes(a.state) ? { early: true } : ["review", "handing_in", "handed_in"].includes(a.state) ? { after: true } : {};
+  (a.msgs ??= []).push({ you, ...where }); if (mem) a.msgs.push({ mem, ...where }); a.msgs.push({ dot, ...where });
+};
+function go(target) {
+  const [cmd, a, ...rest] = target.split(":"), b = rest.join(":");
+  const x = find(a);
+  ui.gear = cmd === "gear" ? !ui.gear : false;
+  if (cmd !== "menu") ui.menu = cmd === "open" || cmd === "act" ? null : ui.menu && cmd === "set" ? null : ui.menu;
+  if (["week", "list", "all", "rules", "memory"].includes(cmd)) { ui.screen = cmd; ui.menu = null; ui.chat = false; if (!["rules", "memory"].includes(cmd)) lastScreen = cmd; }
+  else if (cmd === "open") { ui.id = a; ui.tab = null; ui.screen = "assignment"; ui.chat = false; }
+  else if (cmd === "act") { if ((x.state === "not_started" && ruleFor(x) !== "leave") || x.state === "scheduled") { x.state = "working"; x.step = 0; } ui.id = a; ui.tab = null; ui.screen = "assignment"; ui.chat = false; }
+  else if (cmd === "back") { ui.screen = lastScreen; ui.menu = null; }
+  else if (cmd === "start") { x.state = "working"; x.step = 0; ui.tab = null; }
+  else if (cmd === "resume") { x.state = "working"; ui.tab = null; }
+  else if (cmd === "set") { x.state = b; x.handing = false; ui.tab = null; ui.menu = null; if (b === "handed_in") landed(x); if (b === "handing_in") setTimeout(() => { if (x.state === "handing_in") { landed(x); render(); } }, 1900); }
+  else if (cmd === "answer") { talk(x, b, "Thanks. Carrying on."); x.state = "working"; ui.tab = null; }
+  else if (cmd === "steer") talk(x, b, "Got it. I'll do that on this one.");
+  else if (cmd === "type") talk(x, x.state === "review" ? "make the header comment shorter" : x.state === "working" ? "double-check question 2" : "what does this one ask for?", x.state === "review" ? "Done. Everything still passes." : x.state === "working" ? "Will do, before I finish." : `In short: ${lc(ASKS[x.kind][0])}.`);
+  else if (cmd === "walk") x.walked = true, talk(x, "Walk me through it", `I started with ${lc(STEPS[x.kind][0]).replace("read ", "")}, then worked in order. Ask about any part and I'll explain it.`);
+  else if (cmd === "ok") doubtsOf(x)[+b].ok = true;
+  else if (cmd === "change") { const d = doubtsOf(x)[+b]; talk(x, `Change this: ${lc(d.q)}`, "Changed. Everything still passes."); d.ok = true; d.did = "Changed the way you asked."; }
+  else if (cmd === "hand") { x.handing = true; ui.tab = null; }
+  else if (cmd === "unhand") { x.handing = false; ui.tab = null; }
+  else if (cmd === "override") { x.override = "attempt"; if (x.state === "review") { x.state = "working"; x.step = 4; } }
+  else if (cmd === "unoverride") delete x.override;
+  else if (cmd === "drop-exception") ui.exception = false;
+  else if (cmd === "rule") ui.rule = a;
+  else if (cmd === "menu") ui.menu = ui.menu === a ? null : a;
+  else if (cmd === "view") ui.tab = a;
+  else if (cmd === "steps") ui.steps = !ui.steps;
+  else if (cmd === "filter") ui.filter = a;
+  else if (cmd === "chat") ui.chat = true;
+  else if (cmd === "close-chat") ui.chat = false;
+  else if (cmd === "say") say(a);
+  else if (cmd === "forget") { ui.log = ui.log.filter(m => !m.mem); MEM[0][1] = MEM[0][1].filter(([t]) => t !== "Essays: write in first person"); }
+  render();
+}
+app.addEventListener("click", e => {
+  const el = e.target.closest("[data-go]");
+  if (!el) return;
+  e.stopPropagation();
+  go(el.dataset.go);
+});
+// Dot works through its steps while you watch, then hands over.
+setInterval(() => {
+  const a = find(ui.id);
+  if (ui.screen !== "assignment" || a.state !== "working" || ui.menu) return;
+  a.step += 1;
+  if (a.step >= 5) { a.step = 5; a.state = "review"; ui.tab = null; }
+  render();
+}, 2200);
+
+const seg = (id, items, current, pick) => {
+  const box = document.getElementById(id); box.innerHTML = "";
+  for (const [k, v] of Object.entries(items)) { const b = document.createElement("button"); b.textContent = v; b.className = k === current ? "on" : ""; b.onclick = () => pick(k); box.append(b); }
+};
+const fill = (id, items, current) => { const el = document.getElementById(id); if (document.activeElement !== el) el.innerHTML = Object.entries(items).map(([k, v]) => `<option value="${k}" ${k === current ? "selected" : ""}>${v}</option>`).join(""); };
+function syncControls() {
+  seg("c-screen", { week: "Week", list: "List", all: "All", assignment: "Assignment", chat: "Chat", rules: "Rules", memory: "Memory" }, ui.chat ? "chat" : ui.screen,
+    k => k === "chat" ? (go("week"), go("chat")) : go(k === "assignment" ? `open:${ui.id}` : k));
+  seg("c-rule", RULES, ui.rule, k => go(`rule:${k}`));
+  const a = find(ui.id);
+  fill("c-assign", Object.fromEntries(A.map(x => [x.id, `${x.title} · ${x.course}`])), ui.id);
+  fill("c-state", STATES, a.state);
+  fill("c-kind", KINDS, a.kind);
+}
+const setFrom = (id, apply) => document.getElementById(id).onchange = e => { e.target.blur(); apply(e.target.value); };
+setFrom("c-assign", v => go(`open:${v}`));
+setFrom("c-state", v => { const a = find(ui.id); a.state = v; a.handing = false; a.step = { not_started: 0, scheduled: 0, yours: 0, working: 1, needs_sign_in: 1, needs_files: 1, needs_answer: 2, stuck: 2, saved: 2 }[v] ?? 5; ui.tab = null; ui.screen = "assignment"; ui.chat = false; render(); });
+setFrom("c-kind", v => { const a = find(ui.id); a.kind = v; delete a.doubts; ui.tab = null; ui.screen = "assignment"; ui.chat = false; render(); });
+
+function fit() {
+  const box = app.parentElement, scale = box.clientWidth / 1280;
+  app.style.transform = `scale(${scale})`;
+  box.style.height = `${820 * scale}px`;
+}
+addEventListener("resize", fit);
+render();
+
+// ---------- cast ----------
+const cast = document.getElementById("cast");
+cast.innerHTML = `<figure style="margin:0;text-align:center;font-size:13px;color:var(--graphite)"><svg viewBox="0 0 128 128" width="72" height="72">${STUDI_ICON}</svg><br>App icon</figure>` +
+  [["idle", "idle"], ["scanning", "finding homework"], ["steering", "on the school page"], ["working", "doing the work"], ["needs", "needs you"], ["review", "check this?"], ["done", "handed in"]]
+    .map(([s, l]) => `<figure style="margin:0;text-align:center;font-size:13px;color:var(--graphite)"><span class="slot" data-s="${s}" style="width:72px;height:72px;margin:0 auto 4px"></span>${l}</figure>`).join("");
+cast.querySelectorAll("[data-s]").forEach(slot => { const el = mascot("dot", slot.dataset.s); el.style.width = el.style.height = "100%"; slot.replaceChildren(el); });
+</script>
+</body>
+</html>
