@@ -21,7 +21,7 @@ export function AppChrome({
   screen: AppScreen;
   onNavigate: (screen: AppScreen, landing?: SettingsLanding) => void;
 }) {
-  const schoolTone = schoolStatus === "Checking school now" ? "is-busy" : schoolStatus === "School needs sign-in" ? "is-attention" : "is-ok";
+  const schoolTone = schoolStatus === "Checking school now" || schoolStatus === "School check paused" ? "is-busy" : schoolStatus === "School needs sign-in" ? "is-attention" : "is-ok";
   return (
     <header className="app-chrome">
       <button className="brand-lockup brand-home" type="button" onClick={() => onNavigate("week")} aria-label="Open dashboard"><strong>studi</strong></button>

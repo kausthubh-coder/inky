@@ -9,8 +9,10 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   assert.equal(await page.getByRole("heading", { name: "Signed in", exact: true }).count(), 1);
   assert.equal(await page.locator(".scan-report").getByText("WebAssign needs you to sign in before I can keep checking.", { exact: true }).count(), 1);
   await page.getByRole("button", { name: "Sign in to WebAssign", exact: true }).click();
-  await page.locator(".chat-browser").getByRole("button", { name: "Continue scan" }).waitFor();
-  await page.getByRole("button", { name: "Close browser" }).click();
+  // One Continue, in the card under Dot; the page itself has no bar of its own.
+  await page.getByRole("region", { name: "Your move" }).getByRole("button", { name: "I've signed in, continue" }).waitFor();
+  assert.equal(await page.locator(".chat-browser").getByRole("button").count(), 0);
+  await page.getByRole("button", { name: "Close school browser" }).click();
 
   const setScan = async (state, options = {}) => {
     await page.evaluate(async ({ state, options }) => {

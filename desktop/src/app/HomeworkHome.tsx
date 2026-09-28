@@ -1,6 +1,6 @@
 import "./homework.css";
 import { useEffect, useState } from "react";
-import type { Assignment, LibraryState, LifecycleState, ProductSettingsState, SchoolOnboardingState } from "../../shared/index.js";
+import { scanWaitingFor, type Assignment, type LibraryState, type LifecycleState, type ProductSettingsState, type SchoolOnboardingState } from "../../shared/index.js";
 import { Character } from "./Character.js";
 import type { DotState } from "../../shared/characters/states.js";
 import { Icon } from "./Icon.js";
@@ -69,9 +69,9 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
     else onOpen(item.assignment.assignmentId);
   };
 
-  const headline = homeHeadline({ needs, working, scan, next: items.find((item) => item.record.state === "not_started" || item.record.state === "scheduled"), busy });
+  const headline = homeHeadline({ needs, working, scan, waiting: scanWaitingFor(onboarding.scan), next: items.find((item) => item.record.state === "not_started" || item.record.state === "scheduled"), busy });
   const primary = headline.button
-    ? <button className="rd-button rd-primary hw-fix" onClick={() => (scan === "needs_user" && !needs.length ? onSchool() : needs[0] && onOpen(needs[0].assignment.assignmentId))}>{headline.button}</button>
+    ? <button className="rd-button rd-primary hw-fix" onClick={() => (needs[0] ? onOpen(needs[0].assignment.assignmentId) : onSchool())}>{headline.button}</button>
     : null;
 
   const row = (item: HomeworkItem, lead = false) => (
@@ -113,15 +113,16 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
   );
 }
 
-function homeHeadline({ needs, working, scan, next, busy }: {
-  needs: HomeworkItem[]; working: HomeworkItem | undefined; scan: string | undefined; next: HomeworkItem | undefined; busy: boolean;
+function homeHeadline({ needs, working, scan, waiting, next, busy }: {
+  needs: HomeworkItem[]; working: HomeworkItem | undefined; scan: string | undefined; waiting: ReturnType<typeof scanWaitingFor>; next: HomeworkItem | undefined; busy: boolean;
 }): { dot: DotState; title: string; sub: string; button?: string } {
   const first = needs[0];
   if (first) {
     const fix = homeworkFix(first);
     return { dot: "needs", title: fix.headline, sub: needs.length > 1 ? `Then ${needs.length - 1} more. Everything else is on track.` : "Everything else is on track.", button: fix.button };
   }
-  if (scan === "needs_user") return { dot: "needs", title: "Your school needs you to sign in.", sub: "Dot was reading your classes and got signed out.", button: "Sign in" };
+  if (waiting === "sign_in") return { dot: "needs", title: "Your school needs you to sign in.", sub: "Dot was reading your classes and got signed out.", button: "Sign in" };
+  if (waiting === "takeover") return { dot: "waiting", title: "The school check is paused.", sub: "You have the page. Dot carries on when you say so.", button: "Continue check" };
   if (working) return { dot: "working", title: `Dot is on ${working.assignment.title}.`, sub: "Open it to watch, or get on with your day." };
   if (scan === "running") return { dot: "scanning", title: "Dot is reading your school.", sub: "Looking through your classes for new or changed work." };
   if (next) return { dot: "idle", title: "Nothing needs you.", sub: `${next.assignment.title} is next. ${homeworkLine(next, busy)}.` };

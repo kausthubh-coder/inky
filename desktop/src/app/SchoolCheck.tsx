@@ -173,7 +173,12 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
       </section> : null}
 
       {view.running && <button className="scan-finish-button" disabled={disabled} onClick={onPause}>Finish with what you found</button>}
-      {view.paused && !view.signIn && <div className="scan-resume-action"><button className="button button--yellow" disabled={disabled} onClick={onCheck}>{busyStarting ? "Continuing scan…" : "Continue scan"}<Icon name="right" size={17} /></button><small>Your place is saved.</small></div>}
+      {/* The one decision while the check waits, like the assignment page: sign in or hand the page back. */}
+      {view.paused && <section className="ag-move scan-move" aria-label="Your move">
+        <h2>{view.signIn ? "Sign in on the school page." : "You have the page."}</h2>
+        <p>{view.signIn ? "It's open on the right. Tick “remember this device” if it asks." : "Dot kept its place and carries on from where it stopped."}</p>
+        <div className="ag-acts"><button className="rd-button rd-primary" disabled={disabled} onClick={onCheck}>{busyStarting ? "Continuing…" : view.signIn ? "I've signed in, continue" : "Continue scan"}</button></div>
+      </section>}
     </>}
     {scan?.targetAssignmentId && !view.active && <button className="button button--paper" onClick={() => onAssignment(scan.targetAssignmentId!)}>Back to assignment<Icon name="right" size={17} /></button>}
     {scan?.state === "partial" && scan.failures.length === 0 && <p className="scan-missing-source"><Icon name="warning" size={17} /><span>{view.incompleteLabel}</span></p>}

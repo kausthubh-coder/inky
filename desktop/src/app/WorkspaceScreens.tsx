@@ -1,6 +1,6 @@
 import "./settings.css";
 import { SettingsGroup, SettingsRow, SettingsToggle, SavedNotice } from "./SettingsPrimitives.js";
-import { connectedAppIsActive } from "../../shared/index.js";
+import { connectedAppIsActive, scanWaitingFor } from "../../shared/index.js";
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
 import { MemorySettings } from "./MemorySettings.js";
 import { HomeworkRules } from "./HomeworkRules.js";
@@ -199,7 +199,7 @@ export function DashboardScreen({
     >
       <AppChrome
         {...chrome}
-        schoolStatus={onboarding.scan?.state === "running" ? "Checking school now" : onboarding.scan?.state === "needs_user" ? "School needs sign-in" : "School check"}
+        schoolStatus={onboarding.scan?.state === "running" ? "Checking school now" : scanWaitingFor(onboarding.scan) === "sign_in" ? "School needs sign-in" : scanWaitingFor(onboarding.scan) === "takeover" ? "School check paused" : "School check"}
         onSchool={() => { setSchoolOpen(true); setChatView("expanded"); }}
         chatName={undefined}
         onNavigate={(screen, landing) => {

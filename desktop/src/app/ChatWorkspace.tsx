@@ -90,7 +90,6 @@ export function ChatWorkspace(props: ChatProps) {
   const { view, onView, onboarding, lifecycle, workspace, assignment, task } =
     props;
   const contextAssignment = assignment ?? props.contextAssignment;
-  const [sheet, setSheet] = useState(false);
   const target = contextAssignment
     ? {
         kind: "assignment" as const,
@@ -151,10 +150,10 @@ export function ChatWorkspace(props: ChatProps) {
         turnIndex: index,
       }))
     : (chat?.job.messages ?? []);
-  const scanActive =
-    school && ["running", "needs_user"].includes(onboarding.scan?.state ?? "");
+  const scanActive = school && onboarding.scan?.state === "running";
+  const scanOpen = school && ["running", "needs_user"].includes(onboarding.scan?.state ?? "");
   const timeline = chatTimeline(
-    school && !(scanActive && !scanDetails) ? [] : messages,
+    school && !(scanOpen && !scanDetails) ? [] : messages,
     [],
   );
   useEffect(() => {
@@ -247,7 +246,7 @@ export function ChatWorkspace(props: ChatProps) {
     if (
       !log.current ||
       !messages.length ||
-      (school && !(scanActive && !scanDetails))
+      (school && !(scanOpen && !scanDetails))
     )
       return;
     if (school || assignment)
@@ -508,7 +507,7 @@ export function ChatWorkspace(props: ChatProps) {
     </div>
   );
   const composer =
-    !school || (scanActive && !scanDetails) ? (
+    !school || (scanOpen && !scanDetails) ? (
       <form
         className="inky-composer rd-composer"
         onSubmit={(e) => {
@@ -516,23 +515,6 @@ export function ChatWorkspace(props: ChatProps) {
           void (draft.text.trim() ? send() : stop());
         }}
       >
-        {(school || (!assignment && view === "home")) && (
-          <button
-            type="button"
-            className="composer-mascot"
-            aria-label="Open your conversation with Dot"
-            onClick={() =>
-              assignment || school ? setSheet(true) : onView("compact")
-            }
-          >
-            <Icon name="note" size={20} />
-          </button>
-        )}
-        {(school || (!assignment && contextAssignment)) && (
-          <span className="rd-composer-context">
-            {school ? "School check" : contextAssignment?.title}
-          </span>
-        )}
         {draft.refs.length > 0 && (
           <div className="chat-refs">
             {draft.refs.map((ref) => (
@@ -602,8 +584,8 @@ export function ChatWorkspace(props: ChatProps) {
                 : assignment
                   ? composerPlaceholder(record?.state, record?.needs)
                   : contextAssignment
-                    ? "Ask about this assignment…"
-                    : "Hey Dot…"
+                    ? `Ask about ${contextAssignment.title}…`
+                    : "Ask Dot anything, or paste a homework link…"
             }
             disabled={
               school &&
@@ -698,13 +680,6 @@ export function ChatWorkspace(props: ChatProps) {
         onClose={() => setBrowser(false)}
         onSlot={props.onSchoolSlot}
         workspace={workspace}
-        status={school ? onboarding.scan?.currentStep : execution?.lastError}
-        onContinue={
-          school && onboarding.scan?.state === "needs_user"
-            ? props.onResumeScan
-            : undefined
-        }
-        busy={props.scanBusy !== null}
         onPause={
           school && onboarding.scan?.state === "running"
             ? () => {
@@ -885,72 +860,24 @@ export function ChatWorkspace(props: ChatProps) {
           {content}
         </WorkspaceDialog>
       )}
-      {sheet && (
-        <WorkspaceDialog
-          className="rd-sheet-dialog rd-nested-sheet"
-          label="Chat with Dot"
-          onClose={() => setSheet(false)}
-        >
-          <ConversationTimeline
-            onOpenContext={props.onOpenContext}
-            composer={composer}
-            onClose={() => setSheet(false)}
-            error={error || props.actionError}
-            assignments={onboarding.assignments}
-            suggestions={suggestions}
-            onSuggest={suggest}
-          />
-        </WorkspaceDialog>
-      )}
     </>
   );
 }
 
 function SchoolBrowser({
-  onClose,
   onSlot,
   workspace,
-  status,
   onPause,
-  onContinue,
-  busy,
 }: {
   onClose: () => void;
   onSlot: (bounds: SchoolPageBounds | null) => void;
   workspace: StudiWorkspaceState | null;
-  status: string | undefined;
   onPause: (() => void) | undefined;
-  onContinue: (() => void) | undefined;
-  busy?: boolean;
 }) {
   const slot = useRef<HTMLDivElement>(null);
   useSchoolSlot(slot, onSlot);
   return (
     <aside className="chat-browser">
-      <div className={`rd-browser-bar ${onContinue ? "is-handoff" : ""}`}>
-        {onContinue && (
-          <>
-            <span role="status">
-              {status ?? "Sign in on the page, then continue."}
-            </span>
-            <button
-              className="rd-button primary"
-              disabled={busy}
-              onClick={onContinue}
-            >
-              Continue scan
-            </button>
-          </>
-        )}
-        <button
-          className="rd-chrome-icon"
-          aria-label="Close browser"
-          title="Close the school page"
-          onClick={onClose}
-        >
-          <Icon name="close" size={17} />
-        </button>
-      </div>
       <div className="chat-browser-slot" ref={slot}>
         {readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}
         {readDevPreviewConfig() &&

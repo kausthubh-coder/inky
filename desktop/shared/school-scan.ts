@@ -320,3 +320,9 @@ export function nextSchoolScanAction(state: Pick<SchoolOnboardingState, "scan" |
   if (state.scan && ["needs_user", "partial", "failed"].includes(state.scan.state)) return "resume";
   return state.workflowRevision === null ? "scan" : "replay";
 }
+
+/** What a paused school check waits for: a sign-in (school or an outside site), or the student, who took the page. */
+export function scanWaitingFor(scan: Pick<SchoolScan, "state" | "handoff"> | null | undefined): "sign_in" | "takeover" | null {
+  if (scan?.state !== "needs_user") return null;
+  return scan.handoff?.kind === "student_takeover" ? "takeover" : "sign_in";
+}
