@@ -6,8 +6,8 @@ export default {
     // Canvas selects its architecture-specific package at runtime. Preserve both
     // prebuilds rather than attempting to combine identical per-arch files.
     osxUniversal: { x64ArchFiles: "**/@napi-rs/canvas-darwin-{arm64,x64}/*.node" },
-    icon: "assets/studi-inky",
-    extraResource: ["assets/studi-inky.png", "assets/studi-inky.ico", "THIRD_PARTY_NOTICES.md"],
+    icon: "assets/studi-icon",
+    extraResource: ["assets/studi-icon.png", "assets/studi-icon.ico", "THIRD_PARTY_NOTICES.md"],
     ignore: [
       /^\/(?:\.agent|\.agents|\.studi-harness|\.studi-lms|agent-harness|\.openai|\.playwright-mcp|\.vercel|convex|desktop|docs|landing|out|release|scripts|tests|worker)(?:\/|$)/,
       /^\/\.env(?:\.|$)/,
@@ -26,7 +26,7 @@ export default {
       config: {
         name: "studi",
         setupExe: "Studi-Setup.exe",
-        setupIcon: "assets/studi-inky.ico",
+        setupIcon: "assets/studi-icon.ico",
         noMsi: true,
       },
     },
