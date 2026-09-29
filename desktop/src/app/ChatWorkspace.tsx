@@ -383,6 +383,20 @@ export function ChatWorkspace(props: ChatProps) {
     setQuery(null);
     el.focus();
   };
+  const [addingFiles, setAddingFiles] = useState(false);
+  // Notes, a rubric or starter files the student has, straight into the assignment's folder.
+  const addFiles = async () => {
+    if (!assignment || !window.studi || addingFiles) return;
+    setAddingFiles(true);
+    try {
+      const result = await window.studi.importAssignmentFiles({ assignmentId: assignment.assignmentId });
+      if (result.errors.length) setError(result.errors.map((item) => `${item.name}: ${item.message}`).join("\n"));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setAddingFiles(false);
+    }
+  };
   const suggest = (text: string) => {
     saveDraft({ ...draftRef.current, text });
     input.current?.focus();
@@ -639,6 +653,16 @@ export function ChatWorkspace(props: ChatProps) {
               }
             }}
           />
+        </div>
+        {/* A toolbar under the text, like T3 Code: extras on the left, send or stop on the right. */}
+        <div className="rd-composer-foot">
+          {assignment ? (
+            <button type="button" className="rd-composer-tool" disabled={addingFiles} onClick={() => void addFiles()}>
+              <Icon name="folder" size={15} /> {addingFiles ? "Adding…" : "Add files"}
+            </button>
+          ) : school ? <span /> : (
+            <span className="rd-composer-hint">Type @ to ask about an assignment</span>
+          )}
           <button
             className="chat-send"
             aria-label={

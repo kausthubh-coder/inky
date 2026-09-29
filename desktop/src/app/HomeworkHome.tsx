@@ -102,11 +102,13 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
         <p className="hw-conflict" role="status" key={conflict.courseIds.join()}>{conflict.reason} <button className="rd-link" onClick={onSettings}>See the rules</button></p>
       ))}
       {onboarding.assignmentConflicts?.map((conflict) => <p className="hw-conflict" role="status" key={conflict.assignmentIds.join()}>{conflict.reason}</p>)}
-      {view === "week" && <WeekBoard items={items} clock={clock} offset={weekOffset} onOffset={setWeekOffset} course={(id) => shortCourse(course(id))} tone={tone} busy={busy} onOpen={onOpen} />}
+      {view === "week" && <WeekBoard items={items} clock={clock} offset={weekOffset} onOffset={setWeekOffset} course={(id) => shortCourse(course(id))} tone={tone} busy={busy} pending={pending}
+        onOpen={onOpen} onAsk={onAsk} onChange={(operation) => void run(operation)} />}
       {view === "list" && <>
         <Group title="Needs you" items={needs} row={(item) => row(item)} />
         <Group title="This week" items={items.filter((item) => !needsYou(item) && !isDone(item) && item.due !== null && item.due <= endOfWeek(clock))} row={(item, index) => row(item, !primary && !needs.length && index === 0)} />
         <Group title="Later" items={items.filter((item) => !needsYou(item) && !isDone(item) && (item.due === null || item.due > endOfWeek(clock)))} row={(item) => row(item)} />
+        <Group title="Done this week" items={items.filter((item) => isDone(item) && item.due !== null && item.due > clock.getTime() - WEEK && item.due <= endOfWeek(clock))} row={(item) => row(item)} />
         {items.every(isDone) && <p className="hw-empty">Nothing left to do. Dot will add new homework when it finds it.</p>}
         <p className="hw-ruleline">Dot's rule for all homework: {RULE_LABELS[globalRule].charAt(0).toLowerCase() + RULE_LABELS[globalRule].slice(1)} · <button className="rd-link" onClick={onSettings}>Change</button></p>
       </>}
@@ -131,6 +133,8 @@ function homeHeadline({ needs, working, scan, waiting, next, busy }: {
   return { dot: "sleep", title: "Nothing needs you.", sub: "Your week is clear." };
 }
 
+const WEEK = 7 * 24 * 60 * 60 * 1000;
+
 function endOfWeek(now: Date): number {
   const end = new Date(now);
   end.setHours(23, 59, 59, 999);
@@ -148,9 +152,10 @@ function Group({ title, items, row }: { title: string; items: HomeworkItem[]; ro
   );
 }
 
-function WeekBoard({ items, clock, offset, onOffset, course, tone, busy, onOpen }: {
+function WeekBoard({ items, clock, offset, onOffset, course, tone, busy, pending, onOpen, onAsk, onChange }: {
   items: HomeworkItem[]; clock: Date; offset: number; onOffset: (update: (offset: number) => number) => void;
-  course: (courseId: string) => string; tone: (courseId: string) => number; busy: boolean; onOpen: (assignmentId: string) => void;
+  course: (courseId: string) => string; tone: (courseId: string) => number; busy: boolean; pending: boolean;
+  onOpen: (assignmentId: string) => void; onAsk: (assignment: Assignment) => void; onChange: (operation: () => Promise<unknown>) => void;
 }) {
   const week = calendarWeek(clock, offset);
   const dayKeys = new Set(week.days.map((day) => day.key));
@@ -159,13 +164,19 @@ function WeekBoard({ items, clock, offset, onOffset, course, tone, busy, onOpen 
     const need = needsYou(item) && item.record.state !== "ready";
     const late = item.due !== null && item.due < clock.getTime() && !isDone(item);
     return (
-      <button key={item.assignment.assignmentId} className={`hw-card course-accent-${tone(item.assignment.courseId)} ${need ? "is-needs" : ""}`} onClick={() => onOpen(item.assignment.assignmentId)}>
-        <strong>{item.assignment.title}</strong>
-        <small>{course(item.assignment.courseId)}{extra}</small>
-        <small className={need || late ? "hw-need" : ""}>{late && !need ? "Overdue · " : ""}{homeworkLine(item, busy)}</small>
-      </button>
+      <div key={item.assignment.assignmentId} className="hw-card-wrap">
+        <button className={`hw-card course-accent-${tone(item.assignment.courseId)} ${need ? "is-needs" : ""}`} onClick={() => onOpen(item.assignment.assignmentId)}>
+          <strong>{item.assignment.title}</strong>
+          <small>{course(item.assignment.courseId)}{extra}</small>
+          <small className={need || late ? "hw-need" : ""}>{late && !need ? "Overdue · " : ""}{homeworkLine(item, busy)}</small>
+        </button>
+        {menu(item)}
+      </div>
     );
   };
+  const menu = (item: HomeworkItem) => (
+    <HomeworkMenu assignment={item.assignment} done={isDone(item)} busy={pending} onAsk={() => onAsk(item.assignment)} onChange={onChange} />
+  );
   // Open work outside this week: overdue from before it, after it, and work with no date.
   const elsewhere = offset === 0
     ? items.filter((item) => !isDone(item) && (item.due === null || !dayKeys.has(localDateKey(new Date(item.due)))))
@@ -188,9 +199,12 @@ function WeekBoard({ items, clock, offset, onOffset, course, tone, busy, onOpen 
               <header><span>{day.label}</span>{day.isToday ? <b>{day.date}</b> : <span>{day.date}</span>}</header>
               {due.filter((item) => !isDone(item)).map((item) => card(item))}
               {due.filter(isDone).map((item) => (
-                <button key={item.assignment.assignmentId} className="hw-done-line" onClick={() => onOpen(item.assignment.assignmentId)}>
-                  <Icon name="check" size={13} />{item.assignment.title}
-                </button>
+                <div key={item.assignment.assignmentId} className={`hw-card-wrap hw-done course-accent-${tone(item.assignment.courseId)}`}>
+                  <button className="hw-done-line" title={`${item.assignment.title} · ${course(item.assignment.courseId)} · ${homeworkLine(item, busy)}`} onClick={() => onOpen(item.assignment.assignmentId)}>
+                    <Icon name="check" size={13} /><span>{item.assignment.title}</span>
+                  </button>
+                  {menu(item)}
+                </div>
               ))}
               {!due.length && <p className="hw-none">Nothing due</p>}
             </section>

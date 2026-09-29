@@ -164,27 +164,84 @@
   font-size: 13.5px;
   color: var(--graphite);
 }
+/* Handed-in work stays on its day as a quiet line in its class colour. */
 .hw-done-line {
   display: flex;
   align-items: center;
-  gap: 5px;
-  width: 100%;
-  padding: 3px 8px;
+  gap: 6px;
+  width: calc(100% - 4px);
+  margin: 0 2px 4px;
+  padding: 4px 30px 4px 8px;
   border: 0;
-  border-radius: 7px;
-  background: none;
+  border-left: 3px solid color-mix(in srgb, var(--course-accent, var(--rule)) 70%, var(--page));
+  border-radius: 4px 8px 8px 4px;
+  background: color-mix(in srgb, var(--course-accent, var(--rule)) 7%, transparent);
   color: var(--graphite);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
 }
+.hw-done-line span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: line-through;
+  text-decoration-color: rgb(43 38 33 / 25%);
+}
 .hw-done-line:hover {
-  background: rgb(43 38 33 / 6%);
+  background: color-mix(in srgb, var(--course-accent, var(--rule)) 16%, transparent);
   color: var(--pencil);
 }
 .hw-done-line svg {
   flex: none;
   color: #2e7d4f;
+}
+/* The corrections menu sits in each card's corner and shows on hover or focus. */
+.hw-card-wrap {
+  position: relative;
+}
+.hw-card-wrap:has(.hw-more-button[aria-expanded="true"]) {
+  z-index: 9;
+}
+.hw-card-wrap > .hw-more {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+}
+.hw-card-wrap.hw-done > .hw-more {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.hw-card-wrap:hover > .hw-more,
+.hw-card-wrap > .hw-more:focus-within,
+.hw-card-wrap > .hw-more:has([aria-expanded="true"]) {
+  opacity: 1;
+}
+.hw-card-wrap .hw-more-button {
+  width: 26px;
+  height: 26px;
+  background: rgb(255 253 248 / 80%);
+}
+.hw-card-wrap.hw-done .hw-more-button {
+  width: 22px;
+  height: 22px;
+  background: none;
+}
+.hw-card-wrap .hw-menu {
+  top: 30px;
+}
+.hw-card-wrap .hw-card {
+  padding-right: 30px;
+}
+.hw-days .hw-day:first-child .hw-menu,
+.hw-days .hw-day:nth-child(2) .hw-menu,
+.hw-soon .hw-card-wrap:nth-child(7n + 1) .hw-menu,
+.hw-soon .hw-card-wrap:nth-child(7n + 2) .hw-menu {
+  right: auto;
+  left: 0;
 }
 
 .hw-group {
@@ -593,4 +650,37 @@ form.rd-composer.inky-composer .chat-send[aria-label^="Stop"] {
 }
 form.rd-composer.inky-composer .chat-send:active:not(:disabled) {
   transform: scale(0.94);
+}
+
+/* The toolbar under the text: extras on the left, send or stop on the right. */
+form.rd-composer.inky-composer .rd-composer-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 2px -3px -3px -6px;
+}
+.rd-composer-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: none;
+  color: var(--graphite);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.rd-composer-tool:hover:not(:disabled) {
+  background: var(--blotter);
+  color: var(--pencil);
+}
+.rd-composer-hint {
+  padding-left: 6px;
+  font-size: 12.5px;
+  color: #a39a8e;
 }

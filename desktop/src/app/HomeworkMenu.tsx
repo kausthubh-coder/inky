@@ -44,7 +44,7 @@ export function HomeworkMenu({ assignment, done, busy, onAsk, onChange }: {
             </form>
           )}
           <button role="menuitem" onClick={() => correct("not_homework")}>This isn't homework</button>
-          <button role="menuitem" onClick={() => correct("already_done")}>I already handed it in</button>
+          {!done && <button role="menuitem" onClick={() => correct("already_done")}>I already handed it in</button>}
           <button role="menuitem" disabled={!a.sourceTarget} onClick={() => pick(() => window.studi!.startSchoolScan({ assignmentId: a.assignmentId }))}>Details look wrong</button>
           {!done && <>
             <hr />

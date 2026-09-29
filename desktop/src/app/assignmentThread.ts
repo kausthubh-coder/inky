@@ -1,7 +1,7 @@
 import type { AssignmentAction, AssignmentExecution } from "../../shared/index.js";
 import type { IconName } from "./Icon.js";
 
-export type ThreadCall = { readonly key: string; readonly icon: IconName; readonly verb: string; readonly target?: string; readonly result?: string; readonly running: boolean; readonly failed: boolean };
+export type ThreadCall = { readonly key: string; readonly icon: IconName; readonly verb: string; readonly target?: string; readonly result?: string; readonly running: boolean; readonly failed: boolean; readonly tool?: string; readonly at: string };
 export type ThreadStep =
   | { readonly kind: "text"; readonly key: string; readonly text: string }
   | { readonly kind: "call"; readonly call: ThreadCall }
@@ -38,6 +38,7 @@ export function threadSteps(actions: readonly AssignmentAction[]): ThreadStep[] 
       ...(action.target ? { target: action.target } : action.kind === "retry" ? { target: action.label } : {}),
       ...(action.result ? { result: action.result } : {}),
       running: action.outcome === "started", failed: action.outcome === "failed",
+      ...(action.tool ? { tool: action.tool } : {}), at: action.occurredAt,
     } });
   }
   return steps;
@@ -74,3 +75,70 @@ const TIPS: Record<string, string[]> = {
 export const tipsFor = (kind: string | undefined) => TIPS[kind ?? ""] ?? ["Show your working", "Ask me before guessing", "Use my class notes"];
 
 export const workTabName = (kind: string | undefined) => kind === "code" ? "Files" : kind === "essay" || kind === "discussion" ? "Draft" : kind === "quiz" || kind === "problem_set" ? "Answers" : "Work";
+
+// Like T3 Code's work log: back-to-back tool calls fold into one row that says what they did
+// ("Read 6 files, downloaded 8 files and ran 4 commands"); what Dot says splits the groups.
+export type ThreadBlock =
+  | { readonly kind: "text"; readonly key: string; readonly text: string }
+  | { readonly kind: "memory"; readonly key: string; readonly title: string }
+  | { readonly kind: "group"; readonly key: string; readonly calls: readonly ThreadCall[]; readonly summary: string; readonly failed: boolean; readonly icon: IconName };
+
+type Action = "read" | "page" | "download" | "change" | "command" | "notes" | "other";
+
+function actionOf(call: ThreadCall): Action {
+  const tool = call.tool ?? "";
+  if (["read", "file_read_pdf", "read_document", "grep", "find", "ls"].includes(tool)) return "read";
+  if (["browser_download", "browser_upload"].includes(tool)) return "download";
+  if (["write", "edit"].includes(tool)) return "change";
+  if (["powershell", "bash"].includes(tool)) return "command";
+  if (tool.startsWith("note_")) return "notes";
+  if (tool.startsWith("browser_")) return "page";
+  // Older runs only kept a readable label.
+  if (/school page|clicked|opened/i.test(call.verb)) return "page";
+  if (/^read/i.test(call.verb)) return "read";
+  return "other";
+}
+
+const ICONS: Record<Action, IconName> = { read: "file", page: "globe", download: "folder", change: "pen", command: "term", notes: "note", other: "right" };
+
+function label(action: Action, count: number, calls: readonly ThreadCall[]): string {
+  const n = (word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
+  switch (action) {
+    case "read": return `Read ${n("file")}`;
+    case "page": return count === 1 ? "Used the school page" : `Used the school page ${count} times`;
+    case "download": return calls.some((call) => call.tool === "browser_upload") ? `Moved ${n("file")}` : `Downloaded ${n("file")}`;
+    case "change": return `Changed ${n("file")}`;
+    case "command": return `Ran ${n("command")}`;
+    case "notes": return "Looked at its notes";
+    case "other": return count === 1 ? calls[0]!.verb : `Did ${count} other steps`;
+  }
+}
+
+export function summarizeCalls(calls: readonly ThreadCall[]): string {
+  const byAction = new Map<Action, ThreadCall[]>();
+  for (const call of calls) byAction.set(actionOf(call), [...(byAction.get(actionOf(call)) ?? []), call]);
+  const parts = [...byAction].map(([action, list]) => label(action, list.length, list));
+  const sentence = parts.map((part, index) => (index === 0 ? part : part.charAt(0).toLowerCase() + part.slice(1)));
+  if (sentence.length < 2) return sentence[0] ?? "";
+  return `${sentence.slice(0, -1).join(", ")} and ${sentence.at(-1)}`;
+}
+
+export function groupSteps(steps: readonly ThreadStep[]): ThreadBlock[] {
+  const blocks: ThreadBlock[] = [];
+  let calls: ThreadCall[] = [];
+  const flush = () => {
+    if (!calls.length) return;
+    const common = new Set(calls.map(actionOf));
+    blocks.push({ kind: "group", key: calls[0]!.key, calls, summary: summarizeCalls(calls), failed: calls.some((call) => call.failed),
+      icon: common.size === 1 ? ICONS[actionOf(calls[0]!)] : "list" });
+    calls = [];
+  };
+  for (const step of steps) {
+    if (step.kind === "call") { calls.push(step.call); continue; }
+    flush();
+    blocks.push(step);
+  }
+  flush();
+  return blocks;
+}
+

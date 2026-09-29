@@ -25,7 +25,7 @@ import { focusRulesOn } from "./HomeworkRules.js";
 import { Icon, type IconName } from "./Icon.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { courseLabel, courseTone } from "./assignmentPresentation.js";
-import { planFor, threadSteps, tipsFor, workTabName, workedFor, type ThreadStep } from "./assignmentThread.js";
+import { groupSteps, planFor, threadSteps, tipsFor, workTabName, workedFor, type ThreadBlock } from "./assignmentThread.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { onEngineChange } from "./engineChanges.js";
 import { shortCourse } from "./homeworkText.js";
@@ -72,12 +72,23 @@ export function AssignmentWorkspace({
 }) {
   const [detail, setDetail] = useState<TaskDetail | null>(null);
   const [picked, setPicked] = useState<{ state: string; tab: Tab } | null>(null);
-  const [steps, setSteps] = useState(false);
   const [handing, setHanding] = useState(false);
   const [pending, setPending] = useState(false);
   const [problem, setProblem] = useState("");
   const [settled, setSettled] = useState<number[]>([]);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [requirementsOpen, setRequirementsOpen] = useState(false);
   const thread = useRef<HTMLDivElement>(null);
+  const split = useSplit();
+  const dock = useRef<HTMLDivElement>(null);
+  const [dockHeight, setDockHeight] = useState(160);
+  useEffect(() => {
+    const node = dock.current;
+    if (!node) return undefined;
+    const observer = new ResizeObserver(() => setDockHeight(node.offsetHeight));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -170,21 +181,28 @@ export function AssignmentWorkspace({
         <span className="ag-meta">{shortCourse(course)} · {dueText(assignment, state)}</span>
         <HomeworkMenu assignment={assignment} done={["handed_in", "handed_in_at_school", "ignored"].includes(state)} busy={disabled} onChange={(operation) => void act(operation)} />
       </header>
-      <div className="ag-body">
-        <section className="ag-convo" aria-label="Dot's work on this assignment">
+      <div className={`ag-body${split.dragging ? " is-dragging" : ""}`} ref={split.body} style={{ gridTemplateColumns: `${split.width}px 12px minmax(0, 1fr)` }}>
+        <section className="ag-convo" aria-label="Dot's work on this assignment" style={{ ["--ag-dock-h" as string]: `${dockHeight}px` }}>
           <div className="ag-thread" ref={thread} role="log" aria-live="polite">{threadView()}</div>
-          {problem && <p className="rd-error" role="alert">{problem}</p>}
-          {error}
-          {move && (
-            <section className="ag-move" aria-label="Your move">
-              <h2>{move.title}</h2>
-              {move.body && <p>{move.body}</p>}
-              {move.extra}
-              {move.actions && <div className="ag-acts">{move.actions}</div>}
-            </section>
-          )}
-          {composer}
+          {/* Like T3 Code: the decision and the chat box float over the bottom of the thread, stacked. */}
+          <div className="ag-dock" ref={dock}>
+            {problem && <p className="rd-error" role="alert">{problem}</p>}
+            {error}
+            <div className="ag-dock-card">
+              {move && (
+                <section className="ag-move" aria-label="Your move">
+                  <h2>{move.title}</h2>
+                  {move.body && <p>{move.body}</p>}
+                  {move.extra}
+                  {move.actions && <div className="ag-acts">{move.actions}</div>}
+                </section>
+              )}
+              {composer}
+            </div>
+          </div>
         </section>
+        <div className="ag-split" role="separator" aria-orientation="vertical" aria-label="Resize the chat" tabIndex={0}
+          aria-valuenow={Math.round(split.width)} onPointerDown={split.onPointerDown} onKeyDown={split.onKeyDown} onDoubleClick={split.reset} />
         <section className="ag-view" aria-label="What Dot is working on">
           <nav className="ag-tabs" aria-label="Assignment view">
             {tabs.map((name) => (
@@ -201,7 +219,7 @@ export function AssignmentWorkspace({
             </div>
           )}
           <div className="ag-pane">
-            {tab === "site" && <SitePane onSlot={onSchoolSlot} />}
+            {tab === "site" && <SitePane onSlot={onSchoolSlot} hidden={split.dragging} />}
             {tab === "work" && workPane()}
             {tab === "details" && detailsPane()}
             {tab === "receipt" && receipt && receiptPane(receipt)}
@@ -241,18 +259,16 @@ export function AssignmentWorkspace({
       out.push({ key: "tips", node: <div className="ag-tips">{tipsFor(assignment.kind).map((tip) => <button key={tip} onClick={() => onSuggest(tip)}><Icon name="right" size={14} />{tip}</button>)}</div> });
     }
     if (started && run) {
-      const allSteps = threadSteps(run.actions ?? []);
+      const blocks = groupSteps(threadSteps(run.actions ?? []));
       const working = run.phase === "working" || run.phase === "submitting";
-      const plan = allSteps.find((step) => step.kind === "text");
-      const calls = allSteps.filter((step) => step.kind !== "text");
       if (startedAt) out.push({ key: "started", node: <div className="ag-sys">Started · {clock(startedAt)}</div> });
-      const took = workedFor(run);
-      dot("run", working || steps
-        ? <>{allSteps.map((step) => <Step key={stepKey(step)} step={step} />)}
-            {!working && <button className="ag-fold" onClick={() => setSteps(false)}>Hide steps <Icon name="down" size={14} /></button>}</>
-        : <>{plan?.kind === "text" && <div className="ag-text"><ChatMarkdown text={plan.text} /></div>}
-            {calls.length > 0 && <button className="ag-fold" onClick={() => setSteps(true)}><Icon name="check" size={14} />{took ? `Worked for ${took}` : "Worked"} · {calls.length} {calls.length === 1 ? "step" : "steps"} <Icon name="down" size={14} /></button>}</>,
+      dot("run", <>{blocks.map((block, index) => block.kind === "text"
+          ? <div key={block.key} className="ag-text"><ChatMarkdown text={block.text} /></div>
+          : block.kind === "memory" ? <MemorySaved key={block.key} title={block.title} />
+          : <WorkGroup key={block.key} group={block} live={working && index === blocks.length - 1} />)}</>,
         working ? (driving ? "steering" : "working") : "idle", startedAt ? clock(startedAt) : undefined);
+      const took = workedFor(run);
+      if (!working && took) out.push({ key: "worked", node: <div className="ag-sys">Worked for {took}</div> });
     }
     talk(after);
     // Heads-ups are news from the run: shown in the thread while working and after, never as a checklist.
@@ -366,23 +382,32 @@ export function AssignmentWorkspace({
   function workPane(): ReactNode {
     const answers = run?.answerSnapshot;
     const checklist = state === "ready" || state === "handed_in" ? run?.completionChecklist ?? [] : [];
+    const commands = new Map((run?.actions ?? []).filter((action) => action.toolCallId && action.target && (action.tool === "powershell" || action.tool === "bash")).map((action) => [action.toolCallId!, action.target!]));
     return (
-      <div className="ag-pad">
+      <div className="ag-work-pane">
         {state === "waiting" && record.needs === "files" && (
           <button className="ag-drop" disabled={disabled} onClick={addFiles}><b>Choose the file Dot needs</b>{run?.returnPredicate ?? "It goes into this assignment's folder."}</button>
         )}
-        {answers && <section><p className="ag-label">{workTabName(assignment.kind) === "Draft" ? "Draft" : "Answers"}</p><div className="ag-answers"><ChatMarkdown text={answers} /></div></section>}
-        {checklist.length > 0 && (
-          <section className="ag-section">
-            <div className="ag-req-head"><b>Requirements</b><span>{checklist.length} of {checklist.length} met</span></div>
-            {checklist.map((item, index) => <div className="ag-req" key={index}><Icon name="done" size={17} /><div><b>{item.requirement}</b><small>{item.evidence}</small></div></div>)}
-          </section>
+        {(answers || checklist.length > 0) && (
+          <header className="ag-summary">
+            {answers && <div className={`ag-summary-text${summaryOpen ? " is-open" : ""}`}><ChatMarkdown text={answers} /></div>}
+            <div className="ag-summary-actions">
+              {answers && <button className="wf-link" onClick={() => setSummaryOpen(!summaryOpen)}>{summaryOpen ? "Less" : "More"}</button>}
+              {checklist.length > 0 && (
+                <button className="ag-req-chip" aria-expanded={requirementsOpen} onClick={() => setRequirementsOpen(!requirementsOpen)}>
+                  <Icon name="done" size={14} />{checklist.length} of {checklist.length} requirements met
+                </button>
+              )}
+              {run?.answerArtifactId && <button className="wf-link" onClick={() => onOpenArtifact(run.taskId)}>Saved answers <Icon name="external" size={12} /></button>}
+            </div>
+            {requirementsOpen && (
+              <div className="ag-req-list">
+                {checklist.map((item, index) => <div className="ag-req" key={index}><Icon name="done" size={16} /><div><b>{item.requirement}</b><small>{item.evidence}</small></div></div>)}
+              </div>
+            )}
+          </header>
         )}
-        {run?.answerArtifactId && <button className="rd-link ag-section" onClick={() => onOpenArtifact(run.taskId)}>Open the saved answers <Icon name="external" size={14} /></button>}
-        <div className="ag-section">
-          <HomeworkFiles assignmentId={assignment.assignmentId} active commandOutputs={detail?.execution?.commandOutputs ?? run?.commandOutputs ?? []} onCount={() => {}} />
-        </div>
-        {!answers && !checklist.length && !run && <p className="ag-muted">Nothing yet. Dot's work shows here as it goes.</p>}
+        <HomeworkFiles assignmentId={assignment.assignmentId} active commandOutputs={detail?.execution?.commandOutputs ?? run?.commandOutputs ?? []} commands={commands} onCount={() => {}} />
       </div>
     );
   }
@@ -390,21 +415,54 @@ export function AssignmentWorkspace({
   function detailsPane(): ReactNode {
     const school = assignment.schoolStatus;
     const mode = task?.permission.mode;
-    const asks = assignment.instructions ?? assignment.requirementEvidence?.map((item) => item.text).join("\n\n");
+    const overdue = Date.parse(assignment.dueAt ?? "") < Date.now() && !["handed_in", "handed_in_at_school", "ignored"].includes(state);
+    const requirements = (assignment.requirementEvidence ?? []).map((item) => ({ text: tidy(item.text), from: item.evidence.sourceTarget }));
+    const sources = [...new Map([assignment.sourceTarget, ...requirements.map((item) => item.from)].filter((url): url is string => Boolean(url)).map((url) => [url, url])).keys()];
     return (
-      <div className="ag-pad">
-        <dl className="ag-facts">
-          <dt>Due</dt><dd>{dueText(assignment, state)}{assignment.dueAt && !["handed_in", "handed_in_at_school"].includes(state) && <small> · {leftText(assignment.dueAt)}</small>}</dd>
-          <dt>Class</dt><dd>{course}</dd>
-          <dt>The school says</dt><dd>{school?.text ?? "Nothing yet"}{assignment.sourceTarget && <> · <button className="rd-link" onClick={() => choose("site")}>Open</button></>}</dd>
-          <dt>Rule</dt><dd>{mode ? RULE_LABELS[mode] : "No rule yet"}{task && <small> · {ruleSource(task.permission.rationale)}</small>} · <button className="rd-link" onClick={openRules}>Change</button></dd>
-          <dt>Late work</dt><dd>{assignment.latePolicy?.text ?? "Not stated"}</dd>
-          <dt>Found on</dt><dd>{assignment.sourceTarget ? hostOf(assignment.sourceTarget) : "Added by you"}</dd>
-          {assignment.missingRequirements?.length ? <><dt>Still unclear</dt><dd><ul>{assignment.missingRequirements.map((item) => <li key={item}>{item}</li>)}</ul></dd></> : null}
-        </dl>
-        <section className="ag-section">
-          <p className="ag-label">What it asks</p>
-          <div className="ag-asks"><ChatMarkdown text={asks ?? "Open the school page to see the full instructions."} /></div>
+      <div className="ag-pad ag-details">
+        <div className="ag-tiles">
+          <div className={`ag-tile${overdue ? " is-late" : ""}`}>
+            <small>Due</small>
+            <b>{Number.isFinite(Date.parse(assignment.dueAt ?? "")) ? new Date(assignment.dueAt!).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : assignment.dueText ?? "Whenever"}</b>
+            <span>{assignment.dueAt ? overdue ? "Past due" : leftText(assignment.dueAt) : "No date given"}</span>
+          </div>
+          <div className="ag-tile">
+            <small>The school says</small>
+            <b>{school?.text ?? "Not checked yet"}</b>
+            {assignment.sourceTarget && <button className="wf-link" onClick={() => choose("site")}>Open the page</button>}
+          </div>
+          <div className="ag-tile">
+            <small>Your rule</small>
+            <b>{mode ? RULE_LABELS[mode] : "No rule yet"}</b>
+            {task && <span>{ruleSource(task.permission.rationale)}</span>}
+            <button className="wf-link" onClick={openRules}>Change</button>
+          </div>
+          <div className="ag-tile is-prose">
+            <small>Late work</small>
+            <b>{assignment.latePolicy?.text ? tidy(assignment.latePolicy.text) : "Not stated"}</b>
+          </div>
+        </div>
+
+        <section className="ag-doc">
+          <h2>What it asks</h2>
+          <p className="ag-doc-sub">{course}</p>
+          {requirements.length ? (
+            <ul className="ag-asks-list">{requirements.map((item, index) => <li key={index}>{item.text}</li>)}</ul>
+          ) : (
+            <div className="ag-asks"><ChatMarkdown text={assignment.instructions ? tidy(assignment.instructions) : "Dot reads the instructions from the school page when it starts."} /></div>
+          )}
+          {assignment.missingRequirements?.length ? (
+            <div className="ag-unclear">
+              <b>Dot couldn't find</b>
+              <ul>{assignment.missingRequirements.map((item) => <li key={item}>{tidy(item)}</li>)}</ul>
+            </div>
+          ) : null}
+          {sources.length > 0 && (
+            <div className="ag-sources">
+              <b>Where this comes from</b>
+              {sources.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer"><Icon name={/\.pdf($|\?)/i.test(url) ? "file" : "globe"} size={14} />{sourceName(url)}</a>)}
+            </div>
+          )}
         </section>
       </div>
     );
@@ -425,24 +483,38 @@ export function AssignmentWorkspace({
   }
 }
 
-function SitePane({ onSlot }: { onSlot: (bounds: SchoolPageBounds | null) => void }) {
+function SitePane({ onSlot, hidden }: { onSlot: (bounds: SchoolPageBounds | null) => void; hidden: boolean }) {
   const slot = useRef<HTMLDivElement>(null);
-  useSchoolSlot(slot, onSlot);
+  // The live page is a native layer that would swallow the drag, so it steps aside while resizing.
+  useSchoolSlot(slot, onSlot, !hidden);
   return <div className="ag-slot" ref={slot} data-school-slot="true" aria-label="Live school page">{readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}</div>;
 }
 
-function Step({ step }: { step: ThreadStep }) {
-  if (step.kind === "text") return <div className="ag-text"><ChatMarkdown text={step.text} /></div>;
-  if (step.kind === "memory") return <MemorySaved title={step.title} />;
-  const { call } = step;
+// One row per run of tool calls. Done: a summary that expands. Working: the step Dot is on, live.
+function WorkGroup({ group, live }: { group: Extract<ThreadBlock, { kind: "group" }>; live: boolean }) {
+  const [open, setOpen] = useState(false);
+  const latest = group.calls.at(-1)!;
   return (
-    <div className={`ag-call${call.running ? " is-running" : ""}${call.failed ? " is-failed" : ""}`}>
-      <Icon name={call.icon} size={14} /><b>{call.verb}</b>{call.target ? <code>{call.target}</code> : <span />}<small>{call.running ? "" : call.result ?? ""}</small>
+    <div className={`ag-work${open ? " is-open" : ""}${group.failed ? " is-failed" : ""}`}>
+      <button className={`ag-work-row${live ? " is-live" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name={live ? latest.icon : group.icon} size={15} />
+        <span className="ag-work-label">{live ? <><b>{latest.verb}</b>{latest.target && <code>{latest.target}</code>}</> : group.summary}</span>
+        {group.failed && !live && <em>{group.calls.filter((call) => call.failed).length} failed</em>}
+        {group.calls.length > 1 && <small>{live ? `${group.calls.length} steps` : clock(group.calls[0]!.at)}</small>}
+        <span className="ag-work-caret" aria-hidden="true"><Icon name="down" size={13} /></span>
+      </button>
+      {open && (
+        <div className="ag-work-list">
+          {group.calls.map((call) => (
+            <div key={call.key} className={`ag-call${call.running ? " is-running" : ""}${call.failed ? " is-failed" : ""}`}>
+              <Icon name={call.icon} size={14} /><b>{call.verb}</b>{call.target ? <code>{call.target}</code> : <span />}<small>{call.running ? "" : call.result ?? ""}</small>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
-
-const stepKey = (step: ThreadStep) => (step.kind === "call" ? step.call.key : step.key);
 const clock = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 const whenText = (iso: string) => new Date(iso).toLocaleString([], { weekday: "short", hour: "numeric", minute: "2-digit" });
 
@@ -475,3 +547,64 @@ function leftText(dueAt: string): string {
   const days = Math.round(hours / 24);
   return `${days} ${days === 1 ? "day" : "days"} left`;
 }
+
+// The chat column and the work panel share the window. The chat's share is remembered as a fraction,
+// so it grows with a big monitor; the student can drag the handle, use the arrow keys, or double-click to reset.
+const SPLIT_KEY = "studi-assignment-split";
+const DEFAULT_SPLIT = 0.38;
+
+function useSplit() {
+  const body = useRef<HTMLDivElement>(null);
+  const [bodyWidth, setBodyWidth] = useState(1200);
+  const [ratio, setRatio] = useState(() => {
+    const saved = Number(localStorage.getItem(SPLIT_KEY));
+    return Number.isFinite(saved) && saved > 0.15 && saved < 0.85 ? saved : DEFAULT_SPLIT;
+  });
+  const [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    const node = body.current;
+    if (!node) return undefined;
+    const observer = new ResizeObserver(() => setBodyWidth(node.clientWidth));
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const clampWidth = (value: number) => Math.min(Math.max(value, 340), Math.max(340, bodyWidth - 420));
+  const width = clampWidth(ratio * bodyWidth);
+  const save = (next: number) => { setRatio(next); localStorage.setItem(SPLIT_KEY, String(next)); };
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const node = body.current;
+    if (!node) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setDragging(true);
+    const left = node.getBoundingClientRect().left;
+    const move = (e: PointerEvent) => setRatio(clampWidth(e.clientX - left) / node.clientWidth);
+    const up = (e: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+      setDragging(false);
+      save(clampWidth(e.clientX - left) / node.clientWidth);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  };
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    event.preventDefault();
+    save(clampWidth(width + (event.key === "ArrowLeft" ? -32 : 32)) / bodyWidth);
+  };
+  return { body, width, dragging, onPointerDown, onKeyDown, reset: () => save(DEFAULT_SPLIT) };
+}
+
+/** School text often carries doubled spaces and stuttered words ("If you can't If you can't"). */
+function tidy(text: string): string {
+  return text.replace(/[ \t]+/g, " ").replace(/\b(\w+(?: \S+){0,3}) \1\b/g, "$1").trim();
+}
+
+function sourceName(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const file = decodeURIComponent(parsed.pathname.split("/").pop() ?? "");
+    return /\.\w{2,4}$/.test(file) ? `${file} · ${parsed.host.replace(/^www\./, "")}` : parsed.host.replace(/^www\./, "") + (parsed.pathname.length > 1 ? parsed.pathname.slice(0, 40) : "");
+  } catch { return url; }
+}
+

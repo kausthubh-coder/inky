@@ -46,15 +46,47 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(360px, 456px) minmax(0, 1fr);
+  /* Columns are set inline from the remembered split. */
+}
+.ag-body.is-dragging {
+  cursor: col-resize;
+  user-select: none;
+}
+
+/* The drag handle between the chat and the work panel. */
+.ag-split {
+  position: relative;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+.ag-split::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 44px;
+  border-radius: 4px;
+  background: #d9cfbe;
+  transform: translate(-50%, -50%);
+  transition: background-color 0.15s, height 0.15s;
+}
+.ag-split:hover::after,
+.ag-split:focus-visible::after,
+.ag-body.is-dragging .ag-split::after {
+  height: 72px;
+  background: var(--pencil);
 }
 
 .ag-convo {
+  position: relative;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
-  padding: 0 22px 18px 24px;
 }
+/* The thread scrolls under the dock; its bottom padding keeps the last line clear of it. */
 .ag-thread {
   flex: 1;
   min-height: 0;
@@ -62,10 +94,152 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-  padding: 18px 2px 8px 0;
+  padding: 18px 18px calc(var(--ag-dock-h, 160px) + 12px) 24px;
   font-size: 15px;
   line-height: 1.55;
   scrollbar-width: thin;
+}
+.ag-dock {
+  position: absolute;
+  z-index: 5;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 28px 12px 14px 18px;
+  background: linear-gradient(to top, var(--paper) 62%, rgb(251 247 238 / 0));
+  pointer-events: none;
+}
+.ag-dock > * {
+  pointer-events: auto;
+}
+.ag-dock .rd-error {
+  margin: 0 0 8px;
+}
+/* One card: the decision on top, the chat box under it. */
+.ag-dock-card {
+  container-type: inline-size;
+  overflow: hidden;
+  border-radius: 20px;
+  background: rgb(255 253 248 / 92%);
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 11%), 0 1px 2px rgb(43 38 33 / 6%), 0 16px 36px -18px rgb(43 38 33 / 45%);
+  transition: box-shadow 0.15s ease-out;
+}
+.ag-dock-card:focus-within {
+  box-shadow: 0 0 0 1.5px var(--pencil), 0 0 0 4px rgb(246 201 69 / 30%), 0 16px 36px -18px rgb(43 38 33 / 45%);
+}
+.ag-dock-card .ag-move {
+  max-height: 46vh;
+  overflow-y: auto;
+  margin: 0;
+  padding: 14px 16px 14px;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  border-bottom: 1px solid var(--rule);
+}
+.ag-dock-card form.rd-composer.inky-composer,
+.ag-dock-card form.rd-composer.inky-composer:focus-within {
+  margin: 0;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* Tool calls, folded like T3 Code's work log. */
+.ag-work {
+  margin: 6px 0 0 42px;
+}
+.ag-work-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: #5f564c;
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+.ag-work-row:hover {
+  background: rgb(242 235 221 / 70%);
+  color: var(--pencil);
+}
+.ag-work-row > svg {
+  flex: none;
+  color: var(--graphite);
+}
+.ag-work-label {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ag-work-label b {
+  font-weight: 700;
+  color: var(--pencil);
+}
+.ag-work-label code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0;
+  background: none;
+  font: 12.5px ui-monospace, Consolas, monospace;
+  color: var(--graphite);
+}
+.ag-work-row small {
+  flex: none;
+  font-size: 12px;
+  color: var(--graphite);
+  font-variant-numeric: tabular-nums;
+}
+.ag-work-row em {
+  flex: none;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--redpen);
+}
+.ag-work-caret {
+  display: grid;
+  flex: none;
+  color: var(--graphite);
+  opacity: 0;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.ag-work-row:hover .ag-work-caret,
+.ag-work.is-open .ag-work-caret {
+  opacity: 1;
+}
+.ag-work.is-open .ag-work-caret {
+  transform: rotate(180deg);
+}
+/* The step Dot is on, while it works. */
+.ag-work-row.is-live > svg {
+  color: var(--pencil);
+  animation: ag-pulse 1.4s ease-in-out infinite;
+}
+.ag-work-row.is-live .ag-work-label b::after {
+  content: "…";
+}
+.ag-work-list {
+  margin: 2px 0 4px 16px;
+  padding: 4px 0 4px 12px;
+  border-left: 1px solid var(--rule);
+}
+.ag-work-list .ag-call {
+  margin: 4px 0 0;
 }
 .ag-who {
   display: flex;
@@ -297,6 +471,10 @@
   padding: 0 10px;
   font-size: 12.5px;
 }
+@container (max-width: 400px) {
+  .ag-check { grid-template-columns: minmax(0, 1fr); }
+  .ag-opts { grid-row: auto; grid-column: 1; margin-top: 6px; }
+}
 .ag-check.is-ok {
   display: flex;
   gap: 7px;
@@ -308,13 +486,11 @@
 .ag-check.is-ok svg {
   color: #2e7d4f;
 }
-.ag-convo .inky-composer {
-  margin-top: 12px;
-}
 
 .ag-view {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   min-height: 0;
   margin: 0 16px 0 0;
   overflow: hidden;
@@ -438,36 +614,126 @@
   font-size: 15px;
   line-height: 1.6;
 }
-.ag-facts {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 16px 20px;
-  max-width: 640px;
-  margin: 0;
-  font-size: 15px;
+/* Details: four plain facts across the top, then what the assignment asks, as a document. */
+.ag-details {
+  max-width: 760px;
 }
-.ag-facts dt {
-  padding-top: 2px;
-  font-size: 13.5px;
+.ag-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 18px 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--rule);
+}
+.ag-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.ag-tile small {
+  font-size: 12px;
   font-weight: 700;
   color: var(--graphite);
 }
-.ag-facts dd {
-  margin: 0;
+.ag-tile b {
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--pencil);
+  text-wrap: pretty;
   font-variant-numeric: tabular-nums;
 }
-.ag-facts small {
+.ag-tile span {
+  font-size: 13px;
   color: var(--graphite);
 }
-.ag-facts ul {
+.ag-tile span::first-letter {
+  text-transform: uppercase;
+}
+.ag-tile .wf-link {
+  align-self: flex-start;
   margin: 0;
-  padding-left: 18px;
-}
-.ag-facts .rd-link {
-  font-size: 15px;
-  color: var(--graphite);
+  padding: 0;
+  font-size: 13px;
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+.ag-tile.is-prose b {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4b433a;
+}
+.ag-tile.is-late b,
+.ag-tile.is-late span {
+  color: var(--redpen);
+}
+.ag-doc {
+  padding-top: 22px;
+}
+.ag-doc h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+.ag-doc-sub {
+  margin: 2px 0 14px;
+  font-size: 13.5px;
+  color: var(--graphite);
+}
+.ag-asks-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 15px;
+  line-height: 1.55;
+  text-wrap: pretty;
+}
+.ag-asks-list li::marker {
+  color: #b3a898;
+}
+.ag-unclear,
+.ag-sources {
+  display: grid;
+  gap: 6px;
+  margin-top: 24px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ag-unclear b,
+.ag-sources b {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--graphite);
+}
+.ag-unclear ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #5f564c;
+}
+.ag-sources a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--pencil);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: underline;
+  text-decoration-color: var(--rule);
+  text-underline-offset: 3px;
+}
+.ag-sources a:hover {
+  text-decoration-color: currentColor;
+}
+.ag-sources svg {
+  flex: none;
+  color: var(--graphite);
 }
 .ag-req-head {
   display: flex;
@@ -571,18 +837,80 @@
   50% { opacity: 0.45; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ag-move, .ag-live, .ag-using i, .ag-call.is-running b::after { animation: none; }
+  .ag-move, .ag-live, .ag-using i, .ag-call.is-running b::after, .ag-work-row.is-live > svg { animation: none; }
 }
 @media (max-width: 900px) {
-  .ag-body { grid-template-columns: minmax(300px, 44%) minmax(0, 1fr); }
-  .ag-convo { padding: 0 14px 14px 16px; }
+  .ag-thread { padding-left: 16px; padding-right: 12px; }
   .ag-meta { display: none; }
   .ag-pad { padding: 18px; }
-  .ag-facts { grid-template-columns: 110px 1fr; }
 }
-.ag-convo .rd-composer.inky-composer {
-  max-width: none;
-  margin: 12px 0 0;
-  padding-left: 16px;
-  border-radius: 16px;
+
+
+/* Work tab: a summary strip, then the folder as an editor filling the rest. */
+.ag-work-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.ag-work-pane > .ag-drop {
+  flex: none;
+  width: auto;
+  height: 140px;
+  margin: 14px 16px;
+}
+.ag-summary {
+  flex: none;
+  padding: 12px 16px 10px;
+}
+.ag-summary-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 80ch;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #4b433a;
+}
+.ag-summary-text.is-open {
+  display: block;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+.ag-summary-text .chat-markdown > :first-child { margin-top: 0; }
+.ag-summary-text .chat-markdown > :last-child { margin-bottom: 0; }
+.ag-summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+.ag-summary-actions .wf-link {
+  margin-left: 0;
+}
+.ag-req-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: #e5f2ea;
+  color: #2e7d4f;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ag-req-chip[aria-expanded="true"] {
+  box-shadow: 0 0 0 1.5px #2e7d4f;
+}
+.ag-req-list {
+  max-height: 30vh;
+  overflow-y: auto;
+  margin-top: 8px;
+  padding: 2px 12px;
+  border-radius: 10px;
+  background: var(--paper);
 }

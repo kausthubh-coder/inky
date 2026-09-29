@@ -1,314 +1,238 @@
 import "./homework-files.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { AssignmentCommandOutput } from "../../shared/index.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
-import { Icon } from "./Icon.js";
+import { Icon, type IconName } from "./Icon.js";
 
-type FileEntry = {
-  path: string;
-  kind: "file" | "directory";
-  size: number;
-  modifiedAt: string;
-};
-const textExtensions =
-  /\.(txt|md|csv|tsv|json|js|jsx|ts|tsx|py|java|c|cpp|h|css|html|xml|yaml|yml|tex|sql|r|m|log)$/i;
+// The assignment's folder as a small workspace, like an editor: files on the left, the open file
+// with line numbers on the right, and Dot's terminal underneath with each command and its result.
+
+type FileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: string };
+
+const TEXT = /\.(txt|md|csv|tsv|json|js|jsx|ts|tsx|py|java|c|cc|cpp|h|hpp|cs|go|rs|rb|php|css|html|xml|yaml|yml|tex|sql|r|m|sh|ps1|log|makefile)$/i;
+const CODE = /\.(js|jsx|ts|tsx|py|java|c|cc|cpp|h|hpp|cs|go|rs|rb|php|sh|ps1|sql|r|m)$/i;
+const BINARY = /\.(exe|o|obj|out|class|pyc|dll|so|dylib)$/i;
+
 function fileSize(size: number) {
-  return size < 1000
-    ? `${size} B`
-    : size < 1_000_000
-      ? `${Math.ceil(size / 1000)} KB`
-      : `${(size / 1_000_000).toFixed(1)} MB`;
+  return size < 1000 ? `${size} B` : size < 1_000_000 ? `${Math.ceil(size / 1000)} KB` : `${(size / 1_000_000).toFixed(1)} MB`;
 }
 
-export function FileMark({ path }: { path: string }) {
-  return (
-    <span className="assignment-file-mark" aria-hidden="true">
-      <svg viewBox="0 0 32 40" fill="currentColor">
-        <path d="M3 1h18l9 9v29H3z" stroke="#9d8a70" />
-        <path d="M21 1v10h9" fill="none" stroke="#9d8a70" />
-      </svg>
-      <b>
-        {path.includes(".")
-          ? path.split(".").pop()?.slice(0, 4).toUpperCase()
-          : "FILE"}
-      </b>
-    </span>
-  );
+function iconFor(path: string): { icon: IconName; tone: string } {
+  if (CODE.test(path)) return { icon: "code", tone: "is-code" };
+  if (/\.pdf$/i.test(path)) return { icon: "file", tone: "is-pdf" };
+  if (/\.md$/i.test(path)) return { icon: "note", tone: "is-doc" };
+  if (BINARY.test(path)) return { icon: "term", tone: "is-binary" };
+  return { icon: "file", tone: "" };
 }
 
-export function HomeworkFiles({
-  assignmentId,
-  active,
-  onCount,
-  commandOutputs = [],
-}: {
+/** What to open first: the newest code file Dot wrote at the top of the folder, else the newest top-level file. */
+function mainFile(files: readonly FileEntry[]): FileEntry | null {
+  const top = files.filter((file) => !file.path.includes("/") && !BINARY.test(file.path) && file.path !== "studi-answer.md");
+  const newest = (list: FileEntry[]) => [...list].sort((a, b) => b.modifiedAt.localeCompare(a.modifiedAt))[0] ?? null;
+  return newest(top.filter((file) => CODE.test(file.path))) ?? newest(top.filter((file) => TEXT.test(file.path))) ?? newest(top);
+}
+
+export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = [], commands }: {
   assignmentId: string;
   active: boolean;
   onCount: (count: number) => void;
   commandOutputs?: readonly AssignmentCommandOutput[];
+  /** What each shell call ran, by tool call id, so the terminal shows the command, not just "PowerShell". */
+  commands?: ReadonlyMap<string, string>;
 }) {
   const [files, setFiles] = useState<FileEntry[]>([]);
   const [opened, setOpened] = useState<FileEntry | null>(null);
   const [content, setContent] = useState<string | null>(null);
+  const [closedFolders, setClosedFolders] = useState<ReadonlySet<string>>(new Set(["materials"]));
   const [error, setError] = useState("");
-  const [listError, setListError] = useState("");
-  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
   const [reading, setReading] = useState(false);
   const [adding, setAdding] = useState(false);
-  const [retryOperation, setRetryOperation] = useState<"read" | "add" | null>(
-    null,
-  );
+  const [terminalOpen, setTerminalOpen] = useState(true);
+  const [openRun, setOpenRun] = useState<string | null>(null);
   const mounted = useRef(false);
-  const addingLock = useRef(false);
   const request = useRef(0);
+  const picked = useRef(false);
+
   const refresh = useCallback(async () => {
     try {
-      if (!window.studi)
-        throw new Error("Open Studi to load assignment files.");
+      if (!window.studi) throw new Error("Open Studi to load assignment files.");
       const items = await window.studi.getAssignmentFiles({ assignmentId });
-      const visible = items.filter(
-        (item) =>
-          item.kind === "file" &&
-          !item.path.split("/").some((part) => part.startsWith(".studi-")),
-      );
-      if (mounted.current) {
-        setFiles(visible);
-        onCount(visible.length);
-        setListError("");
-      }
+      const visible = items.filter((item) => item.kind === "file" && !item.path.split("/").some((part) => part.startsWith(".studi-")));
+      if (mounted.current) { setFiles(visible); onCount(visible.length); setError(""); }
     } catch (cause) {
-      if (mounted.current)
-        setListError(cause instanceof Error ? cause.message : String(cause));
+      if (mounted.current) setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       if (mounted.current) setLoading(false);
     }
   }, [assignmentId, onCount]);
+
   useEffect(() => {
     mounted.current = true;
     void refresh();
-    return () => {
-      mounted.current = false;
-      request.current++;
-    };
+    return () => { mounted.current = false; request.current++; };
   }, [refresh]);
   useEffect(() => {
-    if (!active) return;
+    if (!active) return undefined;
     const timer = setInterval(() => void refresh(), 4000);
-    const focus = () => void refresh();
-    window.addEventListener("focus", focus);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("focus", focus);
-    };
+    return () => clearInterval(timer);
   }, [active, refresh]);
-  const read = async (file: FileEntry) => {
-    setRetryOperation("read");
+
+  const read = useCallback(async (file: FileEntry) => {
     const id = ++request.current;
     setOpened(file);
     setContent(null);
     setError("");
-    setReading(false);
-    if (!textExtensions.test(file.path) || file.size > 250_000) return;
+    if (!TEXT.test(file.path) && !/^makefile$/i.test(file.path.split("/").pop() ?? "") || file.size > 250_000) return;
     setReading(true);
     try {
-      const result = await window.studi?.readAssignmentFile({
-        assignmentId,
-        path: file.path,
-      });
-      if (mounted.current && id === request.current && result)
-        setContent(result.content);
+      const result = await window.studi?.readAssignmentFile({ assignmentId, path: file.path });
+      if (mounted.current && id === request.current && result) setContent(result.content);
     } catch (cause) {
-      if (mounted.current && id === request.current)
-        setError(cause instanceof Error ? cause.message : String(cause));
+      if (mounted.current && id === request.current) setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
       if (mounted.current && id === request.current) setReading(false);
     }
-  };
+  }, [assignmentId]);
+
+  // Open Dot's main file by itself, once; after that the student's choice stays.
+  useEffect(() => {
+    if (picked.current || opened || !files.length) return;
+    const first = mainFile(files);
+    if (first) { picked.current = true; void read(first); }
+  }, [files, opened, read]);
+
   const add = async () => {
-    if (addingLock.current || !window.studi) return;
-    addingLock.current = true;
-    setRetryOperation("add");
+    if (adding || !window.studi) return;
     setAdding(true);
     setError("");
-    setNotice("");
     try {
       const result = await window.studi.importAssignmentFiles({ assignmentId });
-      if (!mounted.current) return;
-      if (result.imported.length)
-        setNotice(
-          `${result.imported.length === 1 ? "1 file" : `${result.imported.length} files`} added to this assignment.`,
-        );
-      setError(
-        result.errors.map((item) => `${item.name}: ${item.message}`).join("\n"),
-      );
+      if (result.errors.length) setError(result.errors.map((item) => `${item.name}: ${item.message}`).join("\n"));
       await refresh();
     } catch (cause) {
-      if (mounted.current)
-        setError(cause instanceof Error ? cause.message : String(cause));
+      setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
-      addingLock.current = false;
       if (mounted.current) setAdding(false);
     }
   };
-  const reveal = async (path?: string) => {
-    setRetryOperation(null);
-    setError("");
-    try {
-      await window.studi?.openAssignmentFolder({
-        assignmentId,
-        ...(path ? { path } : {}),
-      });
-    } catch (cause) {
-      if (mounted.current)
-        setError(cause instanceof Error ? cause.message : String(cause));
+  const reveal = (path?: string) => void window.studi?.openAssignmentFolder({ assignmentId, ...(path ? { path } : {}) }).catch((cause) => setError(String(cause)));
+
+  // Files at the top of the folder first, then folders; each folder can fold.
+  const tree = useMemo(() => {
+    const top = files.filter((file) => !file.path.includes("/")).sort((a, b) => a.path.localeCompare(b.path));
+    const folders = new Map<string, FileEntry[]>();
+    for (const file of files.filter((item) => item.path.includes("/"))) {
+      const folder = file.path.split("/")[0]!;
+      folders.set(folder, [...(folders.get(folder) ?? []), file]);
     }
+    return { top, folders: [...folders].sort(([a], [b]) => a.localeCompare(b)) };
+  }, [files]);
+
+  const runs = commandOutputs;
+  const latestRun = runs.at(-1)?.toolCallId ?? null;
+  const shownRun = openRun ?? latestRun;
+  const lines = content?.replace(/\r\n/g, "\n").split("\n") ?? [];
+
+  const fileButton = (file: FileEntry, indent = false) => {
+    const { icon, tone } = iconFor(file.path);
+    const name = file.path.split("/").pop()!;
+    return (
+      <button key={file.path} className={`wf-file ${tone}${opened?.path === file.path ? " is-open" : ""}${indent ? " is-nested" : ""}`}
+        aria-current={opened?.path === file.path ? "true" : undefined} title={file.path} onClick={() => void read(file)}>
+        <Icon name={icon} size={14} /><span>{name}</span>
+      </button>
+    );
   };
 
   return (
-    <div className="assignment-files rd-files" aria-label="Assignment files">
-      <nav className="rd-file-tree" aria-label="Files">
-        <div className="rd-file-tree-heading">
+    <div className="wf" aria-label="Assignment files">
+      <nav className="wf-tree" aria-label="Files">
+        <div className="wf-tree-head">
           <strong>Files</strong>
-          <button
-            className="rd-link"
-            disabled={adding}
-            onClick={() => void add()}
-            aria-label="Add files"
-          >
-            +
-          </button>
+          <button className="wf-icon-button" aria-label="Add files" title="Add files" disabled={adding} onClick={() => void add()}>+</button>
         </div>
-        {loading && <p role="status">Loading…</p>}
-        {files.map((file) => (
-          <button
-            key={file.path}
-            className={opened?.path === file.path ? "selected" : ""}
-            aria-current={opened?.path === file.path ? "true" : undefined}
-            onClick={() => void read(file)}
-          >
-            <span aria-hidden="true">▧</span>
-            <span>{file.path}</span>
-          </button>
-        ))}
-        {!loading && !files.length && <p>No files yet.</p>}
-        <button className="rd-link rd-folder" onClick={() => void reveal()}>
-          Open folder <Icon name="external" size={14} />
-        </button>
+        <div className="wf-tree-list">
+          {loading && <p className="wf-muted">Loading…</p>}
+          {tree.top.map((file) => fileButton(file))}
+          {tree.folders.map(([folder, list]) => {
+            const closed = closedFolders.has(folder);
+            return (
+              <div key={folder}>
+                <button className="wf-folder" aria-expanded={!closed} onClick={() => setClosedFolders((current) => {
+                  const next = new Set(current);
+                  if (next.has(folder)) next.delete(folder); else next.add(folder);
+                  return next;
+                })}>
+                  <span className="wf-caret" aria-hidden="true"><Icon name={closed ? "right" : "down"} size={12} /></span>
+                  <Icon name="folder" size={14} /><span>{folder}</span><small>{list.length}</small>
+                </button>
+                {!closed && list.sort((a, b) => a.path.localeCompare(b.path)).map((file) => fileButton(file, true))}
+              </div>
+            );
+          })}
+          {!loading && !files.length && <p className="wf-muted">No files yet. Dot's work lands here, and so does anything you add.</p>}
+        </div>
+        <button className="wf-tree-foot" onClick={() => reveal()}><Icon name="external" size={13} /> Open folder</button>
       </nav>
-      <section className="rd-file-reader">
-        {opened ? (
-          <>
-            <header className="rd-file-reader-heading">
-              <span>
-                {opened.path} · {fileSize(opened.size)}
-              </span>
-              <button
-                className="rd-link"
-                onClick={() => void reveal(opened.path)}
-              >
-                Show in folder <Icon name="external" size={14} />
-              </button>
-            </header>
-            {reading ? (
-              <p role="status">Opening file…</p>
-            ) : content !== null ? (
-              <article
-                className="assignment-document"
-                aria-label="File preview"
-              >
-                {/\.md$/i.test(opened.path) ? (
-                  <ChatMarkdown text={content} />
-                ) : (
-                  <pre>{content}</pre>
+
+      <section className="wf-main">
+        <div className={`wf-editor${terminalOpen && runs.length ? " with-terminal" : ""}`}>
+          {opened ? (
+            <>
+              <header className="wf-editor-head">
+                <span className={`wf-tab ${iconFor(opened.path).tone}`}><Icon name={iconFor(opened.path).icon} size={14} />{opened.path}</span>
+                <small>{fileSize(opened.size)}</small>
+                <button className="wf-link" onClick={() => reveal(opened.path)}>Show in folder</button>
+              </header>
+              {reading ? <p className="wf-muted wf-pad">Opening…</p>
+                : content !== null ? (/\.md$/i.test(opened.path)
+                  ? <article className="wf-doc" aria-label="File preview"><ChatMarkdown text={content} /></article>
+                  : <pre className="wf-code" aria-label="File preview">{lines.map((line, index) => <span key={index} className="wf-line"><i>{index + 1}</i>{line || " "}</span>)}</pre>)
+                : !error && (
+                  <div className="wf-empty">
+                    <Icon name={iconFor(opened.path).icon} size={28} />
+                    <p>{opened.size > 250_000 ? "Too large to preview here." : BINARY.test(opened.path) ? "A program Dot built. It runs, it doesn't read." : "This file opens in its own app."}</p>
+                    <button className="rd-button" onClick={() => reveal(opened.path)}>Show in folder</button>
+                  </div>
                 )}
-              </article>
-            ) : (
-              !error && (
-                <div className="assignment-file-empty">
-                  <FileMark path={opened.path} />
-                  <h3>
-                    {opened.size > 250_000
-                      ? "This file is too large to preview here."
-                      : "This file opens in its own app."}
-                  </h3>
-                  <p>Find it in your assignment folder to open it.</p>
-                  <button
-                    className="rd-button"
-                    onClick={() => void reveal(opened.path)}
-                  >
-                    Show in folder <Icon name="external" size={14} />
-                  </button>
-                </div>
-              )
-            )}
-          </>
-        ) : (
-          <div className="assignment-file-empty">
-            <FileMark path="notes.pdf" />
-            <h3>
-              {files.length
-                ? "Pick a file to open it."
-                : "A place for your materials."}
-            </h3>
-            <p>Add notes, a rubric, or files for this assignment.</p>
-            <button
-              className="rd-button"
-              disabled={adding}
-              onClick={() => void add()}
-            >
-              {adding ? "Adding files…" : "Choose files"}
+            </>
+          ) : (
+            <div className="wf-empty">
+              <Icon name="folder" size={28} />
+              <p>{files.length ? "Pick a file on the left." : "Nothing here yet."}</p>
+              <button className="rd-button" disabled={adding} onClick={() => void add()}>{adding ? "Adding…" : "Add notes, a rubric or files"}</button>
+            </div>
+          )}
+          {error && <p className="wf-error" role="alert">{error}</p>}
+        </div>
+
+        {runs.length > 0 && (
+          <section className={`wf-terminal${terminalOpen ? "" : " is-closed"}`} aria-label="Command output">
+            <button className="wf-terminal-head" aria-expanded={terminalOpen} onClick={() => setTerminalOpen(!terminalOpen)}>
+              <Icon name="term" size={14} /><strong>Terminal</strong>
+              <small>{runs.length} {runs.length === 1 ? "command" : "commands"}{runs.some((run) => run.outcome === "failed") ? ` · ${runs.filter((run) => run.outcome === "failed").length} failed` : ""}</small>
+              <span className="wf-caret" aria-hidden="true"><Icon name={terminalOpen ? "down" : "right"} size={12} /></span>
             </button>
-          </div>
-        )}
-        {commandOutputs.length > 0 && (
-          <section className="rd-command-output" aria-label="Command output">
-            {commandOutputs.map((output, index) => (
-              <details key={output.toolCallId} open={index === commandOutputs.length - 1}>
-                <summary>
-                  {output.shell === "powershell" ? "PowerShell" : "Terminal"}
-                  {" · "}{output.outcome === "succeeded" ? "Finished" : "Failed"}
-                  {output.durationMs !== undefined ? ` · ${(output.durationMs / 1000).toFixed(1)}s` : ""}
-                </summary>
-                <pre>
-                  {output.truncated ? "Earlier output omitted.\n" : ""}
-                  {output.text || "No output was recorded."}
-                </pre>
-              </details>
-            ))}
+            {terminalOpen && (
+              <div className="wf-runs">
+                {runs.map((run) => {
+                  const shown = run.toolCallId === shownRun;
+                  const command = commands?.get(run.toolCallId);
+                  return (
+                    <div key={run.toolCallId} className={`wf-run${run.outcome === "failed" ? " is-failed" : ""}`}>
+                      <button className="wf-run-head" aria-expanded={shown} onClick={() => setOpenRun(shown ? "" : run.toolCallId)}>
+                        <span className="wf-prompt">$</span>
+                        <code>{command ?? (run.shell === "powershell" ? "PowerShell command" : "Shell command")}</code>
+                        <span className="wf-status">{run.outcome === "failed" ? "failed" : "ok"}{run.durationMs !== undefined ? ` · ${(run.durationMs / 1000).toFixed(1)}s` : ""}</span>
+                      </button>
+                      {shown && <pre className="wf-run-out">{run.truncated ? "Earlier output omitted.\n" : ""}{run.text.trim() || "No output."}</pre>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </section>
-        )}
-        {listError && (
-          <div className="assignment-file-error" role="alert">
-            <p>{listError}</p>
-            <button className="rd-link" onClick={() => void refresh()}>
-              Try loading files again
-            </button>
-          </div>
-        )}
-        {error && (
-          <div className="assignment-file-error" role="alert">
-            <p>{error}</p>
-            {retryOperation && (
-              <button
-                className="rd-link"
-                disabled={adding || reading}
-                onClick={() =>
-                  void (retryOperation === "read" && opened
-                    ? read(opened)
-                    : add())
-                }
-              >
-                Try again
-              </button>
-            )}
-          </div>
-        )}
-        {notice && (
-          <p className="assignment-file-notice" role="status">
-            <Icon name="check" size={14} />
-            {notice}
-          </p>
         )}
       </section>
     </div>
