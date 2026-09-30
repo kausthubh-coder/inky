@@ -34,7 +34,7 @@ export function threadSteps(actions: readonly AssignmentAction[]): ThreadStep[] 
       if (action.outcome === "succeeded") steps.push({ kind: "memory", key: action.actionId, title: action.target ?? "a preference" });
       continue;
     }
-    const [icon, verb] = action.kind === "retry" ? ["refresh" as const, "Trying again"] : VERBS[action.tool ?? ""] ?? ["right" as const, action.label];
+    const [icon, verb] = action.kind === "retry" ? ["refresh" as const, "Trying again"] : VERBS[action.tool ?? ""] ?? ["list" as const, action.label];
     steps.push({ kind: "call", call: {
       key: action.actionId, icon, verb: action.target || action.kind === "retry" ? verb : action.label,
       ...(action.target ? { target: action.target } : action.kind === "retry" ? { target: action.label } : {}),
@@ -101,7 +101,7 @@ function actionOf(call: ThreadCall): Action {
   return "other";
 }
 
-const ICONS: Record<Action, IconName> = { read: "file", page: "globe", download: "folder", change: "pen", command: "term", notes: "note", other: "right" };
+const ICONS: Record<Action, IconName> = { read: "file", page: "globe", download: "folder", change: "pen", command: "term", notes: "note", other: "list" };
 
 function label(action: Action, count: number, calls: readonly ThreadCall[]): string {
   const n = (word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;

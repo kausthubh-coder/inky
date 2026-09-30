@@ -27,6 +27,7 @@ import squirrelStartup from "electron-squirrel-startup";
 
 import {
   CONTRACT_MANIFEST,
+  OPENABLE_FILE,
   ContractManifestSchema,
   DEFAULT_NOTIFICATION_PREFERENCES,
   RuntimeInfoSchema,
@@ -285,6 +286,7 @@ async function prepareAndStartAssignment(taskId: string): Promise<void> {
   await startSelectedAssignment(store, requireManagerCoordinator(), requireAssignmentExecutionCoordinator(), taskId);
 }
 
+
 const ipcHandlers: StudiIpcHandlers = {
   getUpdateState: () => updates().state(),
   checkForUpdates: () => updates().check(),
@@ -443,6 +445,13 @@ const ipcHandlers: StudiIpcHandlers = {
       catch (cause) { errors.push({ name: source.split(/[\\/]/).pop() ?? "File", message: cause instanceof Error ? cause.message : "Couldn’t add this file. Try again." }); }
     }
     return { imported, errors };
+  },
+  openAssignmentFile: async ({assignmentId,path}) => {
+    // Only documents open in their own app; a program Dot wrote in the folder never runs from here.
+    if (!OPENABLE_FILE.test(path)) throw new Error("Studi only opens documents, not programs. Use Show in folder to find it.");
+    const error = await shell.openPath(await requireAssignmentExecutionCoordinator().revealAssignmentFile(assignmentId, path));
+    if (error) throw new Error("Couldn't open this file. Check that an app for this file type is installed.");
+    return true;
   },
   openAssignmentFolder: async ({assignmentId,path}) => {
     if (path) {

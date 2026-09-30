@@ -1,4 +1,5 @@
 export * from "./assignment.js";
+export * from "./assignment-files.js";
 export * from "./homework.js";
 export * from "./agent-runtime.js";
 export * from "./agent-job.js";

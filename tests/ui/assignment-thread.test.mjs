@@ -19,3 +19,10 @@ test("back-to-back tool calls fold into one group that says what they did; Dot's
   assert.equal(blocks[3].failed, true);
   assert.equal(summarizeCalls(steps.filter((step) => step.kind === "call").slice(0, 1).map((step) => step.call)), "Used the school page");
 });
+
+test("unrecognized tools keep their label and use a neutral icon in steps and groups", () => {
+  const steps = threadSteps([action("new_tool", "answer.md", { label: "Checked the answer" })]);
+  assert.equal(steps[0].call.icon, "list");
+  assert.equal(steps[0].call.verb, "Checked the answer");
+  assert.equal(groupSteps(steps)[0].icon, "list");
+});

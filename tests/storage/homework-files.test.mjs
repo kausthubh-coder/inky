@@ -17,6 +17,7 @@ test("homework files list, read, and atomically write only below the selected ro
       { path: "src/Main.java", kind: "file" },
     ]);
     assert.equal((await files.read("src/Main.java")).content, "class Main {}\n");
+    assert.equal(await files.revealPath("src/Main.java"), await realpath(join(root, "src", "Main.java")));
     const receipt = await files.write("src/Main.java", "class Main { int answer = 42; }\n");
     assert.equal(receipt.path, "src/Main.java");
     assert.equal(await readFile(join(root, "src", "Main.java"), "utf8"), "class Main { int answer = 42; }\n");
@@ -31,11 +32,13 @@ test("homework files reject traversal, absolute paths, oversized content, and li
   try {
     const files = await HomeworkFiles.open(root);
     await assert.rejects(files.read("../outside.txt"), /escaped the selected root/);
+    await assert.rejects(files.revealPath("../outside.txt"), /escaped the selected root/);
     await assert.rejects(files.write(join(outside, "absolute.txt"), "no"), /must be relative/);
     await assert.rejects(files.write("large.txt", "x".repeat(1_000_001)), /limited/);
     await writeFile(join(outside, "secret.txt"), "outside");
     await symlink(outside, join(root, "escape"), process.platform === "win32" ? "junction" : "dir");
     await assert.rejects(files.read("escape/secret.txt"), /Symbolic links/);
+    await assert.rejects(files.revealPath("escape/secret.txt"), /Symbolic links/);
     assert.equal(await readFile(join(outside, "secret.txt"), "utf8"), "outside");
   } finally {
     await rm(root, { recursive: true, force: true });

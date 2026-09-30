@@ -1,8 +1,9 @@
 import "./homework-files.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { AssignmentCommandOutput } from "../../shared/index.js";
+import { OPENABLE_FILE, type AssignmentCommandOutput } from "../../shared/index.js";
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import { Icon, type IconName } from "./Icon.js";
+import { parseDelimited } from "./homeworkFile.js";
 
 // The assignment's folder as a small workspace, like an editor: files on the left, the open file
 // with line numbers on the right, and Dot's terminal underneath with each command and its result.
@@ -10,7 +11,7 @@ import { Icon, type IconName } from "./Icon.js";
 type FileEntry = { path: string; kind: "file" | "directory"; size: number; modifiedAt: string };
 
 const TEXT = /\.(txt|md|csv|tsv|json|js|jsx|ts|tsx|py|java|c|cc|cpp|h|hpp|cs|go|rs|rb|php|css|html|xml|yaml|yml|tex|sql|r|m|sh|ps1|log|makefile)$/i;
-const CODE = /\.(js|jsx|ts|tsx|py|java|c|cc|cpp|h|hpp|cs|go|rs|rb|php|sh|ps1|sql|r|m)$/i;
+const CODE = /\.(js|jsx|ts|tsx|py|java|c|cc|cpp|h|hpp|cs|go|rs|rb|php|sh|ps1|sql|r|m|json|css|html|xml|yaml|yml|tex)$/i;
 const BINARY = /\.(exe|o|obj|out|class|pyc|dll|so|dylib)$/i;
 const PDF = /\.pdf$/i;
 const IMAGE = /\.(png|jpe?g|gif|webp|svg|bmp)$/i;
@@ -26,6 +27,7 @@ function iconFor(path: string): { icon: IconName; tone: string } {
   if (CODE.test(path)) return { icon: "code", tone: "is-code" };
   if (/\.pdf$/i.test(path)) return { icon: "file", tone: "is-pdf" };
   if (/\.md$/i.test(path)) return { icon: "note", tone: "is-doc" };
+  if (/\.(csv|tsv)$/i.test(path)) return { icon: "list", tone: "" };
   if (BINARY.test(path)) return { icon: "term", tone: "is-binary" };
   return { icon: "file", tone: "" };
 }
@@ -37,10 +39,9 @@ function mainFile(files: readonly FileEntry[]): FileEntry | null {
   return newest(top.filter((file) => CODE.test(file.path))) ?? newest(top.filter((file) => TEXT.test(file.path))) ?? newest(top);
 }
 
-export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = [], commands }: {
+export function HomeworkFiles({ assignmentId, active, commandOutputs = [], commands }: {
   assignmentId: string;
   active: boolean;
-  onCount: (count: number) => void;
   commandOutputs?: readonly AssignmentCommandOutput[];
   /** What each shell call ran, by tool call id, so the terminal shows the command, not just "PowerShell". */
   commands?: ReadonlyMap<string, string>;
@@ -50,9 +51,11 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
   const [content, setContent] = useState<string | null>(null);
   const [closedFolders, setClosedFolders] = useState<ReadonlySet<string>>(new Set(["materials"]));
   const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [reading, setReading] = useState(false);
   const [adding, setAdding] = useState(false);
+  const [opening, setOpening] = useState(false);
   const [terminalOpen, setTerminalOpen] = useState(true);
   const [openRun, setOpenRun] = useState<string | null>(null);
   const mounted = useRef(false);
@@ -64,13 +67,13 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
       if (!window.studi) throw new Error("Open Studi to load assignment files.");
       const items = await window.studi.getAssignmentFiles({ assignmentId });
       const visible = items.filter((item) => item.kind === "file" && !item.path.split("/").some((part) => part.startsWith(".studi-")));
-      if (mounted.current) { setFiles(visible); onCount(visible.length); setError(""); }
-    } catch (cause) {
-      if (mounted.current) setError(cause instanceof Error ? cause.message : String(cause));
+      if (mounted.current) { setFiles(visible); setLoadError(""); }
+    } catch {
+      if (mounted.current) setLoadError("Couldn't load the files. Try again.");
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, [assignmentId, onCount]);
+  }, [assignmentId]);
 
   useEffect(() => {
     mounted.current = true;
@@ -88,13 +91,14 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
     setOpened(file);
     setContent(null);
     setError("");
+    setReading(false);
     if (PDF.test(file.path) || IMAGE.test(file.path) || !TEXT.test(file.path) && !/^makefile$/i.test(file.path.split("/").pop() ?? "") || file.size > 250_000) return;
     setReading(true);
     try {
       const result = await window.studi?.readAssignmentFile({ assignmentId, path: file.path });
       if (mounted.current && id === request.current && result) setContent(result.content);
-    } catch (cause) {
-      if (mounted.current && id === request.current) setError(cause instanceof Error ? cause.message : String(cause));
+    } catch {
+      if (mounted.current && id === request.current) setError("Couldn't preview this file. Try again or use Show in folder.");
     } finally {
       if (mounted.current && id === request.current) setReading(false);
     }
@@ -113,15 +117,25 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
     setError("");
     try {
       const result = await window.studi.importAssignmentFiles({ assignmentId });
-      if (result.errors.length) setError(result.errors.map((item) => `${item.name}: ${item.message}`).join("\n"));
+      if (result.errors.length) setError(`Couldn't add ${result.errors.map((item) => item.name).join(", ")}. Try adding those files again.`);
       await refresh();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+    } catch {
+      if (mounted.current) setError("Couldn't add the files. Try again.");
     } finally {
       if (mounted.current) setAdding(false);
     }
   };
-  const reveal = (path?: string) => void window.studi?.openAssignmentFolder({ assignmentId, ...(path ? { path } : {}) }).catch((cause) => setError(String(cause)));
+  const reveal = (path?: string) => void window.studi?.openAssignmentFolder({ assignmentId, ...(path ? { path } : {}) }).catch(() => {
+    if (mounted.current) setError("Couldn't open the folder. Try again.");
+  });
+  const open = async (path: string) => {
+    if (opening || !window.studi) return;
+    setOpening(true);
+    setError("");
+    try { await window.studi.openAssignmentFile({ assignmentId, path }); }
+    catch { if (mounted.current) setError("Couldn't open this file. Check that an app for this file type is installed, then try again."); }
+    finally { if (mounted.current) setOpening(false); }
+  };
 
   // Files at the top of the folder first, then folders; each folder can fold.
   const tree = useMemo(() => {
@@ -138,10 +152,12 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
   const latestRun = runs.at(-1)?.toolCallId ?? null;
   const shownRun = openRun ?? latestRun;
   const lines = content?.replace(/\r\n/g, "\n").split("\n") ?? [];
+  const table = useMemo(() => content !== null && opened && /\.(csv|tsv)$/i.test(opened.path)
+    ? parseDelimited(content, /\.tsv$/i.test(opened.path) ? "\t" : ",") : null, [content, opened]);
 
   const fileButton = (file: FileEntry, indent = false) => {
     const { icon, tone } = iconFor(file.path);
-    const name = file.path.split("/").pop()!;
+    const name = indent ? file.path.slice(file.path.indexOf("/") + 1) : file.path;
     return (
       <button key={file.path} className={`wf-file ${tone}${opened?.path === file.path ? " is-open" : ""}${indent ? " is-nested" : ""}`}
         aria-current={opened?.path === file.path ? "true" : undefined} title={file.path} onClick={() => void read(file)}>
@@ -151,14 +167,15 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
   };
 
   return (
-    <div className="wf" aria-label="Assignment files">
+    <div className={`wf${files.length <= 3 && !tree.folders.length ? " is-small-tree" : ""}`} aria-label="Assignment files">
       <nav className="wf-tree" aria-label="Files">
         <div className="wf-tree-head">
           <strong>Files</strong>
-          <button className="wf-icon-button" aria-label="Add files" title="Add files" disabled={adding} onClick={() => void add()}>+</button>
+          <button className="wf-icon-button" aria-label="Add files" title="Add files" disabled={adding} onClick={() => void add()}><Icon name="plus" size={15} /></button>
         </div>
         <div className="wf-tree-list">
           {loading && <p className="wf-muted">Loading…</p>}
+          {loadError && <p className="wf-error" role="alert">{loadError} <button className="wf-link" onClick={() => void refresh()}>Try again</button></p>}
           {tree.top.map((file) => fileButton(file))}
           {tree.folders.map(([folder, list]) => {
             const closed = closedFolders.has(folder);
@@ -186,21 +203,27 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
           {opened ? (
             <>
               <header className="wf-editor-head">
-                <span className={`wf-tab ${iconFor(opened.path).tone}`}><Icon name={iconFor(opened.path).icon} size={14} />{opened.path}</span>
+                <span className={`wf-tab ${iconFor(opened.path).tone}`} title={opened.path}><Icon name={iconFor(opened.path).icon} size={14} /><span>{opened.path.split("/").pop()}</span></span>
                 <small>{fileSize(opened.size)}</small>
+                {OPENABLE_FILE.test(opened.path) && <button className="wf-link" disabled={opening} onClick={() => void open(opened.path)}>{opening ? "Opening…" : "Open"}<Icon name="external" size={13} /></button>}
                 <button className="wf-link" onClick={() => reveal(opened.path)}>Show in folder</button>
               </header>
               {reading ? <p className="wf-muted wf-pad">Opening…</p>
-                : PDF.test(opened.path) && window.studi ? <iframe className="wf-pdf" title={opened.path} src={`${fileUrl(assignmentId, opened.path)}#toolbar=0&view=FitH`} />
-                : IMAGE.test(opened.path) && window.studi ? <div className="wf-image"><img src={fileUrl(assignmentId, opened.path)} alt={opened.path} /></div>
+                : PDF.test(opened.path) && window.studi ? <iframe className="wf-pdf" title={opened.path} src={`${fileUrl(assignmentId, opened.path)}#view=FitH`} />
+                : IMAGE.test(opened.path) && window.studi ? <div className="wf-image"><img key={opened.path} src={fileUrl(assignmentId, opened.path)} alt={opened.path} onError={() => setError("Couldn't preview this image. Try again or open it in its app.")} /></div>
                 : content !== null ? (/\.md$/i.test(opened.path)
                   ? <article className="wf-doc" aria-label="File preview"><ChatMarkdown text={content} /></article>
-                  : <pre className="wf-code" aria-label="File preview">{lines.map((line, index) => <span key={index} className="wf-line"><i>{index + 1}</i>{line || " "}</span>)}</pre>)
+                  : table ? <DelimitedPreview rows={table} />
+                  : CODE.test(opened.path) || /^makefile$/i.test(opened.path.split("/").pop() ?? "")
+                    ? <pre className="wf-code" aria-label="File preview">{lines.map((line, index) => <span key={index} className="wf-line"><i aria-hidden="true">{index + 1}</i>{line || " "}</span>)}</pre>
+                    : <pre className="wf-text" aria-label="File preview">{content || "This file is empty."}</pre>)
                 : !error && (
                   <div className="wf-empty">
                     <Icon name={iconFor(opened.path).icon} size={28} />
-                    <p>{opened.size > 250_000 ? "Too large to open here." : BINARY.test(opened.path) ? "A program Dot built. It runs, it doesn't read." : PDF.test(opened.path) || IMAGE.test(opened.path) ? "Opens here in Studi." : "This file opens in its own app."}</p>
-                    <button className="rd-button" onClick={() => reveal(opened.path)}>Show in folder</button>
+                    <p>{opened.size > 250_000 ? "Too large to preview here." : OPENABLE_FILE.test(opened.path) ? "This file opens in its own app." : "Find this file in the assignment folder."}</p>
+                    {OPENABLE_FILE.test(opened.path)
+                      ? <button className="rd-button" disabled={opening} onClick={() => void open(opened.path)}>{opening ? "Opening…" : "Open"}<Icon name="external" size={15} /></button>
+                      : <button className="rd-button" onClick={() => reveal(opened.path)}>Show in folder<Icon name="external" size={15} /></button>}
                   </div>
                 )}
             </>
@@ -211,7 +234,7 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
               <button className="rd-button" disabled={adding} onClick={() => void add()}>{adding ? "Adding…" : "Add notes, a rubric or files"}</button>
             </div>
           )}
-          {error && <p className="wf-error" role="alert">{error}</p>}
+          {error && <p className="wf-error" role="alert">{error}{opened && <button className="wf-link" onClick={() => void read(opened)}>Try again</button>}</p>}
         </div>
 
         {runs.length > 0 && (
@@ -230,7 +253,7 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
                     <div key={run.toolCallId} className={`wf-run${run.outcome === "failed" ? " is-failed" : ""}`}>
                       <button className="wf-run-head" aria-expanded={shown} onClick={() => setOpenRun(shown ? "" : run.toolCallId)}>
                         <span className="wf-prompt">$</span>
-                        <code>{command ?? (run.shell === "powershell" ? "PowerShell command" : "Shell command")}</code>
+                        <code title={command}>{command ?? (run.shell === "powershell" ? "PowerShell command" : "Shell command")}</code>
                         <span className="wf-status">{run.outcome === "failed" ? "failed" : "ok"}{run.durationMs !== undefined ? ` · ${(run.durationMs / 1000).toFixed(1)}s` : ""}</span>
                       </button>
                       {shown && <pre className="wf-run-out">{run.truncated ? "Earlier output omitted.\n" : ""}{run.text.trim() || "No output."}</pre>}
@@ -242,6 +265,25 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
           </section>
         )}
       </section>
+    </div>
+  );
+}
+
+function DelimitedPreview({ rows }: { rows: readonly string[][] }) {
+  const columns = rows.reduce((max, row) => Math.max(max, row.length), 0);
+  const shownColumns = Math.min(columns, 50);
+  const shownRows = rows.slice(0, 1000);
+  return (
+    <div className="wf-table" role="region" aria-label="File preview" tabIndex={0}>
+      <table><tbody>{shownRows.map((row, index) => (
+        <tr key={index}>{Array.from({ length: shownColumns }, (_, column) => index === 0
+          ? <th key={column} scope="col">{row[column] ?? ""}</th>
+          : <td key={column}>{row[column] ?? ""}</td>)}</tr>
+      ))}</tbody></table>
+      {!rows.length && <p className="wf-muted">This file is empty.</p>}
+      {(rows.length > shownRows.length || columns > shownColumns) && (
+        <p className="wf-muted">Showing {shownRows.length} of {rows.length} rows and {shownColumns} of {columns} columns. Open the file to see it all.</p>
+      )}
     </div>
   );
 }

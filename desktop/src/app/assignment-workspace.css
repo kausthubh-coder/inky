@@ -93,10 +93,11 @@
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 24px;
   padding: 18px 18px calc(var(--ag-dock-h, 160px) + 12px) 24px;
   font-size: 15px;
-  line-height: 1.55;
+  line-height: 1.6;
+  text-wrap: pretty;
   scrollbar-width: thin;
 }
 .ag-dock {
@@ -118,15 +119,14 @@
 /* One card: the decision on top, the chat box under it. */
 .ag-dock-card {
   container-type: inline-size;
-  overflow: hidden;
   border-radius: 20px;
   background: rgb(255 253 248 / 92%);
   backdrop-filter: blur(14px) saturate(1.2);
   box-shadow: 0 0 0 1px rgb(43 38 33 / 11%), 0 1px 2px rgb(43 38 33 / 6%), 0 16px 36px -18px rgb(43 38 33 / 45%);
   transition: box-shadow 0.15s ease-out;
 }
-.ag-dock-card:focus-within {
-  box-shadow: 0 0 0 1.5px var(--pencil), 0 16px 36px -18px rgb(43 38 33 / 45%);
+.ag-dock-card:has(:focus-visible) {
+  box-shadow: 0 0 0 2px var(--pencil), 0 16px 36px -18px rgb(43 38 33 / 45%);
 }
 .ag-dock-card .ag-move {
   max-height: 46vh;
@@ -139,7 +139,7 @@
   border-bottom: 1px solid var(--rule);
 }
 .ag-dock-card form.rd-composer.inky-composer,
-.ag-dock-card form.rd-composer.inky-composer:focus-within {
+.ag-dock-card form.rd-composer.inky-composer:has(:focus-visible) {
   margin: 0;
   max-width: none;
   border: 0;
@@ -157,7 +157,7 @@
   align-items: center;
   gap: 8px;
   width: 100%;
-  min-height: 30px;
+  min-height: 32px;
   padding: 4px 8px;
   border: 0;
   border-radius: 8px;
@@ -167,7 +167,11 @@
   font-size: 14px;
   text-align: left;
   cursor: pointer;
+  transition: background-color 150ms ease-out, color 150ms ease-out, transform 100ms ease-out;
 }
+.ag .ag-work-row:focus:not(:focus-visible) { outline: none; }
+.ag .ag-work-row:focus-visible { outline: 2px solid var(--highlighter); outline-offset: 2px; }
+.ag-work-row:active { transform: scale(0.96); }
 .ag-work-row:hover {
   background: rgb(242 235 221 / 70%);
   color: var(--pencil);
@@ -215,7 +219,7 @@
   display: grid;
   flex: none;
   color: var(--graphite);
-  opacity: 0;
+  opacity: 0.65;
   transition: transform 0.15s, opacity 0.15s;
 }
 .ag-work-row:hover .ag-work-caret,
@@ -234,8 +238,11 @@
   content: "…";
 }
 .ag-work-list {
-  margin: 2px 0 4px 16px;
-  padding: 4px 0 4px 12px;
+  max-height: min(320px, 40vh);
+  overflow: auto;
+  scrollbar-width: thin;
+  margin: 4px 0 8px 16px;
+  padding: 4px 4px 4px 16px;
   border-left: 1px solid var(--rule);
 }
 .ag-work-list .ag-call {
@@ -261,7 +268,7 @@
   animation: none !important;
 }
 .ag-turn.is-cont {
-  margin-top: -10px;
+  margin-top: -12px;
 }
 .ag-turn.is-cont .ag-who {
   display: none;
@@ -270,10 +277,12 @@
 .ag-turn .ag-text,
 .ag-indent {
   margin: 0 0 0 42px;
+  max-width: 68ch;
 }
+.ag-text { max-width: 68ch; }
 .ag-turn > p + p,
 .ag-turn .ag-text + .ag-text {
-  margin-top: 6px;
+  margin-top: 12px;
 }
 .ag-text .chat-markdown > :first-child {
   margin-top: 0;
@@ -290,6 +299,8 @@
   gap: 10px;
   font-size: 12.5px;
   color: var(--graphite);
+  margin-block: 4px;
+  font-variant-numeric: tabular-nums;
 }
 .ag-sys::before,
 .ag-sys::after {
@@ -302,29 +313,33 @@
   margin-left: auto;
   max-width: 84%;
   width: fit-content;
-  padding: 8px 13px;
+  padding: 10px 14px;
   border-radius: 16px 16px 4px 16px;
   background: var(--blotter);
   font-size: 14.5px;
-  line-height: 1.45;
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 .ag-mem {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
   margin: 6px 0 0 42px;
   font-size: 12.5px;
   color: var(--graphite);
 }
 .ag-mem svg {
+  flex: none;
   color: #2e7d4f;
 }
 .ag-mem .rd-link {
   font-size: 12.5px;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--blotter);
+  text-decoration: none;
 }
 .ag-call {
   display: grid;
@@ -362,6 +377,8 @@
 .ag-call.is-failed small {
   color: var(--redpen);
 }
+.ag-call.is-failed :is(b, code, svg) { color: var(--redpen); }
+.ag-work-list .ag-call { min-height: 28px; }
 .ag-fold {
   display: flex;
   align-items: center;
@@ -658,15 +675,21 @@
   line-height: 1.5;
   color: var(--graphite);
   text-wrap: pretty;
+  overflow-wrap: anywhere;
 }
+.ag-fact-evidence { display: block; max-width: 68ch; }
 .ag-fact .wf-link {
-  margin: 0;
-  padding: 0;
+  display: inline-flex;
+  width: fit-content;
+  min-height: 32px;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--blotter);
   font-size: inherit;
   font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: var(--rule);
-  text-underline-offset: 3px;
+  text-decoration: none;
 }
 .ag-fact .wf-link:hover {
   text-decoration-color: currentColor;
@@ -685,6 +708,7 @@
 }
 .ag-doc h2 {
   margin: 0;
+  font-family: "Nunito Sans", sans-serif;
   font-size: 19px;
   font-weight: 800;
   letter-spacing: -0.01em;
@@ -730,16 +754,15 @@
   gap: 8px;
   width: fit-content;
   max-width: 100%;
-  overflow: hidden;
+  min-height: 32px;
+  padding: 4px 8px;
+  border-radius: 6px;
   color: var(--pencil);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-decoration: underline;
-  text-decoration-color: var(--rule);
-  text-underline-offset: 3px;
+  text-decoration: none;
 }
+.ag-sources a span { min-width: 0; overflow-wrap: anywhere; }
 .ag-sources a:hover {
-  text-decoration-color: currentColor;
+  background: var(--blotter);
 }
 .ag-sources svg {
   flex: none;
@@ -848,6 +871,8 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .ag-move, .ag-live, .ag-using i, .ag-call.is-running b::after, .ag-work-row.is-live > svg { animation: none; }
+  .ag :is(button, .ag-work-caret, .ag-req-chip::after) { transition: none; }
+  .ag-work-row:active { transform: none; }
 }
 @media (max-width: 900px) {
   .ag-thread { padding-left: 16px; padding-right: 12px; }
@@ -904,7 +929,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 28px;
+  min-height: 32px;
   padding: 0 6px 0 0;
   border: 0;
   background: none;
@@ -933,7 +958,5 @@
   max-height: 30vh;
   overflow-y: auto;
   margin-top: 8px;
-  padding: 2px 12px;
-  border-radius: 10px;
-  background: var(--paper);
+  padding: 2px 0;
 }

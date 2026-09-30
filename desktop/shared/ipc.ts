@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OPENABLE_FILE } from "./assignment-files.js";
 import { OpaqueIdSchema } from './ids.js';
 import { NoteDocumentSchema, NoteSegmentSchema } from './note.js';
 import { MemoryCreateInputSchema, MemoryListSchema, MemoryReadSchema, MemoryUpdateInputSchema, MemoryDeleteInputSchema, MemoryDeleteResultSchema } from './memory.js';
@@ -288,6 +289,7 @@ export const ContractManifestSchema = z.strictObject({
     z.strictObject({method:z.literal('readAssignmentFile'),channel:z.literal('studi:assignment-file')}),
     z.strictObject({method:z.literal('importAssignmentFiles'),channel:z.literal('studi:assignment-files-import')}),
     z.strictObject({method:z.literal('openAssignmentFolder'),channel:z.literal('studi:assignment-folder')}),
+    z.strictObject({method:z.literal('openAssignmentFile'),channel:z.literal('studi:assignment-file-open')}),
     z.strictObject({method:z.literal('selectBrowserPage'),channel:z.literal('studi:browser-page')}),
     z.strictObject({method:z.literal('getScopedConversation'),channel:z.literal('studi:scoped-conversation')}),
     z.strictObject({method:z.literal('stopScopedConversation'),channel:z.literal('studi:scoped-conversation-stop')}),
@@ -435,6 +437,7 @@ export const studiIpcRegistry = Object.freeze({
   readAssignmentFile: {channel:'studi:assignment-file',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048)}),resultSchema:z.strictObject({path:z.string(),content:z.string(),modifiedAt:z.string()})},
   importAssignmentFiles: {channel:'studi:assignment-files-import',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256)}),resultSchema:z.strictObject({imported:z.array(z.string()),errors:z.array(z.strictObject({name:z.string(),message:z.string()}))})},
   openAssignmentFolder: {channel:'studi:assignment-folder',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048).optional()}),resultSchema:z.boolean()},
+  openAssignmentFile: {channel:'studi:assignment-file-open',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048).regex(OPENABLE_FILE, "Studi only opens documents, not programs. Use Show in folder to find it.")}),resultSchema:z.boolean()},
   selectBrowserPage: { channel:'studi:browser-page', requestSchema:z.union([ConversationTargetSchema,z.strictObject({kind:z.literal("school")})]), resultSchema:StudiWorkspaceStateSchema },
   getScopedConversation: { channel: 'studi:scoped-conversation', requestSchema: ConversationTargetSchema, resultSchema: ConversationStateSchema },
   stopScopedConversation: { channel: 'studi:scoped-conversation-stop', requestSchema: ConversationTargetSchema, resultSchema: ConversationStateSchema },

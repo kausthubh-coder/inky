@@ -416,7 +416,7 @@ export function AssignmentWorkspace({
             )}
           </header>
         )}
-        <HomeworkFiles assignmentId={assignment.assignmentId} active commandOutputs={detail?.execution?.commandOutputs ?? run?.commandOutputs ?? []} commands={commands} onCount={() => {}} />
+        <HomeworkFiles key={assignment.assignmentId} assignmentId={assignment.assignmentId} active commandOutputs={detail?.execution?.commandOutputs ?? run?.commandOutputs ?? []} commands={commands} />
       </div>
     );
   }
@@ -443,9 +443,9 @@ export function AssignmentWorkspace({
             Number.isFinite(dueMs) ? (overdue ? "Past due" : done ? undefined : leftText(assignment.dueAt!)) : undefined, overdue ? " is-late" : "")}
           {fact("At school",
             school ? { unknown: "Not sure yet", not_submitted: "Not handed in", submitted: "Handed in", graded: "Graded", locked: "Closed" }[school.state] : "Not checked yet",
-            school && school.text.trim() !== "" && gistOf(school.text) !== gistOf(school.state) ? <>{tidy(school.text)}{assignment.sourceTarget && <> · <button className="wf-link" onClick={() => choose("site")}>Open the page</button></>}</> : assignment.sourceTarget && <button className="wf-link" onClick={() => choose("site")}>Open the page</button>)}
+            <>{school && school.text.trim() !== "" && gistOf(school.text) !== gistOf(school.state) && <span className="ag-fact-evidence">{tidy(school.text)}</span>}{assignment.sourceTarget && <button className="wf-link" onClick={() => choose("site")}>Open the page<Icon name="external" size={13} /></button>}</>)}
           {fact("Late work", late ? { accepted: late.until ? `Accepted until ${day(late.until)}` : "Accepted", not_accepted: "Not accepted", unknown: "Not stated" }[late.state] : "Not stated", late?.text ? tidy(late.text) : undefined)}
-          {fact("Your rule", mode ? RULE_LABELS[mode] : "No rule yet", <>{task ? ruleSource(task.permission.rationale).replace(/^\w/, (c) => c.toUpperCase()) : ""} · <button className="wf-link" onClick={openRules}>Change</button></>)}
+          {fact("Your rule", mode ? RULE_LABELS[mode] : "No rule yet", <>{task && <span className="ag-fact-evidence">{ruleSource(task.permission.rationale).replace(/^\w/, (c) => c.toUpperCase())}</span>}<button className="wf-link" onClick={openRules}>Change</button></>)}
         </dl>
 
         <section className="ag-doc">
@@ -466,7 +466,7 @@ export function AssignmentWorkspace({
           {sources.length > 0 && (
             <div className="ag-sources">
               <b>From</b>
-              {sources.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer"><Icon name={/\.pdf($|\?)/i.test(url) ? "file" : "globe"} size={14} />{sourceName(url)}</a>)}
+              {sources.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer"><Icon name={/\.pdf($|\?)/i.test(url) ? "file" : "globe"} size={14} /><span>{sourceName(url)}</span><Icon name="external" size={13} /></a>)}
             </div>
           )}
           <p className="ag-found">Found {day(assignment.discoveredAt)}{checked && checked !== assignment.discoveredAt ? ` · checked ${day(checked)}` : ""}{assignment.origin === "manual" ? " · added by you" : ""}</p>
@@ -500,10 +500,10 @@ function SitePane({ onSlot, hidden }: { onSlot: (bounds: SchoolPageBounds | null
 // One row per run of tool calls. Done: a summary that expands. Working: the step Dot is on, live.
 function WorkGroup({ group, live }: { group: Extract<ThreadBlock, { kind: "group" }>; live: boolean }) {
   const [open, setOpen] = useState(false);
-  const latest = group.calls.at(-1)!;
+  const latest = [...group.calls].reverse().find((call) => call.running) ?? group.calls.at(-1)!;
   return (
     <div className={`ag-work${open ? " is-open" : ""}${group.failed ? " is-failed" : ""}`}>
-      <button className={`ag-work-row${live ? " is-live" : ""}`} aria-expanded={open} onClick={() => setOpen(!open)}>
+      <button className={`ag-work-row${live ? " is-live" : ""}`} aria-expanded={open} onPointerDown={(event) => event.currentTarget.blur()} onClick={() => setOpen(!open)}>
         <Icon name={live ? latest.icon : group.icon} size={15} />
         <span className="ag-work-label">{live ? <><b>{latest.verb}</b>{latest.target && <code>{latest.target}</code>}</> : group.summary}</span>
         {group.failed && !live && <em>{group.calls.filter((call) => call.failed).length} failed</em>}

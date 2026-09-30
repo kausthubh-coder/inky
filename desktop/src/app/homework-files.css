@@ -1,7 +1,7 @@
 /* The assignment's folder as an editor: files | open file, with the terminal underneath. */
 .wf {
   display: grid;
-  grid-template-columns: minmax(180px, 230px) minmax(0, 1fr);
+  grid-template-columns: minmax(160px, 190px) minmax(0, 1fr);
   flex: 1;
   min-height: 0;
   border-top: 1px solid var(--rule);
@@ -11,7 +11,7 @@
   flex-direction: column;
   min-height: 0;
   border-right: 1px solid var(--rule);
-  background: #faf6ee;
+  background: var(--page);
 }
 .wf-tree-head {
   display: flex;
@@ -29,8 +29,8 @@
 .wf-icon-button {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border: 0;
   border-radius: 6px;
   background: none;
@@ -56,15 +56,16 @@
   align-items: center;
   gap: 7px;
   width: 100%;
-  min-height: 27px;
+  min-height: 32px;
   padding: 3px 8px;
   border: 0;
   border-radius: 6px;
   background: none;
-  color: #4b433a;
+  color: var(--pencil);
   font-size: 13px;
   text-align: left;
   cursor: pointer;
+  transition: background-color 150ms ease-out, color 150ms ease-out, transform 100ms ease-out;
 }
 .wf-file span,
 .wf-folder span:not(.wf-caret) {
@@ -78,10 +79,9 @@
   background: rgb(43 38 33 / 6%);
 }
 .wf-file.is-open {
-  background: var(--page);
+  background: var(--blotter);
   color: var(--pencil);
   font-weight: 700;
-  box-shadow: 0 0 0 1px var(--rule);
 }
 .wf-file.is-nested {
   padding-left: 28px;
@@ -124,6 +124,7 @@
   font-weight: 600;
   text-align: left;
   cursor: pointer;
+  min-height: 32px;
 }
 .wf-tree-foot:hover {
   color: var(--pencil);
@@ -152,8 +153,8 @@
   align-items: center;
   gap: 10px;
   flex: none;
-  height: 38px;
-  padding: 0 14px 0 8px;
+  min-height: 44px;
+  padding: 0 8px 0 16px;
   border-bottom: 1px solid var(--rule);
   font-size: 12.5px;
   color: var(--graphite);
@@ -162,27 +163,38 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  height: 100%;
-  padding: 0 10px;
-  box-shadow: inset 0 -2px 0 var(--pencil);
+  min-width: 0;
+  padding: 0;
   color: var(--pencil);
   font: 12.5px ui-monospace, Consolas, monospace;
 }
+.wf-tab > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-tab svg { flex: none; }
 .wf-tab.is-code svg { color: #3f6fb5; }
 .wf-tab.is-pdf svg { color: #c8553d; }
 .wf-link {
   margin-left: auto;
-  padding: 2px 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
   border: 0;
   background: none;
   color: var(--graphite);
   font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 150ms ease-out, color 150ms ease-out, transform 100ms ease-out;
 }
 .wf-link:hover {
   color: var(--pencil);
+  background: var(--blotter);
 }
+.wf-link:disabled { opacity: 0.6; cursor: default; }
+.wf-editor-head .wf-link + .wf-link { margin-left: 0; }
 .wf-editor-head small {
   font-variant-numeric: tabular-nums;
 }
@@ -211,7 +223,11 @@
   padding-right: 10px;
   font-style: normal;
   text-align: right;
-  color: #c2b8aa;
+  position: sticky;
+  left: 0;
+  background: var(--page);
+  color: var(--graphite);
+  font-variant-numeric: tabular-nums;
   user-select: none;
 }
 .wf-line:hover {
@@ -222,18 +238,20 @@
   min-height: 0;
   width: 100%;
   border: 0;
-  background: #ece7dd;
+  background: var(--paper);
 }
 .wf-image {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 20px;
-  background: #ece7dd;
+  padding: 24px;
+  background: var(--paper);
   text-align: center;
 }
 .wf-image img {
   max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
   height: auto;
   border-radius: 4px;
   outline: 1px solid oklch(0 0 0 / 0.1);
@@ -250,6 +268,23 @@
 .wf-doc > :first-child {
   margin-top: 0;
 }
+.wf-doc .chat-markdown { max-width: 68ch; margin-inline: auto; }
+.wf-text {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 20px 24px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 14px/1.65 ui-monospace, Consolas, monospace;
+  color: var(--pencil);
+}
+.wf-table { flex: 1; min-height: 0; overflow: auto; }
+.wf-table table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.wf-table :is(th, td) { padding: 10px 16px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 100px; }
+.wf-table th { position: sticky; top: 0; background: var(--paper); color: var(--pencil); font-weight: 700; }
+.wf-table tr:hover td { background: var(--paper); }
 .wf-empty {
   display: grid;
   place-items: center;
@@ -272,7 +307,9 @@
   font-size: 13px;
   color: var(--redpen);
   white-space: pre-wrap;
+  text-wrap: pretty;
 }
+.wf-error .wf-link { margin-left: 4px; }
 
 /* Dot's terminal: each command it ran, and what it printed. */
 .wf-terminal {
@@ -307,6 +344,7 @@
 .wf-terminal-head small {
   color: #9a8f80;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .wf-terminal-head .wf-caret {
   margin-left: auto;
@@ -333,6 +371,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  min-height: 32px;
 }
 .wf-run-head:hover {
   background: rgb(255 255 255 / 4%);
@@ -352,6 +391,8 @@
 .wf-status {
   font-size: 11.5px;
   color: #8fc9a4;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 .wf-run.is-failed .wf-status {
   color: #f0907a;
@@ -364,6 +405,26 @@
   overflow-wrap: anywhere;
   color: #cfc6b6;
   font: inherit;
+}
+.wf-run + .wf-run { border-top: 1px solid #3a332c; }
+.wf :is(button, [tabindex]):focus:not(:focus-visible) { outline: none; }
+.wf :is(button, [tabindex]):focus-visible { outline: 2px solid var(--pencil); outline-offset: -2px; }
+.wf-terminal button:focus-visible { outline-color: var(--highlighter); }
+.wf :is(.wf-file, .wf-folder, .wf-icon-button, .wf-link):active:not(:disabled) { transform: scale(0.96); }
+.wf.is-small-tree {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.wf.is-small-tree .wf-tree { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 12px; border-right: 0; border-bottom: 1px solid var(--rule); }
+.wf.is-small-tree .wf-tree-head { display: contents; }
+.wf.is-small-tree .wf-tree-head strong { grid-column: 1; grid-row: 1; font-size: 11.5px; color: var(--graphite); }
+.wf.is-small-tree .wf-icon-button { grid-column: 3; grid-row: 1; }
+.wf.is-small-tree .wf-tree-list { grid-column: 2; grid-row: 1; display: flex; gap: 4px; overflow: auto; padding: 0; }
+.wf.is-small-tree .wf-file { width: auto; max-width: 100%; }
+.wf.is-small-tree .wf-tree-foot { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .wf button { transition: none; }
+  .wf :is(.wf-file, .wf-folder, .wf-icon-button, .wf-link):active:not(:disabled) { transform: none; }
 }
 
 /* In a narrow pane the files fold into a short strip above the open file. */
@@ -380,7 +441,7 @@
     grid-template-rows: auto minmax(0, 1fr);
   }
   .wf-tree {
-    max-height: 132px;
+    max-height: 152px;
     border-right: 0;
     border-bottom: 1px solid var(--rule);
   }
@@ -388,4 +449,7 @@
   .wf-editor-head small {
     display: none;
   }
+  .wf-editor-head { flex-wrap: wrap; gap: 4px 8px; padding-block: 4px; }
+  .wf-tab { flex: 1; }
+  .wf-doc { padding: 16px; }
 }

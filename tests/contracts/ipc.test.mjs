@@ -73,6 +73,24 @@ function composeIpc(registry, handlers, calls) {
   });
 }
 
+test("opening an assignment file requires its assignment and path before invoking the handler", async () => {
+  const opened = [];
+  const api = composeIpc({ openAssignmentFile: studiIpcRegistry.openAssignmentFile }, {
+    openAssignmentFile: input => { opened.push(input); return true; },
+  }, []);
+  await assert.rejects(api.openAssignmentFile({ assignmentId: "assignment-1" }), z.ZodError);
+  await assert.rejects(api.openAssignmentFile({ assignmentId: "", path: "report.docx" }), z.ZodError);
+  await assert.rejects(api.openAssignmentFile({ assignmentId: "assignment-1", path: "" }), z.ZodError);
+  await assert.rejects(api.openAssignmentFile({ assignmentId: "assignment-1", path: "report.docx", absolutePath: "other" }), z.ZodError);
+  for (const path of ["sort.exe", "run.bat", "setup.ps1", "REPORT.DOCX.exe", "scripts/RUN.PS1"]) {
+    await assert.rejects(api.openAssignmentFile({ assignmentId: "assignment-1", path }), z.ZodError);
+  }
+  assert.deepEqual(opened, []);
+  const input = { assignmentId: "assignment-1", path: "materials/report.docx" };
+  assert.equal(await api.openAssignmentFile(input), true);
+  assert.deepEqual(opened, [input]);
+});
+
 test("composed IPC validates and forwards request-bearing and void methods", async () => {
   const calls = [];
   let malformedResponse = false;
@@ -275,6 +293,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "readAssignmentFile",
     "importAssignmentFiles",
     "openAssignmentFolder",
+    "openAssignmentFile",
     "selectBrowserPage",
     "getScopedConversation",
     "stopScopedConversation",
@@ -350,6 +369,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       readAssignmentFile: "studi:assignment-file",
       importAssignmentFiles: "studi:assignment-files-import",
       openAssignmentFolder: "studi:assignment-folder",
+      openAssignmentFile: "studi:assignment-file-open",
       selectBrowserPage: "studi:browser-page",
       getScopedConversation: "studi:scoped-conversation",
       stopScopedConversation: "studi:scoped-conversation-stop",
@@ -427,6 +447,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       {method:"readAssignmentFile",channel:"studi:assignment-file"},
       {method:"importAssignmentFiles",channel:"studi:assignment-files-import"},
       {method:"openAssignmentFolder",channel:"studi:assignment-folder"},
+      {method:"openAssignmentFile",channel:"studi:assignment-file-open"},
       {method:"selectBrowserPage",channel:"studi:browser-page"},
       {method:"getScopedConversation",channel:"studi:scoped-conversation"},
       {method:"stopScopedConversation",channel:"studi:scoped-conversation-stop"},

@@ -189,6 +189,9 @@ export function ChatWorkspace(props: ChatProps) {
         .includes(query?.toLowerCase() ?? ""),
     )
     .slice(0, 8);
+  useEffect(() => {
+    if (query !== null) document.getElementById(`chat-option-${option}`)?.scrollIntoView({ block: "nearest" });
+  }, [query, option]);
   const saveDraft = (next: Draft) => {
     if (
       next.text !== draftRef.current.text ||
@@ -526,6 +529,7 @@ export function ChatWorkspace(props: ChatProps) {
     !school || (scanOpen && !scanDetails) ? (
       <form
         className="inky-composer rd-composer"
+        aria-busy={sending}
         onSubmit={(e) => {
           e.preventDefault();
           void (draft.text.trim() ? send() : stop());
@@ -581,8 +585,8 @@ export function ChatWorkspace(props: ChatProps) {
                       }{" "}
                       ·{" "}
                       {a.dueAt
-                        ? new Date(a.dueAt).toLocaleDateString()
-                        : (a.dueText ?? "No due date")}
+                        ? `Due ${new Date(a.dueAt).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })}`
+                        : "No due date"}
                     </small>
                   </button>
                 ))
@@ -611,7 +615,7 @@ export function ChatWorkspace(props: ChatProps) {
             rows={1}
             maxLength={20_000}
             aria-autocomplete="list"
-            aria-controls="chat-assignments"
+            aria-controls={query !== null ? "chat-assignments" : undefined}
             aria-expanded={query !== null}
             {...(query !== null && matches[option]
               ? { "aria-activedescendant": `chat-option-${option}` }
@@ -676,7 +680,7 @@ export function ChatWorkspace(props: ChatProps) {
           <button
             className="chat-send"
             aria-label={
-              !draft.text.trim() && (active || stoppableAssignment || scanActive)
+              sending ? "Sending message" : !draft.text.trim() && (active || stoppableAssignment || scanActive)
                 ? stoppableAssignment
                   ? "Stop assignment"
                   : school
@@ -696,7 +700,7 @@ export function ChatWorkspace(props: ChatProps) {
           >
             <Icon
               name={
-                !draft.text.trim() && (active || stoppableAssignment || scanActive)
+                sending ? "refresh" : !draft.text.trim() && (active || stoppableAssignment || scanActive)
                   ? "stop"
                   : "send"
               }
