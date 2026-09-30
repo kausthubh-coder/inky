@@ -113,10 +113,10 @@ test("J2: Stop from the composer cancels a working assignment without submitting
 async function startAssignment(page, title) {
   try { await page.getByText(title, { exact: true }).first().click({ timeout: 8_000 }); }
   catch (error) { throw new Error(`Assignment absent from visible work: ${(await page.locator("body").innerText()).slice(0, 2200)}`, { cause: error }); }
-  const start = page.getByRole("region", { name: "Your move" }).getByRole("button", { name: /^(Check and start|Start)$/ });
+  const start = page.getByRole("region", { name: "Your move" }).getByRole("button", { name: /^(Check and start|Start|Start now)$/ });
   try {
     await start.waitFor({ state: "visible", timeout: 8_000 });
-    await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => /^(Check and start|Start)$/.test(button.textContent?.trim() ?? "") && !button.disabled), undefined, { timeout: 8_000, polling: 100 });
+    await page.waitForFunction(() => [...document.querySelectorAll("button")].some(button => /^(Check and start|Start|Start now)$/.test(button.textContent?.trim() ?? "") && !button.disabled), undefined, { timeout: 8_000, polling: 100 });
   } catch (error) {
     const onboarding = await publicState(page, "getSchoolOnboardingState");
     const library = await publicState(page, "getLibraryState");

@@ -22,7 +22,7 @@ Electron + React desktop app. The engine (`desktop/electron`) owns all data (SQL
 - **Known leftovers:**
   - the CSC 316 syllabus site is only reachable on NC State's network;
   - some items have no dates in Moodle at all.
-- **Test profiles:** `C:\Users\kaust\AppData\Roaming\Studi Real Test 5` is the latest. To give the app back to the student's account, release their device in Convex with `npx convex run account:releaseDevice '{"deviceId":…}' --identity '{"subject":"user_3IrCkdRGy1RVfPbxJO1Ydgge2kx","issuer":"https://clerk"}'` from `C:\Users\kaust\OneDrive\Documents\dev\studi-2`.
+- **Test profiles:** `C:\Users\kaust\AppData\Roaming\Studi Real Test 5` is the latest. To give the app back to the student's account, release their device in Convex with `npx convex run account:releaseDevice '{"deviceId":…}' --identity '{"subject":"<clerk-subject>","issuer":"https://clerk"}'` from `C:\Users\kaust\OneDrive\Documents\dev\studi-2`.
 - **Helper scripts** in `.agents/tmp`:
   - `real2/watch.mjs` (progress; set the `PROFILE` env var);
   - `real2/usage.mjs "<profile>"` (cost);
