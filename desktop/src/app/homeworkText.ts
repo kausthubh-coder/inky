@@ -13,3 +13,16 @@ export function shortCourse(label: string): string {
   const words = label.trim().split(/\s+/).slice(0, 2).join(" ");
   return words.length > 16 ? `${words.slice(0, 15)}…` : words;
 }
+
+/** An error in the student's words: no "Error: Error invoking remote method…", no network codes. "" when there is nothing to tell. */
+export function plainError(cause: unknown): string {
+  const text = (cause instanceof Error ? cause.message : String(cause ?? ""))
+    .replace(/^(?:Error: )*(?:Error invoking remote method '[^']+': )?(?:Error: )*/, "").trim();
+  const code = /\bERR_[A-Z_]+/.exec(text)?.[0];
+  if (!code) return text;
+  // The page moved on to another address before this one loaded; nothing went wrong.
+  if (code === "ERR_ABORTED") return "";
+  if (/INTERNET_DISCONNECTED|NAME_NOT_RESOLVED|NETWORK_CHANGED|ADDRESS_UNREACHABLE/.test(code)) return "The page didn't load. Check your internet, then try again.";
+  if (/TIMED_OUT|CONNECTION/.test(code)) return "The school's site didn't answer. Try again in a moment.";
+  return "The page didn't load. Try again.";
+}

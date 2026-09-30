@@ -28,6 +28,8 @@ export function threadSteps(actions: readonly AssignmentAction[]): ThreadStep[] 
       if (text) steps.push({ kind: "text", key: action.actionId, text });
       continue;
     }
+    // Telling the student is Dot talking: the words follow as text (or sit in the move card), so the call is not a step.
+    if (action.tool === "assignment_tell_student") continue;
     if (action.tool === "note_upsert") {
       if (action.outcome === "succeeded") steps.push({ kind: "memory", key: action.actionId, title: action.target ?? "a preference" });
       continue;
@@ -142,3 +144,18 @@ export function groupSteps(steps: readonly ThreadStep[]): ThreadBlock[] {
   return blocks;
 }
 
+
+const gist = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/** Keeps a thread from saying the same thing twice: `say` returns only the paragraphs not yet shown, and remembers them. */
+export function onceOnly(): (text: string) => string {
+  const said: string[] = [];
+  return (text) => text.split(/\n{2,}/).filter((paragraph) => {
+    const key = gist(paragraph);
+    if (!key) return false;
+    // A long paragraph inside one already shown (or the other way round) is the same news.
+    if (said.some((earlier) => earlier === key || (key.length > 40 && (earlier.includes(key) || key.includes(earlier) && earlier.length > 40)))) return false;
+    said.push(key);
+    return true;
+  }).join("\n\n");
+}

@@ -577,11 +577,16 @@ export class AssignmentExecutionCoordinator {
     return { name: course?.label ?? null, materials, relatedAssignments: related };
   }
 
+  #paragraphDue = false;
+
   #recordActivity(taskId: string, event: AgentRunEvent): void {
     if (event.type === "compaction") return;
     const base = { actionId: randomUUID(), occurredAt: this.#now() };
     if (event.type === "text") {
-      this.#store.lifecycle.recordActivity(taskId, { ...event, delta: event.delta.slice(-20_000) }, { ...base, kind: "text", label: event.delta.slice(-4000) });
+      // What Dot says after a turn ended starts a new paragraph rather than running into the last one.
+      const delta = (this.#paragraphDue ? "\n\n" : "") + event.delta;
+      this.#paragraphDue = false;
+      this.#store.lifecycle.recordActivity(taskId, { ...event, delta: delta.slice(-20_000) }, { ...base, kind: "text", label: delta.slice(-4000) });
     } else if (event.type === "tool_started" || event.type === "tool_finished") {
       // The timeline keeps readable actions. Bounded shell text is stored
       // separately for the assignment's file panel.
@@ -603,7 +608,10 @@ export class AssignmentExecutionCoordinator {
       }, command);
     } else if (event.type === "retry") {
       this.#store.lifecycle.recordActivity(taskId, event, { ...base, kind: "retry", label: (event.reason ?? "Trying the connection again").slice(0, 4000), outcome: event.phase === "started" ? "started" : event.outcome });
-    } else this.#store.lifecycle.recordActivity(taskId, event);
+    } else {
+      if (event.type === "terminal") this.#paragraphDue = true;
+      this.#store.lifecycle.recordActivity(taskId, event);
+    }
   }
 
   /** What a tool call acted on, for the thread: a page address, a file, a control or a command. */

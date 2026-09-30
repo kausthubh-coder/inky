@@ -25,10 +25,10 @@ import { focusRulesOn } from "./HomeworkRules.js";
 import { Icon, type IconName } from "./Icon.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { courseLabel, courseTone } from "./assignmentPresentation.js";
-import { groupSteps, planFor, threadSteps, tipsFor, workTabName, workedFor, type ThreadBlock } from "./assignmentThread.js";
+import { groupSteps, onceOnly, planFor, threadSteps, tipsFor, workTabName, workedFor, type ThreadBlock } from "./assignmentThread.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { onEngineChange } from "./engineChanges.js";
-import { shortCourse } from "./homeworkText.js";
+import { plainError, shortCourse } from "./homeworkText.js";
 import { useSchoolSlot } from "./schoolSlot.js";
 
 type Tab = "receipt" | "site" | "work" | "details";
@@ -100,7 +100,7 @@ export function AssignmentWorkspace({
         const next = await window.studi!.getTaskDetail({ taskId: task.task.taskId });
         if (alive) setDetail(next);
       } catch (cause) {
-        if (alive) setProblem(cause instanceof Error ? cause.message : String(cause));
+        if (alive) setProblem(plainError(cause));
       } finally {
         reading = false;
       }
@@ -155,7 +155,7 @@ export function AssignmentWorkspace({
     if (pending) return;
     setPending(true);
     setProblem("");
-    try { await operation(); } catch (cause) { setProblem(cause instanceof Error ? cause.message : String(cause)); } finally { setPending(false); }
+    try { await operation(); } catch (cause) { setProblem(plainError(cause)); } finally { setPending(false); }
   };
   const disabled = busy !== null || pending;
   const openRules = () => { focusRulesOn(assignment.assignmentId); onOpenRules(); };
@@ -232,11 +232,15 @@ export function AssignmentWorkspace({
   function threadView(): ReactNode[] {
     const out: { key: string; node: ReactNode; dot?: DotState }[] = [];
     const dot = (key: string, body: ReactNode, mood: DotState = "idle", time?: string) => out.push({ key, dot: mood, node: <><div className="ag-who"><Character state={mood} size={34} label="Dot" />Dot{time && <small>{time}</small>}</div>{body}</> });
+    // Dot's words reach the thread from the run, the chat and the run's state; each is shown once.
+    const say = onceOnly();
     const talk = (list: readonly AgentMessage[]) => list.forEach((message) => {
       if (message.role === "user") out.push({ key: message.messageId, node: <div className="ag-you">{message.text}</div> });
       else {
+        const text = say(message.text);
+        if (!text && !message.memories?.length && message.recovery !== "failed") return;
         dot(message.messageId, <>
-          <div className="ag-text"><ChatMarkdown text={message.text} /></div>
+          {text && <div className="ag-text"><ChatMarkdown text={text} /></div>}
           {message.memories?.map((memory) => <MemorySaved key={memory.noteId} title={memory.title} noteId={memory.noteId} />)}
           {message.recovery === "failed" && <button className="rd-button ag-indent" disabled={thinking} onClick={() => onRetry(message)}>Try again</button>}
         </>, "idle", clock(message.createdAt));
@@ -251,7 +255,7 @@ export function AssignmentWorkspace({
     if (state === "yours") dot("yours", <p>This one's yours, so I won't touch it. I can still explain it or check your answers if you ask.</p>);
     if (state === "ignored") dot("ignored", <p>You marked this as {assignment.ignoredReason === "already_done" ? "done" : "not homework"}, so I left it alone.</p>);
     if (!started && ["not_started", "scheduled", "left_to_you"].includes(state)) {
-      const lead = state === "left_to_you" ? "Your rule leaves this one to you." : state === "scheduled" ? `I'll start ${entry?.scheduledStartAt ? whenText(entry.scheduledStartAt) : "as soon as I'm free"}.` : "Ready when you are.";
+      const lead = state === "left_to_you" ? "Your rule leaves this one to you." : state === "scheduled" ? `I'll start ${!entry?.startRequestedAt && entry?.scheduledStartAt ? whenText(entry.scheduledStartAt) : "as soon as I'm free"}.` : "Ready when you are.";
       dot("hello", <p>{lead} {planFor(assignment.kind)}</p>, "hello");
     }
     talk(before);
@@ -259,7 +263,11 @@ export function AssignmentWorkspace({
       out.push({ key: "tips", node: <div className="ag-tips">{tipsFor(assignment.kind).map((tip) => <button key={tip} onClick={() => onSuggest(tip)}><Icon name="right" size={14} />{tip}</button>)}</div> });
     }
     if (started && run) {
-      const blocks = groupSteps(threadSteps(run.actions ?? []));
+      const blocks = groupSteps(threadSteps(run.actions ?? [])).flatMap((block): ThreadBlock[] => {
+        if (block.kind !== "text") return [block];
+        const text = say(block.text);
+        return text ? [{ ...block, text }] : [];
+      });
       const working = run.phase === "working" || run.phase === "submitting";
       if (startedAt) out.push({ key: "started", node: <div className="ag-sys">Started · {clock(startedAt)}</div> });
       dot("run", <>{blocks.map((block, index) => block.kind === "text"
@@ -272,10 +280,10 @@ export function AssignmentWorkspace({
     }
     talk(after);
     // Heads-ups are news from the run: shown in the thread while working and after, never as a checklist.
-    if (run && ["working", "ready_review", "submitting", "submitted"].includes(run.phase)) (run.notices ?? []).forEach((notice, index) => dot(`notice-${index}`, <p><strong>Heads-up:</strong> {notice}</p>, run.phase === "working" ? "working" : "idle"));
+    if (run && ["working", "ready_review", "submitting", "submitted"].includes(run.phase)) (run.notices ?? []).filter(say).forEach((notice, index) => dot(`notice-${index}`, <p><strong>Heads-up:</strong> {notice}</p>, run.phase === "working" ? "working" : "idle"));
     if (state === "waiting") {
       const text = run?.returnPredicate ?? run?.lastError ?? { sign_in: "The school wants you to sign in. I've kept my place.", files: "I need a file to carry on.", answer: "I have a question before I go on.", browser: "I need you on the page for a moment." }[record.needs ?? "browser"];
-      dot("waiting", <div className="ag-text"><ChatMarkdown text={text} /></div>, "needs");
+      if (say(text)) dot("waiting", <div className="ag-text"><ChatMarkdown text={text} /></div>, "needs");
     }
     if (state === "ready" && run) {
       const met = run.completionChecklist?.length ?? 0;
@@ -305,6 +313,7 @@ export function AssignmentWorkspace({
   function yourMove(): { title: string; body?: string; actions?: ReactNode; extra?: ReactNode } | null {
     const primary = (label: string, onClick: () => void, off = false) => <button className="rd-button rd-primary" disabled={disabled || off} onClick={onClick}>{label}</button>;
     const quiet = (label: string, onClick: () => void) => <button className="rd-link ag-link" disabled={disabled} onClick={onClick}>{label}</button>;
+    const next = (id: string) => primary("Do this next", () => void act(() => window.studi!.queueAssignmentNext({ taskId: id })));
     const stop = run && isLivePhase(run.phase) ? quiet("Stop", () => onCancel(run.taskId)) : null;
     const mode = task?.permission.mode ?? "do_not_attempt";
     switch (state) {
@@ -327,9 +336,9 @@ export function AssignmentWorkspace({
         };
       case "scheduled":
         return {
-          title: entry?.scheduledStartAt ? `Dot starts ${whenText(entry.scheduledStartAt)}.` : otherLive ? "Dot starts this next." : "Dot starts this soon.",
-          body: "Your rules let Dot start by itself. You'll get a notification.",
-          actions: task ? primary("Start now", () => onStart(task.task.taskId), Boolean(otherLive)) : undefined,
+          title: entry?.startRequestedAt ? (otherLive ? "Dot does this next." : "Dot starts this soon.") : entry?.scheduledStartAt ? `Dot starts ${whenText(entry.scheduledStartAt)}.` : otherLive ? "Dot does this next." : "Dot starts this soon.",
+          body: entry?.startRequestedAt ? "You asked for it. It starts when Dot is free, and you'll get a notification." : "Your rules let Dot start by itself. You'll get a notification.",
+          actions: task ? <>{!otherLive && primary("Start now", () => onStart(task.task.taskId))}{quiet("Take it out of the queue", () => void act(() => window.studi!.cancelAssignment({ taskId: task.task.taskId })))}{otherLive && quiet("See what Dot is on", onOpenWork)}</> : undefined,
         };
       case "waiting":
         if (!run) return null;
@@ -369,9 +378,9 @@ export function AssignmentWorkspace({
         };
       }
       case "stopped":
-        return { title: "Stopped. Nothing was handed in.", body: "Dot can carry on from where it stopped.", actions: <>{taskId && primary("Carry on", () => onStart(taskId), Boolean(otherLive))}{quiet("I'll do it myself", () => setOwner("student"))}</> };
+        return { title: "Stopped. Nothing was handed in.", body: "Dot can carry on from where it stopped.", actions: <>{taskId && (otherLive ? next(taskId) : primary("Carry on", () => onStart(taskId)))}{quiet("I'll do it myself", () => setOwner("student"))}</> };
       case "stuck":
-        return { title: "Dot got stuck.", body: "Try again, or do this one yourself. Everything so far is saved.", actions: <>{taskId && primary("Try again", () => onStart(taskId), Boolean(otherLive))}{quiet("I'll do it myself", () => setOwner("student"))}</> };
+        return { title: "Dot got stuck.", body: "Try again, or do this one yourself. Everything so far is saved.", actions: <>{taskId && (otherLive ? next(taskId) : primary("Try again", () => onStart(taskId)))}{quiet("I'll do it myself", () => setOwner("student"))}</> };
       case "yours":
         return { title: "You're doing this one.", body: "Dot won't touch it. Ask it anything about the assignment.", actions: <button className="rd-button" disabled={disabled} onClick={() => setOwner("inky")}>Give it to Dot</button> };
       default:
@@ -414,42 +423,39 @@ export function AssignmentWorkspace({
 
   function detailsPane(): ReactNode {
     const school = assignment.schoolStatus;
+    const late = assignment.latePolicy;
     const mode = task?.permission.mode;
-    const overdue = Date.parse(assignment.dueAt ?? "") < Date.now() && !["handed_in", "handed_in_at_school", "ignored"].includes(state);
+    const done = ["handed_in", "handed_in_at_school", "ignored"].includes(state);
+    const dueMs = Date.parse(assignment.dueAt ?? "");
+    const overdue = dueMs < Date.now() && !done;
     const requirements = (assignment.requirementEvidence ?? []).map((item) => ({ text: tidy(item.text), from: item.evidence.sourceTarget }));
-    const sources = [...new Map([assignment.sourceTarget, ...requirements.map((item) => item.from)].filter((url): url is string => Boolean(url)).map((url) => [url, url])).keys()];
+    const sources = [...new Set([assignment.sourceTarget, ...requirements.map((item) => item.from)].filter((url): url is string => Boolean(url)))];
+    const checked = [school?.evidence.capturedAt, late?.evidence.capturedAt, assignment.deadlineEvidence?.capturedAt].filter((iso): iso is string => Boolean(iso)).sort().at(-1);
+    const day = (iso: string) => new Date(iso).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    const fact = (label: string, main: ReactNode, note?: ReactNode, tone = "") => (
+      <div className={`ag-fact${tone}`}><dt>{label}</dt><dd><b>{main}</b>{note && <span>{note}</span>}</dd></div>
+    );
     return (
       <div className="ag-pad ag-details">
-        <div className="ag-tiles">
-          <div className={`ag-tile${overdue ? " is-late" : ""}`}>
-            <small>Due</small>
-            <b>{Number.isFinite(Date.parse(assignment.dueAt ?? "")) ? new Date(assignment.dueAt!).toLocaleString([], { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : assignment.dueText ?? "Whenever"}</b>
-            <span>{assignment.dueAt ? overdue ? "Past due" : leftText(assignment.dueAt) : "No date given"}</span>
-          </div>
-          <div className="ag-tile">
-            <small>The school says</small>
-            <b>{school?.text ?? "Not checked yet"}</b>
-            {assignment.sourceTarget && <button className="wf-link" onClick={() => choose("site")}>Open the page</button>}
-          </div>
-          <div className="ag-tile">
-            <small>Your rule</small>
-            <b>{mode ? RULE_LABELS[mode] : "No rule yet"}</b>
-            {task && <span>{ruleSource(task.permission.rationale)}</span>}
-            <button className="wf-link" onClick={openRules}>Change</button>
-          </div>
-          <div className="ag-tile is-prose">
-            <small>Late work</small>
-            <b>{assignment.latePolicy?.text ? tidy(assignment.latePolicy.text) : "Not stated"}</b>
-          </div>
-        </div>
+        <dl className="ag-facts">
+          {fact("Due",
+            Number.isFinite(dueMs) ? new Date(dueMs).toLocaleString([], { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : assignment.dueText ?? "No date given",
+            Number.isFinite(dueMs) ? (overdue ? "Past due" : done ? undefined : leftText(assignment.dueAt!)) : undefined, overdue ? " is-late" : "")}
+          {fact("At school",
+            school ? { unknown: "Not sure yet", not_submitted: "Not handed in", submitted: "Handed in", graded: "Graded", locked: "Closed" }[school.state] : "Not checked yet",
+            school && school.text.trim() !== "" && gistOf(school.text) !== gistOf(school.state) ? <>{tidy(school.text)}{assignment.sourceTarget && <> · <button className="wf-link" onClick={() => choose("site")}>Open the page</button></>}</> : assignment.sourceTarget && <button className="wf-link" onClick={() => choose("site")}>Open the page</button>)}
+          {fact("Late work", late ? { accepted: late.until ? `Accepted until ${day(late.until)}` : "Accepted", not_accepted: "Not accepted", unknown: "Not stated" }[late.state] : "Not stated", late?.text ? tidy(late.text) : undefined)}
+          {fact("Your rule", mode ? RULE_LABELS[mode] : "No rule yet", <>{task ? ruleSource(task.permission.rationale).replace(/^\w/, (c) => c.toUpperCase()) : ""} · <button className="wf-link" onClick={openRules}>Change</button></>)}
+        </dl>
 
         <section className="ag-doc">
           <h2>What it asks</h2>
-          <p className="ag-doc-sub">{course}</p>
           {requirements.length ? (
             <ul className="ag-asks-list">{requirements.map((item, index) => <li key={index}>{item.text}</li>)}</ul>
+          ) : assignment.instructions ? (
+            <div className="ag-asks"><ChatMarkdown text={tidy(assignment.instructions)} /></div>
           ) : (
-            <div className="ag-asks"><ChatMarkdown text={assignment.instructions ? tidy(assignment.instructions) : "Dot reads the instructions from the school page when it starts."} /></div>
+            <p className="ag-asks ag-muted">Dot reads the instructions from the school page when it starts.{assignment.sourceTarget && <> <button className="wf-link" onClick={() => choose("site")}>Open the page</button></>}</p>
           )}
           {assignment.missingRequirements?.length ? (
             <div className="ag-unclear">
@@ -459,10 +465,11 @@ export function AssignmentWorkspace({
           ) : null}
           {sources.length > 0 && (
             <div className="ag-sources">
-              <b>Where this comes from</b>
+              <b>From</b>
               {sources.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer"><Icon name={/\.pdf($|\?)/i.test(url) ? "file" : "globe"} size={14} />{sourceName(url)}</a>)}
             </div>
           )}
+          <p className="ag-found">Found {day(assignment.discoveredAt)}{checked && checked !== assignment.discoveredAt ? ` · checked ${day(checked)}` : ""}{assignment.origin === "manual" ? " · added by you" : ""}</p>
         </section>
       </div>
     );
@@ -594,6 +601,8 @@ function useSplit() {
   };
   return { body, width, dragging, onPointerDown, onKeyDown, reset: () => save(DEFAULT_SPLIT) };
 }
+
+const gistOf = (text: string) => text.toLowerCase().replace(/[^a-z]+/g, " ").trim();
 
 /** School text often carries doubled spaces and stuttered words ("If you can't If you can't"). */
 function tidy(text: string): string {

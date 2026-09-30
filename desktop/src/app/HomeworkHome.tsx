@@ -45,7 +45,8 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
   const needs = items.filter(needsYou);
   const working = items.find((item) => item.record.state === "working" || item.record.state === "handing_in");
   const scan = onboarding.scan?.state;
-  const busy = Boolean(working) || scan === "running";
+  // Dot has one page: a run that waits on the student or on review still holds it.
+  const busy = Boolean(lifecycle.manager.lease) || Boolean(working) || scan === "running" || scan === "needs_user";
   const course = (courseId: string) => courseLabel(courseId, onboarding.courses);
   const tone = (courseId: string) => courseTone(course(courseId), onboarding.courses);
   const globalRule = settings?.permissionRules.find((rule) => rule.scope === "global")?.mode ?? "do_not_attempt";
@@ -64,8 +65,9 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
     }
   };
   const act = (item: HomeworkItem) => {
-    const action = homeworkAction(item);
-    if (action.start && item.task && item.task.permission.mayAttempt && !busy) onStart(item.task.task.taskId);
+    const action = homeworkAction(item, busy);
+    const taskId = item.task?.task.taskId;
+    if (action.start && taskId && item.task!.permission.mayAttempt) busy ? void run(() => window.studi!.queueAssignmentNext({ taskId })) : onStart(taskId);
     else onOpen(item.assignment.assignmentId);
   };
 
@@ -76,7 +78,7 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
 
   const row = (item: HomeworkItem, lead = false) => (
     <HomeworkRow key={item.assignment.assignmentId} item={item} course={shortCourse(course(item.assignment.courseId))} tone={tone(item.assignment.courseId)}
-      now={clock} line={homeworkLine(item, busy)} lead={lead} busy={pending}
+      now={clock} line={homeworkLine(item, busy)} action={homeworkAction(item, busy).label} lead={lead} busy={pending}
       onOpen={() => onOpen(item.assignment.assignmentId)} onAct={() => act(item)} onAsk={() => onAsk(item.assignment)} onChange={(operation) => void run(operation)} />
   );
 
@@ -250,8 +252,8 @@ function AllHomework({ items, courses, course, row }: {
   );
 }
 
-function HomeworkRow({ item, course, tone, now, line, lead, busy, onOpen, onAct, onAsk, onChange }: {
-  item: HomeworkItem; course: string; tone: number; now: Date; line: string; lead: boolean; busy: boolean;
+function HomeworkRow({ item, course, tone, now, line, action, lead, busy, onOpen, onAct, onAsk, onChange }: {
+  item: HomeworkItem; course: string; tone: number; now: Date; line: string; action: string; lead: boolean; busy: boolean;
   onOpen: () => void; onAct: () => void; onAsk: () => void; onChange: (operation: () => Promise<unknown>) => void;
 }) {
   const a = item.assignment;
@@ -265,7 +267,7 @@ function HomeworkRow({ item, course, tone, now, line, lead, busy, onOpen, onAct,
           <small>{course} · <span className={late ? "hw-need" : ""}>{dueLine(item, now)}</span> · <span className={needsYou(item) ? "hw-need" : ""}>{line}</span></small>
         </span>
       </button>
-      <button className={`rd-button ${lead ? "rd-primary" : ""}`} disabled={busy} onClick={onAct}>{homeworkAction(item).label}</button>
+      <button className={`rd-button ${lead ? "rd-primary" : ""}`} disabled={busy} onClick={onAct}>{action}</button>
       <HomeworkMenu assignment={a} done={isDone(item)} busy={busy} onAsk={onAsk} onChange={onChange} />
     </article>
   );

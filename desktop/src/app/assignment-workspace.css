@@ -618,58 +618,70 @@
 .ag-details {
   max-width: 760px;
 }
-.ag-tiles {
+.ag-facts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 18px 28px;
-  padding-bottom: 20px;
+  margin: 0;
+  padding: 0;
+}
+.ag-fact {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 16px;
+  padding: 11px 0;
   border-bottom: 1px solid var(--rule);
 }
-.ag-tile {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
+.ag-fact:first-child {
+  padding-top: 0;
 }
-.ag-tile small {
-  font-size: 12px;
+.ag-fact dt {
+  padding-top: 2px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--graphite);
 }
-.ag-tile b {
+.ag-fact dd {
+  display: grid;
+  gap: 2px;
+  margin: 0;
+  min-width: 0;
+}
+.ag-fact b {
   font-size: 15px;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.4;
   color: var(--pencil);
   text-wrap: pretty;
   font-variant-numeric: tabular-nums;
 }
-.ag-tile span {
-  font-size: 13px;
+.ag-fact span {
+  font-size: 13.5px;
+  line-height: 1.5;
   color: var(--graphite);
+  text-wrap: pretty;
 }
-.ag-tile span::first-letter {
-  text-transform: uppercase;
-}
-.ag-tile .wf-link {
-  align-self: flex-start;
+.ag-fact .wf-link {
   margin: 0;
   padding: 0;
-  font-size: 13px;
+  font-size: inherit;
+  font-weight: 600;
   text-decoration: underline;
+  text-decoration-color: var(--rule);
   text-underline-offset: 3px;
 }
-.ag-tile.is-prose b {
-  font-size: 14px;
-  font-weight: 600;
-  color: #4b433a;
+.ag-fact .wf-link:hover {
+  text-decoration-color: currentColor;
 }
-.ag-tile.is-late b,
-.ag-tile.is-late span {
+.ag-fact.is-late b,
+.ag-fact.is-late span {
   color: var(--redpen);
 }
+.ag-found {
+  margin: 22px 0 0;
+  font-size: 12.5px;
+  color: var(--graphite);
+}
 .ag-doc {
-  padding-top: 22px;
+  padding-top: 26px;
 }
 .ag-doc h2 {
   margin: 0;
@@ -678,10 +690,8 @@
   letter-spacing: -0.01em;
   text-wrap: balance;
 }
-.ag-doc-sub {
-  margin: 2px 0 14px;
-  font-size: 13.5px;
-  color: var(--graphite);
+.ag-doc h2 {
+  margin-bottom: 12px;
 }
 .ag-asks-list {
   display: grid;

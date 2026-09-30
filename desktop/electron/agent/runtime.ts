@@ -746,11 +746,16 @@ export class PiEventNormalizer {
     this.#hasTerminalEvent = false;
     this.#hasAbortEvent = false;
     this.#toolStartedAt.clear();
+    this.#spoke = false;
+    this.#paragraphDue = false;
   }
 
   reset(): void {
     this.beginRun();
   }
+
+  #spoke = false;
+  #paragraphDue = false;
 
   accept(event: AgentSessionEvent): AgentRunEvent[] {
     switch (event.type) {
@@ -759,16 +764,15 @@ export class PiEventNormalizer {
         return [];
       case "message_update":
         if (event.assistantMessageEvent.type === "text_delta") {
-          return [
-            this.#parse({
-              schemaVersion: STUDI_SCHEMA_VERSION,
-              type: "text",
-              delta: event.assistantMessageEvent.delta,
-            }),
-          ];
+          // Each assistant message is its own paragraph, so two in a row never run together.
+          const delta = (this.#paragraphDue ? "\n\n" : "") + event.assistantMessageEvent.delta;
+          this.#paragraphDue = false;
+          this.#spoke = true;
+          return [this.#parse({ schemaVersion: STUDI_SCHEMA_VERSION, type: "text", delta })];
         }
         return [];
       case "message_end": {
+        this.#paragraphDue = this.#spoke;
         this.#usage = addUsage(this.#usage, readMessageUsage(event.message));
         const stopReason = readAssistantStopReason(event.message);
         if (stopReason) {

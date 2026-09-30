@@ -47,7 +47,7 @@ export function homeworkLine(item: HomeworkItem, busy: boolean): string {
     case "not_started": return "Starts when you ask";
     case "left_to_you": return "Left to you by your rule";
     case "scheduled":
-      if (entry?.startRequestedAt) return busy ? "Dot starts next" : "Starting now";
+      if (entry?.startRequestedAt) return busy ? "Next, when Dot is free" : "Starting now";
       if (entry?.scheduledStartAt) return `Dot starts ${time.format(new Date(entry.scheduledStartAt))}`;
       return busy ? "Dot starts after this one" : "Waiting its turn";
     case "working": return "Dot is on it";
@@ -66,11 +66,13 @@ export function homeworkLine(item: HomeworkItem, busy: boolean): string {
 export type HomeworkAction = { readonly label: string; readonly start: boolean };
 
 /** The button on a row, named for the next step. Start buttons start; everything else opens the assignment. */
-export function homeworkAction(item: HomeworkItem): HomeworkAction {
+export function homeworkAction(item: HomeworkItem, busy = false): HomeworkAction {
   const { record } = item;
+  // While Dot has the page, starting means going next.
+  if (busy && ["not_started", "stopped"].includes(record.state)) return { label: "Do this next", start: true };
   switch (record.state) {
     case "not_started": return { label: "Start", start: true };
-    case "scheduled": return { label: "Start now", start: true };
+    case "scheduled": return busy ? { label: "Open", start: false } : { label: "Start now", start: true };
     case "stopped": return { label: "Carry on", start: true };
     case "working": case "handing_in": return { label: "Watch", start: false };
     case "waiting": return { label: { sign_in: "Sign in", answer: "Answer", files: "Add file", browser: "Continue" }[record.needs ?? "browser"], start: false };

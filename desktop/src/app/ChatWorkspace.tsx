@@ -1,4 +1,5 @@
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
+import { plainError } from "./homeworkText.js";
 import { onEngineChange } from "./engineChanges.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
@@ -106,7 +107,9 @@ export function ChatWorkspace(props: ChatProps) {
   );
   const [chat, setChat] = useState<ConversationState | null>(null);
   const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setErrorText] = useState("");
+  const setError = (cause: unknown) => setErrorText(plainError(cause));
+  const actionError = plainError(props.actionError ?? "");
   const [browser, setBrowser] = useState(
     Boolean(assignment || props.schoolCheck),
   );
@@ -721,7 +724,7 @@ export function ChatWorkspace(props: ChatProps) {
         onOpenContext={props.onOpenContext}
         composer={composer}
         onClose={() => onView("home")}
-        error={error || props.actionError}
+        error={error || actionError}
         assignments={onboarding.assignments}
         suggestions={suggestions}
         onSuggest={suggest}
@@ -739,9 +742,9 @@ export function ChatWorkspace(props: ChatProps) {
         thinking={active}
         composer={composer}
         error={
-          (error || props.actionError) && (
+          (error || actionError) && (
             <p className="chat-error" role="alert">
-              {error || props.actionError}
+              {error || actionError}
             </p>
           )
         }
@@ -801,9 +804,9 @@ export function ChatWorkspace(props: ChatProps) {
                 )}
               </div>
             </header>
-            {(error || props.actionError) && (
+            {(error || actionError) && (
               <p className="chat-error assignment-action-error" role="alert">
-                {error || props.actionError}
+                {error || actionError}
               </p>
             )}
             {conversation}
