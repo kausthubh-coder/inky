@@ -8,8 +8,8 @@ export async function verifyQueueNext(page, base) {
     queue: (await window.studi.getManagerState()).entries,
   }));
   assert.equal(before.queue.some(entry => entry.assignmentId === "assignment-hw3"), false);
-  await page.getByRole("button", { name: "Do this next", exact: true }).click();
-  await page.getByText("Dot starts next", { exact: true }).waitFor();
+  await page.getByLabel("Your move").getByRole("button", { name: "Do this next", exact: true }).click();
+  await page.getByText("Dot does this next.", { exact: true }).waitFor();
   const after = await page.evaluate(async () => ({
     execution: (await window.studi.getLifecycleState()).execution,
     queue: (await window.studi.getManagerState()).entries,

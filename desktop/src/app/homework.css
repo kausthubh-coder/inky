@@ -560,14 +560,11 @@
 .hw-dock-empty .ag-tips {
   margin: 0 0 0 32px;
 }
-.hw-dock .rd-composer.inky-composer {
+.hw-dock .rd-composer.inky-composer,
+.hw-dock .rd-composer.inky-composer:focus-within {
   flex: none;
-  max-width: none;
-  margin: 0;
-  padding-left: 16px;
-  border: 0;
-  border-top: 1px solid var(--rule);
   border-radius: 0 0 18px 18px;
+  box-shadow: none;
 }
 .workspace-dialog .hw-dock {
   position: static;
@@ -585,102 +582,3 @@
   .hw-dock { animation: none; }
 }
 
-/* The chat box, everywhere: one line that grows, a round send button that turns yellow when there's
-   something to send, and a dark Stop only while Dot is actually doing something. */
-form.rd-composer.inky-composer {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 0;
-  padding: 9px 9px 9px 16px;
-  border: 1px solid #d9cfbe;
-  border-radius: 14px;
-  background: var(--page);
-  box-shadow: 0 1px 0 rgb(43 38 33 / 4%), 0 10px 26px -18px rgb(43 38 33 / 40%);
-  transition: border-color 0.15s ease-out, box-shadow 0.15s ease-out;
-}
-form.rd-composer.inky-composer:focus-within {
-  border-color: var(--pencil);
-  box-shadow: 0 0 0 3px rgb(246 201 69 / 35%), 0 10px 26px -18px rgb(43 38 33 / 40%);
-}
-form.rd-composer.inky-composer .inky-composer-line {
-  display: flex;
-  align-items: flex-end;
-  gap: 10px;
-}
-form.rd-composer.inky-composer textarea {
-  flex: 1;
-  min-height: 34px;
-  padding: 5px 0;
-  border: 0;
-  outline: 0;
-  resize: none;
-  background: none;
-  font: 400 15px/24px "Nunito Sans", sans-serif;
-  color: var(--pencil);
-}
-form.rd-composer.inky-composer textarea::placeholder {
-  color: #9a9084;
-}
-form.rd-composer.inky-composer .chat-send {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 34px;
-  height: 34px;
-  min-width: 34px;
-  min-height: 34px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--highlighter);
-  color: var(--pencil);
-  box-shadow: none;
-  cursor: pointer;
-  transition: background-color 0.15s ease-out, transform 0.1s ease-out;
-}
-form.rd-composer.inky-composer .chat-send:disabled {
-  background: var(--blotter);
-  color: #b3a99c;
-  cursor: default;
-}
-form.rd-composer.inky-composer .chat-send[aria-label^="Stop"] {
-  background: var(--pencil);
-  color: var(--page);
-}
-form.rd-composer.inky-composer .chat-send:active:not(:disabled) {
-  transform: scale(0.94);
-}
-
-/* The toolbar under the text: extras on the left, send or stop on the right. */
-form.rd-composer.inky-composer .rd-composer-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin: 2px -3px -3px -6px;
-}
-.rd-composer-tool {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 30px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  color: var(--graphite);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.rd-composer-tool:hover:not(:disabled) {
-  background: var(--blotter);
-  color: var(--pencil);
-}
-.rd-composer-hint {
-  padding-left: 6px;
-  font-size: 12.5px;
-  color: #a39a8e;
-}

@@ -217,6 +217,28 @@
 .wf-line:hover {
   background: rgb(246 201 69 / 10%);
 }
+.wf-pdf {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  background: #ece7dd;
+}
+.wf-image {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 20px;
+  background: #ece7dd;
+  text-align: center;
+}
+.wf-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
 .wf-doc {
   flex: 1;
   min-height: 0;

@@ -126,13 +126,13 @@
   transition: box-shadow 0.15s ease-out;
 }
 .ag-dock-card:focus-within {
-  box-shadow: 0 0 0 1.5px var(--pencil), 0 0 0 4px rgb(246 201 69 / 30%), 0 16px 36px -18px rgb(43 38 33 / 45%);
+  box-shadow: 0 0 0 1.5px var(--pencil), 0 16px 36px -18px rgb(43 38 33 / 45%);
 }
 .ag-dock-card .ag-move {
   max-height: 46vh;
   overflow-y: auto;
   margin: 0;
-  padding: 14px 16px 14px;
+  padding: 14px 16px 16px;
   border-radius: 0;
   background: none;
   box-shadow: none;
@@ -899,22 +899,35 @@
 .ag-summary-actions .wf-link {
   margin-left: 0;
 }
+/* "6 of 6 requirements met": a plain line with a tick, opening the list. */
 .ag-req-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 28px;
-  padding: 0 10px;
+  padding: 0 6px 0 0;
   border: 0;
-  border-radius: 999px;
-  background: #e5f2ea;
-  color: #2e7d4f;
-  font-size: 12.5px;
+  background: none;
+  color: var(--pencil);
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
 }
-.ag-req-chip[aria-expanded="true"] {
-  box-shadow: 0 0 0 1.5px #2e7d4f;
+.ag-req-chip svg {
+  color: #2e7d4f;
+}
+.ag-req-chip::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-left: 2px;
+  border: solid var(--graphite);
+  border-width: 0 1.5px 1.5px 0;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.15s ease-out;
+}
+.ag-req-chip[aria-expanded="true"]::after {
+  transform: translateY(1px) rotate(225deg);
 }
 .ag-req-list {
   max-height: 30vh;

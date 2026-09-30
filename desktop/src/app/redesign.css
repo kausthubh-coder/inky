@@ -451,18 +451,6 @@ h2 {
 .rd-stage-page[hidden] {
   display: none;
 }
-.rd-composer.inky-composer {
-  position: relative;
-  margin: 12px auto 0;
-  padding: 8px 10px 9px 45px;
-  width: 100%;
-  max-width: 720px;
-  min-height: 58px;
-  background: var(--page);
-  border: 1px solid #d3cab9;
-  border-radius: 16px;
-  box-shadow: 0 2px 0 #2b26210b;
-}
 .rd-composer .composer-mascot {
   position: absolute;
   left: 10px;
@@ -481,18 +469,6 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-.rd-composer textarea {
-  font:
-    400 15px/26px "Nunito Sans",
-    sans-serif;
-  min-height: 26px;
-  background: none;
-}
-.rd-composer .chat-send {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
 }
 .chat-view-home {
   padding: 0 16px 20px;
@@ -952,24 +928,8 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   max-width: none;
   margin: 0;
 }
-.rd-composer.inky-composer .inky-composer-line {
-  gap: 8px;
-}
-.rd-composer.inky-composer textarea {
-  padding: 0;
-}
-.rd-composer.inky-composer .chat-send {
-  flex: none;
-}
 .chat-view-home .rd-composer.inky-composer .rd-composer-context {
   display: none;
-}
-.rd-composer.inky-composer {
-  min-height: 52px;
-  border: 1.5px solid var(--pencil);
-  padding-top: 10px;
-  padding-bottom: 10px;
-  box-shadow: none;
 }
 .rd-composer.inky-composer .composer-mascot {
   top: 11px;

@@ -12,6 +12,11 @@ type FileEntry = { path: string; kind: "file" | "directory"; size: number; modif
 const TEXT = /\.(txt|md|csv|tsv|json|js|jsx|ts|tsx|py|java|c|cc|cpp|h|hpp|cs|go|rs|rb|php|css|html|xml|yaml|yml|tex|sql|r|m|sh|ps1|log|makefile)$/i;
 const CODE = /\.(js|jsx|ts|tsx|py|java|c|cc|cpp|h|hpp|cs|go|rs|rb|php|sh|ps1|sql|r|m)$/i;
 const BINARY = /\.(exe|o|obj|out|class|pyc|dll|so|dylib)$/i;
+const PDF = /\.pdf$/i;
+const IMAGE = /\.(png|jpe?g|gif|webp|svg|bmp)$/i;
+
+/** Where the app can load a file from the assignment's folder (see the engine's studi-file protocol). */
+const fileUrl = (assignmentId: string, path: string) => `studi-file://${assignmentId}/${path.split("/").map(encodeURIComponent).join("/")}`;
 
 function fileSize(size: number) {
   return size < 1000 ? `${size} B` : size < 1_000_000 ? `${Math.ceil(size / 1000)} KB` : `${(size / 1_000_000).toFixed(1)} MB`;
@@ -83,7 +88,7 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
     setOpened(file);
     setContent(null);
     setError("");
-    if (!TEXT.test(file.path) && !/^makefile$/i.test(file.path.split("/").pop() ?? "") || file.size > 250_000) return;
+    if (PDF.test(file.path) || IMAGE.test(file.path) || !TEXT.test(file.path) && !/^makefile$/i.test(file.path.split("/").pop() ?? "") || file.size > 250_000) return;
     setReading(true);
     try {
       const result = await window.studi?.readAssignmentFile({ assignmentId, path: file.path });
@@ -186,13 +191,15 @@ export function HomeworkFiles({ assignmentId, active, onCount, commandOutputs = 
                 <button className="wf-link" onClick={() => reveal(opened.path)}>Show in folder</button>
               </header>
               {reading ? <p className="wf-muted wf-pad">Opening…</p>
+                : PDF.test(opened.path) && window.studi ? <iframe className="wf-pdf" title={opened.path} src={`${fileUrl(assignmentId, opened.path)}#toolbar=0&view=FitH`} />
+                : IMAGE.test(opened.path) && window.studi ? <div className="wf-image"><img src={fileUrl(assignmentId, opened.path)} alt={opened.path} /></div>
                 : content !== null ? (/\.md$/i.test(opened.path)
                   ? <article className="wf-doc" aria-label="File preview"><ChatMarkdown text={content} /></article>
                   : <pre className="wf-code" aria-label="File preview">{lines.map((line, index) => <span key={index} className="wf-line"><i>{index + 1}</i>{line || " "}</span>)}</pre>)
                 : !error && (
                   <div className="wf-empty">
                     <Icon name={iconFor(opened.path).icon} size={28} />
-                    <p>{opened.size > 250_000 ? "Too large to preview here." : BINARY.test(opened.path) ? "A program Dot built. It runs, it doesn't read." : "This file opens in its own app."}</p>
+                    <p>{opened.size > 250_000 ? "Too large to open here." : BINARY.test(opened.path) ? "A program Dot built. It runs, it doesn't read." : PDF.test(opened.path) || IMAGE.test(opened.path) ? "Opens here in Studi." : "This file opens in its own app."}</p>
                     <button className="rd-button" onClick={() => reveal(opened.path)}>Show in folder</button>
                   </div>
                 )}

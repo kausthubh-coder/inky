@@ -1,3 +1,4 @@
+import "./composer.css";
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Exam } from "../../shared/learn.js";

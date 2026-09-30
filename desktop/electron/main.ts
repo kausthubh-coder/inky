@@ -1,5 +1,6 @@
 import { windowChromeOptions } from "./window-chrome.js";
 import { configureAppNavigation } from "./app-navigation.js";
+import { registerFileSchemePrivileges, serveAssignmentFiles } from "./files/file-protocol.js";
 import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
@@ -2801,11 +2802,13 @@ function configureStartupProfile(): boolean {
 }
 
 if (canStart) {
+  registerFileSchemePrivileges();
   void app.whenReady().then(async () => {
     try {
       app.setAppUserModelId("com.squirrel.studi.Studi");
       Menu.setApplicationMenu(null);
       registerDesktopConnectProtocol();
+      serveAssignmentFiles((assignmentId, path) => requireAssignmentExecutionCoordinator().revealAssignmentFile(assignmentId, path));
       initializeTelemetry();
       await initializeStorage();
       await initializeAgentSelfTest();

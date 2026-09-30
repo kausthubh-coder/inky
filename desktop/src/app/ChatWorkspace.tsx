@@ -1,3 +1,4 @@
+import "./composer.css";
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
 import { plainError } from "./homeworkText.js";
 import { onEngineChange } from "./engineChanges.js";
@@ -664,7 +665,13 @@ export function ChatWorkspace(props: ChatProps) {
               <Icon name="folder" size={15} /> {addingFiles ? "Adding…" : "Add files"}
             </button>
           ) : school ? <span /> : (
-            <span className="rd-composer-hint">Type @ to ask about an assignment</span>
+            <button type="button" className="rd-composer-tool" title="Type @ to pick an assignment" onClick={() => {
+              const text = draft.text.trimEnd();
+              saveDraft({ ...draft, text: `${text}${text ? " " : ""}@` });
+              setQuery("");
+              setOption(0);
+              input.current?.focus();
+            }}><Icon name="list" size={15} /> Ask about an assignment</button>
           )}
           <button
             className="chat-send"
