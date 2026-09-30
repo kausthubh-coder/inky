@@ -48,7 +48,7 @@ export async function runFoundationSuite(options: {
     check("home gets queue and note search", home.toolNames?.includes("queue_inspect") && home.toolNames.includes("note_search")),
     check("assignment talk has no browser", !assignmentTalk.toolNames?.some((name) => name.startsWith("browser_"))),
     check("assignment work gets browser but not submit", assignmentWork.toolNames?.includes("browser_snapshot") && !assignmentWork.toolNames.includes("browser_submit")),
-    check("scan gets recording tools", scanWork.toolNames?.includes("scan_record_assignment") && scanWork.toolNames.includes("browser_snapshot")),
+    check("scan gets row recording and browser tools", scanWork.toolNames?.includes("scan_record_rows") && scanWork.toolNames.includes("browser_snapshot")),
     check("tutor is refused with zero tools", !tutor.ok && tutor.toolNames?.length === 0),
     check("restart restores all logical jobs", host.snapshot().jobs.length === 4),
     check("trace sequences are monotonic", host.traceEvents().every((event, index) => event.sequence === index)),

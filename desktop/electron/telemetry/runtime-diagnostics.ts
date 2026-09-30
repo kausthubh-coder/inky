@@ -15,7 +15,9 @@ export class RuntimeDiagnostics {
   #runId = randomUUID();
   #request: { startedAt: number; spanId: string; model: string; provider: string; input: unknown } | null = null;
   #firstTokenAt: number | null = null;
-  constructor(readonly sessionId: string, readonly report: (event: RuntimeDiagnostic) => void) {}
+  readonly #toolStartedAt = new Map<string, number>();
+  constructor(readonly sessionId: string, readonly report: (event: RuntimeDiagnostic) => void,
+    readonly context: { purpose: string; assignmentId?: string } = { purpose: "session" }) {}
 
   record(kind: string, payload: unknown): void {
     try {
@@ -46,6 +48,8 @@ export class RuntimeDiagnostics {
       });
       this.#request = null;
     }
+    if (event.type === "tool_execution_start") this.#toolStartedAt.set(event.toolCallId, Date.now());
+    if (event.type === "tool_execution_end") this.#step(event);
     if (["message_update", "message_start", "tool_execution_update"].includes(event.type)) return;
     // agent_end/turn_end repeat complete conversation history already emitted as message_end.
     if (event.type === "agent_end" || event.type === "turn_end") {
@@ -53,6 +57,24 @@ export class RuntimeDiagnostics {
     } else {
       this.record(event.type, event);
     }
+  }
+
+  // A compact record of one tool call; the full event is still reported below.
+  #step(event: Extract<AgentSessionEvent, { type: "tool_execution_end" }>): void {
+    const startedAt = this.#toolStartedAt.get(event.toolCallId);
+    this.#toolStartedAt.delete(event.toolCallId);
+    const details = event.result && typeof event.result === "object" ? (event.result as { details?: Record<string, unknown> }).details : undefined;
+    const text = (value: unknown, max: number) => typeof value === "string" && value ? value.slice(0, max) : undefined;
+    const error = event.isError ? text((event.result as { content?: { text?: string }[] })?.content?.[0]?.text, 2_000) : undefined;
+    this.record("step", {
+      purpose: this.context.purpose, session_id: this.sessionId,
+      ...(this.context.assignmentId ? { assignment_id: this.context.assignmentId } : {}),
+      tool: event.toolName, outcome: event.isError ? "failed" : "succeeded",
+      ...(startedAt === undefined ? {} : { duration_ms: Math.max(0, Date.now() - startedAt) }),
+      ...(text(details?.url, 2_000) ? { url: text(details?.url, 2_000) } : {}),
+      ...(text(details?.title, 500) ? { page_title: text(details?.title, 500) } : {}),
+      ...(error ? { error } : {}),
+    });
   }
 
   providerRequest(model: string, provider: string, payload: unknown): void {

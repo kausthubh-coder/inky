@@ -17,6 +17,38 @@ import {
 } from "../../dist/shared/index.js";
 
 const execFileAsync = promisify(execFile);
+const redesignMethods = {
+  getConversationTimeline: 'studi:conversation-timeline',
+  listMemories: 'studi:memory-list',
+  readMemory: 'studi:memory-read',
+  createMemory: "studi:memory-create", updateMemory: 'studi:memory-update',
+  deleteMemory: 'studi:memory-delete',
+  getLearnState: 'studi:learn-state',
+  importLearnSource: 'studi:learn-source-import',
+  importLearnFile: 'studi:learn-file-import',
+  setLearnExam: 'studi:learn-exam-set',
+  removeLearnGoal: 'studi:learn-goal-remove',
+  addLearnTopic: 'studi:learn-topic-add',
+  removeLearnTopic: 'studi:learn-topic-remove',
+  findLearnSyllabus: 'studi:learn-syllabus-find',
+  retryLearnSource: 'studi:learn-source-retry',
+  getTutorSession: 'studi:tutor-session',
+  startTutorSession: 'studi:tutor-start',
+  answerTutorBlock: 'studi:tutor-answer',
+  hintTutorBlock: 'studi:tutor-hint',
+  saveTutorDraft: 'studi:tutor-draft',
+  sendTutorMessage: 'studi:tutor-message',
+  pauseTutorSession: 'studi:tutor-pause',
+  resumeTutorSession: 'studi:tutor-resume',
+  cancelTutorSession: 'studi:tutor-cancel',
+  submitReviewedAssignment: 'studi:assignment-submit-reviewed',
+  watchHandIn: 'studi:assignment-watch-hand-in',
+  correctAssignment: 'studi:assignment-correct',
+  addAssignment: 'studi:assignment-add',
+  setAssignmentOwner: 'studi:assignment-owner',
+  reorderQueue: 'studi:queue-reorder',
+  queueAssignmentNext: 'studi:assignment-queue-next',
+};
 
 test("optional scan intent supports the existing no-argument call and validates assignment scope", async () => {
   const received = [];
@@ -40,6 +72,24 @@ function composeIpc(registry, handlers, calls) {
     return registration.handle(request);
   });
 }
+
+test("opening an assignment file requires its assignment and path before invoking the handler", async () => {
+  const opened = [];
+  const api = composeIpc({ openAssignmentFile: studiIpcRegistry.openAssignmentFile }, {
+    openAssignmentFile: input => { opened.push(input); return true; },
+  }, []);
+  await assert.rejects(api.openAssignmentFile({ assignmentId: "assignment-1" }), z.ZodError);
+  await assert.rejects(api.openAssignmentFile({ assignmentId: "", path: "report.docx" }), z.ZodError);
+  await assert.rejects(api.openAssignmentFile({ assignmentId: "assignment-1", path: "" }), z.ZodError);
+  await assert.rejects(api.openAssignmentFile({ assignmentId: "assignment-1", path: "report.docx", absolutePath: "other" }), z.ZodError);
+  for (const path of ["sort.exe", "run.bat", "setup.ps1", "REPORT.DOCX.exe", "scripts/RUN.PS1"]) {
+    await assert.rejects(api.openAssignmentFile({ assignmentId: "assignment-1", path }), z.ZodError);
+  }
+  assert.deepEqual(opened, []);
+  const input = { assignmentId: "assignment-1", path: "materials/report.docx" };
+  assert.equal(await api.openAssignmentFile(input), true);
+  assert.deepEqual(opened, [input]);
+});
 
 test("composed IPC validates and forwards request-bearing and void methods", async () => {
   const calls = [];
@@ -243,12 +293,15 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "readAssignmentFile",
     "importAssignmentFiles",
     "openAssignmentFolder",
+    "openAssignmentFile",
     "selectBrowserPage",
     "getScopedConversation",
     "stopScopedConversation",
     "sendScanMessage",
     "pauseSchoolScan",
+    "finishSchoolScan",
     "getConversationState",
+    ...Object.keys(redesignMethods),
     "stopConversation",
     "getNotifications",
     "readNotification",
@@ -265,8 +318,10 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
     "refreshConnectedApp",
     "getWorkspaceState",
     "navigateBrowser",
-    "loginOpenAiCodex",
-    "cancelOpenAiCodexLogin",
+    "loginProvider",
+    "completeProviderLogin",
+    "cancelProviderLogin",
+    "logoutProvider",
     "selectAgentModel",
     "getManagerState",
     "send",
@@ -314,12 +369,15 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       readAssignmentFile: "studi:assignment-file",
       importAssignmentFiles: "studi:assignment-files-import",
       openAssignmentFolder: "studi:assignment-folder",
+      openAssignmentFile: "studi:assignment-file-open",
       selectBrowserPage: "studi:browser-page",
       getScopedConversation: "studi:scoped-conversation",
       stopScopedConversation: "studi:scoped-conversation-stop",
       sendScanMessage: "studi:scan-message",
       pauseSchoolScan: "studi:scan-pause",
+      finishSchoolScan: "studi:scan-finish-found",
       getConversationState: "studi:conversation-state",
+      ...redesignMethods,
       stopConversation: "studi:conversation-stop",
       getNotifications: "studi:notifications",
       readNotification: "studi:notification-read",
@@ -336,8 +394,10 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       refreshConnectedApp: "studi:refresh-connected-app",
       getWorkspaceState: "studi:workspace-state",
       navigateBrowser: "studi:navigate-browser",
-      loginOpenAiCodex: "studi:login-openai-codex",
-      cancelOpenAiCodexLogin: "studi:cancel-openai-codex-login",
+      loginProvider: "studi:login-provider",
+      completeProviderLogin: "studi:complete-provider-login",
+      cancelProviderLogin: "studi:cancel-provider-login",
+      logoutProvider: "studi:logout-provider",
       selectAgentModel: "studi:select-agent-model",
       getManagerState: "studi:manager-state",
       send: "studi:send",
@@ -378,7 +438,7 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
   );
   assert.deepEqual(CONTRACT_MANIFEST, {
     schemaVersion: 1,
-    contractVersion: "18",
+    contractVersion: "19",
     ipcMethods: [
       { method: "getUpdateState", channel: "studi:update-state" },
       { method: "checkForUpdates", channel: "studi:update-check" },
@@ -387,12 +447,15 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       {method:"readAssignmentFile",channel:"studi:assignment-file"},
       {method:"importAssignmentFiles",channel:"studi:assignment-files-import"},
       {method:"openAssignmentFolder",channel:"studi:assignment-folder"},
+      {method:"openAssignmentFile",channel:"studi:assignment-file-open"},
       {method:"selectBrowserPage",channel:"studi:browser-page"},
       {method:"getScopedConversation",channel:"studi:scoped-conversation"},
       {method:"stopScopedConversation",channel:"studi:scoped-conversation-stop"},
       {method:"sendScanMessage",channel:"studi:scan-message"},
       {method:"pauseSchoolScan",channel:"studi:scan-pause"},
+      {method:"finishSchoolScan",channel:"studi:scan-finish-found"},
       { method: "getConversationState", channel: "studi:conversation-state" },
+      ...Object.entries(redesignMethods).map(([method, channel]) => ({ method, channel })),
       { method: "stopConversation", channel: "studi:conversation-stop" },
       { method: "getNotifications", channel: "studi:notifications" },
       { method: "readNotification", channel: "studi:notification-read" },
@@ -409,8 +472,10 @@ test("IPC registry snapshot contains the fixed desktop workspace channels", () =
       { method: "refreshConnectedApp", channel: "studi:refresh-connected-app" },
       { method: "getWorkspaceState", channel: "studi:workspace-state" },
       { method: "navigateBrowser", channel: "studi:navigate-browser" },
-      { method: "loginOpenAiCodex", channel: "studi:login-openai-codex" },
-      { method: "cancelOpenAiCodexLogin", channel: "studi:cancel-openai-codex-login" },
+      { method: "loginProvider", channel: "studi:login-provider" },
+      { method: "completeProviderLogin", channel: "studi:complete-provider-login" },
+      { method: "cancelProviderLogin", channel: "studi:cancel-provider-login" },
+      { method: "logoutProvider", channel: "studi:logout-provider" },
       { method: "selectAgentModel", channel: "studi:select-agent-model" },
       { method: "getManagerState", channel: "studi:manager-state" },
       { method: "send", channel: "studi:send" },
@@ -461,8 +526,7 @@ test("IPC request and result schemas reject malformed values", () => {
     "retryEntitlement",
     "getUsageState",
     "getWorkspaceState",
-    "loginOpenAiCodex",
-    "cancelOpenAiCodexLogin",
+    "cancelProviderLogin",
     "getManagerState",
     "getSchoolOnboardingState",
     "startSchoolScan",
@@ -481,9 +545,15 @@ test("IPC request and result schemas reject malformed values", () => {
   assert.equal(studiIpcRegistry.navigateBrowser.requestSchema.safeParse({ url: "" }).success, false);
   assert.equal(studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "" }).success, false);
   assert.equal(studiIpcRegistry.submitFeedback.requestSchema.safeParse({ message: "A".repeat(1_001) }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol" }).success, false);
-  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, true);
+  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "openai-codex", modelId: "" }).success, false);
+  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, false);
+  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "cursor", modelId: "gpt-5.6-sol", reasoningEffort: "high" }).success, false);
+  assert.equal(studiIpcRegistry.selectAgentModel.requestSchema.safeParse({ providerId: "anthropic", modelId: "claude-fable-5-1", reasoningEffort: "high" }).success, true);
+  assert.equal(studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "openai" }).success, false);
+  assert.equal(studiIpcRegistry.loginProvider.requestSchema.safeParse({ providerId: "anthropic" }).success, true);
+  assert.equal(studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({ providerId: "anthropic", code: "  " }).success, false);
+  assert.equal(studiIpcRegistry.completeProviderLogin.requestSchema.safeParse({ providerId: "anthropic", code: "abc#state" }).success, true);
+  assert.equal(studiIpcRegistry.logoutProvider.requestSchema.safeParse({ providerId: "openai-codex" }).success, true);
   assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "handoff" }).success, true);
   assert.equal(studiIpcRegistry.testNotification.requestSchema.safeParse({ kind: "toast" }).success, false);
   assert.equal(studiIpcRegistry.saveNotificationPreferences.requestSchema.safeParse({ enabled: true }).success, false);

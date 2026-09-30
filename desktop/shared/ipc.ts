@@ -1,7 +1,17 @@
 import { z } from "zod";
+import { OPENABLE_FILE } from "./assignment-files.js";
+import { OpaqueIdSchema } from './ids.js';
+import { NoteDocumentSchema, NoteSegmentSchema } from './note.js';
+import { MemoryCreateInputSchema, MemoryListSchema, MemoryReadSchema, MemoryUpdateInputSchema, MemoryDeleteInputSchema, MemoryDeleteResultSchema } from './memory.js';
+import { LearnStateSchema } from './learn-state.js';
+import { LearnExamInputSchema } from './learn.js';
+import { TutorStartInputSchema, TutorBlockAnswerSchema, PublicTutorSessionSchema } from './tutor.js';
 import { UpdateStateSchema } from './updates.js';
+import { ConversationTimelineInputSchema, ConversationTimelineSchema } from './conversation-timeline.js';
+import { AddAssignmentInputSchema, CorrectAssignmentInputSchema, ReorderQueueInputSchema, SetAssignmentOwnerInputSchema } from './homework.js';
 
 import { AgentReasoningEffortSchema } from "./agent-runtime.js";
+import { AgentProviderIdSchema } from "./providers.js";
 import { SchemaVersionSchema, STUDI_SCHEMA_VERSION } from "./schema-version.js";
 import { AuthStateSchema, FeedbackReceiptSchema } from "./auth.js";
 import { UsageStateSchema } from "./usage.js";
@@ -17,6 +27,7 @@ import {
   SelectedConversationSchema,
 } from "./agent-job.js";
 import { LifecycleStateSchema, NotificationIntentSchema, type NotificationIntent } from "./lifecycle.js";
+import type { EngineTopic } from "./product.js";
 import { ArtifactDocumentSchema } from "./artifact.js";
 import {
   BrowserLayoutModeSchema,
@@ -69,10 +80,14 @@ const workspaceStateMethod = "getWorkspaceState" as const;
 const workspaceStateChannel = "studi:workspace-state" as const;
 const navigateBrowserMethod = "navigateBrowser" as const;
 const navigateBrowserChannel = "studi:navigate-browser" as const;
-const loginOpenAiCodexMethod = "loginOpenAiCodex" as const;
-const loginOpenAiCodexChannel = "studi:login-openai-codex" as const;
-const cancelOpenAiCodexLoginMethod = "cancelOpenAiCodexLogin" as const;
-const cancelOpenAiCodexLoginChannel = "studi:cancel-openai-codex-login" as const;
+const loginProviderMethod = "loginProvider" as const;
+const loginProviderChannel = "studi:login-provider" as const;
+const completeProviderLoginMethod = "completeProviderLogin" as const;
+const completeProviderLoginChannel = "studi:complete-provider-login" as const;
+const cancelProviderLoginMethod = "cancelProviderLogin" as const;
+const cancelProviderLoginChannel = "studi:cancel-provider-login" as const;
+const logoutProviderMethod = "logoutProvider" as const;
+const logoutProviderChannel = "studi:logout-provider" as const;
 const selectAgentModelMethod = "selectAgentModel" as const;
 const selectAgentModelChannel = "studi:select-agent-model" as const;
 const getManagerStateMethod = "getManagerState" as const;
@@ -180,13 +195,21 @@ const NavigateBrowserManifestEntrySchema = z.strictObject({
   method: z.literal(navigateBrowserMethod),
   channel: z.literal(navigateBrowserChannel),
 });
-const LoginOpenAiCodexManifestEntrySchema = z.strictObject({
-  method: z.literal(loginOpenAiCodexMethod),
-  channel: z.literal(loginOpenAiCodexChannel),
+const LoginProviderManifestEntrySchema = z.strictObject({
+  method: z.literal(loginProviderMethod),
+  channel: z.literal(loginProviderChannel),
 });
-const CancelOpenAiCodexLoginManifestEntrySchema = z.strictObject({
-  method: z.literal(cancelOpenAiCodexLoginMethod),
-  channel: z.literal(cancelOpenAiCodexLoginChannel),
+const CompleteProviderLoginManifestEntrySchema = z.strictObject({
+  method: z.literal(completeProviderLoginMethod),
+  channel: z.literal(completeProviderLoginChannel),
+});
+const CancelProviderLoginManifestEntrySchema = z.strictObject({
+  method: z.literal(cancelProviderLoginMethod),
+  channel: z.literal(cancelProviderLoginChannel),
+});
+const LogoutProviderManifestEntrySchema = z.strictObject({
+  method: z.literal(logoutProviderMethod),
+  channel: z.literal(logoutProviderChannel),
 });
 const SelectAgentModelManifestEntrySchema = z.strictObject({
   method: z.literal(selectAgentModelMethod),
@@ -257,7 +280,7 @@ const ExportDiagnosticsManifestEntrySchema = z.strictObject({ method: z.literal(
 
 export const ContractManifestSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
-  contractVersion: z.literal("18"),
+  contractVersion: z.literal("19"),
   ipcMethods: z.tuple([
     z.strictObject({method:z.literal('getUpdateState'),channel:z.literal('studi:update-state')}),
     z.strictObject({method:z.literal('checkForUpdates'),channel:z.literal('studi:update-check')}),
@@ -266,12 +289,45 @@ export const ContractManifestSchema = z.strictObject({
     z.strictObject({method:z.literal('readAssignmentFile'),channel:z.literal('studi:assignment-file')}),
     z.strictObject({method:z.literal('importAssignmentFiles'),channel:z.literal('studi:assignment-files-import')}),
     z.strictObject({method:z.literal('openAssignmentFolder'),channel:z.literal('studi:assignment-folder')}),
+    z.strictObject({method:z.literal('openAssignmentFile'),channel:z.literal('studi:assignment-file-open')}),
     z.strictObject({method:z.literal('selectBrowserPage'),channel:z.literal('studi:browser-page')}),
     z.strictObject({method:z.literal('getScopedConversation'),channel:z.literal('studi:scoped-conversation')}),
     z.strictObject({method:z.literal('stopScopedConversation'),channel:z.literal('studi:scoped-conversation-stop')}),
     z.strictObject({method:z.literal('sendScanMessage'),channel:z.literal('studi:scan-message')}),
     z.strictObject({method:z.literal('pauseSchoolScan'),channel:z.literal('studi:scan-pause')}),
+    z.strictObject({method:z.literal('finishSchoolScan'),channel:z.literal('studi:scan-finish-found')}),
     z.strictObject({method:z.literal('getConversationState'),channel:z.literal('studi:conversation-state')}),
+    z.strictObject({method:z.literal('getConversationTimeline'),channel:z.literal('studi:conversation-timeline')}),
+    z.strictObject({ method: z.literal('listMemories'), channel: z.literal('studi:memory-list') }),
+    z.strictObject({ method: z.literal('readMemory'), channel: z.literal('studi:memory-read') }),
+    z.strictObject({ method: z.literal('createMemory'), channel: z.literal('studi:memory-create') }),
+    z.strictObject({ method: z.literal('updateMemory'), channel: z.literal('studi:memory-update') }),
+    z.strictObject({ method: z.literal('deleteMemory'), channel: z.literal('studi:memory-delete') }),
+    z.strictObject({ method: z.literal('getLearnState'), channel: z.literal('studi:learn-state') }),
+    z.strictObject({ method: z.literal('importLearnSource'), channel: z.literal('studi:learn-source-import') }),
+    z.strictObject({ method: z.literal('importLearnFile'), channel: z.literal('studi:learn-file-import') }),
+    z.strictObject({ method: z.literal('setLearnExam'), channel: z.literal('studi:learn-exam-set') }),
+    z.strictObject({ method: z.literal('removeLearnGoal'), channel: z.literal('studi:learn-goal-remove') }),
+    z.strictObject({ method: z.literal('addLearnTopic'), channel: z.literal('studi:learn-topic-add') }),
+    z.strictObject({ method: z.literal('removeLearnTopic'), channel: z.literal('studi:learn-topic-remove') }),
+    z.strictObject({ method: z.literal('findLearnSyllabus'), channel: z.literal('studi:learn-syllabus-find') }),
+    z.strictObject({ method: z.literal('retryLearnSource'), channel: z.literal('studi:learn-source-retry') }),
+    z.strictObject({ method: z.literal('getTutorSession'), channel: z.literal('studi:tutor-session') }),
+    z.strictObject({ method: z.literal('startTutorSession'), channel: z.literal('studi:tutor-start') }),
+    z.strictObject({ method: z.literal('answerTutorBlock'), channel: z.literal('studi:tutor-answer') }),
+    z.strictObject({ method: z.literal('hintTutorBlock'), channel: z.literal('studi:tutor-hint') }),
+    z.strictObject({ method: z.literal('saveTutorDraft'), channel: z.literal('studi:tutor-draft') }),
+    z.strictObject({ method: z.literal('sendTutorMessage'), channel: z.literal('studi:tutor-message') }),
+    z.strictObject({ method: z.literal('pauseTutorSession'), channel: z.literal('studi:tutor-pause') }),
+    z.strictObject({ method: z.literal('resumeTutorSession'), channel: z.literal('studi:tutor-resume') }),
+    z.strictObject({ method: z.literal('cancelTutorSession'), channel: z.literal('studi:tutor-cancel') }),
+    z.strictObject({ method: z.literal('submitReviewedAssignment'), channel: z.literal('studi:assignment-submit-reviewed') }),
+    z.strictObject({ method: z.literal('watchHandIn'), channel: z.literal('studi:assignment-watch-hand-in') }),
+    z.strictObject({method:z.literal('correctAssignment'),channel:z.literal('studi:assignment-correct')}),
+    z.strictObject({method:z.literal('addAssignment'),channel:z.literal('studi:assignment-add')}),
+    z.strictObject({method:z.literal('setAssignmentOwner'),channel:z.literal('studi:assignment-owner')}),
+    z.strictObject({method:z.literal('reorderQueue'),channel:z.literal('studi:queue-reorder')}),
+    z.strictObject({method:z.literal('queueAssignmentNext'),channel:z.literal('studi:assignment-queue-next')}),
     z.strictObject({method:z.literal('stopConversation'),channel:z.literal('studi:conversation-stop')}),
     z.strictObject({method:z.literal('getNotifications'),channel:z.literal('studi:notifications')}),
     z.strictObject({method:z.literal('readNotification'),channel:z.literal('studi:notification-read')}),
@@ -288,8 +344,10 @@ export const ContractManifestSchema = z.strictObject({
     RefreshConnectedAppManifestEntrySchema,
     WorkspaceStateManifestEntrySchema,
     NavigateBrowserManifestEntrySchema,
-    LoginOpenAiCodexManifestEntrySchema,
-    CancelOpenAiCodexLoginManifestEntrySchema,
+    LoginProviderManifestEntrySchema,
+    CompleteProviderLoginManifestEntrySchema,
+    CancelProviderLoginManifestEntrySchema,
+    LogoutProviderManifestEntrySchema,
     SelectAgentModelManifestEntrySchema,
     GetManagerStateManifestEntrySchema,
     SendManifestEntrySchema,
@@ -379,12 +437,47 @@ export const studiIpcRegistry = Object.freeze({
   readAssignmentFile: {channel:'studi:assignment-file',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048)}),resultSchema:z.strictObject({path:z.string(),content:z.string(),modifiedAt:z.string()})},
   importAssignmentFiles: {channel:'studi:assignment-files-import',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256)}),resultSchema:z.strictObject({imported:z.array(z.string()),errors:z.array(z.strictObject({name:z.string(),message:z.string()}))})},
   openAssignmentFolder: {channel:'studi:assignment-folder',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048).optional()}),resultSchema:z.boolean()},
+  openAssignmentFile: {channel:'studi:assignment-file-open',requestSchema:z.strictObject({assignmentId:z.string().min(1).max(256),path:z.string().min(1).max(2048).regex(OPENABLE_FILE, "Studi only opens documents, not programs. Use Show in folder to find it.")}),resultSchema:z.boolean()},
   selectBrowserPage: { channel:'studi:browser-page', requestSchema:z.union([ConversationTargetSchema,z.strictObject({kind:z.literal("school")})]), resultSchema:StudiWorkspaceStateSchema },
   getScopedConversation: { channel: 'studi:scoped-conversation', requestSchema: ConversationTargetSchema, resultSchema: ConversationStateSchema },
   stopScopedConversation: { channel: 'studi:scoped-conversation-stop', requestSchema: ConversationTargetSchema, resultSchema: ConversationStateSchema },
   sendScanMessage: { channel: 'studi:scan-message', requestSchema: z.strictObject({scanId:z.string().min(1).max(256), text:z.string().trim().min(1).max(20000), clientMessageId:z.uuid()}), resultSchema: SchoolOnboardingStateSchema },
   pauseSchoolScan: { channel: 'studi:scan-pause', requestSchema: z.undefined(), resultSchema: SchoolOnboardingStateSchema },
+  finishSchoolScan: { channel: 'studi:scan-finish-found', requestSchema: z.undefined(), resultSchema: SchoolOnboardingStateSchema },
   getConversationState: { channel: 'studi:conversation-state', requestSchema: z.undefined(), resultSchema: ConversationStateSchema },
+  getConversationTimeline: { channel: 'studi:conversation-timeline', requestSchema: ConversationTimelineInputSchema, resultSchema: ConversationTimelineSchema },
+  listMemories: { channel: 'studi:memory-list', requestSchema: z.undefined(), resultSchema: MemoryListSchema },
+  readMemory: { channel: 'studi:memory-read', requestSchema: z.strictObject({ noteId: NoteSegmentSchema }), resultSchema: MemoryReadSchema },
+  createMemory: { channel: 'studi:memory-create', requestSchema: MemoryCreateInputSchema, resultSchema: NoteDocumentSchema },
+  updateMemory: { channel: 'studi:memory-update', requestSchema: MemoryUpdateInputSchema, resultSchema: NoteDocumentSchema },
+  deleteMemory: { channel: 'studi:memory-delete', requestSchema: MemoryDeleteInputSchema, resultSchema: MemoryDeleteResultSchema },
+  getLearnState: { channel: 'studi:learn-state', requestSchema: z.strictObject({ selectedExamId: OpaqueIdSchema.nullable().optional() }).optional(), resultSchema: LearnStateSchema },
+  importLearnSource: { channel: 'studi:learn-source-import', requestSchema: z.strictObject({ courseId: OpaqueIdSchema.nullable(), examId: OpaqueIdSchema.nullable().default(null), title: z.string().trim().min(1).max(300), text: z.string().trim().min(1).max(200_000) }), resultSchema: LearnStateSchema },
+  importLearnFile: { channel: 'studi:learn-file-import', requestSchema: z.strictObject({ courseId: OpaqueIdSchema.nullable(), examId: OpaqueIdSchema.nullable().default(null) }), resultSchema: LearnStateSchema },
+  setLearnExam: { channel: 'studi:learn-exam-set', requestSchema: LearnExamInputSchema, resultSchema: LearnStateSchema },
+  removeLearnGoal: { channel: 'studi:learn-goal-remove', requestSchema: z.strictObject({ examId: OpaqueIdSchema }), resultSchema: LearnStateSchema },
+  addLearnTopic: { channel: 'studi:learn-topic-add', requestSchema: z.strictObject({ examId: OpaqueIdSchema, title: z.string().trim().min(1).max(500) }), resultSchema: LearnStateSchema },
+  removeLearnTopic: { channel: 'studi:learn-topic-remove', requestSchema: z.strictObject({ topicId: OpaqueIdSchema }), resultSchema: LearnStateSchema },
+  /** With a class: that class's study materials. Without: a full school check for syllabi and exams. */
+  findLearnSyllabus: { channel: 'studi:learn-syllabus-find', requestSchema: z.strictObject({ courseId: OpaqueIdSchema }).optional(), resultSchema: LearnStateSchema },
+  retryLearnSource: { channel: 'studi:learn-source-retry', requestSchema: z.strictObject({ sourceId: OpaqueIdSchema }), resultSchema: LearnStateSchema },
+  getTutorSession: { channel: 'studi:tutor-session', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema }), resultSchema: PublicTutorSessionSchema },
+  startTutorSession: { channel: 'studi:tutor-start', requestSchema: TutorStartInputSchema, resultSchema: PublicTutorSessionSchema },
+  answerTutorBlock: { channel: 'studi:tutor-answer', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema, blockId: OpaqueIdSchema, answer: TutorBlockAnswerSchema }), resultSchema: PublicTutorSessionSchema },
+  hintTutorBlock: { channel: 'studi:tutor-hint', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema, blockId: OpaqueIdSchema }), resultSchema: PublicTutorSessionSchema },
+  saveTutorDraft: { channel: 'studi:tutor-draft', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema, blockId: OpaqueIdSchema, draft: z.string().max(10000) }), resultSchema: PublicTutorSessionSchema },
+  sendTutorMessage: { channel: 'studi:tutor-message', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema, text: z.string().trim().min(1).max(10000), messageId: OpaqueIdSchema.optional() }), resultSchema: PublicTutorSessionSchema },
+  pauseTutorSession: { channel: 'studi:tutor-pause', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema }), resultSchema: PublicTutorSessionSchema },
+  resumeTutorSession: { channel: 'studi:tutor-resume', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema }), resultSchema: PublicTutorSessionSchema },
+  cancelTutorSession: { channel: 'studi:tutor-cancel', requestSchema: z.strictObject({ sessionId: OpaqueIdSchema }), resultSchema: PublicTutorSessionSchema },
+  submitReviewedAssignment: { channel: 'studi:assignment-submit-reviewed', requestSchema: z.strictObject({ taskId: OpaqueIdSchema }), resultSchema: LifecycleStateSchema },
+  // The student presses Submit on the school page; Dot watches for the school's confirmation.
+  watchHandIn: { channel: 'studi:assignment-watch-hand-in', requestSchema: z.strictObject({ taskId: OpaqueIdSchema }), resultSchema: LifecycleStateSchema },
+  correctAssignment: { channel: 'studi:assignment-correct', requestSchema: CorrectAssignmentInputSchema, resultSchema: SchoolOnboardingStateSchema },
+  addAssignment: { channel: 'studi:assignment-add', requestSchema: AddAssignmentInputSchema, resultSchema: SchoolOnboardingStateSchema },
+  setAssignmentOwner: { channel: 'studi:assignment-owner', requestSchema: SetAssignmentOwnerInputSchema, resultSchema: SchoolOnboardingStateSchema },
+  reorderQueue: { channel: 'studi:queue-reorder', requestSchema: ReorderQueueInputSchema, resultSchema: ManagerStateSchema },
+  queueAssignmentNext: { channel: 'studi:assignment-queue-next', requestSchema: z.strictObject({ taskId: z.string().min(1).max(256) }), resultSchema: ManagerStateSchema },
   stopConversation: { channel: 'studi:conversation-stop', requestSchema: z.undefined(), resultSchema: ConversationStateSchema },
   getNotifications: { channel: 'studi:notifications', requestSchema: z.undefined(), resultSchema: z.array(NotificationIntentSchema) },
   readNotification: { channel: 'studi:notification-read', requestSchema: z.strictObject({ notificationId: z.string().min(1).max(256) }), resultSchema: z.array(NotificationIntentSchema) },
@@ -453,19 +546,30 @@ export const studiIpcRegistry = Object.freeze({
     requestSchema: z.strictObject({ url: z.string().min(1).max(2_048), target:z.union([ConversationTargetSchema,z.strictObject({kind:z.literal("school")})]).optional() }),
     resultSchema: StudiWorkspaceStateSchema,
   }),
-  [loginOpenAiCodexMethod]: Object.freeze({
-    channel: loginOpenAiCodexChannel,
+  [loginProviderMethod]: Object.freeze({
+    channel: loginProviderChannel,
+    requestSchema: z.strictObject({ providerId: AgentProviderIdSchema }),
+    resultSchema: StudiWorkspaceStateSchema,
+  }),
+  [completeProviderLoginMethod]: Object.freeze({
+    channel: completeProviderLoginChannel,
+    requestSchema: z.strictObject({ providerId: AgentProviderIdSchema, code: z.string().trim().min(1).max(4_096) }),
+    resultSchema: StudiWorkspaceStateSchema,
+  }),
+  [cancelProviderLoginMethod]: Object.freeze({
+    channel: cancelProviderLoginChannel,
     requestSchema: z.undefined(),
     resultSchema: StudiWorkspaceStateSchema,
   }),
-  [cancelOpenAiCodexLoginMethod]: Object.freeze({
-    channel: cancelOpenAiCodexLoginChannel,
-    requestSchema: z.undefined(),
+  [logoutProviderMethod]: Object.freeze({
+    channel: logoutProviderChannel,
+    requestSchema: z.strictObject({ providerId: AgentProviderIdSchema }),
     resultSchema: StudiWorkspaceStateSchema,
   }),
   [selectAgentModelMethod]: Object.freeze({
     channel: selectAgentModelChannel,
     requestSchema: z.strictObject({
+      providerId: AgentProviderIdSchema,
       modelId: z.string().min(1),
       reasoningEffort: AgentReasoningEffortSchema,
     }),
@@ -673,6 +777,7 @@ export type StudiIpcHandlers = IpcHandlers<StudiIpcRegistry>;
 
 export type StudiRendererApi = StudiApi & {
   readonly onLifecycleActivated: (listener: (target: NotificationIntent["target"]) => void) => () => void;
+  readonly onEngineChanged: (listener: (topics: readonly EngineTopic[]) => void) => () => void;
   readonly onNotificationSound: (listener: (fileUrl: string) => void) => () => void;
 };
 
@@ -751,7 +856,7 @@ export function createIpcHandlerRegistrations<Registry extends IpcRegistryDefini
 
 const contractManifest = ContractManifestSchema.parse({
   schemaVersion: STUDI_SCHEMA_VERSION,
-  contractVersion: "18",
+  contractVersion: "19",
   ipcMethods: studiIpcMethods.map((method) => ({
     method,
     channel: studiIpcRegistry[method].channel,

@@ -128,6 +128,19 @@ try {
   $identityHash = [BitConverter]::ToString($hashAlgorithm.ComputeHash([Text.Encoding]::UTF8.GetBytes("$($workspaceRoot.ToLowerInvariant())|$($ProfileName.ToLowerInvariant())"))).Replace('-', '').Substring(0, 12).ToLowerInvariant()
 } finally { $hashAlgorithm.Dispose() }
 $testEmail = "studi.qa.$identityHash+clerk_test@example.com"
+if ($env:STUDI_QA_TEST_EMAIL) {
+  if ($env:STUDI_QA_TEST_EMAIL -notmatch '^studi\.ephemeral\.[a-f0-9-]{36}\+clerk_test@example\.com$') { throw "QA email override must be a leased disposable account" }
+  if (-not $env:STUDI_QA_ACCOUNT_LEASE) { throw "Disposable account requires its lease receipt" }
+  $accountLease = Get-Content -LiteralPath $env:STUDI_QA_ACCOUNT_LEASE -Raw | ConvertFrom-Json
+  if ($accountLease.email -ne $env:STUDI_QA_TEST_EMAIL -or $accountLease.PSObject.Properties.Name -contains 'cleanedAt') { throw "Account lease does not match or was already cleaned" }
+  if ($profileHadData -and -not $ResetPersistent) {
+    $profileLeasePath = Join-Path $profilePath 'qa-account-lease.json'
+    if (-not (Test-Path -LiteralPath $profileLeasePath)) { throw "Disposable signup requires a fresh profile; preserve the reusable profile" }
+    $profileLease = Get-Content -LiteralPath $profileLeasePath -Raw | ConvertFrom-Json
+    if ($profileLease.id -ne $accountLease.id) { throw "This profile belongs to a different disposable journey" }
+  }
+  $testEmail = $env:STUDI_QA_TEST_EMAIL
+}
 $clerkConfig = Get-Content -LiteralPath (Join-Path $workspaceRoot "dist\electron\auth\config.js") -Raw
 if ($clerkConfig -notmatch 'clerkIssuer:\s*"https://([a-z0-9.-]+\.clerk\.accounts\.dev)"') {
   throw "Built artifact must configure a development Clerk issuer."
@@ -184,6 +197,9 @@ if ($DryRun) {
 
 if (-not (Test-Path -LiteralPath $profilePath -PathType Container)) {
   New-Item -ItemType Directory -Path $profilePath -ErrorAction Stop | Out-Null
+}
+if ($env:STUDI_QA_ACCOUNT_LEASE) {
+  $accountLease | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $profilePath 'qa-account-lease.json') -Encoding UTF8
 }
 
 $codexAuthImported = $false

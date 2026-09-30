@@ -26,6 +26,7 @@ const PersonPropertiesSchema = z.object({
   name: z.string().max(200).optional(),
   student_name: z.string().max(100).optional(),
   school_root: z.string().max(2_000).optional(),
+  selected_provider: z.string().max(64).optional(),
   selected_model: z.string().max(128).optional(),
   selected_reasoning: AgentReasoningEffortSchema.optional(),
   plan: z.string().max(128).optional(),
@@ -122,8 +123,13 @@ export const telemetryEventSchemas = {
     error_count: agentFacts.error_count,
   }),
   studi_model_selected: z.strictObject({
+    provider: z.string().min(1).max(64),
     model: z.string().min(1).max(128),
     reasoning_effort: AgentReasoningEffortSchema,
+  }),
+  studi_provider_connection: z.strictObject({
+    provider: z.string().min(1).max(64),
+    state: z.enum(["connected", "disconnected"]),
   }),
   studi_handoff: z.strictObject({ kind: z.enum(["scan", "assignment"]), state: z.literal("needs_user") }),
   studi_review: z.strictObject({ state: z.enum(["ready_review", "submitted"]) }),
@@ -199,6 +205,34 @@ export const telemetryEventSchemas = {
     content_in_diagnostic_chunks: z.boolean().optional(),
   }),
   studi_agent_trace: AgentTraceEventSchema,
+  // One row per agent tool call, flat so it can be charted: scans, homework, chat and Learn.
+  studi_agent_step: z.strictObject({
+    purpose: z.string().max(32),
+    session_id: z.string().max(256),
+    assignment_id: z.string().max(256).optional(),
+    tool: z.string().max(128),
+    outcome: z.enum(["succeeded", "failed"]),
+    duration_ms: z.number().int().nonnegative().optional(),
+    url: z.string().max(2_000).optional(),
+    page_title: z.string().max(500).optional(),
+    error: z.string().max(2_000).optional(),
+  }),
+  studi_assignment_state: z.strictObject({
+    task_id: OpaqueIdSchema,
+    assignment_id: z.string().max(256),
+    assignment_title: z.string().max(500).optional(),
+    from: z.string().max(32).nullable(),
+    to: z.string().max(32),
+    needs: z.string().max(32).optional(),
+    last_error: z.string().max(2_000).optional(),
+  }),
+  studi_page_screenshot: z.strictObject({
+    task_id: OpaqueIdSchema,
+    assignment_id: z.string().max(256),
+    phase: z.string().max(32),
+    url: z.string().max(2_000).optional(),
+    image: z.string().startsWith("data:image/jpeg;base64,").max(900_000),
+  }),
   studi_diagnostic: z.strictObject({
     source: z.enum(["runtime", "browser", "action"]),
     kind: z.string().max(128),
@@ -359,6 +393,10 @@ export class TelemetryService {
             ...generation.data, $ai_input: [], $ai_output_choices: [], content_in_diagnostic_chunks: true,
           });
         }
+      }
+      if (input.source === "runtime" && input.kind === "step") {
+        const step = telemetryEventSchemas.studi_agent_step.safeParse(payload);
+        if (step.success) this.capture("studi_agent_step", step.data);
       }
       // Stay under ingestion limits without silently losing large prompts or tool results.
       const chunkSize = 100_000;
@@ -622,6 +660,7 @@ function sanitizeIdentifyMessage(distinctId: string, properties: unknown) {
     name: setSource.name,
     student_name: setSource.student_name,
     school_root: setSource.school_root,
+    selected_provider: setSource.selected_provider,
     selected_model: setSource.selected_model,
     selected_reasoning: setSource.selected_reasoning,
     plan: setSource.plan,

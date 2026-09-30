@@ -1,10 +1,12 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import {
+  ENGINE_CHANGED_CHANNEL,
   LIFECYCLE_ACTIVATED_CHANNEL,
   PLAY_NOTIFICATION_SOUND_CHANNEL,
   createIpcApi,
   studiIpcRegistry,
+  type EngineTopic,
   type NotificationIntent,
   type StudiRendererApi,
 } from "../shared/index.js";
@@ -22,6 +24,13 @@ const rendererApi: StudiRendererApi = Object.freeze({
     ipcRenderer.on(LIFECYCLE_ACTIVATED_CHANNEL, wrapped);
     return () => {
       ipcRenderer.removeListener(LIFECYCLE_ACTIVATED_CHANNEL, wrapped);
+    };
+  },
+  onEngineChanged: (listener: (topics: readonly EngineTopic[]) => void) => {
+    const wrapped = (_event: IpcRendererEvent, topics: readonly EngineTopic[]) => listener(topics);
+    ipcRenderer.on(ENGINE_CHANGED_CHANNEL, wrapped);
+    return () => {
+      ipcRenderer.removeListener(ENGINE_CHANGED_CHANNEL, wrapped);
     };
   },
   onNotificationSound: (listener: (fileUrl: string) => void) => {

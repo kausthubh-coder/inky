@@ -1,0 +1,1208 @@
+/* Values and geometry from docs/redesign/concept.html, using the real app assets. */
+:root {
+  --pencil: #2b2621;
+  --graphite: #7f766b;
+  --rule: #ebe4d6;
+  --paper: #fbf7ee;
+  --page: #fffdf8;
+  --blotter: #f2ebdd;
+  --blot2: #e9e0ce;
+  --highlighter: #f6c945;
+  --redpen: #b3452f;
+  --ink: var(--pencil);
+  --muted: var(--graphite);
+  --panel: var(--page);
+  --line: var(--pencil);
+  --shadow: 0 0 0 1.5px var(--pencil), 0 2.5px 0 1.5px var(--pencil);
+}
+body {
+  min-width: 360px;
+  background: var(--paper);
+  color: var(--pencil);
+  font:
+    400 15px/1.5 "Nunito Sans",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-kerning: normal;
+}
+[data-mode="learn"] {
+  --highlighter: #cdbcf0;
+}
+button,
+input,
+textarea,
+select {
+  font-family: "Nunito Sans", sans-serif;
+}
+button {
+  text-transform: none;
+  letter-spacing: normal;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--pencil);
+  outline-offset: 3px;
+}
+h1 {
+  font:
+    600 30px/1.1 "Shantell Sans",
+    cursive;
+  letter-spacing: -0.01em;
+}
+h2 {
+  font:
+    600 17px/1.2 "Shantell Sans",
+    cursive;
+  letter-spacing: normal;
+}
+.app-shell {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+}
+.app-chrome {
+  display: flex;
+  flex: none;
+  position: relative;
+  height: 60px;
+  padding: 0 28px;
+  border: 0;
+  background: var(--paper);
+  box-shadow: none;
+  gap: 16px;
+}
+.brand-lockup {
+  width: 280px;
+  flex: 1;
+  padding: 0;
+}
+.brand-lockup strong {
+  font:
+    600 22px "Shantell Sans",
+    cursive;
+}
+.chrome-end {
+  width: auto;
+  flex: 0 0 auto;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.rd-mode-switch {
+  flex: none;
+  position: relative;
+  display: grid;
+  grid-template-columns: 108px 108px;
+  padding: 3px;
+  border-radius: 12px;
+  background: var(--blotter);
+}
+.rd-mode-switch button {
+  position: relative;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: var(--graphite);
+  background: none;
+  border: 0;
+  font-weight: 600;
+  font-size: 14px;
+}
+.rd-mode-switch button[aria-current] {
+  color: var(--pencil);
+  font-weight: 700;
+}
+.rd-mode-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 108px;
+  height: 32px;
+  border-radius: 10px;
+  background: var(--highlighter);
+  box-shadow: var(--shadow);
+  transition: transform 0.28s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.is-learn .rd-mode-thumb {
+  transform: translateX(108px);
+  background: #cdbcf0;
+}
+.account-chip {
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--blotter);
+  box-shadow: none;
+  justify-content: center;
+  font-size: 12.5px;
+}
+.account-chip > svg {
+  display: none;
+}
+.chrome-settings {
+  width: 30px;
+  height: 30px;
+}
+.rd-school-status {
+  border: 0;
+  background: none;
+  color: var(--graphite);
+  font-size: 13px;
+  white-space: nowrap;
+}
+.rd-school-status::before {
+  content: "";
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+  background: #7fbf9f;
+}
+.rd-school-status > svg { display: none; }
+.dashboard-page {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+}
+.rd-column {
+  width: min(752px, 100%);
+  margin: 0 auto;
+  padding: 22px 16px 8px;
+}
+.rd-column.rd-wide {
+  width: min(1072px, 100%);
+}
+.rd-hello {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 26px;
+}
+.rd-hello > div:not(.rd-segment) {
+  flex: 1;
+  min-width: 0;
+}
+.rd-hello h1 {
+  margin: 0;
+}
+.rd-hello p {
+  margin: 6px 0 0;
+  font-size: 16px;
+  line-height: 1.4;
+  color: var(--graphite);
+}
+.rd-button,
+.rd-quiet,
+.rd-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  border: 0;
+  text-decoration: none;
+  font-weight: 600;
+  transition:
+    transform 0.1s ease-out,
+    background-color 0.15s ease-out;
+}
+.rd-button {
+  min-height: 36px;
+  padding: 0 16px;
+  font-size: 14px;
+  border-radius: 10px;
+  background: var(--page);
+  box-shadow: 0 0 0 1.5px var(--pencil);
+  white-space: nowrap;
+}
+.rd-primary {
+  background: var(--highlighter);
+  box-shadow: var(--shadow);
+}
+.rd-button:active:not(:disabled),
+.rd-quiet:active:not(:disabled) {
+  transform: scale(0.96);
+}
+.rd-quiet {
+  min-height: 30px;
+  padding: 4px 11px;
+  font-size: 13px;
+  border-radius: 8px;
+  background: var(--blotter);
+}
+.rd-quiet:hover {
+  background: var(--blot2);
+}
+.rd-link {
+  color: var(--pencil);
+  padding: 0;
+  background: none;
+  font-size: 13.5px;
+}
+.rd-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rd-segment {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--blotter);
+  flex: none;
+}
+.rd-segment button {
+  padding: 4px 13px;
+  border: 0;
+  background: none;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--graphite);
+}
+.rd-segment button[aria-pressed="true"] {
+  background: var(--page);
+  color: var(--pencil);
+  box-shadow: 0 1px 2px rgb(43 38 33/14%);
+}
+.rd-muted {
+  color: var(--graphite);
+}
+.rd-error {
+  color: var(--redpen);
+}
+.is-flashing {
+  animation: rd-flash 1.6s ease-out;
+}
+@keyframes rd-flash {
+  from {
+    background: color-mix(in srgb, var(--highlighter) 50%, transparent);
+  }
+  to {
+    background: transparent;
+  }
+}
+/* Existing onboarding keeps its sequence and live handoff, with the concept tokens. */
+.fable-onboarding,
+.fable-window,
+.fable-talk {
+  background: var(--paper);
+}
+.fable-speech {
+  background: var(--page);
+  border-radius: 16px;
+}
+.fable-button,
+.button {
+  font-weight: 600;
+  border-radius: 10px;
+}
+.fable-button.primary,
+.button--yellow {
+  background: var(--highlighter);
+}
+.fable-copy h1 {
+  font-size: 30px;
+}
+.fable-who {
+  font-family: "Nunito Sans", sans-serif;
+}
+@media (max-width: 850px) {
+  .app-chrome {
+    padding: 0 16px;
+    gap: 10px;
+  }
+  .brand-lockup,
+  .chrome-end {
+    width: auto;
+  }
+  .rd-school-status {
+    padding: 6px;
+  }
+  .rd-school-status > span, .rd-school-status::before { display: none; }
+  .rd-school-status > svg { display: block; }
+  .rd-hello {
+    flex-wrap: wrap;
+  }
+  .rd-mode-switch {
+    grid-template-columns: 104px 104px;
+  }
+  .rd-mode-thumb {
+    width: 104px;
+  }
+  .is-learn .rd-mode-thumb {
+    transform: translateX(104px);
+  }
+}
+@media (max-width: 580px) {
+  .rd-column {
+    padding: 18px 22px;
+  }
+  .app-chrome {
+    padding: 0 10px;
+  }
+  .brand-lockup {
+    flex: none;
+    width: auto;
+  }
+  .brand-lockup strong {
+    font-size: 18px;
+  }
+  .rd-mode-switch {
+    grid-template-columns: 90px 90px;
+    margin: auto;
+  }
+  .rd-mode-thumb {
+    width: 90px;
+  }
+  .is-learn .rd-mode-thumb {
+    transform: translateX(90px);
+  }
+  .chrome-settings {
+    display: none;
+  }
+  .rd-hello {
+    gap: 12px;
+  }
+  .rd-hello h1 {
+    font-size: 25px;
+  }
+  .chrome-end {
+    flex: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+.workspace-dialog.rd-full-dialog {
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: var(--paper);
+}
+.workspace-dialog.rd-sheet-dialog {
+  inset: auto 0 0;
+  margin: 0 auto;
+  width: min(680px, 100%);
+  height: min(760px, calc(100dvh - 28px));
+  max-height: calc(100dvh - 28px);
+  max-width: 100%;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-bottom: 0;
+  border-radius: 24px 24px 0 0;
+  background: var(--paper);
+  box-shadow: 0 -16px 70px #2b26211a;
+}
+.workspace-dialog::backdrop {
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+}
+.rd-work-heading {
+  height: 58px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 24px;
+}
+.rd-work-heading strong {
+  font-size: 15px;
+  flex: 1;
+}
+.rd-work-side-scroll {
+  overflow: auto;
+  flex: 1;
+  padding-bottom: 18px;
+}
+.rd-stage-page {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.rd-stage-page[hidden] {
+  display: none;
+}
+.rd-composer .composer-mascot {
+  position: absolute;
+  left: 10px;
+  top: 18px;
+  bottom: auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  transform: none;
+}
+.rd-composer-context {
+  display: block;
+  color: var(--graphite);
+  font-size: 10px;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.chat-view-home {
+  padding: 0 16px 20px;
+}
+.chat-work-slip {
+  display: none;
+}
+.rd-error {
+  color: var(--red);
+  font-size: 13px;
+  white-space: pre-wrap;
+}
+.rd-muted {
+  color: var(--graphite);
+}
+.rd-actions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  margin: 16px 0;
+}
+@media (max-width: 600px) {
+  .rd-work-side-scroll {
+    overflow: visible;
+  }
+  .rd-work-heading {
+    padding: 0 14px;
+    gap: 12px;
+  }
+  .rd-work-heading strong {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .rd-sheet-dialog {
+    height: calc(100dvh - 28px);
+  }
+}
+.rd-learn {
+  --highlighter: #cdbcf0;
+}
+.rd-learn-scroll,
+.rd-tutor-scroll {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+.rd-tutor-heading {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  height: 58px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--rule);
+  flex: none;
+  -webkit-app-region: drag;
+}
+.rd-tutor-heading button { -webkit-app-region: no-drag; }
+html[data-desktop] {
+  --caption-left: env(titlebar-area-x, 0px);
+  --caption-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
+}
+html[data-desktop="darwin"] { --caption-left: 70px; --caption-right: 0px; }
+html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-school-workspace .conversation-header) {
+  padding-left: calc(var(--caption-left) + 24px);
+  padding-right: calc(var(--caption-right) + 16px);
+}
+.rd-tutor-heading strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rd-tutor-heading > span {
+  font-size: 12px;
+  color: var(--graphite);
+  font-variant-numeric: tabular-nums;
+}
+.rd-tutor-column {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 14px 24px 28px;
+}
+.rd-tutor-says {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 16px 0;
+  min-height: 52px;
+}
+.rd-tutor-says > p,
+.rd-tutor-says > .chat-markdown {
+  padding-top: 6px;
+  font:
+    600 16.5px/1.35 "Shantell Sans",
+    cursive;
+}
+.rd-tutor-block h1 {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-wrap: balance;
+}
+.rd-options {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+.rd-option {
+  box-shadow: 0 0 0 1.5px var(--pencil);
+  border: 0;
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--page);
+  font:
+    600 18px "Shantell Sans",
+    cursive;
+  min-height: 82px;
+}
+.rd-option:active {
+  transform: scale(0.98);
+}
+.rd-option:focus-visible {
+  outline: 3px solid var(--highlighter);
+  outline-offset: 4px;
+}
+.rd-typed-form {
+  display: flex;
+  gap: 12px;
+  margin: 18px 0;
+  max-width: 440px;
+}
+.rd-typed-form input {
+  min-width: 0;
+  flex: 1;
+}
+.rd-explain-form textarea {
+  width: 100%;
+  min-height: 150px;
+  padding: 16px;
+}
+.rd-explain-form button {
+  margin-top: 12px;
+}
+.rd-tutor-composer {
+  padding: 0 20px 20px;
+}
+.rd-model {
+  margin: 20px 0;
+}
+.rd-population {
+  display: grid;
+  grid-template-columns: repeat(20, 1fr);
+  gap: 4px;
+  margin: 14px 0;
+}
+.rd-population i {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--blot2);
+}
+.rd-population .marked {
+  background: var(--pencil);
+}
+.rd-slider {
+  display: flex;
+  gap: 12px;
+  margin: 12px 0;
+  align-items: center;
+  font-size: 14px;
+}
+.rd-slider input {
+  flex: 1;
+  accent-color: var(--pencil);
+}
+.rd-slider output {
+  width: 60px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.rd-plot {
+  width: 100%;
+  background: var(--page);
+  border-radius: 12px;
+  border: 1px solid var(--rule);
+}
+.rd-plot text {
+  font-size: 12px;
+  fill: var(--graphite);
+}
+.rd-flashcard {
+  padding: 45px 25px;
+  min-height: 200px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  background: var(--page);
+  border: 1.5px solid var(--pencil);
+  border-radius: 12px;
+  font:
+    600 24px/1.4 "Shantell Sans",
+    cursive;
+}
+.rd-code-label {
+  display: block;
+  font-size: 13px;
+}
+.rd-code {
+  display: block;
+  width: 100%;
+  min-height: 240px;
+  font:
+    13px/1.5 Consolas,
+    monospace;
+  padding: 16px;
+  margin-top: 8px;
+  tab-size: 2;
+}
+.rd-code-output {
+  background: #26221d;
+  color: #e9e1d2;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font:
+    12px/1.5 Consolas,
+    monospace;
+  white-space: pre-wrap;
+  max-height: 300px;
+  overflow: auto;
+}
+.rd-session-notice h1 {
+  font:
+    600 23px "Shantell Sans",
+    cursive;
+}
+.rd-session-notice {
+  margin: 24px 0;
+}
+.rd-session-notice button {
+  margin-right: 14px;
+}
+@media (max-width: 600px) {
+  .rd-options {
+    grid-template-columns: 1fr;
+  }
+  .rd-tutor-heading {
+    padding: 0 12px;
+    gap: 12px;
+  }
+  .rd-tutor-heading strong {
+    max-width: 50%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .rd-tutor-column {
+    padding: 14px 22px;
+  }
+}
+.rd-files.assignment-files {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  min-height: 100%;
+  padding: 0;
+}
+.rd-file-tree {
+  border-right: 1px solid var(--rule);
+  padding: 14px 10px;
+  background: var(--paper);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+}
+.rd-file-tree-heading {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 6px 10px;
+  font-size: 13px;
+}
+.rd-file-tree > button {
+  display: flex;
+  gap: 8px;
+  text-align: left;
+  padding: 8px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.rd-file-tree > button.selected {
+  background: var(--blotter);
+}
+.rd-file-tree .rd-folder {
+  margin-top: auto;
+  font-size: 11px;
+  color: var(--graphite);
+}
+.rd-file-reader {
+  padding: 18px 24px;
+  min-width: 0;
+}
+.rd-file-reader-heading {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--graphite);
+  margin-bottom: 24px;
+}
+.rd-file-reader .assignment-document {
+  border: 0;
+  background: none;
+  padding: 0;
+}
+.rd-file-reader pre {
+  white-space: pre-wrap;
+  font:
+    13px/1.6 Consolas,
+    monospace;
+}
+.rd-command-output { margin-top: 24px; background: #26221d; color: #d9f2e4; }
+.rd-command-output summary { padding: 10px 18px; cursor: pointer; font-size: 12.5px; }
+.rd-command-output pre { margin: 0; padding: 12px 18px; max-height: 260px; overflow: auto; overflow-wrap: anywhere; }
+.rd-school-workspace.chat-workspace {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 376px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
+  padding: 58px 0 0;
+  position: relative;
+  gap: 0;
+}
+.rd-school-workspace .conversation-paper {
+  grid-column: 1;
+  grid-row: 1;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  min-height: 0;
+}
+.workspace-dialog .rd-school-workspace .conversation-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 58px;
+  min-height: 58px;
+  padding: 0 24px;
+  background: var(--paper);
+  border: 0;
+}
+.rd-school-workspace .conversation-header .character {
+  display: none;
+}
+.workspace-dialog .rd-school-workspace .chat-presence {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 12px;
+}
+.workspace-dialog .rd-school-workspace .chat-presence > strong {
+  font-size: 20px;
+}
+.workspace-dialog .rd-school-workspace .conversation-actions {
+  align-self: center;
+}
+.rd-school-workspace .conversation-log {
+  display: block;
+  padding: 10px 24px;
+  overflow: auto;
+}
+.rd-school-workspace > form.rd-composer.inky-composer {
+  grid-column: 1;
+  grid-row: 2;
+  width: auto;
+  margin: 8px 16px 16px;
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 14%), 0 16px 36px -18px rgb(43 38 33 / 45%);
+}
+.rd-school-workspace .school-check {
+  background: none;
+  border: 0;
+  padding: 0;
+  box-shadow: none;
+}
+.rd-school-workspace:not(.chat-with-browser) { grid-template-columns: minmax(0, 1fr); }
+.rd-school-workspace:not(.chat-with-browser) .conversation-log { width: min(752px, 100%); margin-inline: auto; }
+@media (max-width: 600px) {
+  .rd-files.assignment-files {
+    grid-template-columns: 130px minmax(0, 1fr);
+  }
+  .rd-file-reader {
+    padding: 14px;
+  }
+  .rd-school-workspace.chat-workspace {
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+  }
+  .rd-school-workspace .conversation-paper {
+    min-height: 300px;
+    overflow: visible;
+  }
+}
+.app-shell .app-chrome {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  flex: 0 0 60px;
+  height: 60px;
+  padding: 0 28px;
+  border: 0;
+  background: var(--paper);
+}
+.app-shell .brand-lockup { width: auto; }
+.app-shell .chrome-end { justify-self: end; }
+.app-chrome .update-entry { white-space: nowrap; }
+.app-shell .app-chrome .rd-mode-switch {
+  display: grid;
+  grid-template-columns: 108px 108px;
+  width: 222px;
+  gap: 0;
+}
+.app-shell .page.dashboard-page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  display: block;
+}
+/* Home: the chat box floats over the bottom of the week. No band behind it; the page scrolls underneath. */
+.app-shell.chat-dashboard {
+  position: relative;
+}
+.app-shell .chat-workspace.chat-view-home {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: 0;
+  width: min(752px, 100%);
+  padding: 0 16px 20px;
+  margin: 0;
+  transform: translateX(-50%);
+  min-height: 0;
+  background: none;
+  pointer-events: none;
+}
+.app-shell .chat-workspace.chat-view-home > * {
+  pointer-events: auto;
+}
+.app-shell .chat-workspace.chat-view-home form.rd-composer.inky-composer {
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 14%), 0 1px 2px rgb(43 38 33 / 6%), 0 18px 40px -18px rgb(43 38 33 / 45%);
+}
+.app-shell .chat-workspace.chat-view-home form.rd-composer.inky-composer:focus-within {
+  box-shadow: 0 0 0 1.5px var(--pencil), 0 18px 40px -18px rgb(43 38 33 / 45%);
+}
+.app-shell.chat-dashboard .page.dashboard-page {
+  padding-bottom: 150px;
+}
+.app-shell .chat-workspace.chat-view-home .rd-composer {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.chat-view-home .rd-composer.inky-composer .rd-composer-context {
+  display: none;
+}
+.rd-composer.inky-composer .composer-mascot {
+  top: 11px;
+}
+.rd-composer-suggestions {
+  display: none;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  margin: 8px 0 0;
+}
+.rd-composer:focus-within .rd-composer-suggestions {
+  display: flex;
+}
+.rd-conversation-peek {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+  border: 0;
+  background: none;
+  padding: 0 6px 9px;
+  font-size: 13px;
+  color: var(--graphite);
+  text-align: left;
+}
+.rd-conversation-peek span:last-child {
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.rd-learn-chatbox {
+  max-width: 720px;
+  margin: auto;
+}
+.rd-stage-page .chat-browser {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  min-height: 0;
+}
+.rd-stage-page .chat-browser-slot {
+  flex: 1;
+  min-height: 0;
+}
+.rd-school-workspace.chat-workspace > .chat-browser {
+  grid-column: 2;
+  grid-row: 1/3;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  border-radius: 16px 0 0;
+  border: 1px solid var(--rule);
+}
+@media (max-width: 850px) {
+  .app-shell .app-chrome {
+    padding: 0 16px;
+  }
+  .app-shell .app-chrome .rd-mode-switch {
+    grid-template-columns: 104px 104px;
+    width: 216px;
+  }
+}
+@media (max-width: 580px) {
+  .app-shell .app-chrome {
+    padding: 0 10px;
+  }
+  .app-shell .app-chrome .rd-mode-switch {
+    grid-template-columns: 90px 90px;
+    width: 188px;
+  }
+  .rd-school-workspace.chat-workspace > .chat-browser {
+    min-height: 420px;
+  }
+}
+.rd-button.primary {
+  background: var(--highlighter);
+  box-shadow: var(--shadow);
+}
+.rd-composer .chat-send {
+  border: 0;
+  box-shadow: none;
+  background: var(--blotter);
+}
+.rd-composer .chat-send:disabled {
+  background: var(--blotter);
+}
+.rd-composer-suggestions {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--paper);
+  margin: 0;
+}
+.rd-tutor-block h1 {
+  font-family: "Nunito Sans", sans-serif;
+}
+
+/* ===== Audit fixes: top bar =====
+   Equal side columns keep the mode switch in the true middle. The right side is icons only,
+   so it can never grow wider than the logo side and push the switch off center. */
+.app-shell .app-chrome {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+.app-shell .chrome-end {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.rd-chrome-icon,
+.app-chrome .chrome-settings,
+.app-chrome .notification-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  box-shadow: none;
+  color: var(--graphite);
+  transition: background-color 150ms ease-out, color 150ms ease-out, transform 100ms ease-out;
+}
+.rd-chrome-icon:hover,
+.app-chrome .chrome-settings:hover,
+.app-chrome .notification-toggle:hover {
+  background: var(--blotter);
+  color: var(--pencil);
+}
+.rd-chrome-icon:active,
+.app-chrome .chrome-settings:active { transform: scale(0.96); }
+.app-chrome .chrome-settings[aria-current] { background: var(--blotter); color: var(--pencil); }
+.app-chrome .notification-toggle > span { display: none; }
+.app-chrome .notification-toggle > b {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  border-radius: 99px;
+  background: var(--redpen);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 15px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.app-chrome .rd-school-status::before { content: none; }
+.app-chrome .rd-school-status > svg { display: block; }
+.app-chrome .rd-school-status > i {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #7fbf9f;
+  box-shadow: 0 0 0 2px var(--paper);
+}
+.app-chrome .rd-school-status.is-busy > i { background: var(--highlighter); animation: rd-status-pulse 1.1s ease-in-out infinite alternate; }
+.app-chrome .rd-school-status.is-attention > i { background: var(--redpen); }
+/* Only a state that needs the student gets words. */
+.app-chrome .rd-school-status:not(.is-ok) {
+  width: auto;
+  padding: 0 28px 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.app-chrome .rd-school-status.is-attention { color: var(--redpen); }
+.app-chrome .rd-school-status:not(.is-ok) > i { top: 14px; right: 11px; }
+@keyframes rd-status-pulse { from { opacity: 0.45; } to { opacity: 1; } }
+.app-chrome .update-entry.is-ready {
+  height: 30px;
+  padding: 0 11px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--highlighter);
+  box-shadow: 0 0 0 1.5px var(--pencil);
+  color: var(--pencil);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+.app-chrome .account-chip { margin-left: 6px; }
+@media (prefers-reduced-motion: reduce) {
+  .app-chrome .rd-school-status.is-busy > i { animation: none; }
+}
+
+/* ===== Audit fixes: icons instead of typed arrows ===== */
+
+/* ===== Audit fixes: assignment and school check workspace =====
+   The title leads. Back is a quiet button on the right. The school page has no title strip or
+   ownership banner, because the native overlay already says who is driving. */
+.rd-work-heading { gap: 12px; }
+.rd-work-heading > strong { flex: 0 1 auto; font-size: 15.5px; }
+.rd-work-heading > .rd-work-back { flex: none; margin-left: auto; }
+.rd-work-heading .rd-link:focus:not(:focus-visible),
+.rd-work-back:focus:not(:focus-visible) { outline: none; }
+.rd-school-workspace .chat-browser { border-radius: 22px 0 0 0; overflow: hidden; }
+.workspace-dialog:focus { outline: none; }
+.rd-school-workspace .conversation-actions { display: flex; align-items: center; gap: 6px; }
+.rd-school-workspace .conversation-actions .chat-icon {
+  width: 36px; height: 36px; border: 0; border-radius: 10px; background: none; box-shadow: none; color: var(--graphite);
+}
+.rd-school-workspace .conversation-actions .chat-icon:hover,
+.rd-school-workspace .conversation-actions .chat-icon[aria-expanded="true"] { background: var(--blotter); color: var(--pencil); }
+/* An empty composer never needs a scrollbar. The arrows inside the box were the textarea's own. */
+.inky-composer textarea:placeholder-shown { overflow: hidden; }
+/* "What I'm doing": a real caret instead of the browser's triangle. */
+
+/* ===== Audit fixes: Learn sources =====
+   One lead action. Everything else is a quiet button of the same height, on one line. */
+
+/* ===== Audit fixes: tutor session =====
+   The lesson column lines up with the answer box under it. A paused session is one calm strip,
+   with the saved block dimmed beneath it, instead of two stacked Dots. */
+.rd-tutor-column { max-width: 768px; }
+.rd-tutor-composer .rd-learn-chatbox,
+.rd-tutor-composer > * { max-width: 720px; margin-left: auto; margin-right: auto; }
+.rd-session-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 18px;
+  margin: 6px 0 22px;
+  border-radius: 16px;
+  background: var(--blotter);
+}
+.rd-session-notice h1 { font-size: 19px; line-height: 1.15; margin: 0; }
+.rd-session-notice p { margin: 2px 0 0; font-size: 13px; color: var(--graphite); }
+.rd-session-notice ~ .rd-tutor-block,
+.rd-session-notice ~ * { opacity: 0.45; pointer-events: none; }
+.rd-typed-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; max-width: 460px; }
+
+.rd-session-notice .rd-quiet { background: var(--page); }
+.rd-tutor-heading > button:first-child { height: 30px; padding: 0 11px; border-radius: 8px; background: var(--blotter); font-size: 13px; font-weight: 600; text-decoration: none; }
+
+/* The native school page cannot be drawn over, so its one control sits in a slim bar above it.
+   No title and no ownership banner: the native overlay already says who is driving. */
+.rd-browser-bar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-height: 40px; padding: 2px 8px 2px 18px; background: var(--paper); font-size: 13.5px; }
+.rd-browser-bar.is-handoff { background: var(--blotter); padding-block: 8px; }
+.rd-browser-bar > span { flex: 1; min-width: 0; color: var(--pencil); }
+.rd-browser-bar .rd-button { height: 34px; }
+.chat-browser-slot { position: relative; }
+/* Preview only: stands in for the native overlay's Takeover tag. */
+.rd-preview-takeover { position: absolute; right: 18px; bottom: 22px; z-index: 2; background: #8ab8e8; border: 2px solid #3b342c; color: #3b342c; border-radius: 255px 15px 225px 15px / 15px 225px 15px 255px; padding: 5px 11px; font-size: 12px; font-weight: 800; box-shadow: 2px 2px 0 #3b342c; }

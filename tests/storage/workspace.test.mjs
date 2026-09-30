@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, readdir, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
@@ -18,11 +18,11 @@ test("Studi accepts only an empty dedicated homework folder", async () => {
     await assert.rejects(initializeHomeworkWorkspace(occupied), /empty folder made just for Studi/);
 
     const selected = await initializeHomeworkWorkspace(root);
-    assert.equal(selected, root);
+    assert.equal(selected, await realpath(root));
     assert.deepEqual((await readdir(root)).sort(), [".studi-sandbox", ".studi-workspace.json"]);
     const marker = JSON.parse(await readFile(join(root, ".studi-workspace.json"), "utf8"));
     assert.equal(marker.kind, "studi-homework-workspace");
-    assert.equal(await initializeHomeworkWorkspace(root), root);
+    assert.equal(await initializeHomeworkWorkspace(root), await realpath(root));
   } finally {
     await rm(root, { recursive: true, force: true });
     await rm(occupied, { recursive: true, force: true });
@@ -43,7 +43,7 @@ test("Studi creates cross-platform class and assignment workspaces", async () =>
       assignmentId: "assignment-related-rates",
       assignmentTitle: "Problem set 4: Related rates",
     });
-    assert.equal(workspace.classDirectory, join(root, "CALC 1"));
+    assert.equal(workspace.classDirectory, join(await realpath(root), "CALC 1"));
     assert.match(workspace.assignmentDirectory, /CALC 1[\\/]Problem set 4 Related rates \[[a-f0-9]{6}\]$/);
     assert.match(workspace.sandboxDirectory, /\.studi-sandbox[\\/][a-f0-9]{6}$/);
     assert.ok((await readdir(root)).includes("_CON"));
@@ -75,7 +75,7 @@ test("classes with the same display name keep separate stable folders", async ()
       { courseId: "course-a", label: "Seminar" },
       { courseId: "course-b", label: "Seminar" },
     ]);
-    assert.equal(directories[0], join(root, "Seminar"));
+    assert.equal(directories[0], join(await realpath(root), "Seminar"));
     assert.match(directories[1], /Seminar \[[a-f0-9]{6}\]$/);
     assert.notEqual(directories[0], directories[1]);
     assert.deepEqual(await syncHomeworkClassFolders(root, [

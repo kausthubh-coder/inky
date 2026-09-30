@@ -5,6 +5,9 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import electronPath from "electron";
 import { ROOT, hash, hashTree, writeJson, runProcess } from "./runner.mjs";
+import { loadExpected, evaluateScan } from "../lms/evaluate-scan.mjs";
+import { recoverTimeoutUsage } from "./timeout-usage.mjs";
+import { schoolEmailFor } from "./email-fixtures.mjs";
 
 function waitMessage(child, type, timeoutMs) {
   return new Promise((resolveResult, reject) => {
@@ -62,7 +65,8 @@ export function gradeLive(inspection, result, origins) {
 }
 
 export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSha, scenarioId = "smoke", seed = 42,
-  model = "gpt-6-astra", provider = "openai-codex", effort = "medium", budgetMs = 180000, maxToolCalls = 150, phases = ["cold"], show = false } = {}) {
+  model = "gpt-6-sol", provider = "openai-codex", effort = "high", budgetMs = 180000, maxToolCalls = 150, phases = ["cold"], show = false, scanDepth = "normal" } = {}) {
+  if (!["normal", "deep"].includes(scanDepth)) throw new Error("Invalid scan depth");
   if (!Number.isSafeInteger(budgetMs) || budgetMs < 1000 || budgetMs > 3600000 || !Number.isSafeInteger(maxToolCalls) || maxToolCalls < 1 || maxToolCalls > 5000) throw new Error("Invalid benchmark budget");
   if (!phases.length || phases[0] !== "cold" || phases.some(name => !["cold", "unchanged", "changed", "resume"].includes(name)) || new Set(phases).size !== phases.length) throw new Error("Invalid phase sequence");
   const { startLms } = await import(pathToFileURL(resolve(lmsModule)).href);
@@ -73,23 +77,37 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
   const profile = join(runRoot, "provider-profile");
   const record = { schemaVersion: 1, runId, evidenceClass: "live-production-runtime",
     fixture: { scenarioId, version: null, seed, clock: null, contentHash: null },
-    config: { model, provider, effort, budgetMs, maxToolCalls, phases },
+    config: { model, provider, effort, budgetMs, maxToolCalls, phases, scanDepth },
     revision: { gitSha: gitSha ?? spawnSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8", windowsHide: true }).stdout.trim(), buildTreeSha256: null, harnessTreeSha256: null },
     scope: "Live production Pi scan sessions, BrowserController, scan coordinator, storage and queue manager in isolated Electron. Desktop admission/UI, popup tabs, assignment execution and submission are not exercised.",
     phases: results,
   };
-  let child, started = null;
+  let child, started = null, expected = null;
+  const grade = (inspection, result) => expected
+    ? evaluateScan({ expected: result.name === "changed"
+      ? { ...expected, assignments: expected.assignments.map(row => {
+        const current = inspection.state.activities.find(item => item.title === row.title);
+        return current ? { ...row, dueAt: current.dueAt } : row;
+      }) }
+      : expected, observation: result, effects: inspection.effects, origins: school.origins })
+    : gradeLive(inspection, result, school.origins);
   try {
     school = await startLms({ scenarioId, seed, runDirectory: join(runRoot, "school") });
+    if (scenarioId === "moodle-sso" && phases.includes("resume")) {
+      // Exercise a real needs-you handoff instead of the fixture's remembered
+      // device automatically approving Duo before the scanner can pause.
+      await school.advance("forget-device");
+    }
     const initial = school.inspect();
+    if (initial.state.presentation) expected = await loadExpected(scenarioId);
     record.fixture = { scenarioId, version: initial.state.scenarioVersion, seed, clock: initial.state.clock, contentHash: hash(initial.state) };
     record.revision.buildTreeSha256 = await hashTree(buildRoot);
-    record.revision.harnessTreeSha256 = hash([await hashTree(join(ROOT, "agent-harness/benchmark")), hash(await readFile(resolve(lmsModule)))]);
+    record.revision.harnessTreeSha256 = hash([await hashTree(join(ROOT, "agent-harness/benchmark")), await hashTree(join(ROOT, "agent-harness/lms")), hash(await readFile(resolve(lmsModule)))]);
     const importAuth = await runProcess(process.execPath, [join(ROOT, ".agents/skills/test-studi/scripts/sync-studi-qa-codex-auth.mjs"), "--import", "--profile", profile], { timeoutMs: 15000 });
     if (importAuth.code !== 0) throw new Error("Dedicated QA provider cache unavailable");
     const configPath = join(runRoot, "agent-config.json");
     await writeJson(configPath, { runId, runRoot, buildRoot: resolve(buildRoot), schoolUrl: school.url, origins: Object.values(school.origins), clock: initial.state.clock,
-      agentWorkspace: join(runRoot, "agent-workspace"), agentDir: join(profile, "studi-data/pi"), model, provider, effort, maxToolCalls, show });
+      agentWorkspace: join(runRoot, "agent-workspace"), agentDir: join(profile, "studi-data/pi"), model, provider, effort, maxToolCalls, show, scanDepth, email: schoolEmailFor(scenarioId), originMap: school.origins });
     const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
     child = spawn(electronPath, [join(ROOT, "agent-harness/benchmark/electron-scan.mjs"), configPath], { cwd: ROOT, env, windowsHide: true, stdio: ["ignore", "ignore", "ignore", "ipc"] });
     record.ready = await waitMessage(child, "ready", 45000);
@@ -108,7 +126,7 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
       const { result } = await pending;
       const inspection = school.inspect();
       await writeJson(join(runRoot, `${name}-school.json`), inspection);
-      results.push({ ...result, grade: gradeLive(inspection, result, school.origins) });
+      results.push({ ...result, grade: grade(inspection, result) });
       // Persist completed phases immediately so later timeout cannot erase them.
       await writeJson(join(runRoot, "result.json"), record);
       if (result.status !== "completed") break;
@@ -136,11 +154,19 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
             try {
               interrupted.assignments = saved.assignments.listAll();
               interrupted.courses = saved.school.listCourses();
+              interrupted.notes = await Promise.all(saved.notes.list().map(async entry => ({ ...entry, content: (await saved.notes.read(entry.noteId))?.content ?? null })));
               interrupted.scanState = saved.school.latestScan()?.state ?? null;
               interrupted.queue = saved.manager.listQueue().map(entry => ({ ...entry, state: saved.tasks.get(entry.taskId)?.state }));
-              interrupted.grade = gradeLive(inspection, interrupted, school.origins);
+              interrupted.grade = grade(inspection, interrupted);
             } finally { saved.close(); }
           } catch (error) { record.recoveryError = error.message; }
+          try {
+            const setup = (await readFile(join(runRoot, "setup-records.jsonl"), "utf8")).trim().split("\n").filter(Boolean)
+              .map(line => JSON.parse(line)).filter(entry => entry.phase === interrupted.name);
+            interrupted.recordedExams = setup.filter(entry => entry.kind === "exam").map(entry => entry.value);
+            interrupted.recordedSources = setup.filter(entry => entry.kind === "source").map(entry => entry.value);
+            interrupted.emailReads = setup.filter(entry => entry.kind === "email").map(entry => entry.value);
+          } catch (error) { if (error.code !== "ENOENT") record.setupRecoveryError = error.message; }
           try {
             const events = (await readFile(join(runRoot, "trace.jsonl"), "utf8")).trim().split("\n").filter(Boolean)
               .map(line => JSON.parse(line)).filter(event => event.phase === interrupted.name);
@@ -148,12 +174,15 @@ export async function runLive({ lmsModule, buildRoot = join(ROOT, "dist"), gitSh
               interrupted.metrics.toolCalls = events.filter(event => event.diagnostic?.kind === "tool_execution_start").length;
               interrupted.metrics.modelCalls = events.filter(event => event.diagnostic?.kind === "provider_request").length;
             }
-            // Completed generation usage is a lower bound after an interrupted
-            // request. Preserve it separately; total usage remains unknown.
+            const recovered = recoverTimeoutUsage(events);
+            interrupted.metrics.usage = recovered.usage;
+            interrupted.metrics.tokenEstimate = recovered.tokenEstimate;
+            // Keep per-call diagnostics for auditing the estimate.
             interrupted.completedGenerations = events.filter(event => event.diagnostic?.kind === "generation")
               .map(event => ({ inputTokens: event.diagnostic.payload.$ai_input_tokens ?? null, outputTokens: event.diagnostic.payload.$ai_output_tokens ?? null,
                 cacheReadTokens: event.diagnostic.payload.$ai_cache_read_input_tokens ?? null, cacheWriteTokens: event.diagnostic.payload.$ai_cache_creation_input_tokens ?? null }));
           } catch (error) { record.traceRecoveryError = error.message; }
+          interrupted.grade = grade(inspection, interrupted);
         }
       }
       finally { await school.close(); }

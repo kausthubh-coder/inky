@@ -1,0 +1,119 @@
+/* The chat box, everywhere it appears: home, an assignment, the school check, Learn.
+   One box: text that grows, a toolbar underneath with extras on the left and send on the right. */
+form.rd-composer.inky-composer {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 20px;
+  background: var(--page);
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 14%), 0 1px 2px rgb(43 38 33 / 5%);
+  transition: box-shadow 0.15s ease-out;
+}
+form.rd-composer.inky-composer:has(:focus-visible) {
+  box-shadow: 0 0 0 2px var(--pencil);
+}
+form.rd-composer.inky-composer .inky-composer-line {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 0 10px 10px 0;
+}
+form.rd-composer.inky-composer textarea {
+  flex: 1;
+  min-width: 0;
+  min-height: 52px;
+  max-height: 200px;
+  padding: 15px 0 5px 18px;
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: none;
+  font: 400 15px/22px "Nunito Sans", sans-serif;
+  color: var(--pencil);
+  border-radius: 0;
+  field-sizing: content;
+  scrollbar-width: thin;
+}
+form.rd-composer.inky-composer textarea::placeholder {
+  color: var(--graphite);
+}
+form.rd-composer.inky-composer textarea:disabled {
+  color: var(--graphite);
+}
+/* Send: ink when there is something to send, quiet when not, and a dark Stop while Dot is doing something. */
+form.rd-composer.inky-composer .chat-send {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 36px;
+  height: 36px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--pencil);
+  color: var(--page);
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
+}
+form.rd-composer.inky-composer .chat-send svg {
+  width: 18px;
+  height: 18px;
+}
+form.rd-composer.inky-composer .chat-send:disabled {
+  background: var(--blotter);
+  color: var(--graphite);
+  cursor: default;
+}
+form.rd-composer.inky-composer .chat-send[aria-label^="Stop"],
+form.rd-composer.inky-composer .chat-send[aria-label^="Pause"] {
+  background: var(--pencil);
+  color: var(--page);
+}
+form.rd-composer.inky-composer .chat-send:active:not(:disabled) {
+  transform: scale(0.96);
+}
+form.rd-composer.inky-composer .chat-refs {
+  margin: 10px 16px 0;
+  padding: 0;
+}
+form.rd-composer.inky-composer .rd-composer-context {
+  padding: 10px 16px 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--graphite);
+}
+form.rd-composer.inky-composer .rd-composer-suggestions {
+  margin: 0 16px 10px;
+}
+form.rd-composer.inky-composer[aria-busy="true"] .chat-send svg {
+  animation: composer-sending 1s linear infinite;
+}
+form.rd-composer.inky-composer .assignment-picker {
+  left: 8px;
+  width: min(440px, calc(100% - 16px));
+  padding: 8px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--page);
+  box-shadow: 0 0 0 1px var(--rule), 0 8px 24px rgb(43 38 33 / 12%);
+}
+form.rd-composer.inky-composer .assignment-picker header { gap: 12px; flex-wrap: wrap; }
+form.rd-composer.inky-composer .assignment-picker :is(header small, [role="option"] small) { font-size: 12px; color: var(--graphite); }
+form.rd-composer.inky-composer .assignment-picker strong { font-size: 14px; line-height: 1.4; text-wrap: pretty; }
+form.rd-composer.inky-composer .assignment-picker [role="option"] { border-radius: 8px; }
+form.rd-composer.inky-composer .assignment-picker [aria-selected="true"] { background: var(--blotter); }
+form.rd-composer.inky-composer .chat-refs button { min-width: 32px; min-height: 32px; }
+@keyframes composer-sending { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  form.rd-composer.inky-composer .chat-send { transition: none; }
+  form.rd-composer.inky-composer .chat-send:active:not(:disabled) { transform: none; }
+  form.rd-composer.inky-composer[aria-busy="true"] .chat-send svg { animation: none; }
+}

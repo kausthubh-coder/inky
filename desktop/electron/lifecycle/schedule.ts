@@ -1,4 +1,24 @@
-import { AutomationScheduleSchema, STUDI_SCHEMA_VERSION, type AutomationSchedule } from "../../shared/index.js";
+import { AutomationScheduleSchema, STUDI_SCHEMA_VERSION, type AutomationSchedule, type Assignment } from "../../shared/index.js";
+
+// A planned start is a real timer input, never an estimate of when a busy worker will finish.
+export function plannedAssignmentStart(assignment: Assignment, enqueuedAt: string, timezone: string): string | undefined {
+  if (!assignment.dueAt) return undefined;
+  assertTimezone(timezone);
+  const due = Date.parse(assignment.dueAt);
+  const candidate = Math.max(Date.parse(enqueuedAt), due - 24 * 60 * 60_000);
+  if (!Number.isFinite(candidate)) return undefined;
+  const local = localParts(candidate, timezone);
+  const start = local.hour >= 8 && local.hour < 22 ? candidate : Date.parse(nextScheduleRun({
+    schemaVersion: 1, scheduleId: "school-scan", cadence: "daily", state: "enabled", timezone, localTime: "08:00", updatedAt: enqueuedAt,
+  }, new Date(candidate - 1).toISOString()));
+  const cutoff = assignment.latePolicy?.state === "accepted" && assignment.latePolicy.until ? Date.parse(assignment.latePolicy.until) : due;
+  return start < cutoff ? new Date(start).toISOString() : undefined;
+}
+
+export function withinHomeworkHours(now: string, timezone: string): boolean {
+  const { hour } = localParts(Date.parse(now), timezone);
+  return hour >= 8 && hour < 22;
+}
 
 type LocalParts = { year: number; month: number; day: number; hour: number; minute: number; weekday: number };
 

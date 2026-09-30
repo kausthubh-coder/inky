@@ -86,10 +86,10 @@ export async function verifyChatMarkdown(page, base, evidenceDirectory) {
     assert.equal(popup.url(), "https://example.com/inbox/homework");
     await popup.close();
     assert.match(page.url(), /preview=chat-expanded/);
-    await page.getByRole("textbox", { name: "Message Inky" }).fill("Keep this draft");
+    await page.getByRole("textbox", { name: "Message Dot" }).fill("Keep this draft");
     await page.getByRole("button", { name: "Close chat", exact: true }).click();
-    await page.getByRole("button", { name: "Open your conversation with Inky" }).click();
-    assert.equal(await page.getByRole("textbox", { name: "Message Inky" }).inputValue(), "Keep this draft");
+    await page.getByRole("button", { name: "Open your conversation with Dot" }).click();
+    assert.equal(await page.getByRole("textbox", { name: "Message Dot" }).inputValue(), "Keep this draft");
     await reply.waitFor();
 
     for (const size of [{ width: 1440, height: 950 }, { width: 720, height: 620 }]) {
@@ -114,7 +114,7 @@ export async function verifyChatMarkdown(page, base, evidenceDirectory) {
     assert.equal(await page.locator(".student-bubble").count(), 2);
 
     await page.goto(`${base}/?preview=assignment`);
-    await page.getByRole("textbox", { name: "Message Inky" }).fill("Explain **average** using `mean(scores)`.");
+    await page.getByRole("textbox", { name: "Message Dot" }).fill("Explain **average** using `mean(scores)`.");
     await page.getByRole("button", { name: "Send message", exact: true }).click();
     await page.locator(".assignment-inky .chat-markdown strong").getByText("average", { exact: true }).waitFor();
     assert.equal(await page.locator(".assignment-inky .chat-markdown code").innerText(), "mean(scores)");

@@ -1,0 +1,255 @@
+/* Dot and Chalky, from the characters plan. */
+/* ---------- shared rig ---------- */
+  :root { --spring: cubic-bezier(.34, 1.5, .64, 1); --soft: cubic-bezier(.45, 0, .25, 1); }
+  .ink2 { display: inline-block; line-height: 0; --mx: 0; --my: 0; --d: 0s; }
+  .ink2 svg { display: block; width: 100%; height: 100%; overflow: visible; }
+
+  .ink2 .mouth { d: path("M52 73 Q60 80 68 73 Q60 80 52 73 Z"); fill: #fff; fill-opacity: 0; transition: d .42s var(--spring), fill .2s, fill-opacity .25s; }
+  .ink2 .pupil { rx: 5px; ry: 7px; opacity: 1; transition: rx .35s var(--spring), ry .35s var(--spring), opacity .15s; }
+  .ink2 .glint { r: 1.8px; cy: 53px; opacity: 1; transition: r .3s, cy .3s, opacity .15s; }
+  .ink2.chalky .pupil { rx: 3.6px; ry: 4.4px; }
+  .ink2.chalky .glint { r: 1.3px; cy: 54px; }
+  .ink2 .lid { opacity: 0; transition: opacity .2s; }
+  .ink2 .cheek { opacity: .7; transition: opacity .3s; }
+  .ink2 .brow-l { d: path("M39 47 Q45 44 51 47"); transition: d .35s var(--spring); }
+  .ink2 .brow-r { d: path("M69 47 Q75 44 81 47"); transition: d .35s var(--spring); }
+  .ink2 .look { transform: translate(calc(var(--mx) * 1px), calc(var(--my) * 1px)); transition: transform .3s var(--soft); }
+  .ink2 .arm-r, .ink2 .arm-l { opacity: 0; transform: scale(.2) rotate(-40deg); transition: transform .5s var(--spring), opacity .15s; }
+  .ink2 .arm-l { transform: scale(.2) rotate(40deg); }
+  .ink2 .limb { d: path("M101 76 Q106 80 106 86"); transition: d .45s var(--spring); }
+  .ink2 .hand { cx: 106px; cy: 87px; transition: cx .45s var(--spring), cy .45s var(--spring); }
+  .ink2 .tool { opacity: 0; transform: translate(106px, 87px) rotate(30deg) scale(.6); transition: transform .5s var(--spring), opacity .2s; }
+  .ink2 .fx > g { opacity: 0; transition: opacity .25s; }
+  .ink2 .pop.bump { animation: pop .45s var(--soft); }
+  .ink2 .blink { animation: blink 5.6s linear infinite var(--d); }
+
+  /* idle */
+  .ink2[data-state="idle"] .body { animation: breathe 3.4s var(--soft) infinite var(--d); }
+  .ink2[data-state="idle"] .hair { animation: hair-sway 3.4s var(--soft) infinite calc(var(--d) + .18s); }
+  .ink2[data-state="idle"] .face { animation: face-lag 3.4s var(--soft) infinite calc(var(--d) + .08s); }
+  .ink2[data-state="idle"] .shadow { animation: shadow-breathe 3.4s var(--soft) infinite var(--d); }
+
+  /* hello */
+  .ink2[data-state="hello"] .mouth { d: path("M48 72 Q60 87 72 72 Q60 75 48 72 Z"); fill-opacity: 1; }
+  .ink2[data-state="hello"] .cheek { opacity: .9; }
+  .ink2[data-state="hello"] .arm-r { opacity: 1; transform: none; }
+  .ink2[data-state="hello"] .limb { d: path("M101 72 Q112 70 115 58"); }
+  .ink2[data-state="hello"] .hand { cx: 115px; cy: 56px; }
+  .ink2[data-state="hello"] .arm-anim { animation: wave 1.9s var(--soft) infinite .25s; }
+  .ink2[data-state="hello"] .body { animation: sway 1.9s var(--soft) infinite .25s; }
+  .ink2[data-state="hello"] .hair { animation: hair-sway .95s var(--soft) infinite .35s; }
+  .ink2[data-state="hello"] .brow-l { d: path("M39 45 Q45 41 51 45"); }
+  .ink2[data-state="hello"] .brow-r { d: path("M69 45 Q75 41 81 45"); }
+
+  /* sleep */
+  .ink2[data-state="sleep"] .blink { animation: none; }
+  .ink2[data-state="sleep"] .pupil { ry: .5px; opacity: 0; }
+  .ink2[data-state="sleep"] .glint { opacity: 0; }
+  .ink2[data-state="sleep"] .lid { opacity: 1; }
+  .ink2[data-state="sleep"] .mouth { d: path("M55 76 Q60 79 65 76 Q60 79 55 76 Z"); }
+  .ink2[data-state="sleep"] .cheek { opacity: .45; }
+  .ink2[data-state="sleep"] .brow-l { d: path("M39 48 Q45 47 51 48"); }
+  .ink2[data-state="sleep"] .brow-r { d: path("M69 48 Q75 47 81 48"); }
+  .ink2[data-state="sleep"] .body { animation: snooze 4s var(--soft) infinite; }
+  .ink2[data-state="sleep"] .shadow { animation: shadow-breathe 4s var(--soft) infinite; }
+  .ink2[data-state="sleep"] .fx .zzz { opacity: 1; }
+
+  /* ---------- Dot: does the assignments ---------- */
+
+  /* scanning: magnifying glass up to one eye, sweeping the page */
+  .ink2[data-state="scanning"] .arm-r { opacity: 1; transform: none; }
+  .ink2[data-state="scanning"] .limb { d: path("M101 74 Q106 79 103 83"); }
+  .ink2[data-state="scanning"] .hand { cx: 103px; cy: 84px; }
+  .ink2[data-state="scanning"] .glass { opacity: 1; transform: translate(103px, 84px); }
+  .ink2[data-state="scanning"] .arm-anim { animation: sweep 2.8s var(--soft) infinite; }
+  .ink2[data-state="scanning"] .big-eye { animation: dart 2.8s var(--soft) infinite; }
+  .ink2[data-state="scanning"] .look { animation: peek 2.8s var(--soft) infinite; }
+  .ink2[data-state="scanning"] .body { animation: peer 2.8s var(--soft) infinite; }
+  .ink2[data-state="scanning"] .hair { animation: hair-sway 1.4s var(--soft) infinite .2s; }
+  .ink2[data-state="scanning"] .mouth { d: path("M54 76 Q58 73 63 76 Q58 73 54 76 Z"); }
+  .ink2[data-state="scanning"] .brow-l { d: path("M39 43 Q45 40 51 44"); }
+  .ink2[data-state="scanning"] .fx .found { opacity: 1; }
+  .ink2 .fx .found path { transform-box: fill-box; transform-origin: center; animation: found 2.8s var(--soft) infinite; }
+  .ink2 .fx .found path + path { animation-delay: .12s; }
+
+  /* steering: clicking around the school site */
+  .ink2[data-state="steering"] .arm-r { opacity: 1; transform: none; }
+  .ink2[data-state="steering"] .limb { d: path("M101 76 Q110 80 110 86"); }
+  .ink2[data-state="steering"] .hand { cx: 110px; cy: 87px; }
+  .ink2[data-state="steering"] .cursor { opacity: 1; transform: translate(110px, 87px) scale(1.3); }
+  .ink2[data-state="steering"] .arm-anim { animation: click 1.6s var(--soft) infinite; }
+  .ink2[data-state="steering"] .ripple { animation: ripple 1.6s ease-out infinite; }
+  .ink2[data-state="steering"] .look { transform: translate(3.5px, -1px); }
+  .ink2[data-state="steering"] .body { animation: lean 2.2s var(--soft) infinite; }
+  .ink2[data-state="steering"] .mouth { d: path("M53 75 Q60 80 67 75 Q60 80 53 75 Z"); }
+  .ink2[data-state="steering"] .brow-l { d: path("M39 45 Q46 45 52 48"); }
+  .ink2[data-state="steering"] .brow-r { d: path("M68 48 Q74 45 81 45"); }
+
+  /* working: writing the answer */
+  .ink2[data-state="working"] .arm-r { opacity: 1; transform: none; }
+  .ink2[data-state="working"] .limb { d: path("M101 78 Q112 82 111 92"); }
+  .ink2[data-state="working"] .hand { cx: 111px; cy: 93px; }
+  .ink2[data-state="working"] .pen { opacity: 1; transform: translate(111px, 93px) rotate(28deg); }
+  .ink2[data-state="working"] .arm-anim { animation: scribble .6s ease-in-out infinite; }
+  .ink2[data-state="working"] .body { animation: lean 1.4s var(--soft) infinite; }
+  .ink2[data-state="working"] .hair { animation: hair-sway .7s var(--soft) infinite; }
+  .ink2[data-state="working"] .look { transform: translate(3px, 3px); }
+  .ink2[data-state="working"] .mouth { d: path("M53 76 Q60 81 67 75 Q60 79 53 76 Z"); }
+  .ink2[data-state="working"] .cheek { opacity: .45; }
+  .ink2[data-state="working"] .brow-l { d: path("M39 44 Q46 45 52 49"); }
+  .ink2[data-state="working"] .brow-r { d: path("M68 49 Q74 45 81 44"); }
+  .ink2[data-state="working"] .fx .speed { opacity: 1; }
+
+  /* needs you: hand up */
+  .ink2[data-state="needs"] .pupil { rx: 6px; ry: 8px; }
+  .ink2[data-state="needs"] .glint { r: 2px; }
+  .ink2[data-state="needs"] .mouth { d: path("M55 77 Q60 90 65 77 Q60 65 55 77 Z"); fill: #3b342c; fill-opacity: 1; }
+  .ink2[data-state="needs"] .arm-r { opacity: 1; transform: none; }
+  .ink2[data-state="needs"] .limb { d: path("M101 72 Q112 70 115 58"); }
+  .ink2[data-state="needs"] .hand { cx: 115px; cy: 56px; }
+  .ink2[data-state="needs"] .arm-anim { animation: waggle 1.6s var(--soft) infinite; }
+  .ink2[data-state="needs"] .body { animation: boing 1.6s var(--soft) infinite; }
+  .ink2[data-state="needs"] .hair { animation: hair-sway .8s var(--soft) infinite .1s; }
+  .ink2[data-state="needs"] .brow-l { d: path("M40 45 Q45 41 51 42"); }
+  .ink2[data-state="needs"] .brow-r { d: path("M69 42 Q75 41 80 45"); }
+  .ink2[data-state="needs"] .fx .badge { opacity: 1; }
+  .ink2[data-state="needs"] .badge-anim { animation: badge 1.6s var(--soft) infinite; }
+
+  /* review: holds the finished paper up for you */
+  .ink2[data-state="review"] .arm-r { opacity: 1; transform: none; }
+  .ink2[data-state="review"] .limb { d: path("M101 72 Q112 70 115 58"); }
+  .ink2[data-state="review"] .hand { cx: 115px; cy: 56px; }
+  .ink2[data-state="review"] .paper { opacity: 1; transform: translate(115px, 56px) rotate(8deg); }
+  .ink2[data-state="review"] .arm-anim { animation: present 2.4s var(--soft) infinite; }
+  .ink2[data-state="review"] .body { animation: breathe 2.4s var(--soft) infinite; }
+  .ink2[data-state="review"] .mouth { d: path("M49 72 Q60 85 71 72 Q60 75 49 72 Z"); fill-opacity: 1; }
+  .ink2[data-state="review"] .cheek { opacity: .9; }
+  .ink2[data-state="review"] .brow-l { d: path("M39 45 Q45 41 51 45"); }
+  .ink2[data-state="review"] .brow-r { d: path("M69 45 Q75 41 81 45"); }
+
+  /* done + proud: anticipation, hop, landing squash */
+  .ink2[data-state="done"] .mouth, .ink2[data-state="proud"] .mouth { d: path("M47 71 Q60 89 73 71 Q60 74 47 71 Z"); fill-opacity: 1; }
+  .ink2[data-state="done"] .cheek, .ink2[data-state="proud"] .cheek { opacity: .95; }
+  .ink2[data-state="done"] .arm-r, .ink2[data-state="done"] .arm-l, .ink2[data-state="proud"] .arm-r, .ink2[data-state="proud"] .arm-l { opacity: 1; transform: none; }
+  .ink2[data-state="done"] .limb, .ink2[data-state="proud"] .limb { d: path("M101 70 Q113 64 114 50"); }
+  .ink2[data-state="done"] .hand, .ink2[data-state="proud"] .hand { cx: 114px; cy: 48px; }
+  .ink2[data-state="done"] .hop, .ink2[data-state="proud"] .hop { animation: hop 1.3s infinite; }
+  .ink2[data-state="done"] .body, .ink2[data-state="proud"] .body { animation: land 1.3s var(--soft) infinite; }
+  .ink2[data-state="done"] .hair, .ink2[data-state="proud"] .hair { animation: hair-sway .65s var(--soft) infinite .1s; }
+  .ink2[data-state="done"] .shadow, .ink2[data-state="proud"] .shadow { animation: shadow-hop 1.3s infinite; }
+  .ink2[data-state="done"] .arm-anim, .ink2[data-state="proud"] .arm-anim { animation: cheer-r 1.3s var(--soft) infinite; }
+  .ink2[data-state="done"] .arm-anim-l, .ink2[data-state="proud"] .arm-anim-l { animation: cheer-l 1.3s var(--soft) infinite; }
+  .ink2[data-state="done"] .brow-l { d: path("M39 45 Q45 41 51 45"); }
+  .ink2[data-state="done"] .brow-r { d: path("M69 45 Q75 41 81 45"); }
+  .ink2[data-state="done"] .fx .confetti { opacity: 1; }
+
+  /* ---------- Chalky: teaches ---------- */
+
+  /* explaining: pointer and a talking mouth */
+  .ink2[data-state="explaining"] .arm-r { opacity: 1; transform: none; }
+  .ink2[data-state="explaining"] .limb { d: path("M101 72 Q114 68 119 55"); }
+  .ink2[data-state="explaining"] .hand { cx: 119px; cy: 53px; }
+  .ink2[data-state="explaining"] .pointer { opacity: 1; transform: translate(119px, 53px) rotate(28deg); }
+  .ink2[data-state="explaining"] .look { transform: translate(3px, -2px); }
+  .ink2[data-state="explaining"] .arm-anim { animation: tap 1.2s var(--soft) infinite; }
+  .ink2[data-state="explaining"] .mouth { fill: #3b342c; fill-opacity: 1; animation: talk .42s ease-in-out infinite alternate; }
+  .ink2[data-state="explaining"] .body { animation: sway 2.4s var(--soft) infinite; }
+  .ink2[data-state="explaining"] .hair { animation: hair-sway 1.2s var(--soft) infinite .2s; }
+
+  /* listening: head tilted toward you, nodding while you type */
+  .ink2[data-state="listening"] .look { transform: translate(-3.5px, 1px); }
+  .ink2[data-state="listening"] .mouth { d: path("M54 75 Q60 79 66 75 Q60 79 54 75 Z"); }
+  .ink2[data-state="listening"] .body { animation: nod 2.4s var(--soft) infinite; }
+  .ink2[data-state="listening"] .hair { animation: hair-sway 1.2s var(--soft) infinite .15s; }
+  .ink2[data-state="listening"] .fx .typing { opacity: 1; }
+  .ink2 .fx .typing circle { animation: typing 1.2s var(--soft) infinite; }
+  .ink2 .fx .typing circle:nth-of-type(2) { animation-delay: .15s; } .ink2 .fx .typing circle:nth-of-type(3) { animation-delay: .3s; }
+
+  /* thinking */
+  .ink2[data-state="thinking"] .look { transform: translate(2.5px, -5px); }
+  .ink2[data-state="thinking"] .mouth { d: path("M54 77 Q60 73 67 78 Q60 73 54 77 Z"); }
+  .ink2[data-state="thinking"] .cheek { opacity: .4; }
+  .ink2[data-state="thinking"] .body { animation: ponder 3.2s var(--soft) infinite; }
+  .ink2[data-state="thinking"] .hair { animation: hair-sway 1.6s var(--soft) infinite .2s; }
+  .ink2[data-state="thinking"] .fx .think { opacity: 1; }
+  .ink2 .fx .think { animation: float 2.6s var(--soft) infinite; }
+
+  /* hint: a lightbulb pops on */
+  .ink2[data-state="hint"] .look { transform: translate(2.5px, -5px); }
+  .ink2[data-state="hint"] .mouth { d: path("M55 76 Q60 86 65 76 Q60 70 55 76 Z"); fill: #3b342c; fill-opacity: 1; }
+  .ink2[data-state="hint"] .cheek { opacity: .9; }
+  .ink2[data-state="hint"] .body { animation: boing 2s var(--soft) infinite; }
+  .ink2[data-state="hint"] .hair { animation: hair-sway .8s var(--soft) infinite; }
+  .ink2[data-state="hint"] .fx .bulb { opacity: 1; }
+  .ink2 .bulb-anim { transform: scale(.2) translateY(10px); transition: transform .55s var(--spring); }
+  .ink2[data-state="hint"] .bulb-anim { transform: none; }
+  .ink2 .rays { transform-box: fill-box; transform-origin: center; animation: rays 1s var(--soft) infinite; }
+
+  /* quiz: holds up a question card */
+  .ink2[data-state="quiz"] .arm-r { opacity: 1; transform: none; }
+  .ink2[data-state="quiz"] .limb { d: path("M101 72 Q112 70 115 58"); }
+  .ink2[data-state="quiz"] .hand { cx: 115px; cy: 56px; }
+  .ink2[data-state="quiz"] .card { opacity: 1; transform: translate(115px, 56px) rotate(-6deg); }
+  .ink2[data-state="quiz"] .arm-anim { animation: present 2.4s var(--soft) infinite; }
+  .ink2[data-state="quiz"] .body { animation: sway 2.4s var(--soft) infinite; }
+  .ink2[data-state="quiz"] .mouth { d: path("M52 74 Q60 83 68 74 Q60 76 52 74 Z"); fill-opacity: 1; }
+
+  /* proud: gold star held high */
+  .ink2[data-state="proud"] .star { opacity: 1; transform: translate(114px, 48px); }
+  .ink2[data-state="proud"] .fx .shine { opacity: 1; }
+  .ink2 .fx .shine path { transform-box: fill-box; transform-origin: center; animation: twinkle 1.3s var(--soft) infinite; }
+  .ink2 .fx .shine path:nth-child(2) { animation-delay: .4s; } .ink2 .fx .shine path:nth-child(3) { animation-delay: .8s; }
+
+  .ink2 .fx .z { transform-box: fill-box; animation: z 3s ease-out infinite; }
+  .ink2 .fx .z:nth-child(2) { animation-delay: 1s; } .ink2 .fx .z:nth-child(3) { animation-delay: 2s; }
+  .ink2 .fx .c { transform-box: fill-box; transform-origin: center; animation: confetti 1.3s cubic-bezier(.2,.6,.4,1) infinite; }
+  .ink2 .fx .speed path { animation: speed .5s linear infinite; }
+  .ink2 .fx .speed path:nth-child(2) { animation-delay: -.17s; } .ink2 .fx .speed path:nth-child(3) { animation-delay: -.33s; }
+  .ink2 .ripple { transform-box: fill-box; transform-origin: center; opacity: 0; }
+
+  @keyframes breathe { 0%, 100% { transform: none; } 50% { transform: translateY(-2.5px) scale(.985, 1.03); } }
+  @keyframes shadow-breathe { 0%, 100% { transform: none; } 50% { transform: scale(.93); } }
+  @keyframes hair-sway { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-9deg); } }
+  @keyframes face-lag { 0%, 100% { transform: none; } 55% { transform: translateY(-1.2px); } }
+  @keyframes blink { 0%, 43%, 47%, 86%, 89.5%, 93%, 100% { transform: none; } 45%, 88%, 91.5% { transform: scaleY(.08); } }
+  @keyframes sway { 0%, 100% { transform: rotate(0); } 30% { transform: rotate(-3deg) translateY(-1px); } 70% { transform: rotate(2.5deg); } }
+  @keyframes wave { 0%, 56%, 100% { transform: rotate(0); } 8% { transform: rotate(-24deg); } 17% { transform: rotate(12deg); } 26% { transform: rotate(-22deg); } 35% { transform: rotate(10deg); } 45% { transform: rotate(-8deg); } }
+  @keyframes lean { 0%, 100% { transform: rotate(2deg); } 50% { transform: rotate(3.5deg) translateY(1px) scale(1.01, .99); } }
+  @keyframes scribble { 0%, 100% { transform: rotate(0); } 14% { transform: rotate(5deg); } 27% { transform: rotate(-2deg); } 41% { transform: rotate(4deg); } 55% { transform: rotate(-3deg); } 70% { transform: rotate(6deg); } 84% { transform: rotate(-1deg); } }
+  @keyframes ponder { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(3deg) translateY(-2px); } }
+  @keyframes sweep { 0%, 100% { transform: rotate(8deg); } 42%, 52% { transform: rotate(-16deg); } }
+  @keyframes dart { 0%, 100% { transform: translate(2px, 1px); } 42%, 52% { transform: translate(-3px, -1px); } 60% { transform: translate(-1px, 0); } }
+  @keyframes peek { 0%, 100% { transform: translate(2.5px, .5px); } 42%, 52% { transform: translate(-2.5px, -1px); } }
+  @keyframes peer { 0%, 100% { transform: rotate(3deg); } 42%, 52% { transform: rotate(-3deg) translateY(-1px); } }
+  @keyframes found { 0%, 50%, 80%, 100% { transform: scale(0); opacity: 0; } 58% { transform: scale(1.3) rotate(20deg); opacity: 1; } 70% { transform: scale(1) rotate(35deg); opacity: 1; } }
+  @keyframes click { 0%, 18%, 50%, 68%, 100% { transform: none; } 24% { transform: rotate(4deg) translate(-1px, 2px); } 74% { transform: rotate(4deg) translate(-1px, 2px); } 36% { transform: rotate(-6deg); } }
+  @keyframes ripple { 0%, 22% { transform: scale(.2); opacity: 0; } 26% { opacity: .9; } 48% { transform: scale(1.6); opacity: 0; } 72% { transform: scale(.2); opacity: 0; } 76% { opacity: .9; } 98%, 100% { transform: scale(1.6); opacity: 0; } }
+  @keyframes present { 0%, 100% { transform: rotate(0); } 12% { transform: rotate(-8deg); } 24% { transform: rotate(5deg); } 34% { transform: rotate(-3deg); } 44% { transform: rotate(0); } }
+  @keyframes nod { 0%, 100% { transform: rotate(-6deg); } 20% { transform: rotate(-6deg) scale(1.02, .97) translateY(1px); } 32% { transform: rotate(-6deg); } 62% { transform: rotate(-4deg) scale(1.02, .97) translateY(1px); } 74% { transform: rotate(-6deg); } }
+  @keyframes typing { 0%, 60%, 100% { transform: translateY(0); } 25% { transform: translateY(-3px); } }
+  @keyframes rays { 0%, 100% { transform: scale(1); opacity: .6; } 50% { transform: scale(1.15); opacity: 1; } }
+  @keyframes twinkle { 0%, 100% { transform: scale(.3) rotate(0); opacity: 0; } 40% { transform: scale(1.1) rotate(30deg); opacity: 1; } 70% { transform: scale(.8) rotate(45deg); opacity: .8; } }
+  @keyframes boing { 0%, 55%, 100% { transform: none; } 8% { transform: scale(1.06, .93); } 20% { transform: translateY(-7px) scale(.95, 1.06); } 32% { transform: scale(1.05, .95); } 42% { transform: scale(.99, 1.01); } }
+  @keyframes waggle { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(8deg); } }
+  @keyframes snooze { 0%, 100% { transform: scale(1.02, .975) translateY(.5px); } 50% { transform: none; } }
+  @keyframes hop { 0%, 16% { transform: none; animation-timing-function: cubic-bezier(.2, .8, .35, 1); } 40% { transform: translateY(-15px); animation-timing-function: cubic-bezier(.65, 0, .85, .35); } 58%, 100% { transform: none; } }
+  @keyframes land { 0%, 100% { transform: none; } 12% { transform: scale(1.09, .9); } 22% { transform: scale(.94, 1.08); } 42% { transform: scale(.98, 1.02); } 58% { transform: scale(1.1, .89); } 70% { transform: scale(.97, 1.03); } 82% { transform: none; } }
+  @keyframes shadow-hop { 0%, 16%, 58%, 100% { transform: none; opacity: 1; } 40% { transform: scale(.65); opacity: .5; } }
+  @keyframes cheer-r { 0%, 100% { transform: rotate(0); } 22%, 40% { transform: rotate(-14deg); } 58% { transform: rotate(6deg); } }
+  @keyframes cheer-l { 0%, 100% { transform: rotate(0); } 22%, 40% { transform: rotate(14deg); } 58% { transform: rotate(-6deg); } }
+  @keyframes tap { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-9deg); } 32% { transform: rotate(3deg); } 44% { transform: rotate(-7deg); } 56% { transform: rotate(2deg); } }
+  @keyframes talk { from { d: path("M53 75 Q60 80 67 75 Q60 76 53 75 Z"); } to { d: path("M52 74 Q60 87 68 74 Q60 72 52 74 Z"); } }
+  @keyframes pop { 0% { transform: scale(1.07, .93); } 45% { transform: scale(.97, 1.03); } 100% { transform: none; } }
+  @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+  @keyframes badge { 0%, 100% { transform: none; } 10% { transform: scale(1.2) rotate(-10deg); } 20% { transform: scale(.95) rotate(8deg); } 30% { transform: scale(1.05) rotate(-3deg); } 40% { transform: none; } }
+  @keyframes z { 0% { transform: translate(0, 0) scale(.5); opacity: 0; } 20% { opacity: 1; } 100% { transform: translate(14px, -30px) scale(1.2); opacity: 0; } }
+  @keyframes confetti { 0% { transform: translate(0, 0) scale(.3) rotate(0); opacity: 0; } 8% { opacity: 1; } 40% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(200deg); opacity: 1; } 100% { transform: translate(calc(var(--dx) * 1.35), calc(var(--dy) + 46px)) rotate(420deg); opacity: 0; } }
+  @keyframes speed { 0% { transform: translateX(4px); opacity: 0; } 30% { opacity: 1; } 100% { transform: translateX(-6px); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .ink2 * { animation: none !important; transition: none !important; } }
+
+  /* waiting: calm idle, eyes on the school pane */
+  .ink2[data-state="waiting"] .body { animation: breathe 3.4s var(--soft) infinite var(--d); }
+  .ink2[data-state="waiting"] .hair { animation: hair-sway 3.4s var(--soft) infinite calc(var(--d) + .18s); }
+  .ink2[data-state="waiting"] .look { transform: translate(3.5px, .5px); }
+
+

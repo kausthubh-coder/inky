@@ -3,8 +3,10 @@ import type { DeskPanel } from "../app/DeskScreen.js";
 import type { DevPreviewConfig, DevPreviewScenarioId } from "../app/devPreview.js";
 
 export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId; readonly group: string; readonly title: string; readonly note: string }[] = [
+  ...(["today", "today-clear", "today-needs", "today-working", "desk-submitting"] as const).map(id => ({id, group:"Today", title:id.replaceAll("-"," "), note:"Controlled renderer fixture"})),
+  ...(["learn", "learn-empty", "learn-reading", "learn-error", "learn-partial", "learn-no-topics", "learn-topic-goal", "learn-recap", "tutor-choice", "tutor-typed", "tutor-explain", "tutor-population", "tutor-flashcards", "tutor-number-line", "tutor-function-plot", "tutor-code", "tutor-paused", "tutor-finished", "tutor-quiz", "tutor-page"] as const).map(id => ({id,group:"Learn",title:id.replaceAll("-"," "),note:"Controlled public renderer fixture"})),
   { id: "auth", group: "Entry", title: "Private beta gate", note: "Signed-out entry and feedback" },
-  { id: "onboarding-welcome", group: "Onboarding", title: "Meet Inky", note: "Welcome" },
+  { id: "onboarding-welcome", group: "Onboarding", title: "Meet Dot", note: "Welcome" },
   { id: "onboarding-chatgpt", group: "Onboarding", title: "Connect ChatGPT", note: "Agent runtime" },
   { id: "onboarding-connections", group: "Onboarding", title: "Connected apps", note: "Gmail, Drive, Docs, Notion, GitHub" },
   { id: "onboarding-folder", group: "Onboarding", title: "Homework folder", note: "Bounded file access" },
@@ -36,8 +38,8 @@ export const DEV_PREVIEW_SCENARIOS: readonly { readonly id: DevPreviewScenarioId
   { id: "assignment-stopped", group: "Workspace", title: "Stopped assignment", note: "Student cancelled work" },
   { id: "assignment-restricted", group: "Workspace", title: "Assignment permission", note: "Disabled start and homework rules" },
   { id: "assignment-saved", group: "Workspace", title: "Saved assignment", note: "Answers saved, submission unconfirmed" },
-  { id: "desk-working", group: "Workspace", title: "Inky working", note: "Visible school work" },
-  { id: "desk-needs-user", group: "Workspace", title: "Inky needs you", note: "Resume handoff" },
+  { id: "desk-working", group: "Workspace", title: "Dot working", note: "Visible school work" },
+  { id: "desk-needs-user", group: "Workspace", title: "Dot needs you", note: "Resume handoff" },
   { id: "desk-review", group: "Workspace", title: "Ready for review", note: "Completion checklist" },
   { id: "desk-submitted", group: "Workspace", title: "Submitted", note: "Verified receipt" },
   ...SETTINGS_SECTIONS.map(section => ({ id: `settings-${section.id}` as const, group: "Settings", title: section.label, note: section.hint })),
@@ -58,6 +60,7 @@ export function parsePreviewConfig(search: string): DevPreviewConfig | null {
   } as Partial<Record<DevPreviewScenarioId, DevPreviewConfig["onboardingStep"]>>)[id];
   const panel: DeskPanel = id === "assignment" || id.startsWith("assignment-")
     ? { kind: "assignment", assignmentId: id === "assignment-saved" ? "assignment-hw1" : "assignment-sort" }
-    : id === "chat-handoff" ? {kind:"school"} : id.startsWith("desk-") ? { kind: "desk" } : { kind: "closed" };
-  return { id, screen: settingsSection ? "settings" : "week", panel, ...(onboardingStep === undefined ? {} : { onboardingStep }), ...(settingsSection ? { settingsSection } : {}) };
+    : id === "chat-handoff" || ["week-error", "week-updating", "week-conflicts", "week-needs-user", "week-complete", "week-idle", "week-browser-busy"].includes(id)
+      ? { kind: "school" } : id.startsWith("desk-") ? { kind: "desk" } : { kind: "closed" };
+  return { id, screen: settingsSection ? "settings" : id.startsWith("learn") || id.startsWith("tutor-") ? "learn" : "week", panel, ...(onboardingStep === undefined ? {} : { onboardingStep }), ...(settingsSection ? { settingsSection } : {}) };
 }

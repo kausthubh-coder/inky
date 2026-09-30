@@ -212,6 +212,17 @@ export class ManagerStateRepository {
     });
   }
 
+  reorderQueue(taskIds: readonly string[]): ManagerQueueEntry[] {
+    return this.database.transaction(() => {
+      const queue = this.listQueue();
+      if (!taskIds.length || new Set(taskIds).size !== taskIds.length || taskIds.some(id => !queue.some(entry => entry.taskId === id))) {
+        throw new Error("Reorder only tasks currently in the queue, each once.");
+      }
+      const ordered = [...taskIds.map(id => queue.find(entry => entry.taskId === id)!), ...queue.filter(entry => !taskIds.includes(entry.taskId))];
+      return ordered.map((entry, index) => this.putQueueEntry({ ...entry, priority: ordered.length - index }));
+    });
+  }
+
   removeQueueEntry(taskId: string): void {
     this.database.handle.prepare("DELETE FROM manager_queue WHERE task_id = ?").run(taskId);
   }

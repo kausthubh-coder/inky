@@ -5,6 +5,8 @@ export type NoteRetrievalContext =
   | Readonly<{
       kind: "assignment";
       studentId?: string;
+      /** How this school works, written while scanning; homework needs it too. */
+      schoolId?: string;
       assignmentId: string;
       courseId: string;
       confirmedPatternIds: readonly string[];
@@ -28,8 +30,7 @@ export function noteIsAllowed(
   mode: "automatic" | "search" = "automatic",
 ): boolean {
   if (context.kind === "home") {
-    if (mode === "search") return true;
-    return note.scope === "student" && note.subjectId === (context.studentId ?? "primary") && note.about === "preference";
+    return !!context.studentId && note.scope === "student" && note.subjectId === context.studentId && note.about === "preference";
   }
   if (context.kind === "scan") {
     return note.scope === "school" && note.subjectId === context.schoolId && note.about === "scan";
@@ -37,6 +38,7 @@ export function noteIsAllowed(
   if (note.scope === "student") {
     return note.subjectId === (context.studentId ?? "primary") && note.about === "preference";
   }
+  if (note.scope === "school") return !!context.schoolId && note.subjectId === context.schoolId;
   if (note.scope === "course") return note.subjectId === context.courseId;
   if (note.scope === "pattern") return context.confirmedPatternIds.includes(note.subjectId);
   if (note.scope !== "assignment") return false;
@@ -52,4 +54,27 @@ function compareNotes(left: NoteIndexEntry, right: NoteIndexEntry): number {
     || left.key.localeCompare(right.key)
     || left.updatedAt.localeCompare(right.updatedAt)
     || left.noteId.localeCompare(right.noteId);
+}
+
+export type NoteMatch = { noteId: string; scope: string; subjectId: string; about: string; title: string; preview: string };
+
+/** Notes this context may see, ranked by how many query words their title, key and text contain. */
+export async function searchNotes(
+  notes: { list(): readonly NoteIndexEntry[]; read(noteId: string): Promise<{ content: string } | null> },
+  context: NoteRetrievalContext,
+  query: string,
+): Promise<NoteMatch[]> {
+  const terms = query.trim().toLocaleLowerCase().split(/[^\p{L}\p{N}._-]+/u).filter((term) => term.length > 1);
+  const matches: Array<NoteMatch & { score: number }> = [];
+  for (const entry of retrieveNoteIndex(notes.list(), context, "search", 64)) {
+    const document = await notes.read(entry.noteId);
+    if (!document) continue;
+    const haystack = `${entry.title}\n${entry.key}\n${document.content}`.toLocaleLowerCase();
+    const score = terms.reduce((total, term) => total + (haystack.includes(term) ? 1 : 0), 0);
+    if (score) matches.push({ noteId: entry.noteId, scope: entry.scope, subjectId: entry.subjectId, about: entry.about, title: entry.title, preview: document.content.slice(0, 500), score });
+  }
+  return matches
+    .sort((left, right) => right.score - left.score || left.noteId.localeCompare(right.noteId))
+    .slice(0, 25)
+    .map(({ score: _score, ...match }) => match);
 }

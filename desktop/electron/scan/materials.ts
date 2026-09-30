@@ -39,7 +39,7 @@ export function createScanMaterialReader(context: {
         const url = await context.browser.downloadSource(input.ref);
         const snapshot = await context.observe();
         const sources = scan.targetAssignmentId ? context.scan().targetSourceTargets ?? [] : [assignment.sourceTarget, ...(assignment.requirementEvidence ?? []).map(item => item.evidence.sourceTarget)];
-        if (!sources.some(url => exactTarget(url) === exactTarget(snapshot.url)) && !linkedSources.get(input.assignmentId)?.has(exactTarget(snapshot.url))) throw new Error("Open this assignment's page before reading its PDF link.");
+        if (!sources.some(url => url && exactTarget(url) === exactTarget(snapshot.url)) && !linkedSources.get(input.assignmentId)?.has(exactTarget(snapshot.url))) throw new Error("Open this assignment's page before reading its PDF link.");
         const freshRef = snapshot.elements.find(item => item.href && exactTarget(item.href) === exactTarget(url))?.ref;
         if (!freshRef) throw new Error("The attachment link changed. Take a new snapshot and inspect its current destination.");
         const links = linkedSources.get(input.assignmentId) ?? new Set<string>();

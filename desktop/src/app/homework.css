@@ -1,0 +1,586 @@
+/* Week, list and All. Class colour comes from course-accent-N (app.css). Only "needs you" gets red. */
+/* The headline: Dot, what it means for you, and the one thing to do, on one baseline grid. */
+.hw-hello {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 18px;
+  row-gap: 14px;
+  margin-bottom: 22px;
+}
+.hw-hello.is-plain {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+/* The drawing carries a floor shadow below the face; lift it so the face, not the shadow, lines up with the text. */
+.hw-hello > .character {
+  transform: translateY(-3px);
+}
+.hw-hello-copy {
+  min-width: 0;
+}
+.hw-hello h1 {
+  margin: 0;
+  font: 700 28px/1.18 "Shantell Sans", cursive;
+  letter-spacing: -0.005em;
+  text-wrap: balance;
+  font-kerning: normal;
+}
+.hw-hello p {
+  max-width: 58ch;
+  margin: 5px 0 0;
+  font-size: 15.5px;
+  line-height: 1.45;
+  color: var(--graphite);
+  text-wrap: pretty;
+}
+.hw-hello-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hw-hello .hw-fix {
+  height: 40px;
+  min-height: 40px;
+  padding: 0 18px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.hw-views {
+  height: 40px;
+  align-items: stretch;
+}
+.hw-views button {
+  padding: 0 14px;
+  font-size: 14px;
+}
+@media (max-width: 900px) {
+  .hw-hello {
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+  .hw-hello-actions {
+    grid-column: 2 / -1;
+    justify-content: space-between;
+  }
+  .hw-hello.is-plain .hw-hello-actions {
+    grid-column: 1 / -1;
+  }
+  .hw-hello h1 {
+    font-size: 25px;
+  }
+}
+.hw-conflict {
+  margin: 0 0 12px;
+  font-size: 14px;
+  color: var(--graphite);
+}
+
+.hw-bar {
+  display: flex;
+  align-items: center;
+  margin: 24px 0 8px;
+}
+.hw-bar h2 {
+  margin: 0;
+  font: 800 15px/1.4 "Nunito Sans", sans-serif;
+}
+.hw-week-nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.hw-days,
+.hw-soon {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0 8px;
+}
+.hw-day {
+  min-height: 196px;
+  padding: 0 4px 6px;
+  border-radius: 12px;
+}
+.hw-day.is-today {
+  background: var(--blotter);
+}
+.hw-day header {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  padding: 8px 6px;
+  font-size: 13.5px;
+  color: var(--graphite);
+}
+.hw-day header b {
+  color: var(--pencil);
+}
+.hw-card {
+  display: block;
+  width: calc(100% - 4px);
+  margin: 0 2px 8px;
+  padding: 8px 10px;
+  border: 0;
+  border-left: 3px solid var(--course-accent, var(--rule));
+  border-radius: 6px 10px 10px 6px;
+  background: color-mix(in srgb, var(--course-accent, var(--rule)) 18%, var(--page));
+  color: var(--pencil);
+  text-align: left;
+  line-height: 1.3;
+  font-size: 13.5px;
+  cursor: pointer;
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
+}
+.hw-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px -6px rgb(43 38 33 / 35%);
+}
+.hw-card strong {
+  display: block;
+  font-size: 14.5px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.hw-card small {
+  display: block;
+  margin-top: 3px;
+  color: var(--graphite);
+}
+.hw-card.is-needs {
+  box-shadow: 0 0 0 1.5px var(--redpen);
+}
+.hw-need {
+  color: var(--redpen);
+  font-weight: 700;
+}
+.hw-card small.hw-need {
+  color: var(--redpen);
+}
+.hw-none {
+  margin: 0;
+  padding: 0 6px;
+  font-size: 13.5px;
+  color: var(--graphite);
+}
+/* Handed-in work stays on its day as a quiet line in its class colour. */
+.hw-done-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: calc(100% - 4px);
+  margin: 0 2px 4px;
+  padding: 4px 30px 4px 8px;
+  border: 0;
+  border-left: 3px solid color-mix(in srgb, var(--course-accent, var(--rule)) 70%, var(--page));
+  border-radius: 4px 8px 8px 4px;
+  background: color-mix(in srgb, var(--course-accent, var(--rule)) 7%, transparent);
+  color: var(--graphite);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+.hw-done-line span {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: line-through;
+  text-decoration-color: rgb(43 38 33 / 25%);
+}
+.hw-done-line:hover {
+  background: color-mix(in srgb, var(--course-accent, var(--rule)) 16%, transparent);
+  color: var(--pencil);
+}
+.hw-done-line svg {
+  flex: none;
+  color: #2e7d4f;
+}
+/* The corrections menu sits in each card's corner and shows on hover or focus. */
+.hw-card-wrap {
+  position: relative;
+}
+.hw-card-wrap:has(.hw-more-button[aria-expanded="true"]) {
+  z-index: 9;
+}
+.hw-card-wrap > .hw-more {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease-out;
+}
+.hw-card-wrap.hw-done > .hw-more {
+  top: 50%;
+  transform: translateY(-50%);
+}
+.hw-card-wrap:hover > .hw-more,
+.hw-card-wrap > .hw-more:focus-within,
+.hw-card-wrap > .hw-more:has([aria-expanded="true"]) {
+  opacity: 1;
+}
+.hw-card-wrap .hw-more-button {
+  width: 26px;
+  height: 26px;
+  background: rgb(255 253 248 / 80%);
+}
+.hw-card-wrap.hw-done .hw-more-button {
+  width: 22px;
+  height: 22px;
+  background: none;
+}
+.hw-card-wrap .hw-menu {
+  top: 30px;
+}
+.hw-card-wrap .hw-card {
+  padding-right: 30px;
+}
+.hw-days .hw-day:first-child .hw-menu,
+.hw-days .hw-day:nth-child(2) .hw-menu,
+.hw-soon .hw-card-wrap:nth-child(7n + 1) .hw-menu,
+.hw-soon .hw-card-wrap:nth-child(7n + 2) .hw-menu {
+  right: auto;
+  left: 0;
+}
+
+.hw-group {
+  margin-top: 22px;
+}
+.hw-group h2 {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 2px;
+  font: 800 14px/1.5 "Nunito Sans", sans-serif;
+}
+.hw-group h2 span {
+  color: var(--graphite);
+  font-weight: 600;
+}
+.hw-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr auto 32px;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 6px;
+  border-bottom: 1px solid var(--rule);
+  border-radius: 8px;
+}
+.hw-row:hover {
+  background: rgb(242 235 221 / 55%);
+}
+.hw-row-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.hw-row-main > span:last-child {
+  min-width: 0;
+}
+.hw-tone {
+  flex: none;
+  width: 4px;
+  height: 30px;
+  border-radius: 3px;
+  background: var(--course-accent, var(--rule));
+}
+.hw-row strong {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 700;
+}
+.hw-row small {
+  color: var(--graphite);
+  font-size: 13.5px;
+}
+.hw-more {
+  position: relative;
+}
+.hw-more-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--graphite);
+  cursor: pointer;
+}
+.hw-more-button:hover,
+.hw-more-button[aria-expanded="true"] {
+  background: var(--blotter);
+  color: var(--pencil);
+}
+.hw-menu {
+  position: absolute;
+  z-index: 8;
+  right: 0;
+  top: 38px;
+  width: 240px;
+  padding: 6px;
+  border-radius: 12px;
+  background: var(--page);
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 12%), 0 12px 30px -10px rgb(43 38 33 / 30%);
+  font-size: 14px;
+  animation: hw-drop 0.14s ease-out;
+}
+.hw-menu p {
+  margin: 8px 10px 4px;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--graphite);
+}
+.hw-menu > button {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--pencil);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.hw-menu > button:hover:not(:disabled) {
+  background: var(--blotter);
+}
+.hw-menu > button:disabled {
+  color: var(--graphite);
+  cursor: default;
+}
+.hw-menu hr {
+  margin: 5px 4px;
+  border: 0;
+  border-top: 1px solid var(--rule);
+}
+.hw-menu-date {
+  display: flex;
+  gap: 6px;
+  padding: 4px 6px 6px;
+}
+.hw-menu-date input {
+  min-width: 0;
+  flex: 1;
+  font: inherit;
+  font-size: 13px;
+}
+.hw-ruleline {
+  margin-top: 16px;
+  font-size: 14px;
+  color: var(--graphite);
+}
+.hw-empty {
+  margin: 12px 0 0;
+  padding: 10px 6px;
+  color: var(--graphite);
+}
+.hw-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 10px;
+  background: var(--page);
+  box-shadow: 0 0 0 1px var(--rule);
+  color: var(--graphite);
+}
+.hw-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: inherit;
+  font-size: 15px;
+  color: var(--pencil);
+}
+
+@keyframes hw-drop {
+  from { opacity: 0; transform: translateY(-4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-card, .hw-menu { transition: none; animation: none; }
+  .hw-card:hover { transform: none; }
+}
+@media (max-width: 900px) {
+  .hw-days, .hw-soon { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+  .hw-day { min-height: 0; }
+}
+
+/* The chat grows up out of the chat box, over the week. */
+.hw-dock {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  width: min(720px, calc(100% - 32px));
+  height: min(640px, calc(100dvh - 120px));
+  transform: translateX(-50%);
+  border-radius: 18px;
+  background: var(--page);
+  box-shadow: 0 0 0 1.5px var(--pencil), 0 22px 60px -20px rgb(43 38 33 / 50%);
+  animation: hw-dock-grow 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.hw-dock-close {
+  position: absolute;
+  z-index: 2;
+  right: 10px;
+  top: 8px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--graphite);
+  cursor: pointer;
+}
+.hw-dock-close:hover {
+  background: var(--blotter);
+  color: var(--pencil);
+}
+.hw-dock-log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 44px 10px 20px;
+  font-size: 15px;
+  line-height: 1.55;
+  scrollbar-width: none;
+}
+.hw-dock-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.hw-dock-context {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--graphite);
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.hw-dock-context::before,
+.hw-dock-context::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+.hw-dock-context:hover {
+  color: var(--pencil);
+}
+.hw-dock-event {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 0 42px;
+  font-size: 13px;
+  color: var(--graphite);
+}
+.hw-dock-event time {
+  font-size: 12px;
+}
+.hw-dock-event .rd-link {
+  font-size: 13px;
+  color: var(--graphite);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.hw-dock .ag-mem {
+  margin-left: 42px;
+}
+.hw-dock-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 8px 0 0 42px;
+  border-top: 1px solid var(--rule);
+}
+.hw-dock-rows button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 4px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: none;
+  color: var(--pencil);
+  font-size: 14.5px;
+  text-align: left;
+  cursor: pointer;
+}
+.hw-dock-rows button:hover {
+  background: rgb(242 235 221 / 55%);
+}
+.hw-dock-rows span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--graphite);
+}
+.hw-dock-quiet {
+  margin: 0;
+  color: var(--graphite);
+  font-size: 13.5px;
+}
+.hw-dock-earlier {
+  align-self: center;
+}
+.hw-dock-empty p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 8px;
+}
+.hw-dock-empty .ag-tips {
+  margin: 0 0 0 32px;
+}
+.hw-dock .rd-composer.inky-composer,
+.hw-dock .rd-composer.inky-composer:focus-within {
+  flex: none;
+  border-radius: 0 0 18px 18px;
+  box-shadow: none;
+}
+.workspace-dialog .hw-dock {
+  position: static;
+  width: 100%;
+  height: 100%;
+  transform: none;
+  border-radius: 0;
+  box-shadow: none;
+  animation: none;
+}
+@keyframes hw-dock-grow {
+  from { opacity: 0; transform: translate(-50%, 14px) scale(0.98); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hw-dock { animation: none; }
+}
+
+
+.hw-dock-log::-webkit-scrollbar { display: none; }

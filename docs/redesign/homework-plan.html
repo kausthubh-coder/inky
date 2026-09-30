@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homework, simplified</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700;6..12,800&family=Nunito:wght@700;800&family=Shantell+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="characters.css">
+<style>
+/* The app's own tokens (desktop/src/app/redesign.css). */
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--highlighter:#f6c945;--redpen:#b3452f;--coral:#f28b6f;--green:#2e7d4f;
+  --shadow:0 0 0 1.5px var(--pencil),0 2.5px 0 1.5px var(--pencil)}
+*{box-sizing:border-box}
+html{background:var(--paper)}
+body{margin:0;color:var(--pencil);font:16px/1.55 "Nunito Sans",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:1120px;margin:0 auto;padding:56px 28px 140px}
+h1,h2,h3{text-wrap:balance;margin:0}
+p,li{text-wrap:pretty}
+h1{font:800 40px/1.1 "Shantell Sans",cursive;margin-bottom:12px}
+h2{font-size:26px;font-weight:800;margin:84px 0 6px}
+h3{font-size:17px;font-weight:800;margin:26px 0 6px}
+.lead{font-size:19px;color:var(--graphite);max-width:720px;margin:0}
+.muted{color:var(--graphite)}
+.num{font-variant-numeric:tabular-nums}
+.kicker{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--graphite);margin-bottom:6px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin:30px 0 0}
+.three b{display:block;font-size:17px}
+.three p{margin:2px 0 0;color:var(--graphite);font-size:15px}
+.note{margin:22px 0 0;padding:10px 0 10px 16px;border-left:3px solid var(--highlighter);max-width:760px}
+a{color:inherit}
+
+/* Now / New toggle and the frame both views share */
+.toolbar{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;margin:20px 0 0}
+.seg{display:inline-flex;flex-wrap:wrap;background:var(--blotter);border-radius:10px;padding:3px;gap:2px}
+.seg button{font:inherit;font-weight:700;font-size:14px;border:0;background:none;color:var(--graphite);padding:6px 12px;border-radius:8px;cursor:pointer}
+.seg button.on{background:var(--page);color:var(--pencil);box-shadow:0 1px 2px rgba(43,38,33,.14)}
+.seg button:hover{color:var(--pencil)}
+.shot{margin-top:14px;border-radius:14px;overflow:hidden;box-shadow:0 0 0 1px rgba(43,38,33,.1),0 14px 40px -14px rgba(43,38,33,.22)}
+.shot img{display:block;width:100%}
+.fit{position:relative;overflow:hidden}
+.app{position:absolute;left:0;top:0;width:1280px;height:820px;transform-origin:0 0;background:var(--paper);font-size:15px;overflow:hidden}
+.changes{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 34px;margin:18px 0 0;padding:0;list-style:none}
+.changes li{display:grid;grid-template-columns:26px 1fr;gap:8px;font-size:15px;margin:0}
+.changes li b{display:block}
+.changes li span{color:var(--graphite)}
+.mk{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--coral);color:#fff;font:800 12px "Nunito Sans";vertical-align:middle}
+.app .mk{position:absolute;z-index:3;box-shadow:0 0 0 3px var(--paper)}
+
+/* ---------- app chrome (matches today's screens) ---------- */
+.topbar{display:flex;align-items:center;height:60px;padding:0 28px}
+.brand{font:800 22px "Nunito";letter-spacing:-.02em}
+.modes{margin:0 auto;display:flex;background:var(--blotter);border-radius:12px;padding:3px}
+.modes span{width:108px;text-align:center;padding:6px 0;border-radius:10px;font-weight:800;color:var(--graphite)}
+.modes span.on{background:var(--highlighter);color:var(--pencil);box-shadow:var(--shadow)}
+.icons{display:flex;gap:18px;align-items:center;color:var(--pencil)}
+.icons i{width:18px;height:18px;border:1.8px solid var(--pencil);border-radius:5px;display:block}
+.icons i.round{border-radius:50%}
+.icons .me{width:26px;height:26px;border-radius:50%;background:#f3d3ea;border:1.5px solid var(--pencil);display:grid;place-items:center;font-size:12px;font-weight:800}
+.btn{font:inherit;font-weight:800;font-size:14px;border:0;cursor:pointer;padding:8px 14px;border-radius:10px;color:var(--pencil);white-space:nowrap}
+.btn:active{transform:scale(.97)}
+.btn.yellow{background:var(--highlighter);box-shadow:var(--shadow)}
+.btn.quiet{background:var(--blotter)}
+.btn.plain{background:none;text-decoration:underline;text-underline-offset:3px;color:var(--graphite);padding:8px 4px}
+.btn.wide{width:100%;padding:11px}
+.composer{display:flex;align-items:center;gap:12px;background:var(--page);border-radius:16px;box-shadow:0 0 0 1.5px var(--pencil);padding:12px 14px}
+.composer .ic{width:16px;height:13px;border:1.8px solid var(--pencil);border-radius:3px;flex:0 0 16px}
+.composer .txt{flex:1;min-width:0}
+.composer small{display:block;font-size:11px;color:var(--graphite);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.composer span.ph{color:var(--graphite)}
+.composer .send{width:32px;height:32px;border-radius:9px;background:var(--blotter);display:grid;place-items:center;color:var(--graphite)}
+
+/* week */
+.wk{padding:6px 120px 0}
+.wk-head{display:flex;align-items:center;gap:18px}
+.wk-head .dot-slot{width:64px;height:64px;flex:0 0 64px}
+.wk-head h4{font:800 32px/1.15 "Shantell Sans";margin:0}
+.wk-head p{margin:4px 0 0;color:var(--graphite);font-size:16px;display:flex;gap:12px;align-items:center}
+.wk-head .toggle{margin-left:auto;align-self:flex-start;margin-top:8px}
+.toggle{display:flex;background:var(--blotter);border-radius:10px;padding:3px;font-size:14px}
+.toggle span{padding:4px 12px;border-radius:8px;color:var(--graphite)}
+.toggle span.on{background:var(--page);color:var(--pencil);font-weight:700;box-shadow:0 1px 2px rgba(43,38,33,.12)}
+.wk-bar{display:flex;align-items:center;margin:24px 0 10px;font-weight:800}
+.wk-bar .nav{margin-left:auto;display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.wk-bar .nav b{width:36px;height:30px;border-radius:8px;background:var(--blotter);display:grid;place-items:center;font-weight:600}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:0 8px;font-size:13.5px}
+.day{min-height:150px;padding:0 4px 6px;border-radius:12px}
+.day.today{background:var(--blotter)}
+.day .dh{display:flex;justify-content:space-between;color:var(--graphite);padding:8px 6px}
+.day .dh b{color:var(--pencil)}
+.card{background:#efe9f6;border-left:3px solid #b7a3dd;border-radius:6px 10px 10px 6px;padding:8px 10px;margin:0 2px 8px;line-height:1.3}
+.card b{display:block;font-weight:700;font-size:14.5px}
+.card small{display:block;color:var(--graphite);margin-top:3px}
+.card small.need{color:var(--redpen);font-weight:700}
+.card.st{background:#e9f4ee;border-color:#7fbf9f}
+.card.c230{background:#fbeae4;border-color:var(--coral)}
+.card.c281{background:#fbf1dc;border-color:#e3b35c}
+.card.needs{box-shadow:0 0 0 1.5px var(--redpen)}
+.day .none{color:var(--graphite);padding:0 6px}
+.wk-foot{display:flex;align-items:center;gap:14px;margin-top:14px;font-size:14.5px}
+.wk-foot .sp{flex:1}
+.wk .composer{position:absolute;left:50%;bottom:20px;transform:translateX(-50%);width:720px}
+
+/* assignment page */
+.as-top{display:flex;align-items:center;height:58px;padding:0 24px;gap:12px}
+.as-top b{font-size:17px}
+.as-top small{color:var(--graphite);font-size:13px}
+.as-top .btn{margin-left:auto}
+.as{display:grid;grid-template-columns:352px 1fr;height:calc(100% - 58px)}
+.left{display:flex;flex-direction:column;padding:6px 24px 18px;min-height:0}
+.head{display:flex;gap:12px;align-items:center;margin:10px 0 6px}
+.head .dot-slot{width:52px;height:52px;flex:0 0 52px}
+.head h4{font:800 23px/1.2 "Shantell Sans";margin:0}
+.left p.say{margin:6px 0 0;font-size:14.5px;color:#5f564c}
+.left .acts{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:14px 0 4px}
+.left small.rule{display:block;text-align:center;color:var(--graphite);font-size:11.5px;margin-top:6px}
+.thread{flex:1;min-height:0;overflow:hidden;margin-top:14px;padding-top:12px;border-top:1px solid var(--rule);display:flex;flex-direction:column;gap:9px;font-size:13.5px}
+.step{display:grid;grid-template-columns:14px 1fr;gap:8px;color:var(--graphite);line-height:1.4}
+.step i{width:6px;height:6px;border-radius:50%;background:#d8d0c0;margin-top:6px}
+.step.done i{background:#9ccfb0}
+.step.now{color:var(--pencil)}
+.step.now i{background:var(--highlighter);box-shadow:0 0 0 3px rgba(246,201,69,.3)}
+.msg{padding:8px 11px;border-radius:12px;line-height:1.4}
+.msg.dot{background:var(--page);box-shadow:0 0 0 1px var(--rule)}
+.msg.ask{background:#fff4cf;box-shadow:0 0 0 1px #eed688}
+.msg.you{background:var(--blotter);align-self:flex-end;max-width:85%}
+.msg em{display:block;font:700 12px "Shantell Sans";font-style:normal;margin-bottom:1px}
+.req{display:grid;grid-template-columns:16px 1fr;gap:8px;padding:6px 0;border-bottom:1px solid var(--rule);line-height:1.35}
+.req small{display:block;color:var(--graphite)}
+.req .ok{color:var(--green);font-weight:800}
+.req .q{color:#a86b00;font-weight:800}
+.left .composer{margin-top:12px}
+.right{background:var(--page);border-radius:16px 0 0 0;box-shadow:-1px -1px 0 var(--rule);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;gap:6px;padding:0 20px;border-bottom:1px solid var(--rule);height:44px;align-items:flex-end;flex:0 0 44px}
+.tabs span{padding:0 6px 10px;color:var(--graphite);border-bottom:2px solid transparent;font-size:14px}
+.tabs span.on{color:var(--pencil);border-color:var(--pencil)}
+.pane{flex:1;min-height:0;overflow:hidden;position:relative}
+.school{height:100%;background:#f6f7fb;font-size:13.5px}
+.school .sb{background:#223a63;color:#fff;padding:14px 16px;font-weight:700;display:flex;gap:16px}
+.school .sb.vendor{background:#1f5c8f}
+.school .sn{display:flex;gap:22px;background:#fff;padding:10px 20px;border-bottom:1px solid #e3e6ee;color:#445}
+.school .sc{padding:18px 24px}
+.school .sc h5{font-size:22px;margin:4px 0;color:#223}
+.school .box{background:#fff;border:1px solid #cfd6e4;border-radius:8px;padding:10px 16px;margin-top:12px}
+.school .box b{display:block;margin-bottom:4px}
+.school .fld{border:1px solid #9fb0cc;border-radius:5px;min-height:32px;padding:5px 8px;margin-top:4px;background:#fff}
+.school .fld.f{background:#fffbe6}
+.takeover{position:absolute;right:16px;bottom:16px;background:#8ab8e8;border:1.5px solid var(--pencil);box-shadow:2px 2px 0 var(--pencil);border-radius:4px;padding:5px 12px;font-weight:800;font-size:12.5px}
+.files{display:grid;grid-template-columns:190px 1fr;gap:14px;padding:16px;height:100%}
+.flist{display:flex;flex-direction:column;gap:2px;font-size:13.5px}
+.flist span{padding:6px 8px;border-radius:7px}
+.flist span.on{background:var(--paper);font-weight:700}
+pre.code{margin:0;background:#fff;border-radius:10px;box-shadow:0 0 0 1px var(--rule);padding:12px 14px;font:12px/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow:hidden}
+.receipt{padding:110px 70px 0}
+.receipt h5{font:800 30px "Shantell Sans";margin:0 0 10px}
+.receipt .ba{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+.receipt .ba div{background:var(--paper);border:1px solid var(--rule);border-radius:12px;padding:14px 16px;font-size:14px}
+.receipt .ba b{font:800 13px "Shantell Sans";display:block;margin-bottom:6px}
+
+/* chat */
+.chatwrap{display:grid;grid-template-columns:1fr 440px;gap:40px;align-items:start;margin-top:14px}
+.uses{display:grid;gap:12px}
+.uses b{display:block}
+.uses span{color:var(--graphite);font-size:15px}
+.chatbox{background:var(--page);border-radius:16px;box-shadow:0 0 0 1px rgba(43,38,33,.1),0 14px 40px -14px rgba(43,38,33,.22);padding:16px;display:flex;flex-direction:column;gap:9px;font-size:14px}
+.chatbox .tag{font-size:11.5px;font-weight:800;color:var(--graphite);margin-top:4px}
+
+/* underneath */
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:36px}
+ol,ul{padding-left:20px;margin:8px 0}
+li{margin:5px 0}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-weight:700;margin:10px 0}
+.flow span.a{color:var(--graphite);font-weight:400}
+.cast{display:flex;gap:30px;align-items:flex-end;margin-top:16px;flex-wrap:wrap}
+.cast figure{margin:0;text-align:center;font-size:13px;color:var(--graphite)}
+.cast figure div{width:72px;height:72px;margin:0 auto 4px}
+.cast svg{display:block;margin:0 auto 4px}
+@media (prefers-reduced-motion:reduce){.ink2 *{animation:none!important}}
+@media (max-width:900px){.three,.cols,.changes,.chatwrap{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<main>
+<div class="kicker">Studi · homework</div>
+<h1>Homework, simplified.</h1>
+<p class="lead">Same app, same layout and colours. Only the numbered bits change. Learn and the other screens come later.</p>
+<div class="three">
+  <div><b>Dot does your homework.</b><p>The new yellow helper replaces Inky on homework, and the app gets the new S icon.</p></div>
+  <div><b>Dot gets better at it.</b><p>A real method, knowledge of your class, a class materials reader, memory, and it keeps going instead of stopping early.</p></div>
+  <div><b>One record, calmer screens.</b><p>One record per assignment instead of five. Status said once, one main button, and your chat with Dot in one place.</p></div>
+</div>
+
+<h2>Dot and the new icon</h2>
+<p class="muted">From the characters plan. Dot does homework; Chalky (purple) teaches in Learn later. The icon never gets a face, only a small status badge.</p>
+<div class="cast" id="cast"></div>
+
+<h2 id="week">Week</h2>
+<p class="muted">"Now" is today's screen from the app's preview. "New" is the same screen with the numbered changes.</p>
+<div class="toolbar"><div class="seg" id="week-view"></div></div>
+<div class="shot" id="week-shot"></div>
+<ul class="changes">
+  <li><span class="mk">1</span><div><b>Dot instead of Inky.</b><span>Same place, same size.</span></div></li>
+  <li><span class="mk">2</span><div><b>The headline acts.</b><span>When something needs you, the fix is right there ("Sign in"), not buried in a card.</span></div></li>
+  <li><span class="mk">3</span><div><b>Cards say one plain thing.</b><span>"Ready for you", "Dot is on it", "Needs you: sign in". Only "needs you" is coloured.</span></div></li>
+  <li><span class="mk">4</span><div><b>Done work lives in All work.</b><span>"Handed in this week" goes; the count sits on the All work link.</span></div></li>
+  <li><span class="mk">5</span><div><b>"Hey Dot…"</b><span>The same chat box, now Dot's.</span></div></li>
+</ul>
+
+<h2 id="assignment">Assignment page</h2>
+<p class="muted">Pick a kind of work and a state. "Now" shows today's screen for that state (today's screens don't change with the kind of work).</p>
+<div class="toolbar">
+  <div><div class="kicker">View</div><div class="seg" id="as-view"></div></div>
+  <div><div class="kicker">Kind of work</div><div class="seg" id="kinds"></div></div>
+  <div><div class="kicker">State</div><div class="seg" id="states"></div></div>
+</div>
+<div class="shot" id="as-shot"></div>
+<ul class="changes">
+  <li><span class="mk">1</span><div><b>The header shows what the school says.</b><span>"School: No submission". Dot's own state is only the big line, so it isn't said twice.</span></div></li>
+  <li><span class="mk">2</span><div><b>One main button, named for the next step.</b><span>Start, I've signed in, I handed it in. "Stop" becomes a quiet link, not a red button.</span></div></li>
+  <li><span class="mk">3</span><div><b>One conversation fills the empty space.</b><span>Dot's steps, its messages, its questions and your replies, in order. You answer questions right there.</span></div></li>
+  <li><span class="mk">4</span><div><b>Review shows proof.</b><span>Doubts first, then each requirement with what proves it. "Submit now" only when your rule allows it.</span></div></li>
+  <li><span class="mk">5</span><div><b>The right side fits the work.</b><span>School page, Files, or both, in the order that matters for this assignment.</span></div></li>
+  <li><span class="mk">6</span><div><b>After hand-in, the left side stays useful.</b><span>"Walk me through it" and "Practise in Learn", instead of an empty column.</span></div></li>
+</ul>
+
+<h2 id="chat">Chat with Dot</h2>
+<p class="muted">One conversation. On the week it's about everything; on an assignment it's about that assignment, and it's the same session Dot works in, so what you say changes the work right away.</p>
+<div class="chatwrap">
+  <div class="uses">
+    <div><b>Ask</b><span>"What's due before Friday?" "Did I lose points on HW 1?"</span></div>
+    <div><b>Steer while it works</b><span>"Use recursion." "Show the MATLAB output." "Under 300 words."</span></div>
+    <div><b>Answer Dot</b><span>Its questions show up in the conversation; reply and it carries on.</span></div>
+    <div><b>Fix mistakes</b><span>"I submitted that on GitHub." "The due date moved to Monday."</span></div>
+    <div><b>Start or stop</b><span>"Do HW 12 tonight." "Stop, I'll do this one."</span></div>
+    <div><b>Remember</b><span>"Always write in first person." Used in every later assignment.</span></div>
+    <div><b>Understand</b><span>"Walk me through question 3." It explains; "Practise this" goes to Learn.</span></div>
+  </div>
+  <div class="chatbox">
+    <div class="tag">This week</div>
+    <div class="msg you">what's left before friday?</div>
+    <div class="msg dot"><em>Dot</em>Three things. exercise_11 is ready for you, the reflection isn't started, and HW 12 is waiting on your WebAssign sign-in.</div>
+    <div class="tag">exercise_11 · CSC 230</div>
+    <div class="msg you">i submitted this one on github already</div>
+    <div class="msg dot"><em>Dot</em>Got it. Marked as handed in; I won't work on it.</div>
+    <div class="composer" style="margin-top:6px"><span class="ic"></span><div class="txt"><span class="ph">Hey Dot…</span></div><span class="send">↑</span></div>
+  </div>
+</div>
+
+<h2 id="under">Underneath</h2>
+<div class="cols">
+  <div>
+    <h3>One record per assignment</h3>
+    <div class="flow"><span>Not started</span><span class="a">→</span><span>Working</span><span class="a">⇄</span><span>Waiting for you</span><span class="a">→</span><span>Ready</span><span class="a">→</span><span>Handed in</span></div>
+    <p class="muted" style="margin:0">or Stopped (with the reason and the saved answer). What the school says stays on the assignment; the screen shows both.</p>
+    <h3>One session per assignment</h3>
+    <ul>
+      <li>Dot's work and your chat about it are one saved session, even after a restart.</li>
+      <li>Dot keeps going until it records a result: up to 3 nudges if it stops early, then it asks you. A watchdog catches stalls.</li>
+      <li>Button, chat and schedule start work the same way. Your own Start isn't blocked by stale details; Dot re-reads the page first.</li>
+      <li>The engine tells the screen when something changes, instead of the screen asking every second.</li>
+    </ul>
+    <p class="note" style="margin-top:14px"><b>Permission checked 4 times?</b> More than needed. Two checks: when work starts, and right before a submit (the only step that can't be undone). Changing a rule stops live work straight away.</p>
+  </div>
+  <div>
+    <h3>Dot's method (general, any class or site)</h3>
+    <ol>
+      <li><b>Understand</b> everything: instructions, rubric, files, class note, related material.</li>
+      <li><b>Decide where the work lives:</b> school page, files, a vendor site, a repo.</li>
+      <li><b>Do it</b> the way the class expects.</li>
+      <li><b>Check it:</b> run code and tests, redo maths, go through the rubric.</li>
+      <li><b>Put it where it goes,</b> without submitting unless your rule allows.</li>
+      <li><b>Hand it to you</b> with proof, and say what it isn't sure about.</li>
+    </ol>
+    <h3>What Dot can do</h3>
+    <p class="muted" style="margin:0">School page (a plain click can't submit) · its own folder · a restricted terminal to run code · whole-document reading · <b style="color:var(--pencil)">new:</b> the class's saved materials · talk to you or ask and wait · <b style="color:var(--pencil)">new:</b> remember at any time, plus an end-of-run note · hand-off with proof · submit once, only if allowed · connected apps.</p>
+    <h3>What Dot is told at the start</h3>
+    <p class="muted" style="margin:0">The assignment, your rule and preferences, files so far, plus <b style="color:var(--pencil)">new:</b> the class name and note (grading, where work goes, your section), how your school works, the class's materials and exams, and related assignments.</p>
+  </div>
+</div>
+
+<h2 id="order">Order of work</h2>
+<ol>
+  <li><b>Measure:</b> a homework test on the fake school with many kinds of work (quiz, code with tests, essay with rubric, upload, vendor site, repo, one Dot can't do).</li>
+  <li><b>Dot:</b> method, context, class materials, keep-going, watchdog, memory. Measure again.</li>
+  <li><b>One start</b> and the two permission checks.</li>
+  <li><b>One record</b> and pushed updates.</li>
+  <li><b>Screens:</b> the numbered changes above, built in the real components and checked in the UI preview, plus the new icon and Dot from the characters plan.</li>
+  <li><b>Real assignments, read-only</b> (file-based ones in your folder), then <b>your full test</b>.</li>
+</ol>
+<h3>Decisions for you</h3>
+<ul>
+  <li><b>Web access</b> for Dot (programming docs, formulas)? Your call on academic integrity.</li>
+  <li><b>Automatic mode:</b> fix it, or ship only "you ask" for now?</li>
+  <li><b>Ready work waits</b> for you, instead of a 15-minute window?</li>
+  <li><b>Inky:</b> keep blue Inky on loading screens, or Dot everywhere? (Open in the characters plan.)</li>
+</ul>
+</main>
+
+<script src="characters.js"></script>
+<script>
+// characters.js defines mascot() and STUDI_ICON globally.
+const dot = (slot, state) => { const el = mascot("dot", state); el.style.width = el.style.height = "100%"; slot.replaceChildren(el); };
+const seg = (id, items, current, pick) => {
+  const box = document.getElementById(id); box.innerHTML = "";
+  for (const [key, label] of Object.entries(items)) {
+    const b = document.createElement("button"); b.textContent = label; b.className = key === current ? "on" : "";
+    b.onclick = () => pick(key); box.append(b);
+  }
+};
+const esc = s => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+const mk = (n, x, y) => `<span class="mk" style="left:${x}px;top:${y}px">${n}</span>`;
+// Wrap an app mock so it keeps its 1280 x 820 layout and scales to the page width.
+const frame = html => `<div class="fit">${html}</div>`;
+function fit(shot) {
+  const box = shot.querySelector(".fit"), app = shot.querySelector(".app");
+  if (!box || !app) return 1;
+  const scale = box.clientWidth / 1280;
+  app.style.transform = `scale(${scale})`;
+  box.style.height = `${820 * scale}px`;
+  return scale;
+}
+// Put a numbered marker next to a real element, in the app's own (unscaled) coordinates.
+function mark(shot, n, el, dx, dy) {
+  if (!el) return;
+  const app = shot.querySelector(".app"), scale = fit(shot);
+  const base = app.getBoundingClientRect(), r = el.getBoundingClientRect();
+  app.insertAdjacentHTML("beforeend", mk(n, (r.left - base.left) / scale + dx, (r.top - base.top) / scale + dy));
+}
+const topbar = `<div class="topbar"><span class="brand">studi</span><div class="modes"><span class="on">Homework</span><span>Learn</span></div><div class="icons"><i class="round"></i><i class="round"></i><i></i><span class="me">K</span></div></div>`;
+
+// Cast: the icon, then Dot in the states homework uses.
+const cast = document.getElementById("cast");
+const icon = px => `<svg width="${px}" height="${px}" viewBox="0 0 128 128" style="overflow:visible">${STUDI_ICON}</svg>`;
+cast.innerHTML = `<figure>${icon(72)}App icon</figure>` +
+  [["idle", "hanging out"], ["working", "doing the work"], ["needs", "needs you"], ["review", "check this?"], ["done", "handed in"]].map(([s, l]) => `<figure><div data-cast="${s}"></div>${l}</figure>`).join("");
+cast.querySelectorAll("[data-cast]").forEach(el => dot(el, el.dataset.cast));
+
+// Week
+let weekView = "new";
+function week() {
+  seg("week-view", { now: "Now", new: "New" }, weekView, v => { weekView = v; week(); });
+  const shot = document.getElementById("week-shot");
+  if (weekView === "now") { shot.innerHTML = `<img src="homework-now/week.png" alt="Today's week screen">`; return; }
+  const days = [["Monday", "Sep 28", [["c230", "exercise_11", "CSC 230", "11:59 PM · Ready for you"]]],
+    ["Tuesday", "Sep 29", [["st", "HW 11 (from M-Lab 4)", "ST 370", "11:59 PM · Dot is on it"]]],
+    ["Wednesday", "Sep 30", []], ["Thursday", "Oct 1", [["st needs", "HW 12 (Lesson 12)", "ST 370", "Needs you: sign in", true]]],
+    ["Friday", "Oct 2", []], ["Saturday", "Oct 3", [["c281", "W5 Game reflection", "CSC 281", "11:59 PM · Not started"]]], ["Sunday", "Oct 4", []]];
+  shot.innerHTML = frame(`<div class="app">${topbar}<div class="wk">
+    <div class="wk-head"><div class="dot-slot" id="wk-dot"></div><div><h4>One thing needs you.</h4><p>Sign in to WebAssign so I can finish HW 12. <button class="btn yellow">Sign in</button></p></div><div class="toggle"><span>List</span><span class="on">Week</span></div></div>
+    <div class="wk-bar">This week<div class="nav"><b>‹</b><span class="num">Sep 28 – Oct 4</span><b>›</b></div></div>
+    <div class="days">${days.map(([d, date, cards], i) => `<div class="day ${i === 0 ? "today" : ""}"><div class="dh">${d}<b class="num">${date}</b></div>${cards.length ? cards.map(([c, t, cls, st, need]) => `<div class="card ${c}"><b>${t}</b><small>${cls}</small><small class="${need ? "need" : ""} num">${st}</small></div>`).join("") : `<div class="none">Nothing due</div>`}</div>`).join("")}</div>
+    <div class="wk-foot"><span>No due date 3 ⌄</span><span class="sp"></span><button class="btn quiet">+ Add homework</button><span>All work · 12 handed in →</span></div>
+    <div class="composer"><span class="ic"></span><div class="txt"><span class="ph">Hey Dot…</span></div><span class="send">↑</span></div>
+  </div></div>`);
+  dot(document.getElementById("wk-dot"), "needs");
+  fit(shot);
+  const q = sel => shot.querySelector(sel);
+  mark(shot, 1, q("#wk-dot"), -24, -4);
+  mark(shot, 2, q(".wk-head .btn"), q(".wk-head .btn").offsetWidth + 8, 8);
+  mark(shot, 3, q(".card.needs"), -12, -10);
+  const all = [...shot.querySelectorAll(".wk-foot span")].pop();
+  mark(shot, 4, all, -26, 0);
+  mark(shot, 5, q(".wk .composer"), -26, 14);
+}
+week();
+
+// Assignment page: many kinds of work, not one special case.
+const KINDS = {
+  code: { label: "Code", title: "exercise_11", cls: "CSC 230", due: "Mon Sep 28, 11:59 PM", school: "No submission", tabs: ["Files", "School page"],
+    plan: ["Read the handout and starter files", "Write the program", "Compile and run the tests", "Upload to the assignment page (not submitted)"],
+    proofs: ["builds with no warnings", "tests 6/6 pass", "file shows on the assignment page"],
+    ask: "The Makefile doesn't build on Windows. Add a build script, or do you use the lab machines?", need: "One question about building it, below.",
+    unsure: "Test 5 depends on the lab machine's locale; it passes here.", done: "I handed it in", steer: ["use recursion, the prof wants it", "Will do."] },
+  quiz: { label: "Quiz on the page", title: "[Workshop 6] Written Activity", cls: "CSC 316", due: "Fri Oct 9, 11:55 PM", school: "Not attempted", tabs: ["School page"],
+    plan: ["Read the questions and workshop notes", "Answer each question on the page", "Check each answer against the notes"],
+    proofs: ["each answer matched to the notes", "3 of 3 answered on the page"],
+    ask: "Question 4 mentions the lecture demo. I can't find it in the notes. Was it covered in class?", need: "One question about question 4, below.",
+    unsure: "Q4: I used the textbook definition; the lecture may differ.", done: "I submitted it", steer: ["keep answers short", "Will do."] },
+  essay: { label: "Writing", title: "W5 Game reflection journal", cls: "CSC 281", due: "Sat Oct 3, 11:59 PM", school: "No submission", tabs: ["Files", "School page"],
+    plan: ["Read the prompt and rubric", "Gather what you did this week", "Draft it in your voice", "Check each rubric line"],
+    proofs: ["3 moments from your notes", "draft in your folder", "every rubric line covered"],
+    ask: "The rubric wants a moment you got stuck. I don't know one from this week. What happened?", need: "One question about your week, below.",
+    unsure: "The 'what I'd change' part is from your notes; make it yours.", done: "I handed it in", steer: ["first person, casual", "Will do."] },
+  vendor: { label: "Vendor site", title: "HW 12 (Lesson 12)", cls: "ST 370", due: "Thu Oct 1, 11:59 PM", school: "WebAssign 0 / 10", tabs: ["School page", "Files"],
+    plan: ["Open it in WebAssign", "Work each problem, keep the MATLAB output", "Enter the answers (not submitted)"],
+    proofs: ["output saved for each problem", "answers entered, 10 of 10"],
+    ask: "WebAssign signed you out. Can you sign in on the school page? I'll carry on after.", need: "Sign in to WebAssign on the school page.",
+    unsure: "Q3 rounds to 2 decimals; WebAssign may want 3.", done: "I submitted it", steer: ["show the matlab output, it's graded", "Will do."] },
+  repo: { label: "Repo", title: "[Workshop 6] Coding Activity", cls: "CSC 316", due: "Fri Oct 9, 11:55 PM", school: "No submission", tabs: ["Files"],
+    plan: ["Read the workshop and the repo", "Write the code", "Run the tests", "Commit it (you push)"],
+    proofs: ["compiles", "tests 14/14 pass", "commit ready in your folder"],
+    ask: "Your repo isn't in your homework folder yet. Can you clone it there, or connect GitHub?", need: "Your repo isn't in your folder yet.",
+    unsure: "The empty-tree case isn't in the given tests; I added one.", done: "I pushed it", steer: ["follow the style guide", "Will do."] },
+  cant: { label: "Can't do", title: "Lab 4: Inspections & Debugging", cls: "CSC 217", due: "Wed Sep 30, 5:00 PM", school: "Checked off in lab", tabs: ["School page"], cant: true, plan: [] },
+};
+const STATES = { start: "Not started", working: "Working", waiting: "Waiting for you", ready: "Ready", done: "Handed in" };
+const NOW_SHOT = { start: "assignment", working: "desk-working", waiting: "desk-needs-user", ready: "desk-review", done: "desk-submitted" };
+let asView = "new", kind = "code", state = "ready";
+
+const step = (cls, t) => `<div class="step ${cls}"><i></i><span>${esc(t)}</span></div>`;
+const msg = (cls, who, t) => `<div class="msg ${cls}">${who ? `<em>${who}</em>` : ""}${esc(t)}</div>`;
+const composer = k => `<div class="composer"><span class="ic"></span><div class="txt"><small>${esc(k.title)}</small><span class="ph">Ask or tell Dot something…</span></div><span class="send">↑</span></div>`;
+
+function left(k) {
+  const head = (face, title) => `<div class="head"><div class="dot-slot" data-face="${face}"></div><h4>${title}</h4></div>`;
+  if (k.cant) return head("waiting", "Not one I can do.") + `<p class="say">This lab is done in person. I read it and put a checklist in your folder.</p>
+    <div class="acts"><button class="btn yellow">Open the checklist</button><button class="btn plain">It's done</button></div>
+    <div class="thread">${step("done", "Read the lab handout")}${step("done", "Saved a checklist to your folder")}${msg("dot", "Dot", "This one's hands-on, so I won't try it. The checklist covers what the TA looks for.")}</div>${composer(k)}`;
+  const steps = (upto, now) => k.plan.map((p, i) => step(i < upto ? "done" : i === now ? "now" : "", p)).join("");
+  if (state === "start") return head("hello", "Let's get this done.") + `<p class="say">I'll read everything first, then ${esc(k.plan.slice(1).join(", ").toLowerCase())}.</p>
+    <div class="acts"><button class="btn yellow wide">› Start</button></div><small class="rule">Stops before submission · you review first</small>
+    <div class="thread"><span class="muted">Anything I should know first? How you like it done, what the prof expects.</span></div>${composer(k)}`;
+  if (state === "working") return head("working", "I'm on it.") + `<div class="acts"><button class="btn quiet">Pause</button></div>
+    <div class="thread">${steps(1, 1)}${msg("dot", "Dot", "Read the instructions and your class note. Starting now.")}${msg("you", "", k.steer[0])}${msg("dot", "Dot", k.steer[1])}</div>${composer(k)}`;
+  if (state === "waiting") return head("needs", "I need a hand.") + `<p class="say">${esc(k.need)}</p>
+    <div class="acts">${kind === "vendor" ? `<button class="btn yellow">I've signed in</button>` : ""}<button class="btn plain">Stop</button></div>
+    <div class="thread">${steps(1, 1)}${msg("ask", "Dot asks", k.ask)}</div>${composer(k)}`;
+  if (state === "ready") return head("review", "Ready for you.") + `<p class="say">Everything it asks for, with proof. One thing I'm not sure about.</p>
+    <div class="acts"><button class="btn yellow">${k.done}</button><button class="btn quiet">Open ${k.tabs[0] === "Files" ? "the files" : "the page"}</button></div>
+    <div class="thread"><div class="req"><span class="q">?</span><span>${esc(k.unsure)}</span></div>${k.plan.slice(1).map((p, i) => `<div class="req"><span class="ok">✓</span><span>${esc(p)}<small>${esc(k.proofs[i] ?? "")}</small></span></div>`).join("")}</div>${composer(k)}`;
+  return head("done", "Handed in.") + `<p class="say">The school now says it's submitted.</p>
+    <div class="acts"><button class="btn quiet">Walk me through it</button><button class="btn plain">Practise in Learn</button></div>
+    <div class="thread">${steps(k.plan.length, -1)}${msg("dot", "Dot", "Saved what I learned about this class's work for next time.")}</div>${composer(k)}`;
+}
+function right(k) {
+  if (state === "done" && !k.cant) return `<div class="pane"><div class="receipt"><h5>Handed in.</h5><div class="num">The school page says "Submitted" · Sep 27, 10:48 PM</div>
+    <div class="ba"><div><b>Before</b>${esc(k.title)}<br><span class="muted">Answers ready, not submitted.</span></div><div><b>After</b>${esc(k.title)}<br><span class="muted">The school page shows Submitted.</span></div></div></div></div>`;
+  const tabs = `<div class="tabs">${k.tabs.map((t, i) => `<span class="${i === 0 ? "on" : ""}">${t}${t === "Files" ? " 3" : ""}</span>`).join("")}</div>`;
+  if (k.tabs[0] === "Files") {
+    const files = kind === "code" ? ["exercise11.c", "Makefile", "test-output.txt"] : kind === "essay" ? ["reflection-draft.md", "rubric.pdf", "notes-week5.md"] : ["src/BinarySearchTree.java", "test/BSTTest.java", "test-output.txt"];
+    const body = state === "start" ? "Nothing here yet. Dot puts its work in this folder." : kind === "code"
+      ? "#include <stdio.h>\n\n/* Reads integers and prints them in reverse,\n   using recursion as asked. */\nstatic void reverse(void) {\n  int n;\n  if (scanf(\"%d\", &n) != 1) return;\n  reverse();\n  printf(\"%d\\n\", n);\n}\n\nint main(void) { reverse(); return 0; }\n\n$ make test   →  6 of 6 passed"
+      : kind === "essay" ? "# Week 5 reflection\n\nThis week I built the second level of my puzzle game.\nThe hardest part was …\n\n[Dot: waiting for the moment you got stuck]\n\nWhat I'd change: …"
+      : "public class BinarySearchTree<T extends Comparable<T>> {\n  private Node root;\n  public boolean contains(T value) { … }\n  public void add(T value) { … }\n}\n\n$ gradle test   →  14 passed";
+    return tabs + `<div class="pane"><div class="files"><div class="flist">${files.map((f, i) => `<span class="${i === 0 ? "on" : ""}">${f}</span>`).join("")}</div><pre class="code">${esc(body)}</pre></div></div>`;
+  }
+  const vendor = kind === "vendor";
+  const filled = n => state === "ready" || (state !== "start" && n === 1);
+  const answers = vendor ? ["0.4213", "1.96", "reject H₀"] : ["O(log n) on average", "Rotations keep it balanced", "Height 3"];
+  return tabs + `<div class="pane"><div class="school"><div class="sb ${vendor ? "vendor" : ""}">${vendor ? "WebAssign" : "Northstar University"}<span style="font-weight:400;opacity:.8">${vendor ? k.cls : "Student dashboard"}</span></div>
+    ${vendor ? "" : `<div class="sn"><b>Home</b><span>Courses</span><span>Calendar</span><span>Grades</span></div>`}
+    <div class="sc"><div class="muted" style="font-size:12px;font-weight:800">${k.cls} · ${k.cant ? "LAB" : "HOMEWORK"}</div><h5>${esc(k.title)}</h5><div class="num" style="color:#445">Due ${k.due}</div>
+    ${k.cant ? `<div class="box">Work through the inspection checklist with your lab partner, then show the TA.</div>` :
+      [1, 2, 3].map(n => `<div class="box"><b>Question ${n}</b><div class="fld ${filled(n) ? "f" : ""}">${filled(n) ? answers[n - 1] : ""}</div></div>`).join("")}</div></div>
+    ${state === "working" ? `<span class="takeover">Takeover</span>` : ""}</div>`;
+}
+function page() {
+  seg("as-view", { now: "Now", new: "New" }, asView, v => { asView = v; page(); });
+  seg("kinds", Object.fromEntries(Object.entries(KINDS).map(([key, v]) => [key, v.label])), kind, v => { kind = v; page(); });
+  seg("states", STATES, state, v => { state = v; page(); });
+  document.getElementById("kinds").style.opacity = asView === "now" ? .4 : 1;
+  const shot = document.getElementById("as-shot");
+  if (asView === "now") { shot.innerHTML = `<img src="homework-now/${NOW_SHOT[state]}.png" alt="Today's assignment page">`; return; }
+  const k = KINDS[kind];
+  shot.innerHTML = frame(`<div class="app"><div class="as-top"><b>${esc(k.title)}</b><small id="as-school">${esc(k.cls)} · due <span class="num">${k.due}</span> · School: ${esc(state === "done" && !k.cant ? "Submitted" : k.school)}</small><button class="btn quiet">← Back to your week</button></div>
+    <div class="as"><div class="left">${left(k)}</div><div class="right">${right(k)}</div></div></div>`);
+  shot.querySelectorAll("[data-face]").forEach(el => dot(el, el.dataset.face));
+  // Numbered markers sit next to the real elements, wherever they land.
+  fit(shot);
+  const q = sel => shot.querySelector(sel);
+  const school = q("#as-school");
+  mark(shot, 1, school, school.offsetWidth + 8, -1);
+  mark(shot, state === "done" ? 6 : 2, q(".acts"), -22, 8);
+  mark(shot, state === "ready" ? 4 : 3, q(".thread"), -22, 10);
+  const lastTab = [...shot.querySelectorAll(".tabs span")].pop();
+  if (lastTab) mark(shot, 5, lastTab, lastTab.offsetWidth + 10, 0); else mark(shot, 5, q(".receipt h5"), -28, 8);
+}
+page();
+addEventListener("resize", page);
+</script>
+</body>
+</html>

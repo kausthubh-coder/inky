@@ -37,7 +37,7 @@ test("no matching rule safely returns do_not_attempt", () => {
     mayAttempt: false,
     maySubmit: false,
     matchedRuleId: null,
-    rationale: "No permission rule matched; Studi will not attempt the assignment.",
+    rationale: "No permission rule matched; Dot waits for the student to start.",
   });
 
   const unrelated = rule("course", "auto_submit", "unrelated", { courseId: "another-course" });

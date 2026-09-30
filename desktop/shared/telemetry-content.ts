@@ -13,7 +13,8 @@ export function stripSecrets(value: string): string {
 const secretPropertyName = /^(?:authorization|password|cookie|set-cookie|token|client[_-]?secret|api[_-]?key|access[_-]?token|refresh[_-]?token|oauth[_-]?code|device[_-]?code|clerk[_-]?token|provider[_-]?credential|verificationUriComplete)$/i;
 
 export function sanitizeTelemetryValue(value: unknown, seen = new WeakSet<object>(), depth = 0): unknown {
-  if (typeof value === "string") return stripSecrets(value);
+  // Screenshots are pictures, not text; running the credential filters over base64 could corrupt them.
+  if (typeof value === "string") return value.startsWith("data:image/") ? value : stripSecrets(value);
   if (typeof value === "bigint") return String(value);
   if (value === undefined) return null;
   if (!value || typeof value !== "object") return value;

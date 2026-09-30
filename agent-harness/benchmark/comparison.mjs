@@ -2,7 +2,7 @@ import { aggregateMetrics } from "./metrics.mjs";
 
 const CLASSES = new Set(["controlled-production-replay", "live-production-runtime"]);
 const FIXTURE_FIELDS = ["scenarioId", "version", "seed", "clock", "contentHash"];
-const CONFIG_FIELDS = ["model", "provider", "effort", "budgetMs", "maxToolCalls", "phases"];
+const CONFIG_FIELDS = ["model", "provider", "effort", "budgetMs", "maxToolCalls", "phases", "scanDepth"];
 const nonempty = value => typeof value === "string" && value.trim().length > 0;
 const positiveInteger = value => Number.isSafeInteger(value) && value > 0;
 const phaseNamesValid = names => Array.isArray(names) && names.length > 0
@@ -69,12 +69,14 @@ function validateRecord(record, label) {
 function summarize(record) {
   const phases = Array.isArray(record?.phases) ? record.phases : [];
   const issues = validateRecord(record, "run");
+  if (record?.error) issues.push(`Run failed: ${record.error}`);
   if (!phases.length) issues.push("No phases were attempted");
   if (!equal(phases.map(phase => phase?.name), record?.config?.phases)) {
     issues.push("Actual phases do not match the required names and order");
   }
   for (const [index, phase] of phases.entries()) {
     const label = nonempty(phase?.name) ? phase.name : `phase ${index + 1}`;
+    if (phase?.timedOut === true) issues.push(`${label}: timed out`);
     if (!["completed", "succeeded"].includes(phase?.status)) issues.push(`${label}: not completed`);
     if (phase?.scanState !== "succeeded") issues.push(`${label}: scan coverage incomplete`);
     if (phase?.grade?.passed !== true || !Array.isArray(phase?.grade?.checks)
@@ -83,6 +85,10 @@ function summarize(record) {
     }
   }
   const metrics = aggregateMetrics(phases);
+  for (const field of ["durationMs", "toolCalls", "modelCalls"]) {
+    if (metrics[field] === null) issues.push(`Missing ${field} measurement`);
+  }
+  if (metrics.usage === null || Object.values(metrics.usage).some(value => value === null)) issues.push("Missing token usage measurement");
   if (metrics.durationMs !== null && metrics.durationMs > record?.config?.budgetMs) issues.push("Run exceeded its wall-time budget");
   if (metrics.toolCalls !== null && metrics.toolCalls > record?.config?.maxToolCalls) issues.push("Run exceeded its tool-call budget");
   return { runId: record?.runId ?? null, revision: record?.revision ?? null,

@@ -1,16 +1,20 @@
+import type { TimelineContext } from "../../shared/conversation-timeline.js";
+import { onEngineChange } from "./engineChanges.js";
+import { LearnScreen } from "./LearnScreen.js";
 import { canStopAssignmentForScan, stopAssignmentForScan } from "./stopAssignmentForScan.js";
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { hasCompletedSchoolOnboarding, isLivePhase, nextSchoolScanAction, type AgentReasoningEffort, type AuthState, type DiagnosticsExportReceipt, type LibraryState, type LifecycleState, type NotificationKind, type NotificationIntent, type NotificationPreferences, type NotificationTestReceipt, type PermissionMode, type ProductSettingsState, type RuntimeInfo, type SchoolOnboardingState, type SchoolPageBounds, type StudiWorkspaceState, type TaskDetail, type TelemetryState, type UsageState } from "../../shared/index.js";import { rendererTelemetry } from "../telemetry/renderer.js";
+import { DEFAULT_AGENT_PROVIDER_ID, hasCompletedSchoolOnboarding, isLivePhase, nextSchoolScanAction, type AgentProviderId, type AgentReasoningEffort, type AuthState, type DiagnosticsExportReceipt, type LibraryState, type LifecycleState, type NotificationKind, type NotificationIntent, type NotificationPreferences, type NotificationTestReceipt, type PermissionMode, type ProductSettingsState, type RuntimeInfo, type SchoolOnboardingState, type SchoolPageBounds, type StudiWorkspaceState, type TaskDetail, type TelemetryState, type UsageState } from "../../shared/index.js";import { rendererTelemetry } from "../telemetry/renderer.js";
 import { openAssignmentId, talkKeyForPanel, viewingLiveDesk, type DeskPanel } from "./DeskScreen.js";
 import { readDevPreviewConfig } from "./devPreview.js";
-import { Inky, type InkyState } from "./Inky.js";
+import { Character } from "./Character.js";
+import type { DotState } from "../../shared/characters/states.js";
 import { useConnectedApps } from "./useConnectedApps.js";
 import { OnboardingScreen } from "./OnboardingScreen.js";
 import { DashboardScreen, SettingsScreen } from "./WorkspaceScreens.js";
 import { type AppScreen, type SettingsLanding } from "./Ui.js";
 
-type BusyAction = "loading" | "auth" | "auth-retry" | "sign-out" | "model" | "profile" | "navigate" | "scan" | "resume" | "replay" | "manager" | "assignment" | "takeover" | "cancel" | "artifact" | "settings" | "feedback" | "telemetry" | "diagnostics" | null;
+type BusyAction = "loading" | "auth" | "auth-retry" | "sign-out" | "model" | "provider" | "profile" | "navigate" | "scan" | "resume" | "replay" | "manager" | "assignment" | "takeover" | "cancel" | "artifact" | "settings" | "feedback" | "telemetry" | "diagnostics" | null;
 
 export function StudiApp() {
   const preview = readDevPreviewConfig();
@@ -22,6 +26,7 @@ export function StudiApp() {
   const [library, setLibrary] = useState<LibraryState | null>(null);
   const [usage, setUsage] = useState<UsageState | null>(null);
   const [detail, setDetail] = useState<TaskDetail | null>(null);
+  const [requestedSession, setRequestedSession] = useState<string | null>(null);
   const [screen, setScreen] = useState<AppScreen>(() => preview?.screen ?? "week");
   const [settingsLanding, setSettingsLanding] = useState<SettingsLanding>("settings");
   const [panel, setPanel] = useState<DeskPanel>(() => preview?.panel ?? { kind: "closed" });
@@ -89,15 +94,18 @@ export function StudiApp() {
 
   useEffect(() => {
     const studi = window.studi; if (!studi || !authorized) return;
-    const timer = window.setInterval(() => { void Promise.all([studi.getLifecycleState(), studi.getSchoolOnboardingState(), studi.getWorkspaceState()]).then(async ([lifecycleState, onboardingState, workspaceState]) => { setLifecycle(lifecycleState); setOnboarding(onboardingState); setWorkspace(workspaceState); const wantedTaskId = taskIdForPanel(panelRef.current, lifecycleState, libraryRef.current); if (wantedTaskId) setDetail(await studi.getTaskDetail({ taskId: wantedTaskId })); }).catch(() => undefined); }, 900);
-    const libraryTimer = window.setInterval(() => void studi.getLibraryState().then(setLibrary).catch(() => undefined), 4_000);
-    return () => { window.clearInterval(timer); window.clearInterval(libraryTimer); };
+    const refresh = () => { void Promise.all([studi.getLifecycleState(), studi.getSchoolOnboardingState(), studi.getWorkspaceState()]).then(async ([lifecycleState, onboardingState, workspaceState]) => { setLifecycle(lifecycleState); setOnboarding(onboardingState); setWorkspace(workspaceState); const wantedTaskId = taskIdForPanel(panelRef.current, lifecycleState, libraryRef.current); if (wantedTaskId) setDetail(await studi.getTaskDetail({ taskId: wantedTaskId })); }).catch(() => undefined); };
+    const refreshLibrary = () => void studi.getLibraryState().then(setLibrary).catch(() => undefined);
+    // The engine pushes its changes; the browser's own state (page, who is driving) keeps a short timer.
+    const stopState = onEngineChange(["homework", "school"], refresh, 2_500);
+    const stopLibrary = onEngineChange(["homework"], refreshLibrary, 10_000);
+    return () => { stopState(); stopLibrary(); };
   }, [authorized]);
 
   useEffect(() => {
     const studi = window.studi;
     const phase = workspace?.providerLogin?.phase;
-    if (!studi || !authorized || (phase !== "starting" && phase !== "waiting")) return;
+    if (!studi || !authorized || (phase !== "starting" && phase !== "waiting" && phase !== "browser")) return;
     let cancelled = false;
     let timer = 0;
     const refresh = async () => {
@@ -118,8 +126,10 @@ export function StudiApp() {
   useEffect(() => {
     const studi = window.studi;
     if (!studi || !authorized) return;
-    if (!onboarded) {
-      void studi.setBrowserLayout({ mode: onboarding?.profile ? "onboarding" : "hidden" }).catch(() => undefined);
+    // Onboarding owns its browser visibility because sign-in can return to an earlier step.
+    if (!onboarded) return;
+    if (workspace?.providerLogin) {
+      void studi.setBrowserLayout({ mode: "hidden" }).catch(() => undefined);
       return;
     }
     if (schoolSlot) {
@@ -127,7 +137,7 @@ export function StudiApp() {
       return;
     }
     void studi.setBrowserLayout({ mode: "hidden" }).catch(() => undefined);
-  }, [authorized, onboarded, onboarding?.profile, showingLiveDesk, schoolSlot]);
+  }, [authorized, onboarded, workspace?.providerLogin, showingLiveDesk, schoolSlot]);
 
   useEffect(() => {
     const studi = window.studi; if (!studi) return; let cancelled = false;
@@ -155,22 +165,15 @@ export function StudiApp() {
   const signIn = async () => { const studi = window.studi; if (!studi) return; setAuth({ status: "signing_in" }); const next = await action("auth", () => studi.signIn()); if (next) setAuth(next); else setAuth(await studi.getAuthState()); };
   const retryAuth = async () => { const studi = window.studi; if (!studi) return; setAuth({ status: "checking" }); const next = await action("auth-retry", () => studi.retryEntitlement()); if (next) setAuth(next); };
   const signOut = async () => { const studi = window.studi; if (!studi) return; rendererTelemetry.reset(); const next = await action("sign-out", () => studi.signOut()); if (next) { setAuth(next); setWorkspace(null); setOnboarding(null); setLifecycle(null); setSettings(null); setLibrary(null); setUsage(null); } };
-  const connectRuntime = async () => { const studi = window.studi; if (!studi) return; setError(null); try { setWorkspace(await studi.loginOpenAiCodex()); } catch (cause) { setError(formatError(cause)); } };
-  const cancelRuntimeLogin = async () => { const studi = window.studi; if (!studi) return; setError(null); try { setWorkspace(await studi.cancelOpenAiCodexLogin()); } catch (cause) { setError(formatError(cause)); } };
-  const selectAgentRuntime = async (modelId: string, reasoningEffort?: AgentReasoningEffort) => { const studi = window.studi; if (!studi) return; const effort = reasoningEffort ?? workspace?.selectedReasoningEffort ?? "medium"; await action("model", () => studi.selectAgentModel({ modelId, reasoningEffort: effort }), setWorkspace); };
+  const connectRuntime = async (providerId?: AgentProviderId) => { const studi = window.studi; if (!studi) return; setError(null); try { setWorkspace(await studi.loginProvider({ providerId: providerId ?? workspace?.selectedProviderId ?? DEFAULT_AGENT_PROVIDER_ID })); } catch (cause) { setError(formatError(cause)); } };
+  const completeRuntimeLogin = async (code: string) => { const studi = window.studi; const providerId = workspace?.providerLogin?.providerId; if (!studi || !providerId) return; setError(null); try { setWorkspace(await studi.completeProviderLogin({ providerId, code })); } catch (cause) { setError(formatError(cause)); } };
+  const cancelRuntimeLogin = async () => { const studi = window.studi; if (!studi) return; setError(null); try { setWorkspace(await studi.cancelProviderLogin()); } catch (cause) { setError(formatError(cause)); } };
+  const disconnectRuntime = async (providerId: AgentProviderId) => { const studi = window.studi; if (!studi) return; await action("provider", () => studi.logoutProvider({ providerId }), setWorkspace); };
+  const selectAgentRuntime = async (providerId: AgentProviderId, modelId: string, reasoningEffort?: AgentReasoningEffort) => { const studi = window.studi; if (!studi) return; const effort = reasoningEffort ?? workspace?.selectedReasoningEffort ?? "high"; await action("model", () => studi.selectAgentModel({ providerId, modelId, reasoningEffort: effort }), setWorkspace); };
+  const switchProvider = () => { setSettingsLanding("settings"); setScreen("settings"); };
   const saveProfile = async () => { const studi = window.studi; if (!studi) return; await action("profile", () => studi.saveSchoolProfile({ studentName, schoolRoot: schoolUrl, defaultPermission, scanCadence }), async (state) => { setOnboarding(state); setLifecycle(await studi.getLifecycleState()); setWorkspace(await studi.navigateBrowser({ url: schoolUrl })); }); };
   const openSchool = async () => { const studi = window.studi; if (studi) await action("navigate", () => studi.navigateBrowser({ url: schoolUrl }), setWorkspace); };
   const runScan = async (kind: "scan" | "resume" | "replay") => { const studi = window.studi; if (!studi) return; const command = kind === "scan" ? studi.startSchoolScan : kind === "resume" ? studi.resumeSchoolScan : studi.replaySchoolScan; await action(kind, () => command(), async (state) => { setOnboarding(state); if (!onboardingComplete && hasCompletedSchoolOnboarding(state)) setShowOnboardingCompletion(true); setWorkspace(await studi.getWorkspaceState()); setLibrary(await studi.getLibraryState()); }); };
-  const checkAssignmentDetails = async (assignmentId: string) => {
-    const studi = window.studi;
-    if (!studi) return;
-    await action("scan", () => studi.startSchoolScan({ assignmentId }), async state => {
-      setOnboarding(state);
-      setWorkspace(await studi.getWorkspaceState());
-      setLibrary(await studi.getLibraryState());
-      setLifecycle(await studi.getLifecycleState());
-    });
-  };
   const stopAndScan = async (taskId: string) => {
     const studi = window.studi;
     if (!studi || stoppingForScan.current || !canStopAssignmentForScan(busy)) return;
@@ -187,12 +190,12 @@ export function StudiApp() {
       stoppingForScan.current = false;
     }
   };
-  const sendToInky = async (target: { kind: "home" } | { kind: "assignment"; assignmentId: string }, text: string) => {
+  const sendToDot = async (target: { kind: "home" } | { kind: "assignment"; assignmentId: string }, text: string) => {
     const studi = window.studi;
     if (!studi) return;
     const result = await action("manager", () => studi.send({ target, text }));
     if (!result) return;
-    if (target.kind === "home") setManagerReply(result.text || `Inky ${result.outcome}.`);
+    if (target.kind === "home") setManagerReply(result.text || `Dot ${result.outcome}.`);
     else setTalk((current) => ({ ...current, [target.assignmentId]: projectConversation(result.job) }));
     const manager = await studi.getManagerState();
     setLifecycle((current) => current ? { ...current, manager } : current);
@@ -214,7 +217,6 @@ export function StudiApp() {
   const openAssignment = async (assignmentId: string) => {
     setScreen("week");
     setPanel({ kind: "assignment", assignmentId });
-    const studi = window.studi;
     const task = library?.tasks.find((item) => item.assignment.assignmentId === assignmentId);
     if (task) await loadTask(task.task.taskId);
     else setDetail(null);
@@ -234,7 +236,7 @@ export function StudiApp() {
     if (taskId) await loadTask(taskId);
   };
   const openAnswerArtifact = async (taskId: string) => { const studi = window.studi; if (studi) await action("artifact", () => studi.openAnswerArtifact({ taskId })); };
-  const savePreferences = async (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all", workStartMode?: "manual" | "automatic") => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.saveProductPreferences({ reviewMinutes, handoffMinutes, memoryVisibility, workStartMode }), (preferences) => setSettings((current) => current ? { ...current, preferences } : current)); };
+  const savePreferences = async (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all") => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.saveProductPreferences({ reviewMinutes, handoffMinutes, memoryVisibility }), (preferences) => setSettings((current) => current ? { ...current, preferences } : current)); };
   const selectHomeworkRoot = async () => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.selectHomeworkRoot(), (preferences) => setSettings((current) => current ? { ...current, preferences } : current)); };
   const saveNotifications = async (notifications: NotificationPreferences) => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.saveNotificationPreferences(notifications), (preferences) => setSettings((current) => current ? { ...current, preferences } : current)); };
   const testNotification = async (kind: NotificationKind): Promise<NotificationTestReceipt | undefined> => {
@@ -248,7 +250,6 @@ export function StudiApp() {
   const deleteRule = async (ruleId: string) => { const studi = window.studi; if (studi) await action("settings", () => studi.deletePermissionRule({ ruleId }), setSettings); };
   const configureSchedule = async (cadence: "manual" | "daily" | "weekly", localTime: string, weekday?: number) => { const studi = window.studi; if (!studi) return; await action("settings", () => studi.configureScanSchedule({ cadence, localTime, ...(weekday === undefined ? {} : { weekday }) }), setSettings); setLifecycle(await studi.getLifecycleState()); };
   const updateTelemetry = async (enabled: boolean, replayEnabled: boolean) => { const studi = window.studi; if (!studi) return; if (!enabled) rendererTelemetry.disable(); await action("telemetry", () => studi.setTelemetryPreferences({ enabled, replayEnabled }), async (state) => { setTelemetry(state); await rendererTelemetry.sync(state); }); };
-  const updateTelemetryDebug = async (durationMinutes: 0 | 30) => { const studi = window.studi; if (studi) await action("telemetry", () => studi.setTelemetryDebug({ durationMinutes }), setTelemetry); };
   const exportDiagnostics = async () => { const studi = window.studi; if (studi) await action("diagnostics", () => studi.exportDiagnostics(), setDiagnosticsReceipt); };
 
   const sendFeedback = async (_context: string, message: string): Promise<boolean> => {
@@ -260,7 +261,7 @@ export function StudiApp() {
   const talkAboutAssignment = async (message: string) => {
     const assignmentId = openId;
     if (!assignmentId) return;
-    await sendToInky({ kind: "assignment", assignmentId }, message);
+    await sendToDot({ kind: "assignment", assignmentId }, message);
   };
   const startThisAssignment = async (taskId: string) => {
     const studi = window.studi;
@@ -309,8 +310,8 @@ export function StudiApp() {
 
   if (!window.studi) return <main className="desktop-required" data-studi-app-ready="true"><p className="eyebrow">Studi desktop</p><h1>Open the desktop app to use the school browser.</h1></main>;
   if (!authorized) return <AuthGate auth={auth} busy={busy} error={error} feedback={gateFeedback} sent={feedbackSent} onFeedback={setGateFeedback} onSignIn={() => void signIn()} onRetry={() => void retryAuth()} onSignOut={() => void signOut()} onSubmit={async (event) => { event.preventDefault(); if (!gateFeedback.trim()) return; if (await sendFeedback("beta_gate", gateFeedback.trim())) { setGateFeedback(""); setFeedbackSent(true); } }} />;
-  if (!onboarding || !lifecycle) return <main className="loading-screen"><Inky state="sleep" size={132} label="Inky is waking up" /><h1>Opening your desk…</h1>{error && <p className="error-note">{error}</p>}</main>;
-  if (!onboarded) return <OnboardingScreen workspace={workspace} onboarding={onboarding} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} studentName={studentName} schoolUrl={schoolUrl} homeworkRoot={settings?.preferences.homeworkRoot ?? null} scanCadence={scanCadence} defaultPermission={defaultPermission} busy={busy} error={error} onStudentName={setStudentName} onSchoolUrl={setSchoolUrl} onCadence={setScanCadence} onDefaultPermission={setDefaultPermission} onConnectRuntime={() => void connectRuntime()} onCancelRuntimeLogin={() => void cancelRuntimeLogin()} onSelectModel={(id) => void selectAgentRuntime(id)} onConnectApp={(toolkit) => void connectApp(toolkit, true)} onRefreshConnectedApp={(toolkit) => void refreshConnectedApp(toolkit)} onSelectHomeworkRoot={() => void selectHomeworkRoot()} onSaveProfile={() => void saveProfile()} onOpenSchool={() => void openSchool()} onStartScan={() => void runScan("scan")} onResumeScan={() => void runScan("resume")} onReplayScan={() => void runScan("replay")} onFinish={() => finishOnboarding()} />;
+  if (!onboarding || !lifecycle) return <main className="loading-screen"><Character state="sleep" size={132} label="Dot is waking up" /><h1>Opening your desk…</h1>{error && <p className="error-note">{error}</p>}</main>;
+  if (!onboarded) return <OnboardingScreen workspace={workspace} onboarding={onboarding} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} studentName={studentName} schoolUrl={schoolUrl} homeworkRoot={settings?.preferences.homeworkRoot ?? null} scanCadence={scanCadence} defaultPermission={defaultPermission} busy={busy} error={error} onStudentName={setStudentName} onSchoolUrl={setSchoolUrl} onCadence={setScanCadence} onDefaultPermission={setDefaultPermission} onConnectRuntime={(providerId) => void connectRuntime(providerId)} onCompleteRuntimeLogin={(code) => void completeRuntimeLogin(code)} onCancelRuntimeLogin={() => void cancelRuntimeLogin()} onConnectApp={(toolkit) => void connectApp(toolkit, true)} onRefreshConnectedApp={(toolkit) => void refreshConnectedApp(toolkit)} onSelectHomeworkRoot={() => void selectHomeworkRoot()} onSaveProfile={() => void saveProfile()} onOpenSchool={() => void openSchool()} onStartScan={() => void runScan("scan")} onResumeScan={() => void runScan("resume")} onReplayScan={() => void runScan("replay")} onFinish={() => finishOnboarding()} />;
   const chrome = { storageKey: authorized && (auth.status === "approved" || auth.status === "offline") ? auth.user.subject : "signed-out",
     screen,
     settingsLanding,
@@ -331,11 +332,18 @@ export function StudiApp() {
       if(target.id==='settings-preview')return;
       void window.studi?.getTaskDetail({taskId:target.id}).then(value=>{setDetail(value);setPanel({kind:'assignment',assignmentId:value.assignment.assignmentId});}).catch(cause=>setError(formatError(cause)));
     },
+    onOpenContext: (context: TimelineContext) => {
+      if(context.kind === "assignment") { void openAssignment(context.assignmentId); return; }
+      if(context.kind === "scan") { setScreen("week"); setPanel({kind:"school"}); return; }
+      if(context.kind === "tutor") { setRequestedSession(context.sessionId); setScreen("learn"); return; }
+      setPanel({kind:"closed"}); setScreen(context.kind === "learn" ? "learn" : "week");
+    },
     onOpenDesk: () => { void openDesk(); },
     onSignOut: () => { void signOut(); },
   };
-  if (screen === "settings") return <SettingsScreen key={settingsLanding} chrome={chrome} entitlement={auth.status === "approved" || auth.status === "offline" ? auth.entitlement : null} usage={usage} settings={settings} onboarding={onboarding} workspace={workspace} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} telemetry={telemetry} runtime={runtime} diagnosticsReceipt={diagnosticsReceipt} busy={busy} error={error} onSavePreferences={(review, handoff, memory, workStartMode) => void savePreferences(review, handoff, memory, workStartMode)} onSelectHomeworkRoot={() => void selectHomeworkRoot()} onSaveNotifications={(notifications) => void saveNotifications(notifications)} onTestNotification={(kind) => testNotification(kind)} onSaveRule={(input) => void saveRule(input)} onDeleteRule={(id) => void deleteRule(id)} onSchedule={(cadence, time, weekday) => void configureSchedule(cadence, time, weekday)} onSelectAgentRuntime={(id, effort) => void selectAgentRuntime(id, effort)} onConnectRuntime={() => void connectRuntime()} onConnectApp={(toolkit) => void connectApp(toolkit)} onRefreshConnectedApp={(toolkit) => void refreshConnectedApp(toolkit)} onTelemetry={(enabled, replay) => void updateTelemetry(enabled, replay)} onTelemetryDebug={(minutes) => void updateTelemetryDebug(minutes)} onExportDiagnostics={() => void exportDiagnostics()} onSignOut={() => void signOut()} onFeedback={sendFeedback} />;
-  return <DashboardScreen chrome={chrome} onboarding={onboarding} workspace={workspace} lifecycle={lifecycle} library={library} detail={visibleDetail} panel={panel} showingLiveDesk={showingLiveDesk} talk={visibleTalk} managerReply={managerReply} busy={busy} error={error} onCommand={(prompt) => void sendToInky({ kind: "home" }, prompt)} onAssignment={(assignmentId) => void openAssignment(assignmentId)} onOpenDesk={() => void openDesk()} onClosePanel={() => setPanel({ kind: "closed" })} onStart={(taskId) => void startThisAssignment(taskId)} onTalk={(prompt) => void talkAboutAssignment(prompt)} onTakeover={(taskId) => void updateLifecycle("takeover", () => window.studi!.requestAssignmentTakeover({ taskId }))} onResume={(taskId) => void updateLifecycle("assignment", () => window.studi!.resumeAssignment({ taskId }))} onCancel={(taskId) => void updateLifecycle("cancel", () => window.studi!.cancelAssignment({ taskId }))} onVerifySubmission={(taskId, confirmationText) => void updateLifecycle("assignment", () => window.studi!.verifyStudentSubmission({ taskId, confirmationText }))} onOpenArtifact={(taskId) => void openAnswerArtifact(taskId)} onCheckAssignment={(assignmentId) => void checkAssignmentDetails(assignmentId)} onScanAgain={() => void runScan(nextSchoolScanAction(onboarding))} onStopAndScan={(taskId) => void stopAndScan(taskId)} onConnectRuntime={() => void connectRuntime()} onFeedback={sendFeedback} onSchoolSlot={rememberSchoolSlot} />;
+  if (screen === "settings") return <SettingsScreen studentEmail={auth.status === "approved" || auth.status === "offline" ? auth.user.email : null} key={settingsLanding} chrome={chrome} entitlement={auth.status === "approved" || auth.status === "offline" ? auth.entitlement : null} usage={usage} settings={settings} onboarding={onboarding} workspace={workspace} connectedApps={connectedApps} appConnections={appConnections} appConnectionFeedback={appConnectionFeedback} telemetry={telemetry} runtime={runtime} diagnosticsReceipt={diagnosticsReceipt} busy={busy} error={error} onSavePreferences={(review, handoff, memory) => void savePreferences(review, handoff, memory)} onSelectHomeworkRoot={() => void selectHomeworkRoot()} onSaveNotifications={(notifications) => void saveNotifications(notifications)} onTestNotification={(kind) => testNotification(kind)} onSaveRule={(input) => void saveRule(input)} onDeleteRule={(id) => void deleteRule(id)} onSchedule={(cadence, time, weekday) => void configureSchedule(cadence, time, weekday)} onSelectAgentRuntime={(providerId, id, effort) => void selectAgentRuntime(providerId, id, effort)} onConnectRuntime={(providerId) => void connectRuntime(providerId)} onCompleteRuntimeLogin={(code) => void completeRuntimeLogin(code)} onCancelRuntimeLogin={() => void cancelRuntimeLogin()} onDisconnectRuntime={(providerId) => void disconnectRuntime(providerId)} onConnectApp={(toolkit) => void connectApp(toolkit)} onRefreshConnectedApp={(toolkit) => void refreshConnectedApp(toolkit)} onTelemetry={(enabled, replay) => void updateTelemetry(enabled, replay)} onCheckSchool={() => void runScan(nextSchoolScanAction(onboarding))} onOpenSite={(url) => { void action("navigate", () => window.studi!.navigateBrowser({ url }), state => { setWorkspace(state); setScreen("week"); setPanel({ kind: "school" }); }); }} onExportDiagnostics={() => void exportDiagnostics()} onSignOut={() => void signOut()} onFeedback={sendFeedback} />;
+  if (screen === "learn") return <LearnScreen chrome={chrome} onboarding={onboarding} requestedSession={requestedSession} onSessionOpened={() => setRequestedSession(null)} />;
+  return <DashboardScreen settings={settings} onRefresh={refreshProduct} chrome={chrome} onboarding={onboarding} workspace={workspace} lifecycle={lifecycle} library={library} detail={visibleDetail} panel={panel} showingLiveDesk={showingLiveDesk} talk={visibleTalk} managerReply={managerReply} busy={busy} error={error} onCommand={(prompt) => void sendToDot({ kind: "home" }, prompt)} onAssignment={(assignmentId) => void openAssignment(assignmentId)} onOpenDesk={() => void openDesk()} onClosePanel={() => setPanel({ kind: "closed" })} onStart={(taskId) => void startThisAssignment(taskId)} onTalk={(prompt) => void talkAboutAssignment(prompt)} onTakeover={(taskId) => void updateLifecycle("takeover", () => window.studi!.requestAssignmentTakeover({ taskId }))} onResume={(taskId) => void updateLifecycle("assignment", () => window.studi!.resumeAssignment({ taskId }))} onCancel={(taskId) => void updateLifecycle("cancel", () => window.studi!.cancelAssignment({ taskId }))} onVerifySubmission={(taskId, confirmationText) => void updateLifecycle("assignment", () => window.studi!.verifyStudentSubmission({ taskId, confirmationText }))} onOpenArtifact={(taskId) => void openAnswerArtifact(taskId)} onScanAgain={() => void runScan(nextSchoolScanAction(onboarding))} onStopAndScan={(taskId) => void stopAndScan(taskId)} onConnectRuntime={() => void connectRuntime()} onCompleteRuntimeLogin={(code) => void completeRuntimeLogin(code)} onCancelRuntimeLogin={() => void cancelRuntimeLogin()} onSwitchProvider={switchProvider} onFeedback={sendFeedback} onSchoolSlot={rememberSchoolSlot} />;
 }
 
 function projectConversation(job: { messages: readonly { role: "user" | "assistant"; text: string }[] }) {
@@ -344,16 +352,16 @@ function projectConversation(job: { messages: readonly { role: "user" | "assista
 
 function AuthGate({ auth, busy, error, feedback, sent, onFeedback, onSignIn, onRetry, onSignOut, onSubmit }: { auth: Exclude<AuthState, { status: "approved" | "offline" }>; busy: BusyAction; error: string | null; feedback: string; sent: boolean; onFeedback: (value: string) => void; onSignIn: () => void; onRetry: () => void; onSignOut: () => void; onSubmit: (event: FormEvent) => void }) {
   const waiting = auth.status === "checking" || auth.status === "signing_in";
-  const inkyState: InkyState = auth.status === "denied" || auth.status === "error" ? "needs" : waiting ? "waiting" : "hello";
+  const inkyState: DotState = auth.status === "denied" || auth.status === "error" ? "needs" : waiting ? "waiting" : "hello";
   const copy = authTalk(auth);
   return (
     <main className="fable-onboarding" {...(waiting ? {} : { "data-studi-app-ready": "true" })}>
-      <section className="fable-window" role="application" aria-label="Talking to Inky">
+      <section className="fable-window" role="application" aria-label="Talking to Dot">
         <div className="fable-stage">
           <section className="fable-talk">
-            <div className="fable-inky-wrap"><Inky state={inkyState} size={200} label="Inky" /></div>
+            <div className="fable-inky-wrap"><Character state={inkyState} size={200} label="Dot" /></div>
             <div className="fable-copy">
-              <div className="fable-who">talking to Inky</div>
+              <div className="fable-who">talking to Dot</div>
               <div className="fable-bubbles" aria-live="polite">
                 <article className="fable-speech">
                   <span className="fable-tail" aria-hidden="true" />
@@ -369,7 +377,7 @@ function AuthGate({ auth, busy, error, feedback, sent, onFeedback, onSignIn, onR
                 </article>
               </div>
               <div className="fable-replies">
-                {auth.status === "signed_out" && <button className="fable-button primary" onClick={onSignIn} disabled={busy !== null}>{busy === "auth" ? "Opening…" : "Hi Inky"}</button>}
+                {auth.status === "signed_out" && <button className="fable-button primary" onClick={onSignIn} disabled={busy !== null}>{busy === "auth" ? "Opening…" : "Hi Dot"}</button>}
                 {auth.status === "signing_in" && <button className="fable-button" onClick={onSignIn} disabled={busy !== null}>Open it again</button>}
                 {auth.status === "denied" && <><button className="fable-button primary" onClick={onRetry}>Check again</button><button className="fable-button" onClick={onSignOut}>Use another account</button></>}
                 {auth.status === "error" && <button className="fable-button primary" onClick={onRetry}>Try again</button>}
@@ -389,7 +397,7 @@ function authTalk(auth: Exclude<AuthState, { status: "approved" | "offline" }>):
   if (auth.status === "denied" && auth.reason === "device_conflict") return { title: "You're already signed in somewhere else.", body: "Studi only works on one laptop at a time." };
   if (auth.status === "denied") return { title: "Not yet.", body: "You're on the waitlist. I'll wait." };
   if (auth.status === "error") return { title: "That didn't work.", body: "Try once more?" };
-  return { title: "Hey.", body: "I'm Inky. I'll help with your homework. First, sign into Studi." };
+  return { title: "Hey.", body: "I'm Dot. I'll help with your homework. First, sign into Studi." };
 }
 
 function formatError(error: unknown): string { return error instanceof Error ? error.message : "Studi could not finish that action."; }

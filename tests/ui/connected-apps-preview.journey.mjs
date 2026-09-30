@@ -16,9 +16,10 @@ export async function verifyConnectedAppsPreview(page, base = "http://127.0.0.1:
     else request.resolve(status === null ? null : { toolkit, sessionId: "fixture", connectedAccountId: status === "ACTIVE" ? "fixture" : null, status, redirectUrl: null });
   }, { toolkit, status });
   try {
-    for (const route of ["settings-apps"]) {
+    for (const route of ["settings-school"]) {
       await page.setViewportSize({ width: 1280, height: 850 });
       await page.goto(`${base}/?preview=${route}`);
+      await page.getByRole("button", { name: "Manage", exact: true }).click();
       await expectText("gmail", "Connected");
       await page.evaluate(() => {
         window.connectionTest = { pending: {}, calls: [] };
@@ -57,9 +58,9 @@ export async function verifyConnectedAppsPreview(page, base = "http://127.0.0.1:
       await row("gmail").getByRole("button", { name: "I finished" }).click();
       await settle("gmail", "ACTIVE");
       await expectText("gmail", "All good · connected");
-      if (route === "settings-apps") {
-        await page.getByRole("button", { name: "Homework folder", exact: true }).click();
-        await page.getByRole("button", { name: "Connected apps", exact: true }).click();
+      if (route === "settings-school") {
+        await page.getByRole("heading", { name: "School checks", exact: true }).scrollIntoViewIfNeeded();
+        await row("gmail").scrollIntoViewIfNeeded();
         await expectText("gmail", "All good · connected");
       }
       for (const status of ["DISCONNECTED", null, "FAILED", "INACTIVE"]) {

@@ -12,7 +12,7 @@ This is a Bun workspace:
 
 - Electron desktop shell with a visible `WebContentsView` school browser
 - React and Vite product UI using the Studi/Inky visual language
-- Pi `AgentSession` runtime with OpenAI Codex device authorization
+- Pi `AgentSession` runtime on the student's own ChatGPT (device code) or Claude Pro/Max (browser sign-in) subscription
 - General browser tools for inspecting and operating supported school sites
 - Local SQLite task state, Markdown artifacts, queues, permissions, and scheduling
 - Clerk authentication, Convex beta entitlement, landing waitlist emails, and privacy-controlled PostHog telemetry

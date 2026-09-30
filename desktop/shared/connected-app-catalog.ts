@@ -27,7 +27,7 @@ export const CONNECTED_APP_CATALOG: Readonly<Record<string, ConnectedAppCatalogE
 export function connectedAppCatalogEntry(toolkit: string): ConnectedAppCatalogEntry {
   return CONNECTED_APP_CATALOG[toolkit] ?? {
     label: toolkit.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase()),
-    description: "Use this connected app with Inky.",
+    description: "Use this connected app with Dot.",
     logoUrl: logo(toolkit),
     group: "school",
     onboarding: false,

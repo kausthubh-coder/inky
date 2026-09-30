@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studi redesign concept v5</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="inky.css">
+<style>
+@font-face{font-family:"Nunito Sans";font-weight:400;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:700;font-display:swap;src:url("../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:600;font-display:swap;src:url("../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-600-normal.woff2") format("woff2")}
+/* A notebook on a desk. Type roles: display 30, voice 17, title 16, body 15, meta 13, label 12.5. Space: 4 base; 4 inside a group, 32 between groups. */
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--blot2:#e9e0ce;--highlighter:#f6c945;--redpen:#b3452f;--csc:#a993d6;--st:#7fbf9f;--r:10px}
+[data-mode=learn]{--highlighter:#cdbcf0}
+*{box-sizing:border-box}
+body{margin:0;background:#26221d;color:var(--pencil);font:400 15px/1.5 "Nunito Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,.voice{font-family:"Shantell Sans",cursive;font-weight:600;margin:0;text-wrap:balance}
+h1{font-size:30px;line-height:1.1;letter-spacing:-.01em}h2{font-size:17px;line-height:1.2}
+p{margin:0;text-wrap:pretty}b{font-weight:700}
+button{font:inherit;color:inherit;cursor:pointer;background:none;border:0;padding:0;text-align:left}
+input,textarea{font:inherit;color:inherit}
+code{font:12px/1.45 ui-monospace,Consolas,monospace;color:var(--graphite);overflow-wrap:anywhere}
+.muted{color:var(--graphite)}.late{color:var(--redpen);font-weight:600}.num{font-variant-numeric:tabular-nums}.sm{font-size:13px}
+.label{font-size:12.5px;font-weight:600;color:var(--graphite);white-space:nowrap}
+.h{font-size:15px;font-weight:700;color:var(--pencil);white-space:nowrap}.h em{font-style:normal;font-weight:600;color:var(--graphite);margin-left:6px}
+:focus-visible{outline:2px solid var(--pencil);outline-offset:2px}
+.inky-mascot{display:inline-block;flex:none}
+
+/* concept chrome */
+.bar{position:sticky;top:0;z-index:30;display:flex;gap:4px;align-items:center;padding:10px 18px;background:#26221d;color:#cfc6b6;font-size:12.5px;flex-wrap:wrap}
+.bar strong{color:#f3ecdf;margin-right:14px}
+.bar button{padding:4px 11px;border-radius:99px;color:#cfc6b6}
+.bar button[aria-current=true]{background:#f3ecdf;color:#26221d;font-weight:700}
+.bar i{width:1px;height:14px;background:#4a433a;margin:0 8px}
+.scen{width:1244px;margin:0 auto 8px;display:flex;gap:4px;align-items:center;color:#8f8677;font-size:12.5px;flex-wrap:wrap}
+.scen span{margin:0 8px 0 0}.scen button+span{margin-left:14px}.scen button{padding:3px 10px;border-radius:99px;color:#cfc6b6;border:1px solid #4a433a}
+.scen button.on{background:#4a433a;color:#f3ecdf}
+.screen{padding:0 18px 28px}
+.frame{width:1244px;height:790px;margin:0 auto;border-radius:12px;overflow:hidden;background:var(--paper);display:flex;flex-direction:column;position:relative}
+.why{width:1244px;margin:12px auto 0;color:#b5ab9b;font-size:13px;display:flex;gap:28px}.why p{flex:1}.why b{color:#f3ecdf}
+
+/* controls: filled, outlined, quiet */
+.btn,.q{display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;font-weight:600;border-radius:var(--r);transition:transform .1s ease-out,background-color .15s ease-out}
+.btn:active,.q:active,.send:active{transform:scale(.96)}
+.btn{height:36px;padding:0 16px;font-size:14px;background:var(--page);box-shadow:0 0 0 1.5px var(--pencil)}
+.btn.pri{background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil),0 2.5px 0 1.5px var(--pencil)}
+.btn.lg{height:44px;padding:0 22px;font-size:15px}
+.q{height:30px;padding:0 11px;font-size:13px;background:var(--blotter);border-radius:8px}
+.q:hover{background:var(--blot2)}.q.on{background:var(--pencil);color:var(--paper)}
+.q.white{background:var(--page);box-shadow:0 0 0 1px var(--rule)}.q.white:hover{background:var(--paper)}
+.q.ico{width:30px;padding:0;font-size:16px}
+.car{display:inline-block;font-size:10px;color:var(--graphite);transition:transform .15s ease-out}.q.on .car{color:inherit}.on>.car,.open .car{transform:rotate(180deg)}
+.lnk{color:var(--pencil);text-decoration:underline;text-decoration-color:#cfc6b6;text-underline-offset:3px;text-decoration-thickness:from-font}
+
+/* shell */
+.top{display:flex;align-items:center;height:60px;padding:0 28px;flex:none}
+.top .logo{font:600 22px "Shantell Sans";width:280px}
+.top .right{width:280px;display:flex;justify-content:flex-end;align-items:center;gap:10px}
+.switch{margin:0 auto;display:grid;grid-template-columns:132px 132px;padding:4px;border-radius:14px;background:var(--blotter);position:relative}
+.switch .thumb{position:absolute;top:4px;left:4px;width:132px;height:34px;border-radius:10px;background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil),0 2px 0 1.5px var(--pencil);transition:transform .28s cubic-bezier(.3,1.4,.5,1)}
+.switch.learn .thumb{transform:translateX(132px)}
+.switch.fromhome .thumb{animation:toLearn .32s cubic-bezier(.3,1.4,.5,1)}.switch.fromlearn .thumb{animation:toHome .32s cubic-bezier(.3,1.4,.5,1)}
+@keyframes toLearn{from{transform:translateX(0)}}@keyframes toHome{from{transform:translateX(132px)}}
+.switch button{position:relative;height:34px;display:flex;align-items:center;justify-content:center;gap:7px;font-weight:600;font-size:14px;color:var(--graphite)}
+.switch button.on{color:var(--pencil);font-weight:700}
+.avatar{width:32px;height:32px;border-radius:50%;background:var(--blotter);display:grid;place-items:center;font-weight:700;font-size:12.5px;cursor:pointer}
+.page{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.colm{width:752px;margin:0 auto;padding:22px 16px 8px;flex:1;min-height:0;overflow:auto;scrollbar-width:none}
+.colm.wide{width:1072px}
+.hello{display:flex;gap:18px;align-items:center;margin-bottom:26px}.hello p{margin-top:6px;font-size:16px;line-height:1.4}
+.sec{display:flex;align-items:center;justify-content:space-between;margin:32px 0 6px;gap:14px}
+.seg{display:inline-flex;padding:3px;border-radius:var(--r);background:var(--blotter)}
+.seg button{padding:4px 13px;border-radius:7px;font-size:13px;font-weight:600;color:var(--graphite)}
+.seg button.on{background:var(--page);color:var(--pencil);box-shadow:0 1px 2px rgb(43 38 33/14%)}
+.seg.sm button{padding:3px 10px;font-size:12.5px}
+.panel .seg{background:var(--blot2)}
+.foot{margin-top:28px;padding:0 0 8px;display:flex;justify-content:space-between;align-items:center;font-size:13px;color:var(--graphite)}
+.meter{height:4px;border-radius:9px;background:var(--blot2);overflow:hidden}
+.meter i{display:block;height:100%;width:100%;background:var(--pencil);transform-origin:left;transform:scaleX(var(--p,.1));transition:transform .5s ease-out}
+.meter.mini{width:90px;display:inline-block;vertical-align:middle;margin:0 8px}
+
+/* generic rows: spacing, no rules */
+.row{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:11px 0}
+.row .t{font-weight:700;font-size:15.5px;line-height:1.3}.row .m{font-size:13px;color:var(--graphite);margin-top:2px}
+.row.pick{grid-template-columns:1fr auto;cursor:pointer;padding:12px 14px;margin:0 -14px 4px;border-radius:12px;transition:background-color .15s ease-out}
+.row.pick:hover{background:var(--blotter)}.row.pick.on{background:var(--blotter);box-shadow:inset 3px 0 0 var(--highlighter)}
+
+/* assignment items: a row that opens into one rounded card */
+.cardw{margin:0 -14px;border-radius:16px;transition:background-color .15s ease-out}
+.cardw.open{background:var(--page);box-shadow:0 0 0 1.5px var(--pencil),0 3px 0 1.5px var(--pencil);margin:8px -14px 14px}
+.item{display:grid;grid-template-columns:auto 1fr auto auto;gap:14px;align-items:center;padding:11px 14px;border-radius:16px;cursor:pointer;transition:background-color .15s ease-out}
+.item:hover{background:var(--blotter)}.cardw.open .item:hover{background:none}
+.item .cb{width:4px;height:34px;border-radius:4px;background:var(--c,var(--blot2))}
+.item .t{font-weight:700;font-size:16px;line-height:1.3}.item .m{font-size:13px;color:var(--graphite);margin-top:2px}
+.item .when{font-size:13px;color:var(--graphite);text-align:right}
+.item.calm .t{font-weight:600;font-size:15px}
+.cardw.flash{animation:flash 1.6s ease-out 1}
+@keyframes flash{from{background:color-mix(in srgb,var(--highlighter) 50%,transparent)}to{background:transparent}}
+.more{padding:2px 18px 16px 32px}
+.more dl{display:grid;grid-template-columns:96px 1fr;gap:7px 14px;margin:0 0 16px;font-size:13.5px}
+.more dt{color:var(--graphite)}.more dd{margin:0}
+.more .acts{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.askbtn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 14px 0 8px;border-radius:var(--r);font-size:14px;font-weight:600;background:var(--blotter);transition:transform .1s ease-out,background-color .15s ease-out}
+.askbtn:hover{background:var(--blot2)}.askbtn:active{transform:scale(.96)}
+.wrongbtn{display:inline-flex;align-items:center;gap:7px;height:36px;padding:0 10px;margin-left:auto;border-radius:var(--r);font-size:13px;font-weight:600;color:var(--graphite);transition:background-color .15s ease-out}
+.wrongbtn::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--redpen)}
+.wrongbtn:hover,.wrongbtn.on{background:color-mix(in srgb,var(--redpen) 10%,transparent);color:var(--redpen)}
+.wrong{margin-top:12px;padding:12px 14px;border-radius:12px;background:color-mix(in srgb,var(--redpen) 7%,var(--page))}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.disc{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 4px;font-size:13.5px;font-weight:600;color:var(--pencil)}
+.disc em{font-style:normal;color:var(--graphite);font-weight:600}
+.disc:hover{text-decoration:underline;text-underline-offset:3px}
+.q.ghost{background:none;box-shadow:inset 0 0 0 1px var(--blot2);color:var(--graphite);font-weight:600}.q.ghost:hover{background:var(--blotter);color:var(--pencil)}
+.q.dash{background:none;box-shadow:none;border:1.5px dashed #bdb3a3;font-family:"Shantell Sans";font-size:13.5px}.q.dash:hover{background:var(--blotter)}.q.dash.on{background:var(--pencil);border-color:var(--pencil)}
+.go{font-size:13.5px;font-weight:600;color:var(--pencil)}.go:hover{text-decoration:underline;text-underline-offset:3px}
+.status{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--graphite)}.status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st)}.status.late::before{background:var(--redpen)}
+.sel{height:32px;border:0;box-shadow:0 0 0 1.5px var(--blot2);border-radius:8px;padding:0 10px;background:var(--page);font-weight:600;font-size:13.5px}
+.prov{display:grid;grid-template-columns:4px 1fr auto;gap:14px;align-items:center;padding:12px 14px;margin:0 -14px 4px;border-radius:14px}
+.prov.on{background:var(--blotter)}.prov .cb{width:4px;height:34px;border-radius:4px;background:transparent}.prov.on .cb{background:var(--highlighter);box-shadow:0 0 0 1px var(--pencil)}
+.mem{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.mem span{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 6px 0 11px;border-radius:8px;background:var(--blotter);font-size:13px}
+.mem span button{width:20px;height:20px;border-radius:5px;display:grid;place-items:center;color:var(--graphite)}.mem span button:hover{background:var(--blot2);color:var(--redpen)}
+.ladder{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--graphite);flex-wrap:wrap;margin-top:10px}.ladder b{color:var(--pencil);font-weight:600;background:var(--page);box-shadow:0 0 0 1px var(--blot2);border-radius:7px;padding:3px 8px}
+.tester{margin-top:14px;padding-top:14px;border-top:1px solid var(--blot2)}
+.hero{display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center;padding:18px 20px;border-radius:16px;background:var(--blotter);margin-bottom:12px}
+.panel{background:var(--blotter);border-radius:12px;padding:14px 16px;margin:8px 0 10px}
+.panel .ph{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.ruleline{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--graphite);margin:0 0 8px}
+.ruleline b{color:var(--pencil);font-weight:600}
+.excs{display:grid;gap:8px;margin-top:14px;padding-top:14px;border-top:1px solid var(--blot2)}
+.excs>div{display:flex;justify-content:space-between;align-items:center;font-size:13.5px;gap:10px}
+.dotc{display:inline-block;width:8px;height:8px;border-radius:3px;margin-right:8px;background:var(--c,var(--graphite))}
+.shelf{display:flex;gap:8px;align-items:center;margin-top:18px}
+.drop{border:1.5px dashed #cfc6b6;border-radius:var(--r);padding:22px;text-align:center;color:var(--graphite);margin:14px 0}
+.toggle{display:inline-flex;width:34px;height:20px;border-radius:99px;background:#cfc6b6;position:relative;flex:none;cursor:pointer}
+.toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:transform .15s ease-out}
+.toggle.on{background:var(--pencil)}.toggle.on::after{transform:translateX(14px)}
+.slim{display:flex;gap:10px;align-items:center;padding:10px 0}.slim input{height:38px;border:0;box-shadow:0 0 0 1.5px var(--pencil);border-radius:var(--r);padding:0 12px;background:var(--page);flex:1;outline:0}
+.ta{width:100%;min-height:96px;border:0;box-shadow:0 0 0 1.5px var(--pencil);border-radius:var(--r);padding:10px 12px;background:var(--page);resize:none;display:block;outline:0}
+.src{font-size:12.5px;color:var(--graphite);margin-top:6px}
+.verdict{border-left:3px solid var(--highlighter);padding:4px 0 4px 14px;margin-top:16px;display:grid;gap:6px}
+.all{display:grid;grid-template-columns:1fr 250px 110px 16px;gap:16px;padding:10px 14px;border-radius:16px;font-size:14.5px;align-items:center;cursor:pointer}
+.all:hover{background:var(--blotter)}.cardw.open .all:hover{background:none}.all b{font-weight:600}
+.all .d.late{color:var(--redpen)}.all .st{color:var(--graphite);font-size:13px}.all .d{text-align:right;color:var(--graphite);font-size:13px}
+.chg{display:grid;grid-template-columns:110px 1fr auto;gap:14px;padding:9px 0;align-items:center;font-size:14.5px}
+.chg .k{color:var(--graphite);font-size:13px}
+
+/* talking to Inky */
+.dock{width:720px;margin:0 auto;padding:10px 0 16px;flex:none;position:relative;z-index:3}
+.cap{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12.5px;color:var(--graphite);margin:0 2px 8px}
+.composer{display:flex;align-items:center;gap:8px;min-height:50px;padding:0 8px 0 12px;box-shadow:0 0 0 1.5px var(--pencil);border-radius:14px;background:var(--page)}
+.composer input{flex:1;border:0;background:none;outline:0;height:48px;min-width:0}
+.composer input::placeholder{color:var(--graphite)}
+.send{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil);transition:transform .1s ease-out,background-color .15s ease-out;flex:none}
+.composer input:placeholder-shown~.send{background:var(--blotter);box-shadow:none;color:var(--graphite)}
+.ref{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 4px 0 9px;border-radius:7px;background:var(--blotter);font-size:12.5px;font-weight:600;white-space:nowrap}
+.ref button{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;color:var(--graphite)}
+.sugg{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.dotnew{width:7px;height:7px;border-radius:50%;background:var(--redpen);display:inline-block}
+.sheet{position:absolute;left:50%;transform:translateX(-50%);bottom:0;width:760px;max-height:calc(100% - 28px);background:var(--page);border-radius:20px 20px 0 0;box-shadow:0 0 0 1.5px var(--pencil),0 -18px 50px rgb(43 38 33/16%);display:flex;flex-direction:column;z-index:5;animation:rise .2s ease-out}
+@keyframes rise{from{transform:translate(-50%,14px);opacity:0}}
+.scrim{position:absolute;inset:0;background:rgb(251 247 238/78%);z-index:4}
+.sheethead{display:flex;align-items:center;gap:12px;padding:18px 28px 8px}.sheethead h2{flex:1;font-size:19px}
+.tl{flex:1;overflow:auto;padding:4px 28px 8px;display:flex;flex-direction:column;gap:12px;scrollbar-width:thin}
+.sheet .dockin{padding:10px 28px 20px}
+.day{align-self:center;color:var(--graphite);font-size:12px;font-weight:600;margin-top:10px}
+.msg{display:flex;gap:10px;align-items:flex-start;font-size:15px}
+.msg.you{justify-content:flex-end}.msg.you>div{background:var(--blotter);border-radius:14px 14px 4px 14px;padding:8px 13px;max-width:76%}
+.msg.you .about{display:block;font-size:12px;color:var(--graphite);font-weight:600}
+.msg.inky>div{padding-top:2px;max-width:84%}
+.notes{display:grid;gap:2px;padding-left:36px}
+.note{display:grid;grid-template-columns:64px 1fr;gap:8px;font-size:13px;color:var(--graphite);padding:3px 8px;margin-left:-8px;border-radius:7px;width:100%}
+.note:hover{background:var(--blotter)}.note b{color:var(--pencil);font-weight:600}
+.act{display:flex;width:max-content;max-width:100%;gap:10px;align-items:center;margin-top:8px;background:var(--blotter);border-radius:10px;padding:6px 6px 6px 12px;font-size:13px;font-weight:600}
+.mini-tl{display:grid;gap:8px;margin-bottom:10px}.mini-tl .msg{font-size:13.5px}
+
+/* week */
+.weeknav{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:600}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;margin-top:4px}
+.dayc{min-height:168px;padding:6px;border-radius:12px}
+.dayc.today{background:var(--blotter)}
+.dayc .dn{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--graphite);padding:4px 4px 8px}
+.dayc .dn i{font-style:normal;margin-left:auto;min-width:22px;height:22px;border-radius:50%;display:grid;place-items:center}
+.dayc.today .dn{color:var(--pencil)}.dayc.today .dn i{background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil)}
+.wk{display:block;width:100%;padding:9px 10px 10px 13px;margin-bottom:6px;border-radius:10px;background:color-mix(in srgb,var(--c) 18%,var(--page));box-shadow:inset 3px 0 0 var(--c);transition:transform .1s ease-out,background-color .15s ease-out}
+.wk:hover{background:color-mix(in srgb,var(--c) 28%,var(--page))}.wk:active{transform:scale(.97)}
+.wk b{display:block;font-size:13.5px;font-weight:600;line-height:1.25}.wk span{display:block;color:var(--graphite);font-size:12px;margin-top:3px}.wk span.late{color:var(--redpen)}
+.empty{font-size:12px;color:#b9b0a2;padding:4px}
+
+/* work view */
+.lhead{display:flex;align-items:center;gap:10px;height:58px;padding:0 24px;flex:none}
+.lbody{display:grid;grid-template-columns:376px 1fr;flex:1;min-height:0}
+.side{padding:6px 24px 18px;display:flex;flex-direction:column;overflow:auto;scrollbar-width:none;min-height:0}
+.now{display:flex;gap:12px;align-items:center;margin-bottom:18px}
+.bro{display:flex;flex-direction:column;min-height:0;background:#f7f9fc;color:#243247;border-radius:16px 0 0 0;overflow:hidden;font-size:14px}
+.urlbar{display:flex;gap:10px;align-items:center;height:40px;padding:0 14px;background:#e9edf4;font-size:12.5px;color:#5b6577;flex:none}
+.urlbar .u{flex:1;background:#fff;border-radius:99px;padding:4px 12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.urlbar .drv{font-weight:700;color:#243247}
+.school{flex:1;overflow:auto;scrollbar-width:thin}
+.school header{background:#223a66;color:#fff;padding:10px 20px;font-weight:700;display:flex;justify-content:space-between}
+.school header span{font-weight:400;opacity:.8}.school .pg{padding:20px 24px}.school h3{margin:0 0 12px;font-size:19px}
+.qa{background:#fff;border:1px solid #d5dbe6;border-radius:8px;padding:12px 14px;margin-bottom:10px}
+.ans{min-height:44px;margin-top:8px;border:1px solid #c3cddd;border-radius:6px;padding:8px 10px;background:#fbfcfe}
+.ans.typing{border-color:#223a66;box-shadow:0 0 0 2px #f6c945}
+.login{max-width:320px;margin:60px auto;background:#fff;border:1px solid #d5dbe6;border-radius:8px;padding:22px;display:grid;gap:10px}
+.login input{height:36px;border:1px solid #c3cddd;border-radius:6px;padding:0 10px}
+.login .go{height:36px;background:#223a66;color:#fff;border-radius:6px;font-weight:700;display:grid;place-items:center}
+.ev{padding:0 0 10px 20px;position:relative;font-size:13.5px;line-height:1.4}
+.ev::before{content:"";position:absolute;left:0;top:6px;width:7px;height:7px;border-radius:50%;background:var(--pencil)}
+.ev::after{content:"";position:absolute;left:3px;top:17px;bottom:-3px;width:1px;background:var(--blot2)}
+.ev:last-child::after{display:none}
+.ev.cur{font-weight:600}.ev.cur::before{background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil)}
+.ev.say{font-family:"Shantell Sans";font-size:14px}.ev.say::before{background:none;box-shadow:0 0 0 1.5px #cfc6b6}
+.ev.retry{color:var(--redpen)}.ev.retry::before{background:var(--redpen)}
+.ev code{display:block;font-weight:400}
+.margin{font-family:"Shantell Sans";font-size:14.5px;padding:2px 0 2px 14px;border-left:3px solid var(--highlighter);margin:10px 0 0}
+.margin small{display:block;font:400 13px/1.4 "Nunito Sans";color:var(--graphite);margin-top:2px}
+.fold{display:flex;align-items:center;gap:10px;width:100%;padding:10px 12px;margin:0 -12px;width:calc(100% + 24px);border-radius:10px;font-size:14px;font-weight:600;transition:background-color .15s ease-out}
+.fold:hover{background:var(--blotter)}.fold>span:first-child{flex:1}.fold em{font-style:normal;font-weight:400;font-size:13px;color:var(--graphite)}
+.kv{padding:2px 0 8px}.kv>div{padding:6px 0;font-size:13.5px;line-height:1.4}.kv>div b{display:block;font-weight:600}.kv>div span{color:var(--graphite)}
+.file{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:13.5px}
+.snap{white-space:pre-wrap;font-size:13px;line-height:1.45;background:var(--page);box-shadow:0 0 0 1px var(--rule);border-radius:8px;padding:10px 12px;margin:4px 0 10px}
+.receipt{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:24px}
+.receipt>div{border:1px solid #d5dbe6;background:#fff;border-radius:var(--r);padding:16px;font-size:13.5px}.receipt .cap2{color:#5b6577;margin-bottom:6px}
+.cover div{display:flex;justify-content:space-between;padding:7px 0;font-size:13.5px}
+
+/* brief, stories */
+.story{display:grid;grid-template-columns:220px 1fr auto;gap:22px;padding:14px 0;align-items:start;font-size:14.5px}
+.story b{font-size:15px;font-weight:600}
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;color:var(--graphite);font-weight:600;padding:0 14px 8px 0;border-bottom:1px solid var(--pencil)}
+.tbl td{padding:10px 14px 10px 0;border-bottom:1px solid var(--rule);vertical-align:top}.tbl td:first-child{font-weight:600;width:210px}
+.brief{display:grid;grid-template-columns:repeat(3,1fr);gap:28px;margin-top:6px}.brief h2{margin-bottom:6px}
+
+/* learn, tutor, first */
+.targets{display:flex;gap:8px;margin:-8px 0 26px;flex-wrap:wrap}
+.path{display:grid;grid-template-columns:repeat(6,1fr);margin-top:14px;border-top:1.5px solid var(--blot2)}
+.path div{padding:12px 8px 0 0;font-size:13px;color:var(--graphite);position:relative}
+.path div::before{content:"";position:absolute;top:-5px;left:0;width:8px;height:8px;border-radius:50%;background:#cfc6b6}
+.path b{display:block;color:var(--pencil);font-weight:600}.path .on::before{background:var(--pencil);box-shadow:0 0 0 3px var(--highlighter)}
+.topic{display:grid;grid-template-columns:1fr 120px 110px;gap:18px;align-items:center;padding:9px 0;font-size:14.5px}
+.lvl{display:grid;grid-template-columns:repeat(4,1fr);gap:3px}.lvl i{height:6px;border-radius:2px;background:var(--blot2)}.lvl i.f{background:var(--pencil)}
+.topic span:last-child{font-size:13px;color:var(--graphite);text-align:right}
+.says{display:flex;gap:12px;align-items:flex-start;margin:16px 0;min-height:52px}.says p{padding-top:6px;font-size:16.5px;line-height:1.35}
+.qh{font-weight:700;font-size:24px;line-height:1.3;text-wrap:balance}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:20px}
+.opt{box-shadow:0 0 0 1.5px var(--pencil);border-radius:12px;padding:16px;background:var(--page);transition:transform .1s ease-out}
+.opt:active{transform:scale(.96)}.opt b{display:block;font:600 20px "Shantell Sans"}.opt span{font-size:13px;color:var(--graphite)}
+.opt.pick{background:var(--blotter)}.opt.right{background:var(--highlighter)}
+.people{display:grid;grid-template-columns:repeat(50,1fr);gap:2px;margin:14px 0 12px}.people i{aspect-ratio:1;border-radius:50%;background:var(--blot2)}
+.people i.fp{background:var(--pencil)}.people i.sick{background:var(--redpen)}
+.key{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.past{display:flex;gap:10px;padding:5px 0;font-size:13px;color:var(--graphite)}
+.past b{color:var(--pencil);font-weight:600;width:130px}.past span{flex:1}
+.wire{background:#26221d;color:#e9e1d2;border-radius:12px;padding:14px 16px;margin-top:18px;font:12px/1.5 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+.wire b{color:var(--highlighter);font-weight:400}
+.ol{counter-reset:s;display:grid;grid-template-columns:repeat(5,1fr);gap:22px;margin-top:30px}
+.ol div{counter-increment:s;font-size:13px;color:var(--graphite)}.ol div::before{content:counter(s);display:block;font-weight:700;margin-bottom:4px}
+.ol b{display:block;color:var(--pencil);font-size:15px;font-weight:600}
+.found{opacity:0;transform:translateY(6px);transition:opacity .25s ease-out,transform .25s ease-out}.found.in{opacity:1;transform:none}
+/* chat: one quiet box. Inky's face opens the conversation. Suggestions appear only while typing. */
+.cbox .sugg{display:none}.cbox:focus-within .sugg{display:flex}
+.inkybtn{position:relative;line-height:0;border-radius:50%;padding:3px;margin:-3px;transition:background-color .15s ease-out,transform .1s ease-out}
+.inkybtn:hover{background:var(--blotter)}.inkybtn:active{transform:scale(.94)}
+.inkybtn .dotnew{position:absolute;top:1px;right:0;box-shadow:0 0 0 2px var(--page)}
+.peek{display:flex;gap:9px;align-items:center;width:100%;padding:0 6px 9px;font-size:13.5px;color:var(--graphite)}
+.peek span:last-child{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.peek:hover{color:var(--pencil)}
+.send .i-stop{display:none;width:11px;height:11px;border-radius:2.5px;background:currentColor}
+.composer.busy input:placeholder-shown~.send{background:var(--pencil);color:var(--paper);box-shadow:none}
+.composer.busy input:placeholder-shown~.send .i-stop{display:block}.composer.busy input:placeholder-shown~.send svg{display:none}
+.sheet{width:680px;border-radius:24px 24px 0 0}
+.sheethead{padding:20px 32px 6px;gap:14px}.sheethead h2{font-size:20px}
+.tabs{display:flex;gap:18px}.tabs button{font-size:13.5px;font-weight:600;color:var(--graphite);padding:4px 0;box-shadow:inset 0 -2px 0 transparent}
+.tabs button.on{color:var(--pencil);box-shadow:inset 0 -2px 0 var(--pencil)}
+.xbtn{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:20px;color:var(--graphite);background:var(--blotter)}.xbtn:hover{background:var(--blot2);color:var(--pencil)}
+.tl{padding:8px 32px 10px;gap:16px}
+.day{align-self:flex-start;margin-top:14px;font-size:12.5px}
+.msg{font-size:15px;line-height:1.5}.msg.you>div{background:var(--blotter);border-radius:16px 16px 5px 16px;padding:9px 14px}
+.notes{padding-left:0;gap:0;margin-left:36px}
+.note{grid-template-columns:auto 1fr;gap:10px;padding:3px 8px 9px 0;position:relative;margin:0;border-radius:8px;text-align:left}
+.note::before{content:"";width:7px;height:7px;border-radius:50%;background:#cfc6b6;margin:6px 0 0 1px}
+.note::after{content:"";position:absolute;left:4px;top:17px;bottom:-2px;width:1px;background:var(--blot2)}.note:last-child::after{display:none}
+.note .num{display:block;font-size:12px;color:#a59c8f}
+.sheet .dockin{padding:6px 32px 22px}
+/* the existing drive overlay, copied */
+.bro{position:relative}
+.veil{position:absolute;inset:0;z-index:2;cursor:pointer;background:linear-gradient(to right,rgba(138,184,232,.42),transparent 22%,transparent 78%,rgba(138,184,232,.42)),linear-gradient(to bottom,rgba(138,184,232,.28),transparent 18%,transparent 82%,rgba(138,184,232,.28));animation:veil 2.4s ease-in-out infinite alternate}
+@keyframes veil{from{opacity:.55}to{opacity:1}}
+.drive{position:absolute;right:18px;bottom:18px;z-index:3;display:flex;align-items:flex-end;gap:8px;pointer-events:none}
+.capbtn{pointer-events:auto;background:#8ab8e8;border:2px solid #3b342c;color:#3b342c;border-radius:255px 15px 225px 15px/15px 225px 15px 255px;padding:5px 11px;font-size:12px;font-weight:800;box-shadow:2px 2px 0 #3b342c;white-space:nowrap;text-align:center}
+.capbtn:active{transform:translate(2px,2px);box-shadow:none}.capbtn.keep{background:#fffdf6}
+.drive .capbtn{margin-bottom:14px}
+.askwrap{position:absolute;inset:0;z-index:4;display:grid;place-items:center}
+.askcard{width:280px;padding:16px 16px 14px;border:2px solid #3b342c;border-radius:18px 13px 16px 14px;background:#fffdf6;box-shadow:3px 3px 0 rgb(59 52 44/18%);color:#3b342c}
+.askcard strong{display:block;font:600 1.15rem "Shantell Sans";letter-spacing:-.03em}
+.askcard p{margin:6px 0 12px;font-size:13px;font-weight:700;color:#7d746a}.askcard div{display:flex;gap:8px}
+/* work that isn't a web page */
+.ptabs{display:flex;gap:4px;padding:8px 12px 0;background:#e9edf4;flex:none}
+.ptabs button{padding:6px 14px;border-radius:9px 9px 0 0;font-size:13px;font-weight:600;color:#5b6577}.ptabs button.on{background:#f7f9fc;color:#243247}
+.files{flex:1;display:grid;grid-template-columns:190px 1fr;min-height:0;background:#fbfaf6;color:var(--pencil)}
+.ftree{padding:14px 10px;border-right:1px solid var(--rule);font-size:13px;overflow:auto}
+.ftree div{padding:5px 8px;border-radius:7px;display:flex;justify-content:space-between;gap:6px}.ftree div.on{background:var(--blotter);font-weight:600}
+.ftree small{color:var(--graphite);font-size:11.5px}.ftree .dir{color:var(--graphite);font-weight:600;padding-top:10px}
+.fmain{display:flex;flex-direction:column;min-height:0}
+.fname{padding:10px 18px;font-size:13px;font-weight:600;border-bottom:1px solid var(--rule);display:flex;justify-content:space-between}
+.codev{flex:1;margin:0;padding:16px 18px;font:13px/1.6 ui-monospace,Consolas,monospace;white-space:pre-wrap;overflow:auto;color:#2b2621}
+.term{margin:0;padding:12px 18px;background:#26221d;color:#d9f2e4;font:12.5px/1.5 ui-monospace,Consolas,monospace;min-height:64px;white-space:pre-wrap}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<nav class="bar" id="bar"><strong>Studi concept</strong></nav>
+<div id="app"></div>
+<script src="inky.js"></script>
+<script>
+/* ================= state ================= */
+const S={screen:"today",today:"needs",view:"list",phase:"working",atype:"quiz",detail:false,showact:false,showreq:false,showans:false,ev:1,extra:[],scan:"running",scanExtra:false,mode:1,perclass:false,csc:1,st:1,
+ sheet:false,tlf:0,askpage:false,pane:"page",stopped:false,scanTake:false,flip:null,ruleopen:false,exc:[{n:"CSC 316 Data Structures",c:"csc",v:2,t:"class",key:"CSC 316"},{n:"Essays and writing",v:0,t:"kind",key:"essay"}],order:["hw1","ps4","rr"],job:{id:"hw1",t:"Homework 1",cls:"CSC 316"},wrongopen:false,test:"rr",finding:0,mems:["Uses APA","Prefers Python over Java","Never touch group projects"],prov:"chatgpt",effort:2,shelf:null,target:"st",elseTopic:null,showpick:false,wire:false,ref:null,typing:false,unread:true,flash:null,first:"ps4",yours:{},
+ open:null,fixed:{},later:false,adding:false,added:null,allf:0,learn:"sessions",scene:"gut",tutor:null,warm:null,base:100,tried:null,hint:0,explained:false,
+ tl:[{k:"ev",day:"Tuesday",at:"7:29 PM",text:"Finished <b>HW 3</b> and stopped for your review.",ref:"HW 3",go:`data-go="assignment" data-phase="ready" data-atype="quiz"`},{k:"ev",at:"7:42 PM",text:"You submitted <b>HW 3</b>. Northstar confirmed it.",ref:"HW 3",go:`data-go="assignment" data-phase="submitted"`},
+  {k:"you",day:"Yesterday",text:"What did you change in HW 2?",ref:"HW 2"},{k:"inky",text:"I rewrote the intro to cite your textbook, like you asked. Everything else is unchanged."},
+  {k:"ev",day:"Today",at:"8:01 AM",text:"Paused <b>IBM Sorting Machine</b>. I need two files from you.",ref:"IBM Sorting Machine",go:`data-go="assignment" data-phase="files" data-atype="code"`},{k:"ev",at:"8:04 AM",text:"Checked Northstar. 1 new, 1 due date moved.",ref:"School check",go:`data-go="scan" data-scan="done"`}]};
+const MODES=[{l:"Don't start",d:"I leave homework alone unless you ask."},{l:"Do it, I submit",d:"I do the work and stop. You check it and press submit."},{l:"Do it and submit",d:"I do the work, wait your review window, then submit. I stop only when I'm unsure."}];
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];
+const inky=(st,z)=>`<span class="inky-mascot" data-state="${st}" style="width:${z}px;height:${z}px">${INKY[st]||INKY.idle}</span>`;
+const seg=(id,items,on,cls="")=>`<div class="seg ${cls}" role="radiogroup">${items.map((t,i)=>`<button role="radio" aria-checked="${i==on}" class="${i==on?"on":""}" data-act="${id}" data-i="${i}">${t}</button>`).join("")}</div>`;
+const car=`<span class="car" aria-hidden="true">▼</span>`;const CC={"CSC 316":"var(--csc)","ST 370":"var(--st)"};
+const arrow=`<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 13V3M8 3L3.5 7.5M8 3l4.5 4.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+function scanChip(){const t=S.today=="scanning"?"Checking school now":S.today=="signin"?"School needs sign-in":"School checked 8 min ago";return `<button class="status ${S.today=="signin"?"late":""}" data-go="scan">${t}</button>`}
+function scanChipOld(){const s=S.today=="scanning"?"Checking school now":S.today=="signin"?"School needs sign-in":"School checked 8 min ago";return `<button class="q ${S.today=="signin"?"late":""}" data-go="scan">${s}</button>`}
+const topbar=(mode)=>{const f=S.flip;S.flip=null;return `<div class="top"><div class="logo">studi</div><div class="switch ${mode=="learn"?"learn":""} ${f?"from"+f:""}" role="tablist"><span class="thumb"></span><button role="tab" class="${mode=="home"?"on":""}" data-go="today" data-flip="learn">${mode=="home"?inky("working",20):""}Homework</button><button role="tab" class="${mode=="learn"?"on":""}" data-go="learn" data-flip="home">${mode=="learn"?inky("done",20):""}Learn</button></div><div class="right">${scanChip()}<span class="avatar" title="Settings" data-go="settings">K</span></div></div>`};
+
+/* ================= talking to Inky ================= */
+const hereRef=()=>S.screen=="assignment"?(S.atype=="quiz"?"Homework 1":"IBM Sorting Machine"):S.screen=="scan"?"School check":S.screen=="tutor"?"This session":null;
+const curRef=()=>hereRef()||S.ref;
+const SUGGS=()=>S.screen=="assignment"&&S.atype=="code"?[["Add comments to sort.py","cmt"],["Use a faster sort","fast"],["Why did you pick this approach?","whyc"]]:S.screen=="assignment"?[["Use the summation proof for question 2","chg"],["Make the essay shorter","chg2"],["Why that answer for question 3?","why"]]:S.screen=="scan"?[["I also have MyLab Math","miss"],["Skip announcements","skip"],["Why is it slow?","slow"]]:S.screen=="learn"||S.screen=="tutor"?[["When is my midterm?","exam"],["Quiz me on heaps","quiz"],["Explain Bayes simply","bayes"]]:[["What's due?","due"],["Do Homework 1","do"],["Do stats first","first"],["Skip the reading response","skipit"],["Remember I use APA","note"]];
+const REPLIES={due:"Three things. HW 3 is waiting for your review, IBM Sorting Machine is 3 days overdue and needs your files, and Problem Set 4 is due Friday.",do:"On it. I'll stop before submitting so you can check it.",first:"Done. Problem Set 4 goes first. I moved it up.",skipit:"Okay, the reading response is yours. I won't touch it.",note:"Saved. I'll use APA in anything written.",scan:"Checking Northstar now. I'll tell you if anything changed.",drive:"Found ST 370 Syllabus.pdf in your Drive. The midterm is Sep 23 and covers chapters 1 to 5.",
+ chg:"Changing question 2 to the summation proof from your notes. Watch the page.",chg2:"Shortening the essay to about 120 words and keeping your example.",why:"Removing the max moves the last item, 5, to the root. 5 is smaller than 8, so they swap. That leaves [8, 7, 5, 3].",
+ cmt:"Adding a short comment above each function in sort.py, then re-running the tests.",fast:"Switching the inner loop to a radix pass, which is what the machine actually does. I'll re-run the tests.",whyc:"The starter code models the IBM sorter as passes over card columns, so a column by column stable sort matches the assignment.",
+ miss:"Adding MyLab Math to this check. It has its own sign-in, so I'll need you for a moment when I get there.",skip:"Skipping announcements from now on. You can turn them back on in Settings.",slow:"Northstar loads each class page separately. CSC 316 took 40 seconds. Two pages left.",
+ exam:"ST 370 midterm is Wednesday Sep 23, from your syllabus. You're about 58% ready.",quiz:"Let's do it as a short session so it counts toward what you know.",bayes:"A positive test only means a lot if the thing is common. When it's rare, the healthy crowd's false alarms outnumber the real cases. Want the picture?",
+ other:"I can start, stop, or reorder homework, change how I'm doing an assignment, check your school, remember things about you, and look through your connected apps."};
+const ACTS={do:["Started Homework 1",`data-go="assignment" data-phase="working" data-atype="quiz"`,"Watch"],first:["Problem Set 4 is now first",`data-act="closesheet"`,"See the list"],skipit:["Reading response is yours",`data-act="closesheet"`,"See the list"],scan:["Checking Northstar",`data-go="scan" data-scan="running"`,"Watch"],note:["Saved to memories",`data-go="settings"`,"See it"],drive:["ST 370 Syllabus.pdf",`data-go="learn" data-learn="syllabus"`,"Use it in Learn"],chg:["Retyped question 2 on the school page","",""],chg2:["Retyped question 5 on the school page","",""],cmt:["Edited sort.py · tests still pass","",""],fast:["Edited sort.py · 6 of 6 tests pass","",""],miss:["Added MyLab Math to this check","",""],bayes:["The picture",`data-go="tutor" data-scene="see"`,"Open"],quiz:["Heaps · 5 minute session",`data-go="tutor" data-scene="warm"`,"Start"]};
+function kindOf(t){t=t.toLowerCase();return t.includes("comment")?"cmt":t.includes("faster")?"fast":t.match(/why/)&&S.screen=="assignment"&&S.atype=="code"?"whyc":t.includes("due")?"due":t.match(/summation|question 2/)?"chg":t.match(/shorter|essay/)?"chg2":t.match(/why/)&&S.screen=="assignment"?"why":t.match(/mylab|missed|also have/)?"miss":t.match(/skip.*(reading|response)/)?"skipit":t.includes("skip")?"skip":t.includes("slow")?"slow":t.match(/first|before/)?"first":t.match(/^do |start/)?"do":t.includes("remember")?"note":t.match(/check|scan/)?"scan":t.match(/drive|gmail|find|syllabus/)?"drive":t.match(/exam|midterm/)?"exam":t.includes("quiz")?"quiz":t.includes("bayes")?"bayes":"other"}
+function say(text,kind){const today=S.tl.some(m=>m.day=="Today");S.tl.push({k:"you",text,ref:curRef(),day:today?null:"Today"});S.typing=true;S.unread=false;if(!hereRef())S.sheet=true;S.ref=null;render();
+ setTimeout(()=>{S.typing=false;S.tl.push({k:"inky",text:REPLIES[kind]||REPLIES.other,act:ACTS[kind],ref:hereRef()});
+  if(kind=="do"){S.job={id:"hw1",t:"Homework 1",cls:"CSC 316"};S.today="working";S.flash="hw1"}if(kind=="first"){S.order=["ps4",...S.order.filter(x=>x!="ps4")];S.flash="ps4"}if(kind=="skipit"){S.yours.rr=true;S.flash="rr"}if(kind=="scan")S.today="scanning";if(kind=="miss")S.scanExtra=true;
+  if(kind=="chg"){S.extra.push(["tool","Retyped the answer to question 2","browser_type ref=e22"]);ANS[1]="Level h has at most n/2^(h+1) nodes and each sifts down O(h). Summing h/2^h over all levels converges to 2, so the total is O(n)."}
+  if(kind=="cmt")S.extra.push(["tool","Edited sort.py and ran the tests. 6 of 6 passed.","write sort.py; bash pytest"]);if(kind=="fast")S.extra.push(["tool","Rewrote the inner loop in sort.py. 6 of 6 tests pass.","write sort.py; bash pytest"]);
+  if(kind=="chg2")S.extra.push(["tool","Retyped the answer to question 5","browser_type ref=e41"]);render()},700)}
+const actCard=(a)=>a?`<span class="act">${a[0]}${a[2]?`<button class="q white" ${a[1]}>${a[2]}</button>`:""}</span>`:"";
+function tlHtml(list){let out="",notes=[];const flush=()=>{if(notes.length){out+=`<div class="notes">${notes.join("")}</div>`;notes=[]}};
+ list.forEach(m=>{if(m.day){flush();out+=`<div class="day">${m.day}</div>`}
+  if(m.k=="ev")notes.push(`<button class="note" ${m.go}><span class="num">${m.at}</span><span>${m.text}</span></button>`);
+  else{flush();out+=m.k=="you"?`<div class="msg you"><div>${m.ref?`<span class="about">About ${m.ref}</span>`:""}${m.text}</div></div>`:`<div class="msg inky">${inky("idle",26)}<div>${m.text}${actCard(m.act)}</div></div>`}});flush();return out}
+const thinking=()=>S.typing?`<div class="msg inky">${inky("thinking",26)}<div class="muted">Thinking</div></div>`:"";
+const busyHere=()=>(S.screen=="assignment"&&(S.phase=="working"||S.phase=="submitting"))||(S.screen=="scan"&&S.scan=="running"&&!S.scanTake)||S.typing;
+const composer=(ph,chipFixed,compact)=>{const r=compact?null:curRef();return `<form class="composer ${busyHere()?"busy":""}" data-act="send">${compact?"":`<button type="button" class="inkybtn" data-act="opensheet" title="You and Inky" aria-label="Open your conversation with Inky">${inky("hello",28)}${S.unread&&!S.sheet?`<span class="dotnew"></span>`:""}</button>`}${r?`<span class="ref">${r}${chipFixed?"":`<button type="button" data-act="unref" aria-label="Remove">×</button>`}</span>`:""}<input placeholder="${ph}" aria-label="Talk to Inky"><button class="send" type="submit" aria-label="${busyHere()?"Stop, or send":"Send"}">${arrow}<span class="i-stop"></span></button></form>`};
+const suggs=()=>`<div class="sugg">${SUGGS().slice(0,4).map(s=>`<button class="q ghost" data-act="sugg" data-k="${s[1]}">${s[0]}</button>`).join("")}</div>`;
+const plain=(t)=>t.replace(/<[^>]+>/g,"");
+function dock(ph,w){if(S.sheet)return "";const last=S.unread?[...S.tl].reverse().find(m=>m.k!="you"):null;return `<div class="dock" ${w?`style="width:${w}px"`:""}>${last?`<button class="peek" data-act="opensheet"><span class="dotnew"></span><span>${plain(last.text)}</span></button>`:""}<div class="cbox">${composer(ph)}${suggs()}</div></div>`}
+function sheet(){if(!S.sheet)return "";const here=hereRef();const list=S.tl.filter(m=>(S.tlf==0||m.k=="ev")&&(!here||S.tlf==1||m.ref==here||!S.only));return `<div class="scrim" data-act="closesheet"></div><div class="sheet" role="dialog" aria-label="You and Inky"><div class="sheethead">${inky("idle",34)}<h2>You and Inky</h2><div class="tabs"><button class="${S.tlf==0?"on":""}" data-act="tlf" data-i="0">Everything</button><button class="${S.tlf==1?"on":""}" data-act="tlf" data-i="1">What Inky did</button></div><button class="xbtn" data-act="closesheet" aria-label="Close">×</button></div><div class="tl" id="tl">${tlHtml(list)}${thinking()}</div><div class="dockin"><div class="cbox">${composer("Tell Inky what to do, or ask anything",false,true)}${suggs()}</div></div></div>`}
+const sidechat=(ph,label)=>{const r=hereRef(),mine=S.tl.filter(m=>m.ref==r&&m.k!="ev"),lastYou=[...mine].reverse().find(m=>m.k=="you"),lastInky=mine[mine.length-1]&&mine[mine.length-1].k=="inky"?mine[mine.length-1]:null;const show=[lastYou,lastInky].filter(Boolean).map(m=>({...m,day:null,ref:null}));
+ return `<div style="margin-top:auto;padding-top:20px">${show.length||S.typing?`<div class="mini-tl">${tlHtml(show)}${thinking()}</div>`:""}<div class="cbox">${composer(ph,true,true)}${suggs()}</div>${mine.length?`<button class="go" style="margin-top:10px;font-size:13px" data-act="opensheet">Whole conversation →</button>`:""}</div>`};
+
+/* ================= today ================= */
+const INFO={hw3:["5 questions on heaps and priority queues.","CSC 316 · Assignments page","Done. Waiting for you. I let go of the page in 12 min and keep your answers."],ibm:["Implement a card sorter, write a one page report with two graphs, upload both.","CSC 316 · Assignments page","Paused. I need graph1.csv and graph2.csv."],hw1:["5 questions on heaps. The rubric wants Big-O with a reason.","CSC 316 · Assignments page","Starts when you press Start. Your rule for CSC 316 is Do it, I submit."],ps4:["8 problems on conditional probability.","ST 370 · Modules, week 4","Thursday 7:00 PM, one day before it's due."],rr:["300 words: your reaction to the chapter 5 reading.","ST 370 · Discussion board","It wants your opinion, so I'll ask you three questions first."],labr:["Reflect on Lab 2 in a paragraph.","CSC 316 · Announcements","No date on the page, so I can't schedule it."]};
+const CLS=(m)=>m.startsWith("ST")?"ST 370":"CSC 316";
+const TITLES={hw1:"Homework 1",ps4:"Problem Set 4",rr:"Reading response",hw4:"Homework 4",ps5:"Problem Set 5",lab3:"Lab 3",labr:"Lab reflection",added:"Homework 5"};
+const busy=()=>S.today=="working"||S.today=="auto";
+const more=(id,title,canStart)=>{const i=INFO[id]||["Open the school page to see the full instructions.","Found by the last school check","Not scheduled yet."];if(S.open!=id)return "";const yours=S.yours[id];
+ return `<div class="more"><dl><dt>What it asks</dt><dd>${i[0]}</dd><dt>Found on</dt><dd><a class="lnk" href="#" data-act="noop">${i[1]}</a></dd><dt>Inky's plan</dt><dd>${yours?"It's yours. I won't touch it.":i[2]}</dd></dl>
+ <div class="acts">${canStart&&!yours?`<button class="btn" data-act="startnow" data-id="${id}">${busy()?"Do this next":"Start now"}</button>`:""}${canStart?`<button class="q" style="height:36px" data-act="mine" data-id="${id}">${yours?"Give it back to Inky":"I'll do it myself"}</button>`:""}<button class="askbtn" data-act="ask" data-t="${title}">${inky("hello",22)}Ask Inky about it</button><button class="wrongbtn ${S.wrongopen?"on":""}" data-act="wrongopen">Something wrong?</button></div>
+ ${canStart&&!yours&&busy()?`<p class="src">Inky is busy with ${S.job.t}. This one goes first when that's done.</p>`:""}
+ ${S.wrongopen?`<div class="wrong"><span class="label">What's wrong with it?</span><div class="chips"><button class="q white" data-act="fixdo" data-id="${id}" data-v="Date fixed to Friday">Wrong due date</button><button class="q white" data-act="fixdo" data-id="${id}" data-v="gone">This isn't homework</button><button class="q white" data-act="fixdo" data-id="${id}" data-v="Re-reading the page">Details look wrong</button><button class="q white" data-act="fixdo" data-id="${id}" data-v="Marked done by you">I already did it</button></div></div>`:""}</div>`};
+const row=(id,t,m,right,o={})=>{const fx=S.fixed[id];if(fx=="gone")return "";if(busy()&&S.job.id==id&&!o.live)return "";const on=S.open==id,cls=CLS(m);return `<div class="cardw ${on?"open":""} ${S.flash==id?"flash":""}"><div class="item ${o.calm?"calm":""}" data-act="open" data-id="${id}" role="button" aria-expanded="${on}">${o.live||`<span class="cb" style="--c:${CC[cls]}"></span>`}<div><div class="t">${t}</div><div class="m">${fx?`<b>${fx}</b> · `:""}${S.yours[id]?`<b>Yours</b> · `:""}${m}</div></div>${right||"<span></span>"}${car}</div>${more(id,t,o.calm)}</div>`};
+const when=(t)=>`<span class="when num">${t}</span>`;
+const nextUp=(id)=>S.order.filter(x=>!(busy()&&S.job.id==x)&&!S.yours[x])[0]==id;
+const JOBROW=()=>row(S.job.id,S.job.t,`${S.job.cls} · ${S.job.id=="hw1"?"Typing the answer to question 3":"Reading the assignment"}`,`<button class="btn" data-go="assignment" data-phase="working" data-atype="quiz">Watch</button>`,{live:inky("working",34)});
+const HW3=()=>row("hw3","HW 3",`CSC 316 · Finished. I'm unsure about two answers.`,`<button class="btn pri" data-go="assignment" data-phase="ready" data-atype="quiz">Review</button>`);
+const IBM=()=>row("ibm","IBM Sorting Machine",`CSC 316 · <span class="late">3 days overdue</span> · I need two files from you.`,`<button class="btn" data-go="assignment" data-phase="files" data-atype="code">Add files</button>`);
+const HW1=(st)=>st=="working"?JOBROW():row("hw1","Homework 1",`CSC 316 · <span class="late">1 day overdue</span>`,busy()?when(nextUp("hw1")?"Inky starts next":"After "+S.job.t):`<button class="btn" data-act="start">${S.mode==0?"Start once":"Start"}</button>`,{calm:1});
+const PS4=()=>row("ps4","Problem Set 4",`ST 370 · due Friday`,when(S.yours.ps4?"Yours":S.mode==0?"Waiting for you":busy()&&nextUp("ps4")?"Inky starts next":"Inky starts Thu 7 PM"),{calm:1});
+const RR=()=>row("rr","Reading response",`ST 370 · due Sunday`,when(S.yours.rr?"Yours":busy()&&nextUp("rr")?"Inky starts next":"Inky asks you first"),{calm:1});
+const ADDED=()=>S.added?row("added",S.added.t,S.added.chk?`CSC 316 · Found on the page · due Thursday`:`CSC 316 · Reading the page`,S.added.chk?`<button class="btn" data-act="start">Start</button>`:``,S.added.chk?{calm:1}:{live:inky("scanning",34)}):"";
+const SHELF=()=>`<div class="shelf"><button class="disc" data-act="shelf" data-v="later">Later <em>3</em> <span class="${S.shelf=="later"?"on":""}">${car}</span></button>${S.fixed.labr=="gone"?"":`<button class="disc" style="margin-left:10px" data-act="shelf" data-v="nodate">No due date <em>1</em> <span class="${S.shelf=="nodate"?"on":""}">${car}</span></button>`}<span style="flex:1"></span><button class="q ${S.adding?"on":""}" data-act="add">+ Add homework</button><button class="go" style="margin-left:8px" data-go="all">All work →</button></div>${S.adding?`<form class="slim" data-act="add"><input placeholder="Paste a link from your school, or type a title" autofocus><button class="btn" type="submit">Add</button><button class="q" type="button" data-act="addcancel">Cancel</button></form>`:""}${S.shelf=="later"?row("hw4","Homework 4","CSC 316 · due Sep 23",when("Inky starts Sep 21"),{calm:1})+row("ps5","Problem Set 5","ST 370 · due Sep 26",when("Inky starts Sep 24"),{calm:1})+row("lab3","Lab 3","CSC 316 · due Sep 30",when("Inky starts Sep 28"),{calm:1}):""}${S.shelf=="nodate"?row("labr","Lab reflection",`CSC 316 · The page shows no due date, so I can't schedule it`,`<button class="q white" data-act="fixdo" data-id="labr" data-v="Due Sep 25, set by you">Set a date</button>`,{calm:1}):""}`;
+const MISSING=()=>"";const LATER=()=>"";const NODATE=()=>"";
+const KIND={hw1:["CSC 316","problem set"],ps4:["ST 370","problem set"],rr:["ST 370","essay"]};
+function resolveRule(id){const k=KIND[id],one=S.exc.find(x=>x.t=="one"&&x.key==id),kind=S.exc.find(x=>x.t=="kind"&&x.key==k[1]),cls=S.exc.find(x=>x.t=="class"&&x.key==k[0]);const hit=one||kind||cls;return {v:hit?hit.v:S.mode,why:hit?`because of your rule for ${hit.n}`:"from the general rule"}}
+function ruleEditor(full){return `<div class="ph"><span style="font-weight:700">General rule</span>${seg("mode",MODES.map(m=>m.l),S.mode)}</div><p class="sm muted" style="margin-top:8px">${MODES[S.mode].d}</p><div class="excs"><span style="font-weight:700">More specific rules</span>${S.exc.map((x,k)=>`<div><span><span class="dotc" style="--c:${x.c?`var(--${x.c})`:"var(--graphite)"}"></span>${x.n} <span class="muted sm">· ${x.t=="class"?"class":x.t=="kind"?"kind of work":"one assignment"}</span></span><span style="display:flex;gap:8px;align-items:center">${seg("exc-"+k,MODES.map(m=>m.l),x.v,"sm")}<button class="q white ico" data-act="excdel" data-k="${k}" aria-label="Remove">×</button></span></div>`).join("")}<div style="justify-content:flex-start"><span class="muted sm">Add a rule for</span><button class="q white" data-act="excadd" data-n="ST 370 Probability" data-c="st" data-t="class" data-key="ST 370">a class</button><button class="q white" data-act="excadd" data-n="Discussion posts" data-t="kind" data-key="discussion">a kind of work</button><button class="q white" data-act="excadd" data-n="Problem Set 4" data-c="st" data-t="one" data-key="ps4" data-v="2">one assignment</button></div></div><div class="ladder">The most specific rule wins: <b>one assignment</b> › <b>kind of work</b> › <b>class</b> › <b>general rule</b></div>${full?`<div class="tester"><span style="font-weight:700">Check a rule</span><div class="sugg" style="margin-top:8px">${["hw1","ps4","rr"].map(id=>`<button class="q ${S.test==id?"on":""}" data-act="test" data-id="${id}">${TITLES[id]}</button>`).join("")}</div><p style="margin-top:10px">${(()=>{const r=resolveRule(S.test);return `<b>${TITLES[S.test]}</b> (${KIND[S.test][0]}, ${KIND[S.test][1]}): <b>${MODES[r.v].l}</b>, ${r.why}.`})()}</p></div>`:""}`}
+function rulesBlock(){const n=S.exc.length;return `<div class="sec"><span class="h">Up next</span><div class="ruleline">Inky's rule: <b>${MODES[S.mode].l}</b>${n?` · ${n} more specific`:""}<button class="q ${S.ruleopen?"on":""}" data-act="ruleopen">Change ${car}</button></div></div>${S.ruleopen?`<div class="panel">${ruleEditor(false)}</div>`:""}`}
+const ROWS={hw1:()=>HW1(),ps4:()=>PS4(),rr:()=>RR()};
+const upnext=()=>rulesBlock()+ADDED()+S.order.map(id=>ROWS[id]()).join("")+SHELF();
+const NEEDS=(extra)=>`<div class="sec" style="margin-top:0"><span class="h">Needs you<em>${2+(extra?1:0)}</em></span></div>${extra||""}${HW3()}${IBM()}`;
+const WEEK=[["Mon",14,[["IBM Sorting Machine","CSC 316","Needs your files","ibm",1]]],["Tue",15,[["HW 3","CSC 316","Ready for review","hw3",0]]],["Wed",16,[["Homework 1","CSC 316","Not started","hw1",1]]],["Thu",17,[]],["Fri",18,[["Problem Set 4","ST 370","Inky starts Thu 7 PM","ps4",0]]],["Sat",19,[]],["Sun",20,[["Reading response","ST 370","Inky asks you first","rr",0]]]];
+const WKGO={ibm:`data-go="assignment" data-phase="files" data-atype="code"`,hw3:`data-go="assignment" data-phase="ready" data-atype="quiz"`};
+const weekView=()=>`<div class="sec"><span class="h">This week</span><div class="weeknav"><button class="q ico" aria-label="Previous week">‹</button><span class="num" style="min-width:96px;text-align:center">Sep 14 – 20</span><button class="q ico" aria-label="Next week">›</button></div></div><div class="week">${WEEK.map(d=>`<div class="dayc ${d[1]==17?"today":""}"><div class="dn">${d[0]}<i class="num">${d[1]}</i></div>${d[2].map(a=>`<button class="wk" style="--c:${CC[a[1]]};${S.open==a[3]?"box-shadow:inset 3px 0 0 var(--c),0 0 0 1.5px var(--pencil)":""}" ${WKGO[a[3]]||`data-act="open" data-id="${a[3]}"`}><b>${a[0]}</b><span>${a[1]}</span><span class="${a[4]?"late":""}">${a[4]?"Overdue · ":""}${a[2]}</span></button>`).join("")||`<div class="empty">Nothing due</div>`}</div>`).join("")}</div>${TITLES[S.open]&&["hw1","ps4","rr"].includes(S.open)?`<div class="cardw open" style="margin-top:14px"><div class="item" data-act="open" data-id="${S.open}"><span class="cb" style="--c:${CC[KIND[S.open][0]]}"></span><div><div class="t">${TITLES[S.open]}</div><div class="m">${KIND[S.open][0]}</div></div><span></span>${car}</div>${more(S.open,TITLES[S.open],true)}</div>`:""}${SHELF()}`;
+const TODAY={
+ needs:()=>[inky("waiting",64),"Two things need you.","A review and two missing files. I'll handle the rest tonight.",NEEDS()+upnext()],
+ working:()=>[inky("working",64),`I'm on ${S.job.t}.`,"HW 3 still needs your review when you have a moment.",`<div class="sec" style="margin-top:0"><span class="h">Inky now</span></div>`+JOBROW()+`<div class="sec"><span class="h">Needs you<em>2</em></span></div>`+HW3()+IBM()+upnext()],
+ scanning:()=>[inky("scanning",64),"Checking Northstar.","Looking through your classes for new or changed work.",NEEDS()+upnext()],
+ signin:()=>[inky("needs",64),"Your school signed me out.","I can't see new homework until you sign in again. It takes about 20 seconds.",NEEDS(`<div class="item"><span class="cb" style="--c:var(--redpen)"></span><div><div class="t">Sign in to Northstar</div><div class="m">Inside Studi. Your password stays on this computer.</div></div><button class="btn pri" data-go="scan" data-scan="signin">Sign in</button><span></span></div>`)+upnext()],
+ clear:()=>[inky("sleep",64),"Nothing needs you.","Problem Set 4 is due Friday. I'll start it Thursday at 7 PM and stop before submitting.",`<div class="sec" style="margin-top:0"><span class="h">Up next</span></div>`+PS4()+RR()+SHELF()+`<div class="sec"><span class="h">Handed in this week</span></div>`+row("hw3d","HW 3","CSC 316 · Submitted Tuesday 7:42 PM",`<button class="q" data-go="assignment" data-phase="submitted">Receipt</button>`,{calm:1})],
+ auto:()=>[inky("working",64),"I've got it. Nothing needs you.","Running on my own under your rule. I'll only ping you if I get stuck. You can close Studi and I keep going.",`<div class="sec" style="margin-top:0"><span class="h">Inky now</span></div>`+JOBROW()+`<div class="sec"><span class="h">Handed in on my own this week<em>3</em></span></div>`+row("hw3d","HW 3","CSC 316 · Submitted Tuesday 7:42 PM · 19/20",`<button class="go" data-go="assignment" data-phase="submitted">Receipt →</button>`,{calm:1})+row("hw2d","HW 2","CSC 316 · Submitted Sep 9 · 18/20",`<button class="go" data-go="assignment" data-phase="submitted">Receipt →</button>`,{calm:1})+row("ps3d","Problem Set 3","ST 370 · Submitted Sep 8 · 9/10",`<button class="go" data-go="assignment" data-phase="submitted">Receipt →</button>`,{calm:1})+upnext()],
+ away:()=>[inky("hello",64),"Welcome back. Here's what changed.","Six days away. I kept checking every morning.",`<div class="sec" style="margin-top:0"><span class="h">While you were away</span></div><div class="chg"><span class="k">New</span><div><b>Problem Set 5</b> · ST 370 · due next Friday</div><button class="q" data-go="all">Open</button></div><div class="chg"><span class="k">Due date moved</span><div><b>Reading response</b> · Sunday → Wednesday</div><span></span></div><div class="chg"><span class="k">Graded</span><div><b>HW 3</b> · 19/20 at school</div><button class="q" data-go="assignment" data-phase="submitted">Receipt</button></div><div class="chg"><span class="k">Handed in</span><div><b>Homework 1</b> · I submitted it Tuesday, your rule for CSC 316</div><button class="q" data-go="assignment" data-phase="submitted">Receipt</button></div>`+rulesBlock()+PS4()+RR()+SHELF()],
+};
+function renderToday(){const [ik,h,sub,body]=TODAY[S.today]();const wk=S.view=="week";const needs=S.today=="needs"?NEEDS():S.today=="working"?`<div class="sec" style="margin-top:0"><span class="h">Inky now</span></div>`+JOBROW()+`<div class="sec"><span class="h">Needs you<em>2</em></span></div>`+HW3()+IBM():"";
+ return `<div class="frame" data-mode="home">${topbar("home")}<div class="page"><div class="colm ${wk?"wide":""}"><div class="hello">${ik}<div style="flex:1"><h1>${h}</h1><p class="muted">${sub}</p></div>${seg("view",["List","Week"],wk?1:0)}</div>${wk?needs+weekView():body}</div>${dock("Tell Inky what to do, or ask anything",wk?1040:0)}${sheet()}</div></div>`}
+const ALL=[["CSC 316 Data Structures",[["IBM Sorting Machine","Paused, needs your files","3 days overdue",1,"ibm"],["HW 3","Ready for your review","Sep 15",1,"hw3"],["Homework 1","Not started","1 day overdue",1,"hw1"],["Homework 4","Not started · Inky starts Sep 21","Sep 23",1],["Lab 3","Not started","Sep 30",1],["Lab reflection","No due date on the page","",1,"labr"],["HW 2","Submitted by Inky · graded 18/20","Sep 9",0],["HW 1","Submitted by you at school","Sep 2",0]]],["ST 370 Probability",[["Problem Set 4","Not started · Inky starts Thursday","Friday",1,"ps4"],["Reading response","Inky will ask you first","Sunday",1,"rr"],["Problem Set 5","Not started","Sep 26",1],["Problem Set 3","Submitted by you · graded 9/10","Sep 8",0]]]];
+function renderAll(){return `<div class="frame" data-mode="home">${topbar("home")}<div class="page"><div class="colm" style="width:860px"><div class="hello"><div style="flex:1"><h1>Everything I know about.</h1><p class="muted">From the school check at 8:04 AM. Open anything that looks wrong.</p></div>${seg("allf",["All","To do","Done"],S.allf)}</div>
+ ${ALL.map((c,ci)=>{const items=c[1].filter(i=>(S.allf==0||(S.allf==1?i[3]:!i[3]))&&S.fixed[i[4]||i[0]]!="gone");return items.length?`<div class="sec" ${ci?"":'style="margin-top:0"'}><span class="h"><span class="dotc" style="--c:${ci?"var(--st)":"var(--csc)"}"></span>${c[0]}</span><span class="label">${c[1].filter(i=>i[3]).length} to do</span></div>${items.map(i=>{const id=i[4]||i[0],on=S.open==id;return `<div class="cardw ${on?"open":""}"><div class="all" data-act="open" data-id="${id}" role="button"><div><b>${i[0]}</b>${S.fixed[id]?` <span class="muted">· ${S.fixed[id]}</span>`:""}</div><span class="st">${i[1]}</span><span class="d num ${i[2].includes("overdue")?"late":""}">${i[2]||"No date"}</span>${car}</div>${more(id,i[0],i[3])}</div>`}).join("")}`:""}).join("")}
+ <div class="shelf"><button class="q ${S.adding?"on":""}" data-act="add">+ Add homework</button><button class="disc" style="margin-left:6px" data-go="scan" data-scan="running">Check school again</button><span style="flex:1"></span><button class="go" data-go="today">← Back to your week</button></div>${S.adding?`<form class="slim" data-act="add"><input placeholder="Paste a link from your school, or type a title" autofocus><button class="btn" type="submit">Add</button><button class="q" type="button" data-act="addcancel">Cancel</button></form>`:""}</div>${dock("Tell Inky what to do, or ask anything")}${sheet()}</div></div>`}
+
+/* ================= assignment: fixed screen, agent-fed content ================= */
+const ANS=["O(log n). The new item goes at the end and bubbles up at most the height of the tree.","Most nodes are near the bottom and sift down only a step or two. Summing the work per level gives O(n).","[8, 7, 5, 3]. Move 5 to the root, then swap it down past 8."];
+const EVENTS={quiz:[["say","Let me read what this one wants."],["tool","Opened Homework 1 on Northstar","browser_navigate northstar.instructure.com/courses/316/assignments/1"],["tool","Read the page. 5 questions, saved as a draft form.","browser_snapshot rev 3"],["tool","Looked for your notes on heaps","connected_apps_search drive \"heaps\""],["tool","Read Week 4 Heaps.pdf","connected_apps_execute drive.read_file"],["say","The rubric wants Big-O with a reason. I'll use your lecture's wording."],["tool","Typed the answer to question 1","browser_type ref=e14",0],["tool","Typed the answer to question 2","browser_type ref=e22",1],["retry","The page didn't respond. Trying again, 1 of 2.","retry attempt=1 reason=timeout"],["tool","Typed the answer to question 3","browser_type ref=e30",2],["tool","Clicked Save draft","browser_click ref=e52"],["tool","Saved a copy of your answers","assignment_record_answer_snapshot"],["tool","Checked the requirements and stopped for you","assignment_start_review"]],
+ code:[["say","This one wants files uploaded, so I'll work in your homework folder."],["tool","Opened IBM Sorting Machine on Northstar","browser_navigate northstar.instructure.com/courses/316/assignments/7"],["tool","Read the page. It asks for sort.py and a short report.","browser_snapshot rev 2"],["tool","Downloaded starter.zip into CSC 316 / IBM Sorting Machine","browser_link starter.zip"],["tool","Wrote sort.py","write sort.py 84 lines","code"],["tool","Ran the tests. 6 of 6 passed.","bash python -m pytest","term"],["say","The report needs two graphs made from your own data files. I can't find them."],["tool","Asked you for graph1.csv and graph2.csv","assignment_request_takeover"]]};
+const evList=()=>[...EVENTS[S.atype],...S.extra];
+const feed=(n,cur)=>evList().slice(0,n).map((e,i)=>`<div class="ev ${e[0]=="say"?"say":e[0]=="retry"?"retry":""} ${cur&&i==n-1?"cur":""}">${e[1]}${S.detail&&e[2]?`<code>${e[2]}</code>`:""}</div>`).join("");
+const CODE=`def sort_cards(deck, columns):\n    """Sort like the IBM 082: one pass per column, right to left."""\n    for col in reversed(range(columns)):\n        pockets = [[] for _ in range(10)]\n        for card in deck:\n            pockets[card[col]].append(card)\n        deck = [c for p in pockets for c in p]\n    return deck\n`;const TERM="$ python -m pytest\n......                                   [100%]\n6 passed in 0.41s";
+const actHeadOld=()=>`<div class="sec" style="margin-top:16px"><h2>What I've done</h2><button class="q ${S.detail?"on":""}" data-act="detail">${S.detail?"Hide":"Show"} tool calls</button></div>`;
+const stepsToggle=(n)=>"";
+const QUIZPAGE=(fill)=>`<h3>Homework 1: Heaps and priority queues</h3><div class="qa"><b>Q1.</b> Worst-case time to insert into a binary heap of n items? Justify.<div class="ans" id="a0">${fill?ANS[0]:""}</div></div><div class="qa"><b>Q2.</b> Why is building a heap from an array O(n) and not O(n log n)?<div class="ans" id="a1">${fill?ANS[1]:""}</div></div><div class="qa"><b>Q3.</b> Show the array after removing the max from [9, 7, 8, 3, 5].<div class="ans" id="a2">${fill?ANS[2]:""}</div></div>`;
+const CODEPAGE=(files)=>`<h3>IBM Sorting Machine</h3><div class="qa">Implement the card sorter in <b>sort.py</b> using the starter code. Write a one page report with two graphs from your timing data. Upload both files.</div><div class="qa"><b>Submission</b><div class="ans">${files?"sort.py · report.md attached":"No files attached yet"}</div></div>`;
+const actHead=()=>`<div class="sec" style="margin-top:4px"><h2>What I've done</h2></div>`;
+const overlay=()=>`<div class="veil" data-act="askpage"></div><div class="drive"><button class="capbtn" data-act="askpage">Takeover</button>${inky("steering",88)}</div>${S.askpage?`<div class="askwrap"><div class="askcard" role="dialog"><strong>Want the page?</strong><p>I'll pause so you can click.</p><div><button class="capbtn" data-act="takeover">Takeover</button><button class="capbtn keep" data-act="askpage">Keep going</button></div></div></div>`:""}`;
+const filesPane=(done)=>`<div class="files"><div class="ftree"><div class="dir">starter</div><div>cards.py<small>given</small></div><div>test_sort.py<small>given</small></div><div class="dir">Inky's work</div><div class="on">sort.py<small>${done?"84 lines":"writing"}</small></div><div>report.md<small>${done&&S.phase!="files"?"310 words":"waiting"}</small></div></div><div class="fmain"><div class="fname"><span>sort.py</span><span class="muted">CSC 316 / IBM Sorting Machine</span></div><pre class="codev" id="code">${done?CODE:""}</pre><pre class="term" id="term">${done?TERM:""}</pre></div></div>`;
+const broOld=(url,driver,inner,head)=>`<div class="bro"><div class="urlbar"><span class="drv">${driver}</span><span class="u">${url}</span></div><div class="school"><header>Northstar University <span>${head}</span></header><div class="pg">${inner}</div></div></div>`;
+function bro(url,driver,inner,head,o={}){const tabs=o.files!==undefined?`<div class="ptabs"><button class="${S.pane=="page"?"on":""}" data-act="pane" data-v="page">School page</button><button class="${S.pane=="files"?"on":""}" data-act="pane" data-v="files">Inky's files</button></div>`:"";const showFiles=o.files!==undefined&&S.pane=="files";
+ return `<div class="bro">${tabs}${showFiles?filesPane(o.files):`<div class="urlbar"><span class="drv">${driver}</span><span class="u">${url}</span></div><div class="school"><header>Northstar University <span>${head}</span></header><div class="pg">${inner}</div></div>${o.inky?overlay():""}`}</div>`}
+function renderAssignment(){const q=S.atype=="quiz",title=q?"Homework 1":"IBM Sorting Machine",url=q?"northstar.instructure.com/courses/316/assignments/1":"northstar.instructure.com/courses/316/assignments/7",pg=(f)=>q?QUIZPAGE(f):CODEPAGE(f),P=S.phase,n=evList().length,head="CSC 316 · "+title;const F=(done)=>q?{}:{files:done};
+ let now="",body="",stage="",status="";
+ if(P=="working"){status="Inky is working · stops before submitting";
+  now=`${inky("working",50)}<div style="flex:1"><div class="voice" id="livesay" style="font-size:15.5px">${evList()[S.ev-1][1]}</div></div>`;
+  body=actHead()+`<div id="feed">${feed(S.ev,true)}</div>`;stage=bro(url,"Inky is driving",pg(false),head,{inky:true,...F(S.ev>=6)})}
+ if(P=="takeover"){status="Paused · you're driving";now=`${inky("waiting",50)}<div><div class="voice" style="font-size:15.5px">You're driving.</div><p class="muted sm">I'm watching and won't touch the page. Hand it back and I'll read it again first.</p></div>`;
+  body=`<button class="btn pri" style="width:max-content" data-phase="working">Hand back to Inky</button><p class="muted sm" style="margin-top:12px">I'll hold this for <span class="num">24 min</span>, then save what I have and let go.</p>`+actHead()+`<div>${feed(Math.max(S.ev,q?7:5))}</div>`;stage=bro(url,"You're driving",pg(true),head,F(true))}
+ if(P=="files"){status="Paused · needs you";now=`${inky("needs",50)}<div><div class="voice" style="font-size:15.5px">I need two files.</div><p class="muted sm">The report needs graphs from your timing data. It isn't in your homework folder.</p></div>`;
+  body=`<div class="drop">Drop graph1.csv and graph2.csv here<br><button class="q" style="margin-top:8px">Choose files</button></div><div style="display:flex;gap:8px"><button class="btn pri" data-phase="working">Continue</button><button class="q" style="height:36px" data-phase="working">Skip the files</button></div><p class="muted sm" style="margin-top:12px">I'll wait <span class="num">24 min</span>, then save what I have and let go.</p>`+actHead()+`<div>${feed(n)}</div>`;stage=bro(url,"Inky is waiting",pg(false),head,F(true))}
+ if(P=="signin"){status="Paused · needs you";now=`${inky("needs",50)}<div><div class="voice" style="font-size:15.5px">Northstar signed me out.</div><p class="muted sm">Sign in on the right. I'll pick up where I stopped.</p></div>`;
+  body=`<button class="btn pri" style="width:max-content" data-phase="working">I signed in</button><p class="muted sm" style="margin-top:12px">Your password stays in Studi's browser on this computer. I never see it.</p>`+actHead()+`<div>${feed(6)}</div>`;stage=bro("northstar.instructure.com/login","You're driving",`<div class="login"><b>Northstar University</b><input value="knandima"><input type="password" value="12345678"><span class="go" style="color:#fff">Sign in</span></div>`,"Sign in")}
+ if(P=="ready"){status="Ready for review";
+  now=`${inky("waiting",50)}<div><div class="voice" style="font-size:15.5px">Ready for you to check.</div><p class="muted sm">${q?"I answered all 5 questions and saved a draft. Nothing is submitted.":"I wrote sort.py and the report and attached both. Nothing is submitted."}</p></div>`;
+  body=`<div class="sec" style="margin-top:0"><h2>I'm not sure about</h2></div>${q?`<div class="margin">Question 2<small>Your notes use a summation proof. I wrote the intuitive version.</small></div><div class="margin">Question 5<small>It asks for your own example. I used hospital triage.</small></div>`:`<div class="margin">Graph captions<small>I guessed the units from your file names.</small></div>`}
+  <div style="margin-top:18px"><button class="fold ${S.showreq?"on":""}" data-act="showreq"><span>Requirements</span><em>${q?"4 of 4":"3 of 3"} met</em>${car}</button>${S.showreq?`<div class="kv">${(q?[["All 5 questions answered","Every answer box on the page has text."],["Big-O justified each time","Each answer ends with a one line reason."],["Essay within 120 to 160 words","Question 5 is 140 words."],["Saved, not submitted","The page shows Draft saved 8:52 PM."]]:[["sort.py passes the provided tests","6 of 6 passed in your homework folder."],["Report has two graphs","report.md embeds graph1.png and graph2.png."],["Both files attached","The submission box lists sort.py and report.md."]]).map(r=>`<div><b>${r[0]}</b><span>${r[1]}</span></div>`).join("")}</div>`:""}
+  ${q?`<button class="fold ${S.showans?"on":""}" data-act="showans"><span>My answers</span><em>saved copy</em>${car}</button>${S.showans?`<div class="snap">1. O(log n). The new item bubbles up at most the height of the tree.\n2. ${ANS[1]}\n3. [8, 7, 5, 3]\n4. Heap sort is not stable. [2a, 2b, 1] is a counterexample.\n5. A hospital triage queue is a priority queue because…</div>`:""}`:`<button class="fold" data-act="pane" data-v="files"><span>Files I made</span><em>sort.py, report.md</em><span class="go" style="font-size:13px">Look →</span></button>`}</div>
+  <div style="margin-top:16px;display:grid;gap:8px">${S.mode==2?`<button class="btn pri lg" data-phase="submitting">Submit now</button><p class="muted sm">Or I submit on my own in <span class="num">12 min</span>, your rule for CSC 316.</p><button class="q" style="width:max-content" data-phase="takeover">Hold it</button>`:`<button class="btn pri lg" data-phase="submitting">I pressed submit. Check it.</button><p class="muted sm">Press submit on the school page yourself. I'll keep the page for <span class="num">12 min</span>, then save your work and let go.</p>`}</div>`;stage=bro(url,"You're driving",pg(true),head,F(true))}
+ if(P=="submitting"){status="Checking the submission";now=`${inky("thinking",50)}<div><div class="voice" style="font-size:15.5px">Checking the school got it.</div><p class="muted sm">Comparing the page before and after submit.</p></div>`;body=`<div><div class="ev">Saved a copy of the page before submit</div><div class="ev cur">Reading the confirmation on the page</div></div>`;stage=bro(url,"Inky is driving",pg(true),head,{inky:true})}
+ if(P=="submitted"){status="Submitted";now=`${inky("done",50)}<div><div class="voice" style="font-size:15.5px">All handed in.</div><p class="muted sm">Northstar confirmed it at 7:42 PM.</p></div>`;body=`<button class="btn pri" style="width:max-content" data-go="today" data-today="clear">Back to your week</button><button class="go" style="margin-top:14px;font-size:13.5px" data-go="tutor" data-scene="warm">Learn heaps in 10 min →</button>`;
+  stage=`<div class="bro"><div class="urlbar"><span class="drv">Receipt</span><span class="u">Saved on this computer</span></div><div class="receipt"><div><div class="cap2">Before submit · 7:41 PM</div><b>${title} · Not submitted</b><p style="color:#5b6577">${q?"5 of 5 answers filled.":"2 files attached."} No late penalty shown.</p></div><div><div class="cap2">After submit · 7:42 PM</div><b>Submitted successfully</b><p style="color:#5b6577">Confirmation number 88213.</p></div><div style="grid-column:span 2"><div class="cap2">Saved copy</div><p style="color:#5b6577">Everything I wrote is in your homework folder under CSC 316 / ${title}.</p></div></div></div>`}
+ if(P=="failed"){status="Stopped";now=`${inky("needs",50)}<div><div class="voice" style="font-size:15.5px">${S.stopped?"Stopped.":"I couldn't finish."}</div><p class="muted sm">${S.stopped?"You stopped me. What I finished is saved.":"The school page timed out twice, and two tries is my limit. What I finished is saved."}</p></div>`;body=`<div style="display:flex;gap:8px"><button class="btn pri" data-phase="working">${S.stopped?"Start again":"Try again"}</button><button class="q" style="height:36px">Open saved work</button></div>`+actHead()+`<div>${feed(Math.min(n,Math.max(S.ev,3)))}${S.stopped?"":`<div class="ev retry">Gave up after 2 tries. Reason: page timeout.</div>`}</div>`;stage=bro(url,"Nobody is driving",pg(!S.stopped),head,F(true))}
+ return `<div class="frame" data-mode="home"><div class="lhead"><button class="q" data-go="today">← Back</button><div style="flex:1;padding-left:4px"><b style="font-size:15.5px">${title}</b> <span class="muted">· ${status}</span></div></div><div class="lbody"><div class="side"><div class="now">${now}</div>${body}${sidechat(P=="working"?"Tell Inky something, or press stop":"Tell Inky what to change","Steer this assignment")}</div>${stage}</div>${sheet()}</div>`}
+
+/* ================= school check ================= */
+function renderScan(){const P=S.scan;const extra=S.scanExtra?`<div><b>MyLab Math</b><span class="late">Needs sign-in</span></div>`:"";let now="",body="",stage="",status="";
+ if(P=="running"){status="Checking · started 8:00 AM";now=`${inky("scanning",50)}<div style="flex:1"><div class="voice" style="font-size:15.5px" id="scansay">Reading CSC 316 assignments</div><div class="meter" style="margin-top:8px"><i id="scanbar" style="--p:.4"></i></div></div>`;body=`<div class="cover"><div><span>Class list</span><span class="muted">2 classes found</span></div><div><b>CSC 316 Data Structures</b><span class="muted">Reading now</span></div><div><span>ST 370 Probability</span><span class="muted">Next</span></div><div><span>Announcements</span><span class="muted">Next</span></div>${extra}</div><p class="muted sm" style="margin:14px 0 0">I only read. I won't click submit on anything. Homework can't start until this finishes, because we share one browser.</p>`;if(S.scanTake){now=`${inky("waiting",50)}<div><div class="voice" style="font-size:15.5px">You're driving.</div><p class="muted sm">Show me the page I missed, then hand it back.</p></div>`;body=`<button class="btn pri" style="width:max-content" data-act="scanback">Hand back to Inky</button>`}
+  stage=bro("northstar.instructure.com/courses/316/assignments",S.scanTake?"You're driving":"Inky is driving",`<h3 style="font-size:17px">Assignments</h3><div class="qa"><b>IBM Sorting Machine</b> · Due Sep 14 7:59 PM</div><div class="qa"><b>HW 3</b> · Due Sep 15 7:59 PM</div><div class="qa"><b>Homework 1</b> · Due Sep 16 7:59 PM</div><div class="qa" style="border-color:#f6c945"><b>Homework 4</b> · Due Sep 23 7:59 PM · new</div>`,"CSC 316",{inky:!S.scanTake})}
+ if(P=="signin"){status="Paused · needs you";now=`${inky("needs",50)}<div><div class="voice" style="font-size:15.5px">Northstar signed me out.</div><p class="muted sm">Sign in on the right and I'll keep checking.</p></div>`;body=`<button class="btn pri" style="width:max-content" data-scan="running">I signed in</button><p class="muted sm" style="margin-top:12px">Checked so far: class list. Still to check: CSC 316, ST 370, announcements.</p>`;stage=bro("northstar.instructure.com/login","You're driving",`<div class="login"><b>Northstar University</b><input value="knandima"><input type="password"><span class="go">Sign in</span></div>`,"Sign in")}
+ if(P=="done"){status="Finished · next check tomorrow 7:00 AM";now=`${inky("done",50)}<div><div class="voice" style="font-size:15.5px">Found 1 new, 1 changed.</div><p class="muted sm">Finished 8:04 AM. Everything checked.</p></div>`;body=`<div class="chg" style="grid-template-columns:80px 1fr"><span class="k">New</span><div><b>Homework 4</b><br><span class="muted sm">CSC 316 · due Sep 23</span></div></div><div class="chg" style="grid-template-columns:80px 1fr"><span class="k">Due moved</span><div><b>Reading response</b><br><span class="muted sm">Sun → Wed</span></div></div><div class="cover" style="margin-top:14px"><div><span>CSC 316</span><span class="muted">Checked</span></div><div><span>ST 370</span><span class="muted">Checked</span></div><div><span>Announcements</span><span class="muted">Checked</span></div>${extra}</div><button class="btn" style="margin-top:16px;width:max-content" data-scan="running">Check again</button>`;stage=bro("northstar.instructure.com/announcements","Nobody is driving",`<h3 style="font-size:17px">Announcements</h3><div class="qa"><b>ST 370</b> · Reading response deadline extended to Wednesday.</div><div class="qa"><b>CSC 316</b> · Homework 4 posted. Due next Tuesday.</div>`,"Announcements")}
+ if(P=="partial"){status="Partly checked";now=`${inky("needs",50)}<div><div class="voice" style="font-size:15.5px">${S.stopped?"Stopped.":"I checked most of it."}</div><p class="muted sm">${S.stopped?"You stopped the check. What I found so far is saved.":"One class page wouldn't load. Your other work is up to date."}</p></div>`;body=`<div class="cover"><div><span>CSC 316</span><span class="muted">Checked</span></div><div><b>ST 370</b><span class="late">Page didn't load</span></div><div><span>Announcements</span><span class="muted">Checked</span></div>${extra}</div><button class="btn pri" style="margin-top:16px;width:max-content" data-scan="running">Try ST 370 again</button><p class="muted sm" style="margin-top:12px">Or open the page yourself on the right and I'll read it.</p>`;stage=bro("northstar.instructure.com/courses/370","You're driving",`<div class="login"><b>Northstar University</b><p style="color:#5b6577">This page is temporarily unavailable. Error 503.</p></div>`,"ST 370")}
+ return `<div class="frame" data-mode="home"><div class="lhead"><button class="q" data-go="today">← Back</button><div style="flex:1;padding-left:4px"><b style="font-size:15.5px">School check</b> <span class="muted">· ${status}</span></div><button class="go" style="font-size:13px" data-go="settings">Every morning at 7:00 →</button></div><div class="lbody"><div class="side"><div class="now">${now}</div>${body}${sidechat(P=="running"?"Tell Inky what it missed, or press stop":"Tell Inky what it missed","Steer this check")}</div>${stage}</div>${sheet()}</div>`}
+
+/* ================= settings ================= */
+const MODELS={chatgpt:["GPT-6 Astra","GPT-6 Astra mini"],claude:["Claude Fable 5.1","Claude Sonnet 5","Claude Haiku 4.5"]};
+function renderSettings(){const f=(l,c)=>`<div class="row" style="grid-template-columns:1fr auto"><div><div class="t" style="font-size:15px">${l[0]}</div>${l[1]?`<div class="m">${l[1]}</div>`:""}</div>${c}</div>`;const T=(on)=>`<span class="toggle ${on?"on":""}" data-act="tog" role="switch"></span>`;const EFF=["Off","Low","Medium","High","Extra high"];
+ return `<div class="frame" data-mode="home">${topbar("home")}<div class="page"><div class="colm"><div class="hello" style="margin-bottom:6px">${inky("idle",52)}<div style="flex:1"><h1>Settings</h1></div><button class="btn" data-go="today">← Back to your week</button></div>
+ <div class="sec"><span class="h">Inky's brain</span><span class="label">The AI account that does the work</span></div>
+ <div class="prov ${S.prov=="chatgpt"?"on":""}"><span class="cb"></span><div><div style="font-weight:700">ChatGPT</div><div class="sm muted">Signed in through Codex · uses your ChatGPT plan</div></div>${S.prov=="chatgpt"?`<span class="label">In use</span>`:`<button class="q" data-act="prov" data-v="chatgpt">Use this</button>`}</div>
+ <div class="prov ${S.prov=="claude"?"on":""}"><span class="cb"></span><div><div style="font-weight:700">Claude</div><div class="sm muted">${S.claude?"Imported from Claude Code on this computer":"Not connected"}</div></div>${S.prov=="claude"?`<span class="label">In use</span>`:S.claude?`<button class="q" data-act="prov" data-v="claude">Use this</button>`:`<span style="display:flex;gap:8px"><button class="btn" data-act="claude">Import from Claude Code</button><button class="q" style="height:36px" data-act="claude">Paste a key</button></span>`}</div>
+ ${f(["Model","Bigger models are more careful and use more of your plan."],`<select class="sel">${MODELS[S.prov].map(m=>`<option>${m}</option>`).join("")}</select>`)}
+ ${f(["How hard Inky thinks",["Fastest. Fine for simple quizzes.","Quick, with a little checking.","A good balance for most homework.","Slower. Better on proofs, code, and long essays.","Slowest and most thorough. Uses the most of your plan."][S.effort]],seg("effort",EFF,S.effort,"sm"))}
+ <div class="sec"><span class="h">Homework rules</span><span class="label">What Inky may do with each assignment</span></div><div class="panel">${ruleEditor(true)}</div>
+ ${f(["Review window","How long Inky holds finished work for you before letting go, or submitting if the rule says so."],`<span class="num sm"><input value="15" style="width:48px;height:32px;text-align:right;border:0;box-shadow:0 0 0 1.5px var(--blot2);border-radius:8px;padding:0 8px;background:var(--page)"> min</span>`)}
+ <div class="sec"><span class="h">School</span></div>
+ ${f(["Check Northstar for homework","Every morning at 7:00. Also when you ask."],seg("cad",["When I ask","Daily","Weekly"],1,"sm"))}
+ ${f(["Connected apps","Google Drive, Gmail"],`<button class="q">Manage</button>`)}
+ ${f(["Homework folder","C:\\Users\\kaust\\Studi · one folder per class"],`<button class="q">Open</button>`)}
+ <div class="sec"><span class="h">What Inky remembers</span><span class="label">Used in every assignment</span></div>
+ <div class="mem">${S.mems.map((m,k)=>`<span>${m}<button data-act="memdel" data-k="${k}" aria-label="Forget ${m}">×</button></span>`).join("")||`<span class="muted" style="background:none;padding:0">Nothing yet. Tell Inky things like "I use APA".</span>`}</div>
+ <div class="sec"><span class="h">Notifications</span></div>
+ ${f(["When Inky needs me","Sign-in, missing files, or a question."],T(1))}${f(["When work is ready to review",""],T(1))}${f(["After a school check, if something changed",""],T(0))}
+ <div class="sec"><span class="h">You</span></div>
+ ${f(["Share anonymous usage","Helps fix bugs. Never your homework or school data."],T(1))}
+ ${f(["Usage this month","<span class='meter mini' style='margin-left:0'><i style='--p:.31'></i></span>31% of the beta plan"],`<button class="go">Details →</button>`)}
+ ${f(["kausthubh","Private beta · Studi 0.1.10"],`<button class="q">Sign out</button>`)}
+ <div class="shelf" style="margin-bottom:14px"><button class="go">Help and feedback →</button></div></div></div></div>`}
+
+/* ================= learn ================= */
+function renderLearn(){const L=S.learn;const topics=(lv)=>[["Counting and sets",4,"Solid"],["Conditional probability",3,"Good"],["<b>Bayes' theorem</b>",1,"Shaky"],["Random variables",2,"Getting there"],["Distributions",0,"New"]].map(t=>`<div class="topic"><span>${t[0]}</span><div class="lvl">${[0,1,2,3].map(i=>`<i class="${lv&&i<t[1]?"f":""}"></i>`).join("")}</div><span>${lv?t[2]:"Not checked"}</span></div>`).join("");const RW=(t,m,b)=>`<div class="row" style="grid-template-columns:1fr auto"><div><div class="t">${t}</div><div class="m">${m}</div></div>${b}</div>`;
+ const targets=`<div class="targets"><button class="q ${S.target=="st"?"on":""}" data-act="target" data-v="st"><span class="dotc" style="--c:var(--st);margin-right:2px"></span>ST 370 midterm · 6 days</button><button class="q ${S.target=="csc"?"on":""}" data-act="target" data-v="csc"><span class="dotc" style="--c:var(--csc);margin-right:2px"></span>CSC 316 final · Dec 10</button><button class="q dash ${S.target=="else"?"on":""}" data-act="target" data-v="else">+ Learn anything</button></div>`;
+ let body;
+ if(L=="nosyllabus")body=`<div class="hello">${inky(S.finding==1?"scanning":"hello",64)}<div><h1>${S.finding==2?"Found one.":"I don't know your exams yet."}</h1><p class="muted">${S.finding==2?"Check it's the right class, then I'll build the plan.":"I'll look for your syllabus myself. You can also hand me one."}</p></div></div>
+ ${S.finding==0?`<div class="hero"><div><div style="font-weight:700;font-size:16px">Find my syllabus</div><div class="sm muted" style="margin-top:2px">I check your class pages on Northstar first, then your Drive if it's connected.</div></div><button class="btn pri lg" data-act="find">Find it</button></div><div class="drop" style="margin:0">Or drop a syllabus file here, or paste its text</div><p class="src" style="margin-top:12px">No syllabus? Tell me below, like: ST 370 midterm is Sep 23.</p>`
+ :S.finding==1?`<div class="hero"><div><div style="font-weight:700;font-size:16px">Looking on Northstar</div><div class="meter" style="margin-top:10px;width:280px"><i style="--p:.55"></i></div></div><span class="label">ST 370 · Files</span></div>`
+ :`<div class="hero"><div><div style="font-weight:700;font-size:16px">ST 370 Syllabus.pdf</div><div class="sm muted" style="margin-top:2px">Northstar · ST 370 · Files · Midterm Sep 23 · Final Dec 12 · 5 topics in chapters 1 to 5</div></div><span style="display:flex;gap:8px;align-items:center"><button class="q" style="height:44px" data-act="findreset">Not this one</button><button class="btn pri lg" data-learn="syllabus">Use it</button></span></div>`}
+ <div class="sec"><span class="h">What I can already teach</span><span class="label">From homework I did for you</span></div><div class="topic"><span>Heaps and priority queues</span><span></span><span>HW 1, HW 3</span></div><div class="topic"><span>Sorting</span><span></span><span>IBM Sorting Machine</span></div>`;
+ else if(S.target=="else")body=`<div class="hello">${inky("hello",64)}<div><h1>${S.elseTopic?S.elseTopic+".":"What do you want to learn?"}</h1><p class="muted">${S.elseTopic?"No exam needed. I'll check what you know first, then plan short sessions.":"It doesn't have to be for a class."}</p></div></div>${targets}${S.elseTopic?RW("Start with a 5 minute check","A few questions so I don't teach you what you already know.",`<button class="btn pri lg" data-go="tutor" data-scene="warm">Start</button>`)+`<div class="shelf" style="margin-top:6px"><button class="q" data-act="elseclear">Pick something different</button></div>`:`<form class="slim" data-act="learnelse"><input placeholder="Python basics, how to write a lab report, anything" autofocus><button class="btn pri" type="submit">Go</button></form><div class="sugg"><button class="q" data-act="elsepick">Python basics</button><button class="q" data-act="elsepick">How to write a lab report</button><button class="q" data-act="elsepick">Linear algebra refresher</button></div>`}`;
+ else if(S.target=="csc")body=`<div class="hello">${inky("idle",64)}<div><h1>Final in 12 weeks.</h1><p class="muted">Nothing urgent. I'll bring it up in November, or start whenever you like.</p></div></div>${targets}${RW("Heaps, while it's fresh","I did HW 1 and HW 3 on this for you. <span class='num'>About 10 min</span>",`<button class="btn pri lg" data-go="tutor" data-scene="warm">Start</button>`)}<div class="sec"><span class="h">What's on it</span><span class="label">From the CSC 316 syllabus</span></div>${[["Heaps and priority queues","Not checked"],["Sorting","Not checked"],["Hash tables","Not taught yet"],["Graphs","Not taught yet"]].map(t=>`<div class="topic"><span>${t[0]}</span><div class="lvl"><i></i><i></i><i></i><i></i></div><span>${t[1]}</span></div>`).join("")}`;
+ else if(L=="syllabus")body=`<div class="hello">${inky("idle",64)}<div><h1>Midterm in 6 days.</h1><p class="muted">From ST 370 Syllabus.pdf, chapters 1 to 5. I haven't checked what you know yet.</p></div></div>${targets}
+ ${RW("Start with a 5 minute check","Quick questions across the five topics. Then I plan the days.",`<button class="btn pri lg" data-go="tutor" data-scene="warm">Start</button>`)}
+ <div class="sec"><span class="h">What's on it</span><button class="wrongbtn" style="margin:0">Syllabus wrong?</button></div>${topics(false)}<p class="src">Read from ST 370 Syllabus.pdf and saved on Sep 17. I only read it again if the file changes. The day by day plan is worked out fresh each morning and after every session, so it is never stale.</p>`;
+ else body=`<div class="hello">${inky("idle",64)}<div><h1>Midterm in 6 days.</h1><p class="muted">You're about 58% ready. 15 minutes today keeps you on track.</p></div></div>${targets}
+ ${RW("Today: Bayes' theorem","Your weakest topic that's on the exam. <span class='num'>About 15 min</span>",`<button class="btn pri lg" data-go="tutor" data-scene="warm">Start</button>`)}
+ <div class="path"><div class="on"><b>Today</b>Bayes' theorem</div><div><b>Fri</b>Random variables</div><div><b>Sat</b>5 min recap</div><div><b>Sun</b>Distributions</div><div><b>Mon</b>Mock exam</div><div><b>Wed</b>Midterm</div></div>
+ <div class="sec"><span class="h">What you know</span><span class="label">From your sessions only</span></div>${topics(true)}
+ <div class="shelf"><button class="go" data-go="tutor" data-scene="warm">I did HW 3 on heaps for you. Learn it in 10 min →</button><span style="flex:1"></span><span class="label num">4 day streak</span></div>`;
+ return `<div class="frame" data-mode="learn">${topbar("learn")}<div class="page"><div class="colm">${body}</div>${dock("Ask about anything you're studying")}${sheet()}</div></div>`}
+
+/* ================= tutor: a feed of blocks Inky picks ================= */
+const BLOCKS=[["warm","Recall"],["gut","Multiple choice"],["see","Interactive model"],["try","Typed answer"],["explain","Explain it back"],["wrap","Summary"]];
+const WIRE={warm:['tutor_ask_choice','{ "question": "P(A given B) means the chance of A…",\n  "options": ["when B already happened", "and B both happen", "or B, either one"],\n  "correct": 0, "reason": "recall from the last session" }','{ "picked": 0, "seconds": 6 }'],gut:['tutor_ask_choice','{ "question": "1 in 100 people has a disease…",\n  "options": ["About 90%", "About 50%", "About 8%"], "correct": 2,\n  "reason": "predict before teaching" }','{ "picked": 0, "seconds": 11 }'],see:['tutor_show_model','{ "model": "population_grid",\n  "params": { "people": 1000, "baseRate": 0.01, "accuracy": 0.9 },\n  "controls": ["baseRate"] }','{ "explored": [0.01, 0.1, 0.5], "seconds": 40 }'],try:['tutor_ask_typed','{ "question": "Now 1 in 10 people has the disease…",\n  "accept": { "number": 50, "tolerance": 5, "unit": "%" },\n  "hints": ["How many of 1,000 are sick?", "100 sick, 90 caught…", "full walk through"] }','{ "answer": 50, "hintsUsed": 0 }'],explain:['tutor_ask_explain','{ "prompt": "Explain it to a friend who thinks a positive test means 90%.",\n  "rubric": ["base rate", "false positives outnumber", "missed cases"] }','{ "text": "Because most people don\'t have it…" }'],wrap:['tutor_finish','{ "topic": "bayes_theorem", "level": { "from": 1, "to": 2 },\n  "evidence": ["typed answer right, no hints", "explained base rate"],\n  "missing": ["missed cases"], "next": "recap in 2 days" }','posts a note to You and Inky']};
+const dots=(b)=>{const sick=Math.round(1000/b),caught=Math.round(sick*.9),fp=Math.round((1000-sick)*.1);return {caught,fp,pct:Math.round(caught/(caught+fp)*100)}};
+function renderTutor(){const i=BLOCKS.findIndex(x=>x[0]==S.scene);const nextTo=(id,l)=>`<button class="btn pri" data-scene="${id}">${l}</button>`;const HINTS=["","How many of 1,000 people are sick now? Start there.","100 are sick and the test catches 90 of them. Now count the healthy people it flags.","100 sick, 90 caught. 900 healthy, 90 flagged. 90 out of 180 is half."];
+ const PAST=[["Recall","P(A given B)",S.warm?(S.warm=="a"?"right":"missed"):"right"],["Multiple choice","Positive test, rare disease",S.tutor?(S.tutor=="8"?"right first try":"you said "+S.tutor+"%"):"you said 90%"],["Interactive model","Moved the base rate","explored 3 settings"],["Typed answer","1 in 10 version",S.tried!==null?"you said "+S.tried+"%":"right"],["Explain it back","In your own words","key idea present"]];
+ let say="",stage="",why="";const Q=(t)=>`<div class="qh">${t}</div>`;
+ if(S.scene=="warm"){why="Inky starts with a recall because the last session ended on this.";say=S.warm?(S.warm=="a"?"Right. Today builds on exactly that.":"Close. It's the chance of A once you know B happened. Keep that in mind today."):"One quick one from last time before we start.";
+  stage=Q("P(A given B) means the chance of A…")+`<div class="opts">${[["a","when B already happened"],["b","and B both happen"],["c","or B, either one"]].map(o=>`<button class="opt ${S.warm==o[0]?"pick":""} ${S.warm&&o[0]=="a"?"right":""}" data-act="warm" data-a="${o[0]}"><b style="font-size:17px">${o[1]}</b></button>`).join("")}</div>${S.warm?`<div style="margin-top:22px">${nextTo("gut","Go on")}</div>`:""}`}
+ if(S.scene=="gut"){const t=S.tutor;why="A guess first. What comes next depends on the answer.";say=t=="8"?"Yes. Most people say 90%. You have the idea, so I'll skip the picture and give you a harder one.":t?"That's what most people pick. Let me show you instead of telling you.":"Go with your gut. Almost everyone gets this wrong, including doctors.";
+  stage=Q("1 in 100 people has a disease. A test for it is 90% accurate. You test positive. How likely is it that you're sick?")+`<div class="opts">${[["90","About 90%","The test is 90% accurate"],["50","About 50%","Could go either way"],["8","About 8%","Much lower than it sounds"]].map(o=>`<button class="opt ${t==o[0]?"pick":""} ${t&&o[0]=="8"?"right":""}" data-act="tutor" data-a="${o[0]}"><b>${o[1]}</b><span>${o[2]}</span></button>`).join("")}</div>${t?`<div style="margin-top:22px">${t=="8"?nextTo("try","Give me the harder one"):nextTo("see","Show me")}</div>`:""}`}
+ if(S.scene=="see"){const d=dots(S.base);why="Shown because the guess was wrong. A right guess skips this.";say="Change how common the disease is. Watch the answer move.";
+  stage=`<div class="row" style="border:0;padding:0;grid-template-columns:1fr auto"><div><div class="t">How common is the disease?</div><div class="m">Same 90% test each time</div></div>${seg("base",["1 in 100","1 in 10","1 in 2"],[100,10,2].indexOf(S.base))}</div><div style="display:flex;justify-content:space-between;margin-top:16px" class="sm"><b>1,000 people</b><span class="muted"><span class="key" style="background:var(--redpen)"></span>${d.caught} sick and caught<span class="key" style="background:var(--pencil);margin-left:16px"></span>${d.fp} healthy but flagged</span></div><div class="people">${Array.from({length:1000},(_,k)=>`<i class="${k<d.caught?"sick":k<d.caught+d.fp?"fp":""}"></i>`).join("")}</div><p style="font-size:16px">${d.caught+d.fp} people test positive. ${d.caught} are sick. <b>${d.caught} out of ${d.caught+d.fp} is about ${d.pct}%.</b></p><div style="margin-top:18px">${nextTo("try","Try one myself")}</div>`}
+ if(S.scene=="try"){const ok=S.tried!==null&&Math.abs(S.tried-50)<=5;why="A typed answer, because choices would give it away.";say=S.tried===null?(HINTS[S.hint]||"Your turn. Same idea, new numbers."):ok?"Yes. 90 sick caught, 90 healthy flagged. Half.":`Not quite. You said ${S.tried}%. Take a hint, or picture the 1,000 people again.`;
+  stage=Q("Now 1 in 10 people has the disease. Same 90% test. You test positive. What are the odds you're sick?")+`<form class="slim" data-act="try" style="margin-top:14px;max-width:340px"><input placeholder="Your answer in %" inputmode="numeric" value="${S.tried??""}"><button class="btn" type="submit">Check</button></form><div class="sugg" style="align-items:center"><span class="muted sm">Stuck?</span><button class="q ${S.hint==1?"on":""}" data-act="hint" data-h="1">Nudge me</button><button class="q ${S.hint==2?"on":""}" data-act="hint" data-h="2">Show one step</button><button class="q ${S.hint==3?"on":""}" data-act="hint" data-h="3">Walk me through it</button></div>${ok?`<div class="verdict"><b>Right.</b><span class="muted sm">You used the base rate without being told to.</span></div><div style="margin-top:18px">${nextTo("explain","Go on")}</div>`:""}`}
+ if(S.scene=="explain"){why="The level only moves after this block.";say=S.explained?"Good. Here's what I heard.":"Last thing. Explain it to a friend who thinks a positive test means 90%.";
+  stage=`<form data-act="explain"><textarea class="ta" placeholder="Type it the way you'd say it out loud. Messy is fine.">${S.explained?"Because most people don't have it, so even a small mistake rate on all those healthy people makes way more false alarms than real cases. So one positive test doesn't mean much until you know how rare it is.":""}</textarea>${S.explained?"":`<div style="margin-top:12px"><button class="btn pri" type="submit">Send</button></div>`}</form>${S.explained?`<div class="verdict"><b>You got the key idea.</b><span>The healthy group is huge, so its mistakes add up. You tied it to how rare the disease is. That's the base rate.</span><b style="margin-top:6px">One thing missing.</b><span>The test also misses some sick people. It didn't matter here, but it will on the exam.</span></div><div style="margin-top:18px">${nextTo("wrap","Finish")}</div>`:""}`}
+ if(S.scene=="wrap"){why="Written by Inky from what happened in this session. It also posts to You and Inky.";say="Bayes' theorem moved from shaky to getting there.";
+  stage=`<div class="topic" style="border:0;padding-top:0"><span><b>Bayes' theorem</b></span><div class="lvl"><i class="f"></i><i class="f" style="opacity:.35"></i><i></i><i></i></div><span>Getting there</span></div><div class="topic"><span>Midterm readiness</span><div class="lvl"><i class="f"></i><i class="f"></i><i class="f" style="opacity:.5"></i><i></i></div><span class="num">58% → 63%</span></div><div class="sec"><span class="label">Next</span></div><div class="row" style="grid-template-columns:1fr auto"><div><div class="t">Saturday · 5 minute recap</div><div class="m">Two questions on this, including the missed-cases part.</div></div><span class="muted sm">I'll remind you</span></div><div class="row" style="grid-template-columns:1fr auto"><div><div class="t">Friday · Random variables</div><div class="m">Next topic on the syllabus.</div></div><span class="muted sm">15 min</span></div><div style="margin-top:20px;display:flex;gap:8px;align-items:center"><button class="btn pri" data-go="learn" data-learn="sessions">Back to Learn</button><button class="q" style="height:36px" data-scene="try">One more problem</button></div>`}
+ return `<div class="frame" data-mode="learn"><div class="lhead" style="border-bottom:1px solid var(--rule)"><button class="q" data-go="learn">Leave</button><div style="flex:1;text-align:center"><b>Bayes' theorem</b> <span class="muted">· goal: shaky to getting there</span></div><button class="q ${S.wire?"on":""}" data-act="wire">How this works</button><span class="muted num sm">${[14,12,9,6,3,0][i]} min left of 15</span></div><div class="page"><div class="colm" style="width:800px;padding-top:14px">${i?`<div>${PAST.slice(0,i).map(p=>`<div class="past"><b>${p[0]}</b><span>${p[1]}</span>${p[2]}</div>`).join("")}</div>`:""}<div class="says">${inky(S.scene=="wrap"?"done":S.scene=="see"?"thinking":"idle",52)}<p class="voice">${say}</p></div>${stage}<p class="src" style="margin-top:20px">${why}</p>${S.wire?`<div class="wire">The tutor agent called a tool. Studi drew it as the block above.
+
+<b>${WIRE[S.scene][0]}</b> ${WIRE[S.scene][1]}
+
+What goes back to the agent as the result:
+<b>result</b> ${WIRE[S.scene][2]}
+
+The agent reads the result and decides which tool to call next. Anything typed in the box below is sent to it as a normal message.</div>`:""}</div><div class="dock" style="width:800px">${composer("Answer here, or ask Inky about this",true)}</div></div></div>`}
+
+/* ================= brief and stories ================= */
+const STORIES=[["Hands off","Jordan set Do it and submit once and never opens the app.","Today says nothing needs him, shows what Inky handed in on its own with receipts, and what it will do next. Inky only pings him when it is stuck.",`data-go="today" data-today="auto"`],
+ ["Sunday night, three things due","Dev opens the app at 9 PM, stressed. He needs to know what he has to do himself.","One sentence, then the two things that need him, each with one button. Everything Inky will handle sits below with its start time.",`data-go="today" data-today="needs" data-view="list"`],
+ ["\"What even is this one?\"","He doesn't remember what Problem Set 4 is or why Inky plans to start it Thursday.","Details opens the row in place: what it asks, where it was found, Inky's plan, and what to do if it's wrong.",`data-go="today" data-today="needs" data-view="list" data-open="ps4"`],
+ ["The week at a glance","Priya plans on Mondays and thinks in days, not lists.","Week view shows seven days with what's due and what Inky plans for each. Overdue work stays on its day, marked.",`data-go="today" data-today="needs" data-view="week"`],
+ ["\"Do stats first\"","He wants to change the order without hunting for a setting.","He tells Inky. The list reorders, the row flashes, and Inky's reply points to it.",`data-go="today" data-today="needs" data-view="list"`],
+ ["The skeptic","Sam doesn't trust it yet. He wants to watch every move and be able to grab the wheel.","Each action appears as Inky takes it, next to the real school page, with the step count. Show tool calls reveals the raw actions. Pause and take over is one button.",`data-go="assignment" data-phase="working" data-atype="quiz"`],
+ ["\"That answer is wrong\"","Inky finished, but question 2 isn't how the professor teaches it.","She types it under Steer this assignment. Inky says what it's changing and retypes it on the page.",`data-go="assignment" data-phase="ready" data-atype="quiz"`],
+ ["A coding assignment, not a quiz","The work is files, tests, and an upload. There are no answer boxes.","Same screen. What I've done shows files written and tests run. Review lists requirements with evidence and the files Inky made.",`data-go="assignment" data-phase="ready" data-atype="code"`],
+ ["Inky got stuck","It needs two data files only the student has.","Today says so in one row. The assignment shows what's missing, a drop zone, how long Inky will wait, and what happens if nothing is done.",`data-go="assignment" data-phase="files" data-atype="code"`],
+ ["\"Did it really go in?\"","Jordan uses Do it and submit and never watches.","Every hand-in has a receipt with the page before and after. You and Inky, filtered to Just what Inky did, lists every action by day.",`data-go="today" data-today="clear" data-sheet="1"`],
+ ["The check missed a class","Homework on MyLab isn't in Northstar, so it never showed up.","During a check she says so under Steer this check. Inky adds it to the list and says it will need a sign-in.",`data-go="scan" data-scan="running"`],
+ ["Exam in six days","Alex hasn't started studying.","Learn says where each fact came from and offers one 15 minute action. The session adapts to the answers and posts its result back to You and Inky.",`data-go="learn" data-learn="sessions"`]];
+const FEEDS=[["What I've done","Tool started and finished events, turned into a sentence from the tool name and its arguments","Typed the answer to question 2"],["Handwritten lines","The agent's own text","The rubric wants Big-O with a reason."],["Step count","Turn count against the task's turn budget, and the attempt count","Step 9 of up to 24 · attempt 1 of 2"],["Red lines","Retry events and the last error","The page didn't respond. Trying again."],["I'm not sure about","Missing requirements the agent records","Question 5 asks for your own example."],["Requirements","Completion checklist: requirement plus evidence","Essay within 120 to 160 words · It is 140."],["My answers and files","Answer snapshot, saved artifact, and the assignment's folder","sort.py · report.md"],["How long Inky waits","Review deadline and handoff deadline","I'll hold the page for 12 min"],["Who is driving, and the address","Browser driver state and current URL","Inky is driving"],["Receipt","Pre and post submit page checkpoints and the verified status","Submitted successfully"]];
+const AGENT=[["A tutor agent with block tools","A separate agent target already exists for tutoring. Give it the tools listed above, and render each call as a component."],["Label each assignment with a kind","So rules can apply to essays or code, not only classes."],["One sentence per action","Today the UI would map tool names to sentences. Better: our tool wrappers return a short human label with each call."],["Structured unsure notes","Have the agent record where it is unsure and why, as a list, when it starts review."],["Inky's updates in the conversation","Post started, needs you, ready, handed in, and check results into the home conversation as notes."],["Commands that change the queue","Add reorder and hand-back tools next to the existing start, cancel, and inspect queue tools."],["One conversation, tagged","Keep one home conversation. Messages from inside an assignment carry its reference, which the schema already allows."]];
+const SIDE=[["Working","Latest action as the headline, step count against the turn budget, then the actions so far","Agent events, turn count, attempt count","Pause and take over · Stop"],["Needs you","The one thing Inky needs, the control that fixes it, and how long it will wait","Return predicate or last error · handoff deadline","The fix itself, then Continue"],["Ready for review","Inky's doubts first, then requirements and the work, folded","Missing requirements · completion checklist · answer snapshot or files · review deadline","Submit, by your rule · Edit it myself · Discard"],["Submitting","Two lines: page saved before, reading the confirmation","Submission attempted at · checkpoints","None. It takes seconds."],["Submitted","Receipt replaces the school page","Pre and post submit checkpoints · verified status","Back to today"],["Stopped","Why, in one sentence, and what was saved","Last error · attempts","Try again · Open saved answers"]];
+const LEARNRULES=[["Which exam leads","The nearest exam date that has a syllabus. The student can switch with the buttons under the headline.","Exam dates from the syllabus or typed by the student"],["Today's topic","The biggest gap between a topic's share of the exam and the student's level. Ties go to the earlier chapter.","Topic weights from the syllabus · levels from sessions"],["Recaps","Every third day, a five minute recap of the last topic learned.","Session history"],["Levels","Four steps. They move only on a typed answer or an explanation in a session. Homework Inky did never counts.","tutor_finish results"],["Readiness","Sum of level times topic weight, as a percent.","Computed in the app, not by the agent"],["Something else","Any topic. Starts with a short check, then the same session format. No exam needed.","A topic record with no exam date"]];
+const TUTORTOOLS=[["tutor_ask_choice","Question with option cards","Which option, and how long it took"],["tutor_ask_typed","Question with a typed answer and a hint ladder","The answer and hints used. Checked in the app against accept rules."],["tutor_show_model","One of a few interactive models we build by hand, such as the population grid, a number line, or a code runner","Which settings the student explored"],["tutor_ask_explain","A text box and Inky's written verdict","The student's text. The agent grades it against its own rubric."],["tutor_say","Inky's handwritten line above the block","Nothing"],["tutor_finish","The summary block and the level change","Posts a note to You and Inky and updates the topic level"]];
+const SCOPES=[["Everything","The default rule","Exists today as the global scope"],["A class","CSC 316: Do it and submit","Exists today as the course scope"],["A kind of work","Essays and writing: Don't start","Uses the existing group scope. New: the school check labels each assignment with a kind, such as quiz, essay, code, or discussion."],["One assignment","Set from its Details","Exists today as the assignment scope"]];
+const LISTRULES=[["1 · Needs you","Inky is blocked on the student: review waiting, files or sign-in missing, or a check that needs sign-in.","Soonest deadline first. Inky's hold on the page is the clock."],["2 · Inky now","The one job using the school browser. Only one can run.","One row with the latest action and Watch."],["3 · Up next","Not done, and overdue or due within 7 days.","Due date order unless the student reorders it."],["4 · Later","Due in more than 7 days.","Collapsed with a count."],["5 · No due date","Found without a date, so Inky can't schedule it.","Own group. Set a date or Do it anyway."],["6 · Handed in","Done this week.","Shown when nothing needs you. Always in All work."]];
+function renderStories(){const T=(h,rows)=>`<table class="tbl"><tr>${h.map(x=>`<th>${x}</th>`).join("")}</tr>${rows.map(s=>`<tr>${s.map(c=>`<td>${c}</td>`).join("")}</tr>`).join("")}</table>`;const H=(t,s)=>`<div class="hello" style="margin-top:44px"><div><h1>${t}</h1>${s?`<p class="muted">${s}</p>`:""}</div></div>`;
+ return `<div class="frame" style="display:block;overflow:auto"><div class="colm wide" style="padding:34px 0;overflow:visible"><div class="hello">${inky("hello",64)}<div><h1>The brief.</h1><p class="muted">Decided before any screen.</p></div></div>
+ <div class="brief"><div><h2>Who</h2><p>A student at 9 PM on a laptop, tired and a little guilty. They want to know what they truly have to do tonight and hand off the rest. Five minutes from now they want to be doing something else.</p></div><div><h2>How it should feel</h2><p>A friend's notebook on your desk. Relief, help you can see, and a last click that stays yours. Inky speaks in handwriting. Highlighter yellow marks the one thing to do. Everything else is quiet pencil on paper.</p></div><div><h2>What only Studi has</h2><p>Inky's handwriting in the margin, including its doubts. The real school page beside a plain account of each action. One conversation with one character, not a chat app.</p></div></div>
+ ${H("Twelve moments, and what the student sees.","Each one opens the exact screen and state.")}${STORIES.map(s=>`<div class="story"><div><b>${s[0]}</b></div><div><span class="muted">${s[1]}</span><br>${s[2]}</div><button class="btn" ${s[3]}>See it</button></div>`).join("")}
+ ${H("What talking to Inky is for.","One conversation. It opens in place, and it works in both directions.")}${T(["Direction","What happens","Example"],[["Same Inky everywhere","One conversation for homework and learning. The line above the box says what it does where you are, the suggestions change, and the agent gets different tools.","Today: start, stop, reorder. Learn: quiz, explain, plan."],["You to the queue","A message that changes work changes the list. The row flashes and the reply points to it.","Do stats first · Skip the reading response"],["Inky to you","Anything Inky does on its own posts a note: started, needs you, ready, handed in, check results.","8:04 AM · Checked Northstar. 1 new."],["About one thing","Inside an assignment or a check the message is tagged for you. From Today, Ask Inky about it on any row adds the tag.","About Homework 1: use the summation proof"],["To and from Learn","Asking to be quizzed starts a session. A finished session posts its result.","Quiz me on heaps"]])}
+ ${H("How the assignment side panel decides what to show.","One layout. The phase picks the content. Nothing here is decided by the model.")}${T(["Phase","What the panel shows","Data","Controls"],SIDE)}
+ ${H("How Learn decides.","Rules the app computes, so the page is predictable.")}${T(["Decision","Rule","Data"],LEARNRULES)}
+ ${H("A tutor session is a conversation made of components.","The tutor agent can only speak through these tools. Each tool is a component we build once. Open a session and press How this works to see the real calls.")}${T(["Tool the agent calls","What Studi draws","What goes back to the agent"],TUTORTOOLS)}
+ ${H("Where a rule can apply.")}${T(["Scope","Example","In the code"],SCOPES)}
+ ${H("The screens are fixed. The agent fills them.","Every changing part of the assignment view, and the data behind it.")}${T(["On screen","Comes from","Example"],FEEDS)}
+ ${H("What we'd change in our own agent code.","Not the SDK. Small additions that make the interface honest.")}${T(["Change","Why"],AGENT)}
+ ${H("How Today decides what to show.")}${T(["Group","What goes in","Order and behavior"],LISTRULES)}</div></div>`}
+
+/* ================= chrome, routing ================= */
+const SC={today:["today",[["needs","Needs you"],["working","Inky working"],["scanning","Checking school"],["signin","Sign-in needed"],["clear","All clear"],["auto","Running on its own"],["away","Back after a week"]]],assignment:["phase",[["working","Working"],["takeover","You're driving"],["files","Needs files"],["signin","Needs sign-in"],["ready","Ready for review"],["submitting","Submitting"],["submitted","Submitted"],["failed","Couldn't finish"]]],scan:["scan",[["running","Running"],["signin","Needs sign-in"],["done","Finished"],["partial","Partly checked"]]],learn:["learn",[["nosyllabus","No syllabus yet"],["syllabus","Syllabus, nothing checked"],["sessions","After sessions"]]],tutor:["scene",BLOCKS]};
+const SC2={today:["view","View",[["list","List"],["week","Week"]]],assignment:["atype","Kind of assignment",[["quiz","Online quiz"],["code","Code and file upload"]]]};
+const SCREENS={stories:["Brief and stories",renderStories],today:["Today",renderToday],all:["All work",renderAll],assignment:["Assignment",renderAssignment],scan:["School check",renderScan],settings:["Settings",renderSettings],learn:["Learn",renderLearn],tutor:["Tutor session",renderTutor]};
+const WHY={today:["<b>One reading path.</b> Inky's sentence, then what needs you with a button, then a calm list where the right side just says when Inky starts. Space separates groups. Lines are gone.","<b>Click any row</b> and it opens into one rounded card. Start now jumps the queue. Ask Inky has a face. Something wrong stays hidden behind its own red button.","<b>One quiet box.</b> Inky's face opens the conversation. Suggestions appear only when you click in. Running on its own shows what a hands-off student sees."],
+ all:["<b>Everything Inky knows</b>, by class, with status in words.","<b>Same click to open</b> as Today.","<b>Add homework</b> by link or title."],
+ assignment:["<b>Your existing overlay, copied.</b> The blue veil, Inky steering with the Takeover tag, and the Want the page card. The header is only Back. No step count, no tool calls.","<b>Work that isn't a web page.</b> Switch Kind of assignment to Code. The right side gains a second tab, Inky's files, where the code is written live and the tests run.","<b>Stop lives in the box.</b> While Inky works, the empty send button is a stop button. Start typing and it becomes send."],
+ scan:["<b>Same overlay and stop</b> as the assignment view. Click in the box to see suggestions, such as I also have MyLab Math.","<b>Coverage is honest.</b>","<b>The browser fills the right side.</b>"],
+ settings:["<b>Inky's brain.</b> ChatGPT or Claude, a model, and how hard it thinks. The one in use is highlighted.","<b>Homework rules in depth.</b> A general rule, more specific rules, the order they win in, and a checker that tells you which rule applies to an assignment.","<b>Memories are just there</b>, each with its own remove."],
+ learn:["<b>Pick what you're studying</b> under the headline: an exam, another exam, or something else entirely.","<b>Find my syllabus</b> is the one lead action when nothing is known.","<b>Same Inky, different job.</b> The line above the box and the suggestions change with the mode."],
+ tutor:["<b>Press How this works.</b> Each block is one tool call from the tutor agent, drawn as a component. The student's action goes back as the result.","<b>No fixed steps.</b> The agent picks the next tool. A right guess skips the picture.","<b>The box is part of the session.</b> It says so above it."]};
+const order=["stories",0,"today","all","assignment","scan","settings",0,"learn","tutor"];
+$("#bar").insertAdjacentHTML("beforeend",order.map(id=>id?`<button data-go="${id}">${SCREENS[id][0]}</button>`:"<i></i>").join("")+`<i></i><a href="plan.html" style="color:#f6c945;font-weight:700;text-decoration:none;padding:4px 11px">Build plan →</a>`);
+function render(){const sc=SC[S.screen],s2=SC2[S.screen];$$("#bar button").forEach(b=>b.setAttribute("aria-current",b.dataset.go==S.screen));
+ const chips=(k,l)=>l.map(o=>`<button class="${S[k]==o[0]?"on":""}" data-act="scen" data-key="${k}" data-v="${o[0]}">${o[1]}</button>`).join("");
+ $("#app").innerHTML=`${sc||s2?`<div class="scen">${sc?`<span>${S.screen=="tutor"?"Block type":"State"}</span>${chips(sc[0],sc[1])}`:""}${s2?`<span>${s2[1]}</span>${chips(s2[0],s2[2])}`:""}</div>`:""}<section class="screen">${SCREENS[S.screen][1]()}${WHY[S.screen]?`<div class="why">${WHY[S.screen].map(w=>`<p>${w}</p>`).join("")}</div>`:""}</section>`;
+ const p=$("#tl");if(p)p.scrollTop=p.scrollHeight;if(S.flash)setTimeout(()=>{S.flash=null},1700);after[S.screen]&&after[S.screen]()}
+function go(id){S.screen=id;const sc=SC[id];history.replaceState(null,"","#"+id+(sc?"/"+S[sc[0]]:""));render();scrollTo(0,0)}
+const KEYS=["today","phase","scan","learn","scene","atype","view","open"];
+document.addEventListener("click",e=>{const el=e.target.closest("[data-go],[data-act],[data-phase],[data-scan],[data-learn],[data-scene]");if(!el)return;const d=el.dataset,A=d.act;if(A=="noop"){e.preventDefault();return}
+ if((d.phase=="working"&&S.phase!="working"&&S.phase!="takeover")||(d.atype&&d.atype!=S.atype)){S.ev=1;S.extra=[]}
+ if(d.atype)S.pane=d.atype=="code"?"files":"page";if(d.phase){S.stopped=false;S.askpage=false}
+ if(d.go){S.sheet=!!d.sheet;if(d.sheet)S.tlf=1}
+ KEYS.forEach(k=>{if(d[k])S[k]=d[k]});
+ if(d.flip&&((d.go=="learn")!=(S.screen=="learn"||S.screen=="tutor")))S.flip=d.flip;
+ if(A=="ruleopen"){S.ruleopen=!S.ruleopen;render();return}if(A&&A.startsWith("exc-")){S.exc[+A.slice(4)].v=+d.i;render();return}if(A=="excdel"){S.exc.splice(+d.k,1);render();return}if(A=="excadd"){if(!S.exc.some(x=>x.n==d.n))S.exc.push({n:d.n,c:d.c,v:d.v?+d.v:1,t:d.t,key:d.key});if(d.t=="one")S.test=d.key;render();return}
+ if(A=="shelf"){S.shelf=S.shelf==d.v?null:d.v;S.adding=false;render();return}if(A=="target"){S.target=d.v;render();return}if(A=="elsepick"){S.elseTopic=el.textContent;render();return}if(A=="elseclear"){S.elseTopic=null;render();return}if(A=="showpick"){S.showpick=!S.showpick;render();return}if(A=="wire"){S.wire=!S.wire;render();return}
+ if(A=="askpage"){S.askpage=!S.askpage;render();return}
+ if(A=="takeover"){S.askpage=false;if(S.screen=="scan"){S.scanTake=true;render()}else{S.phase="takeover";go("assignment")}return}
+ if(A=="scanback"){S.scanTake=false;render();return}
+ if(A=="pane"){S.pane=d.v;render();return}
+ if(A=="wrongopen"){S.wrongopen=!S.wrongopen;render();return}
+ if(A=="startnow"){const id=d.id;S.open=null;if(busy()){S.order=[id,...S.order.filter(x=>x!=id)];S.flash=id}else{S.job={id,t:TITLES[id]||"This assignment",cls:(KIND[id]||["CSC 316"])[0]};S.today="working";S.flash=id;S.tl.push({k:"ev",at:"8:41 PM",text:`Started <b>${S.job.t}</b> because you asked.`,ref:S.job.t,go:`data-go="assignment" data-phase="working"`});S.unread=true}render();return}
+ if(A=="test"){S.test=d.id;render();return}if(A=="memdel"){S.mems.splice(+d.k,1);render();return}if(A=="prov"){S.prov=d.v;render();return}if(A=="claude"){S.claude=true;S.prov="claude";render();return}if(A=="effort"){S.effort=+d.i;render();return}
+ if(A=="find"){S.finding=1;render();setTimeout(()=>{S.finding=2;render()},1800);return}if(A=="findreset"){S.finding=0;render();return}
+ if(A=="scen"){if((d.key=="phase"&&d.v=="working")||d.key=="atype"){S.ev=1;S.extra=[]}if(d.key=="atype")S.pane=d.v=="code"?"files":"page";if(d.key=="today"&&d.v=="auto")S.mode=2;S.stopped=false;S.askpage=false;S[d.key]=d.v;go(S.screen);return}
+ if(A=="mode"){S.mode=+d.i;render();return}if(A=="view"){S.view=["list","week"][+d.i];render();return}
+ if(A=="csc"||A=="st"){S[A]=+d.i;render();return}if(A=="perclass"){S.perclass=!S.perclass;render();return}
+ if(A=="start"){S.job={id:"hw1",t:"Homework 1",cls:"CSC 316"};S.today="working";S.flash="hw1";S.tl.push({k:"ev",at:"8:41 PM",text:"Started <b>Homework 1</b>. I'll stop before submitting.",ref:"Homework 1",go:`data-go="assignment" data-phase="working" data-atype="quiz"`});S.unread=true;render();return}
+ if(A=="mine"){S.yours[d.id]=!S.yours[d.id];S.flash=d.id;render();return}
+ if(A=="sugg"){say(el.textContent,d.k);return}
+ if(A=="opensheet"){S.sheet=true;S.only=!!hereRef();S.unread=false;render();return}if(A=="closesheet"){S.sheet=false;render();return}if(A=="tlf"){S.tlf=+d.i;render();return}
+ if(A=="ask"){S.ref=d.t;S.open=null;render();const i=$(".dock input");i&&i.focus();return}if(A=="unref"){S.ref=null;render();return}
+ if(A=="open"){S.open=S.open==d.id?null:d.id;S.wrongopen=false;render();return}
+ if(A=="fixdo"){S.fixed[d.id]=d.v;S.open=null;S.flash=d.id;render();return}
+ if(A=="later"){S.later=!S.later;render();return}if(A=="add"){S.adding=!S.adding;S.shelf=null;render();return}if(A=="addcancel"){S.adding=false;render();return}
+ if(A=="tog"){el.classList.toggle("on");return}if(A=="allf"){S.allf=+d.i;render();return}
+ if(A=="detail"){S.detail=!S.detail;render();return}if(A=="showreq"){S.showreq=!S.showreq;render();return}if(A=="showans"){S.showans=!S.showans;render();return}if(A=="showact"){S.showact=!S.showact;render();return}
+ if(A=="tutor"){S.tutor=d.a;render();return}if(A=="warm"){S.warm=d.a;render();return}
+ if(A=="base"){S.base=[100,10,2][+d.i];render();return}if(A=="hint"){S.hint=+d.h;S.tried=null;render();return}
+
+ if(d.go){go(d.go);return}
+ if(d.phase||d.scan||d.learn||d.scene)go(S.screen)});
+document.addEventListener("keydown",e=>{if(e.key=="Escape"&&S.sheet){S.sheet=false;render()}});
+document.addEventListener("submit",e=>{e.preventDefault();const f=e.target,A=f.dataset.act,i=f.querySelector("input,textarea");
+ if(A=="learnelse"){if(!i.value.trim())return;S.elseTopic=i.value.trim();render();return}
+ if(A=="add"){if(!i.value.trim())return;S.adding=false;S.added={t:i.value.trim().replace(/^https?:\/\/\S+$/,"Homework 5"),chk:false};S.flash="added";render();setTimeout(()=>{S.added.chk=true;render()},1600);return}
+ if(A=="try"){const v=parseFloat(i.value);if(isNaN(v))return;S.tried=v;render();return}
+ if(A=="explain"){S.explained=true;render();return}
+ if(!i.value.trim()){if(!busyHere())return;S.stopped=true;S.askpage=false;if(S.typing){S.typing=false;S.stopped=false;render();return}if(S.screen=="assignment"){S.phase="failed";go("assignment")}else if(S.screen=="scan"){S.scan="partial";go("scan")}return}
+ say(i.value,kindOf(i.value))});
+
+/* ================= live behavior ================= */
+let T=[];const later=(f,ms)=>T.push(setTimeout(f,ms));
+function type(el,text,done){if(!el){done&&done();return}el.classList.add("typing");let i=0;(function tick(){if(!document.contains(el))return;el.textContent=text.slice(0,i);if(i++<text.length)later(tick,12);else{el.classList.remove("typing");done&&done()}})()}
+function stepWork(){if(S.screen!="assignment"||S.phase!="working")return;const list=evList();if(S.ev>=list.length){later(()=>{S.phase=S.atype=="code"?"files":"ready";go("assignment")},1200);return}
+ S.ev++;const e=list[S.ev-1];const f=$("#feed");if(f){f.innerHTML=feed(S.ev,true);$("#livesay").textContent=e[1]}
+ if(e[3]==="code")type($("#code"),CODE,()=>later(stepWork,500));else if(e[3]==="term"){const t=$("#term");if(t)t.textContent=TERM;later(stepWork,1100)}else if(e[3]!==undefined)type($("#a"+e[3]),ANS[e[3]],()=>later(stepWork,500));else later(stepWork,e[0]=="say"?1300:900)}
+const after={
+ assignment(){T.forEach(clearTimeout);T=[];if(S.phase=="working"){for(let k=0;k<S.ev;k++){const e=evList()[k];if(!e||e[3]===undefined)continue;if(e[3]==="code"){const c=$("#code");if(c)c.textContent=CODE}else if(e[3]==="term"){const t=$("#term");if(t)t.textContent=TERM}else{const a=$("#a"+e[3]);if(a)a.textContent=ANS[e[3]]}}if(!S.typing)later(stepWork,900)}if(S.phase=="submitting")later(()=>{S.phase="submitted";go("assignment")},2600)},
+ scan(){T.forEach(clearTimeout);T=[];if(S.scan!="running")return;later(()=>{const b=$("#scanbar");if(b)b.style.setProperty("--p",.7);const s=$("#scansay");if(s)s.textContent="Reading ST 370 assignments"},2600)},
+ };
+{const [id,st,st2]=location.hash.slice(1).split("/");if(SC[id]&&st)S[SC[id][0]]=st;if(SC2[id]&&st2)S[SC2[id][0]]=st2;if(S.today=="auto")S.mode=2;S.pane=S.atype=="code"?"files":"page";go(SCREENS[id]?id:"today")}
+</script>
+</body>
+</html>

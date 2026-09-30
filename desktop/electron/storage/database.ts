@@ -1,16 +1,19 @@
 import { mkdirSync } from "node:fs";
+import type { EngineTopic } from "../../shared/product.js";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 
 import { StorageError, errorMessage, isStorageError } from "./errors.js";
+import { LEARN_MIGRATION_SQL, LEARN_REQUIRED_TABLES } from "./learn-schema.js";
 
-export const STORAGE_SCHEMA_VERSION = 8 as const;
+export const STORAGE_SCHEMA_VERSION = 9 as const;
 
 export type StorageFailurePoint =
   | "migration_before_version"
   | "task_before_projection"
   | "artifact_before_rename"
   | "note_after_rename_before_index"
+  | "note_after_unlink_before_index"
   | "restore_after_journal_publish"
   | "restore_during_staging_population"
   | "restore_after_staging_population"
@@ -289,6 +292,7 @@ const storageMigrations = [
   ` },
   // Version gate: older binaries cannot validate course redirect archives.
   { version: 8, sql: "SELECT 1;" },
+  { version: 9, sql: LEARN_MIGRATION_SQL },
 ] as const;
 
 type RequiredColumn = readonly [
@@ -299,6 +303,7 @@ type RequiredColumn = readonly [
 ];
 
 const requiredTables = {
+  ...LEARN_REQUIRED_TABLES,
   record_redirects: [
     ["kind", "TEXT", 1, 1],
     ["old_id", "TEXT", 1, 2],
@@ -624,12 +629,28 @@ const requiredIndexes = [
   },
 ] as const;
 
+/** What changed, so screens re-read only what they show. */
+export type StoreTopic = EngineTopic;
+
 export class StudiSqliteDatabase {
   readonly handle!: DatabaseSync;
   readonly databasePath: string;
   readonly failureInjector: StorageFailureInjector | undefined;
   #closed = false;
   #transactionDepth = 0;
+  readonly #changeListeners = new Set<(topic: StoreTopic) => void>();
+
+  /** Hears every write, by topic. The app pushes these to the screens instead of making them poll. */
+  onChange(listener: (topic: StoreTopic) => void): () => void {
+    this.#changeListeners.add(listener);
+    return () => this.#changeListeners.delete(listener);
+  }
+
+  changed(topic: StoreTopic): void {
+    for (const listener of this.#changeListeners) {
+      try { listener(topic); } catch { /* A screen update can never block a write. */ }
+    }
+  }
 
   constructor(
     databasePath: string,

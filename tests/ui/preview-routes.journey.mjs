@@ -6,7 +6,7 @@ export async function verifyPreviewRoutes(page, base) {
   try {
     await page.goto(`${base}/?preview=gallery`);
     await page.waitForSelector("[data-studi-preview-gallery]");
-    const routes = [...new Set(await page.locator('.preview-card a').evaluateAll(links => links.map(link => link.getAttribute("href"))))];
+    const routes = [...new Set(await page.locator('[data-preview-route]').evaluateAll(links => links.map(link => link.getAttribute("href"))))];
     if (!routes.length) throw new Error("Gallery has no scenarios");
     const source = await page.evaluate(async () => (await fetch('/__studi_preview/source')).json());
     if (!source.root || !source.revision) throw new Error("Preview source is unidentified");

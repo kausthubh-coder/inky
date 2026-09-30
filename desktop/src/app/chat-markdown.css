@@ -6,9 +6,10 @@ div.chat-markdown {
   overflow-wrap: anywhere;
   font-synthesis: style;
   line-height: inherit;
+  text-wrap: pretty;
 }
 div.chat-markdown p {
-  margin: 0.75em 0;
+  margin: 0.8em 0;
   font-size: inherit;
   line-height: inherit;
   white-space: pre-wrap;
@@ -18,6 +19,7 @@ div.chat-markdown :is(h1, h2, h3, h4, h5, h6) {
   font-family: inherit;
   font-size: 1.1em;
   line-height: 1.4;
+  text-wrap: balance;
 }
 div.chat-markdown h1 { font-size: 1.3em; }
 div.chat-markdown h2 { font-size: 1.2em; }
@@ -32,7 +34,7 @@ div.chat-markdown a {
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
-div.chat-markdown a:hover { color: var(--ink); }
+div.chat-markdown a:hover { color: var(--pencil); }
 div.chat-markdown a:focus-visible {
   outline: 2px solid currentColor;
   outline-offset: 3px;
@@ -60,7 +62,7 @@ div.chat-markdown blockquote {
   margin: 0.75em 0;
   padding-left: 1em;
   border-left: 3px solid #cbbfa7;
-  color: var(--muted);
+  color: var(--graphite);
 }
 div.chat-markdown table {
   display: block;

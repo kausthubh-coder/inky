@@ -1,11 +1,12 @@
 import { windowChromeOptions } from "./window-chrome.js";
 import { configureAppNavigation } from "./app-navigation.js";
+import { registerFileSchemePrivileges, serveAssignmentFiles } from "./files/file-protocol.js";
 import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
-import { existsSync, writeFileSync } from "node:fs";
+import { appendFileSync, existsSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import {
   app,
@@ -17,6 +18,7 @@ import {
   WebContentsView,
   ipcMain,
   nativeImage,
+  powerMonitor,
   safeStorage,
   session as electronSession,
   shell,
@@ -25,12 +27,16 @@ import squirrelStartup from "electron-squirrel-startup";
 
 import {
   CONTRACT_MANIFEST,
+  OPENABLE_FILE,
   ContractManifestSchema,
   DEFAULT_NOTIFICATION_PREFERENCES,
   RuntimeInfoSchema,
   STUDI_SCHEMA_VERSION,
   browserDriver,
+  AGENT_PROVIDERS,
+  agentProviderName,
   classifyAgentRuntimeAttention,
+  type AgentProviderId,
   createIpcHandlerRegistrations,
   projectProtectedAuthState,
   studiIpcMethods,
@@ -38,6 +44,9 @@ import {
   type ContractManifest,
   type AuthState,
   type LifecycleState,
+  type AssignmentExecution,
+  type EngineTopic,
+  ENGINE_CHANGED_CHANNEL,
   type RuntimeInfo,
   type SchoolOnboardingState,
   type StudiIpcHandlers,
@@ -51,40 +60,62 @@ import {
   type UsageEventKind,
   type UsageState,
   transitionTask,
+  assignmentWorkEligibility,
+  connectedAppIsActive,
+  sameExam,
+  DEFAULT_AGENT_REASONING_EFFORT,
 } from "../shared/index.js";
 import { getDevelopmentUrl } from "./development-url.js";
 import { buildDiagnosticsSnapshot, writeDiagnosticsSnapshot } from "./diagnostics.js";
 import { AuthCoordinator } from "./auth/coordinator.js";
+import { ProtectedRuntimeLifecycle } from "./auth/runtime-lifecycle.js";
 import { findDesktopConnectUrl, isDesktopConnectUrl, STUDI_CONNECT_PROTOCOL } from "./auth/desktop-link.js";
 import { AuthVault } from "./auth/vault.js";
 import { PiAgentRuntime } from "./agent/runtime.js";
 import { createConnectedAppTools } from "./agent/composio-tools.js";
 import { ConversationCoordinator } from "./agent/conversation-coordinator.js";
-import { OpenAiCodexLoginAttemptOwner } from "./agent/provider-login.js";
+import { projectConversationTimeline } from "./agent/conversation-timeline.js";
+import { HomeworkCoordinator } from "./assignment/homework.js";
+import { LearnRepository } from './storage/learn-records.js';
+import { TutorCoordinator } from './agent/tutor-coordinator.js';
+import { MemoryCoordinator } from './agent/memory-coordinator.js';
+import { LearnExtractionWorker } from './agent/learn-extraction.js';
+import { importLearnFile } from './agent/learn-import.js';
+import { ProviderLoginAttemptOwner } from "./agent/provider-login.js";
 import { AssignmentExecutionCoordinator, type ExecutionNotification } from "./assignment/coordinator.js";
 import { startSelectedAssignment } from "./assignment/start-selected.js";
 import { BrowserController } from "./browser/controller.js";
+import { installScanReadOnlyGuard, type ScanReadOnlyGuard } from "./browser/read-only-guard.js";
+import { installSchoolDownloads } from "./browser/native-downloads.js";
+import { completeBackgroundSignIn, isBackgroundSignIn } from "./browser/background-sign-in.js";
+import { HomeworkFiles } from "./files/homework-files.js";
 import { DriveOverlay, SCHOOL_PANE_RADIUS } from "./browser/drive-overlay.js";
+import { SchoolSessionKeeper } from "./browser/school-session.js";
 import { VisibleBrowserWork } from "./browser/work-ownership.js";
 import { AppKernel } from "./lifecycle/kernel.js";
+import { AppStatusIcon } from "./app-status.js";
+import { dotState } from "../shared/characters/states.js";
 import { ManagerCoordinator } from "./manager/coordinator.js";
-import { SchoolScanCoordinator } from "./scan/coordinator.js";
-import { type LocalStore, openLocalStore } from "./storage/index.js";
+import { SchoolScanCoordinator, type SchoolEmail } from "./scan/coordinator.js";
+import { type LocalStore, openLocalStore, STORAGE_SCHEMA_VERSION } from "./storage/index.js";
 import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
 import { usageProperties, type AgentUsageSnapshot } from "./telemetry/usage.js";
-import { initializeHomeworkWorkspace, syncHomeworkClassFolders } from "./files/workspace.js";
+import { initializeHomeworkWorkspace, requireHomeworkWorkspace, syncHomeworkClassFolders } from "./files/workspace.js";
+import { addCheatsheetLines, goalFolder, readGoalNotes, recordSessionNote, saveStudyPage } from "./files/learn-workspace.js";
+import { studyPageDocument } from "../shared/study-page.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
 const preloadPath = join(moduleDirectory, "preload.cjs");
 const rendererPath = resolve(moduleDirectory, "..", "client", "index.html");
 const appIconPath = app.isPackaged
-  ? join(process.resourcesPath, "studi-inky.png")
-  : resolve(moduleDirectory, "..", "..", "assets", "studi-inky.png");
+  ? join(process.resourcesPath, "studi-icon.png")
+  : resolve(moduleDirectory, "..", "..", "assets", "studi-icon.png");
 const trayIconPath = app.isPackaged
-  ? join(process.resourcesPath, "studi-inky.ico")
-  : resolve(moduleDirectory, "..", "..", "assets", "studi-inky.ico");
+  ? join(process.resourcesPath, "studi-icon.ico")
+  : resolve(moduleDirectory, "..", "..", "assets", "studi-icon.ico");
 const isSelfTest = !app.isPackaged && process.env.STUDI_SELF_TEST === "1";
+const isE2e = isSelfTest && Boolean(process.env.STUDI_E2E_RUNTIME_MODULE);
 const uiScenario = isSelfTest ? process.env.STUDI_UI_SCENARIO : undefined;
 const selfTestConnectedApps = [
   ["gmail", "20260902_00"], ["googledrive", "20260902_00"], ["googledocs", "20260826_00"],
@@ -102,26 +133,51 @@ const ownsSingleInstance = !app.isPackaged || app.requestSingleInstanceLock();
 const canStart = startupProfileConfigured && !squirrelStartup && ownsSingleInstance;
 let selfTestFinished = false;
 let localStore: LocalStore | null = null;
+let schoolSessionKeeper: SchoolSessionKeeper | null = null;
 let storageSelfTestObservation: StorageSelfTestObservation | null = null;
 let agentSelfTestObservation: AgentSelfTestObservation | null = null;
 let browserSelfTestObservation: BrowserSelfTestObservation | null = null;
 let browserController: BrowserController | null = null;
 let browserView: WebContentsView | null = null;
 const browserPages = new Map<string, {view:WebContentsView; controller:BrowserController}>();
+let disposeSchoolDownloads: (() => void) | null = null;
+let schoolReadOnlyGuard: ScanReadOnlyGuard | null = null;
 let selectedBrowserPage = "school";
 let browserDriverTimer: ReturnType<typeof setInterval> | null = null;
 let driveOverlay: DriveOverlay | null = null;
 let browserLayoutMode: BrowserLayoutMode = "hidden";
 let deskSlotBounds: SchoolPageBounds | null = null;
 let agentRuntime: PiAgentRuntime | null = null;
-let runtimeLoginAttempt: OpenAiCodexLoginAttemptOwner | null = null;
+let runtimeLoginAttempt: ProviderLoginAttemptOwner | null = null;
 let managerCoordinator: ManagerCoordinator | null = null;
 let conversationCoordinator: ConversationCoordinator | null = null;
 let unsubscribeConversationTrace: (() => void) | null = null;
 let visibleBrowserWork: VisibleBrowserWork | null = null;
 let schoolScanCoordinator: SchoolScanCoordinator | null = null;
+let homeworkCoordinator: HomeworkCoordinator | null = null;
+let learnRepository: LearnRepository | null = null;
+/** The goal the student is looking at. Every Learn change answers with this goal still selected. */
+let learnSelectedGoal: string | undefined;
+let tutorCoordinator: TutorCoordinator | null = null;
+let memoryCoordinator: MemoryCoordinator | null = null;
+let learnExtractionWorker: LearnExtractionWorker | null = null;
+const protectedRuntimeLifecycle = new ProtectedRuntimeLifecycle(async (owner, isCurrent) => {
+  const identity = isSelfTest ? selfTestAuthState : requireAuthCoordinator().state();
+  if ((identity.status !== 'approved' && identity.status !== 'offline') || identity.user.subject !== owner) {
+    throw new Error('Your account changed. Sign in to continue.');
+  }
+  const window = requireMainWindow();
+  disposeGateTray();
+  createSchoolBrowser(window);
+  await initializeDesktopAgent();
+  if (isCurrent()) await initializeAppKernel(window, isCurrent);
+}, disposeProtectedRuntimeNow);
+let tutorTimelineCache: {
+  repository: LearnRepository; changes: number; entries: import('../shared/index.js').TimelineEntry[];
+} | null = null;
 let assignmentExecutionCoordinator: AssignmentExecutionCoordinator | null = null;
 let appKernel: AppKernel | null = null;
+let appStatusIcon: AppStatusIcon | null = null;
 let mainWindow: BrowserWindow | null = null;
 let authCoordinator: AuthCoordinator | null = null;
 let telemetryService: TelemetryService | null = null;
@@ -130,6 +186,8 @@ let gateQuitting = false;
 let updateService: UpdateService | null = null;
 let pendingDesktopConnect = !isSelfTest && Boolean(findDesktopConnectUrl(process.argv));
 let telemetryShutdownFinished = false;
+let appShutdownFinished = false;
+let appShutdown: Promise<void> | null = null;
 const pendingNotifications: ExecutionNotification[] = [];
 let assignmentRunStartedAt: number | null = null;
 
@@ -165,7 +223,7 @@ const selfTestUsageState: UsageState = {
 interface StorageSelfTestObservation {
   readonly driver: "node:sqlite";
   readonly node: string;
-  readonly schemaVersion: 8;
+  readonly schemaVersion: typeof STORAGE_SCHEMA_VERSION;
   readonly fileBacked: boolean;
   readonly reopened: boolean;
   readonly artifactRoundTrip: boolean;
@@ -195,6 +253,8 @@ function updates(): UpdateService {
     updateService = new UpdateService({platform:process.platform,arch:process.arch,packaged:app.isPackaged,version:app.getVersion(),firstRun:process.argv.includes('--squirrel-firstrun'),native:autoUpdater,
       blocked: () => {
         if (conversationCoordinator?.isBusy) return 'Finish or stop your reply before restarting.';
+        if (learnRepository?.sessionSummaries().some(item => item.status === 'active')) return 'Pause your tutor before restarting.';
+        if (learnRepository?.sources().some(item => item.status === 'reading')) return 'Wait for your syllabus to finish reading before restarting.';
         const scan = localStore?.school.latestScan();
         const execution = localStore?.lifecycle.getActiveExecution();
         if (scan?.state === 'running' || scan?.state === 'needs_user') return 'Finish checking your school before restarting.';
@@ -214,6 +274,19 @@ function updates(): UpdateService {
   }
   return updateService;
 }
+async function prepareAndStartAssignment(taskId: string): Promise<void> {
+  const store = requireLocalStore();
+  const task = store.tasks.get(taskId);
+  if (!task) throw new Error("This assignment is no longer in your week.");
+  const assignment = store.assignments.get(task.assignmentId);
+  if (!assignment) throw new Error("This assignment is no longer available.");
+  // Starting never runs a school check: Dot reads the page and its instructions itself, on the assignment page.
+  const eligibility = assignmentWorkEligibility(assignment, new Date().toISOString());
+  if (!eligibility.eligible) throw new Error(eligibility.reason);
+  await startSelectedAssignment(store, requireManagerCoordinator(), requireAssignmentExecutionCoordinator(), taskId);
+}
+
+
 const ipcHandlers: StudiIpcHandlers = {
   getUpdateState: () => updates().state(),
   checkForUpdates: () => updates().check(),
@@ -252,7 +325,9 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   signOut: async () => {
     if (isSelfTest) return selfTestAuthState;
-    disposeProtectedRuntime();
+    // Signing out of Studi (which also releases the device) deletes the saved school sign-in.
+    await schoolSessionKeeper?.forget().catch(() => undefined);
+    await disposeProtectedRuntime();
     ensureGateTray();
     const state = await requireAuthCoordinator().signOut();
     observeAuthState(state);
@@ -323,21 +398,34 @@ const ipcHandlers: StudiIpcHandlers = {
     requireTelemetryService().capture("studi_onboarding_step", { step: "school_browser_opened" });
     return readWorkspaceState();
   },
-  loginOpenAiCodex: async () => {
-    requireRuntimeLoginAttempt().start();
+  loginProvider: async ({ providerId }) => {
+    requireRuntimeLoginAttempt().start(providerId);
+    layoutSchoolBrowser();
     return readWorkspaceState();
   },
-  cancelOpenAiCodexLogin: async () => {
+  completeProviderLogin: async ({ providerId, code }) => {
+    requireRuntimeLoginAttempt().complete(providerId, code);
+    return readWorkspaceState();
+  },
+  cancelProviderLogin: async () => {
     requireRuntimeLoginAttempt().cancel();
+    layoutSchoolBrowser();
     return readWorkspaceState();
   },
-  selectAgentModel: async ({ modelId, reasoningEffort }) => {
+  logoutProvider: async ({ providerId }) => {
+    requireRuntimeLoginAttempt().cancel();
+    await requireAgentRuntime().logoutProvider(providerId);
+    requireTelemetryService().capture("studi_provider_connection", { provider: providerId, state: "disconnected" });
+    return readWorkspaceState();
+  },
+  selectAgentModel: async ({ providerId, modelId, reasoningEffort }) => {
     const runtime = requireAgentRuntime();
-    runtime.selectModel("openai-codex", modelId);
-    runtime.setReasoningEffort(reasoningEffort);
-    await persistAgentRuntimeChoice(modelId, reasoningEffort);
-    requireTelemetryService().capture("studi_model_selected", { model: modelId, reasoning_effort: reasoningEffort });
-    requireTelemetryService().setPerson({ selected_model: modelId, selected_reasoning: reasoningEffort });
+    runtime.selectModel(providerId, modelId);
+    // Reasoning is always high: a ceiling, not a minimum, so Dot still thinks only as much as each step needs.
+    runtime.setReasoningEffort(DEFAULT_AGENT_REASONING_EFFORT);
+    await persistAgentRuntimeChoice();
+    requireTelemetryService().capture("studi_model_selected", { provider: providerId, model: modelId, reasoning_effort: reasoningEffort });
+    requireTelemetryService().setPerson({ selected_provider: providerId, selected_model: modelId, selected_reasoning: reasoningEffort });
     await requireConversationCoordinator().replaceSessions();
     return readWorkspaceState();
   },
@@ -357,6 +445,13 @@ const ipcHandlers: StudiIpcHandlers = {
       catch (cause) { errors.push({ name: source.split(/[\\/]/).pop() ?? "File", message: cause instanceof Error ? cause.message : "Couldn’t add this file. Try again." }); }
     }
     return { imported, errors };
+  },
+  openAssignmentFile: async ({assignmentId,path}) => {
+    // Only documents open in their own app; a program Dot wrote in the folder never runs from here.
+    if (!OPENABLE_FILE.test(path)) throw new Error("Studi only opens documents, not programs. Use Show in folder to find it.");
+    const error = await shell.openPath(await requireAssignmentExecutionCoordinator().revealAssignmentFile(assignmentId, path));
+    if (error) throw new Error("Couldn't open this file. Check that an app for this file type is installed.");
+    return true;
   },
   openAssignmentFolder: async ({assignmentId,path}) => {
     if (path) {
@@ -386,7 +481,135 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   sendScanMessage: input => requireSchoolScanCoordinator().sendMessage(input),
   pauseSchoolScan: () => requireSchoolScanCoordinator().requestTakeover(),
+  finishSchoolScan: () => requireSchoolScanCoordinator().finishWithFound(),
   getConversationState: () => requireConversationCoordinator().state(),
+  getConversationTimeline: (input) => {
+    requireConversationCoordinator();
+    const store = requireLocalStore();
+    const identity = isSelfTest ? selfTestAuthState : requireAuthCoordinator().state();
+    const ownerSubject = identity.status === 'approved' || identity.status === 'offline' ? identity.user.subject : undefined;
+    return projectConversationTimeline({
+      jobs: store.agentJobs.list().map(record => record.job), scans: store.school.listScans(),
+      assignments: store.assignments.listAll(),
+      events: store.tasks.listAll().filter(task => ownerSubject && store.lifecycle.getExecution(task.taskId)?.ownerSubject === ownerSubject).flatMap(task => store.tasks.listEvents(task.taskId)),
+      notes: store.notes.list(), ...(ownerSubject ? { ownerSubject } : {}),
+      ...(input?.limit === undefined ? {} : { limit: input.limit }),
+      tutorEntries: tutorTimelineEntries(requireLearnRepository()),
+    });
+  },
+  correctAssignment: async (input) => {
+    const result = await requireHomeworkCoordinator().correctAssignment(input);
+    requireAppKernel().requestReconcile();
+    return result;
+  },
+  getLearnState: (input) => {
+    if (input) learnSelectedGoal = input.selectedExamId ?? undefined;
+    return currentLearnState();
+  },
+  listMemories: () => requireMemoryCoordinator().list(),
+  readMemory: ({ noteId }) => requireMemoryCoordinator().read(noteId),
+  createMemory: (input) => requireMemoryCoordinator().create(input),
+  updateMemory: (input) => requireMemoryCoordinator().update(input),
+  deleteMemory: (input) => requireMemoryCoordinator().delete(input),
+  importLearnSource: ({ examId, ...input }) => {
+    const courseId = learnSourceCourse(input.courseId, examId);
+    requireLearnRepository().importSource({ ...input, courseId, examId, kind: 'paste', sourceTarget: null });
+    queueLearnExtraction();
+    return currentLearnState();
+  },
+  importLearnFile: async ({ courseId: requestedCourse, examId }) => {
+    const courseId = learnSourceCourse(requestedCourse, examId);
+    const repository = requireLearnRepository();
+    const result = await dialog.showOpenDialog({
+      title: examId ? 'Add something to study from' : 'Choose your syllabus', properties: ['openFile'],
+      filters: [{ name: 'Syllabus, study guide or notes', extensions: ['pdf', 'txt', 'md', 'csv'] }],
+    });
+    if (repository !== learnRepository) throw new Error('Your account changed. Choose the file again.');
+    if (!result.canceled && result.filePaths[0]) {
+      await importLearnFile(repository, result.filePaths[0], courseId, undefined, () => {
+        if (repository !== learnRepository) throw new Error('Your account changed. Choose the file again.');
+      }, examId);
+      if (repository !== learnRepository) throw new Error('Your account changed. Sign in to continue.');
+      queueLearnExtraction();
+    }
+    return currentLearnState();
+  },
+  setLearnExam: (input) => {
+    validateLearnCourse(input.courseId);
+    learnSelectedGoal = requireLearnRepository().setExam(input).examId;
+    return currentLearnState();
+  },
+  removeLearnGoal: ({ examId }) => {
+    requireLearnRepository().removeExam(examId);
+    if (learnSelectedGoal === examId) learnSelectedGoal = undefined;
+    return currentLearnState();
+  },
+  addLearnTopic: ({ examId, title }) => {
+    requireLearnRepository().addTopic(examId, title);
+    return currentLearnState();
+  },
+  removeLearnTopic: ({ topicId }) => {
+    requireLearnRepository().removeTopic(topicId);
+    return currentLearnState();
+  },
+  findLearnSyllabus: async (input) => {
+    if (input) validateLearnCourse(input.courseId);
+    await requireReadyProvider(input ? 'finding your study materials' : 'finding your syllabus');
+    await runScanWithTelemetry('start', () => input ? requireSchoolScanCoordinator().startMaterialsScan(input.courseId) : requireSchoolScanCoordinator().startScan());
+    return currentLearnState();
+  },
+  retryLearnSource: async ({ sourceId }) => {
+    requireLearnRepository().source(sourceId);
+    await requireReadyProvider('reading your syllabus');
+    queueLearnExtraction(sourceId);
+    return currentLearnState();
+  },
+  getTutorSession: ({ sessionId }) => requireTutorCoordinator().state(sessionId),
+  startTutorSession: async (input) => {
+    return withReadyTutor('starting your tutor', tutor => tutor.start(input));
+  },
+  answerTutorBlock: ({ sessionId, blockId, answer }) => requireTutorCoordinator().answerBlock(sessionId, blockId, answer),
+  hintTutorBlock: ({ sessionId, blockId }) => requireTutorCoordinator().hint(sessionId, blockId),
+  saveTutorDraft: ({ sessionId, blockId, draft }) => requireTutorCoordinator().saveDraft(sessionId, blockId, draft),
+  sendTutorMessage: async ({ sessionId, text, messageId }) => {
+    return withReadyTutor('talking with your tutor', tutor => tutor.send(sessionId, text, messageId));
+  },
+  pauseTutorSession: ({ sessionId }) => requireTutorCoordinator().pause(sessionId),
+  resumeTutorSession: async ({ sessionId }) => {
+    return withReadyTutor('resuming your tutor', tutor => tutor.resume(sessionId));
+  },
+  cancelTutorSession: ({ sessionId }) => requireTutorCoordinator().cancel(sessionId),
+  watchHandIn: async ({ taskId }) => {
+    await requireAssignmentExecutionCoordinator().watchHandIn(taskId);
+    return requireAppKernel().state();
+  },
+  submitReviewedAssignment: async ({ taskId }) => {
+    await requireReadyProvider('handing in your homework');
+    await requireAssignmentExecutionCoordinator().submitReviewed(taskId);
+    requireAppKernel().requestReconcile();
+    return requireAppKernel().state();
+  },
+  addAssignment: async (input) => {
+    if (/^https?:\/\//i.test(input.text.trim())) await requireReadyProviderForScan();
+    const result = await requireHomeworkCoordinator().addAssignment(input);
+    requireAppKernel().requestReconcile();
+    return result;
+  },
+  setAssignmentOwner: async (input) => {
+    const result = await requireHomeworkCoordinator().setAssignmentOwner(input);
+    requireAppKernel().requestReconcile();
+    return result;
+  },
+  reorderQueue: async (input) => {
+    const result = requireManagerCoordinator().reorderQueue(input.taskIds);
+    requireAppKernel().requestReconcile();
+    return result;
+  },
+  queueAssignmentNext: ({ taskId }) => {
+    const result = requireManagerCoordinator().queueNext(taskId);
+    requireAppKernel().requestReconcile();
+    return result;
+  },
   stopConversation: () => requireConversationCoordinator().stop(),
   getNotifications: () => requireLocalStore().lifecycle.listNotifications(),
   readNotification: ({notificationId}) => {
@@ -396,17 +619,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   getManagerState: () => requireManagerCoordinator().state(),
   send: async ({ target, text, ...metadata }) => {
-    const provider = await requireAgentRuntime().getProviderStatus("openai-codex");
-    const attention = classifyAgentRuntimeAttention(provider);
-    if (attention === "usage") {
-      throw new Error("ChatGPT usage ran out. Wait for more usage or connect another ChatGPT, then try again.");
-    }
-    if (attention === "needs_login") {
-      throw new Error("Codex needs another ChatGPT login before Inky can answer.");
-    }
-    if (provider.state !== "ready") {
-      throw new Error("Connect the Codex subscription before asking Inky");
-    }
+    await requireReadyProvider("Dot can answer");
     const result = await requireConversationCoordinator().send(target, text, metadata);
     return result;
   },
@@ -452,6 +665,7 @@ const ipcHandlers: StudiIpcHandlers = {
     await requireReadyProviderForScan();
     assignmentRunStartedAt = Date.now();
     await requireAssignmentExecutionCoordinator().startNext();
+    requireAppKernel().requestReconcile();
     const state = requireAppKernel().state();
     captureQueueTransition("assignment_start", state);
     return state;
@@ -459,12 +673,8 @@ const ipcHandlers: StudiIpcHandlers = {
   startAssignment: async ({ taskId }) => {
     await requireReadyProviderForScan();
     assignmentRunStartedAt = Date.now();
-    await startSelectedAssignment(
-      requireLocalStore(),
-      requireManagerCoordinator(),
-      requireAssignmentExecutionCoordinator(),
-      taskId,
-    );
+    await prepareAndStartAssignment(taskId);
+    requireAppKernel().requestReconcile();
     const state = requireAppKernel().state();
     captureQueueTransition("assignment_start", state);
     return state;
@@ -473,6 +683,7 @@ const ipcHandlers: StudiIpcHandlers = {
     await requireReadyProviderForScan();
     assignmentRunStartedAt = Date.now();
     await requireAssignmentExecutionCoordinator().resume(taskId);
+    requireAppKernel().requestReconcile();
     const state = requireAppKernel().state();
     captureQueueTransition("assignment_resume", state);
     return state;
@@ -500,17 +711,17 @@ const ipcHandlers: StudiIpcHandlers = {
       reviewMinutes: input.reviewMinutes,
       handoffMinutes: input.handoffMinutes,
       memoryVisibility: input.memoryVisibility,
-      workStartMode: input.workStartMode ?? current.workStartMode ?? "manual",
       updatedAt: new Date().toISOString(),
     });
     requireAssignmentExecutionCoordinator().configureReviewHandoff(preferences.reviewMinutes, preferences.handoffMinutes);
-    requireManagerCoordinator().setWorkStartMode(preferences.workStartMode ?? "manual");
+    requireAppKernel().requestReconcile();
     return preferences;
   },
   selectHomeworkRoot: async () => {
     const current = await requireLocalStore().productPreferences.get();
     const owner = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
-    const result = owner
+    const e2eRoot = isSelfTest ? process.env.STUDI_E2E_HOMEWORK_ROOT : undefined;
+    const result = e2eRoot ? { canceled: false, filePaths: [e2eRoot] } : owner
       ? await dialog.showOpenDialog(owner, { title: "Choose an empty folder just for Studi", buttonLabel: "Use this empty folder", properties: ["openDirectory", "createDirectory"] })
       : await dialog.showOpenDialog({ title: "Choose an empty folder just for Studi", buttonLabel: "Use this empty folder", properties: ["openDirectory", "createDirectory"] });
     if (result.canceled || !result.filePaths[0]) return current;
@@ -540,11 +751,15 @@ const ipcHandlers: StudiIpcHandlers = {
       updatedAt: new Date().toISOString(),
     });
     requireManagerCoordinator().reconcileQueue();
+    await requireManagerCoordinator().stopWorkNoLongerAllowed();
+    requireAppKernel().requestReconcile();
     return readProductSettings();
   },
   deletePermissionRule: async ({ ruleId }) => {
     requireLocalStore().permissionRules.delete(ruleId);
     requireManagerCoordinator().reconcileQueue();
+    await requireManagerCoordinator().stopWorkNoLongerAllowed();
+    requireAppKernel().requestReconcile();
     return readProductSettings();
   },
   configureScanSchedule: async ({ cadence, localTime, weekday }) => {
@@ -642,7 +857,7 @@ function registerIpcHandlers(): void {
   for (const registration of createIpcHandlerRegistrations(studiIpcRegistry, ipcHandlers)) {
     ipcMain.handle(registration.channel, async (_event, rawRequest: unknown) => {
       const method = Object.entries(studiIpcRegistry).find(([, contract]) => contract.channel === registration.channel)?.[0] ?? registration.channel;
-      const tracked = !/^(get|setBrowserLayout|captureUiTelemetry|setTelemetry|signIn|signOut|loginOpenAi|cancelOpenAi|retryEntitlement)/.test(method);
+      const tracked = !/^(get|setBrowserLayout|captureUiTelemetry|setTelemetry|signIn|signOut|loginProvider|completeProviderLogin|cancelProviderLogin|retryEntitlement)/.test(method);
       const startedAt = Date.now();
       const owner = telemetryService?.state().distinctId;
       const actionId = randomUUID();
@@ -654,6 +869,10 @@ function registerIpcHandlers(): void {
       recordAction("started");
       try {
         if (updateService?.restarting && !registration.channel.startsWith('studi:update-')) throw new Error('Studi is saving your place for an update.');
+        if (!isSelfTest && protectedRuntimeLifecycle.transitioning && ![
+          'getAuthState', 'getRuntimeInfo', 'getContractManifest', 'signIn', 'signOut',
+          'retryEntitlement', 'submitFeedback', 'getTelemetryState', 'captureUiTelemetry',
+        ].includes(method)) throw new Error('Studi is switching accounts. Try again in a moment.');
         const result = await registration.handle(rawRequest);
         recordAction("succeeded");
         return result;
@@ -709,7 +928,9 @@ function createWindow(): BrowserWindow {
         storage: storageSelfTestObservation,
         agent: agentSelfTestObservation,
         window: {
-          menuBarVisible: window.isMenuBarVisible(),
+          // Electron exposes the per-window menu visibility API on Windows/Linux only.
+          menuBarVisible: process.platform === 'darwin' ? null : window.isMenuBarVisible(),
+          applicationMenuAttached: Menu.getApplicationMenu() !== null,
         },
       })}\n`);
     });
@@ -849,13 +1070,44 @@ function schoolBrowserPage(key: string): {view:WebContentsView;controller:Browse
   if (existing) return existing;
   const window = mainWindow;
   if (!window || window.isDestroyed()) throw new Error("The school browser is unavailable");
-  const view = new WebContentsView({webPreferences:{session:electronSession.fromPartition("persist:studi-school",{cache:true}),nodeIntegration:false,contextIsolation:true,sandbox:true}});
-  const controller = new BrowserController(view.webContents);
+  const schoolSession = electronSession.fromPartition("persist:studi-school", {cache:true});
+  schoolReadOnlyGuard ??= installScanReadOnlyGuard(schoolSession, {
+    // One line per non-read request during a scan, allowed or blocked: the evidence that a real-school scan wrote nothing.
+    onScanWrite: (request, decision) => {
+      const url = new URL(request.url);
+      const entry = { at: new Date().toISOString(), ...decision, method: request.method, resourceType: request.resourceType, url: url.origin + url.pathname };
+      if (decision.action === "block") recordBrowserDiagnostic("scan_write_blocked", entry);
+      try { appendFileSync(join(app.getPath("userData"), "scan-guard.jsonl"), JSON.stringify(entry) + "\n"); } catch { /* Logging never changes enforcement. */ }
+    },
+  });
+  disposeSchoolDownloads ??= installSchoolDownloads(schoolSession, {
+    stagingRoot: join(app.getPath("userData"), "school-downloads"),
+    ignore: isBackgroundSignIn,
+    destination: async contents => {
+      const page = [...browserPages].find(([, entry]) => entry.view.webContents === contents)?.[0];
+      if (!page) throw new Error("This school page is no longer open. Try downloading the file again.");
+      const store = requireLocalStore();
+      const preferences = await store.productPreferences.get();
+      if (!preferences.homeworkRoot) throw new Error("Choose your homework folder in Settings before downloading school files.");
+      const root = await requireHomeworkWorkspace(preferences.homeworkRoot);
+      const directory = page.startsWith("assignment:")
+        ? await requireAssignmentExecutionCoordinator().assignmentDirectory(page.slice("assignment:".length))
+        : root;
+      return HomeworkFiles.open(directory);
+    },
+    onError: error => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        void dialog.showMessageBox(mainWindow, {type:"error", message:"Couldn't save the school file", detail:error.message, buttons:["OK"]}).catch(() => {});
+      }
+    },
+  });
+  const view = new WebContentsView({webPreferences:{session:schoolSession,nodeIntegration:false,contextIsolation:true,sandbox:true}});
+  const controller = new BrowserController(view.webContents, { onLinkClick: pageUrl => schoolReadOnlyGuard?.allowLinkNavigation(pageUrl) });
   browserPages.set(key,{view,controller});
   view.setVisible(false);
   window.contentView.addChildView(view);
   driveOverlay?.raise();
-  view.webContents.on("did-start-navigation",(_event,_url,_inPlace,isMainFrame)=>{if(isMainFrame) controller.pageChanged();});
+  view.webContents.on("did-start-navigation",(_event,url,inPlace,isMainFrame)=>{if(isMainFrame && !inPlace) { controller.noteMainFrameNavigation(url); controller.pageChanged(); }});
   view.webContents.on("did-fail-load",(_event,code,description,url,isMainFrame)=>{if(isMainFrame) recordBrowserDiagnostic("load_failed",{page:key,code,description,url});});
   view.webContents.on("render-process-gone",(_event,details)=>recordBrowserDiagnostic("process_gone",{page:key,...details}));
   view.webContents.setWindowOpenHandler(({url})=>{
@@ -910,6 +1162,7 @@ async function takeOverVisibleBrowser(): Promise<void> {
 }
 
 function visibleSchoolBounds(window: BrowserWindow): Electron.Rectangle | null {
+  if (runtimeLoginAttempt?.handoff) return null;
   if (browserLayoutMode === "hidden") return null;
   if (browserLayoutMode === "desk") return deskSlotBounds;
   const [width = 1120, height = 760] = window.getContentSize();
@@ -923,6 +1176,14 @@ function browserPageBusy(key:string): boolean {
   const scan = localStore?.school.latestScan();
   const execution = localStore?.lifecycle.getActiveExecution();
   return (key === "school" && scan?.state === "running") || Boolean(execution && key === `assignment:${execution.assignmentId}` && ["working","submitting"].includes(execution.phase));
+}
+
+function refreshAppStatus(): void {
+  const store = localStore;
+  if (!appStatusIcon || !store) return;
+  const execution = store.lifecycle.getActiveExecution();
+  const state = dotState({ phase: execution?.phase, steering: currentBrowserDriver() === "inky", scan: store.school.shownScan()?.state });
+  appStatusIcon.update(state, store.lifecycle.readyCount());
 }
 
 function currentBrowserDriver() {
@@ -1209,7 +1470,7 @@ function isSuccessfulOnboardingUiObservation(
   const record = value as Record<string, unknown>;
   if (record.passwordFieldCount !== 0) return false;
   if (uiScenario === "partial-dashboard" || uiScenario === "desk-handoff") return true;
-  if (uiScenario === "onboarding-welcome") return record.fableConversation === true && record.browserHandoff === false && record.scanAction === false;
+  if (uiScenario === "onboarding-welcome" || uiScenario === "onboarding-reconnect") return record.fableConversation === true && record.browserHandoff === false && record.scanAction === false;
   return record.fableConversation === true && record.browserHandoff === true && record.scanAction === true;
 }
 
@@ -1310,7 +1571,7 @@ function isSuccessfulAgentObservation(value: unknown): value is AgentSelfTestObs
   const providerStatus = record.providerStatus;
   return (
     record.runtime === "pi-agent-session" &&
-    record.sdkVersion === "0.84.4" &&
+    record.sdkVersion === PiAgentRuntime.sdkVersion &&
     record.sessionPersisted === true &&
     record.sessionResumed === true &&
     record.probeCompleted === true &&
@@ -1332,13 +1593,34 @@ function isSuccessfulStorageObservation(value: unknown): value is StorageSelfTes
   return (
     record.driver === "node:sqlite" &&
     record.node === process.versions.node &&
-    record.schemaVersion === 7 &&
+    record.schemaVersion === STORAGE_SCHEMA_VERSION &&
     record.fileBacked === true &&
     record.reopened === true &&
     record.artifactRoundTrip === true &&
     record.backupValidated === true &&
     record.backupArtifactCount === 1
   );
+}
+
+// School sign-ins survive a restart: session cookies are saved encrypted and put back before any school page loads.
+async function keepSchoolSignedIn(): Promise<void> {
+  if (schoolSessionKeeper) return;
+  const keeper = new SchoolSessionKeeper(
+    electronSession.fromPartition("persist:studi-school", { cache: true }),
+    join(app.getPath("userData"), "school-session.bin"),
+    safeStorage,
+    { schoolRoot: () => localStore?.school.getProfile()?.schoolRoot ?? null },
+  );
+  schoolSessionKeeper = keeper;
+  try {
+    const restored = await keeper.restore();
+    if (restored) recordBrowserDiagnostic("school_session_restored", { cookies: restored });
+  } catch (error) {
+    recordBrowserDiagnostic("school_session_restore_failed", { message: formatError(error) });
+  }
+  keeper.start();
+  powerMonitor.on("suspend", () => keeper.setAsleep(true));
+  powerMonitor.on("resume", () => keeper.setAsleep(false));
 }
 
 async function initializeStorage(): Promise<void> {
@@ -1349,6 +1631,9 @@ async function initializeStorage(): Promise<void> {
       appVersion: app.getVersion(),
     },
   });
+  localStore.lifecycle.onExecutionChange(recordExecutionChange);
+  localStore.database.onChange(announceChange);
+  await keepSchoolSignedIn();
   if (uiScenario === "partial-dashboard" || uiScenario === "desk-handoff") seedProductUiScenario(localStore, uiScenario);
   if (uiScenario && uiScenario !== "onboarding-welcome") {
     localStore.school.putProfile({
@@ -1363,7 +1648,7 @@ async function initializeStorage(): Promise<void> {
       updatedAt: "2026-08-31T12:00:00.000Z",
     });
   }
-  if (!isSelfTest) {
+  if (!isSelfTest || isE2e) {
     return;
   }
 
@@ -1403,13 +1688,13 @@ async function initializeStorage(): Promise<void> {
     fileBacked: localStore.databasePath !== ":memory:" && existsSync(localStore.databasePath),
     reopened: reopened?.assignmentId === assignment.assignmentId,
     artifactRoundTrip: reopenedArtifact?.content === artifact.content,
-    backupValidated: backup.schemaVersion === 8,
+    backupValidated: backup.schemaVersion === STORAGE_SCHEMA_VERSION,
     backupArtifactCount: backup.artifactCount,
   };
 }
 
 async function initializeAgentSelfTest(): Promise<void> {
-  if (!isSelfTest) {
+  if (!isSelfTest || isE2e) {
     return;
   }
   const dataRoot = join(app.getPath("userData"), "studi-data");
@@ -1477,8 +1762,21 @@ async function initializeAgentSelfTest(): Promise<void> {
 async function initializeDesktopAgent(): Promise<void> {
   const identity = isSelfTest ? selfTestAuthState : authCoordinator?.state();
   const ownerSubject = identity && (identity.status === "approved" || identity.status === "offline") ? identity.user.subject : undefined;
+  if (!ownerSubject) throw new Error('Sign in before opening your learning workspace.');
+  learnRepository = new LearnRepository(requireLocalStore().database, ownerSubject);
+  // Everything Dot has written down on this device belongs to its student: the school, classes, kinds and assignments.
+  memoryCoordinator = new MemoryCoordinator(requireLocalStore().notes, ownerSubject, () => {
+    const store = requireLocalStore();
+    const profile = store.school.getProfile();
+    return [
+      ...(profile ? [{ scope: "school" as const, subjectId: profile.profileId }] : []),
+      ...store.school.listCourses().map(course => ({ scope: "course" as const, subjectId: course.courseId })),
+      ...store.assignments.listAll().map(assignment => ({ scope: "assignment" as const, subjectId: assignment.assignmentId })),
+      ...store.notes.list().filter(note => note.scope === "pattern").map(note => ({ scope: "pattern" as const, subjectId: note.subjectId })),
+    ];
+  });
   const dataRoot = join(app.getPath("userData"), "studi-data");
-  agentRuntime = await PiAgentRuntime.create({
+  const runtimeOptions: Parameters<typeof PiAgentRuntime.create>[0] = {
     cwd: dataRoot,
     agentDir: join(dataRoot, "pi"),
     browserController: schoolBrowserPage("home").controller,
@@ -1492,20 +1790,41 @@ async function initializeDesktopAgent(): Promise<void> {
         telemetry.captureDiagnostic({ source: "runtime", ...event });
       }
     },
-  });
+  };
+  const e2eModule = isSelfTest ? process.env.STUDI_E2E_RUNTIME_MODULE : undefined;
+  if (e2eModule) {
+    const module = await import(pathToFileURL(resolve(e2eModule)).href);
+    if (typeof module.createE2eRuntime !== "function") throw new Error("The scripted QA runtime has no createE2eRuntime export");
+    agentRuntime = await module.createE2eRuntime(runtimeOptions) as PiAgentRuntime;
+  } else agentRuntime = await PiAgentRuntime.create(runtimeOptions);
   await applyPersistedAgentRuntime();
-  runtimeLoginAttempt = new OpenAiCodexLoginAttemptOwner((signal, notify) =>
-    requireAgentRuntime().loginOpenAiCodex("device_code", signal, {
+  const reportLearningError = (error: unknown) => telemetryService?.captureError(error, 'runtime', 'session_start');
+  learnSelectedGoal = undefined;
+  tutorCoordinator = new TutorCoordinator(requireLearnRepository(), agentRuntime, { onError: reportLearningError, context: {
+    courseLabel: courseId => requireLocalStore().school.listCourses().find(course => course.courseId === courseId)?.label ?? null,
+    workedHomework: courseId => workedAssignments().filter(assignment => assignment.courseId === courseId).map(assignment => ({
+      courseId: assignment.courseId, title: assignment.title, instructions: assignment.instructions,
+      requirements: assignment.requirementEvidence?.map(item => item.text) ?? [],
+    })),
+    today: learnToday,
+  }, files: tutorFiles() });
+  learnExtractionWorker = new LearnExtractionWorker(requireLearnRepository(), agentRuntime, { onError: reportLearningError, classNote: readClassNote });
+  runtimeLoginAttempt = new ProviderLoginAttemptOwner(async (providerId, signal, interaction) => {
+    await requireAgentRuntime().loginProvider(providerId, signal, {
       openExternal: (url) => shell.openExternal(url),
-      notify,
-    }),
-  );
+      notify: interaction.notify,
+      awaitManualCode: interaction.awaitManualCode,
+    });
+    await adoptConnectedProvider(providerId);
+  });
   managerCoordinator = await ManagerCoordinator.create(
     requireLocalStore(),
     agentRuntime,
     {
       startAssignment: async (taskId) => {
-        return requireAssignmentExecutionCoordinator().start(taskId);
+        if (requireLocalStore().lifecycle.getExecution(taskId)?.reviewSubmissionRequestedAt) await requireAssignmentExecutionCoordinator().continueSubmission(taskId);
+        else await prepareAndStartAssignment(taskId);
+        return requireLocalStore().lifecycle.getExecution(taskId);
       },
     },
   );
@@ -1513,7 +1832,23 @@ async function initializeDesktopAgent(): Promise<void> {
     requireLocalStore(),
     agentRuntime,
     managerCoordinator,
-    { connectedAppTools: loadConnectedAppTools, ownerSubject },
+    {
+      connectedAppTools: loadConnectedAppTools, ownerSubject,
+      learning: createLearningConversationHooks(requireLearnRepository()),
+      homework: {
+        add: async (input) => {
+          if (/^https?:\/\//i.test(input.text.trim())) await requireReadyProviderForScan();
+          const result = await requireHomeworkCoordinator().addAssignment(input);
+          appKernel?.requestReconcile();
+          return result;
+        },
+        correct: async (input) => {
+          const result = await requireHomeworkCoordinator().correctAssignment(input);
+          appKernel?.requestReconcile();
+          return result;
+        },
+      },
+    },
   );
   unsubscribeConversationTrace = requireTelemetryService().subscribeToTrace(conversationCoordinator.trace);
   visibleBrowserWork = new VisibleBrowserWork(requireLocalStore());
@@ -1522,38 +1857,72 @@ async function initializeDesktopAgent(): Promise<void> {
     agentRuntime,
     schoolBrowserPage("school").controller,
     {
-      browserWork: requireVisibleBrowserWork(), manager: requireManagerCoordinator(),
+      browserWork: requireVisibleBrowserWork(), manager: requireManagerCoordinator(), ownerSubject,
+      readOnlyGuard: schoolReadOnlyGuard!,
+      recordSyllabus: async (source) => {
+        const repository = requireLearnRepository();
+        const prior = repository.sources().find(item => item.courseId === source.courseId && item.sourceTarget === source.sourceTarget);
+        return repository.importSource({ ...source, kind: 'scan', ...(prior ? { sourceId: prior.sourceId } : {}) });
+      },
+      recordExam: async (exam) => {
+        const repository = requireLearnRepository();
+        const classExams = repository.exams().filter(item => item.courseId === exam.courseId && !item.hidden);
+        // The exam the agent named, else one that is plainly the same exam.
+        const same = classExams.find(item => item.examId === exam.examId) ?? classExams.find(item => sameExam(item, exam));
+        repository.setExam({ ...(same ? { examId: same.examId } : {}), courseId: exam.courseId, title: exam.title, date: exam.date ?? same?.date ?? null, kind: 'exam' });
+        return listClassExams(exam.courseId);
+      },
+      listExams: listClassExams,
+      completeSignIn: url => completeBackgroundSignIn(electronSession.fromPartition("persist:studi-school", { cache: true }), url),
+      readSchoolEmail: readSchoolEmail,
       onError: (error, scanId, toolName) => requireTelemetryService().captureError(error, "scan", "school_scan", {
         ...currentAgentSelection(), scan_id: scanId, ...(toolName ? { tool_name: toolName } : {}),
       }),
     },
   );
+  homeworkCoordinator = new HomeworkCoordinator(requireLocalStore(), requireManagerCoordinator(), schoolScanCoordinator);
 }
 
 async function synchronizeProtectedRuntime(state: AuthState): Promise<void> {
   if (state.status !== "approved" && state.status !== "offline") {
-    if (appKernel || browserView) disposeProtectedRuntime();
+    await disposeProtectedRuntime();
     ensureGateTray();
     return;
   }
-  if (appKernel) return;
-  const window = mainWindow;
-  if (!window || window.isDestroyed()) throw new Error("The Studi window is not ready");
-  disposeGateTray();
-  createSchoolBrowser(window);
-  await initializeDesktopAgent();
-  await initializeAppKernel(window);
+  await protectedRuntimeLifecycle.activate(state.user.subject);
 }
 
-function disposeProtectedRuntime(): void {
+function disposeProtectedRuntime(): Promise<void> {
+  return isSelfTest ? disposeProtectedRuntimeNow() : protectedRuntimeLifecycle.deactivate();
+}
+
+function disposeProtectedRuntimeNow(): Promise<void> {
+  disposeSchoolDownloads?.();
+  disposeSchoolDownloads = null;
+  tutorTimelineCache = null;
+  const memories = memoryCoordinator;
+  memoryCoordinator = null;
+  const tutor = tutorCoordinator;
+  const extractor = learnExtractionWorker;
+  tutorCoordinator = null;
+  learnExtractionWorker = null;
+  const stopped = Promise.all([
+    tutor?.dispose(), extractor?.dispose(), memories?.dispose(),
+  ]).then(() => undefined);
+  learnRepository = null;
+  homeworkCoordinator = null;
   runtimeLoginAttempt?.dispose();
   runtimeLoginAttempt = null;
+  appStatusIcon?.dispose();
+  appStatusIcon = null;
   appKernel?.dispose();
   appKernel = null;
   assignmentExecutionCoordinator?.dispose();
   assignmentExecutionCoordinator = null;
   schoolScanCoordinator?.dispose();
   schoolScanCoordinator = null;
+  schoolReadOnlyGuard?.dispose();
+  schoolReadOnlyGuard = null;
   unsubscribeConversationTrace?.();
   unsubscribeConversationTrace = null;
   conversationCoordinator?.dispose();
@@ -1575,6 +1944,32 @@ function disposeProtectedRuntime(): void {
   driveOverlay = null;
   browserView = null;
   browserController = null;
+  return stopped;
+}
+
+/**
+ * The school check's view of connected Gmail: messages since a date, read-only. Fetching through the Gmail API
+ * never marks mail read. Null means no Gmail is connected, which the scan treats as "skip this step".
+ */
+async function readSchoolEmail(input: { since: string; query?: string }): Promise<SchoolEmail[] | null> {
+  if (isSelfTest) return null;
+  const gateway = requireAuthCoordinator();
+  const apps = await gateway.connectedApps();
+  if (!apps.configured || !apps.toolkits.some(item => item.toolkit === 'gmail')) return null;
+  if (!connectedAppIsActive(await gateway.connectedAppConnection('gmail'))) return null;
+  const query = `after:${input.since.slice(0, 10).replaceAll('-', '/')} ${input.query ?? ''}`.trim();
+  const result = await gateway.executeConnectedAppTool('gmail', 'GMAIL_FETCH_EMAILS', { query, max_results: 40, include_payload: false });
+  if (result.error) throw new Error(`Gmail couldn't be read: ${result.error}`);
+  const value = result.data.value as { messages?: unknown[]; data?: { messages?: unknown[] } } | unknown[] | null;
+  const messages = Array.isArray(value) ? value : value?.messages ?? value?.data?.messages ?? [];
+  const text = (item: Record<string, unknown>, ...keys: string[]) => keys.map(key => item[key]).find((field): field is string => typeof field === 'string' && field.trim() !== '') ?? '';
+  return messages.flatMap(raw => {
+    if (!raw || typeof raw !== 'object') return [];
+    const item = raw as Record<string, unknown>;
+    const preview = item.preview && typeof item.preview === 'object' ? text(item.preview as Record<string, unknown>, 'body') : '';
+    return [{ from: text(item, 'sender', 'from').slice(0, 200), subject: text(item, 'subject').slice(0, 300),
+      receivedAt: text(item, 'messageTimestamp', 'date', 'internalDate'), preview: (preview || text(item, 'snippet', 'messageText')).replace(/\s+/g, ' ').slice(0, 400) }];
+  });
 }
 
 function loadConnectedAppTools() {
@@ -1596,17 +1991,22 @@ function loadConnectedAppTools() {
   });
 }
 
-async function initializeAppKernel(window: BrowserWindow): Promise<void> {
+async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true): Promise<void> {
   const productPreferences = await requireLocalStore().productPreferences.get();
   assignmentExecutionCoordinator = await AssignmentExecutionCoordinator.create(
     requireLocalStore(),
     requireManagerCoordinator(),
     requireBrowserController(),
     {
+      ownerSubject: requireLearnRepository().ownerSubject,
       browserWork: requireVisibleBrowserWork(),
       connectedAppTools: loadConnectedAppTools,
       browserForAssignment: id => schoolBrowserPage(`assignment:${id}`).controller,
-      reviewWindowMs: productPreferences.reviewMinutes * 60_000,
+      classMaterials: courseId => requireLearnRepository().sources()
+        .filter(source => source.courseId === courseId && source.status === "ready")
+        .map(source => ({ title: source.title, sourceTarget: source.sourceTarget, text: source.text })),
+      reviewWindowMs: isSelfTest && process.env.STUDI_E2E_REVIEW_WINDOW_MS
+        ? Number(process.env.STUDI_E2E_REVIEW_WINDOW_MS) : productPreferences.reviewMinutes * 60_000,
       handoffWindowMs: productPreferences.handoffMinutes * 60_000,
       notify: async (intent) => {
         observeExecutionNotification(intent);
@@ -1618,8 +2018,9 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
       },
     },
   );
+  if (!isCurrent()) return;
   requireConversationCoordinator().setAssignmentWorkRunner((taskId, prompt, observe) =>
-    requireAssignmentExecutionCoordinator().continueTurn(taskId, prompt, observe),
+    requireAssignmentExecutionCoordinator().replyTurn(taskId, prompt, observe),
   );
   appKernel = new AppKernel(
     requireLocalStore(),
@@ -1635,7 +2036,10 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
         service.capture("studi_scan_started", { mode: "scheduled", ...currentAgentSelection(), ...currentSchoolContext() });
         try {
           const result = await requireSchoolScanCoordinator().runScheduledScan(claimOccurrence, requireReadyProviderForScan);
-          if (result) captureScanFinished("scheduled", result.state, startedAt);
+          if (result) {
+            captureScanFinished("scheduled", result.state, startedAt);
+            queueLearnExtraction();
+          }
           return result;
         } catch (error) {
           service.captureError(error, "scan", "school_scan", currentAgentSelection());
@@ -1643,6 +2047,11 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
         }
       },
       focusBrowser: () => browserView?.webContents.focus(),
+      runScheduledAssignment: async (taskId) => {
+        await requireReadyProvider('starting your homework');
+        if (requireLocalStore().lifecycle.getExecution(taskId)?.reviewSubmissionRequestedAt) await requireAssignmentExecutionCoordinator().continueSubmission(taskId);
+        else await prepareAndStartAssignment(taskId);
+      },
       iconPath: appIconPath,
     },
   );
@@ -1651,7 +2060,16 @@ async function initializeAppKernel(window: BrowserWindow): Promise<void> {
     appKernel.configureSchedule(profile.scanCadence);
   }
   await appKernel.start();
+  const kernel = appKernel;
+  appStatusIcon = new AppStatusIcon(window, text => kernel.setTrayTooltip(text));
+  refreshAppStatus();
   for (const intent of pendingNotifications.splice(0)) await appKernel.notify(intent);
+  // Homework that was running when Studi quit carries on by itself once the model is ready.
+  void requireReadyProvider("carrying on your homework")
+    .then(() => requireAssignmentExecutionCoordinator().carryOnAfterRestart())
+    .then(() => appKernel?.requestReconcile())
+    .catch(error => telemetryService?.captureError(error, "queue", "assignment", currentAgentSelection()));
+  queueLearnExtraction();
 }
 
 async function runScanWithTelemetry(
@@ -1665,7 +2083,9 @@ async function runScanWithTelemetry(
   try {
     const state = await run();
     await syncSelectedHomeworkClasses();
+    requireAppKernel().requestReconcile();
     captureScanFinished(mode, state, startedAt);
+    queueLearnExtraction();
     if (state.scan?.state === "needs_user") service.capture("studi_handoff", { kind: "scan", state: "needs_user" });
     return state;
   } catch (error) {
@@ -1716,6 +2136,46 @@ function captureQueueTransition(
     ...currentAgentSelection(),
     ...assignmentLabels(state.execution?.assignmentId),
   });
+}
+
+// Writes are batched for 80 ms and pushed to the screens, which re-read what they show.
+const pendingTopics = new Set<EngineTopic>();
+let announceTimer: ReturnType<typeof setTimeout> | null = null;
+function announceChange(topic: EngineTopic): void {
+  pendingTopics.add(topic);
+  announceTimer ??= setTimeout(() => {
+    announceTimer = null;
+    const topics = [...pendingTopics];
+    pendingTopics.clear();
+    if (topics.includes("homework") || topics.includes("school")) refreshAppStatus();
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send(ENGINE_CHANGED_CHANNEL, topics);
+  }, 80);
+}
+
+// Every assignment state change goes to PostHog. The school page runs in its own view, so replay never sees it;
+// at each hand-off, review, hand-in and failure a small screenshot of it goes along.
+function recordExecutionChange(previous: AssignmentExecution | null, next: AssignmentExecution): void {
+  if (previous?.phase === next.phase) return;
+  const telemetry = telemetryService;
+  if (!telemetry) return;
+  const title = localStore?.assignments.get(next.assignmentId)?.title;
+  telemetry.capture("studi_assignment_state", {
+    task_id: next.taskId, assignment_id: next.assignmentId, ...(title ? { assignment_title: title } : {}),
+    from: previous?.phase ?? null, to: next.phase,
+    ...(next.needs ? { needs: next.needs } : {}), ...(next.lastError ? { last_error: next.lastError.slice(0, 2_000) } : {}),
+  });
+  if (!["needs_user", "ready_review", "submitted", "failed"].includes(next.phase)) return;
+  const page = browserPages.get(`assignment:${next.assignmentId}`);
+  if (!page || page.view.webContents.isDestroyed()) return;
+  void page.view.webContents.capturePage().then(image => {
+    if (image.isEmpty()) return;
+    const small = image.getSize().width > 960 ? image.resize({ width: 960, quality: "good" }) : image;
+    telemetry.capture("studi_page_screenshot", {
+      task_id: next.taskId, assignment_id: next.assignmentId, phase: next.phase,
+      url: page.view.webContents.getURL().slice(0, 2_000),
+      image: `data:image/jpeg;base64,${small.toJPEG(60).toString("base64")}`,
+    });
+  }).catch(() => undefined);
 }
 
 function observeExecutionNotification(intent: ExecutionNotification): void {
@@ -1790,9 +2250,10 @@ function discardStaleAgentUsage(): void {
   agentRuntime?.takeLastUsage();
 }
 
-function currentAgentSelection(): { model?: string; reasoning_effort?: AgentReasoningEffort } {
+function currentAgentSelection(): { provider?: string; model?: string; reasoning_effort?: AgentReasoningEffort } {
   if (!agentRuntime) return {};
   return {
+    provider: agentRuntime.selectedProviderId,
     model: agentRuntime.selectedModelId,
     reasoning_effort: agentRuntime.selectedReasoningEffort,
   };
@@ -1845,62 +2306,83 @@ function assignmentLabels(assignmentId?: string): { assignment_title?: string; c
 
 async function readWorkspaceState() {
   const runtime = requireAgentRuntime();
-  if (uiScenario === "onboarding-ready" || uiScenario === "onboarding-welcome") {
+  if (uiScenario === "onboarding-ready" || uiScenario === "onboarding-welcome" || uiScenario === "onboarding-reconnect") {
     return {
       browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
-      provider: {
+      providers: AGENT_PROVIDERS.map((provider) => ({
         schemaVersion: STUDI_SCHEMA_VERSION,
-        providerId: "openai-codex",
-        providerName: "OpenAI Codex",
-        state: "ready" as const,
+        providerId: provider.id,
+        providerName: provider.name,
+        state: provider.id === runtime.selectedProviderId && uiScenario !== "onboarding-reconnect" ? "ready" as const : "needs_login" as const,
         loginMethods: ["oauth" as const],
         reason: "Deterministic UI scenario is using the same typed provider projection.",
-      },
+      })),
+      selectedProviderId: runtime.selectedProviderId,
       providerLogin: null,
-      models: [{ id: runtime.selectedModelId, name: runtime.selectedModelId }],
+      models: [{ providerId: runtime.selectedProviderId, id: runtime.selectedModelId, name: runtime.selectedModelId }],
       selectedModelId: runtime.selectedModelId,
       selectedReasoningEffort: runtime.selectedReasoningEffort,
     };
   }
   return {
     browser: { ...requireBrowserController().state, driver: currentBrowserDriver() },
-    provider: await runtime.getProviderStatus("openai-codex"),
+    providers: await Promise.all(AGENT_PROVIDERS.map((provider) => runtime.getProviderStatus(provider.id))),
+    selectedProviderId: runtime.selectedProviderId,
     providerLogin: runtimeLoginAttempt?.handoff ?? null,
-    models: [...runtime.getProviderModels("openai-codex")],
+    models: AGENT_PROVIDERS.flatMap((provider) => runtime.getProviderModels(provider.id)),
     selectedModelId: runtime.selectedModelId,
     selectedReasoningEffort: runtime.selectedReasoningEffort,
   };
 }
 
-async function persistAgentRuntimeChoice(modelId: string, reasoningEffort: AgentReasoningEffort): Promise<void> {
+async function persistAgentRuntimeChoice(): Promise<void> {
+  const runtime = requireAgentRuntime();
   const store = requireLocalStore().productPreferences;
   const current = await store.get();
   await store.put({
     ...current,
-    agentModelId: modelId,
-    agentReasoningEffort: reasoningEffort,
+    agentProviderId: runtime.selectedProviderId,
+    agentModelId: runtime.selectedModelId,
+    agentReasoningEffort: runtime.selectedReasoningEffort,
     updatedAt: new Date().toISOString(),
   });
+}
+
+/** A subscription the student just connected becomes the one Dot uses. */
+async function adoptConnectedProvider(providerId: AgentProviderId): Promise<void> {
+  const runtime = requireAgentRuntime();
+  if (runtime.selectedProviderId !== providerId) runtime.selectProvider(providerId);
+  await persistAgentRuntimeChoice();
+  schoolScanCoordinator?.providerReconnected();
+  const telemetry = requireTelemetryService();
+  telemetry.capture("studi_provider_connection", { provider: providerId, state: "connected" });
+  queueLearnExtraction();
+  telemetry.setPerson({ selected_provider: providerId, selected_model: runtime.selectedModelId, selected_reasoning: runtime.selectedReasoningEffort });
 }
 
 async function applyPersistedAgentRuntime(): Promise<void> {
   const runtime = requireAgentRuntime();
   const preferences = await requireLocalStore().productPreferences.get();
   try {
-    runtime.selectModel("openai-codex", preferences.agentModelId);
+    runtime.selectModel(preferences.agentProviderId, preferences.agentModelId);
   } catch {
-    // Keep the catalog default when the saved id is not installed yet.
+    try {
+      runtime.selectProvider(preferences.agentProviderId);
+    } catch {
+      // Keep the catalog default when the saved subscription has no installed model.
+    }
   }
-  runtime.setReasoningEffort(preferences.agentReasoningEffort);
+  runtime.setReasoningEffort(DEFAULT_AGENT_REASONING_EFFORT);
   requireTelemetryService().setPerson({
+    selected_provider: runtime.selectedProviderId,
     selected_model: runtime.selectedModelId,
     selected_reasoning: runtime.selectedReasoningEffort,
   });
 }
 
-function requireRuntimeLoginAttempt(): OpenAiCodexLoginAttemptOwner {
+function requireRuntimeLoginAttempt(): ProviderLoginAttemptOwner {
   if (!runtimeLoginAttempt) {
-    throw new Error("The Codex login service is not ready");
+    throw new Error("The subscription sign-in service is not ready");
   }
   return runtimeLoginAttempt;
 }
@@ -1965,7 +2447,7 @@ interface NotificationSelfTestObservation {
 
 function requireConversationCoordinator(): ConversationCoordinator {
   if (!conversationCoordinator) {
-    throw new Error("Inky conversations are not ready");
+    throw new Error("Dot conversations are not ready");
   }
   return conversationCoordinator;
 }
@@ -1987,6 +2469,201 @@ function requireSchoolScanCoordinator(): SchoolScanCoordinator {
     throw new Error("School onboarding is not ready");
   }
   return schoolScanCoordinator;
+}
+
+function requireHomeworkCoordinator(): HomeworkCoordinator {
+  if (!homeworkCoordinator) throw new Error('Homework controls are not ready');
+  return homeworkCoordinator;
+}
+
+function requireLearnRepository(): LearnRepository {
+  if (!learnRepository) throw new Error('Your learning workspace is not ready');
+  return learnRepository;
+}
+
+function requireTutorCoordinator(): TutorCoordinator {
+  if (!tutorCoordinator) throw new Error('Your tutor is not ready. Sign in to continue.');
+  return tutorCoordinator;
+}
+
+async function withReadyTutor<T>(purpose: string, action: (tutor: TutorCoordinator) => Promise<T>): Promise<T> {
+  const tutor = requireTutorCoordinator();
+  await requireReadyProvider(purpose);
+  if (tutor !== tutorCoordinator) throw new Error('Your account changed. Sign in to continue.');
+  return action(tutor);
+}
+
+function requireMemoryCoordinator(): MemoryCoordinator {
+  if (!memoryCoordinator) throw new Error('Your memories are not ready. Sign in to continue.');
+  return memoryCoordinator;
+}
+
+function validateLearnCourse(courseId: string | null): void {
+  if (courseId && !requireLocalStore().school.listCourses().some(course => course.courseId === courseId)) {
+    throw new Error('Choose a course from your connected school.');
+  }
+}
+
+function createLearningConversationHooks(repository: LearnRepository): import('./agent/learn-conversation.js').LearningConversationHooks {
+  const assertCurrent = () => {
+    if (repository !== learnRepository) throw new Error('Your account changed. Sign in to continue.');
+  };
+  return {
+    state: () => {
+      assertCurrent();
+      const state = currentLearnState();
+      return {
+        plan: state.plan,
+        sources: state.sources.slice(0, 30),
+        exams: state.exams.slice(0, 30),
+        topics: state.topics.slice(0, 100),
+        mastery: state.mastery.slice(0, 100).map(item => ({ topicId: item.topicId, level: item.level })),
+        sessions: [...state.sessions].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 10).map(item => ({
+          sessionId: item.sessionId, topicId: item.topicId, goal: item.goal, status: item.status,
+        })),
+        truncated: state.sources.length > 30 || state.exams.length > 30 || state.topics.length > 100 || state.sessions.length > 10,
+      };
+    },
+    setExam: input => {
+      assertCurrent(); validateLearnCourse(input.courseId);
+      repository.setExam(input);
+      return { saved: true, exams: repository.exams().slice(0, 30) };
+    },
+    startSession: async input => {
+      assertCurrent(); await requireReadyProvider('starting your tutor'); assertCurrent();
+      return requireTutorCoordinator().start(input);
+    },
+    importSource: input => {
+      assertCurrent(); validateLearnCourse(input.courseId);
+      const source = repository.importSource(input);
+      queueLearnExtraction();
+      return { sourceId: source.sourceId, status: source.status, title: source.title };
+    },
+  };
+}
+
+/** A file added to a goal belongs to that goal's class. */
+function learnSourceCourse(courseId: string | null, examId: string | null): string | null {
+  const goalCourse = examId ? requireLearnRepository().exam(examId).courseId : courseId;
+  validateLearnCourse(goalCourse);
+  return goalCourse;
+}
+
+/** Homework Dot actually worked on for this student, with its verified instructions. */
+function workedAssignments() {
+  const repository = requireLearnRepository();
+  const store = requireLocalStore();
+  const worked = new Set(store.tasks.listAll().filter(task => {
+    const execution = store.lifecycle.getExecution(task.taskId);
+    return execution?.ownerSubject === repository.ownerSubject
+      && Boolean(execution.answerSnapshot && execution.reviewCheckpoint);
+  }).map(task => task.assignmentId));
+  return store.assignments.listAll().filter(assignment =>
+    worked.has(assignment.assignmentId) && Boolean(assignment.sourceTarget && assignment.requirementEvidence?.length));
+}
+
+const LEVEL_NAMES = ['Not yet', 'Shaky', 'Getting there', 'Good', 'Solid'];
+
+/** The goal's study folder under the homework folder: notes the tutor reads back, and the pages it made. */
+function tutorFiles(): import('./agent/tutor-coordinator.js').TutorFiles {
+  const goalOf = (session: import('../shared/tutor.js').TutorSession) => {
+    const repository = requireLearnRepository();
+    const goal = session.examId ? repository.exams().find(exam => exam.examId === session.examId) : undefined;
+    const topic = repository.topic(session.topicId);
+    return { title: goal?.title ?? topic.title, courseId: goal?.courseId ?? topic.courseId };
+  };
+  const folderFor = async (session: import('../shared/tutor.js').TutorSession) => {
+    const root = (await requireLocalStore().productPreferences.get()).homeworkRoot;
+    if (!root) return null;
+    const { title, courseId } = goalOf(session);
+    const classLabel = courseId ? requireLocalStore().school.listCourses().find(course => course.courseId === courseId)?.label ?? null : null;
+    return goalFolder(root, { title, classLabel });
+  };
+  return {
+    read: async session => {
+      const folder = await folderFor(session);
+      const notes = folder ? await readGoalNotes(folder) : { progress: "", cheatsheet: "" };
+      // What the setup check learned about the class (grading, assignment kinds, exam dates).
+      const { courseId } = goalOf(session);
+      const classNote = courseId ? await readClassNote(courseId) : "";
+      return notes.progress || notes.cheatsheet || classNote ? { ...notes, classNote } : null;
+    },
+    savePage: async (session, title, html) => {
+      const folder = await folderFor(session);
+      if (folder) await saveStudyPage(folder, learnToday(), title, studyPageDocument(html));
+    },
+    recordFinish: async session => {
+      const folder = await folderFor(session);
+      if (!folder || !session.result) return;
+      const level = (value: number | null) => value === null ? null : LEVEL_NAMES[value] ?? null;
+      await recordSessionNote(folder, { date: learnToday(), topic: requireLearnRepository().topic(session.topicId).title, summary: session.result.summary,
+        levelBefore: level(session.result.previousLevel), levelAfter: level(session.result.level), missing: session.result.missing, next: session.result.next });
+      const finish = [...session.blocks].reverse().find(block => block.tool === 'tutor_finish');
+      if (finish?.tool === 'tutor_finish') await addCheatsheetLines(folder, finish.args.cheatsheet ?? []);
+    },
+  };
+}
+
+function learnToday(): string {
+  const now = new Date();
+  return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+}
+
+function currentLearnState() {
+  const repository = requireLearnRepository();
+  repository.syncHomeworkHints(workedAssignments().map(({ assignmentId, courseId, title }) => ({ assignmentId, courseId, title })));
+  return repository.learnState(learnToday(), learnSelectedGoal);
+}
+
+function listClassExams(courseId: string): { examId: string; title: string; date: string | null }[] {
+  return requireLearnRepository().exams().filter(exam => exam.courseId === courseId && !exam.hidden)
+    .map(({ examId, title, date }) => ({ examId, title, date }));
+}
+
+/** What the setup check learned about a class (grading, assignment kinds, the student's section, exam dates). */
+async function readClassNote(courseId: string): Promise<string> {
+  const store = requireLocalStore();
+  const entry = store.notes.list().find(note => note.scope === "course" && note.subjectId === courseId && note.key === "class-overview");
+  return entry ? (await store.notes.read(entry.noteId))?.content ?? "" : "";
+}
+
+function queueLearnExtraction(sourceId?: string): void {
+  const worker = learnExtractionWorker;
+  if (!worker) return;
+  void (async () => {
+    // Keep imported sources pending while disconnected; the student can retry after signing in.
+    try { await requireReadyProvider('reading your syllabus'); } catch { return; }
+    if (worker !== learnExtractionWorker) return;
+    await worker.processPendingSources(sourceId ? { forceSourceId: sourceId } : {});
+  })().catch(error => telemetryService?.captureError(error, 'runtime', 'session_start'));
+}
+
+function tutorTimelineEntries(repository: LearnRepository): import('../shared/index.js').TimelineEntry[] {
+  // Reads poll frequently. SQLite's connection counter invalidates on every
+  // write, including two writes in one millisecond; idle reads reuse projection.
+  const changes = Number(requireLocalStore().database.handle.prepare('SELECT total_changes() AS count').get()?.count);
+  if (tutorTimelineCache?.repository === repository && tutorTimelineCache.changes === changes) return tutorTimelineCache.entries;
+  const entries = repository.sessions().flatMap(session => {
+    const context = { kind: 'tutor', sessionId: session.sessionId } as const;
+    const title = session.goal;
+    const entries: import('../shared/index.js').TimelineEntry[] = session.messages.map(message => ({
+      id: 'tutor-message:' + message.messageId, kind: 'message', role: 'user',
+      context, title, text: message.text, createdAt: message.createdAt,
+    }));
+    for (const block of session.blocks) {
+      if (block.tool === 'tutor_say') entries.push({
+        id: 'tutor-block:' + block.blockId, kind: 'message', role: 'assistant', context,
+        title, text: block.args.text, createdAt: block.createdAt,
+      });
+    }
+    if (session.status === 'completed' && session.result && session.finishedAt) entries.push({
+      id: 'tutor-finished:' + session.sessionId, kind: 'event', event: 'session_finished',
+      context, title, text: session.result.summary, createdAt: session.finishedAt,
+    });
+    return entries;
+  });
+  tutorTimelineCache = { repository, changes, entries };
+  return entries;
 }
 
 function requireAssignmentExecutionCoordinator(): AssignmentExecutionCoordinator {
@@ -2065,16 +2742,23 @@ async function requireSchoolBrowserTelemetryIsolation(): Promise<boolean> {
 }
 
 async function requireReadyProviderForScan(): Promise<void> {
-  const provider = await requireAgentRuntime().getProviderStatus("openai-codex");
+  await requireReadyProvider("scanning the school");
+}
+
+/** Checks configured subscription status; the subsequent real turn proves connectivity. */
+async function requireReadyProvider(purpose: string): Promise<void> {
+  const runtime = requireAgentRuntime();
+  const provider = await runtime.getProviderStatus(runtime.selectedProviderId);
+  const name = agentProviderName(runtime.selectedProviderId);
   const attention = classifyAgentRuntimeAttention(provider);
   if (attention === "usage") {
-    throw new Error("ChatGPT usage ran out. Wait for more usage or connect another ChatGPT, then try again.");
+    throw new Error(`${name} usage ran out. Wait for more usage or switch to another subscription, then try again.`);
   }
   if (attention === "needs_login") {
-    throw new Error("Codex needs another ChatGPT login before scanning.");
+    throw new Error(`${name} needs you to sign in again before ${purpose}.`);
   }
   if (provider.state !== "ready") {
-    throw new Error("Connect the Codex subscription before scanning the school");
+    throw new Error(`Connect ${name} before ${purpose}.`);
   }
 }
 
@@ -2127,11 +2811,13 @@ function configureStartupProfile(): boolean {
 }
 
 if (canStart) {
+  registerFileSchemePrivileges();
   void app.whenReady().then(async () => {
     try {
       app.setAppUserModelId("com.squirrel.studi.Studi");
       Menu.setApplicationMenu(null);
       registerDesktopConnectProtocol();
+      serveAssignmentFiles((assignmentId, path) => requireAssignmentExecutionCoordinator().revealAssignmentFile(assignmentId, path));
       initializeTelemetry();
       await initializeStorage();
       await initializeAgentSelfTest();
@@ -2186,10 +2872,19 @@ app.on("window-all-closed", () => {
 });
 
 app.on("before-quit", (event) => {
-  if (!telemetryService || telemetryShutdownFinished) return;
+  // Disposal removes the kernel before windows close; do not turn that close into a tray hide.
+  gateQuitting = true;
+  if (appShutdownFinished) return;
   event.preventDefault();
-  void telemetryService.shutdown().finally(() => {
+  if (appShutdown) return;
+  appShutdown = (async () => {
+    schoolSessionKeeper?.stop();
+    await schoolSessionKeeper?.save().catch(error => recordBrowserDiagnostic("school_session_save_failed", { message: formatError(error) }));
+    await disposeProtectedRuntime();
+    if (telemetryService && !telemetryShutdownFinished) await telemetryService.shutdown();
+  })().catch(error => console.error('Studi shutdown failed', error)).finally(() => {
     telemetryShutdownFinished = true;
+    appShutdownFinished = true;
     app.quit();
   });
 });
@@ -2198,7 +2893,6 @@ app.on("will-quit", () => {
   gateQuitting = true;
   updateService?.dispose();
   disposeGateTray();
-  disposeProtectedRuntime();
   authCoordinator = null;
   telemetryService = null;
   localStore?.close();

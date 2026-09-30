@@ -1,0 +1,568 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Studi build plan: from Codex automations to a working app</title>
+<style>
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--blot2:#e9e0ce;--hi:#f6c945;--lav:#cdbcf0;--red:#b3452f;--mint:#8fc9a8;--sky:#9cc3e6;--coral:#f0a58c}
+*{box-sizing:border-box}
+body{margin:0;background:#f4efe4;color:var(--pencil);font:15px/1.55 "Nunito Sans",system-ui,sans-serif}
+main{max-width:1060px;margin:0 auto;padding:36px 22px 90px}
+h1{font:700 34px/1.15 "Shantell Sans",cursive;margin:0 0 6px}
+h2{font:700 24px/1.2 "Shantell Sans",cursive;margin:54px 0 10px;padding-top:10px;border-top:2px solid var(--pencil)}
+h3{font-size:17px;margin:26px 0 6px}
+h4{font-size:15px;margin:16px 0 4px}
+p,li{max-width:78ch}
+code{font:13px/1.4 ui-monospace,Consolas,monospace;background:var(--blotter);padding:1px 5px;border-radius:5px}
+pre{font:12.5px/1.5 ui-monospace,Consolas,monospace;background:var(--page);border:1px solid var(--rule);border-radius:10px;padding:12px 14px;overflow:auto;white-space:pre-wrap}
+table{border-collapse:collapse;width:100%;margin:10px 0 16px;font-size:13.5px;background:var(--page)}
+th,td{border:1px solid var(--rule);padding:7px 9px;text-align:left;vertical-align:top}
+th{background:var(--blotter)}
+nav.toc{position:sticky;top:0;z-index:5;background:#f4efe4ee;backdrop-filter:blur(4px);padding:8px 0;margin:0 0 10px;border-bottom:1px solid var(--rule);font-size:13px}
+nav.toc a{margin-right:12px;color:var(--pencil)}
+.lede{font-size:17px;color:#4b443c}
+.note{background:var(--page);border-left:4px solid var(--hi);padding:10px 14px;border-radius:0 10px 10px 0;margin:12px 0}
+.warn{border-left-color:var(--red)}
+.cp{background:var(--page);border:1.5px solid var(--pencil);border-radius:16px;padding:16px 20px;margin:20px 0}
+.cp h3{margin-top:0}
+.cp .gate{background:var(--blotter);border-radius:10px;padding:10px 14px;margin-top:10px}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:6px;background:var(--blotter);margin-right:6px}
+/* mockups */
+.mocks{display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:22px;margin:14px 0}
+.mock{background:var(--paper);border:1.5px solid var(--pencil);border-radius:14px;overflow:hidden;font-size:12.5px;box-shadow:0 3px 0 var(--pencil)}
+.mock>.cap{background:var(--pencil);color:#fff;font-weight:700;font-size:12px;padding:5px 10px}
+.bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:8px 12px;border-bottom:1px solid var(--rule)}
+.logo{font:700 15px "Shantell Sans",cursive}
+.sw{display:flex;background:var(--blotter);border-radius:9px;padding:2px}
+.sw span{padding:3px 14px;border-radius:7px;font-weight:700;color:var(--graphite)}
+.sw .on{background:var(--hi);color:var(--pencil);box-shadow:0 0 0 1.2px var(--pencil)}
+.sw .onl{background:var(--lav);color:var(--pencil);box-shadow:0 0 0 1.2px var(--pencil)}
+.ic{justify-self:end;color:var(--graphite);letter-spacing:6px}
+.body{padding:14px 18px 16px}
+.hello{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.inky{width:34px;height:34px;border-radius:50%;background:#8db8e8;border:2px solid var(--pencil);flex:none;position:relative}
+.inky:after{content:"• •";position:absolute;top:8px;left:7px;font-size:10px;letter-spacing:1px}
+.hello b{display:block;font:700 18px/1.15 "Shantell Sans",cursive}
+.hello small{color:var(--graphite)}
+.lbl{font-weight:700;margin:12px 0 4px;font-size:12px}
+.lbl em{font-style:normal;color:var(--graphite);font-weight:600}
+.row{display:grid;grid-template-columns:4px 1fr auto;gap:9px;align-items:center;padding:6px 0}
+.row i{align-self:stretch;border-radius:2px;background:var(--lav)}
+.row i.m{background:var(--mint)}.row i.s{background:var(--sky)}.row i.c{background:var(--coral)}
+.row b{display:block;font-size:12.5px}
+.row small{color:var(--graphite)}
+.row small.red{color:var(--red)}
+.btn{display:inline-block;padding:4px 12px;border-radius:8px;font-weight:700;background:var(--page);box-shadow:0 0 0 1.2px var(--pencil)}
+.btn.p{background:var(--hi);box-shadow:0 0 0 1.2px var(--pencil),0 2px 0 1.2px var(--pencil)}
+.btn.l{background:var(--lav);box-shadow:0 0 0 1.2px var(--pencil),0 2px 0 1.2px var(--pencil)}
+.btn.q{box-shadow:none;background:var(--blotter)}
+.muted{color:var(--graphite)}
+.composer{margin:14px auto 0;max-width:92%;border:1.5px solid var(--pencil);border-radius:12px;padding:7px 10px;display:flex;gap:8px;align-items:center;color:var(--graphite);background:var(--page)}
+.composer .inky{width:18px;height:18px}.composer .inky:after{display:none}
+.split{display:grid;grid-template-columns:220px 1fr;min-height:300px}
+.side{padding:12px;border-right:1px solid var(--rule);background:var(--paper)}
+.school{background:#fff;position:relative}
+.school .sh{background:#1f3a60;color:#fff;padding:6px 10px;font-weight:700;font-size:11px}
+.school .sb{padding:10px;font-size:11px;color:#333}
+.veil{position:absolute;inset:26px 0 0 0;background:#8db8e820;border:2px solid #6aa0dc;border-radius:0 0 12px 12px}
+.veil .tk{position:absolute;right:8px;top:8px;background:#fff;border:1.5px solid var(--pencil);border-radius:8px;padding:2px 8px;font-weight:700;font-size:11px}
+.cursor{position:absolute;left:46%;top:52%;width:12px;height:12px;border-radius:50%;background:#6aa0dc;box-shadow:0 0 0 4px #6aa0dc55}
+.voice{font:600 13px/1.35 "Shantell Sans",cursive}
+.feed div{padding:3px 0;border-bottom:1px dashed var(--rule)}
+.feed .now{font-weight:700}
+.card{background:var(--page);border:1.5px solid var(--pencil);border-radius:12px;padding:10px 12px;margin-top:8px}
+.lead{display:flex;justify-content:space-between;align-items:center;background:var(--blotter);border-radius:9px;padding:8px 10px}
+.lv{display:inline-flex;gap:2px}.lv i{width:12px;height:4px;border-radius:2px;background:var(--blot2)}.lv i.on{background:var(--pencil)}
+.tl{display:grid;grid-template-columns:1fr 60px 70px;gap:8px;align-items:center;padding:3px 0}
+.phases{display:flex;gap:10px;justify-content:center;font-size:10.5px;color:var(--graphite)}
+.phases .d:before,.phases .n:before,.phases span:before{content:"● ";color:var(--blot2)}
+.phases .d:before{color:var(--pencil)}.phases .n{color:var(--pencil);font-weight:700}.phases .n:before{color:var(--lav)}
+.opts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.opts span{border:1.5px solid var(--pencil);border-radius:9px;padding:10px 6px;text-align:center;font:600 12px "Shantell Sans",cursive;background:var(--page)}
+.study{border:1.5px dashed var(--graphite);border-radius:10px;padding:8px;margin-top:8px;background:#fff}
+.grid10{display:grid;grid-template-columns:repeat(20,1fr);gap:2px;margin:6px 0}.grid10 i{aspect-ratio:1;border-radius:50%;background:var(--blot2)}.grid10 i.k{background:var(--pencil)}.grid10 i.r{background:var(--red)}
+.set{display:grid;grid-template-columns:130px 1fr;min-height:280px}
+.set .nav{border-right:1px solid var(--rule);padding:10px;line-height:2}
+.set .nav b{display:block;border-left:3px solid var(--hi);padding-left:6px;margin-left:-9px}
+.chk{display:grid;grid-template-columns:18px 1fr auto;gap:6px;padding:4px 0;align-items:center}
+.ok{color:#2f7d53;font-weight:700}.bad{color:var(--red);font-weight:700}.wait{color:var(--graphite)}
+</style>
+</head>
+<body>
+<main>
+<nav class="toc">
+<a href="#use">How to use</a><a href="#north">North star</a><a href="#now">Where it is</a><a href="#design">Design</a><a href="#arch">Architecture</a><a href="#cps">Checkpoints</a><a href="#lms">Fake LMS</a><a href="#live">Real schools</a><a href="#report">Report format</a><a href="#audit">UI fix list</a><a href="#map">File map</a>
+</nav>
+
+<h1>Studi build plan</h1>
+<p class="lede">Turn the three Codex automations that already work for the student into one polished desktop app. Scanning finds the work. Inky does the homework. Inky tutors from the real course material. Each step below ends in a checkpoint with tests that must pass. When every checkpoint passes, the app works.</p>
+<p class="muted">Written 2026-09-23 for the build agent. Branch <code>t3code/learn-redo</code> at <code>0c5ec3f</code>. Repo root: <code>C:/Users/kaust/.t3/worktrees/studi-2/t3code-7b59ae23</code>. Companion docs: <code>docs/redesign/scan-plan.html</code>, <code>learn-plan.html</code>, <code>learn-concept.html</code>, <code>concept.html</code>, <code>SPEC.md</code>.</p>
+
+<h2 id="use">1. How the build agent works through this</h2>
+<ol>
+<li><b>One branch.</b> Work only on <code>t3code/learn-redo</code> in this worktree. Create no other worktrees or branches. Commit after each task with a clear message. Never use bare <code>git stash</code>. Don't push unless told to.</li>
+<li><b>Checkpoints are gates.</b> Do the checkpoints in order. Finish a checkpoint by writing <code>docs/reports/checkpoint-NN.md</code> (format in <a href="#report">section 9</a>), committing it, and <b>stopping</b>. A reviewer reads the report and answers "approved" or sends a list of fixes. Don't start the next checkpoint before approval.</li>
+<li><b>Evidence, not claims.</b> Each report pastes the exact commands and the tail of their real output, the metrics, and the screenshot paths. A claim without output counts as not done. If something fails or was skipped, say so plainly.</li>
+<li><b>Code quality.</b> Write minimal, readable code that matches the surrounding style. Delete code the new design makes dead. Add no speculative abstractions. Add tests only where they guard real behaviour. Keep stored records backward compatible: add fields with zod defaults, because real users have SQLite data.</li>
+<li><b>Before touching any UI</b>, read <code>docs/redesign/SPEC.md</code> section 8 (the visual system) and <a href="#design">section 4</a> here. No sidebars, no pills, no busy cards. Each screen has one filled lead action.</li>
+<li><b>Safety.</b> Never submit, post or enrol on a real school site during testing. Live runs against real schools are read-only scans only, and only in checkpoint 8.</li>
+</ol>
+
+<h2 id="north">2. North star: copy what already works</h2>
+<p>The student already gets real value from Codex, with no custom UI:</p>
+<table>
+<tr><th>Job</th><th>What works in Codex today</th><th>Why it works</th><th>What Studi adds</th></tr>
+<tr><td>Find work</td><td>A daily automation (<code>~/.codex/automations/daily-wolfware-due-date-check/automation.toml</code>). It checks sign-in on every system first, reads the Moodle Dashboard timeline, calendar, course pages and linked systems (WebAssign, Gradescope), stays strictly read-only, and writes a report: overdue, due in 7 days, due in 30 days, changes, blocked sources.</td><td>A strong general agent with a real signed-in browser and a clear prompt. It isn't forced to prove every row with page evidence, and blocked systems are reported instead of stopping the run.</td><td>Rows on Today instead of a text report, a schedule, notifications, and diffs between runs.</td></tr>
+<tr><td>Do homework</td><td>A new thread: "do this assignment, follow the instructions, submit" with a Moodle link. The agent works the quiz in the in-app browser.</td><td>Same agent, same browser, files and shell when needed. The student watches and can take over.</td><td>A queue, per-class rules (do it, or do it and submit), a review window, receipts, and takeover on the existing overlay.</td></tr>
+<tr><td>Learn</td><td>A folder per course (<code>C:/Users/kaust/Documents/CSC316-Exam1</code>): <code>AGENTS.md</code> with Socratic teaching rules, <code>PROJECT_CONTEXT.md</code>, <code>LEARNING_PROGRESS.md</code>, <code>CHEATSHEET.md</code>, the instructor's exact question stems (<code>W1..W4-exact-stems.md</code>), and HTML study pages the agent generates (<code>sorts.html</code>, <code>stack-lab.html</code>, <code>mock-exam.html</code>).</td><td>Teaching is grounded in the real stems and syllabus. Progress persists in a file the agent reads every session. The agent can build a visual when one helps.</td><td>A Learn page per exam, fixed question components that the app grades honestly, levels, and a study-page pane for the agent's visuals.</td></tr>
+</table>
+<div class="note"><b>Rule for every decision below:</b> when Studi's custom machinery fights the agent (evidence rules, inventories, label guards, restart prompts), replace it with what the Codex setup does: a capable agent, good tools, a clear prompt, and light validation at the edges. Keep the product value that Codex lacks: rows, schedule, rules, receipts, levels.</div>
+
+<h3>Definition of done: three journeys</h3>
+<table>
+<tr><th>#</th><th>Journey</th><th>Passes when</th></tr>
+<tr><td>J1</td><td>Sign in, then onboarding, then the first school check, then Today</td><td>Every assignment due in the window shows on Today with the right class, title, due date and time (school time zone), status and link. Nothing extra: no slides, files or grade rows. Sign-in blockers are listed per system. The check finishes within its time target.</td></tr>
+<tr><td>J2</td><td>Start an assignment, Inky works it, review, submit (by rule or by the student), receipt</td><td>The school records exactly one submission with the right answers or files. The receipt matches it. Takeover and Stop work mid-run. Under "do it, I submit", nothing is submitted.</td></tr>
+<tr><td>J3</td><td>Add an exam or find it, then Learn page, then a tutor session, then the level changes</td><td>The goal comes from the real syllabus and study guide. Questions cite that material. The student's own unaided answers move the level at most one step. A study page renders. Progress persists across restarts.</td></tr>
+</table>
+<p>Each journey runs automatically in three places: (a) scripted, against the fake school, on every commit; (b) live-model, against the fake school, nightly and before release; (c) read-only, against a real Moodle or Canvas account, before release (J1 only, plus J2 up to review).</p>
+
+<h2 id="now">3. Where the code is today</h2>
+<table>
+<tr><th>Area</th><th>State</th><th>Evidence</th></tr>
+<tr><td>Scan</td><td><b>Broken on real schools.</b> One real Moodle scan took 99 minutes and 655 tool calls, and never finished.</td><td><code>docs/redesign/scan-plan.html</code> audit rows 1–14; <code>.agents/studi-qa/scan-audit-2026-09-19.md</code></td></tr>
+<tr><td>Browser tools</td><td>Refs die on every snapshot (<code>controller.ts:84</code> <code>pageChanged()</code>). Every action returns a 3k-token snapshot. A label guard blocks "Submit Lab 3" links and "Show more" (<code>controller.ts:257</code>). No iframes. <code>evidenceSnapshot</code> reuses a prior search filter.</td><td>code</td></tr>
+<tr><td>Homework</td><td>Works in pieces: <code>assignment/coordinator.ts</code> has review, submit and receipts. No test runs scan → work → submit end to end.</td><td>code map</td></tr>
+<tr><td>Learn / tutor</td><td>Rewritten on this branch (commit <code>0c5ec3f</code>): goal model, selection fix, grounded context (<code>agent/tutor-context.ts</code>), lesson phases, new <code>LearnScreen.tsx</code> and <code>TutorScreen.tsx</code>. Typecheck passes. <b>Tests, screenshots and a live session haven't been run yet.</b></td><td>git log</td></tr>
+<tr><td>Fake LMS</td><td>A clean, custom "Cedar Learning": server-rendered with no JS, no iframes, no Moodle or Canvas markup, no SSO, few item kinds. Scans pass here and fail on real schools.</td><td><code>agent-harness/lms/</code></td></tr>
+<tr><td>Tests</td><td>Many unit and contract suites. The benchmark gate skips timeouts (<code>agent-harness/benchmark/comparison.mjs:86</code>). The harness only runs scripted drivers.</td><td><code>scripts/verify-studi.mjs</code></td></tr>
+<tr><td>Settings</td><td>One long scroll with mixed controls and several save buttons. Doesn't match the mock.</td><td>preview <code>settings-*</code></td></tr>
+<tr><td>Known small bugs</td><td><code>runtime.ts:235</code> checks the wrong browser tools. <code>capability-registry.ts:58</code> uses stale tool names. The submit pack is always attached. <code>BROWSER_KEYS</code> lacks PageUp/PageDown/Home/End. <code>FakeAgentRuntime</code> lacks <code>createLearningSession</code>.</td><td>code map</td></tr>
+</table>
+
+<h2 id="design">4. Design: mockups for the finished app</h2>
+<p>These are the target. Real data drives every screen: the agent produces data, and fixed components show it. Learn swaps the yellow highlighter for lavender. Class colour appears only as a left edge. Inky's voice uses the handwriting font. Labels and buttons never do. Full interactive references: <code>concept.html</code> (Homework) and <code>learn-concept.html</code> (Learn).</p>
+
+<div class="mocks">
+
+<div class="mock"><div class="cap">A. Today (Homework). Built from rows the scan saved</div>
+<div class="bar"><span class="logo">studi</span><span class="sw"><span class="on">Homework</span><span>Learn</span></span><span class="ic">🔔⚙K</span></div>
+<div class="body">
+<div class="hello"><span class="inky"></span><div><b>One thing needs you.</b><small>HW 3 is ready to look over. I'll start Lab 4 tonight.</small></div></div>
+<div class="lbl">Needs you <em>1</em></div>
+<div class="row"><i></i><div><b>HW 3</b><small>CSC 316 · due today 11:59 PM · ready to look over</small></div><span class="btn p">Review</span></div>
+<div class="lbl">Up next <em>· Inky's rule: Do it, I submit · Change</em></div>
+<div class="row"><i class="m"></i><div><b>Lab 4: Stacks</b><small>CSC 217 · Thu 11:59 PM</small></div><span class="btn">Start</span></div>
+<div class="row"><i class="s"></i><div><b>WebAssign HW 10</b><small>ST 370 · Fri 11:59 PM · on WebAssign</small></div><span class="muted">Starts Thu 8 PM</span></div>
+<div class="row"><i class="c"></i><div><b>Exercise 11</b><small>CSC 230 · Mon</small></div><span class="muted">Starts when you ask</span></div>
+<div class="lbl">Handed in this week <em>2 · receipts</em></div>
+<div class="muted">Later 4 ˅ · No due date 1 ˅ · + Add homework · All work →</div>
+<div class="composer"><span class="inky"></span>Ask Inky, or tell it what to do next…</div>
+</div></div>
+
+<div class="mock"><div class="cap">B. School check. Sign-in first, then one row per class (streams live)</div>
+<div class="bar"><span class="logo">studi</span><span class="sw"><span class="on">Homework</span><span>Learn</span></span><span class="ic">🔔⚙K</span></div>
+<div class="body">
+<div class="hello"><span class="inky"></span><div><b>Checking your classes.</b><small>Read-only. About 2 minutes. Keep using Studi.</small></div></div>
+<div class="lbl">Signed in</div>
+<div class="chk"><span class="ok">✓</span><span>Moodle (WolfWare)</span><span class="muted">dashboard read</span></div>
+<div class="chk"><span class="ok">✓</span><span>Gradescope</span><span class="muted"></span></div>
+<div class="chk"><span class="bad">!</span><span>WebAssign needs you to sign in</span><span class="btn p">Sign in</span></div>
+<div class="lbl">Classes</div>
+<div class="chk"><span class="ok">✓</span><span>CSC 316: 3 due, 1 new</span><span class="muted">from Moodle's list</span></div>
+<div class="chk"><span class="ok">✓</span><span>CSC 217: 2 due</span><span class="muted"></span></div>
+<div class="chk"><span class="wait">…</span><span>ST 370: reading the course page</span><span class="muted"></span></div>
+<div class="chk"><span class="wait">·</span><span>CSC 230</span><span class="muted">waiting</span></div>
+<div style="margin-top:10px"><span class="btn q">Finish with what you found</span></div>
+<p class="muted" style="margin:8px 0 0">The school page stays on the right with Inky's blue veil (existing <code>drive-overlay.ts</code>). The student can take over at any time.</p>
+</div></div>
+
+<div class="mock"><div class="cap">C. Inky doing an assignment. Panel plus the full-bleed school page with overlay</div>
+<div class="split">
+<div class="side"><span class="btn q">← Back</span>
+<div class="lbl" style="margin-top:12px">Exercise 10 · CSC 230</div>
+<div class="voice">Answering question 4 of the quiz.</div>
+<div class="feed" style="margin-top:8px"><div>Opened the quiz</div><div>Read the instructions and 2 attached files</div><div>Answered questions 1–3</div><div class="now">Typing the answer to question 4</div></div>
+<div class="composer" style="max-width:100%;margin-top:14px"><span class="inky"></span>Tell Inky something… <b style="margin-left:auto">■</b></div>
+</div>
+<div class="school"><div class="sh">WolfWare Moodle · CSC 230 · Quiz</div><div class="sb">Question 4<br>What does <code>int main(void)</code> return?<br><br>[ answer box ]</div>
+<div class="veil"><span class="tk">Take over</span><span class="cursor"></span></div></div>
+</div></div>
+
+<div class="mock"><div class="cap">D. Review. Doubts first, then the work, then one action by the rule</div>
+<div class="split">
+<div class="side"><span class="btn q">← Back</span>
+<div class="lbl" style="margin-top:12px">HW 3 · ready to look over</div>
+<div class="voice">Two things I'm not sure about:</div>
+<div class="feed"><div><b>Q2</b>: the rubric says "show work". I attached the trace.</div><div><b>Q5</b>: two readings of "stable". I used the textbook one.</div></div>
+<div class="lbl">Requirements · 6 of 6 met ˅</div><div class="lbl">Answers · studi-answer.md ˅</div>
+<div style="margin-top:10px"><span class="btn p">Submit</span> <span class="btn q">Edit it myself</span></div>
+<p class="muted">Submits by itself at 11:30 PM (rule: do it and submit)</p>
+</div>
+<div class="school"><div class="sh">Moodle · HW 3 · your answers filled in, not submitted</div><div class="sb">Q1 ✓ filled<br>Q2 ✓ filled<br>…</div></div>
+</div></div>
+
+<div class="mock"><div class="cap">E. Learn. Goals with readiness, then the open goal</div>
+<div class="bar"><span class="logo">studi</span><span class="sw"><span>Homework</span><span class="onl">Learn</span></span><span class="ic">🔔⚙K</span></div>
+<div class="body">
+<div class="hello"><span class="inky"></span><div><b>Midterm 1 in 6 days.</b><small>About 40% ready. Next up: Bayes' theorem.</small></div></div>
+<div class="row"><i class="m"></i><div><b>Midterm 1</b><small>ST 370 · review sheet, Quiz 2, 3 slides</small></div><b>6 days</b></div>
+<div class="row"><i></i><div><b>Exam 1</b><small>CSC 316 · stems W1–W4, syllabus</small></div><b>12 days</b></div>
+<div class="row"><i class="c"></i><div><b>Final</b><small>MA 241 · nothing to study from yet</small></div><b>No date</b></div>
+<div class="card"><div class="lead"><div><b>Today: Bayes' theorem</b><br><small class="muted">Biggest gap for its 30% of the exam · 15 min</small></div><span class="btn l">Start</span></div>
+<div class="lbl">What's on it <em>· from your review sheet</em></div>
+<div class="tl"><span>Conditional probability 25%</span><span class="lv"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span><span class="muted">Good</span></div>
+<div class="tl"><span>Bayes' theorem 30%</span><span class="lv"><i class="on"></i><i></i><i></i><i></i></span><span class="muted">Shaky</span></div>
+<div class="tl"><span>Distributions 10%</span><span class="lv"><i></i><i></i><i></i><i></i></span><span class="muted">Not checked</span></div>
+<div class="muted" style="margin-top:6px">Test yourself · 10 minute quiz · Cheat sheet · Add a file · Change</div></div>
+</div></div>
+
+<div class="mock"><div class="cap">F. Tutor session. Phases, a fixed question, and the agent's study page</div>
+<div class="bar" style="grid-template-columns:auto 1fr auto"><span class="btn q">Leave</span><span style="text-align:center"><b>Bayes' theorem</b> <span class="muted">· ST 370 Midterm 1 in 6 days</span><div class="phases"><span class="d">Check</span><span class="d">Learn</span><span class="n">Practise</span><span>On your own</span><span>Wrap up</span></div></span><span class="muted">7 min left</span></div>
+<div class="body">
+<div class="muted">Check · P(A|B) means… · right, 6 s<br>Learn · You test positive… · you said 90%</div>
+<div class="hello" style="margin-top:8px"><span class="inky"></span><div class="voice">Move the base rate and watch how many positives are real.</div></div>
+<div class="study"><b>Study page</b> <span class="muted">· made by Inky for this question · sandboxed</span>
+<div class="grid10"><i class="k"></i><i class="r"></i><i class="r"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i class="r"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+<span class="muted">base rate ━━●━━━ 1% · positives: 1 real, 10 false</span></div>
+<b style="display:block;margin-top:8px">Now 1 in 10 people has it. Same test. How likely are you sick?</b>
+<div style="margin-top:6px"><span class="btn">% ______</span> <span class="btn l">Check</span> <span class="btn q">Hint</span></div>
+<p class="muted" style="margin:6px 0 0">Like problem 3 on the Midterm 1 review sheet.</p>
+<div class="composer"><span class="inky"></span>Stuck? Ask Inky about this question</div>
+</div></div>
+
+<div class="mock"><div class="cap">G. Settings. Sections on the left, one short page per section</div>
+<div class="bar"><span class="logo">studi</span><span class="sw"><span class="on">Homework</span><span>Learn</span></span><span class="btn q" style="justify-self:end">Done</span></div>
+<div class="set"><div class="nav"><b>Inky's brain</b>Homework rules<br>School<br>What Inky remembers<br>Notifications<br>You</div>
+<div class="body"><div class="lbl">Which AI does the work</div>
+<div class="row"><i></i><div><b>ChatGPT Plus</b><small>GPT-5.6 Sol · thinks hard</small></div><span class="muted">In use</span></div>
+<div class="row"><i style="background:var(--blot2)"></i><div><b>Claude Pro</b><small>Not connected</small></div><span class="btn">Connect</span></div>
+<div class="lbl">How hard Inky thinks</div><div class="sw" style="display:inline-flex"><span>Quick</span><span class="on">Normal</span><span>Hard</span></div>
+<p class="muted">School checks always use the quick setting. It's cheaper and it's enough.</p></div></div>
+<p class="muted" style="padding:0 12px 10px;margin:0">The section list is a plain text list, not a card sidebar. Changes save when made; there are no Save buttons.</p>
+</div>
+
+<div class="mock"><div class="cap">H. Homework rules. General rule, exceptions, and a checker</div>
+<div class="bar"><span class="logo">studi</span><span class="sw"><span class="on">Homework</span><span>Learn</span></span><span class="btn q" style="justify-self:end">Done</span></div>
+<div class="body">
+<div class="lbl">When I find homework</div>
+<div class="sw" style="display:inline-flex"><span>Leave it</span><span class="on">Do it, I submit</span><span>Do it and submit</span></div>
+<div class="lbl">Exceptions <em>· the most specific wins</em></div>
+<div class="row"><i class="m"></i><div><b>CSC 217</b><small>Leave it · graded labs</small></div><span class="muted">×</span></div>
+<div class="row"><i class="s"></i><div><b>ST 370 · WebAssign</b><small>Do it and submit</small></div><span class="muted">×</span></div>
+<div class="muted">+ Add an exception</div>
+<div class="lbl">Check a rule</div>
+<div class="card" style="margin-top:4px">HW 3 (CSC 316) → <b>Do it, I submit</b> <span class="muted">because: general rule</span></div>
+</div></div>
+
+</div>
+
+<h2 id="arch">5. Architecture decisions</h2>
+<h3>5.1 Scan = the Codex automation, made structured</h3>
+<ul>
+<li><b>Prompt.</b> Rewrite <code>desktop/agent-system/packs/roles/scan/instructions.md</code> and <code>capabilities/scan-record/instructions.md</code> around the automation's structure. (1) Sign-in preflight: classify each system as signed in, needs sign-in, denied, network, or down, and continue with what's reachable. (2) Discover from the dashboard timeline and calendar, then course pages, then linked systems. (3) Strictly read-only (copy the automation's read-only paragraph). (4) Report what couldn't be checked. Keep it under 60 lines. Studi supplies the school root, known courses, the previous run's rows and today's date.</li>
+<li><b>Tools.</b> Replace the 15 scan tools with 6:
+ <ul>
+  <li><code>scan_status</code>: returns counts and what's left.</li>
+  <li><code>scan_record_system</code> <code>{system, url, state}</code></li>
+  <li><code>scan_record_course</code></li>
+  <li><code>scan_record_rows</code> <code>{courseKey, rows:[{title, href, dueText, statusText, kind, instructions?}]}</code>: a row captured from one list item is its own evidence.</li>
+  <li><code>scan_record_source</code>: a syllabus or study guide URL plus its text, for Learn.</li>
+  <li><code>scan_request_handoff</code></li>
+ </ul>
+ The app, not the agent, finishes the scan when every course has rows or is marked blocked. Delete inventories, <code>scan_check_source</code>, <code>scan_read_assignment</code> and <code>scan_finish</code>, along with the evidence code that only they use.</li>
+<li><b>Limits.</b> A 30-minute active ceiling. Stop after 5 minutes with no new row or finished course. Three identical rejections skip that target. "Finish with what you found" stops within 5 s. There is no mid-run session restart. Tool results stay small (<code>{saved, ids}</code>).</li>
+<li><b>Connectors first.</b> Before the agent runs, detect Moodle or Canvas from the page. Call the school's own APIs from inside the signed-in page (<code>webContents.executeJavaScript(fetch(...))</code>):
+ <ul>
+  <li>Moodle: <code>core_calendar_get_action_events_by_timesort</code> and <code>core_course_get_enrolled_courses_by_timeline_classification</code>, with the calendar iCal as fallback.</li>
+  <li>Canvas: <code>/api/v1/planner/items</code>, <code>/courses</code> and <code>/courses/:id/assignments</code> (strip the <code>while(1);</code> prefix).</li>
+ </ul>
+ Save those rows directly. The agent then only fills gaps: linked systems, and courses with no rows.</li>
+<li><b>Dates.</b> One parser, <code>desktop/shared/due-date.ts</code>, used by scan, Homework and Learn:
+ <ul>
+  <li>Dates are in the school's time zone.</li>
+  <li>A missing year means the current academic year, rolled forward if more than 6 months past.</li>
+  <li>A date with no time isn't overdue until the day ends.</li>
+  <li>Never invent a date; relative text like "Friday" is resolved against the page's capture date, or left unknown.</li>
+ </ul></li>
+<li><b>Identity and edits.</b> Row identity is the Moodle <code>cmid</code> or Canvas assignment id, else the normalised URL. A field the student edited (for example <code>dueDateOverride</code>) is never overwritten. If the school changes that field, show one "the school changed this" notice.</li>
+<li><b>Model.</b> Scans run at low effort (a per-role setting in <code>agent-runtime.ts</code>). Homework and the tutor keep the student's chosen effort.</li>
+</ul>
+<h3>5.2 Browser layer</h3>
+<ul>
+<li><b>Stable refs.</b> Map each ref to its <code>backendNodeId</code>. Reset refs only on a real main-frame navigation. Record tools never re-snapshot.</li>
+<li><b>Small action results.</b> Actions return <code>{status: completed|failed|unknown, url, title, changed}</code>. <code>browser_snapshot</code> takes <code>{ref?, selector?, depth?, mode: full|diff}</code>. Keep the last two snapshots verbatim in the context and replace older ones with a one-line stub.</li>
+<li><b><code>browser_rows</code>.</b> A new tool that pages through a repeating list inside the page and returns compact rows. This removes one-visit-per-item.</li>
+<li><b>Frames.</b> Get the frame tree (<code>Page.getFrameTree</code>), read accessibility per frame, and prefix refs with the frame. Report frames it can't read instead of showing them blank.</li>
+<li><b>Documents.</b> One <code>read_document</code> tool for a link or download: follow Moodle's <code>resource/view.php</code> redirect, handle forced attachments, and use page images when a PDF has no text layer.</li>
+<li><b>Read-only by enforcement, not labels.</b> Delete the label guard at <code>controller.ts:257</code>. During scans, block non-GET form submissions and fetch/XHR requests with non-GET methods at the session level (<code>session.webRequest.onBeforeRequest</code> for the school partition). Allow a named list of exceptions: SSO or sign-in hosts, LTI launch POSTs, and the Moodle <code>service.php</code> read-only methods the connector calls. Scans also never receive <code>browser_submit</code> or <code>browser_upload</code>.</li>
+<li><b>Fix the small bugs</b> listed in section 3.</li>
+</ul>
+<h3>5.3 Homework = "do this assignment" thread</h3>
+<ul>
+<li>Keep <code>assignment/coordinator.ts</code> (phases, review, receipts, takeover). Simplify its prompt to the Codex thread's shape: the assignment row, its link, the instructions if the scan has them, the homework folder, the rule, and "open it, read everything including attachments, do the work, fill in the answers, then call <code>assignment_start_review</code>. Submit only if the rule allows."</li>
+<li><code>assignment_start_review</code> records doubts as <code>{where, why}</code> (SPEC section 4). The panel shows doubts first.</li>
+<li>Add a label to every tool result ("Typed the answer to question 2") for the activity feed. The renderer never shows raw tool calls.</li>
+<li>When the student opens or starts an assignment, a details scan reads instructions, attachments and the rubric for that one item.</li>
+</ul>
+<h3>5.4 Tutor = the CSC316 folder, inside Studi</h3>
+<ul>
+<li><b>Goal workspace.</b> Each Learn goal gets a folder under the homework root: <code>Learn/&lt;class&gt; &lt;exam&gt;/</code>. It holds:
+ <ul>
+  <li><code>CONTEXT.md</code>: goal, date, scope note, sources.</li>
+  <li><code>PROGRESS.md</code>: evidence, gaps and the next target, rewritten by the tutor at wrap-up.</li>
+  <li><code>CHEATSHEET.md</code></li>
+  <li><code>sources/</code>: extracted text of the syllabus, study guide and stems.</li>
+  <li><code>pages/</code>: study pages.</li>
+ </ul>
+ The tutor reads these at session start, the same way the CSC316 <code>AGENTS.md</code> bootstrap works. The SQLite mastery records stay the authority for levels.</li>
+<li><b>Teaching rules.</b> Merge the "How to teach", "Orient before questioning", "Respond to reasoning", "Diagnose confusion" and "Make visuals teach something specific" sections of <code>C:/Users/kaust/Documents/CSC316-Exam1/AGENTS.md</code> into <code>TUTOR_SYSTEM_PROMPT</code> (<code>desktop/electron/agent/tutor-tools.ts</code>). Remove anything specific to CSC316.</li>
+<li><b>Study pages.</b> Add a <code>tutor_show_page {title, html}</code> tool. The HTML renders in a sandboxed iframe: <code>sandbox="allow-scripts"</code>, no same-origin, a CSP with <code>default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'</code>, no network. The page reports interactions back through <code>postMessage</code> as <code>{explored:[…]}</code>, which becomes the tool result. Pages are saved to <code>pages/</code> so the student can reopen them. Keep the five built-in models as fast paths.</li>
+<li><b>Grading stays in the app.</b> Choice and typed answers are checked by the app. Explanations are graded against a rubric written before the answer. Only answers from Check and On your own count, and a level moves at most one step per session. This is already implemented; verify it.</li>
+<li><b>Finding material.</b> A "materials" scan kind (step 5.1) collects syllabi, study guides, past quizzes and slides for one class, and saves them as goal-attached sources.</li>
+</ul>
+
+<h2 id="cps">6. Checkpoints</h2>
+<p>Each checkpoint lists its tasks, the tests to add or run, and a gate. The gate is the pass criteria the report must prove. Commands run from the repo root on Windows (Git Bash or PowerShell).</p>
+
+<div class="cp" id="cp0"><h3>Checkpoint 0: Baseline and the Learn work that's already here</h3>
+<ol>
+<li>Run <code>bun install</code>, <code>bun run typecheck</code>, <code>bun run test:backend</code>, <code>bun run test:storage</code>, <code>bun run test:agent</code>, <code>bun run test:contracts</code>, <code>bun run test:ui</code> and <code>bun run test:lms</code>. Record pass and fail counts. Fix failures caused by commit <code>0c5ec3f</code>. Expect the existing <code>tests/storage/learn-tutor.test.mjs</code> and <code>tests/agent/learn-tutor.test.mjs</code> to need updates for phases and the seventh tool.</li>
+<li>Add focused tests (in <code>tests/storage/learn-tutor.test.mjs</code>):
+ <ul>
+  <li>The selected goal survives every Learn mutation.</li>
+  <li>Undated and topic-less exams can be selected, and the default is the nearest dated exam.</li>
+  <li>A removed goal stays removed after re-extraction.</li>
+  <li>Evidence from Learn or Practise is rejected.</li>
+  <li><code>tutor_advance</code> only moves forward.</li>
+  <li>A third <code>tutor_say</code> in a row is rejected.</li>
+  <li>A file attached to a goal adds topics to that goal and creates no new exams.</li>
+  <li><code>pickExcerpts</code> returns the relevant chunk within budget.</li>
+ </ul></li>
+<li>Start the preview with <code>node scripts/preview-ui.mjs --no-open</code> and screenshot every <code>learn-*</code> and <code>tutor-*</code> scenario at 1120×760 into <code>.agents/audit/cp0/</code>. The headless Chrome command is in section 9. Fix visible layout bugs against mockups E and F.</li>
+<li>Add <code>createLearningSession</code> to <code>FakeAgentRuntime</code> and the <code>AgentRuntime</code> interface.</li>
+</ol>
+<div class="gate"><b>Gate:</b> every listed suite is green, or each failure is shown to be pre-existing by rerunning it on commit <code>52f8902</code> in a temporary worktree. All the new tests pass. Screenshots are in the report and match mockups E and F.</div></div>
+
+<div class="cp" id="cp1"><h3>Checkpoint 1: A fake LMS that fails like real schools</h3>
+<p>Do this before changing the scanner, so the current scanner can be shown failing for the audit's reasons. Full spec in <a href="#lms">section 7</a>.</p>
+<ol>
+<li>Add the Moodle theme and the Canvas theme, the noisy course, SSO with a Duo-like step, the linked systems, the university origin, document faults and the connector endpoints.</li>
+<li>Add the golden expected-output files and <code>agent-harness/lms/evaluate-scan.mjs</code> (metrics in section 7).</li>
+<li>Fix <code>comparison.mjs:86</code> so a timeout counts as a failure. Add a budget file <code>agent-harness/benchmark/slo.json</code> with per-scenario time, tool-call and token targets.</li>
+<li>Run the current scanner (live model, <code>bun run benchmark</code>) on <code>moodle-noisy</code> and <code>canvas-basic</code>, and save the baseline report to <code>docs/reports/scan-baseline.md</code>.</li>
+</ol>
+<div class="gate"><b>Gate:</b> <code>bun run test:lms</code> is green. The baseline run <b>fails</b> on moodle-noisy for time or junk rows, as the audit predicts. The report shows recall, precision, due-date accuracy, junk rows, time, tool calls and tokens. The side-effect journal has 0 writes.</div></div>
+
+<div class="cp" id="cp2"><h3>Checkpoint 2: Browser tools</h3>
+<ol>
+<li>Implement section 5.2 in <code>desktop/electron/browser/controller.ts</code> and <code>tools.ts</code>, plus the session-level read-only guard (new <code>browser/read-only-guard.ts</code>).</li>
+<li>Update the assignment worker and the browser pack (<code>packs/capabilities/browser/instructions.md</code>) to the new tool results.</li>
+<li>Tests (<code>tests/storage/browser-controller.test.mjs</code> or native <code>tests/*.cjs</code> where CDP is needed):
+ <ul>
+  <li>Refs survive a re-snapshot and a record, and fail with a clear error after navigation.</li>
+  <li><code>browser_rows</code> returns all 130 rows of the noisy course in at most 3 calls.</li>
+  <li>An iframe's content is readable.</li>
+  <li>"Submit Lab 3" opens its link, and "Show more" expands.</li>
+  <li>A scan-mode POST to a school form is blocked. An SSO POST is allowed.</li>
+  <li>A forced-download PDF and an image-only PDF are both read.</li>
+ </ul></li>
+</ol>
+<div class="gate"><b>Gate:</b> the new tests pass. Average action result size is under 400 characters (log it). No regressions in <code>test:agent</code> or <code>test:storage</code>. The stale-ref count on a moodle-noisy replay is 0.</div></div>
+
+<div class="cp" id="cp3"><h3>Checkpoint 3: New scan</h3>
+<ol>
+<li>Implement section 5.1: the prompt, the 6 tools, limits, app-side finishing, the per-role model effort, and the <code>due-date.ts</code> parser (replacing <code>scan/zoned-deadline.ts</code>).</li>
+<li>Scan kinds: <code>setup</code> (onboarding), <code>refresh</code> (daily), <code>details</code> (one assignment), <code>materials</code> (one class, for Learn). Each has its own checklist.</li>
+<li>Refresh compares rows by identity and records new, changed-date, changed-status and removed items. It doesn't open unchanged rows.</li>
+<li>The Moodle and Canvas connectors (<code>desktop/electron/scan/connectors/{moodle,canvas}.ts</code>) run before the agent.</li>
+<li>UI: mockup B, in <code>SchoolCheck.tsx</code>, <code>ScanStatus.tsx</code> and <code>school-check.css</code>. Streaming rows, per-system sign-in rows, "Finish with what you found", and failures shown honestly from <code>scan.failures</code>.</li>
+<li>Tests:
+ <ul>
+  <li><code>tests/storage/due-date.test.mjs</code>: "Oct 7" in September; "Jan 12" in December; date-only overdue; the school time zone; relative text left unknown.</li>
+  <li>A scripted no-progress stop.</li>
+  <li>Three-strikes skip.</li>
+  <li>A refresh diff with one moved date and one new item gives exactly 2 changes.</li>
+  <li>A student-edited due date is preserved.</li>
+  <li>Connector parsing against saved Moodle and Canvas JSON.</li>
+ </ul></li>
+</ol>
+<div class="gate"><b>Gate:</b> live-model benchmark results.
+<ul>
+<li><code>moodle-noisy</code> with connectors on: under 3 min; recall ≥ 0.98, precision ≥ 0.98, due-date exact ≥ 0.98; 0 junk rows.</li>
+<li>Connectors off: under 10 min; same accuracy.</li>
+<li><code>canvas-basic</code>: same targets.</li>
+<li>Refresh with nothing changed: under 1 min, 0 changes.</li>
+<li>Sign-in expiry: pauses as needs-you and resumes without re-reading finished classes.</li>
+<li>0 school writes in every run.</li>
+</ul>
+Report against <code>scan-baseline.md</code>.</div></div>
+
+<div class="cp" id="cp4"><h3>Checkpoint 4: Homework end to end (J2)</h3>
+<ol>
+<li>Implement section 5.3. Add labelled activity (mockup C) and the review panel with doubts (mockup D).</li>
+<li>New e2e suite <code>tests/e2e/</code> using Playwright's Electron driver (<code>_electron.launch</code>) against <code>dist/electron/main.js</code>, with the fake LMS and <code>FakeAgentRuntime</code> scripted turns. Add a script <code>"test:e2e": "bun run build &amp;&amp; bun run build:lms &amp;&amp; node --test tests/e2e/*.test.mjs"</code>. Tests:
+ <ul>
+  <li><code>j1-scan.test.mjs</code>: onboarding, then the first scan, then the Today rows match <code>expected.json</code>.</li>
+  <li><code>j2-homework.test.mjs</code>: under "do it, I submit", the quiz is filled and not submitted. Then the student clicks Submit, the store journal has exactly 1 <code>submission_committed</code>, and the receipt shows. A second run under "do it and submit" submits by itself when the review window ends. Also cover takeover mid-run and Stop from the composer.</li>
+  <li><code>j2-files.test.mjs</code>: a coding assignment with a file upload and the homework folder.</li>
+ </ul></li>
+<li>Live-model run of J2 on the fake school's <code>quiz</code> and <code>coding-multifile</code> scenarios, graded by <code>grade-work.mjs</code>.</li>
+</ol>
+<div class="gate"><b>Gate:</b> the scripted e2e tests are green 3 runs in a row (no flakes). Live J2: the quiz is ≥ 90% correct, the coding tests pass, exactly 1 submission, a receipt that matches, and 0 submissions under "do it, I submit". Include screenshots of C and D from the real app, not the preview.</div></div>
+
+<div class="cp" id="cp5"><h3>Checkpoint 5: Tutor and Learn (J3)</h3>
+<ol>
+<li>Implement section 5.4: the goal workspace files, the merged teaching rules, <code>tutor_show_page</code> with the sandboxed iframe, and the materials scan wired to Learn's "Find materials".</li>
+<li>Tests:
+ <ul>
+  <li>Sandbox: a page with <code>fetch</code> and <code>top.location</code> is blocked. <code>postMessage</code> with explored actions gives the tool result.</li>
+  <li><code>PROGRESS.md</code> is written at wrap-up and read at the next start.</li>
+  <li>e2e <code>j3-learn.test.mjs</code> (scripted): find exams in the fake school's <code>learn</code> scenario, a goal appears with its topics, a tutor session runs through all 5 phases, the level goes from none to 1, and after a restart the session and level persist.</li>
+ </ul></li>
+<li>Tutor quality with a live model. Build <code>agent-harness/tutor/</code> with 3 simulated students (novice, partial, strong), each a scripted LLM persona with a hidden misconception list. Grade with <code>gradeLearn</code> plus a rubric judge on:
+ <ul>
+  <li>Did it orient before questioning?</li>
+  <li>Did it trace the first wrong assumption?</li>
+  <li>Did the questions cite the fake course's review sheet?</li>
+  <li>How many says in a row at most (limit 2)?</li>
+  <li>Did the level change only with evidence?</li>
+ </ul></li>
+</ol>
+<div class="gate"><b>Gate:</b> the tests are green. The persona runs score ≥ 4/5 on every rubric item. At least 1 study page is used per session where a visual helps (probability, sorting). Questions cite the source in ≥ 60% of questions. Include screenshots of E and F from the real app with a real session.</div></div>
+
+<div class="cp" id="cp6"><h3>Checkpoint 6: Settings and homework rules</h3>
+<ol>
+<li>Rebuild <code>SettingsScreen</code> (<code>WorkspaceScreens.tsx</code>), <code>SettingsNavigation.tsx</code>, <code>HomeworkRules.tsx</code> and <code>MemorySettings.tsx</code> to mockups G and H. Sections: Inky's brain, Homework rules, School (check schedule, connected apps, homework folder), What Inky remembers, Notifications, You (usage, privacy, account, help).</li>
+<li>Remove every Save button. Changes save immediately, with a quiet "Saved" note.</li>
+<li>The rule checker uses <code>resolvePermission</code>.</li>
+<li>Update the <code>settings-*</code> preview fixtures.</li>
+</ol>
+<div class="gate"><b>Gate:</b> <code>test:ui</code> is green. Screenshots of every section. Each section fits in one screen at 1120×760 except Notifications. Changing a rule changes what Today says within one poll.</div></div>
+
+<div class="cp" id="cp7"><h3>Checkpoint 7: Screen polish from the audit</h3>
+<ol>
+<li>Fix every item in <a href="#audit">section 10</a>.</li>
+<li>Re-screenshot all preview scenarios into <code>.agents/audit/after/</code> and build contact sheets with <code>.agents/audit/sheet.mjs</code>.</li>
+<li>Delete CSS that no screen uses anymore. <code>redesign.css</code> has stacked "audit fix" override blocks; fold them into the base rules. Also delete the old <code>rd-learn-*</code> and <code>rd-topic</code> rules.</li>
+</ol>
+<div class="gate"><b>Gate:</b> every audit item is marked fixed, each with a before/after screenshot pair. <code>redesign.css</code> is smaller than before. No preview scenario shows a console error. Log them with <code>preview_evaluate</code> or a Playwright console listener.</div></div>
+
+<div class="cp" id="cp8"><h3>Checkpoint 8: Real schools, read-only</h3>
+<p>Follow <a href="#live">section 8</a> exactly.</p>
+<div class="gate"><b>Gate:</b> on the student's real Moodle (WolfWare), and on Canvas if an account is available:
+<ul>
+<li>A setup scan finishes in under 10 min.</li>
+<li>The rows match the Codex automation's report for the same day. List every difference, with the reason.</li>
+<li>0 school writes (the guard log is attached).</li>
+<li>A refresh finishes in under 2 min.</li>
+<li>A details scan of one real assignment gets its instructions.</li>
+<li>A materials scan finds the real study guide for one exam.</li>
+</ul></div></div>
+
+<div class="cp" id="cp9"><h3>Checkpoint 9: Release candidate</h3>
+<ol>
+<li><code>bun run test</code> (verify, all scopes), <code>test:e2e</code> 3 times, the nightly live suite once, and <code>bun run make:win</code>.</li>
+<li>Install the build on a clean Windows profile and run J1 to J3 by hand. Record a screen capture of each.</li>
+<li>Update <code>README.md</code> and the release notes.</li>
+</ol>
+<div class="gate"><b>Gate:</b> everything is green. The three recordings are linked. There are no known P0 or P1 bugs, and every open issue is listed.</div></div>
+
+<h2 id="lms">7. Fake LMS upgrade spec (agent-harness/lms)</h2>
+<p>Goal: if a scan passes here, it passes on real Moodle and Canvas. Extend the existing <code>server.ts</code>, <code>store.ts</code> and <code>scenarios.ts</code>. Don't build a parallel server.</p>
+<table>
+<tr><th>Add</th><th>Detail</th><th>Why</th></tr>
+<tr><td>Moodle theme</td><td>Real Moodle 4.x markup and URLs. The dashboard block <code>block_timeline</code> loads through JS from <code>/lib/ajax/service.php</code>. The calendar is at <code>/calendar/view.php?view=upcoming</code>, the course at <code>/course/view.php?id=</code> with collapsible <code>section</code>s, activities at <code>/mod/{assign,quiz,resource,page,url,folder,forum,lti}/view.php?id=</code>, and the grade report at <code>/grade/report/user/index.php</code>. Include a <code>sesskey</code> in the page config, and a drawer and "Show more" that re-render with client JS so refs go stale.</td><td>The real scan broke on exactly these</td></tr>
+<tr><td>Canvas theme</td><td><code>/courses/:id</code>, <code>/courses/:id/assignments</code>, <code>/courses/:id/modules</code> and the planner dashboard. JSON APIs <code>/api/v1/…</code> with the <code>while(1);</code> prefix. React-like client rendering.</td><td>Second major LMS</td></tr>
+<tr><td>Noisy course</td><td>130 activities in one course: files, pages, slides, videos, labels and grade rows mixed with 9 real assignments. Nested sections. Titles and dates in separate table cells.</td><td>Junk rows and one-visit-per-item</td></tr>
+<tr><td>SSO</td><td>The school root redirects to <code>/sso/login</code> on a separate "unity" origin, then a Duo-like push page that auto-approves after N seconds if "remembered", then back. The session can expire mid-run (an advance event).</td><td>Login preflight and handoff</td></tr>
+<tr><td>Linked systems</td><td>"WebAssign-like" (separate origin, reached by an LTI POST launch from the course, its own due dates, time zone shown as ET) and "Gradescope-like" (its own course list).</td><td>Work lives off the LMS</td></tr>
+<tr><td>University origin</td><td>A class homepage on another host with the syllabus as HTML plus a forced-download PDF.</td><td>Syllabus on another host</td></tr>
+<tr><td>Document faults</td><td>An HTML shim before the file, <code>Content-Disposition: attachment</code>, an image-only PDF, a docx.</td><td>Unreadable materials</td></tr>
+<tr><td>iframes</td><td>Quiz instructions inside an iframe (like an H5P or LTI embed).</td><td>Invisible content</td></tr>
+<tr><td>Date traps</td><td>"Oct 7" with no year. A date with no time. "Due Friday". A deadline in PT shown to an ET student. A multi-stage deadline. Late cutoff separate from due.</td><td>Wrong or invented dates</td></tr>
+<tr><td>Learn material</td><td>Per course: syllabus with exam dates and weighted topics, a review sheet with numbered problems, a graded past quiz, slides.</td><td>J3 grounding</td></tr>
+<tr><td>Switches</td><td>A per-scenario flag to disable the connector APIs, <code>?latency=</code> to add delay, fault injection.</td><td>Test the fallbacks</td></tr>
+<tr><td>Ground truth</td><td><code>agent-harness/lms/expected/&lt;scenario&gt;.json</code>: assignments <code>{course, title, dueAt ISO with zone, href, kind}</code>, syllabi, exams and topics.</td><td>Scoring</td></tr>
+<tr><td>Scoring</td><td><code>evaluate-scan.mjs</code>: recall, precision, due-date exact match, duplicates, junk rows, invented dates (must be 0), school writes from the journal (must be 0), minutes, tool calls, tokens, peak prompt size. A run is flagged if any metric is 25% worse than the last saved run.</td><td>Gates for CP1, CP3, CP8</td></tr>
+<tr><td>Golden recordings</td><td><code>agent-harness/lms/recordings/</code>: sanitised HAR-style captures of real pages (names and IDs scrubbed by <code>record.mjs</code>), replayed with <code>server.ts --replay &lt;dir&gt;</code>. Anything not recorded returns a 404. Start with the student's WolfWare dashboard, one course and one quiz page, captured in CP8 with consent.</td><td>Real-world regressions forever</td></tr>
+</table>
+
+<h2 id="live">8. Real schools: how to test safely</h2>
+<ol>
+<li>Only the student's own accounts. Run with the student present for the first run.</li>
+<li>Always attach the scan-mode read-only guard, and save its log (blocked and allowed requests) to <code>docs/reports/live/&lt;date&gt;-guard.log</code>.</li>
+<li>Run the Codex automation the same morning. Compare its report with Studi's rows in a table: matched, missed by Studi, extra in Studi, date differs.</li>
+<li>If any real page confused the scanner, record it (sanitised) into the golden recordings and add its expected rows. Then the fake school catches it next time.</li>
+<li>Homework on a real school: stop at review only (the answers are filled but not submitted), under "do it, I submit". Submitting to a real school needs the student's explicit go-ahead in chat for that assignment.</li>
+</ol>
+
+<h2 id="report">9. Checkpoint report format</h2>
+<p>Write <code>docs/reports/checkpoint-NN.md</code>, keep it under 150 lines, then stop.</p>
+<pre># Checkpoint NN: &lt;name&gt;
+Status: PASS | FAIL | PARTIAL
+Commits: &lt;first&gt;..&lt;last&gt;
+
+## Gate
+| Criterion | Target | Result | Evidence |
+(one row per gate item, copied from build-plan.html)
+
+## What changed
+- file: one line on why (only meaningful files)
+
+## Commands run
+```
+$ bun run test:storage
+&lt;last 15 lines of real output&gt;
+```
+(one block per command in the gate)
+
+## Metrics
+(tables for scan and tutor numbers; compare with the previous report)
+
+## Screenshots
+.agents/audit/cpNN/&lt;name&gt;.png : what it shows
+
+## Not done, or failed
+- item: why, and what's needed
+
+## Decisions I made
+- decision: reason (anything a reviewer might disagree with)</pre>
+<p>Screenshot command (headless Chrome, forward-slash absolute paths):</p>
+<pre>"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new --disable-gpu --window-size=1120,760 --virtual-time-budget=5000 --user-data-dir="C:/Users/kaust/AppData/Local/Temp/studi-audit-chrome" --screenshot="C:/.../.agents/audit/cpNN/learn.png" "http://127.0.0.1:&lt;port&gt;/?preview=learn"</pre>
+
+<h2 id="audit">10. UI fix list (from the 67-screen audit)</h2>
+<table>
+<tr><th>Screen</th><th>Problem</th><th>Fix</th></tr>
+<tr><td>assignment (not started, restricted)</td><td>Inky shown twice: header and summary intro</td><td>One Inky, in the header</td></tr>
+<tr><td>assignment-stopped</td><td>Says "I got stuck." when the student cancelled</td><td>"You stopped this. Your saved work is kept."</td></tr>
+<tr><td>desk-submitted</td><td>"Handed in." repeated in the panel and the receipt</td><td>Keep it in the receipt only</td></tr>
+<tr><td>assignment-saved</td><td>"Open saved work ↗" glyph link</td><td>Quiet button "Open saved work"</td></tr>
+<tr><td>desk-review</td><td>Disabled "I submitted it — check" is confusing</td><td>Show it only after the student opens the school page</td></tr>
+<tr><td>chat-handoff</td><td>A focus box around the composer mascot</td><td>Focus ring only on keyboard focus</td></tr>
+<tr><td>Today</td><td>"0 more specific" and "Later 0" shown</td><td>Hide zero counts</td></tr>
+<tr><td>Week</td><td>Today's date in a yellow oval</td><td>Bold date plus a small dot</td></tr>
+<tr><td>School check</td><td>Lavender card (Learn's colour) in Homework; two Inkys; a warning box that repeats the subtitle; underlined "I'll wait" and "Stop assignment &amp; scan"</td><td>Rebuild to mockup B</td></tr>
+<tr><td>Settings (all)</td><td>One endless scroll, several Save buttons, a disabled "Save changes", "Back to your week" at the top of every section</td><td>Mockup G (CP6)</td></tr>
+<tr><td>Tutor (all)</td><td>A tiny "This session · …" context line in the composer; "Try one myself →" in disabled lavender; a native blue slider in the population model</td><td>Done in 0c5ec3f except the slider: style <code>input[type=range]</code> with the pencil colour</td></tr>
+<tr><td>Updates modal</td><td>Underlined "Later"</td><td>Quiet button</td></tr>
+<tr><td>Onboarding</td><td>Keep as is. Restyle to tokens only (SPEC section 7)</td><td>No layout changes</td></tr>
+</table>
+
+<h2 id="map">11. File map</h2>
+<table>
+<tr><th>Area</th><th>Files</th></tr>
+<tr><td>Scan</td><td><code>desktop/electron/scan/{coordinator,materials,source-checkpoints,source-identity,zoned-deadline}.ts</code>; <code>desktop/shared/school-scan.ts</code>; packs <code>desktop/agent-system/packs/{roles/scan,capabilities/scan,capabilities/scan-record,capabilities/browser}/instructions.md</code>; IPC in <code>main.ts</code> (startSchoolScan about L585, findLearnSyllabus about L505)</td></tr>
+<tr><td>Browser</td><td><code>desktop/electron/browser/{controller,tools,downloads,native-downloads,drive-overlay,work-ownership}.ts</code></td></tr>
+<tr><td>Homework</td><td><code>desktop/electron/assignment/{coordinator,homework,start-selected}.ts</code>; <code>desktop/electron/manager/coordinator.ts</code>; <code>desktop/shared/{lifecycle,permission,assignment}.ts</code>; <code>desktop/electron/lifecycle/{kernel,schedule}.ts</code></td></tr>
+<tr><td>Runtime</td><td><code>desktop/electron/agent/runtime.ts</code> (<code>createScanSession</code> L230, <code>createLearningSession</code> L283); <code>desktop/shared/{providers,agent-runtime}.ts</code>; <code>desktop/agent-system/{turn-builder,capability-registry,packs}.ts</code></td></tr>
+<tr><td>Learn</td><td><code>desktop/shared/{learn,learn-state,tutor}.ts</code>; <code>desktop/electron/storage/learn-records.ts</code>; <code>desktop/electron/agent/{tutor-coordinator,tutor-tools,tutor-context,learn-extraction,learn-import,learn-conversation}.ts</code>; <code>desktop/src/app/{LearnScreen,TutorScreen,TutorModels}.tsx</code>, <code>learn.css</code></td></tr>
+<tr><td>UI</td><td><code>desktop/src/app/*</code>; preview <code>desktop/src/preview/{scenarios,fixtures,learnFixtures}.ts</code>, <code>scripts/preview-ui.mjs</code></td></tr>
+<tr><td>Fake LMS</td><td><code>agent-harness/lms/{server,web,store,scenarios,domain,evaluate,evaluate-run,grade-work,benchmark-receipt}.*</code>; <code>agent-harness/benchmark/{cli,comparison,live-runner,electron-scan}.mjs</code></td></tr>
+<tr><td>Tests</td><td><code>tests/{storage,agent,contracts,ui,benchmark,e2e(new)}</code>; <code>scripts/verify-studi.mjs</code>; <code>tests/electron-self-test-runner.mjs</code></td></tr>
+<tr><td>What works today (reference)</td><td><code>~/.codex/automations/daily-wolfware-due-date-check/automation.toml</code>; <code>C:/Users/kaust/Documents/CSC316-Exam1/AGENTS.md</code> and its folder</td></tr>
+</table>
+</main>
+</body>
+</html>

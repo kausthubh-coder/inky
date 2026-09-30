@@ -1,0 +1,455 @@
+/* The assignment's folder as an editor: files | open file, with the terminal underneath. */
+.wf {
+  display: grid;
+  grid-template-columns: minmax(160px, 190px) minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  border-top: 1px solid var(--rule);
+}
+.wf-tree {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--rule);
+  background: var(--page);
+}
+.wf-tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 10px 6px 14px;
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--graphite);
+}
+.wf-tree-head strong {
+  font-weight: 800;
+}
+.wf-icon-button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--graphite);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+.wf-icon-button:hover {
+  background: var(--blotter);
+  color: var(--pencil);
+}
+.wf-tree-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 2px 6px 8px;
+  scrollbar-width: thin;
+}
+.wf-file,
+.wf-folder {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 32px;
+  padding: 3px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--pencil);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 150ms ease-out, color 150ms ease-out, transform 100ms ease-out;
+}
+.wf-file span,
+.wf-folder span:not(.wf-caret) {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.wf-file:hover,
+.wf-folder:hover {
+  background: rgb(43 38 33 / 6%);
+}
+.wf-file.is-open {
+  background: var(--blotter);
+  color: var(--pencil);
+  font-weight: 700;
+}
+.wf-file.is-nested {
+  padding-left: 28px;
+}
+.wf-file svg,
+.wf-folder svg {
+  flex: none;
+  color: #a1968a;
+}
+.wf-file.is-code svg { color: #3f6fb5; }
+.wf-file.is-pdf svg { color: #c8553d; }
+.wf-file.is-doc svg { color: #7a6a4f; }
+.wf-file.is-binary { color: #a1968a; }
+.wf-folder {
+  font-weight: 700;
+  color: #5f564c;
+}
+.wf-folder small {
+  margin-left: auto;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #a1968a;
+}
+.wf-caret {
+  display: grid;
+  width: 12px;
+  color: #a1968a;
+}
+.wf-tree-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-top: 1px solid var(--rule);
+  background: none;
+  color: var(--graphite);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  min-height: 32px;
+}
+.wf-tree-foot:hover {
+  color: var(--pencil);
+}
+.wf-muted {
+  margin: 6px 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--graphite);
+}
+
+.wf-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.wf-editor {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.wf-editor-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  min-height: 44px;
+  padding: 0 8px 0 16px;
+  border-bottom: 1px solid var(--rule);
+  font-size: 12.5px;
+  color: var(--graphite);
+}
+.wf-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 0;
+  color: var(--pencil);
+  font: 12.5px ui-monospace, Consolas, monospace;
+}
+.wf-tab > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wf-tab svg { flex: none; }
+.wf-tab.is-code svg { color: #3f6fb5; }
+.wf-tab.is-pdf svg { color: #c8553d; }
+.wf-link {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--graphite);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 150ms ease-out, color 150ms ease-out, transform 100ms ease-out;
+}
+.wf-link:hover {
+  color: var(--pencil);
+  background: var(--blotter);
+}
+.wf-link:disabled { opacity: 0.6; cursor: default; }
+.wf-editor-head .wf-link + .wf-link { margin-left: 0; }
+.wf-editor-head small {
+  font-variant-numeric: tabular-nums;
+}
+/* Code with line numbers. */
+.wf-code {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 10px 0 24px;
+  background: var(--page);
+  font: 12.5px/1.65 ui-monospace, Consolas, "Cascadia Mono", monospace;
+  color: #2b2621;
+  tab-size: 4;
+  scrollbar-width: thin;
+}
+.wf-line {
+  display: block;
+  padding-right: 18px;
+  white-space: pre;
+}
+.wf-line i {
+  display: inline-block;
+  width: 3.4em;
+  margin-right: 14px;
+  padding-right: 10px;
+  font-style: normal;
+  text-align: right;
+  position: sticky;
+  left: 0;
+  background: var(--page);
+  color: var(--graphite);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.wf-line:hover {
+  background: rgb(246 201 69 / 10%);
+}
+.wf-pdf {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  background: var(--paper);
+}
+.wf-image {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+  background: var(--paper);
+  text-align: center;
+}
+.wf-image img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  height: auto;
+  border-radius: 4px;
+  outline: 1px solid oklch(0 0 0 / 0.1);
+  outline-offset: -1px;
+}
+.wf-doc {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px 26px 30px;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+.wf-doc > :first-child {
+  margin-top: 0;
+}
+.wf-doc .chat-markdown { max-width: 68ch; margin-inline: auto; }
+.wf-text {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  margin: 0;
+  padding: 20px 24px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: 14px/1.65 ui-monospace, Consolas, monospace;
+  color: var(--pencil);
+}
+.wf-table { flex: 1; min-height: 0; overflow: auto; }
+.wf-table table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.wf-table :is(th, td) { padding: 10px 16px; border-bottom: 1px solid var(--rule); text-align: left; vertical-align: top; white-space: pre-wrap; overflow-wrap: anywhere; min-width: 100px; }
+.wf-table th { position: sticky; top: 0; background: var(--paper); color: var(--pencil); font-weight: 700; }
+.wf-table tr:hover td { background: var(--paper); }
+.wf-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  flex: 1;
+  padding: 24px;
+  color: var(--graphite);
+  text-align: center;
+  font-size: 14px;
+}
+.wf-empty p {
+  margin: 0;
+}
+.wf-pad {
+  padding: 14px 16px;
+}
+.wf-error {
+  margin: 10px 14px;
+  font-size: 13px;
+  color: var(--redpen);
+  white-space: pre-wrap;
+  text-wrap: pretty;
+}
+.wf-error .wf-link { margin-left: 4px; }
+
+/* Dot's terminal: each command it ran, and what it printed. */
+.wf-terminal {
+  display: flex;
+  flex-direction: column;
+  flex: none;
+  height: 38%;
+  min-height: 150px;
+  background: #221e1a;
+  color: #e9e1d2;
+  font: 12.5px/1.6 ui-monospace, Consolas, "Cascadia Mono", monospace;
+}
+.wf-terminal.is-closed {
+  height: auto;
+  min-height: 0;
+}
+.wf-terminal-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-bottom: 1px solid #3a332c;
+  background: #2b2621;
+  color: #d9cfbe;
+  font: 600 12.5px "Nunito Sans", sans-serif;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-terminal-head small {
+  color: #9a8f80;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.wf-terminal-head .wf-caret {
+  margin-left: auto;
+  color: #9a8f80;
+}
+.wf-runs {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 0 10px;
+  scrollbar-width: thin;
+  scrollbar-color: #4a4239 transparent;
+}
+.wf-run-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 5px 14px;
+  border: 0;
+  background: none;
+  color: #e9e1d2;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: 32px;
+}
+.wf-run-head:hover {
+  background: rgb(255 255 255 / 4%);
+}
+.wf-run-head code {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  padding: 0;
+  background: none;
+  font: inherit;
+  color: #f1ead9;
+}
+.wf-prompt {
+  color: var(--highlighter);
+}
+.wf-status {
+  font-size: 11.5px;
+  color: #8fc9a4;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.wf-run.is-failed .wf-status {
+  color: #f0907a;
+}
+.wf-run-out {
+  margin: 0 14px 8px 30px;
+  padding: 8px 12px;
+  border-left: 2px solid #3a332c;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #cfc6b6;
+  font: inherit;
+}
+.wf-run + .wf-run { border-top: 1px solid #3a332c; }
+.wf :is(button, [tabindex]):focus:not(:focus-visible) { outline: none; }
+.wf :is(button, [tabindex]):focus-visible { outline: 2px solid var(--pencil); outline-offset: -2px; }
+.wf-terminal button:focus-visible { outline-color: var(--highlighter); }
+.wf :is(.wf-file, .wf-folder, .wf-icon-button, .wf-link):active:not(:disabled) { transform: scale(0.96); }
+.wf.is-small-tree {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+.wf.is-small-tree .wf-tree { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 6px 12px; border-right: 0; border-bottom: 1px solid var(--rule); }
+.wf.is-small-tree .wf-tree-head { display: contents; }
+.wf.is-small-tree .wf-tree-head strong { grid-column: 1; grid-row: 1; font-size: 11.5px; color: var(--graphite); }
+.wf.is-small-tree .wf-icon-button { grid-column: 3; grid-row: 1; }
+.wf.is-small-tree .wf-tree-list { grid-column: 2; grid-row: 1; display: flex; gap: 4px; overflow: auto; padding: 0; }
+.wf.is-small-tree .wf-file { width: auto; max-width: 100%; }
+.wf.is-small-tree .wf-tree-foot { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  .wf button { transition: none; }
+  .wf :is(.wf-file, .wf-folder, .wf-icon-button, .wf-link):active:not(:disabled) { transform: none; }
+}
+
+/* In a narrow pane the files fold into a short strip above the open file. */
+.ag-work-pane {
+  container-type: inline-size;
+}
+.wf-link,
+.wf-editor-head small {
+  white-space: nowrap;
+}
+@container (max-width: 560px) {
+  .wf {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .wf-tree {
+    max-height: 152px;
+    border-right: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .wf-tree-foot,
+  .wf-editor-head small {
+    display: none;
+  }
+  .wf-editor-head { flex-wrap: wrap; gap: 4px 8px; padding-block: 4px; }
+  .wf-tab { flex: 1; }
+  .wf-doc { padding: 16px; }
+}

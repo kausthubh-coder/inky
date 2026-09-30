@@ -69,16 +69,8 @@ export async function verifyMarkdownSurfaces(page, base, evidenceDirectory) {
       await capture(`assignment-handoff-markdown-${width}`);
     }
 
-    await open("week");
-    await page.evaluate(async text => {
-      const fixture = await import("/tests/ui/markdown-drawer-fixture.tsx");
-      await fixture.mountMarkdownDrawer(text);
-    }, reply);
-    await check(page.locator(".drawer-bubble--inky > .chat-markdown"));
-    assert.equal(await page.locator(".drawer-bubble--you").innerText(), "Keep **this** as typed.");
-    await capture("legacy-drawer-markdown-720");
     assert.deepEqual(errors, []);
-    return { passed: ["school results, notes, conversation, and dashboard scan banner", "onboarding handoff and progress", "assignment handoff", "legacy drawer component", "literal student messages", "desktop and narrow layouts"], errors };
+    return { passed: ["school results, notes, conversation, and dashboard scan banner", "onboarding handoff and progress", "assignment handoff", "literal student messages", "desktop and narrow layouts"], errors };
   } finally {
     page.off("pageerror", onError);
   }

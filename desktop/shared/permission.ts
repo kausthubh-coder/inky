@@ -103,7 +103,7 @@ export const PermissionResolutionSchema = z
       context.addIssue({
         code: "custom",
         path: ["mayAttempt"],
-        message: "mayAttempt must match the resolved permission mode",
+        message: "mayAttempt describes automatic starts allowed by the resolved rule",
       });
     }
     if (resolution.maySubmit !== expectedMaySubmit) {
@@ -144,7 +144,7 @@ export function resolvePermission(
       mayAttempt: false,
       maySubmit: false,
       matchedRuleId: null,
-      rationale: "No permission rule matched; Studi will not attempt the assignment.",
+      rationale: "No permission rule matched; Dot waits for the student to start.",
     };
   }
 

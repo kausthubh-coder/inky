@@ -145,7 +145,7 @@ test("different permissions and separate work histories remain explicit conflict
     store.assignmentConflicts = reconcileAssignments(store);
     assert.match(store.assignmentConflicts[0].reason, /permissions/);
     const manager = await ManagerCoordinator.create(store, {}, { now: () => now });
-    try { assert.throws(() => manager.enqueue({ taskId: "task-a" }), /blocked/); }
+    try { assert.throws(() => manager.enqueue({ taskId: "task-a" }), /different homework permissions/); }
     finally { manager.dispose(); }
     store.permissionRules.put({ schemaVersion: 1, ruleId: "attempt-b", scope: "assignment", assignmentId: "b", mode: "attempt", updatedAt: now });
     assert.match(reconcileAssignments(store)[0].reason, /separate saved work/);

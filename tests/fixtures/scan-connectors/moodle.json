@@ -1,0 +1,48 @@
+{
+  "origin": "https://moodle.cedar.example",
+  "calendar": {
+    "data": {
+      "events": [
+        {
+          "id": "concept-quiz",
+          "name": "Concept quiz",
+          "course": { "id": "programming" },
+          "timestart": 1790211540,
+          "formattedtime": "Wednesday, 23 September, 11:59 PM",
+          "url": "https://moodle.cedar.example/mod/quiz/view.php?id=concept-quiz&forceview=1",
+          "modulename": "quiz"
+        },
+        {
+          "id": "reflection",
+          "name": "Reflection",
+          "course": { "id": "writing" },
+          "timestart": null,
+          "formattedtime": "No due date",
+          "url": "https://moodle.cedar.example/mod/assign/view.php?id=reflection"
+        }
+      ]
+    },
+    "error": false
+  },
+  "courses": {
+    "data": {
+      "courses": [
+        {
+          "id": "programming",
+          "fullname": "Programming in C",
+          "shortname": "CSC 230",
+          "viewurl": "https://moodle.cedar.example/course/view.php?id=programming"
+        },
+        {
+          "id": "writing",
+          "fullname": "Academic Writing",
+          "shortname": "ENG 101",
+          "viewurl": "https://moodle.cedar.example/course/view.php?id=writing"
+        }
+      ]
+    },
+    "error": false
+  },
+  "ical": null,
+  "failures": []
+}

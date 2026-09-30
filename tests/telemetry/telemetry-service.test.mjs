@@ -449,3 +449,14 @@ test("native AI generation events retain replay correlation", async () => {
     assert.equal(event.properties.$session_id, "replay-generation");
   });
 });
+
+test("agent steps become their own event and page screenshots pass through the secret filters intact", async () => {
+  await withService(async ({ client, service }) => {
+    const step = { purpose: "scan", session_id: "s1", tool: "browser_navigate", outcome: "succeeded", duration_ms: 812, url: "https://moodle.ncsu.edu/my" };
+    service.captureDiagnostic({ source: "runtime", kind: "step", at: "2026-09-01T12:00:00.000Z", payload: step });
+    assert.deepEqual(client.captures.find(item => item.event === "studi_agent_step")?.properties.url, step.url);
+    const image = `data:image/jpeg;base64,${"sk-abcdefghijk".repeat(20)}`;
+    assert.equal(service.capture("studi_page_screenshot", { task_id: "task-1", assignment_id: "a1", phase: "needs_user", image }), true);
+    assert.equal(client.captures.find(item => item.event === "studi_page_screenshot").properties.image, image);
+  });
+});

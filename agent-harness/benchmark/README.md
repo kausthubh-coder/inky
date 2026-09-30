@@ -16,6 +16,8 @@ bun run benchmark -- live --lms-module .studi-lms/build/server.mjs --scenario sm
 
 Build the LMS with `bun run build:lms` first. The live runner imports the dedicated test-studi provider cache into a new private run directory. It never copies the everyday Studi profile. Missing credentials and provider failures are recorded as failures; there is no scripted fallback.
 
+Studi and live scan benchmarks default to `gpt-6-sol`, high reasoning, with the provider's normal service tier. Existing saved model choices remain explicit choices. Use `--model`, `--provider`, and `--effort` to compare another configuration; never mix configurations in a claimed speed/token improvement.
+
 ## Compare revisions
 
 Build the baseline checkout before modifying production code. Preserve its complete `dist` tree, including agent packs, in an ignored directory, or use a separately built baseline worktree. Both builds must resolve the same locked dependencies. Use `--build` and `--revision` to identify each build; results also hash the actual files loaded.
@@ -46,3 +48,18 @@ Exploratory Codex review can inspect public school pages and later inspect all r
 Use v0.1.9 (`36d5d54`) as the shipped baseline; its preserved `dist` resolves the same locked dependencies as the candidate. The current Electron adapter supplies the real browser session and an initialized isolated homework folder to both builds. Chromium’s built-in PDF viewer resources are allowed without widening allowed school origins. This removes a harness false navigation failure; it is not a scanner quality improvement.
 
 One pair uses smoke, seed 42, Astra/medium, 180 seconds and 90 tools per run. A separate Codex browser observation is informed by previous fixture knowledge and has different tools; it is never admitted to the paired comparator. Preserve older partial pairs as historical evidence. See [readiness report](../../docs/reports/scanner-readiness-2026-09-14.md).
+
+## Homework benchmark
+
+Runs the real app and model through every assignment in a fake school, then grades each result with
+`agent-harness/lms/grade-homework.mjs`. It needs `bun run build`, `bun run build:lms` and the dedicated QA ChatGPT cache.
+
+```
+env -u ELECTRON_RUN_AS_NODE bun run benchmark -- homework --rule attempt
+env -u ELECTRON_RUN_AS_NODE bun run benchmark -- homework --rule submit --fault expire-session@after:40 --fault slow:^/assignments/=3000
+```
+
+`homework-mix` has one of each kind of work: a quiz, a C project, an essay, a WebAssign-style set, a repository lab and an
+in-person demo Dot can't do. The scorecard lists work correct, handed in exactly when the rule allows, times Dot asked the
+student, stuck runs, minutes, model calls and cost, next to the last run with the same rule. Scorecards are written to
+`.studi-harness/scorecards/`. The numbers are reported, not gated.

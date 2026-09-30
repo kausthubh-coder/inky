@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Studi · school check and home chat, proposal</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&family=Shantell+Sans:wght@700&display=swap" rel="stylesheet">
+<style>
+  :root { --page:#fffdf8; --paper:#f8f3e9; --pencil:#2b2621; --graphite:#7a7064; --rule:#e6dfd2; --blotter:#efe9dc; --highlighter:#f6c945; --redpen:#c8553d; --green:#2e7d4f; }
+  * { box-sizing:border-box }
+  body { margin:0; background:#ddd6c8; font:15px/1.5 "Nunito Sans",sans-serif; color:var(--pencil); -webkit-font-smoothing:antialiased }
+  .screen { width:1280px; height:800px; margin:24px auto; background:var(--paper); overflow:hidden; position:relative }
+  .note { width:1280px; margin:0 auto 8px; font-size:13px; color:#4b433a }
+  h1,h2,h3 { margin:0; text-wrap:balance }
+  .hand { font-family:"Shantell Sans",cursive; font-weight:700 }
+  .btn { display:inline-flex; align-items:center; gap:6px; height:36px; padding:0 14px; border:1.5px solid var(--pencil); border-radius:10px; background:var(--page); font:700 14px "Nunito Sans"; color:var(--pencil) }
+  .btn.primary { background:var(--highlighter); box-shadow:0 2px 0 var(--pencil) }
+  .btn.quiet { border:0; background:var(--blotter); font-weight:600 }
+  .link { color:var(--graphite); font-weight:600; text-decoration:underline; text-decoration-color:var(--rule); text-underline-offset:3px }
+  .row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:12px; align-items:center; padding:10px 0; border-bottom:1px solid var(--rule) }
+  .row b { display:block; font-weight:700 } .row small { color:var(--graphite); font-size:13px }
+  .tag { font-size:11.5px; font-weight:700; color:var(--graphite); margin-left:8px }
+  .tag.new { color:var(--green) }
+  .muted { color:var(--graphite) }
+  .head { display:flex; align-items:center; gap:14px; padding:14px 24px; }
+  .head .title { font-size:22px; font-weight:800 }
+  .head .right { margin-left:auto }
+  .cols { display:grid; grid-template-columns:400px 1fr; height:calc(100% - 64px) }
+  .left { padding:6px 24px 24px; overflow:hidden }
+  .browser { background:#f4f6fa; border-left:1px solid var(--rule); display:grid; place-items:center; color:#8a8f99; font-size:14px }
+  .dot { width:56px; height:56px; border-radius:50%; background:var(--highlighter); display:grid; place-items:center; font-size:26px }
+  .state { display:grid; grid-template-columns:56px 1fr; gap:14px; align-items:start; margin:6px 0 14px }
+  .state h2 { font-size:22px; line-height:1.2 }
+  .state p { margin:4px 0 0; color:var(--graphite) }
+  .acts { display:flex; gap:12px; align-items:center; margin:12px 0 0 }
+  .rule { margin:22px 0 6px; padding:12px 0; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); font-size:14px; color:#4b433a }
+  .sect { margin-top:22px }
+  .sect h3 { font-size:12.5px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; color:var(--graphite); margin-bottom:4px }
+  .where { display:flex; align-items:center; gap:8px; padding:10px 0; font-size:14px; color:#4b433a }
+  .where::after { content:""; width:7px; height:7px; border:solid var(--graphite); border-width:0 1.5px 1.5px 0; transform:translateY(-2px) rotate(45deg); margin-left:auto }
+  .need { display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px; padding:10px 12px; margin-top:12px; border-radius:12px; background:var(--page); box-shadow:0 0 0 1.5px var(--pencil) }
+  .need b { display:block } .need small { color:var(--graphite) }
+  .live { display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--graphite) }
+  .live i { width:8px; height:8px; border-radius:50%; background:var(--redpen); animation:p 1.2s infinite }
+  @keyframes p { 50% { opacity:.4 } }
+  /* home */
+  .top { display:flex; align-items:center; padding:14px 28px; }
+  .seg { margin:0 auto; display:flex; background:var(--blotter); border-radius:14px; padding:4px }
+  .seg span { padding:8px 22px; border-radius:11px; font-weight:700; color:var(--graphite) }
+  .seg span.on { background:var(--highlighter); color:var(--pencil); box-shadow:0 0 0 1.5px var(--pencil) }
+  .hello { display:grid; grid-template-columns:64px 1fr auto; gap:18px; align-items:center; width:1040px; margin:26px auto 0 }
+  .hello h1 { font-size:30px } .hello p { margin:2px 0 0; color:var(--graphite) }
+  .week { width:1040px; margin:26px auto 0; display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
+  .day { min-height:150px; padding:8px 6px; border-radius:12px } .day.today { background:var(--blotter) }
+  .day header { display:flex; justify-content:space-between; font-size:13px; color:var(--graphite); padding:0 4px 8px }
+  .card { padding:8px 10px; border-left:3px solid var(--highlighter); border-radius:6px 10px 10px 6px; background:#fbf1cf; font-size:13px; line-height:1.3 }
+  .card b { display:block; font-size:14px }
+  .card small { display:block; color:var(--graphite); margin-top:3px }
+  .comp { position:absolute; left:50%; bottom:20px; transform:translateX(-50%); width:720px; background:var(--page); border-radius:16px; box-shadow:0 0 0 1px rgb(43 38 33/14%), 0 16px 36px -18px rgb(43 38 33/45%) }
+  .comp .ta { padding:14px 16px 6px; color:#9a9084; min-height:46px }
+  .comp .foot { display:flex; align-items:center; justify-content:space-between; padding:0 8px 8px 16px; min-height:44px }
+  .comp .send { width:32px; height:32px; border-radius:50%; background:var(--blotter); display:grid; place-items:center; color:#b3a99c }
+  .asks { width:720px; margin:0 auto; position:absolute; left:50%; bottom:118px; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center }
+  .asks span { padding:6px 12px; border-radius:999px; background:var(--page); box-shadow:0 0 0 1px var(--rule); font-size:13px; color:#4b433a }
+  .asks.plain { display:block; text-align:center; font-size:13px; color:var(--graphite) }
+</style>
+
+<p class="note"><b>1 · School check — nothing needs you.</b> One state line, one action for that state, the rule as a sentence, then what the last check found. The big lists fold behind "Where Dot looks".</p>
+<div class="screen">
+  <div class="head"><span class="title">School check</span><span class="muted">NC State · Moodle, WebAssign</span><span class="right btn quiet">← Back to your week</span></div>
+  <div class="cols">
+    <div class="left">
+      <div class="state">
+        <div class="dot">🙂</div>
+        <div><h2 class="hand">Your week is up to date.</h2><p>Checked today at 7:30 AM. Next check tomorrow at 7:30 AM.</p>
+          <div class="acts"><span class="btn quiet">Check now</span></div></div>
+      </div>
+      <div class="rule">Dot checks your school every morning at 7:30 and adds what it finds to your week. <span class="link">Change</span></div>
+
+      <div class="sect"><h3>Found this morning</h3>
+        <div class="row"><span><b>HW 12 <span class="tag new">new</span></b><small>ST 370 · due Thu, Oct 2</small></span><span class="muted">›</span></div>
+        <div class="row"><span><b>Project 1 <span class="tag">due date moved</span></b><small>CSC 316 · now due Mon, Oct 6</small></span><span class="muted">›</span></div>
+        <div class="row"><span><b>HW 8 <span class="tag">handed in</span></b><small>MA 241 · the school shows it submitted</small></span><span class="muted">›</span></div>
+      </div>
+
+      <div class="sect"><h3>Earlier</h3>
+        <div class="row"><span><small>Yesterday 7:30 AM</small></span><small>Nothing new</small></div>
+        <div class="row"><span><small>Sun 7:30 AM</small></span><small>2 new · 1 changed</small></div>
+      </div>
+
+      <div class="where">Where Dot looks · 3 classes · 2 sites signed in</div>
+    </div>
+    <div class="browser">School page (live browser) — stays as it is</div>
+  </div>
+</div>
+
+<p class="note"><b>2 · School check — Dot is reading.</b> Same layout; the state line changes, the live step shows under it, and the only action is to stop. The section under it shows what it has found so far.</p>
+<div class="screen">
+  <div class="head"><span class="title">School check</span><span class="muted">NC State · Moodle, WebAssign</span><span class="right btn quiet">← Back to your week</span></div>
+  <div class="cols">
+    <div class="left">
+      <div class="state">
+        <div class="dot">🧐</div>
+        <div><h2 class="hand">Reading your classes.</h2><p class="live"><i></i>ST 370 · looking at the WebAssign list</p>
+          <div class="acts"><span class="btn">Stop and keep what Dot found</span></div></div>
+      </div>
+      <div class="rule">Started 2 min ago. Moodle read, WebAssign in progress, 1 class left.</div>
+      <div class="sect"><h3>Found so far</h3>
+        <div class="row"><span><b>HW 12 <span class="tag new">new</span></b><small>ST 370 · due Thu, Oct 2</small></span><span class="muted">›</span></div>
+      </div>
+      <div class="where">Where Dot looks · 3 classes · 2 sites signed in</div>
+    </div>
+    <div class="browser">School page, Dot is driving it</div>
+  </div>
+</div>
+
+<p class="note"><b>3 · School check — needs you.</b> The state line names the one thing; the sign-in card is the only strong element on the screen.</p>
+<div class="screen">
+  <div class="head"><span class="title">School check</span><span class="muted">NC State · Moodle, WebAssign</span><span class="right btn quiet">← Back to your week</span></div>
+  <div class="cols">
+    <div class="left">
+      <div class="state">
+        <div class="dot">😳</div>
+        <div><h2 class="hand">WebAssign signed you out.</h2><p>Sign in on the right. Dot kept its place and carries on once you're in.</p></div>
+      </div>
+      <div class="need"><span><b>Sign in on the school page</b><small>Tick "remember this device" if it asks.</small></span><span class="btn primary">I've signed in</span></div>
+      <div class="rule">Paused 4 min ago. Moodle is done; WebAssign and 1 class are waiting.</div>
+      <div class="sect"><h3>Found so far</h3>
+        <div class="row"><span><b>HW 12 <span class="tag new">new</span></b><small>ST 370 · due Thu, Oct 2</small></span><span class="muted">›</span></div>
+      </div>
+      <div class="where">Where Dot looks · 3 classes · 1 site signed in · 1 needs you</div>
+    </div>
+    <div class="browser">WebAssign sign-in page</div>
+  </div>
+</div>
+
+<p class="note"><b>4 · Home — the chat box outside the three flows.</b> No "Ask about an assignment" button, no pop-up on focus. The placeholder rotates through real asks; the picker only opens when you type @. What Dot can do beyond homework, scans and Learn is stated once, quietly, above the box.</p>
+<div class="screen">
+  <div class="top"><b style="font-size:22px">studi</b><div class="seg"><span class="on">Homework</span><span>Learn</span></div><span>⚙</span></div>
+  <div class="hello"><div class="dot" style="width:64px;height:64px;font-size:30px">🙂</div><div><h1 class="hand">Nothing needs you.</h1><p>HW 12 is next. Dot starts it tonight at 8:00.</p></div><div class="seg" style="margin:0"><span class="on" style="background:var(--page)">Week</span><span>List</span><span>All</span></div></div>
+  <div class="week">
+    <div class="day"><header><span>Mon</span><span>Sep 29</span></header></div>
+    <div class="day today"><header><span>Tue</span><b>Sep 30</b></header><div class="card"><b>HW 3</b><small>CSC 316</small><small>Dot starts tonight</small></div></div>
+    <div class="day"><header><span>Wed</span><span>Oct 1</span></header></div>
+    <div class="day"><header><span>Thu</span><span>Oct 2</span></header><div class="card"><b>HW 12</b><small>ST 370</small><small>Queued after HW 3</small></div></div>
+    <div class="day"><header><span>Fri</span><span>Oct 3</span></header></div>
+    <div class="day"><header><span>Sat</span><span>Oct 4</span></header></div>
+    <div class="day"><header><span>Sun</span><span>Oct 5</span></header></div>
+  </div>
+  <div class="asks plain">Dot can also check your email and calendar, explain anything from class, quiz you, or add homework from a link.</div>
+  <div class="comp"><div class="ta">Check my email for anything from Dr. Smith about the exam…</div><div class="foot"><span class="muted" style="font-size:12.5px">Type @ to bring in an assignment</span><span class="send">↑</span></div></div>
+</div>
+</html>

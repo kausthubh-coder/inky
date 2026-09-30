@@ -1,0 +1,131 @@
+/* Learn and tutor, from docs/redesign/learn-concept.html. Lavender replaces the highlighter here. */
+.lr-column { width: min(760px, 100%); padding-bottom: 28px; }
+.lr-muted { color: var(--graphite); font-size: 13px; }
+.lr-grow { flex: 1; }
+.lr-label { margin: 18px 0 6px 4px; font-size: 13px; font-weight: 600; color: var(--graphite); }
+.lr-danger { color: var(--redpen); }
+
+.lr-status { display: flex; align-items: center; gap: 10px; margin: -8px 0 16px; font-size: 14px; }
+.lr-status.is-bad { justify-content: space-between; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--redpen) 9%, var(--page)); }
+
+/* One box takes anything: typed facts, a pasted study guide, or a file. */
+.lr-intake { padding: 16px 18px 14px; border: 1.5px dashed var(--graphite); border-radius: 16px; background: var(--page); }
+.lr-intake textarea { display: block; width: 100%; min-height: 48px; padding: 0; border: 0; resize: vertical; background: none; font-size: 15px; line-height: 1.45; outline: none; }
+.lr-intake textarea::placeholder { color: var(--graphite); }
+.lr-ways { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.lr-ways .lr-muted { margin-left: auto; }
+.lr-adds { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.lr-dash { height: 34px; padding: 0 12px; border: 1.5px dashed color-mix(in srgb, var(--graphite) 70%, transparent); border-radius: 10px; background: none; font-size: 13.5px; font-weight: 600; color: var(--pencil); cursor: pointer; transition: background-color 0.15s ease-out; }
+.lr-dash:hover { background: var(--blotter); }
+
+/* Goals: class color on the left edge, readiness in the middle, time on the right. */
+.lr-goals { display: grid; gap: 2px; }
+.lr-goal { display: grid; grid-template-columns: minmax(0, 1fr) 96px 88px; align-items: center; gap: 18px; width: 100%; padding: 10px 14px 10px 20px; border: 0; border-radius: 12px; background: none; text-align: left; color: inherit; cursor: pointer; position: relative; transition: background-color 0.15s ease-out; }
+.lr-goal::before { content: ""; position: absolute; left: 8px; top: 12px; bottom: 12px; width: 3px; border-radius: 2px; background: var(--course-accent, var(--graphite)); }
+.lr-goal:hover { background: color-mix(in srgb, var(--blotter) 60%, transparent); }
+.lr-goal[aria-pressed="true"] { background: var(--blotter); box-shadow: inset 3px 0 0 var(--highlighter); }
+.lr-goal-name { min-width: 0; }
+.lr-goal-name b, .lr-goal-when b { display: block; font-size: 16px; font-weight: 700; line-height: 1.3; }
+.lr-goal-name small, .lr-goal-when small { display: block; font-size: 13px; color: var(--graphite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-goal-when { grid-column: 3; text-align: right; }
+.lr-goal-when b { font-size: 15px; }
+.lr-bar { display: block; height: 4px; border-radius: 2px; background: var(--blot2); overflow: hidden; }
+.lr-bar i { display: block; height: 100%; border-radius: 2px; background: var(--pencil); }
+
+/* The open goal. */
+.lr-card { margin-top: 14px; padding: 18px; border-radius: 18px; background: var(--page); box-shadow: 0 0 0 1.5px var(--pencil); }
+.lr-voice { margin: 0 0 12px; font: 600 16px/1.4 "Shantell Sans", cursive; }
+.lr-card .lr-intake { border-color: var(--blot2); background: var(--paper); }
+.lr-lead { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 12px; background: var(--blotter); }
+.lr-lead > div { flex: 1; min-width: 0; }
+.lr-lead b { display: block; font-size: 16px; font-weight: 700; }
+.lr-lead small { display: block; margin-top: 2px; font-size: 13.5px; color: var(--graphite); }
+.lr-start { min-height: 46px; padding: 0 24px; font-size: 16px; }
+.lr-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 20px 0 4px; }
+.lr-head h2 { margin: 0; font: 700 15px/1.3 "Nunito Sans", sans-serif; }
+.lr-head span { font-size: 13px; color: var(--graphite); }
+.lr-topics { margin: 0; padding: 0; list-style: none; }
+.lr-topics li { display: grid; grid-template-columns: minmax(0, 1fr) auto 104px 78px; align-items: center; gap: 14px; min-height: 38px; }
+.lr-topic-name { font-size: 15px; }
+.lr-topic-name small { margin-left: 8px; font-size: 13px; color: var(--graphite); }
+.lr-level { display: flex; gap: 3px; }
+.lr-level i { width: 18px; height: 5px; border-radius: 3px; background: var(--blot2); }
+.lr-level i.on { background: var(--pencil); }
+.lr-level i.none { background: none; box-shadow: inset 0 0 0 1px var(--blot2); }
+.lr-level-word { font-size: 13px; color: var(--graphite); }
+.lr-practise { opacity: 0; justify-self: end; transition: opacity 0.15s ease-out; }
+.lr-topics li:hover .lr-practise, .lr-practise:focus-visible { opacity: 1; }
+.lr-quiz { margin-top: 14px; background: none; padding: 12px 0 0; border-top: 1px solid var(--rule); border-radius: 0; }
+.lr-hints { margin-top: 8px; }
+.lr-hint { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; font-size: 15px; }
+.lr-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--rule); }
+.lr-card-foot .lr-muted { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-card-foot > button:first-child { margin-right: auto; }
+
+/* Forms: add an exam, change a goal, learn something else. */
+.lr-form h2 { margin: 0 0 14px; font: 700 16px/1.3 "Nunito Sans", sans-serif; }
+.lr-fields { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 12px; }
+.lr-form label { display: grid; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--graphite); }
+.lr-form .lr-wide { margin-top: 12px; }
+.lr-form :is(input, select, textarea) { width: 100%; min-height: 38px; padding: 7px 12px; border: 1.5px solid var(--rule); border-radius: 10px; background: var(--paper); font-size: 14.5px; font-weight: 400; color: var(--pencil); }
+.lr-form textarea { resize: vertical; line-height: 1.45; }
+.lr-form :is(input, select, textarea):focus { border-color: var(--pencil); outline: none; }
+.lr-edit-topics { margin-top: 6px; }
+.lr-edit-topic { display: flex; align-items: center; justify-content: space-between; min-height: 34px; border-bottom: 1px solid var(--rule); font-size: 14.5px; }
+.lr-edit-topic button { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--graphite); font-size: 17px; cursor: pointer; }
+.lr-edit-topic button:hover { background: var(--blotter); color: var(--redpen); }
+.lr-add-topic input { margin-top: 8px; }
+.lr-steps { margin: 14px 0 0; padding-left: 20px; font-size: 13.5px; color: var(--graphite); }
+.lr-steps li { margin: 3px 0; }
+
+@media (max-width: 640px) {
+  .lr-goal { grid-template-columns: minmax(0, 1fr) 80px; }
+  .lr-goal .lr-bar { display: none; }
+  .lr-goal-when { grid-column: 2; }
+  .lr-topics li { grid-template-columns: minmax(0, 1fr) auto 90px; }
+  .lr-practise { display: none; }
+  .lr-fields { grid-template-columns: 1fr; }
+}
+
+/* Tutor session. */
+.rd-tutor-heading.tu-heading { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 14px; height: 64px; width: 100%; align-self: stretch; box-sizing: border-box; }
+.tu-title { min-width: 0; text-align: center; }
+.tu-title strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14.5px; font-weight: 700; }
+.tu-title strong span { font-weight: 400; color: var(--graphite); }
+.tu-phases { display: flex; justify-content: center; gap: 14px; margin: 3px 0 0; padding: 0; list-style: none; font-size: 12px; color: color-mix(in srgb, var(--graphite) 65%, transparent); }
+.tu-phases li { display: flex; align-items: center; gap: 5px; }
+.tu-phases li::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--blot2); }
+.tu-phases .done { color: var(--graphite); }
+.tu-phases .done::before { background: var(--pencil); }
+.tu-phases .now { color: var(--pencil); font-weight: 600; }
+.tu-phases .now::before { width: 8px; height: 8px; background: var(--highlighter); box-shadow: 0 0 0 1.5px var(--pencil); }
+.tu-time { font-size: 13px; color: var(--graphite); font-variant-numeric: tabular-nums; }
+.tu-column { padding-top: 18px; }
+.tu-past { display: grid; gap: 2px; margin: 0 0 8px; padding: 0; list-style: none; }
+.tu-past li { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; gap: 16px; font-size: 13.5px; line-height: 1.7; color: var(--graphite); }
+.tu-past li > span:first-child { color: var(--pencil); font-weight: 600; }
+.tu-past-q { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tu-past .tu-miss { color: var(--redpen); }
+.tu-voice { min-width: 0; padding-top: 6px; font: 600 16.5px/1.4 "Shantell Sans", cursive; }
+.tu-voice p, .tu-voice .chat-markdown p { margin: 0 0 4px; }
+.tu-source { margin: 10px 0 0; font-size: 13px; color: var(--graphite); }
+.tu-hints { margin: 12px 0 0; padding-left: 20px; font-size: 14.5px; }
+.tu-hints li { margin: 4px 0; }
+.rd-typed-form .lr-ways { margin-top: 0; flex-wrap: nowrap; }
+.tu-wrap h1 { margin: 0; padding-top: 8px; font-size: 24px; }
+.tu-level { margin: 14px 0; font-size: 15px; }
+.tu-missing { margin: 0; padding-left: 20px; font-size: 14.5px; }
+.tu-scores { margin: 0; padding: 0; list-style: none; }
+.tu-scores li { display: grid; grid-template-columns: minmax(0, 1fr) 96px 56px; align-items: center; gap: 16px; min-height: 38px; font-size: 15px; }
+.tu-scores b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tu-wrap .lr-ways { margin-top: 20px; }
+@media (max-width: 640px) {
+  .tu-phases li:not(.now) { font-size: 0; gap: 0; }
+  .tu-past li { grid-template-columns: minmax(0, 1fr) auto; }
+  .tu-past li > span:first-child { display: none; }
+}
+
+/* A study page Dot wrote, sandboxed. */
+.tu-page { position: relative; margin: 14px 0 12px; }
+.tu-page figcaption { margin: 0 0 6px; font-size: 13px; font-weight: 700; color: var(--graphite); }
+.tu-page iframe { display: block; width: 100%; border: 1.5px dashed color-mix(in srgb, var(--graphite) 60%, transparent); border-radius: 12px; background: var(--page); }

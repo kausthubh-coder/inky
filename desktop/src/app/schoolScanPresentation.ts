@@ -41,6 +41,7 @@ export function schoolScanPresentation(state: SchoolOnboardingState) {
 
 export function scanChangeLabel(change: ScanChange): string {
   if (change.kind === "new") return "New";
+  if (change.kind === "removed") return "No longer listed by school";
   const labels = change.fields.map(field => ({ dueAt: "Due date", dueText: "Due date", instructions: "Instructions", title: "Title" })[field] ?? "Details");
   return (labels.length ? [...new Set(labels)].join(" & ") : "Details") + " changed";
 }
@@ -50,6 +51,7 @@ function dueLabel(value: Pick<Assignment, "dueAt" | "dueText">): string {
 }
 
 export function scanChangeDate(change: ScanChange, assignment: Assignment): string {
+  if (change.kind === "removed") return "Check the school page";
   if (change.dueChange) return `${dueLabel(change.dueChange.before)} → ${dueLabel(change.dueChange.after)}`;
   return dueLabel(assignment);
 }

@@ -11,7 +11,7 @@ export async function startSelectedAssignment(
 ): Promise<void> {
   const live = store.lifecycle.getActiveExecution();
   if (live && isLivePhase(live.phase)) {
-    throw new Error("Inky is already on another page.");
+    throw new Error("Dot is already on another page.");
   }
   manager.enqueue({ taskId, retry: true });
   manager.steerNext(taskId);

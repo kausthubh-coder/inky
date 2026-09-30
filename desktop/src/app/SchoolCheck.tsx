@@ -1,15 +1,35 @@
 import { useEffect, useRef } from "react";
 import { ChatMarkdown } from "./ChatMarkdown.js";
-import type { LifecycleState, SchoolOnboardingState } from "../../shared/index.js";
+import { scanWaitingFor, type LifecycleState, type SchoolOnboardingState } from "../../shared/index.js";
 import { ScanStatus } from "./ScanStatus.js";
 import { scanBrowserOwner } from "./scanBrowserOwner.js";
-import { Inky } from "./Inky.js";
+import { Character } from "./Character.js";
 import { Icon } from "./Icon.js";
 import { formatDateTime } from "./Ui.js";
+import { courseTone } from "./assignmentPresentation.js";
 import { scanChangeDate, scanChangeLabel, schoolScanPresentation } from "./schoolScanPresentation.js";
 import "./school-check.css";
+import { plainError, schoolScanFailure } from "./homeworkText.js";
 
-export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWork, onAssignment, onCheck, onPause, onBrowser, busy, detailsOpen, onDetails }: {
+type ProgressState = "checked" | "reading" | "waiting" | "needs_user";
+
+function hostLabel(target: string | undefined): string {
+  if (!target) return "School site";
+  try { return new URL(target).hostname.replace(/^www\./, ""); }
+  catch { return "School site"; }
+}
+
+function handoffLabel(reason: string): string {
+  return reason.match(/^(.+?)\s+needs\b/i)?.[1]?.trim() || "School sign-in";
+}
+
+function ProgressMark({ state }: { state: ProgressState }) {
+  return <span className={`scan-progress-mark is-${state}`} aria-hidden="true">
+    {state === "checked" ? <Icon name="check" size={15} /> : state === "needs_user" ? <Icon name="warning" size={14} /> : state === "reading" ? <span className="scan-reading-dots">•••</span> : "·"}
+  </span>;
+}
+
+export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWork, onAssignment, onCheck, onPause, onBrowser, onOpenSchoolPage, busy, detailsOpen, onDetails, onSchedule }: {
   state: SchoolOnboardingState;
   lifecycle: LifecycleState;
   onStopAndScan: (taskId: string) => void;
@@ -20,9 +40,11 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
   onCheck: () => void;
   onPause: () => void;
   onBrowser: () => void;
+  onOpenSchoolPage: () => void;
   busy: string | null;
   detailsOpen: boolean;
   onDetails: (open: boolean) => void;
+  onSchedule: () => void;
 }) {
   const scan = state.scan;
   const view = schoolScanPresentation(state);
@@ -35,12 +57,63 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
   const reportLabel = view.active ? "Current scan" : "Latest scan";
   const disabled = busy !== null;
   const busyStarting = busy === "scan" || busy === "resume" || busy === "replay";
+  const waiting = scanWaitingFor(scan);
+  const schedule = lifecycle.schedule;
+  const failure = schoolScanFailure(scan?.failures[0]);
+  const signInSite = state.linkedSystems.find(site => site.linkedSystemId === scan?.handoff?.linkedSystemId)?.label
+    ?? (scan?.handoff?.reason ? handoffLabel(scan.handoff.reason) : "Your school");
+  const title = view.running ? scan?.targetAssignmentId ? "Reading this assignment" : "Reading your classes" : waiting === "sign_in" ? `${signInSite} signed you out`
+    : view.paused ? "The school page is yours" : !scan ? "Dot hasn't read your school yet"
+    : scan.state === "succeeded" ? scan.targetAssignmentId ? "Assignment checked" : "Your week is up to date" : scan.state === "failed" ? failure.title : "Some pages still need a check";
+  const description = view.running ? scan?.currentStep || scan?.messages.filter(message => message.role === "assistant").at(-1)?.text
+    : waiting === "sign_in" ? "Sign in on the right. Dot kept its place."
+    : view.paused ? scan?.handoff?.reason || "Give Dot the page back when you're ready."
+    : !scan ? "Find your assignments and due dates in one check."
+    : scan.state === "succeeded" ? `Last checked ${formatDateTime(timestamp!)}${!scan.targetAssignmentId && schedule?.nextRunAt && schedule.cadence !== "manual" && schedule.state !== "paused" ? `. Next check ${formatDateTime(schedule.nextRunAt)}.` : "."}`
+    : scan.state === "failed" ? failure.description : plainError(scan.failures[0]) || view.incompleteLabel;
+  const action = waiting === "sign_in" ? "I've signed in" : view.paused ? "Continue check"
+    : scan && scan.state !== "succeeded" ? "Check again" : "Check now";
+  const localTime = schedule?.localTime ? new Date(`2000-01-01T${schedule.localTime}`).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "";
+  const rule = !schedule || schedule.cadence === "manual" ? "Dot checks your school only when you ask."
+    : schedule.state === "paused" ? "Automatic school checks are paused."
+    : schedule.cadence === "daily" ? `Dot checks your school every ${Number(schedule.localTime.split(":")[0]) < 12 ? "morning" : "day"} at ${localTime}.`
+    : `Dot checks your school every ${["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][schedule.weekday ?? 1]} at ${localTime}.`;
+  const systemRows = (() => {
+    if (!scan) return [];
+    const handoff = scan.handoff;
+    const schoolNeedsUser = handoff?.kind === "school_sign_in";
+    const rows: { id: string; label: string; detail: string; state: ProgressState }[] = state.profile ? [{
+      id: "school-root",
+      label: hostLabel(state.profile.schoolRoot),
+      detail: schoolNeedsUser ? handoff.reason : scan.observedCourseIds.length || scan.coverage.length ? "dashboard read" : view.running ? "checking dashboard" : "not checked in this scan",
+      state: schoolNeedsUser ? "needs_user" : scan.observedCourseIds.length || scan.coverage.length ? "checked" : view.running ? "reading" : "waiting",
+    }] : [];
+    for (const system of state.linkedSystems) {
+      const needsUser = system.state === "needs_user" || handoff?.linkedSystemId === system.linkedSystemId;
+      const observedNow = system.lastObservedScanId === scan.scanId || scan.observedLinkedSystemIds.includes(system.linkedSystemId);
+      rows.push({
+        id: system.linkedSystemId,
+        label: system.label,
+        detail: needsUser ? handoff?.linkedSystemId === system.linkedSystemId ? handoff.reason : "Needs you to sign in" : observedNow ? "checked" : "signed in at last check",
+        state: needsUser ? "needs_user" : observedNow ? "checked" : "waiting",
+      });
+    }
+    if (handoff?.kind === "linked_system_sign_in" && !rows.some(row => row.id === handoff.linkedSystemId || row.label.toLocaleLowerCase() === handoffLabel(handoff.reason).toLocaleLowerCase())) {
+      rows.push({ id: handoff.linkedSystemId ?? "linked-system-handoff", label: handoffLabel(handoff.reason), detail: handoff.reason, state: "needs_user" });
+    }
+    return rows;
+  })();
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return; }
     root.current?.closest(".conversation-log")?.scrollTo({ top: 0 });
     if (detailsOpen) heading.current?.focus();
     else detailsButton.current?.focus();
   }, [detailsOpen]);
+  useEffect(() => {
+    if (!detailsOpen && (scan?.state === "failed" || scan?.state === "needs_user")) {
+      root.current?.closest(".conversation-log")?.scrollTo({ top: 0 });
+    }
+  }, [scan?.state, scan?.failures[0], detailsOpen]);
 
   if (detailsOpen && scan) return <section ref={root} className="school-check scan-report scan-details-page" aria-label="Scan details">
     <button className="scan-text-button" onClick={() => onDetails(false)}><Icon name="left" size={17} />Scan result</button>
@@ -53,12 +126,12 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
       })}</ul>
     </>}
     {scan.coverage.length > 0 && <section className="scan-detail-note"><h3>Sources checked</h3>{scan.coverage.map((item, index) => <p key={index}><strong>{item.target}</strong> · {item.status === "verified" ? "Checked" : item.failure ?? "Needs another look"}</p>)}</section>}
-    {scan.failures.length > 0 && <section className="scan-detail-note"><h3>Inky’s notes</h3>{scan.failures.map((note, index) => <ChatMarkdown key={index} text={note} />)}</section>}
+    {scan.failures.length > 0 && <section className="scan-detail-note"><h3>Dot’s notes</h3>{scan.failures.map((note, index) => <ChatMarkdown key={index} text={note} />)}</section>}
     <section className="scan-detail-activity"><h3>What happened</h3>
       <p><time dateTime={scan.startedAt}>{formatDateTime(scan.startedAt)}</time><span>Started this scan.</span></p>
       {scan.messages.map(message => <div className="scan-activity-entry" key={message.messageId}>
         <time dateTime={message.createdAt}>{formatDateTime(message.createdAt)}</time>
-        <div><strong>{message.role === "user" ? "You" : "Inky"}</strong>
+        <div><strong>{message.role === "user" ? "You" : "Dot"}</strong>
           {message.role === "user" ? <p className="scan-student-message">{message.text}</p> : <ChatMarkdown text={message.text} />}
         </div>
       </div>)}
@@ -69,32 +142,33 @@ export function SchoolCheck({ state, lifecycle, onStopAndScan, onWait, onOpenWor
   </section>;
 
   return <section ref={root} className="school-check scan-report" aria-label="School scan results">
-    {scan && <div className="scan-report-date"><strong>{reportLabel}</strong><time dateTime={timestamp}>{formatDateTime(timestamp!)}</time>{view.running && <span className="scan-live-label"><i />In progress</span>}</div>}
-    {owner && <ScanStatus state={state} lifecycle={lifecycle} busy={busy} onCheck={onCheck} onStopAndScan={onStopAndScan} onWait={onWait} onOpenWork={onOpenWork} />}
-    <div className={`scan-result-hero ${!scan ? "is-first" : ""}`}>
-      <Inky state={view.mood} size={90} />
-      <div className="scan-result-copy" role="status" aria-live="polite"><h2>{view.title}</h2><ChatMarkdown text={view.description ?? ""} />
-        {view.running && view.directoryKnown && <small className="scan-count">{view.checkedLabel}</small>}
-        {scan && !view.active && scan.changes.length > 0 && <span className="scan-saved"><Icon name="check" size={14} />Saved to your week</span>}
+    {owner ? <ScanStatus state={state} lifecycle={lifecycle} busy={busy} onCheck={onCheck} onStopAndScan={onStopAndScan} onWait={onWait} onOpenWork={onOpenWork} /> : <header className="scan-state">
+      <Character state={view.mood} size={64} />
+      <div role="status" aria-live="polite">
+        <h2>{title}</h2>
+        <p className="scan-state-description">{description}</p>
       </div>
-      {!owner && <div className="scan-hero-action">
-        {view.running ? <button className="button button--paper" disabled={disabled} onClick={onPause}>Pause scan</button>
-          : view.signIn ? <button className="button button--yellow" disabled={disabled} onClick={onBrowser}>Open sign-in<Icon name="browser" size={17} /></button>
-          : <button className="button button--yellow" disabled={disabled} onClick={onCheck}>{busyStarting ? "Starting scan…" : scan?.targetAssignmentId && (scan.state === "partial" || scan.state === "failed") ? "Continue checking assignment" : view.paused ? "Continue scan" : scan?.state === "failed" ? "Restart scan" : scan ? "Scan again" : "Scan for homework"}<Icon name={view.paused ? "right" : "search"} size={17} /></button>}
-      </div>}
-    </div>
-    {view.paused && <p className="scan-recovery-note">{view.signIn ? "Sign in on your school page, then continue this scan." : "Your place is saved. Continue when you’re ready."}</p>}
-    {scan?.state === "failed" && <p className="scan-recovery-note">{scan.targetAssignmentId ? "Continue checking this assignment from the saved progress." : "Continue checking from the saved progress. Your saved homework stays."}</p>}
-    {scan?.targetAssignmentId && !view.active && <button className="button button--paper" onClick={() => onAssignment(scan.targetAssignmentId!)}>Back to assignment<Icon name="right" size={17} /></button>}
-    {scan?.state === "partial" && <p className="scan-missing-source"><Icon name="warning" size={17} /><span>{view.incompleteLabel}</span></p>}
-    {view.changes.length > 0 && <section className="scan-change-list" aria-label="Changes from this scan">
-      <h3>{view.active || scan?.state === "failed" ? "Found so far" : "Added & updated in this scan"}</h3>
-      {view.changes.map(({ change, assignment }) => <button key={change.assignmentId} className="check-result scan-change" onClick={() => onAssignment(assignment.assignmentId)}>
-        <span className={`scan-change-symbol ${change.kind === "updated" ? "is-updated" : ""}`}><Icon name={change.kind === "updated" ? "calendar" : "note"} size={22} /></span>
-        <span className="scan-change-copy"><strong>{assignment.title}<small className="scan-change-tag">{scanChangeLabel(change)}</small></strong><small>{state.courses.find(course => course.courseId === assignment.courseId)?.label}</small></span>
-        <span className="scan-change-date">{scanChangeDate(change, assignment)}</span><Icon name="right" size={16} />
-      </button>)}
+      <div className="scan-state-actions">
+        {view.running ? <button className="rd-button" onClick={onPause}>Stop and keep what Dot found</button>
+          : <button className="rd-button rd-primary" disabled={disabled} onClick={onCheck}>{busyStarting ? "Starting\u2026" : action}</button>}
+        {scan?.state === "failed" && failure.pageUnavailable && <button className="rd-quiet" disabled={disabled} onClick={onOpenSchoolPage}>{busy === "school-page" ? "Opening\u2026" : "Open school page"}<Icon name="external" size={14} /></button>}
+      </div>
+    </header>}
+    <div className="scan-schedule"><p>{rule}</p><button className="rd-quiet scan-change-rule" onClick={onSchedule}>Change</button></div>
+    {scan && <section className="scan-change-list" aria-label="Changes from this scan">
+      <h3>{view.active ? "Found so far" : "What changed"}</h3>
+      {view.changes.length === 0 ? <p className="scan-empty">{view.active ? "New finds will appear here." : scan.state === "failed" ? "No changes were verified. Your saved homework stays in your week." : "Nothing new."}</p>
+        : view.changes.map(({ change, assignment }) => <button key={change.assignmentId} className={`scan-change course-accent-${courseTone(state.courses.find(course => course.courseId === assignment.courseId)?.label ?? "", state.courses)}`} onClick={() => onAssignment(assignment.assignmentId)}>
+          <span className="scan-change-copy"><strong>{assignment.title}</strong><small>{state.courses.find(course => course.courseId === assignment.courseId)?.label} · {scanChangeDate(change, assignment)}</small><span className="scan-change-label">{assignment.schoolStatus?.state === "submitted" || assignment.schoolStatus?.state === "graded" ? "Handed in" : scanChangeLabel(change)}</span></span>
+          <Icon name="right" size={16} />
+        </button>)}
     </section>}
-    {scan && <footer className="scan-result-footer">{!view.active && <span>{view.checkedLabel}</span>}<button ref={detailsButton} className="scan-text-button" onClick={() => onDetails(true)}><Icon name="note" size={16} />Scan details<Icon name="right" size={15} /></button></footer>}
+    <details className="scan-where">
+      <summary>Where Dot looks <span>{view.courses.length} classes</span><Icon name="down" size={16} /></summary>
+      {systemRows.length > 0 && <section><h3>School sites</h3>{systemRows.map(system => <div className="scan-progress-row" key={system.id}><ProgressMark state={system.state} /><span className="scan-progress-copy"><strong>{system.label}</strong><small>{system.detail}</small></span></div>)}</section>}
+      {view.courses.length > 0 && <section><h3>Classes</h3>{view.courses.map(course => <div className="scan-progress-row" key={course.courseId}><ProgressMark state={scan?.inventories.some(item => item.kind === "assignments" && item.courseId === course.courseId && item.state === "complete") ? "checked" : "waiting"} /><span className="scan-progress-copy"><strong>{course.label}</strong></span></div>)}</section>}
+    </details>
+    {scan?.targetAssignmentId && !view.active && <button className="scan-text-button" onClick={() => onAssignment(scan.targetAssignmentId!)}>Back to assignment<Icon name="right" size={16} /></button>}
+    {scan && <footer className="scan-result-footer"><button ref={detailsButton} className="scan-text-button" onClick={() => onDetails(true)}>Scan details<Icon name="right" size={15} /></button></footer>}
   </section>;
 }

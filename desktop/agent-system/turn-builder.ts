@@ -24,6 +24,7 @@ export interface BuiltAgentTurn {
 
 function roleForTarget(target: AgentTarget): AgentRole {
   if (target.kind === "home") return "home";
+  if (target.kind === "learn") return "learn";
   if (target.kind === "scan") return "scan";
   if (target.kind === "tutor") return "tutor";
   return "assignment";

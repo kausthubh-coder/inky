@@ -16,15 +16,15 @@ import { task, taskTransitionCommand } from "./fixtures.mjs";
 const expectedTransitions = {
   discovered: ["ignored", "queued"],
   ignored: [],
-  queued: ["discovered", "working", "cancelled"],
+  queued: ["discovered", "working", "cancelled", "ignored"],
   working: ["needs_user", "ready_review", "submitting", "failed", "cancelled"],
   needs_user: ["working", "queued", "preserved", "cancelled"],
   ready_review: ["submitting", "submitted", "preserved", "needs_user", "cancelled"],
   submitting: ["submitted", "needs_user", "working", "failed"],
   submitted: [],
-  preserved: [],
-  failed: ["queued"],
-  cancelled: ["queued"],
+  preserved: ["queued", "ignored"],
+  failed: ["queued", "ignored"],
+  cancelled: ["queued", "ignored"],
 };
 const states = TaskStateSchema.options;
 
@@ -32,9 +32,9 @@ function command(to) {
   return { ...taskTransitionCommand, to };
 }
 
-test("stopped tasks can be queued again while completed work stays terminal", () => {
+test("stopped and saved tasks can be queued again while handed-in work stays terminal", () => {
   assert.deepEqual(TASK_TRANSITIONS, expectedTransitions);
-  assert.deepEqual([...TERMINAL_TASK_STATES], ["ignored", "submitted", "preserved"]);
+  assert.deepEqual([...TERMINAL_TASK_STATES], ["ignored", "submitted"]);
 });
 
 test("every allowed transition returns a new task and event", () => {

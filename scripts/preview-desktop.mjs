@@ -15,7 +15,7 @@ void app.whenReady().then(async () => {
 const window = new BrowserWindow({
   width: 1280, height: 850, minWidth: 720, minHeight: 520,
   title: "Studi · design preview", autoHideMenuBar: true,
-  icon: join(process.cwd(), "assets", "studi-inky.png"),
+  icon: join(process.cwd(), "assets", "studi-icon.png"),
   ...windowChromeOptions,
   webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true },
 });

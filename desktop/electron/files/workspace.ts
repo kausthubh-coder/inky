@@ -189,7 +189,7 @@ async function assertInside(root: string, target: string): Promise<void> {
   throw new TypeError("Workspace path escaped the selected Studi folder");
 }
 
-function safeSegment(value: string, fallback: string): string {
+export function safeSegment(value: string, fallback: string): string {
   const cleaned = value
     .normalize("NFKC")
     .replace(/[<>:"/\\|?*\u0000-\u001f]/g, " ")

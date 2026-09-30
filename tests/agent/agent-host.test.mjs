@@ -6,6 +6,7 @@ import {
   HarnessReplySchema,
   MemoryAgentJobStore,
   buildAgentTurn,
+  buildAgentTurnForTools,
 } from "../../dist/agent-system/index.js";
 
 class TestDriver {
@@ -18,22 +19,49 @@ class TestDriver {
 
 test("capabilities follow target, explicit work, claim, and submit facts", async () => {
   const home = await buildAgentTurn({ target: { kind: "home" }, phase: "conversing", hasBrowserClaim: false }, "hello");
-  assert.deepEqual(home.toolNames, ["home_status", "queue_inspect", "queue_start", "queue_cancel", "note_search"]);
+  assert.deepEqual(home.toolNames, ["home_status", "queue_inspect", "queue_start", "queue_cancel", "queue_reorder", "assignment_set_owner", "homework_add", "homework_correct", "note_search", "note_read", "note_upsert"]);
   const connectedHome = await buildAgentTurn({ target: { kind: "home" }, phase: "conversing", hasBrowserClaim: false, composioTools: ["connected_apps_search", "connected_apps_execute"] }, "email my professor");
   assert.deepEqual(connectedHome.toolNames.slice(-2), ["connected_apps_search", "connected_apps_execute"]);
 
   const talk = await buildAgentTurn({ target: { kind: "assignment", assignmentId: "a-1" }, phase: "conversing", hasBrowserClaim: false }, "due?");
-  assert.deepEqual(talk.toolNames, ["assignment_read", "assignment_start", "note_search", "note_read"]);
+  assert.deepEqual(talk.toolNames, ["assignment_read", "assignment_start", "note_search", "note_read", "note_upsert"], "an assignment chat can remember a preference the student asks for");
   const connectedTalk = await buildAgentTurn({ target: { kind: "assignment", assignmentId: "a-1" }, phase: "conversing", hasBrowserClaim: false, composioTools: ["connected_apps_search", "connected_apps_execute"] }, "put this in Notion");
   assert.deepEqual(connectedTalk.toolNames.slice(-2), ["connected_apps_search", "connected_apps_execute"]);
 
   const work = await buildAgentTurn({ target: { kind: "assignment", assignmentId: "a-1" }, phase: "working", hasBrowserClaim: true }, "work");
   assert.equal(work.toolNames.includes("browser_snapshot"), true);
+  assert.equal(work.toolNames.includes("browser_rows"), true);
+  assert.equal(work.toolNames.includes("read_document"), true);
   assert.equal(work.toolNames.includes("browser_submit"), false);
+  assert.match(work.system.text, /small result with status, URL, title/);
+  assert.match(work.system.text, /Snapshot refs stay valid/);
 
   const submit = await buildAgentTurn({ target: { kind: "assignment", assignmentId: "a-1" }, phase: "working", hasBrowserClaim: true, submissionAuthorized: true }, "submit");
   assert.equal(submit.toolNames.includes("browser_submit"), true);
+  assert.equal(submit.system.packs.some((pack) => pack.id === "capabilities/submit"), true);
   assert.notEqual(work.system.hash, submit.system.hash);
+
+  const runtimeWorker = await buildAgentTurnForTools(
+    { kind: "assignment", assignmentId: "a-1" },
+    ["browser_snapshot", "browser_submit", "assignment_tell_student"],
+    "continue working",
+  );
+  assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/browser"), true);
+  assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/assignment-effects"), true);
+  assert.equal(runtimeWorker.system.packs.some((pack) => pack.id === "capabilities/submit"), false);
+  assert.equal(runtimeWorker.toolNames.includes("assignment_tell_student"), true);
+
+  const files = await buildAgentTurn({
+    target: { kind: "assignment", assignmentId: "a-1" },
+    phase: "working",
+    hasBrowserClaim: true,
+    filesAvailable: true,
+    shellAvailable: true,
+  }, "finish the files");
+  for (const name of ["read", "write", "edit", "grep", "find", "ls", "browser_upload", "browser_download", "file_read_pdf", process.platform === "win32" ? "powershell" : "bash"]) {
+    assert.equal(files.toolNames.includes(name), true, `${name} should use its current runtime name`);
+  }
+  assert.equal(files.toolNames.some((name) => ["file_list", "file_read", "file_write", "shell_run"].includes(name)), false);
 });
 
 test("headless job host keeps addressed threads, refuses tutor, and survives restart", async () => {

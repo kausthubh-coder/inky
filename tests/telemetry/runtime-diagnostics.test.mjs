@@ -34,3 +34,17 @@ test("runtime diagnostics retain complete messages and tools, link model calls, 
   const broken = new RuntimeDiagnostics("broken", () => { throw new Error("offline"); });
   assert.doesNotThrow(() => broken.accept({ type: "agent_start" }));
 });
+
+test("each tool call becomes one flat step naming the session's purpose, page and error", () => {
+  const events = [];
+  const diagnostics = new RuntimeDiagnostics("homework-session", event => events.push(event), { purpose: "assignment", assignmentId: "hw-12" });
+  diagnostics.accept({ type: "tool_execution_start", toolCallId: "a", toolName: "browser_snapshot", args: {} });
+  diagnostics.accept({ type: "tool_execution_end", toolCallId: "a", toolName: "browser_snapshot", isError: false, result: { details: { url: "https://webassign.net/hw12", title: "HW 12" } } });
+  diagnostics.accept({ type: "tool_execution_start", toolCallId: "b", toolName: "browser_click", args: {} });
+  diagnostics.accept({ type: "tool_execution_end", toolCallId: "b", toolName: "browser_click", isError: true, result: { content: [{ type: "text", text: "Element is disabled" }] } });
+  const steps = events.filter(event => event.kind === "step").map(event => event.payload);
+  assert.equal(steps.length, 2);
+  assert.deepEqual({ ...steps[0], duration_ms: 0 }, { purpose: "assignment", session_id: "homework-session", assignment_id: "hw-12", tool: "browser_snapshot", outcome: "succeeded", duration_ms: 0, url: "https://webassign.net/hw12", page_title: "HW 12" });
+  assert.equal(steps[1].outcome, "failed");
+  assert.equal(steps[1].error, "Element is disabled");
+});

@@ -9,6 +9,8 @@ export const CapabilityNameSchema = z.enum([
   "queue",
   "notes-search",
   "notes-read",
+  "preferences",
+  "learn",
   "assignment",
   "assignment-start",
   "browser",
@@ -35,31 +37,34 @@ export interface CapabilityContext {
 
 const toolsByCapability = Object.freeze({
   home: ["home_status"],
-  queue: ["queue_inspect", "queue_start", "queue_cancel"],
+  queue: ["queue_inspect", "queue_start", "queue_cancel", "queue_reorder", "assignment_set_owner", "homework_add", "homework_correct"],
   "notes-search": ["note_search"],
   "notes-read": ["note_read"],
+  preferences: ["note_upsert"],
+  learn: ["learn_set_exam", "learn_start_session", "learn_import_source"],
   assignment: ["assignment_read"],
   "assignment-start": ["assignment_start"],
   browser: [...BROWSER_TOOL_NAMES],
   "assignment-effects": [
     "assignment_record_answer_snapshot",
     "assignment_record_recovery",
-    "assignment_request_takeover",
+    "assignment_tell_student",
     "assignment_mark_unsupported",
     "assignment_start_review",
     "note_upsert",
   ],
   scan: ["scan_status"],
   "scan-record": SCAN_TOOL_NAMES.filter((name) => name !== "scan_status"),
-  files: ["file_list", "file_read", "file_write"],
-  shell: ["shell_run"],
+  files: ["read", "write", "edit", "grep", "find", "ls", "browser_upload", "browser_download", "file_read_pdf"],
+  shell: [process.platform === "win32" ? "powershell" : "bash"],
   composio: [],
   submit: ["browser_submit"],
 } satisfies Record<CapabilityName, readonly string[]>);
 
 export function selectCapabilities(context: CapabilityContext): readonly CapabilityName[] {
   if (context.target.kind === "tutor") return [];
-  if (context.target.kind === "home") return ["home", "queue", "notes-search", ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : [])];
+  if (context.target.kind === "home") return ["home", "queue", "notes-search", "notes-read", "preferences", ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : [])];
+  if (context.target.kind === "learn") return ["notes-search", "notes-read", "preferences", "learn", ...((context.composioTools?.length ?? 0) > 0 ? ["composio" as const] : [])];
 
   if (context.target.kind === "scan") {
     return context.phase === "working" && context.hasBrowserClaim
@@ -69,8 +74,11 @@ export function selectCapabilities(context: CapabilityContext): readonly Capabil
 
   const selected: CapabilityName[] = ["assignment", "notes-search", "notes-read"];
   if (!context.hasBrowserClaim) selected.splice(1, 0, "assignment-start");
+  // Between work turns an assignment chat can also remember a preference the student asks for.
+  const idle = context.phase !== "working" || !context.hasBrowserClaim;
+  if (idle) selected.push("preferences");
   if ((context.composioTools?.length ?? 0) > 0) selected.push("composio");
-  if (context.phase !== "working" || !context.hasBrowserClaim) return selected;
+  if (idle) return selected;
 
   selected.push("browser", "assignment-effects");
   if (context.filesAvailable) selected.push("files");
@@ -97,11 +105,16 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
   for (const toolName of toolNames) {
     const normalized = toolName.toLocaleLowerCase();
     for (const [capability, names] of Object.entries(toolsByCapability) as Array<[CapabilityName, readonly string[]]>) {
+      if (toolName === "note_upsert" && capability === "assignment-effects" && !toolNames.includes("assignment_start_review")) continue;
+      if (toolName === "note_upsert" && capability === "preferences" && toolNames.includes("assignment_start_review")) continue;
+      // Assignment workers always carry a permission-gated submit effect. Tool
+      // availability alone is not the fresh authorization represented by this pack.
+      if (toolName === "browser_submit" && capability === "submit") continue;
       if (names.includes(toolName)) selected.add(capability);
     }
-    if (normalized.startsWith("manager_") || normalized.startsWith("queue_")) selected.add("queue");
+    if (normalized.startsWith("manager_") || normalized.startsWith("queue_") || normalized.startsWith("homework_")) selected.add("queue");
     if (normalized.startsWith("browser_")) selected.add("browser");
-    if (normalized.startsWith("assignment_") && !["assignment_read", "assignment_start"].includes(normalized)) selected.add("assignment-effects");
+    if (normalized.startsWith("assignment_") && !["assignment_read", "assignment_start", "assignment_set_owner"].includes(normalized)) selected.add("assignment-effects");
     if (normalized.startsWith("scan_record_") || normalized === "scan_request_handoff") selected.add("scan-record");
     if (normalized.startsWith("note_search")) selected.add("notes-search");
     if (normalized.startsWith("note_read")) selected.add("notes-read");
@@ -109,7 +122,6 @@ export function inferCapabilityPacks(toolNames: readonly string[]): readonly Cap
     if (["read", "write", "edit", "grep", "find", "ls", "browser_upload"].includes(normalized)) selected.add("files");
     if (normalized.startsWith("shell_") || normalized === "bash" || normalized === "powershell") selected.add("shell");
     if (normalized.startsWith("composio_") || normalized.startsWith("composio:") || normalized.startsWith("connected_apps_")) selected.add("composio");
-    if (normalized === "browser_submit") selected.add("submit");
   }
   return [...selected].sort();
 }

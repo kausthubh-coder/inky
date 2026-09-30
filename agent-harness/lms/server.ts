@@ -7,6 +7,9 @@ import {
 } from "node:http";
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
+import { parseArgs } from "node:util";
 import {
   SchoolError,
   activityById,
@@ -19,8 +22,10 @@ import {
   storeUpload,
   type PrivatePack,
 } from "./assets.js";
-import { SchoolStore } from "./store.js";
+import { SchoolStore, type AdvanceOptions } from "./store.js";
 import { renderPublic, activityUrl, type Origins } from "./web.js";
+import { createSchoolTheme, type Surface } from "./school-theme.js";
+import { loadRecording } from "./replay.js";
 
 export interface StartLmsOptions {
   scenarioId?: string;
@@ -30,9 +35,21 @@ export interface StartLmsOptions {
   resume?: boolean;
   privateLibrary?: string;
   initialState?: SchoolState;
+  replayDirectory?: string;
+  /** Faults on a schedule: slow pages, or a school event after N page requests or M minutes. */
+  faults?: FaultPlan[];
+  /**
+   * Sign-in lives in a session cookie (no expiry date), like real single sign-on. A browser that
+   * lost it, for example after an app restart that didn't keep it, is signed out.
+   */
+  sessionCookies?: boolean;
 }
-const services: Service[] = ["school", "statistics", "builds", "feedback"];
+export type FaultPlan =
+  | { slow: string; ms: number }
+  | { event: string; afterRequests?: number; atMinute?: number; service?: Service };
+const baseServices: Service[] = ["school", "statistics", "builds", "feedback"];
 export async function startLms(options: StartLmsOptions) {
+  const replay = options.replayDirectory ? await loadRecording(options.replayDirectory) : null;
   const store = new SchoolStore(
     options.runDirectory,
     options.scenarioId ?? "semester",
@@ -46,10 +63,12 @@ export async function startLms(options: StartLmsOptions) {
     builds: "",
     feedback: "",
   };
+  const services: Surface[] = store.read().presentation || replay ? [...baseServices, "unity", "university"] : [...baseServices];
   const servers: Server[] = [];
   const csrf = Object.fromEntries(
-    services.map((service) => [service, randomUUID()]),
+    baseServices.map((service) => [service, randomUUID()]),
   ) as Record<Service, string>;
+  const themed = createSchoolTheme(store, origins, () => csrf.school);
   let privatePack: PrivatePack | undefined;
   if (options.privateLibrary) {
     try {
@@ -82,6 +101,7 @@ export async function startLms(options: StartLmsOptions) {
     .read()
     .assets.map((asset) => ({
       id: asset.id,
+      privateSource: privatePack?.assets.some((item) => item.id === asset.id) ?? false,
       sha256:
         privatePack?.assets.find((item) => item.id === asset.id)?.sha256 ??
         createHash("sha256").update(assetBytes(asset)).digest("hex"),
@@ -94,7 +114,11 @@ export async function startLms(options: StartLmsOptions) {
       const previous = JSON.parse(
         await readFile(join(options.runDirectory, "receipt.json"), "utf8"),
       );
-      if (previous.contentHash && previous.contentHash !== contentHash)
+      const mutableAssets = new Set(store.read().syllabi?.map((item) => item.assetId) ?? []);
+      const immutableManifest = (manifest: typeof contentManifest) =>
+        manifest.filter((item) => !mutableAssets.has(item.id) || item.privateSource || privatePack?.assets.some((asset) => asset.id === item.id))
+          .map(({ id, sha256 }) => ({ id, sha256 }));
+      if (previous.contentManifest && JSON.stringify(immutableManifest(previous.contentManifest)) !== JSON.stringify(immutableManifest(contentManifest)))
         throw new Error(
           "Resume requires the same source material hashes as the original run.",
         );
@@ -110,12 +134,50 @@ export async function startLms(options: StartLmsOptions) {
       }
     }
   }
+  let requests = 0;
+  const slow = (options.faults ?? []).flatMap((plan) => "slow" in plan ? [{ pattern: new RegExp(plan.slow), ms: plan.ms }] : []);
+  const pending = (options.faults ?? []).flatMap((plan) => "event" in plan ? [plan] : []);
+  const fire = (plan: Extract<FaultPlan, { event: string }>) => {
+    pending.splice(pending.indexOf(plan), 1);
+    store.advance(plan.event, plan.service ? { service: plan.service } : {});
+    if (plan.event === "expire-session") csrf[plan.service ?? "school"] = randomUUID();
+  };
+  const timers = pending.filter((plan) => plan.atMinute !== undefined)
+    .map((plan) => setTimeout(() => { if (pending.includes(plan)) fire(plan); }, plan.atMinute! * 60_000));
+  const issued: Partial<Record<Surface, string>> = {};
+  // Session-cookie mode: check the cookie before the page, hand one out with the first signed-in response.
+  function sessionCookie(service: Surface, request: IncomingMessage, response: ServerResponse): void {
+    const name = `cedar_session_${service}`;
+    const sent = (request.headers.cookie ?? "").split(/;\s*/).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
+    const current = issued[service];
+    if (current && sent !== current && store.read().sessions[service as Service]) {
+      store.change("session_changed", { service, signedIn: false, reason: "session_cookie_missing" }, (state) => {
+        state.sessions[service as Service] = false;
+      });
+      delete issued[service];
+    }
+    const writeHead = response.writeHead.bind(response) as (...args: unknown[]) => ServerResponse;
+    (response as { writeHead: (...args: unknown[]) => ServerResponse }).writeHead = (...args: unknown[]) => {
+      if (store.read().sessions[service as Service] && (!issued[service] || sent !== issued[service])) {
+        issued[service] = randomUUID();
+        response.appendHeader("Set-Cookie", `${name}=${issued[service]}; Path=/; HttpOnly; SameSite=Lax`);
+      }
+      return writeHead(...args);
+    };
+  }
   async function handle(
-    service: Service,
+    service: Surface,
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> {
     const url = new URL(request.url ?? "/", origins[service]);
+    if (options.sessionCookies) sessionCookie(service, request, response);
+    if (url.pathname !== "/favicon.ico") {
+      requests += 1;
+      for (const plan of pending.filter((item) => item.afterRequests !== undefined && requests > item.afterRequests!)) fire(plan);
+      const delay = slow.find((rule) => rule.pattern.test(url.pathname))?.ms;
+      if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    }
     response.setHeader("Cache-Control", "no-store");
     response.setHeader("X-Content-Type-Options", "nosniff");
     response.setHeader("Referrer-Policy", "same-origin");
@@ -135,16 +197,20 @@ export async function startLms(options: StartLmsOptions) {
       response.end();
     };
     try {
-      if (request.headers.host !== new URL(origins[service]).host)
+      if (request.headers.host !== new URL(origins[service]!).host)
         throw new SchoolError(400, "Invalid school host.");
       if (!["GET", "HEAD", "POST"].includes(request.method ?? "GET"))
         throw new SchoolError(405, "Method not allowed.");
+      if (!replay && url.pathname === "/favicon.ico" && request.method === "GET") { response.writeHead(204); response.end(); return; }
       if (
         /^\/(?:_control|control|inspect|truth|state|manifest)(?:\/|$)/.test(
           url.pathname,
         )
       )
         throw new SchoolError(404, "Page not found.");
+      if (replay) { replay(service, request.method ?? "GET", url.pathname + url.search, response, origins); return; }
+      if (await themed(service, request, response, url)) return;
+      if (service === "unity" || service === "university") throw new SchoolError(404, "Page not found.");
       const activityMatch = /^\/assignments\/([^/]+)(?:\/(complete))?$/.exec(
         url.pathname,
       );
@@ -186,6 +252,10 @@ export async function startLms(options: StartLmsOptions) {
             403,
             "This form expired. Reload the page and try again.",
           );
+        if (!store.read().sessions[service] && url.pathname !== "/login") {
+          redirect("/login");
+          return;
+        }
         if (url.pathname === "/login" || url.pathname === "/logout") {
           const signedIn = url.pathname === "/login";
           store.change("session_changed", { service, signedIn }, (current) => {
@@ -220,8 +290,16 @@ export async function startLms(options: StartLmsOptions) {
         for (const file of form.getAll("files"))
           if (typeof file !== "string" && file.name && file.size)
             files.push(await storeUpload(options.runDirectory, file));
+        if (!store.read().sessions[service] || form.get("csrf") !== csrf[service])
+          throw new SchoolError(403, "Your session changed while uploading. Sign in and reload the current draft.");
         if (action === "save") store.save(id, answer, files, revision);
         else {
+          const key = String(form.get("key") ?? "");
+          const replay = store.read().submissions.some((item) => item.activityId === id && item.idempotencyKey === key);
+          if (!replay && (store.read().faults.assignmentTimeoutsRemaining ?? 0) > 0) {
+            store.save(id, answer, files, revision, true);
+            throw new SchoolError(504, "The submission service timed out. Your response and files were saved as a draft. Reload before trying again.");
+          }
           let result;
           try {
             result = store.submit(
@@ -229,7 +307,7 @@ export async function startLms(options: StartLmsOptions) {
               answer,
               files,
               revision,
-              String(form.get("key") ?? ""),
+              key,
             );
           } catch (error) {
             if (error instanceof SchoolError && error.status === 400) {
@@ -290,8 +368,9 @@ export async function startLms(options: StartLmsOptions) {
           (item) =>
             item.service === service && item.attachments.includes(assetId),
         );
+        const syllabusFile = service === "school" && state.syllabi?.some((item) => item.assetId === assetId);
         if (
-          !owners.some((item) =>
+          !syllabusFile && !owners.some((item) =>
             item.prerequisites.every((id) => state.completed.includes(id)),
           )
         )
@@ -345,12 +424,13 @@ export async function startLms(options: StartLmsOptions) {
           "/",
           "/courses",
           "/calendar",
+          "/exams",
           "/announcements",
           "/grades",
           "/account",
           "/login",
         ].includes(url.pathname) ||
-        /^\/courses\/[^/]+$/.test(url.pathname) ||
+        /^\/courses\/[^/]+(?:\/syllabus)?$/.test(url.pathname) ||
         !!activityMatch;
       const saved = url.searchParams.get("saved");
       const current = store.read(),
@@ -445,10 +525,15 @@ export async function startLms(options: StartLmsOptions) {
       effects: store.effects(),
       truth: scenarioTruth(store.read()),
     }),
-    advance: (event: string) => store.advance(event),
+    advance: (event: string, details: AdvanceOptions = {}) => {
+      store.advance(event, details);
+      if (event === "expire-session") csrf[details.service ?? "school"] = randomUUID();
+      return { clock: store.read().clock, revision: store.read().revision };
+    },
     close: async () => {
       if (closed) return;
       closed = true;
+      timers.forEach(clearTimeout);
       await Promise.all(servers.map(closeServer));
       store.close();
     },
@@ -468,6 +553,12 @@ export function scenarioTruth(state: SchoolState) {
     "lab2",
     "observation",
     "reading",
+    "rainfall-project",
+    "structures-quiz",
+    "personal-data-project",
+    "undated-reflection",
+    "announcement-response",
+    "late-essay",
   ];
   const blocked = [
     "stack-review",
@@ -479,7 +570,7 @@ export function scenarioTruth(state: SchoolState) {
   const readingIds = state.activities
     .filter((item) => item.id.includes("-reading-"))
     .map((item) => item.id);
-  const expectedExcludedIds = [...informationalIds, ...readingIds].filter(
+  const expectedExcludedIds = [...informationalIds, ...readingIds, ...state.activities.filter(item => state.presentation && item.submissionChannel === "none").map(item => item.id)].filter(
     (id) => state.activities.some((item) => item.id === id),
   );
   const expectedAssignmentIds = state.activities
@@ -503,9 +594,20 @@ export function scenarioTruth(state: SchoolState) {
     "lab1",
     "lab-demo",
     "grade-zero",
+    "undated-reflection",
+    "announcement-response",
     ...readingIds,
   ];
   return {
+    expectedExams: (state.exams ?? []).map(({ topics, ...exam }) => ({ ...exam, sourcePath: `/courses/${exam.courseId}/syllabus` })),
+    expectedTopics: (state.exams ?? []).flatMap((exam) => exam.topics.map((topic) => ({ ...topic, examId: exam.id, courseId: exam.courseId }))),
+    expectedSyllabi: (state.syllabi ?? []).map((item) => ({ ...item, pagePath: `/courses/${item.courseId}/syllabus`, filePath: `/files/${item.assetId}` })),
+    expectedKinds: Object.fromEntries(state.activities.map((item) => [item.id, item.workKind ?? item.kind])),
+    expectedStudentFiles: Object.fromEntries(state.activities.filter((item) => item.requiredStudentFiles?.length).map((item) => [item.id, item.requiredStudentFiles])),
+    expectedUndatedIds: state.activities.filter((item) => item.dueText === "No due date published").map((item) => item.id),
+    expectedAnnouncementOnlyIds: state.activities.filter((item) => item.visibility === "announcement_only").map((item) => item.id),
+    expectedRubrics: Object.fromEntries(state.activities.filter((item) => item.rubric?.length).map((item) => [item.id, item.rubric])),
+    expectedLatePenalties: Object.fromEntries(state.activities.filter((item) => item.latePenalty).map((item) => [item.id, item.latePenalty])),
     expectedAssignmentIds,
     expectedExcludedIds,
     informationalIds: informationalIds.filter((id) =>
@@ -516,7 +618,7 @@ export function scenarioTruth(state: SchoolState) {
       state.activities.some((item) => item.id === id),
     ),
     expectedActionableIds: actionable.filter(
-      (id) => id !== "hw8" && state.activities.some((item) => item.id === id),
+      (id) => !["hw8", "undated-reflection", "announcement-response"].includes(id) && state.activities.some((item) => item.id === id),
     ),
     expectedForbiddenQueueIds: forbiddenQueueIds.filter((id) =>
       state.activities.some((item) => item.id === id),
@@ -606,4 +708,12 @@ function closeServer(server: Server): Promise<void> {
     server.close(() => resolve());
     server.closeAllConnections();
   });
+}
+
+// Also support the plan's direct `server.ts --replay <dir>` entry point.
+if (process.argv[1] && /(?:^|[\\/])server\.(?:ts|mjs)$/.test(process.argv[1]) && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
+  const { values } = parseArgs({ options: { replay: { type: "string" }, run: { type: "string" }, scenario: { type: "string", default: "moodle-noisy" } } });
+  const server = await startLms({ scenarioId: values.scenario, runDirectory: resolve(values.run ?? join(".studi-lms/runs", randomUUID())), ...(values.replay ? { replayDirectory: resolve(values.replay) } : {}) });
+  console.log(JSON.stringify({ url: server.url, origins: server.origins, runId: server.runId }));
+  for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => { void server.close(); });
 }

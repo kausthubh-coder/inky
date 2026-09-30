@@ -13,11 +13,13 @@ test("product preferences default safely and survive a validated atomic save", a
     const store = new ProductPreferencesStore(path);
     const defaultNotifications = {
       enabled: true,
+      quietHours: "off",
       kinds: {
         handoff: { banner: true, sound: "inky_nudge" },
         review_ready: { banner: true, sound: "inky_done" },
         scan_result: { banner: true, sound: "inky_soft" },
         failure: { banner: true, sound: "inky_uh_oh" },
+        work_start: { banner: true, sound: "inky_soft" },
       },
     };
     assert.deepEqual(await store.get(), {
@@ -26,8 +28,9 @@ test("product preferences default safely and survive a validated atomic save", a
       handoffMinutes: 30,
       memoryVisibility: "selected",
       homeworkRoot: null,
-      agentModelId: "gpt-6-astra",
-      agentReasoningEffort: "medium",
+      agentProviderId: "openai-codex",
+      agentModelId: "gpt-6-sol",
+      agentReasoningEffort: "high",
       notifications: defaultNotifications,
       updatedAt: "1970-01-01T00:00:00.000Z",
     });
@@ -38,21 +41,30 @@ test("product preferences default safely and survive a validated atomic save", a
       handoffMinutes: 45,
       memoryVisibility: "all",
       homeworkRoot: null,
+      agentProviderId: "openai-codex",
       agentModelId: "gpt-5.6-sol",
       agentReasoningEffort: "high",
       notifications: {
         enabled: false,
+        quietHours: "off",
         kinds: {
           handoff: { banner: false, sound: "silent" },
           review_ready: { banner: true, sound: "os" },
           scan_result: { banner: true, sound: "inky_soft" },
           failure: { banner: true, sound: "inky_uh_oh" },
+          work_start: { banner: true, sound: "inky_soft" },
         },
       },
       updatedAt: "2026-09-01T12:00:00.000Z",
     };
     await store.put(saved);
     assert.deepEqual(await new ProductPreferencesStore(path).get(), saved);
+
+    const legacyNotifications = structuredClone(saved);
+    delete legacyNotifications.notifications.kinds.work_start;
+    delete legacyNotifications.notifications.quietHours;
+    await writeFile(path, JSON.stringify(legacyNotifications));
+    assert.deepEqual(await new ProductPreferencesStore(path).get(), saved, "existing preferences acquire the new pre-start notification default");
 
     await writeFile(path, `${JSON.stringify({
       schemaVersion: 1,
@@ -67,8 +79,9 @@ test("product preferences default safely and survive a validated atomic save", a
       handoffMinutes: 30,
       memoryVisibility: "selected",
       homeworkRoot: null,
-      agentModelId: "gpt-6-astra",
-      agentReasoningEffort: "medium",
+      agentProviderId: "openai-codex",
+      agentModelId: "gpt-6-sol",
+      agentReasoningEffort: "high",
       notifications: defaultNotifications,
       updatedAt: "2026-09-01T12:00:00.000Z",
     });

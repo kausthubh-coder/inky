@@ -8,7 +8,7 @@ import {
   shouldShowNotificationBanner,
 } from "../../dist/shared/index.js";
 
-test("notification defaults keep every kind on with reserved Inky slots", () => {
+test("notification defaults keep every kind on with reserved Dot slots", () => {
   const preferences = NotificationPreferencesSchema.parse(DEFAULT_NOTIFICATION_PREFERENCES);
   assert.equal(preferences.enabled, true);
   assert.equal(preferences.kinds.handoff.sound, "inky_nudge");
@@ -20,7 +20,7 @@ test("notification defaults keep every kind on with reserved Inky slots", () => 
   }
 });
 
-test("banner and sound resolver honor mute, silent, OS, and missing Inky files", () => {
+test("banner and sound resolver honor mute, silent, OS, and missing Dot files", () => {
   const muted = NotificationPreferencesSchema.parse({
     enabled: false,
     kinds: DEFAULT_NOTIFICATION_PREFERENCES.kinds,

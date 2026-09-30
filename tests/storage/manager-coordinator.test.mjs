@@ -5,10 +5,48 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 
 import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
+import { HomeworkCoordinator } from "../../dist/electron/assignment/homework.js";
 import { openLocalStore } from "../../dist/electron/storage/index.js";
 
 const due = "2026-09-03T12:00:00.000Z";
 const now = "2026-09-01T12:00:00.000Z";
+
+test("do this next queues discovered homework without taking the live browser and persists priority", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-queue-next-")));
+  let store;
+  let coordinator;
+  try {
+    store = await openLocalStore(root);
+    for (const id of ["a", "b", "c"]) seedTask(store, id, due);
+    store.permissionRules.put(rule("global-attempt", "global", "attempt", now));
+    coordinator = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+    coordinator.enqueue({ taskId: "task-a" });
+    await coordinator.startNext();
+    const lease = coordinator.state().lease;
+    coordinator.queueNext("task-b");
+    coordinator.queueNext("task-b");
+    assert.equal(store.tasks.get("task-b").state, "queued");
+    assert.equal(coordinator.state().entries.filter(item => item.taskId === "task-b").length, 1);
+    assert.equal(coordinator.state().entries[0].taskId, "task-b");
+    assert.equal(coordinator.state().entries[0].requestOrigin, "student");
+    assert.equal(coordinator.state().entries[0].startRequestedAt, now);
+    assert.deepEqual(coordinator.state().lease, lease);
+    store.permissionRules.put({ ...rule("deny-c", "assignment", "do_not_attempt", now), assignmentId: "assignment-c" });
+    coordinator.queueNext("task-c");
+    assert.equal(store.tasks.get("task-c").state, "queued");
+    assert.equal(store.manager.getQueueEntry("task-c").requestOrigin, "student");
+    coordinator.cancel("task-c");
+    coordinator.dispose();
+    coordinator = null;
+    store.close();
+    store = await openLocalStore(root);
+    assert.equal(store.manager.listQueue()[0].taskId, "task-b");
+  } finally {
+    coordinator?.dispose();
+    store?.close();
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("manager queue refreshes permission, leases one worker, and recovers its order and sessions", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp06-manager-")));
@@ -34,12 +72,12 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
       },
     });
     coordinator.enqueue({ taskId: "task-a" });
-    coordinator.enqueue({ taskId: "task-b" });
+    coordinator.enqueue({ taskId: "task-b", requestOrigin: "automatic" });
     assert.deepEqual(coordinator.state().entries.map((entry) => entry.taskId), ["task-a", "task-b"]);
     coordinator.steerNext("task-b");
     assert.equal(coordinator.state().entries[0].taskId, "task-b");
     const steeredPriority = coordinator.state().entries[0].priority;
-    coordinator.enqueue({ taskId: "task-b" });
+    coordinator.enqueue({ taskId: "task-b", requestOrigin: "automatic" });
     assert.equal(
       coordinator.state().entries.find((entry) => entry.taskId === "task-b").priority,
       steeredPriority,
@@ -70,8 +108,8 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
 
     store.permissionRules.put(rule("global-deny", "global", "do_not_attempt", "2026-09-01T12:03:00.000Z"));
     assert.throws(
-      () => coordinator.enqueue({ taskId: "task-pattern" }),
-      /blocked by stored permission rules/,
+      () => coordinator.enqueue({ taskId: "task-pattern", requestOrigin: "automatic" }),
+      /only when you ask/,
     );
     store.manager.confirmPatternMatch({
       schemaVersion: 1,
@@ -80,7 +118,7 @@ test("manager queue refreshes permission, leases one worker, and recovers its or
       patternId: "confirmed-pattern",
       confirmedAt: "2026-09-01T12:04:00.000Z",
     });
-    coordinator.enqueue({ taskId: "task-pattern" });
+    coordinator.enqueue({ taskId: "task-pattern", requestOrigin: "automatic" });
     assert.equal(
       coordinator.state().entries.find((entry) => entry.taskId === "task-pattern").permission.matchedRuleId,
       "pattern-attempt",
@@ -151,7 +189,7 @@ test("a selected manager start cannot fall through when its permission is revoke
       now: () => now,
       startAssignment: (taskId) => coordinator.startTask(taskId),
     });
-    coordinator.enqueue({ taskId: "task-selected" });
+    coordinator.enqueue({ taskId: "task-selected", requestOrigin: "automatic" });
     coordinator.enqueue({ taskId: "task-other" });
     store.permissionRules.put({
       ...rule("deny-selected", "assignment", "do_not_attempt", "2026-09-01T12:01:00.000Z"),
@@ -160,7 +198,7 @@ test("a selected manager start cannot fall through when its permission is revoke
 
     await assert.rejects(
       coordinator.startFromConversation("task-selected"),
-      /Task task-selected is blocked by stored permission rules/,
+      /only when you ask/,
     );
     assert.equal(store.tasks.get("task-selected").state, "discovered");
     assert.equal(store.tasks.get("task-other").state, "queued");
@@ -273,6 +311,138 @@ function rule(ruleId, scope, mode, updatedAt) {
   return { schemaVersion: 1, ruleId, scope, mode, updatedAt };
 }
 
+test("uncertain quiz/essay labels never grant a stronger kind rule and retain weaker restrictions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-kind-permission-"));
+  const store = await openLocalStore(root);
+  const manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+  try {
+    seedTask(store, "kind", due);
+    const original = store.assignments.get("assignment-kind");
+    store.assignments.put({ ...original, kind: "quiz", possibleKinds: ["quiz", "essay"], kindConfidence: "uncertain", kindEvidence: original.deadlineEvidence });
+    store.permissionRules.put(rule("global", "global", "attempt", now));
+    store.permissionRules.put({ ...rule("quiz", "pattern", "auto_submit", now), courseId: original.courseId, patternId: "quiz" });
+    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "attempt", "a guessed kind never takes the kind's wider rule");
+    store.permissionRules.put({ ...rule("essay", "pattern", "do_not_attempt", now), courseId: original.courseId, patternId: "essay" });
+    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "do_not_attempt");
+    store.assignments.put({ ...original, possibleKinds: [], kindConfidence: "uncertain" });
+    store.permissionRules.put(rule("global", "global", "auto_submit", now));
+    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "do_not_attempt", "unknown must not fall through to global submission");
+    store.assignments.put({ ...original, kind: "quiz", possibleKinds: ["quiz"], kindConfidence: "explicit", kindEvidence: original.deadlineEvidence });
+    store.permissionRules.put(rule("global", "global", "attempt", now));
+    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "auto_submit", "a kind the school states clearly takes its kind rule");
+    store.assignments.put({ ...original, possibleKinds: ["quiz", "essay"], kindConfidence: "uncertain" });
+    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "do_not_attempt", "a stale confirmed label cannot override new uncertainty");
+    store.permissionRules.put({ ...rule("student-exception", "assignment", "attempt", now), assignmentId: original.assignmentId });
+    assert.equal(manager.resolvePermission(original.assignmentId, original.courseId).mode, "attempt", "an explicit assignment exception still follows rule precedence");
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("assignment browser controls recheck the lease and current permission for new and restored sessions", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-worker-control-"));
+  const store = await openLocalStore(root);
+  const runtime = new RecordingRuntime();
+  const controls = [];
+  runtime.createAssignmentSession = async (tools, target, control) => { controls.push(control); return runtime.session("assignment", target.resumeSessionPath, tools.map(tool => tool.name)); };
+  const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+  try {
+    seedTask(store, "guard", due);
+    store.permissionRules.put(rule("global", "global", "attempt", now));
+    manager.enqueue({ taskId: "task-guard", requestOrigin: "automatic" });
+    await manager.startTask("task-guard", [{ name: "test_action" }]);
+    assert.doesNotThrow(() => controls[0].assertActive());
+    await manager.restoreAssignmentWorker([{ name: "test_action" }]);
+    assert.doesNotThrow(() => controls[1].assertActive());
+    store.permissionRules.put({ ...rule("revoke", "assignment", "do_not_attempt", now), assignmentId: "assignment-guard" });
+    for (const control of controls) assert.throws(() => control.assertActive(), /no longer allow/);
+    manager.cancel("task-guard");
+    for (const control of controls) assert.throws(() => control.assertActive(), /no longer owns/);
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("both do-it rules start by themselves; leave-it work never does and a downgrade withdraws its start", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-scheduled-permission-"));
+  const store = await openLocalStore(root);
+  const manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+  try {
+    seedTask(store, "attempt", due);
+    seedTask(store, "submit", due);
+    seedTask(store, "leave", due);
+    store.permissionRules.put(rule("global", "global", "attempt", now));
+    store.permissionRules.put({ ...rule("submit", "assignment", "auto_submit", now), assignmentId: "assignment-submit" });
+    store.permissionRules.put({ ...rule("leave", "assignment", "do_not_attempt", now), assignmentId: "assignment-leave" });
+    manager.setSchedulingEnabled(true);
+    assert.deepEqual(manager.state().entries.map(entry => entry.taskId).sort(), ["task-attempt", "task-submit"]);
+    assert.ok(manager.state().entries.every(entry => entry.scheduledStartAt));
+    store.permissionRules.put({ ...rule("attempt", "assignment", "do_not_attempt", now), assignmentId: "assignment-attempt" });
+    manager.reconcileQueue();
+    assert.deepEqual(manager.state().entries.map(entry => entry.taskId), ["task-submit"], "changing a rule to leave it withdraws its start");
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("a rule for a kind of work covers homework of that kind found later, and a guessed kind never widens it", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-kind-rule-"));
+  const store = await openLocalStore(root);
+  const manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+  try {
+    store.permissionRules.put(rule("global", "global", "do_not_attempt", now));
+    store.permissionRules.put({ ...rule("quizzes", "pattern", "attempt", now), courseId: "course-later", patternId: "quiz" });
+    seedTask(store, "later", due);
+    const later = store.assignments.get("assignment-later");
+    const evidence = later.requirementEvidence[0].evidence;
+    store.assignments.put({ ...later, kind: "quiz", kindConfidence: "explicit", kindEvidence: evidence });
+    assert.equal(manager.resolvePermission("assignment-later", "course-later").mayAttempt, true, "a quiz found after the rule was saved gets the quiz rule");
+    store.assignments.put({ ...later, kind: "quiz", kindConfidence: "uncertain", possibleKinds: ["quiz", "essay"] });
+    assert.equal(manager.resolvePermission("assignment-later", "course-later").mayAttempt, false, "a guessed kind keeps the safer rule");
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("homework corrections, ignore reasons, owner and queue order survive restart and stale scan writes", async () => {
+  const root = await mkdtemp(join(tmpdir(), "studi-homework-corrections-"));
+  let store = await openLocalStore(root);
+  let manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+  const sourceRequests = [];
+  const scan = { state: async () => ({ assignments: store.assignments.listAll() }), startSourceScan: async url => sourceRequests.push(url) };
+  let manualId;
+  try {
+    for (const suffix of ["a", "b", "c"]) seedTask(store, suffix, due);
+    store.permissionRules.put(rule("global", "global", "attempt", now));
+    const homework = new HomeworkCoordinator(store, manager, scan, () => now);
+    const stale = store.assignments.get("assignment-a");
+    await homework.correctAssignment({ assignmentId: stale.assignmentId, correction: "due_date", dueAt: "2026-09-05T12:00:00.000Z" });
+    await homework.correctAssignment({ assignmentId: stale.assignmentId, correction: "due_date", dueAt: "2026-09-06T12:00:00.000Z" });
+    store.assignments.put(stale);
+    assert.equal(store.assignments.get(stale.assignmentId).dueAt, "2026-09-06T12:00:00.000Z");
+    for (const suffix of ["a", "b", "c"]) manager.enqueue({ taskId: `task-${suffix}` });
+    manager.reorderQueue(["task-c", "task-a"]);
+    assert.deepEqual(manager.state().entries.map(entry => entry.taskId), ["task-c", "task-a", "task-b"]);
+    assert.throws(() => manager.reorderQueue(["task-c", "missing"]));
+    assert.deepEqual(manager.state().entries.map(entry => entry.taskId), ["task-c", "task-a", "task-b"]);
+    await homework.setAssignmentOwner({ assignmentId: "assignment-b", owner: "student" });
+    assert.equal(manager.resolvePermission("assignment-b", "course-b").mayAttempt, false);
+    await homework.setAssignmentOwner({ assignmentId: "assignment-b", owner: "inky" });
+    assert.equal(manager.resolvePermission("assignment-b", "course-b").mode, "attempt");
+    await homework.correctAssignment({ assignmentId: "assignment-b", correction: "not_homework", reason: "Optional reading" });
+    const ignored = store.assignments.get("assignment-b");
+    store.assignments.put({ ...ignored, ignoredReason: undefined, ignoredNote: undefined });
+    assert.equal(store.assignments.get("assignment-b").ignoredNote, "Optional reading");
+    await homework.addAssignment({ text: "Bring a draft to class" });
+    manualId = store.assignments.listAll().find(item => item.origin === "manual").assignmentId;
+    assert.equal(store.assignments.get(manualId).sourceTarget, undefined);
+    assert.equal(store.assignments.get(manualId).dueAt, undefined);
+    await homework.addAssignment({ text: "https://school.example.edu/assignments/new" });
+    assert.deepEqual(sourceRequests, ["https://school.example.edu/assignments/new"]);
+    const before = manager.state().entries.map(entry => entry.taskId);
+    manager.dispose(); store.close();
+    store = await openLocalStore(root);
+    manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+    assert.deepEqual(manager.state().entries.map(entry => entry.taskId), before);
+    assert.equal(store.assignments.get("assignment-a").dueDateOverride.dueAt, "2026-09-06T12:00:00.000Z");
+    assert.equal(store.tasks.get("task-b").state, "ignored");
+    assert.equal(store.assignments.get("assignment-b").ignoredNote, "Optional reading");
+    assert.equal(store.assignments.get(manualId).origin, "manual");
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
 
 test("cancelled work retries only after an explicit request and a fresh permission check", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-retry-")));
@@ -285,7 +455,7 @@ test("cancelled work retries only after an explicit request and a fresh permissi
     manager.cancel("task-retry");
     assert.throws(() => manager.enqueue({ taskId: "task-retry" }), /cannot be queued from cancelled/);
     store.permissionRules.put(rule("global-attempt", "global", "do_not_attempt", now));
-    assert.throws(() => manager.enqueue({ taskId: "task-retry", retry: true }), /blocked by stored permission/);
+    assert.throws(() => manager.enqueue({ taskId: "task-retry", retry: true, requestOrigin: "automatic" }), /only when you ask/);
     assert.equal(store.tasks.get("task-retry").state, "cancelled");
     store.permissionRules.put(rule("global-attempt", "global", "attempt", now));
     manager.enqueue({ taskId: "task-retry", retry: true });
@@ -295,4 +465,85 @@ test("cancelled work retries only after an explicit request and a fresh permissi
     manager.dispose(); store.close();
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
   }
+});
+
+test("Dot queues work by itself only while it has a time to start it, and planned starts survive restart", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-auto-queue-")));
+  let store = await openLocalStore(root);
+  let clock = now;
+  let manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => clock });
+  try {
+    seedTask(store, "soon", due);
+    seedTask(store, "undated", due);
+    seedTask(store, "late", due);
+    const undated = store.assignments.get("assignment-undated");
+    store.assignments.put({ ...undated, dueAt: undefined, deadlinePrecision: undefined, deadlineEvidence: undefined });
+    store.assignments.put({ ...store.assignments.get("assignment-late"), dueAt: "2026-08-31T12:00:00.000Z" });
+    store.permissionRules.put(rule("global", "global", "attempt", now));
+    store.lifecycle.putSchedule({ schemaVersion: 1, scheduleId: "school-scan", cadence: "manual", state: "enabled", timezone: "UTC", localTime: "08:00", updatedAt: now });
+    manager.setSchedulingEnabled(true);
+    assert.deepEqual(manager.state().entries.map(entry => entry.taskId), ["task-soon"], "undated and past-due work never sits in the queue as if Dot would start it");
+    const planned = manager.state().entries[0].scheduledStartAt;
+    assert.equal(planned, "2026-09-02T12:00:00.000Z");
+
+    manager.enqueue({ taskId: "task-undated", requestOrigin: "automatic" });
+    manager.reconcileQueue();
+    assert.equal(store.tasks.get("task-undated").state, "discovered");
+    assert.match(store.tasks.listEvents("task-undated").at(-1).payload.reason, /no time left to start this by itself/);
+    manager.queueNext("task-late");
+    assert.equal(store.manager.getQueueEntry("task-late").requestOrigin, "student", "the student can still ask for late work");
+
+    await store.productPreferences.put({ ...await store.productPreferences.get(), workStartMode: "automatic" });
+    manager.dispose(); store.close();
+    store = await openLocalStore(root);
+    manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => clock });
+    manager.setSchedulingEnabled(true);
+    assert.equal(store.manager.getQueueEntry("task-soon").scheduledStartAt, planned, "the planned start is the same after a restart");
+    assert.ok(store.manager.getQueueEntry("task-late"), "a student's request survives restart");
+
+    clock = "2026-09-03T12:30:00.000Z";
+    manager.reconcileQueue();
+    assert.equal(store.manager.getQueueEntry("task-soon"), null, "a start Dot missed before the deadline is withdrawn, not started late by itself");
+    assert.equal(store.tasks.get("task-soon").state, "discovered");
+    assert.ok(store.manager.getQueueEntry("task-late"));
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("leave-it permits student queueing but ownership still blocks work", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-queue-reasons-")));
+  const store = await openLocalStore(root);
+  const manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+  try {
+    seedTask(store, "leave", due);
+    seedTask(store, "mine", due);
+    store.permissionRules.put(rule("global", "global", "do_not_attempt", now));
+    assert.throws(() => manager.enqueue({ taskId: "task-leave", requestOrigin: "automatic" }), /only when you ask/);
+    manager.queueNext("task-leave");
+    assert.equal((await manager.startTask("task-leave")).taskId, "task-leave");
+    manager.cancel("task-leave");
+    store.permissionRules.put(rule("global", "global", "attempt", now));
+    manager.queueNext("task-mine");
+    await manager.setAssignmentOwner("assignment-mine", "student");
+    assert.equal(store.manager.getQueueEntry("task-mine"), null, "taking it over while it waits takes it out of the queue");
+    assert.match(store.tasks.listEvents("task-mine").at(-1).payload.reason, /do this assignment yourself/);
+    assert.throws(() => manager.queueNext("task-mine"), /You chose to do this assignment yourself/);
+    assert.equal(manager.state().lease, null);
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+});
+
+test("saved work can still be marked done, and live work must be stopped first", async () => {
+  const root = resolve(await mkdtemp(join(tmpdir(), "studi-ignore-saved-")));
+  const store = await openLocalStore(root);
+  const manager = await ManagerCoordinator.create(store, new RecordingRuntime(), { now: () => now });
+  try {
+    seedTask(store, "saved", due);
+    store.permissionRules.put(rule("global", "global", "attempt", now));
+    manager.enqueue({ taskId: "task-saved" });
+    await manager.startNext();
+    assert.throws(() => manager.ignoreAssignment("assignment-saved", "You already did this work."), /Stop the current work/);
+    manager.pause("task-saved", "ready_review", "Ready");
+    manager.completeActive("task-saved", "preserved", "Answers saved");
+    manager.ignoreAssignment("assignment-saved", "You already did this work.");
+    assert.equal(store.tasks.get("task-saved").state, "ignored");
+  } finally { manager.dispose(); store.close(); await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
 });

@@ -11,6 +11,9 @@ import {
   type ExecutionAttempt,
   type NotificationIntent,
   type SubmissionReceipt,
+  type AgentRunEvent,
+  type AssignmentAction,
+  type AssignmentCommandOutput,
 } from "../../shared/index.js";
 import type { StudiSqliteDatabase } from "./database.js";
 import { StorageError, errorMessage } from "./errors.js";
@@ -77,8 +80,17 @@ function parseReceiptRow(row: ReceiptRow): SubmissionReceipt {
   return record;
 }
 
+type ExecutionListener = (previous: AssignmentExecution | null, next: AssignmentExecution) => void;
+
 export class LifecycleRepository {
+  readonly #listeners = new Set<ExecutionListener>();
   constructor(private readonly database: StudiSqliteDatabase) {}
+
+  /** Hears every saved change to an assignment's execution, after it is written. */
+  onExecutionChange(listener: ExecutionListener): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  }
 
   putSchedule(value: unknown): AutomationSchedule {
     const schedule = parseValue(AutomationScheduleSchema, value, "automation schedule");
@@ -107,14 +119,47 @@ export class LifecycleRepository {
   }
 
   putExecution(value: unknown): AssignmentExecution {
-    const execution = parseValue(AssignmentExecutionSchema, value, "assignment execution");
+    queueMicrotask(() => this.database.changed("homework"));
+    const parsed = parseValue(AssignmentExecutionSchema, value, "assignment execution");
+    const prior = this.getExecution(parsed.taskId);
+    // Tool continuations may carry a snapshot from before more stream events arrived.
+    // An authenticated execution owner is immutable once recorded.
+    const execution = { ...parsed, ...(prior?.ownerSubject ? { ownerSubject: prior.ownerSubject } : {}), ...(prior?.activity ? { activity: prior.activity } : {}), ...(prior?.actions ? { actions: prior.actions } : {}) };
     this.database.handle.prepare(`
       INSERT INTO assignment_executions(task_id, assignment_id, phase, review_deadline, updated_at, record_json)
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(task_id) DO UPDATE SET assignment_id=excluded.assignment_id, phase=excluded.phase,
         review_deadline=excluded.review_deadline, updated_at=excluded.updated_at, record_json=excluded.record_json
     `).run(execution.taskId, execution.assignmentId, execution.phase, execution.reviewDeadline ?? null, execution.updatedAt, json(AssignmentExecutionSchema, execution));
+    for (const listener of this.#listeners) {
+      try { listener(prior, execution); } catch { /* A listener can never block saving homework. */ }
+    }
     return execution;
+  }
+
+  recordActivity(taskId: string, event: AgentRunEvent, action?: AssignmentAction, command?: AssignmentCommandOutput): void {
+    queueMicrotask(() => this.database.changed("homework"));
+    this.database.transaction(() => {
+      const execution = this.getExecution(taskId);
+      if (!execution) return;
+      const activity = [...(execution.activity ?? [])];
+      const previous = activity.at(-1);
+      if (event.type === "text" && previous?.type === "text") activity[activity.length - 1] = { ...event, delta: (previous.delta + event.delta).slice(-20_000) };
+      else activity.push(event);
+      const actions = [...(execution.actions ?? [])];
+      if (action) {
+        const last = actions.at(-1);
+        const pending = action.toolCallId ? actions.findIndex(item => item.toolCallId === action.toolCallId) : -1;
+        if (pending >= 0) actions[pending] = { ...actions[pending]!, outcome: action.outcome, label: action.label || actions[pending]!.label, ...(action.result ? { result: action.result } : {}) };
+        else if (action.kind === "text" && last?.kind === "text") actions[actions.length - 1] = { ...last, label: (last.label + action.label).slice(-4000) };
+        else actions.push(action);
+      }
+      const commandOutputs = command
+        ? [...(execution.commandOutputs ?? []).filter(item => item.toolCallId !== command.toolCallId), command].slice(-20)
+        : execution.commandOutputs;
+      const record = AssignmentExecutionSchema.parse({ ...execution, activity: activity.slice(-160), actions: actions.slice(-160), commandOutputs });
+      this.database.handle.prepare("UPDATE assignment_executions SET record_json = ? WHERE task_id = ?").run(JSON.stringify(record), taskId);
+    });
   }
 
   getExecution(taskId: string): AssignmentExecution | null {
@@ -126,6 +171,7 @@ export class LifecycleRepository {
     const row = this.database.handle.prepare(`
       SELECT task_id, assignment_id, phase, review_deadline, updated_at, record_json FROM assignment_executions
       WHERE phase NOT IN ('submitted', 'preserved', 'failed')
+        AND (phase != 'ready_review' OR task_id IN (SELECT task_id FROM browser_worker_lease))
       ORDER BY updated_at DESC, task_id LIMIT 1
     `).get() as ExecutionRow | undefined;
     return row ? parseExecutionRow(row) : null;
@@ -134,6 +180,11 @@ export class LifecycleRepository {
   latestExecution(): AssignmentExecution | null {
     const row = this.database.handle.prepare("SELECT task_id, assignment_id, phase, review_deadline, updated_at, record_json FROM assignment_executions ORDER BY updated_at DESC, task_id LIMIT 1").get() as ExecutionRow | undefined;
     return row ? parseExecutionRow(row) : null;
+  }
+
+  readyCount(): number {
+    const row = this.database.handle.prepare("SELECT COUNT(*) AS count FROM assignment_executions WHERE phase = 'ready_review'").get() as { count: number };
+    return row.count;
   }
 
   listExpiredReviewHandoffs(now: string): AssignmentExecution[] {

@@ -1,0 +1,24 @@
+{
+  "origin": "https://moodle.cedar.example",
+  "calendar": null,
+  "courses": {
+    "data": {
+      "courses": [
+        {
+          "id": "programming",
+          "fullname": "Programming in C",
+          "shortname": "CSC 230",
+          "viewurl": "/course/view.php?id=programming"
+        }
+      ]
+    },
+    "error": false
+  },
+  "ical": "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:pacific-lab@cedar.invalid\r\nDTSTART:20260919T065900Z\r\nSUMMARY:Pacific lab\r\nCATEGORIES:CSC 230\r\nURL:/mod/assign/view.php?id=pacific-lab\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nUID:design-doc@cedar.invalid\r\nDTSTART;VALUE=DATE:20261007\r\nSUMMARY:Design document\r\nCATEGORIES:Programming in C\r\nURL:/mod/assign/view.php?id=design-doc\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n",
+  "failures": [
+    {
+      "sourceLabel": "Moodle calendar",
+      "message": "HTTP 404 Not Found"
+    }
+  ]
+}

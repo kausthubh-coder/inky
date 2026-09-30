@@ -8,6 +8,9 @@ import {
   STUDI_SCHEMA_VERSION,
   resolvePermission,
   assignmentWorkEligibility,
+  AssignmentKindSchema,
+  isLivePhase,
+  TASK_TRANSITIONS,
   transitionTask,
   type AgentRunEvent,
   type BrowserWorkerLease,
@@ -20,12 +23,14 @@ import type {
   AgentSessionTarget,
 } from "../agent/runtime.js";
 import type { LocalStore } from "../storage/index.js";
+import { plannedAssignmentStart } from "../lifecycle/schedule.js";
 
 export interface AssignmentWorkerRuntime {
   createWorkerSession(target?: AgentSessionTarget): Promise<AgentSession>;
   createAssignmentSession?(
     tools: readonly ToolDefinition[],
     target?: AgentSessionTarget,
+    control?: { readonly assertActive: () => void },
   ): Promise<AgentSession>;
 }
 
@@ -47,7 +52,19 @@ export interface EnqueueAssignmentInput {
 export interface ManagerCoordinatorOptions {
   readonly now?: () => string;
   readonly startAssignment?: (taskId: string) => Promise<unknown>;
+  /** A worker turn is stopped after this long with no event, or this long in total. */
+  readonly watchdog?: { readonly idleMs: number; readonly totalMs: number };
 }
+
+export type WorkerTurnResult = {
+  readonly outcome: "completed" | "failed" | "aborted";
+  readonly text: string;
+  /** Why a turn failed or stopped: the provider's reason, or "stalled" when the watchdog stopped it. */
+  readonly reason?: string;
+};
+const DEFAULT_WATCHDOG = { idleMs: 5 * 60_000, totalMs: 45 * 60_000 };
+const LEFT_TO_YOU = "This assignment starts only when you ask.";
+const LIVE_TASK_STATES: readonly TaskState[] = ["working", "needs_user", "ready_review", "submitting"];
 
 export class ManagerCoordinator {
   readonly #store: LocalStore;
@@ -56,9 +73,10 @@ export class ManagerCoordinator {
   readonly #startAssignment: ((taskId: string) => Promise<unknown>) | null;
   #workerSession: AgentSession | null = null;
   #workerRunning = false;
-  #workStartMode: "manual" | "automatic" = "manual";
+  #schedulingEnabled = false;
   #disposed = false;
   #beforeAssignmentWork: ((assignmentId: string) => Promise<void>) | null = null;
+  #watchdog = DEFAULT_WATCHDOG;
 
   private constructor(
     store: LocalStore,
@@ -83,7 +101,7 @@ export class ManagerCoordinator {
       options.now ?? (() => new Date().toISOString()),
       options.startAssignment ?? null,
     );
-    coordinator.#workStartMode = (await store.productPreferences.get()).workStartMode ?? "manual";
+    if (options.watchdog) coordinator.#watchdog = options.watchdog;
     await coordinator.#recover();
     return coordinator;
   }
@@ -110,21 +128,13 @@ export class ManagerCoordinator {
     return this.#store.tasks.get(lease.taskId)?.assignmentId === assignmentId ? lease.taskId : null;
   }
 
+  // Chat starts work the same way as the Start button: the shared starter re-reads stale details,
+  // then checks the rule and eligibility, instead of refusing here.
   async startFromConversation(taskId: string): Promise<unknown> {
     this.#assertUsable();
     if (!this.#startAssignment) throw new Error("Assignment execution is not ready");
-    if (this.#store.manager.getLease()) throw new Error("Inky is already on another page.");
-    const task = this.#requiredTask(taskId);
-    const assignment = this.#store.assignments.get(task.assignmentId);
-    if (!assignment?.lastVerifiedScanId || assignment.evidence.length === 0) {
-      throw new Error(`Task ${taskId} is not backed by a verified scanned assignment`);
-    }
-    const existing = this.#store.manager.getQueueEntry(taskId);
-    if (existing && !this.#refreshStartPermission(existing)) {
-      throw new Error(`Task ${taskId} is blocked by stored permission rules`);
-    }
-    this.enqueue({ taskId, retry: true });
-    this.steerNext(taskId);
+    if (this.#store.manager.getLease()) throw new Error("Dot is already on another page.");
+    this.#requiredTask(taskId);
     return this.#startAssignment(taskId);
   }
 
@@ -135,21 +145,18 @@ export class ManagerCoordinator {
     }
     const task = this.#requiredTask(input.taskId);
     const requestOrigin = input.requestOrigin ?? "student";
-    if (requestOrigin === "automatic" && this.#workStartMode !== "automatic") throw new Error("Inky starts homework only when you ask.");
     const assignment = this.#store.assignments.get(task.assignmentId);
     if (!assignment) {
       throw new Error(`Assignment ${task.assignmentId} does not exist`);
     }
-    const retrying = input.retry === true && (task.state === "failed" || task.state === "cancelled");
+    const retrying = input.retry === true && (task.state === "failed" || task.state === "cancelled" || task.state === "preserved");
     if (task.state !== "discovered" && task.state !== "queued" && !retrying) {
       throw new Error(`Task ${task.taskId} cannot be queued from ${task.state}`);
     }
-    const permission = this.#resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (!permission.mayAttempt) {
-      throw new Error(`Task ${task.taskId} is blocked by stored permission rules`);
-    }
     const eligibility = assignmentWorkEligibility(assignment, this.#now());
     if (!eligibility.eligible) throw new Error(eligibility.reason);
+    const permission = this.#resolvePermission(assignment.assignmentId, assignment.courseId);
+    if (!this.canAttempt(task.taskId, requestOrigin)) throw new Error(this.#leftToYou(assignment.assignmentId, assignment.courseId));
     if (task.state === "discovered" || retrying) {
       this.#transition(task.taskId, "queued", retrying ? "Retried at the student’s request" : "Queued by the Studi manager", `manager-${randomUUID()}`);
     }
@@ -164,12 +171,84 @@ export class ManagerCoordinator {
       enqueuedAt: existing?.enqueuedAt ?? this.#now(),
       permission,
       requestOrigin: existing?.requestOrigin === "student" ? "student" : requestOrigin,
+      scheduledStartAt: this.#plannedStart(assignment, existing?.enqueuedAt ?? this.#now()),
+      startRequestedAt: existing?.startRequestedAt,
     });
   }
 
   steerNext(taskId: string): ManagerQueueEntry {
     this.#assertUsable();
     return this.#store.manager.steerNext(taskId);
+  }
+
+  queueNext(taskId: string): ManagerState {
+    this.#assertUsable();
+    this.#store.database.transaction(() => {
+      const entry = this.enqueue({ taskId, retry: true, requestOrigin: "student" });
+      this.#store.manager.putQueueEntry({ ...entry, startRequestedAt: this.#now() });
+      this.steerNext(taskId);
+    });
+    return this.state();
+  }
+
+  reorderQueue(taskIds: readonly string[]): ManagerState {
+    this.#assertUsable();
+    if (taskIds.some(id => this.#requiredTask(id).state !== "queued")) throw new Error("Only waiting homework can be reordered.");
+    this.#store.manager.reorderQueue(taskIds);
+    return this.state();
+  }
+
+  async setAssignmentOwner(assignmentId: string, owner: "student" | "inky"): Promise<void> {
+    this.#assertUsable();
+    const assignment = this.#store.assignments.get(assignmentId);
+    if (!assignment) throw new Error("This assignment is no longer available.");
+    const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignment.assignmentId);
+    if (tasks.some(task => task.state === "submitting")) throw new Error("Submission has begun. Wait for its result before changing who does this work.");
+    const ruleId = `owner-${assignment.assignmentId}`.slice(0, 256);
+    this.#store.database.transaction(() => {
+      const currentRule = this.#store.permissionRules.listAll().find(rule => rule.scope === "assignment" && rule.assignmentId === assignment.assignmentId);
+      if (owner === "student") {
+        this.#store.assignments.put({ ...assignment, owner, ownerPreviousMode: assignment.owner === "student" ? assignment.ownerPreviousMode : currentRule?.mode });
+        this.#store.permissionRules.put({ schemaVersion: 1, ruleId, scope: "assignment", assignmentId: assignment.assignmentId, mode: "do_not_attempt", updatedAt: this.#now() });
+      } else {
+        if (assignment.owner === "student" && currentRule?.ruleId === ruleId) {
+          if (assignment.ownerPreviousMode) this.#store.permissionRules.put({ ...currentRule, mode: assignment.ownerPreviousMode, updatedAt: this.#now() });
+          else this.#store.permissionRules.delete(ruleId);
+        }
+        this.#store.assignments.put({ ...assignment, owner, ownerPreviousMode: undefined });
+      }
+      this.reconcileQueue();
+    });
+    if (owner === "student") {
+      for (const task of tasks) {
+        if (["working", "needs_user", "ready_review"].includes(this.#requiredTask(task.taskId).state)) {
+          await this.#workerSession?.abort();
+          if (["working", "needs_user", "ready_review"].includes(this.#requiredTask(task.taskId).state)) this.cancel(task.taskId);
+        }
+      }
+    }
+  }
+
+  ignoreAssignment(assignmentId: string, reason: string): void {
+    this.#store.database.transaction(() => {
+      const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId);
+      if (tasks.some(task => LIVE_TASK_STATES.includes(task.state))) throw new Error("Stop the current work before marking this assignment done or not homework.");
+      for (const task of tasks) {
+        if ((TASK_TRANSITIONS[task.state] as readonly TaskState[]).includes("ignored")) this.#transition(task.taskId, "ignored", reason, `student-${randomUUID()}`);
+        this.#store.manager.removeQueueEntry(task.taskId);
+      }
+    });
+  }
+
+  /** Patterns this assignment belongs to: ones the student confirmed, plus its own kind when the school states it clearly.
+   *  A clear kind counts for homework found later too, so "CSC 316 quizzes: do it" covers next week's quiz. */
+  matchedPatterns(assignmentId: string, courseId: string): string[] {
+    const assignment = this.#store.assignments.get(assignmentId);
+    const clearKind = assignment?.kindConfidence === "explicit" && assignment.kindEvidence ? assignment.kind : undefined;
+    const confirmed = this.#store.manager.listConfirmedPatterns(assignmentId, courseId)
+      .map(match => match.patternId)
+      .filter(patternId => !AssignmentKindSchema.safeParse(patternId).success);
+    return [...new Set([...confirmed, ...(clearKind ? [clearKind] : [])])];
   }
 
   cancel(taskId: string): void {
@@ -179,8 +258,9 @@ export class ManagerCoordinator {
       throw new Error(`Task ${taskId} cannot be cancelled from ${task.state}`);
     }
     this.#transition(taskId, "cancelled", "Cancelled by the Studi manager", `manager-${randomUUID()}`);
+    // Taking waiting work out of the queue leaves its last run (saved answers, run note) as it was.
     const execution = this.#store.lifecycle.getExecution(taskId);
-    if (execution) this.#store.lifecycle.putExecution({
+    if (execution && isLivePhase(execution.phase)) this.#store.lifecycle.putExecution({
       ...execution, phase: "failed", lastError: "Cancelled by the student.",
       reviewDeadline: undefined, handoffDeadline: undefined, updatedAt: this.#now(),
     });
@@ -196,9 +276,21 @@ export class ManagerCoordinator {
   async pauseForStudent(taskId: string, reason: string): Promise<void> {
     this.#assertActiveLease(taskId);
     const task = this.#requiredTask(taskId);
-    if (task.state !== "working") throw new Error(`Task ${taskId} cannot be taken over from ${task.state}`);
-    await this.#workerSession?.abort();
+    if (!["working", "ready_review"].includes(task.state)) throw new Error(`Task ${taskId} cannot be taken over from ${task.state}`);
     this.pause(taskId, "needs_user", reason);
+    await this.abortWorkerTurn();
+  }
+
+  async abortWorkerTurn(): Promise<void> { await this.#workerSession?.abort(); }
+
+  /** After a rule change: stop the work in progress straight away if its rule no longer lets Dot work on it. */
+  async stopWorkNoLongerAllowed(): Promise<void> {
+    const lease = this.#store.manager.getLease();
+    const task = lease ? this.#store.tasks.get(lease.taskId) : undefined;
+    const assignment = task ? this.#store.assignments.get(task.assignmentId) : undefined;
+    // A submission already in flight finishes; interrupting it could leave the school half-updated.
+    if (!assignment || task?.state === "submitting") return;
+    if (!this.canAttempt(task!.taskId)) await this.#workerSession?.abort();
   }
 
   async startNext(
@@ -230,10 +322,9 @@ export class ManagerCoordinator {
     if (!this.#store.manager.getQueueEntry(taskId)) this.enqueue({ taskId, retry: true, requestOrigin: "student" });
     const entry = this.#store.manager.getQueueEntry(taskId);
     if (!entry) throw new Error(`Task ${taskId} is not in the manager queue`);
+    const blocker = this.#startBlocker(entry);
     const permittedEntry = this.#refreshStartPermission(entry);
-    if (!permittedEntry) {
-      throw new Error(`Task ${taskId} is blocked by stored permission rules`);
-    }
+    if (!permittedEntry) throw new Error(blocker ?? "This homework can't start right now.");
     return this.#startEntry(permittedEntry, assignmentTools, resumeSessionPath);
   }
 
@@ -243,7 +334,7 @@ export class ManagerCoordinator {
     if (!lease || lease.taskId !== taskId || lease.state !== "active") {
       throw new Error(`Task ${taskId} does not own the browser worker lease`);
     }
-    this.#transition(taskId, outcome, "Assignment worker released the browser", lease.workerSessionId!);
+    if (this.#requiredTask(taskId).state !== outcome) this.#transition(taskId, outcome, "Assignment worker released the browser", lease.workerSessionId!);
     this.#workerSession?.dispose();
     this.#workerSession = null;
     this.#store.manager.releaseLease(taskId);
@@ -293,22 +384,36 @@ export class ManagerCoordinator {
   async runWorkerTurn(
     prompt: string,
     observe?: (event: AgentRunEvent) => void,
-  ): Promise<{ readonly outcome: "completed" | "failed" | "aborted"; readonly text: string }> {
+  ): Promise<WorkerTurnResult> {
     this.#assertUsable();
-    if (!this.#workerSession) throw new Error("No assignment worker session owns the browser");
+    const session = this.#workerSession;
+    if (!session) throw new Error("No assignment worker session owns the browser");
     if (this.#workerRunning) throw new Error("The assignment worker is already handling a turn");
     this.#workerRunning = true;
     let text = "";
-    let outcome: "completed" | "failed" | "aborted" = "failed";
-    const unsubscribe = this.#workerSession.subscribe((event) => {
+    let outcome: WorkerTurnResult["outcome"] = "failed";
+    let reason: string | undefined;
+    const startedAt = Date.now();
+    let lastEventAt = startedAt;
+    const unsubscribe = session.subscribe((event) => {
+      lastEventAt = Date.now();
       observe?.(event);
       if (event.type === "text") text += event.delta;
-      if (event.type === "terminal") outcome = event.outcome;
+      if (event.type === "terminal") { outcome = event.outcome; reason ??= event.reason; }
     });
+    // The watchdog: a turn that goes quiet, or runs far too long, is stopped so the run can recover.
+    const watchdog = setInterval(() => {
+      const now = Date.now();
+      if (now - lastEventAt < this.#watchdog.idleMs && now - startedAt < this.#watchdog.totalMs) return;
+      reason = "stalled";
+      clearInterval(watchdog);
+      void session.abort();
+    }, Math.min(5_000, this.#watchdog.idleMs));
     try {
-      await this.#workerSession.prompt(prompt);
-      return { outcome, text };
+      await session.prompt(prompt);
+      return { outcome: reason === "stalled" ? "aborted" : outcome, text, ...(reason ? { reason } : {}) };
     } finally {
+      clearInterval(watchdog);
       unsubscribe();
       this.#workerRunning = false;
     }
@@ -325,7 +430,7 @@ export class ManagerCoordinator {
       assignmentId: this.#requiredTask(lease.taskId).assignmentId,
       resumeSessionPath: lease.workerSessionPath,
       ...(plan.cwd ? { cwd: plan.cwd } : {}),
-    });
+    }, { assertActive: () => this.#assertWorkerPermission(lease.taskId) });
   }
 
   dispose(): void {
@@ -357,7 +462,7 @@ export class ManagerCoordinator {
     for (const entry of this.#store.manager.listQueue()) {
       const task = this.#store.tasks.get(entry.taskId);
       const activeTask = this.#store.manager.getLease()?.taskId;
-      if (!task || (task.state !== "queued" && !(task.state === "working" && activeTask === task.taskId))) {
+      if (!task || (task.state !== "queued" && task.state !== "ready_review" && !(task.state === "working" && activeTask === task.taskId))) {
         this.#store.manager.removeQueueEntry(entry.taskId);
       }
     }
@@ -394,20 +499,44 @@ export class ManagerCoordinator {
   }
 
   #resolvePermission(assignmentId: string, courseId: string) {
+    const assignment = this.#store.assignments.get(assignmentId);
+    if (assignment?.owner === "student" || assignment?.ignoredReason) return {
+      mode: "do_not_attempt" as const, mayAttempt: false, maySubmit: false, matchedRuleId: null,
+      rationale: assignment.ignoredReason ? "You marked this assignment as done or not homework." : "You chose to do this assignment yourself.",
+    };
     courseId = this.#store.school.resolveCourseId(courseId);
-    const conflict = this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId))
-      ?? this.#store.courseConflicts.find(item => item.courseIds.includes(courseId));
+    const conflict = this.#conflict(assignmentId, courseId);
     if (conflict) return {
       mode: "do_not_attempt" as const, mayAttempt: false, maySubmit: false,
       matchedRuleId: null, rationale: conflict.reason,
     };
-    const matchedPatternIds = this.#store.manager
-      .listConfirmedPatterns(assignmentId, courseId)
-      .map((match) => match.patternId);
-    return resolvePermission(
+    const matchedPatternIds = this.matchedPatterns(assignmentId, courseId);
+    const rules = this.#store.permissionRules.listAll();
+    const baseline = resolvePermission(
       { assignmentId, courseId, matchedPatternIds },
-      this.#store.permissionRules.listAll(),
+      rules,
     );
+    // A guess can restrict work, never grant it. Unknown work must also respect
+    // a potentially applicable kind restriction until the student clarifies it.
+    const possibleKinds = assignment?.kindConfidence === "explicit" && assignment.kind ? [assignment.kind]
+      : assignment?.possibleKinds?.length ? assignment.possibleKinds : AssignmentKindSchema.options;
+    const rank = { do_not_attempt: 0, attempt: 1, auto_submit: 2 };
+    return possibleKinds.reduce((safest, kind) => {
+      const candidate = resolvePermission({ assignmentId, courseId, matchedPatternIds: [...new Set([...matchedPatternIds, kind])] }, rules);
+      return rank[candidate.mode] < rank[safest.mode] ? { ...candidate, rationale: `This kind may apply; keeping its safer rule until the kind is confirmed. ${candidate.rationale}` } : safest;
+    }, baseline);
+  }
+
+  #conflict(assignmentId: string, courseId: string) {
+    courseId = this.#store.school.resolveCourseId(courseId);
+    return this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId))
+      ?? this.#store.courseConflicts.find(item => item.courseIds.includes(courseId));
+  }
+
+  /** Why Dot may not attempt this, in the student's words: copies that need review say so; otherwise the rules leave it. */
+  #leftToYou(assignmentId: string, courseId: string): string {
+    const assignment = this.#store.assignments.get(assignmentId);
+    return this.#conflict(assignmentId, courseId)?.reason ?? (assignment?.owner === "student" || assignment?.ignoredReason ? this.#resolvePermission(assignmentId, courseId).rationale : LEFT_TO_YOU);
   }
 
   resolvePermission(assignmentId: string, courseId: string) {
@@ -419,35 +548,82 @@ export class ManagerCoordinator {
   // startNext. Withdraw unstarted work without calling it cancelled/completed.
   reconcileQueue(): void {
     for (const entry of this.#store.manager.listQueue()) {
-      if (this.#store.tasks.get(entry.taskId)?.state === "queued") this.#refreshStartPermission(entry);
+      if (["queued", "ready_review"].includes(this.#store.tasks.get(entry.taskId)?.state ?? "")) this.#refreshStartPermission(entry);
+    }
+    if (this.#automationActive()) {
+      for (const task of this.#store.tasks.listByState("discovered")) {
+        const assignment = this.#store.assignments.get(task.assignmentId);
+        if (!assignment || !this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt || !assignmentWorkEligibility(assignment, this.#now()).eligible) continue;
+        if (this.#plannedStart(assignment, this.#now())) this.enqueue({ taskId: task.taskId, requestOrigin: "automatic" });
+      }
     }
   }
 
-  setWorkStartMode(mode: "manual" | "automatic"): void {
-    this.#workStartMode = mode;
+  setSchedulingEnabled(enabled: boolean): void {
+    this.#schedulingEnabled = enabled;
     this.reconcileQueue();
   }
 
-  get allowsAutomaticWork(): boolean { return this.#workStartMode === "automatic"; }
+  #automationActive(): boolean {
+    return this.#schedulingEnabled && this.#store.lifecycle.getSchedule()?.state !== "paused";
+  }
+
+  #plannedStart(assignment: NonNullable<ReturnType<LocalStore["assignments"]["get"]>>, enqueuedAt: string): string | undefined {
+    if (!this.#automationActive()) return undefined;
+    // Both "do it" rules may start by themselves; handing in is checked separately, at submit time.
+    if (!this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) return undefined;
+    const timezone = this.#store.lifecycle.getSchedule()?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const start = plannedAssignmentStart(assignment, enqueuedAt, timezone);
+    // A start time that has passed (Dot was busy, Studi was closed) holds only while Dot could still start before the cutoff.
+    return start && (start > this.#now() || plannedAssignmentStart(assignment, this.#now(), timezone)) ? start : undefined;
+  }
+
+  // mayAttempt describes unattended work. An explicit Start can override the
+  // wait-for-me rule, but never ownership, identity conflicts or ignored work.
+  canAttempt(taskId: string, origin = this.#store.manager.getQueueEntry(taskId)?.requestOrigin): boolean {
+    const task = this.#requiredTask(taskId);
+    const assignment = this.#store.assignments.get(task.assignmentId);
+    if (!assignment || assignment.owner === "student" || assignment.ignoredReason || this.#conflict(assignment.assignmentId, assignment.courseId)) return false;
+    return origin === "student" || this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt;
+  }
+
+  queueSubmission(taskId: string): void {
+    const task = this.#requiredTask(taskId);
+    if (task.state !== "ready_review" || !this.canAttempt(taskId, "student")) throw new Error("This work cannot be handed in right now.");
+    const assignment = this.#store.assignments.get(task.assignmentId)!;
+    const existing = this.#store.manager.getQueueEntry(taskId);
+    this.#store.manager.putQueueEntry({ schemaVersion: 1, taskId, assignmentId: assignment.assignmentId, courseId: assignment.courseId,
+      dueAt: assignment.dueAt, priority: existing?.priority ?? 0, enqueuedAt: existing?.enqueuedAt ?? this.#now(),
+      permission: this.#resolvePermission(assignment.assignmentId, assignment.courseId), requestOrigin: "student", startRequestedAt: this.#now() });
+    this.steerNext(taskId);
+  }
+
+  /** Why a waiting entry may not start, in the student's words, or null when it may. */
+  #startBlocker(entry: ManagerQueueEntry): string | null {
+    const assignment = this.#store.assignments.get(entry.assignmentId);
+    if (!assignment) return "This assignment is no longer available.";
+    if (this.#requiredTask(entry.taskId).state !== "ready_review") {
+      const eligibility = assignmentWorkEligibility(assignment, this.#now());
+      if (!eligibility.eligible) return eligibility.reason;
+    }
+    if (!this.canAttempt(entry.taskId, entry.requestOrigin)) return this.#leftToYou(entry.assignmentId, entry.courseId);
+    if (entry.requestOrigin === "student") return null;
+    // Work Dot queued by itself stays queued only while it has a time to start by itself.
+    if (this.#automationActive() && !this.#plannedStart(assignment, entry.enqueuedAt)) return "Dot has no time left to start this by itself. Start it when you want.";
+    return null;
+  }
 
   #refreshStartPermission(entry: ManagerQueueEntry): ManagerQueueEntry | null {
-    const permission = this.#resolvePermission(entry.assignmentId, entry.courseId);
-    const assignment = this.#store.assignments.get(entry.assignmentId);
-    const eligibility = assignment ? assignmentWorkEligibility(assignment, this.#now()) : { eligible: false, reason: "Assignment no longer exists." };
-    const manual = entry.requestOrigin !== "student" && !this.allowsAutomaticWork;
-    if (!permission.mayAttempt || !eligibility.eligible || manual) {
-      this.#transition(
-        entry.taskId,
-        "discovered",
-        manual ? "Inky starts homework only when you ask." : permission.mayAttempt ? eligibility.reason : "Stored permission no longer allows an attempt",
-        `manager-${randomUUID()}`,
-      );
+    const blocker = this.#startBlocker(entry);
+    if (blocker) {
+      if (this.#requiredTask(entry.taskId).state === "queued") this.#transition(entry.taskId, "discovered", blocker, `manager-${randomUUID()}`);
       this.#store.manager.removeQueueEntry(entry.taskId);
       return null;
     }
-    return JSON.stringify(permission) === JSON.stringify(entry.permission)
-      ? entry
-      : this.#store.manager.putQueueEntry({ ...entry, permission });
+    const assignment = this.#store.assignments.get(entry.assignmentId)!;
+    const permission = this.#resolvePermission(entry.assignmentId, entry.courseId);
+    const next = { ...entry, permission, dueAt: assignment.dueAt, scheduledStartAt: this.#plannedStart(assignment, entry.enqueuedAt) };
+    return JSON.stringify(next) === JSON.stringify(entry) ? entry : this.#store.manager.putQueueEntry(next);
   }
 
   async #startEntry(
@@ -471,13 +647,13 @@ export class ManagerCoordinator {
       const plan = await resolveAssignmentSessionPlan(assignmentTools, entry.assignmentId);
       const sessionTarget = { ...target, assignmentId:entry.assignmentId, ...(plan.cwd ? { cwd: plan.cwd } : {}) };
       worker = plan.tools.length > 0
-        ? await this.#requiredAssignmentRuntime().createAssignmentSession!(plan.tools, sessionTarget)
+        ? await this.#requiredAssignmentRuntime().createAssignmentSession!(plan.tools, sessionTarget, { assertActive: () => this.#assertWorkerPermission(entry.taskId) })
         : await this.#runtime.createWorkerSession(target);
       if (!worker.sessionPath) {
         throw new Error("Pi did not persist the assignment worker session");
       }
       const currentEntry = this.#store.manager.getQueueEntry(entry.taskId);
-      if (this.#requiredTask(entry.taskId).state !== "queued" || !currentEntry || !this.#refreshStartPermission(currentEntry)) {
+      if (!["queued", "ready_review"].includes(this.#requiredTask(entry.taskId).state) || !currentEntry || !this.#refreshStartPermission(currentEntry)) {
         throw new Error("The assignment is no longer eligible to start.");
       }
       const lease = this.#store.manager.activateLease(
@@ -485,7 +661,7 @@ export class ManagerCoordinator {
         worker.sessionId,
         worker.sessionPath,
       );
-      this.#transition(entry.taskId, "working", "Browser worker lease acquired", worker.sessionId);
+      if (this.#requiredTask(entry.taskId).state === "queued") this.#transition(entry.taskId, "working", "Browser worker lease acquired", worker.sessionId);
       const claim = {
         claimId: randomUUID(),
         jobId: agentJob.job.jobId,
@@ -602,6 +778,19 @@ export class ManagerCoordinator {
       phase,
       updatedAt: this.#now(),
     }), persisted.sessionPath);
+  }
+
+  #assertWorkerPermission(taskId: string): void {
+    this.#assertUsable();
+    const task = this.#requiredTask(taskId);
+    const lease = this.#store.manager.getLease();
+    if (lease?.taskId !== taskId || lease.state !== "active" || !["working", "ready_review", "submitting"].includes(task.state)) {
+      throw new Error("This assignment no longer owns the school page.");
+    }
+    const assignment = this.#store.assignments.get(task.assignmentId);
+    if (!assignment || !this.canAttempt(taskId)) {
+      throw new Error("Current homework rules no longer allow this work.");
+    }
   }
 
   #requiredAssignmentRuntime(): AssignmentWorkerRuntime & Required<Pick<AssignmentWorkerRuntime, "createAssignmentSession">> {

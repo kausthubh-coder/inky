@@ -68,6 +68,7 @@ export class SchoolRepository {
   constructor(private readonly database: StudiSqliteDatabase) {}
 
   putProfile(value: unknown): SchoolProfile {
+    queueMicrotask(() => this.database.changed("school"));
     const profile = parseValue(SchoolProfileSchema, value, "school profile");
     this.database.handle.prepare(`
       INSERT INTO school_profile(singleton_id, updated_at, record_json)
@@ -125,6 +126,7 @@ export class SchoolRepository {
   }
 
   putScan(value: unknown): SchoolScan {
+    queueMicrotask(() => this.database.changed("school"));
     const scan = this.#canonicalScan(parseValue(SchoolScanSchema, value, "school scan"));
     this.database.handle.prepare(`
       INSERT INTO school_scans(scan_id, state, started_at, updated_at, completed_at, record_json)
@@ -173,11 +175,32 @@ export class SchoolRepository {
     return row ? this.#canonicalScan(parseScanRow(row.scan_id, row)) : null;
   }
 
+  /**
+   * The scan the School check shows: one still running or waiting, otherwise the last school-wide scan.
+   * A finished one-assignment update (from "Details look wrong") doesn't take over the screen.
+   */
+  shownScan(): SchoolScan | null {
+    const latest = this.latestScan();
+    if (!latest?.targetAssignmentId || latest.state === "running" || latest.state === "needs_user") return latest;
+    const row = this.database.handle.prepare(`
+      SELECT scan_id FROM school_scans
+      WHERE json_extract(record_json, '$.targetAssignmentId') IS NULL
+      ORDER BY rowid DESC LIMIT 1
+    `).get() as { scan_id: string } | undefined;
+    return row ? this.getScan(String(row.scan_id)) : latest;
+  }
+
+  listScans(limit = 100): SchoolScan[] {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 1000) throw new Error("Scan history limit must be between 1 and 1000.");
+    const rows = this.database.handle.prepare("SELECT scan_id FROM school_scans ORDER BY started_at DESC, rowid DESC LIMIT ?").all(limit);
+    return rows.map(row => this.getScan(String(row.scan_id))!);
+  }
+
   completedOnboardingAt(schoolRoot: string): string | undefined {
     const rows = this.database.handle.prepare("SELECT record_json FROM school_scans WHERE state IN ('succeeded', 'partial') AND completed_at IS NOT NULL ORDER BY rowid DESC").all() as JsonRow[];
     for (const row of rows) {
       const scan = parseRow(SchoolScanSchema, row, "school scan");
-      if (!scan.targetAssignmentId && scan.coverage.some(item => item.evidence && new URL(item.evidence.sourceTarget).origin === new URL(schoolRoot).origin)) return scan.completedAt;
+      if (!scan.targetAssignmentId && !scan.sourceScanTarget && scan.coverage.some(item => item.evidence && new URL(item.evidence.sourceTarget).origin === new URL(schoolRoot).origin)) return scan.completedAt;
     }
     return undefined;
   }

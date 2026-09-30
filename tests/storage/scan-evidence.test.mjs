@@ -66,6 +66,33 @@ async function finishPartial(tools) {
   return invoke(tools, "scan_finish", { coverage: [{ target: "Course: Calculus", status: "partial", failure: "Other class sources still need checking." }], navigationHints: [] });
 }
 
+test("a failed startup retries navigation and a failed resume stays recoverable", async () => fixture(async ({ scan, runtime, browser, store, manager }) => {
+  let opens = 0;
+  browser.navigate = async url => {
+    assert.equal(url, courseUrl);
+    opens++;
+    throw new Error("ERR_TOO_MANY_REDIRECTS (-310)");
+  };
+  const failed = await scan.startScan();
+  assert.equal(failed.scan.state, "failed");
+  const scanId = failed.scan.scanId;
+  const retried = await scan.resume();
+  assert.equal(opens, 2, "retry actually reopens the original school target");
+  assert.equal(retried.scan.scanId, scanId);
+  assert.equal(retried.scan.state, "failed", "a rejected navigation never leaves the scan running");
+  assert.equal(manager.state().lease, null, "the school browser is released on failure");
+  assert.equal(runtime.sessions, 0, "an agent never starts on the blank failed page");
+  browser.navigate = async url => { opens++; browser.url = url; };
+  runtime.next = async tools => { await recordReady(tools, browser); await finishPartial(tools); };
+  const recovered = await scan.resume();
+  assert.equal(opens, 3);
+  assert.equal(recovered.scan.state, "partial");
+  assert.equal(recovered.scan.scanId, scanId);
+  assert.equal(store.school.listCourses().length, 1);
+  assert.equal(store.assignments.listAll().length, 1);
+  assert.equal(manager.state().lease, null);
+}));
+
 test("visible IANA deadlines retain exact precision and reject unsupported model dates", async () => fixture(async ({ scan, runtime, browser, store }) => {
   let recorded;
   runtime.next = async tools => {
@@ -98,12 +125,11 @@ test("a scoped details check refreshes only its assignment and waits for an expl
   const profile = store.school.getProfile();
   store.assignments.put({ ...assignment, requirementsState: "partial", missingRequirements: ["README requirements"] });
   const unrelated = store.assignments.put({ ...assignment, assignmentId: "unrelated", title: "Other assignment", sourceTarget: "https://school.example/mod/assign/view.php?id=999", sourceIdentity: undefined });
-  manager.setWorkStartMode("automatic");
   const task = store.tasks.listAll().find(item => item.assignmentId === assignment.assignmentId);
   runtime.next = async tools => {
     assert.equal(browser.url, assignment.sourceTarget);
     browser.detail();
-    await assert.rejects(invoke(tools, "scan_record_course", { label: "Calculus" }), /cannot change school/);
+    assert.equal(tools.some(tool => tool.name === "scan_record_course"), false, "details mode exposes only focused tools");
     await assert.rejects(invoke(tools, "scan_read_assignment", { assignmentId: unrelated.assignmentId }), /selected/);
     await assert.rejects(invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: "Other assignment" }), /only the selected assignment/);
     await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title, dueText: due,
@@ -118,7 +144,7 @@ test("a scoped details check refreshes only its assignment and waits for an expl
     await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title,
       requirementExcerpts: [{ text: "Provide a walkthrough for every level." }], requirementsComplete: true, missingRequirements: [] });
     await invoke(tools, "scan_record_source", { kind: "details", courseId: assignment.courseId, state: "checked", assignmentIds: [assignment.assignmentId] });
-    await invoke(tools, "scan_finish", { coverage: [{ target: `Assignment: ${assignment.title}`, status: "verified" }], navigationHints: [] });
+    assert.equal(tools.some(tool => tool.name === "scan_finish"), false, "the app finishes the details check");
   };
   const result = await scan.startScan(assignment.assignmentId);
   assert.equal(result.scan.state, "succeeded", result.scan.failures.join("; "));
@@ -134,7 +160,6 @@ test("a scoped details check refreshes only its assignment and waits for an expl
   assert.equal(manager.state().entries.length, 0, "even automatic mode cannot enqueue from a read-only check");
   assert.equal(manager.state().lease, null);
   assert.equal(store.tasks.get(task.taskId).state, "discovered");
-  manager.setWorkStartMode("manual");
   manager.enqueue({ taskId: task.taskId, requestOrigin: "student" });
   assert.equal(manager.state().entries[0].requestOrigin, "student");
   await assert.rejects(scan.startScan("no-longer-exists"), /no longer available/);
@@ -156,7 +181,7 @@ test("scoped sign-in recovery survives coordinator restart and submitted work st
       browser.detail(); browser.text = browser.text.replace("Not submitted", "Submitted for grading");
       await invoke(tools, "scan_record_assignment", { courseId: assignment.courseId, title: assignment.title,
         schoolStatus: { state: "submitted", text: "Submitted for grading" } });
-      await invoke(tools, "scan_finish", { coverage: [{ target: `Assignment: ${assignment.title}`, status: "verified" }], navigationHints: [] });
+      assert.equal(tools.some(tool => tool.name === "scan_finish"), false);
     };
     const result = await resumed.resume();
     assert.equal(result.scan.state, "succeeded", result.scan.failures.join("; "));
@@ -216,8 +241,10 @@ test("manual discovery, explicit request, automatic withdrawal and restart keep 
   assert.equal(task.state, "discovered");
   manager.enqueue({ taskId: task.taskId, requestOrigin: "student" });
   assert.equal(manager.state().entries[0].requestOrigin, "student");
-  manager.setWorkStartMode("manual");
-  assert.equal(manager.state().entries.length, 1, "manual mode keeps a selected student's request");
+  const rule = store.permissionRules.listAll().find(rule => rule.scope === "global");
+  store.permissionRules.put({ ...rule, mode: "do_not_attempt" });
+  manager.reconcileQueue();
+  assert.equal(manager.state().entries.length, 1, "leave-it keeps a selected student's request");
   manager.dispose();
   const restarted = await ManagerCoordinator.create(store, runtime, { now: () => now });
   assert.equal(restarted.state().entries.length, 1);
@@ -226,10 +253,11 @@ test("manual discovery, explicit request, automatic withdrawal and restart keep 
   assert.equal(await restarted.startNext(), null);
   assert.equal(store.tasks.get(task.taskId).state, "discovered");
   store.assignments.put(assignment);
-  restarted.setWorkStartMode("automatic");
+  store.permissionRules.put({ ...rule, mode: "attempt" });
   restarted.enqueue({ taskId: task.taskId, requestOrigin: "automatic" });
   await store.productPreferences.put({ ...await store.productPreferences.get(), workStartMode: "manual" });
-  restarted.setWorkStartMode("manual");
+  store.permissionRules.put({ ...rule, mode: "do_not_attempt" });
+  restarted.reconcileQueue();
   assert.equal(restarted.state().entries.length, 0);
   restarted.dispose();
   const again = await ManagerCoordinator.create(store, runtime, { now: () => now });
@@ -305,17 +333,19 @@ test("a list cannot attach another assignment's requirements to the selected ass
   assert.equal((await scan.startScan()).scan.state, "partial");
 }));
 
-test("eligibility excludes completed, stale, incomplete and overdue work; extension must still be open", async () => fixture(async ({ scan, runtime, browser }) => {
+test("only hard stops block a start; Dot reads stale, incomplete or overdue work itself", async () => fixture(async ({ scan, runtime, browser }) => {
   runtime.next = async tools => {
     const ready = await recordReady(tools, browser);
-    for (const state of ["unknown", "submitted", "graded", "locked"]) assert.equal(assignmentWorkEligibility({ ...ready, schoolStatus: { ...ready.schoolStatus, state } }, now).eligible, false);
-    assert.equal(assignmentWorkEligibility(ready, "2026-09-14T00:00:00.000Z").eligible, false);
-    assert.equal(assignmentWorkEligibility({ ...ready, requirementsState: "partial" }, now).eligible, false);
-    const overdue = { ...ready, dueAt: "2026-09-11T23:59:00.000Z" };
-    assert.equal(assignmentWorkEligibility(overdue, now).eligible, false);
-    const extended = { ...overdue, latePolicy: { state: "accepted", text: "Late submissions accepted until September 15", until: "2026-09-15T23:59:00.000Z", evidence: ready.deadlineEvidence } };
-    assert.equal(assignmentWorkEligibility(extended, now).eligible, true);
-    assert.equal(assignmentWorkEligibility({ ...extended, latePolicy: { ...extended.latePolicy, until: now } }, now).eligible, false);
+    for (const state of ["submitted", "graded", "locked"]) assert.equal(assignmentWorkEligibility({ ...ready, schoolStatus: { ...ready.schoolStatus, state } }, now).eligible, false);
+    assert.equal(assignmentWorkEligibility({ ...ready, owner: "student" }, now).eligible, false);
+    assert.equal(assignmentWorkEligibility({ ...ready, ignoredReason: "already_done" }, now).eligible, false);
+    assert.equal(assignmentWorkEligibility({ ...ready, sourceTarget: undefined }, now).eligible, false);
+    assert.equal(assignmentWorkEligibility({ ...ready, category: "resource" }, now).eligible, false);
+    // None of these stop a start any more: Dot opens the page and reads what it needs.
+    assert.equal(assignmentWorkEligibility({ ...ready, schoolStatus: { ...ready.schoolStatus, state: "unknown" } }, now).eligible, true);
+    assert.equal(assignmentWorkEligibility({ ...ready, requirementsState: "partial", missingRequirements: ["No rubric posted"] }, now).eligible, true);
+    assert.equal(assignmentWorkEligibility({ ...ready, dueAt: "2026-09-11T23:59:00.000Z" }, now).eligible, true);
+    assert.equal(assignmentWorkEligibility(ready, "2026-09-14T00:00:00.000Z").eligible, true);
     await finishPartial(tools);
   };
   assert.equal((await scan.startScan()).scan.state, "partial");
@@ -335,13 +365,3 @@ test("list deadlines cannot be borrowed from another assignment", async () => fi
   assert.equal((await scan.startScan()).scan.state, "partial");
 }));
 
-test("fresh status and deadline cannot revive stale attachment instructions", async () => fixture(async ({ scan, runtime, browser }) => {
-  runtime.next = async tools => {
-    const ready = await recordReady(tools, browser);
-    const stale = { ...ready, requirementEvidence: ready.requirementEvidence.map(item => ({ ...item, evidence: { ...item.evidence, kind: "document", capturedAt: "2026-08-01T00:00:00.000Z" } })) };
-    assert.equal(assignmentWorkEligibility(stale, now).eligible, false);
-    assert.match(assignmentWorkEligibility(stale, now).reason, /instructions and attached materials/);
-    await finishPartial(tools);
-  };
-  assert.equal((await scan.startScan()).scan.state, "partial");
-}));

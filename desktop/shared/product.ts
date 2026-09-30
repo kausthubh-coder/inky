@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { AgentReasoningEffortSchema, AgentRunEventSchema, DEFAULT_AGENT_MODEL_ID, DEFAULT_AGENT_REASONING_EFFORT } from "./agent-runtime.js";
+import { AgentReasoningEffortSchema, AgentRunEventSchema, DEFAULT_AGENT_REASONING_EFFORT } from "./agent-runtime.js";
+import { AgentProviderIdSchema, DEFAULT_AGENT_MODEL_ID, DEFAULT_AGENT_PROVIDER_ID } from "./providers.js";
 import { ArtifactFrontmatterSchema, ArtifactKindSchema } from "./artifact.js";
 import { AssignmentSchema } from "./assignment.js";
 import { AutomationScheduleSchema, AssignmentExecutionSchema, ExecutionAttemptSchema, NotificationIntentSchema, SubmissionReceiptSchema } from "./lifecycle.js";
@@ -38,39 +39,60 @@ export const NotificationKindPreferenceSchema = z.strictObject({
   sound: NotificationSoundIdSchema,
 });
 
+const LocalTimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
+export const QuietHoursSchema = z.union([z.literal("off"), z.strictObject({
+  start: LocalTimeSchema, end: LocalTimeSchema,
+}).refine(value => value.start !== value.end, "Choose different start and end times")]);
+
+/** Device-local wall time; the start is inclusive and the end exclusive. */
+export function isQuietHours(hours: z.infer<typeof QuietHoursSchema>, now: Date): boolean {
+  if (hours === "off") return false;
+  const minute = now.getHours() * 60 + now.getMinutes();
+  const minutes = (time: string) => Number(time.slice(0, 2)) * 60 + Number(time.slice(3));
+  const start = minutes(hours.start), end = minutes(hours.end);
+  return start < end ? minute >= start && minute < end : minute >= start || minute < end;
+}
+
 export const NotificationPreferencesSchema = z.strictObject({
   enabled: z.boolean(),
+  quietHours: QuietHoursSchema.default("off"),
   kinds: z.strictObject({
     handoff: NotificationKindPreferenceSchema,
     review_ready: NotificationKindPreferenceSchema,
     scan_result: NotificationKindPreferenceSchema,
     failure: NotificationKindPreferenceSchema,
+    work_start: NotificationKindPreferenceSchema.default({ banner: true, sound: "inky_soft" }),
   }),
 });
 export type NotificationPreferences = z.infer<typeof NotificationPreferencesSchema>;
 
 export const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
   enabled: true,
+  quietHours: "off",
   kinds: {
     handoff: { banner: true, sound: "inky_nudge" },
     review_ready: { banner: true, sound: "inky_done" },
     scan_result: { banner: true, sound: "inky_soft" },
     failure: { banner: true, sound: "inky_uh_oh" },
+    work_start: { banner: true, sound: "inky_soft" },
   },
 };
 
 export function shouldShowNotificationBanner(
   preferences: NotificationPreferences,
   kind: NotificationKind,
+  now: Date = new Date(),
 ): boolean {
-  return preferences.enabled && preferences.kinds[kind].banner;
+  return preferences.enabled && preferences.kinds[kind].banner && !isQuietHours(preferences.quietHours, now);
 }
 
 export function resolveNotificationSound(
   preferences: NotificationPreferences,
   kind: NotificationKind,
   bundledExists: (soundId: NotificationSoundId) => boolean,
+  now: Date = new Date(),
 ): { readonly silent: boolean; readonly playSoundId: NotificationSoundId | null } {
+  if (isQuietHours(preferences.quietHours, now)) return { silent: true, playSoundId: null };
   const sound = preferences.kinds[kind].sound;
   if (sound === "silent") return { silent: true, playSoundId: null };
   if (sound !== "os" && bundledExists(sound)) return { silent: true, playSoundId: sound };
@@ -87,6 +109,9 @@ export type NotificationTestReceipt = z.infer<typeof NotificationTestReceiptSche
 
 export const LIFECYCLE_ACTIVATED_CHANNEL = "studi:lifecycle-activated" as const;
 export const PLAY_NOTIFICATION_SOUND_CHANNEL = "studi:play-notification-sound" as const;
+/** The engine tells the screens what changed; they re-read instead of polling. */
+export const ENGINE_CHANGED_CHANNEL = "studi:engine-changed" as const;
+export type EngineTopic = "homework" | "school" | "conversation";
 
 export const ProductPreferencesSchema = z.strictObject({
   schemaVersion: SchemaVersionSchema,
@@ -95,6 +120,7 @@ export const ProductPreferencesSchema = z.strictObject({
   memoryVisibility: z.enum(["none", "selected", "all"]),
   workStartMode: z.enum(["manual", "automatic"]).optional(),
   homeworkRoot: z.string().trim().min(1).max(1_024).nullable().default(null),
+  agentProviderId: AgentProviderIdSchema.default(DEFAULT_AGENT_PROVIDER_ID),
   agentModelId: z.string().min(1).max(128).default(DEFAULT_AGENT_MODEL_ID),
   agentReasoningEffort: AgentReasoningEffortSchema.default(DEFAULT_AGENT_REASONING_EFFORT),
   notifications: NotificationPreferencesSchema.default(DEFAULT_NOTIFICATION_PREFERENCES),
@@ -106,7 +132,6 @@ export const SaveProductPreferencesInputSchema = ProductPreferencesSchema.pick({
   reviewMinutes: true,
   handoffMinutes: true,
   memoryVisibility: true,
-  workStartMode: true,
 });
 
 export const SaveNotificationPreferencesInputSchema = NotificationPreferencesSchema;
