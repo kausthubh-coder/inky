@@ -67,7 +67,7 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
   const act = (item: HomeworkItem) => {
     const action = homeworkAction(item, busy);
     const taskId = item.task?.task.taskId;
-    if (action.start && taskId && item.task!.permission.mayAttempt) busy ? void run(() => window.studi!.queueAssignmentNext({ taskId })) : onStart(taskId);
+    if (action.start && taskId) busy ? void run(() => window.studi!.queueAssignmentNext({ taskId })) : onStart(taskId);
     else onOpen(item.assignment.assignmentId);
   };
 

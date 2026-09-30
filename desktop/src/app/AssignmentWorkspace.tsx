@@ -255,7 +255,7 @@ export function AssignmentWorkspace({
     if (state === "yours") dot("yours", <p>This one's yours, so I won't touch it. I can still explain it or check your answers if you ask.</p>);
     if (state === "ignored") dot("ignored", <p>You marked this as {assignment.ignoredReason === "already_done" ? "done" : "not homework"}, so I left it alone.</p>);
     if (!started && ["not_started", "scheduled", "left_to_you"].includes(state)) {
-      const lead = state === "left_to_you" ? "Your rule leaves this one to you." : state === "scheduled" ? `I'll start ${!entry?.startRequestedAt && entry?.scheduledStartAt ? whenText(entry.scheduledStartAt) : "as soon as I'm free"}.` : "Ready when you are.";
+      const lead = state === "left_to_you" ? "I start this one when you ask." : state === "scheduled" ? `I'll start ${!entry?.startRequestedAt && entry?.scheduledStartAt ? whenText(entry.scheduledStartAt) : "as soon as I'm free"}.` : "Ready when you are.";
       dot("hello", <p>{lead} {planFor(assignment.kind)}</p>, "hello");
     }
     talk(before);
@@ -317,6 +317,7 @@ export function AssignmentWorkspace({
     const stop = run && isLivePhase(run.phase) ? quiet("Stop", () => onCancel(run.taskId)) : null;
     const mode = task?.permission.mode ?? "do_not_attempt";
     switch (state) {
+      case "left_to_you":
       case "not_started": {
         if (otherLive) return { title: "Dot is on another assignment.", body: "This one can go next.", actions: <>{task && primary("Do this next", () => void act(() => window.studi!.queueAssignmentNext({ taskId: task.task.taskId })))}{quiet("Go to it", onOpenWork)}</> };
         if (onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user") return { title: "Dot is reading your school.", body: "It can start this when the check finishes." };
@@ -328,12 +329,6 @@ export function AssignmentWorkspace({
           actions: <>{task && primary(busy === "assignment" ? "Starting…" : "Start", () => onStart(task.task.taskId))}{quiet("I'll do it myself", () => setOwner("student"))}</>,
         };
       }
-      case "left_to_you":
-        return {
-          title: "This one's left to you.",
-          body: `By ${task ? ruleSource(task.permission.rationale) : "your rules"}. Dot can still do it if you want.`,
-          actions: <>{primary("Let Dot do this one", () => void act(() => window.studi!.savePermissionRule({ scope: "assignment", assignmentId: assignment.assignmentId, mode: "attempt" })))}{quiet("Change rules", openRules)}</>,
-        };
       case "scheduled":
         return {
           title: entry?.startRequestedAt ? (otherLive ? "Dot does this next." : "Dot starts this soon.") : entry?.scheduledStartAt ? `Dot starts ${whenText(entry.scheduledStartAt)}.` : otherLive ? "Dot does this next." : "Dot starts this soon.",
@@ -357,6 +352,7 @@ export function AssignmentWorkspace({
                   <div className="ag-opts"><button className="rd-button" onClick={() => settle(index)}>Looks fine</button><button className="rd-quiet" onClick={() => onSuggest(`Change ${doubt.where}: `)}>Change it</button></div></div>)}
           </div>
         );
+        if (run.reviewSubmissionRequestedAt && lifecycle.manager.lease?.taskId !== run.taskId) return { title: "Hand-in is next.", body: "Dot will hand this in when the school page is free." };
         const calls = open ? `Dot made ${open === 1 ? "a call" : `${open} calls`} you might want to change.` : null;
         const handIn = primary(pending ? "Handing in…" : "Hand it in", () => void act(() => window.studi!.submitReviewedAssignment({ taskId: run.taskId })), open > 0);
         if (handing) return { title: "Press Submit on the school page.", body: "It's on the right. Dot sees it when the school confirms, and saves the receipt.", actions: quiet("Back to my work", () => setHanding(false)) };
@@ -374,7 +370,7 @@ export function AssignmentWorkspace({
           title: calls ?? "Ready for you to hand in.",
           body: open ? "Mark each one, then hand it in." : "Dot can hand it in now, or you can submit it on the school page yourself.",
           extra: checks,
-          actions: <>{handIn}{quiet("I'll submit it on the page", () => void act(async () => { await window.studi!.watchHandIn({ taskId: run.taskId }); setHanding(true); }))}{quiet("Edit it myself", () => onPause(run.taskId))}</>,
+          actions: <>{handIn}{!otherLive && quiet("I'll submit it on the page", () => void act(async () => { await window.studi!.watchHandIn({ taskId: run.taskId }); setHanding(true); }))}{!otherLive && quiet("Edit it myself", () => onPause(run.taskId))}</>,
         };
       }
       case "stopped":

@@ -315,6 +315,11 @@ export function installDevPreview(): void {
   if (preview.id==='week-error'||preview.id==='week-updating') onboarding={...onboarding,scan:onboarding.scan?{...onboarding.scan,state:preview.id==='week-error'?'failed':'running',failures:preview.id==='week-error'?['The school connection timed out.']:[]}:null};
   if (preview.id === "week-idle") onboarding = { ...onboarding, scan: null };
   if (preview.id === "week-complete") onboarding = { ...onboarding, scan: { ...onboarding.scan!, state: "succeeded", failures: [], currentStep: "Your homework is up to date." } };
+  if (["week-complete", "week-needs-user", "week-updating"].includes(preview.id)) onboarding = { ...onboarding, scan: { ...onboarding.scan!, changes: [
+    { assignmentId: assignments[0]!.assignmentId, kind: "new", fields: [] },
+    { assignmentId: assignments[1]!.assignmentId, kind: "updated", fields: ["dueAt"], dueChange: { before: { dueAt: "2026-09-30T23:59:00.000Z" }, after: { dueAt: "2026-10-02T23:59:00.000Z" } } },
+  ] } };
+
   if (preview.id === "week-updating") onboarding = { ...onboarding, scan: { ...onboarding.scan!, completedAt: undefined, currentStep: "Checking linked homework pages…" } };
   if (preview.id === "week-conflicts") onboarding = { ...onboarding, courseConflicts: [{ kind: "permissions", courseIds: ["course-csc316"], reason: "These class records have different homework rules. I kept them separate so your permissions stay unchanged." }] };
   const startPreviewScan = async (input?: { assignmentId: string }) => {
@@ -484,7 +489,7 @@ export function installDevPreview(): void {
     verifyStudentSubmission: async () => lifecycle,
     openAnswerArtifact: async () => true,
     getProductSettings: async () => settings,
-    saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, workStartMode: input.workStartMode ?? settings.preferences.workStartMode, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     selectHomeworkRoot: async () => { settings = { ...settings, preferences: { ...settings.preferences, homeworkRoot: "C:\\Studi Preview Homework", updatedAt: new Date().toISOString() } }; return settings.preferences; },
     saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: {...input,quietHours:input.quietHours??"off",kinds:{...input.kinds,work_start:input.kinds.work_start??DEFAULT_NOTIFICATION_PREFERENCES.kinds.work_start}}, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     testNotification: async ({ kind }) => ({

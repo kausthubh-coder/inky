@@ -81,7 +81,7 @@ test("Dot reads the school's confirmation after the student presses Submit", asy
     manager.enqueue({ taskId: "task-hand-in" });
     const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => now, notify: () => {}, browserWork: new VisibleBrowserWork(store) });
     assert.equal((await execution.startNext()).phase, "ready_review");
-    execution.watchHandIn("task-hand-in", 5, 2_000);
+    await execution.watchHandIn("task-hand-in", 5, 2_000);
     browser.text = "Submission status: Draft (not submitted)";
     await new Promise((done) => setTimeout(done, 40));
     assert.equal(store.lifecycle.getExecution("task-hand-in").phase, "ready_review", "a draft is not a hand-in");
@@ -93,84 +93,79 @@ test("Dot reads the school's confirmation after the student presses Submit", asy
   });
 });
 
-test("attempt-only work retains its browser lease through review and saves Markdown before continuing the queue", async () => {
-  await withStore(async (store) => {
+test("attempt review releases the page, continues the queue, and later hand-in waits first and re-acquires it", async () => {
+  await withStore(async store => {
     let now = initialNow;
     seedTask(store, "review", "2026-09-02T12:00:00.000Z");
     seedTask(store, "next", "2026-09-03T12:00:00.000Z");
     store.permissionRules.put(rule("attempt", "attempt", now));
-    const browser = new FakeBrowser();
-    const runtime = new ScriptedRuntime([
-      async (tools) => invoke(tools, "assignment_start_review", {
-        answers: "1. x = 4\n2. y = 9",
-        completedRequirements: [
-          { requirement: "Question 1", evidence: "The first answer field contains x = 4." },
-          { requirement: "Question 2", evidence: "The second answer field contains y = 9." },
-        ],
-        summary: "Both answer fields are visibly complete.",
-      }),
+    const browser = new FakeBrowser("Answer page", "Submitted successfully");
+    const review = tools => invoke(tools, "assignment_start_review", {
+      answers: "1. x = 4", completedRequirements: [{ requirement: "Question 1", evidence: "Answer field contains x = 4" }], summary: "Answer is complete",
+    });
+    const runtime = new ScriptedRuntime([review,
+      tools => invoke(tools, "assignment_tell_student", { message: "Which units?", needs: "answer" }),
+      async tools => { await browser.snapshot(); await invoke(tools, "browser_submit", { ref: browser.currentRef, confirmation: "SUBMIT", expectedConfirmationText: "Submitted successfully" }); },
     ]);
     const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
     const browserWork = new VisibleBrowserWork(store);
-    manager.enqueue({ taskId: "task-review" });
-    manager.enqueue({ taskId: "task-next" });
     const notices = [];
-    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, {
-      now: () => now,
-      reviewWindowMs: 60_000,
-      handoffWindowMs: 3 * 60_000,
-      notify: (intent) => notices.push(intent),
-      browserWork,
-    });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => now, notify: intent => notices.push(intent), browserWork });
+    try {
+      manager.enqueue({ taskId: "task-review" }); manager.queueNext("task-next"); manager.steerNext("task-review");
+      const ready = await execution.startNext();
+      assert.equal(ready.phase, "ready_review");
+      assert.match((await store.artifacts.read("answer", ready.answerArtifactId)).content, /x = 4/);
+      assert.match(await readFile(join(runtime.lastTarget.cwd, "studi-answer.md"), "utf8"), /x = 4/);
+      assert.equal(manager.state().lease, null);
+      assert.equal(store.lifecycle.getActiveExecution(), null, "saved review does not block Start or school checks");
+      assert.equal(browserWork.isScanStartBlocked(), false);
+      assert.equal(notices.at(-1).kind, "review_ready");
+      now = "2026-09-01T13:00:00.000Z";
+      await execution.reconcileDeadlines();
+      assert.equal(store.lifecycle.getExecution(ready.taskId).phase, "ready_review", "saved work stays ready until the student hands in");
+      assert.equal((await execution.startNext()).taskId, "task-next");
+      assert.equal(manager.state().lease.taskId, "task-next");
+      await execution.submitReviewed(ready.taskId);
+      assert.equal(browser.submitClicks, 0, "asking to hand in never steals a live page");
+      assert.equal(manager.state().entries[0].taskId, ready.taskId, "hand-in is queued first");
+      assert.equal(manager.state().entries[0].startRequestedAt, now);
+      assert.equal(manager.state().lease.taskId, "task-next");
+      execution.cancel("task-next");
+      await execution.continueSubmission(ready.taskId);
+      assert.equal(runtime.sessionNumber, 3, "hand-in acquired a new worker lease in the saved assignment session");
+      assert.equal(store.lifecycle.getExecution(ready.taskId).phase, "submitted");
+      assert.equal(browser.submitClicks, 1);
+      assert.equal(manager.state().lease, null);
+      assert.equal(store.lifecycle.getSubmissionReceipt(ready.taskId).verifiedStatus, "Submitted successfully");
+      await assert.rejects(execution.submitReviewed(ready.taskId), /not ready/);
+      assert.equal(browser.submitClicks, 1);
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
 
-    const ready = await execution.startNext();
-    assert.equal(ready.phase, "ready_review");
-    assert.ok(ready.answerArtifactId, "review creates a durable answer immediately");
-    assert.match((await store.artifacts.read("answer", ready.answerArtifactId)).content, /x = 4/);
-    assert.match(await readFile(join(runtime.lastTarget.cwd, "studi-answer.md"), "utf8"), /x = 4/);
-    const workerTools = new Set(manager.workerToolNames());
-    for (const toolName of ["read", "write", "edit", "grep", "find", "ls", "browser_upload", "browser_download", "file_read_pdf", process.platform === "win32" ? "powershell" : "bash"]) {
-      assert.ok(workerTools.has(toolName), `assignment worker is missing ${toolName}`);
-    }
-    assert.match(runtime.lastTarget.cwd, /Assignment review \[[a-f0-9]{6}\]$/, "the Pi session runs from its assignment workspace");
-    assert.equal(ready.completionChecklist.length, 2);
-    assert.equal(store.tasks.get("task-review").state, "ready_review");
-    assert.equal(manager.state().lease.taskId, "task-review", "the completed page remains leased during review");
-    assert.equal(ready.reviewDeadline, "2026-09-01T12:01:00.000Z");
-    assert.equal(ready.handoffDeadline, "2026-09-01T12:03:00.000Z");
-    assert.equal(browser.submitClicks, 0, "attempt-only never invokes a submission effect");
-    assert.equal(notices.at(-1).kind, "review_ready");
-
-    const scan = new SchoolScanCoordinator(store, {}, browser, { now: () => now, browserWork });
-    let scheduledClaims = 0;
-    for (const startScan of [
-      () => scan.startScan(),
-      () => scan.resume(),
-      () => scan.replay(),
-      () => scan.runScheduledScan(() => { scheduledClaims += 1; return { occurrence: "due" }; }, async () => undefined),
-    ]) {
-      await assert.rejects(startScan(), /Assignment task-review must finish/);
-    }
-    assert.equal(scheduledClaims, 0, "a blocked scheduled scan cannot advance its durable occurrence");
-    scan.dispose();
-
-    now = "2026-09-01T12:02:00.000Z";
-    await execution.reconcileDeadlines();
-    assert.equal(store.lifecycle.getExecution("task-review").phase, "ready_review", "the review reminder does not release the browser before the handoff deadline");
-    assert.equal(manager.state().lease.taskId, "task-review");
-
-    now = "2026-09-01T12:04:00.000Z";
-    await execution.reconcileDeadlines();
-    const preserved = store.lifecycle.getExecution("task-review");
-    assert.equal(preserved.phase, "preserved");
-    assert.ok(preserved.answerArtifactId);
-    const artifact = await store.artifacts.read("answer", preserved.answerArtifactId);
-    assert.match(artifact.content, /# Assignment review[\s\S]*x = 4[\s\S]*y = 9/);
-    assert.equal(store.tasks.get("task-review").state, "preserved");
-    assert.equal(manager.state().lease, null, "the lease releases only after the artifact is linked");
-    assert.equal(manager.state().entries[0].taskId, "task-next", "the durable queue can continue");
-    execution.dispose();
-    manager.dispose();
+test("an unfinished manual hand-in releases its claimed page when the watch window ends", async () => {
+  await withStore(async store => {
+    let now = initialNow;
+    seedTask(store, "watch-timeout", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", now));
+    const runtime = new ScriptedRuntime([tools => invoke(tools, "assignment_start_review", {
+      answers: "Saved answer", completedRequirements: [{ requirement: "Question 1", evidence: "Answer entered" }], summary: "Ready",
+    })]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+    manager.enqueue({ taskId: "task-watch-timeout" });
+    const browser = new FakeBrowser("Submission status: Not submitted");
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => now });
+    try {
+      const ready = await execution.startNext();
+      await execution.watchHandIn(ready.taskId, 3000, 60000);
+      assert.equal(manager.state().lease.taskId, ready.taskId);
+      now = "2026-09-01T12:02:00.000Z";
+      await execution.reconcileDeadlines();
+      assert.equal(manager.state().lease, null);
+      assert.equal(browser.submitClicks, 0);
+      assert.match((await store.artifacts.read("answer", store.lifecycle.getExecution(ready.taskId).answerArtifactId)).content, /Saved answer/);
+    } finally { execution.dispose(); manager.dispose(); }
   });
 });
 
@@ -281,6 +276,7 @@ test("saved work carries on: a preserved run can be started again", async () => 
     const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => now, reviewWindowMs: 60_000, handoffWindowMs: 120_000 });
     try {
       assert.equal((await execution.start("task-again")).phase, "ready_review");
+      await execution.requestTakeover("task-again");
       now = "2026-09-01T12:03:00.000Z";
       await execution.reconcileDeadlines();
       assert.equal(store.tasks.get("task-again").state, "preserved");
@@ -498,6 +494,7 @@ for (const recordedOwner of [undefined, "student-a"]) test(`restart preserves ${
       first.dispose();
       restored = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow, ownerSubject: "student-a" });
       assert.equal(store.lifecycle.getExecution("task-owner-restart").ownerSubject, recordedOwner);
+      await restored.requestTakeover("task-owner-restart");
       assert.equal((await restored.resume("task-owner-restart")).ownerSubject, recordedOwner);
       assert.equal(runtime.turn, 2, "same-owner and legacy work may still resume");
     } finally { first.dispose(); restored?.dispose(); manager.dispose(); }
@@ -819,7 +816,7 @@ test("restart during submission pauses without repeating the destructive effect"
   }
 });
 
-test("restart during review preserves answers and hands off without claiming the page survived", async () => {
+test("restart keeps detached review answers ready without claiming browser ownership", async () => {
   const root = resolve(await mkdtemp(join(tmpdir(), "studi-wp09-review-restart-")));
   try {
     let store = await openLocalStore(root);
@@ -848,18 +845,13 @@ test("restart during review preserves answers and hands off without claiming the
     manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
     execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser("about:blank"), { now: () => initialNow });
     const recovered = store.lifecycle.getExecution("task-review-restart");
-    assert.equal(recovered.phase, "needs_user");
+    assert.equal(recovered.phase, "ready_review");
     assert.ok(recovered.answerArtifactId);
-    assert.match(recovered.lastError, /page could not be retained/);
-    assert.doesNotMatch(recovered.lastError, /page is retained|retained page/);
-    assert.equal(manager.state().lease.taskId, "task-review-restart", "the student handoff keeps ownership of the task");
-    const artifact = await store.artifacts.read("answer", recovered.answerArtifactId);
-    assert.match(artifact.content, /Restart-safe answer: 42/);
-    assert.ok(recovered.handoffDeadline, "the restart hand-off has a deadline, so the page and the queue are not held forever");
-    execution.dispose();
-    execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser("about:blank"), { now: () => "2026-09-01T13:00:00.000Z" });
-    assert.equal(store.lifecycle.getExecution("task-review-restart").phase, "preserved");
-    assert.equal(manager.state().lease, null, "after the window the saved answers stay and the page is let go");
+    assert.equal(manager.state().lease, null, "saved review remains detached after restart");
+    assert.match((await store.artifacts.read("answer", recovered.answerArtifactId)).content, /Restart-safe answer: 42/);
+    assert.equal(recovered.handoffDeadline, undefined);
+    await execution.reconcileDeadlines();
+    assert.equal(store.lifecycle.getExecution("task-review-restart").phase, "ready_review");
     execution.dispose();
     manager.dispose();
     store.close();
@@ -888,7 +880,7 @@ test("changing the rule to leave it stops running work at once, and resuming wai
       }),
     };
     const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
-    manager.enqueue({ taskId: "task-rule-change" });
+    manager.enqueue({ taskId: "task-rule-change", requestOrigin: "automatic" });
     const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => initialNow });
     const running = execution.startNext();
     while (!manager.isWorkerRunning) await new Promise(resolve => setTimeout(resolve, 5));
@@ -901,6 +893,28 @@ test("changing the rule to leave it stops running work at once, and resuming wai
     await assert.rejects(execution.continueTurn("task-rule-change", "carry on"), /Your rule changed/);
     execution.dispose();
     manager.dispose();
+  });
+});
+
+test("a student Start under leave-it can work and hand in while an automatic Start is refused", async () => {
+  await withStore(async store => {
+    seedTask(store, "manual-leave", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("leave", "do_not_attempt", initialNow));
+    const browser = new FakeBrowser("Answer page", "Submitted successfully");
+    const runtime = new ScriptedRuntime([
+      tools => invoke(tools, "assignment_start_review", { answers: "42", completedRequirements: [{ requirement: "Answer", evidence: "42 in field" }], summary: "Ready" }),
+      async tools => { await browser.snapshot(); await invoke(tools, "browser_submit", { ref: browser.currentRef, confirmation: "SUBMIT", expectedConfirmationText: "Submitted successfully" }); },
+    ]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => initialNow });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, browser, { now: () => initialNow });
+    try {
+      assert.throws(() => manager.enqueue({ taskId: "task-manual-leave", requestOrigin: "automatic" }), /only when you ask/);
+      assert.equal((await execution.start("task-manual-leave")).phase, "ready_review");
+      assert.equal(manager.state().lease, null);
+      await assert.rejects(execution.submitByRule("task-manual-leave"), /rule/);
+      assert.equal((await execution.submitReviewed("task-manual-leave")).phase, "submitted");
+      assert.equal(browser.submitClicks, 1);
+    } finally { execution.dispose(); manager.dispose(); }
   });
 });
 

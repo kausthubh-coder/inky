@@ -99,7 +99,7 @@ export class AppKernel {
     this.#manager.setSchedulingEnabled(Boolean(this.#runScheduledAssignment));
     // When a run lets go of the page, however it ended, whatever waits next starts now rather than at the next check.
     this.#stopWatchingRuns = this.#store.lifecycle.onExecutionChange((previous, next) => {
-      if (isLivePhase(previous?.phase) && !isLivePhase(next.phase)) this.requestReconcile();
+      if (isLivePhase(previous?.phase) && (!isLivePhase(next.phase) || next.phase === "ready_review")) this.requestReconcile();
     });
     this.#window.on("close", this.#hideOnClose);
     app.on("before-quit", this.#beforeQuit);
@@ -261,7 +261,7 @@ export class AppKernel {
     const workTimezone = this.#store.lifecycle.getSchedule()?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
     const readyToStart = (entry: ManagerQueueEntry, now: string) => entry.requestOrigin === "student" && entry.startRequestedAt
       ? entry.startRequestedAt <= now
-      : this.#manager.allowsAutomaticWork && this.#store.lifecycle.getSchedule()?.state !== "paused" &&
+      : this.#store.lifecycle.getSchedule()?.state !== "paused" &&
         withinHomeworkHours(now, workTimezone) && !!entry.scheduledStartAt && entry.scheduledStartAt <= now;
     if (!this.#updating && !this.#disposed && this.#runScheduledAssignment && !this.#browserWork.isScanStartBlocked() &&
       Date.parse(workNow) >= this.#assignmentRetryAt) {
@@ -399,7 +399,7 @@ export class AppKernel {
     if (this.#runScheduledAssignment) {
       for (const entry of this.#manager.state().entries) {
         const requested = entry.requestOrigin === "student" ? entry.startRequestedAt : undefined;
-        const startsAt = requested ?? (this.#manager.allowsAutomaticWork && schedule?.state !== "paused" ? entry.scheduledStartAt : undefined);
+        const startsAt = requested ?? (schedule?.state !== "paused" ? entry.scheduledStartAt : undefined);
         if (!startsAt) continue;
         let start = Math.max(Date.parse(startsAt), this.#assignmentRetryAt);
         if (start <= now && this.#browserWork.isScanStartBlocked()) start = now + BUSY_BROWSER_RECHECK_MS;

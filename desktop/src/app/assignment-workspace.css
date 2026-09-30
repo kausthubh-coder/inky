@@ -98,7 +98,7 @@
   font-size: 15px;
   line-height: 1.6;
   text-wrap: pretty;
-  scrollbar-width: thin;
+  scrollbar-width: none;
 }
 .ag-dock {
   position: absolute;
@@ -960,3 +960,5 @@
   margin-top: 8px;
   padding: 2px 0;
 }
+
+.ag-thread::-webkit-scrollbar { display: none; }

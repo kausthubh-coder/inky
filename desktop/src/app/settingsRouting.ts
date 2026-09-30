@@ -10,5 +10,6 @@ export type SettingsSectionId = typeof SETTINGS_SECTIONS[number]["id"];
 export function settingsTab(landing: SettingsLanding, preview?: SettingsSectionId): SettingsSectionId {
   if (landing === "usage" || landing === "feedback") return "you";
   if (landing === "rules") return "homework";
+  if (landing === "school") return "school";
   return preview ?? "inky";
 }

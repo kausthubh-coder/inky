@@ -17,6 +17,10 @@ export async function verifyHomeworkScreens(page, base, evidenceDirectory) {
       await page.setViewportSize({ width, height: 760 });
       await open("week");
       await page.locator("[data-studi-week-board]").waitFor();
+      const composerBounds = await page.locator(".chat-view-home .inky-composer").boundingBox();
+      const greetingBounds = await page.locator(".hw-hello").boundingBox();
+      assert.ok(composerBounds.y > greetingBounds.y && composerBounds.y + composerBounds.height <= 760, "home composer floats at the bottom, over the week");
+      assert.equal(await page.locator(".chat-view-home").evaluate(node => getComputedStyle(node).position), "absolute", "no band behind the composer");
       assert.equal(await page.getByText("No due date", { exact: true }).count(), 0, "the strip under the board is gone");
       assert.equal(await page.getByText("+ Add homework", { exact: true }).count(), 0, "adding homework moved to chat");
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
@@ -81,6 +85,17 @@ export async function verifyHomeworkScreens(page, base, evidenceDirectory) {
     // Chat grows from the chat box over the week; no tabs, and an empty chat has suggestions.
     await open("week");
     await page.getByRole("textbox", { name: "Message Dot" }).click();
+    const composer = page.getByRole("textbox", { name: "Message Dot" });
+    await composer.fill("Check my email for updates");
+    assert.equal(await page.getByRole("region", { name: "Chat with Dot" }).count(), 0, "typing stays in the home box");
+    await composer.fill("@IBM");
+    await page.getByRole("listbox").waitFor();
+    const picker = await page.locator(".assignment-picker").boundingBox();
+    const box = await page.locator(".chat-view-home .inky-composer").boundingBox();
+    assert.ok(picker.y + picker.height <= box.y, "the picker opens upward from the floating composer");
+    await composer.press("Escape");
+    await composer.fill("Check my email for updates");
+    await composer.press("Enter");
     await page.getByRole("region", { name: "Chat with Dot" }).waitFor();
     assert.equal(await page.getByRole("button", { name: "What Dot did" }).count(), 0);
     await page.locator("[data-studi-week-board]").waitFor({ state: "attached" });
@@ -90,7 +105,7 @@ export async function verifyHomeworkScreens(page, base, evidenceDirectory) {
     // Rules: one set of words, each choice explained.
     await open("settings-homework");
     for (const label of ["Leave it to me", "Do it, I'll hand it in", "Do it and hand it in"]) await page.getByRole("radio", { name: new RegExp(label) }).waitFor();
-    await page.getByLabel("When Dot starts", { exact: true }).waitFor();
+    assert.equal(await page.getByLabel("When Dot starts", { exact: true }).count(), 0);
 
     // Memory: grouped, each with where it came from, Edit and Forget.
     await open("settings-inky");

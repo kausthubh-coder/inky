@@ -580,7 +580,7 @@ const ipcHandlers: StudiIpcHandlers = {
   },
   cancelTutorSession: ({ sessionId }) => requireTutorCoordinator().cancel(sessionId),
   watchHandIn: async ({ taskId }) => {
-    requireAssignmentExecutionCoordinator().watchHandIn(taskId);
+    await requireAssignmentExecutionCoordinator().watchHandIn(taskId);
     return requireAppKernel().state();
   },
   submitReviewedAssignment: async ({ taskId }) => {
@@ -711,11 +711,9 @@ const ipcHandlers: StudiIpcHandlers = {
       reviewMinutes: input.reviewMinutes,
       handoffMinutes: input.handoffMinutes,
       memoryVisibility: input.memoryVisibility,
-      workStartMode: input.workStartMode ?? current.workStartMode ?? "manual",
       updatedAt: new Date().toISOString(),
     });
     requireAssignmentExecutionCoordinator().configureReviewHandoff(preferences.reviewMinutes, preferences.handoffMinutes);
-    requireManagerCoordinator().setWorkStartMode(preferences.workStartMode ?? "manual");
     requireAppKernel().requestReconcile();
     return preferences;
   },
@@ -1824,7 +1822,8 @@ async function initializeDesktopAgent(): Promise<void> {
     agentRuntime,
     {
       startAssignment: async (taskId) => {
-        await prepareAndStartAssignment(taskId);
+        if (requireLocalStore().lifecycle.getExecution(taskId)?.reviewSubmissionRequestedAt) await requireAssignmentExecutionCoordinator().continueSubmission(taskId);
+        else await prepareAndStartAssignment(taskId);
         return requireLocalStore().lifecycle.getExecution(taskId);
       },
     },
@@ -2050,7 +2049,8 @@ async function initializeAppKernel(window: BrowserWindow, isCurrent = () => true
       focusBrowser: () => browserView?.webContents.focus(),
       runScheduledAssignment: async (taskId) => {
         await requireReadyProvider('starting your homework');
-        await prepareAndStartAssignment(taskId);
+        if (requireLocalStore().lifecycle.getExecution(taskId)?.reviewSubmissionRequestedAt) await requireAssignmentExecutionCoordinator().continueSubmission(taskId);
+        else await prepareAndStartAssignment(taskId);
       },
       iconPath: appIconPath,
     },

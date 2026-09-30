@@ -22,7 +22,19 @@ export function plainError(cause: unknown): string {
   if (!code) return text;
   // The page moved on to another address before this one loaded; nothing went wrong.
   if (code === "ERR_ABORTED") return "";
+  if (code === "ERR_TOO_MANY_REDIRECTS") return "The school page keeps looping between addresses. Open the school page, sign in if asked, then check again.";
   if (/INTERNET_DISCONNECTED|NAME_NOT_RESOLVED|NETWORK_CHANGED|ADDRESS_UNREACHABLE/.test(code)) return "The page didn't load. Check your internet, then try again.";
   if (/TIMED_OUT|CONNECTION/.test(code)) return "The school's site didn't answer. Try again in a moment.";
   return "The page didn't load. Try again.";
+}
+
+export function schoolScanFailure(reason: string | undefined) {
+  const code = /\bERR_[A-Z_]+/.exec(reason ?? "")?.[0];
+  return {
+    title: code === "ERR_TOO_MANY_REDIRECTS" ? "The school page keeps looping"
+      : code ? "The school page couldn't open" : "Dot couldn't finish this check",
+    description: code === "ERR_TOO_MANY_REDIRECTS" ? "Open the school page and sign in if asked. Then check again. Your saved homework is still here."
+      : plainError(reason) || "Check again to continue. Your saved homework is still here.",
+    pageUnavailable: Boolean(code && code !== "ERR_ABORTED"),
+  };
 }

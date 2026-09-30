@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 
 // Controlled fixtures exercise the real React screen; no school or model calls.
-export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
+export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175", evidenceDirectory) {
   await page.setViewportSize({ width: 1280, height: 760 });
   await page.goto(`${base}/preview.html?preview=chat-handoff`);
-  await page.getByRole("button", { name: "Sign in to WebAssign", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "WebAssign signed you out", exact: true }).waitFor();
   assert.equal(await page.locator(".scan-report .character").count(), 1);
-  assert.equal(await page.getByRole("heading", { name: "Signed in", exact: true }).count(), 1);
-  assert.equal(await page.locator(".scan-report").getByText("WebAssign needs you to sign in before I can keep checking.", { exact: true }).count(), 1);
-  await page.getByRole("button", { name: "Sign in to WebAssign", exact: true }).click();
-  // One Continue, in the card under Dot; the page itself has no bar of its own.
-  await page.getByRole("region", { name: "Your move" }).getByRole("button", { name: "I've signed in, continue" }).waitFor();
+  await page.getByRole("button", { name: "I've signed in", exact: true }).waitFor();
+  assert.equal(await page.locator(".scan-where").getAttribute("open"), null);
   assert.equal(await page.locator(".chat-browser").getByRole("button").count(), 0);
-  assert.equal(await page.getByRole("button", { name: /school browser/ }).count(), 0, "the school check always shows the page");
 
   const setScan = async (state, options = {}) => {
     await page.evaluate(async ({ state, options }) => {
@@ -32,7 +29,7 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
       scan.observedCourseIds = current.courses.map(course => course.courseId);
       scan.observedAssignmentIds = current.assignments.map(item => item.assignmentId);
       scan.observedLinkedSystemIds = ["preview-gradescope"];
-      scan.changes = [
+      scan.changes = options.changes ?? [
         { assignmentId: current.assignments[0].assignmentId, kind: "new", fields: [] },
         { assignmentId: current.assignments[1].assignmentId, kind: "updated", fields: ["dueAt"], dueChange: { before: { dueAt: "2026-09-12T23:59:00.000Z" }, after: { dueAt: "2026-09-16T23:59:00.000Z" } } },
       ];
@@ -47,10 +44,10 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   };
 
   await setScan("succeeded");
-  await page.getByRole("heading", { name: "Here’s what I found." }).waitFor();
+  await page.getByRole("heading", { name: "Your week is up to date", exact: true }).waitFor();
   assert.equal(await page.locator(".inky-composer").count(), 0);
-  assert.match(await page.locator(".scan-change-date").last().innerText(), /Sep 12.*→.*Sep 16/);
-  assert.equal(await page.getByText("1 of 3 classes checked", { exact: true }).count(), 1);
+  assert.match(await page.locator(".scan-change-copy small").last().innerText(), /Sep 12.*→.*Sep 16/);
+  assert.equal(await page.getByText("Class list not yet verified", { exact: true }).count(), 0);
   await page.locator(".scan-report").getByRole("button", { name: "Scan details", exact: true }).click();
   await page.getByRole("heading", { name: "Latest scan details" }).waitFor();
   assert.equal(await page.locator(".scan-details-page details").count(), 0);
@@ -62,21 +59,60 @@ export async function verifySchoolCheck(page, base = "http://127.0.0.1:4175") {
   await page.setViewportSize({ width: 800, height: 650 });
   assert.equal(await page.locator(".scan-report").evaluate(node => node.scrollWidth <= node.clientWidth + 1), true);
   await setScan("running", { inventories: false, currentStep: "Reading ST 370 Probability & Statistics", failures: ["MA 241 calendar could not be opened."] });
-  await page.getByRole("heading", { name: "Checking your classes.", exact: true }).waitFor();
+  await page.getByRole("heading", { name: "Reading your classes", exact: true }).waitFor();
+  assert.equal(await page.getByRole("heading", { name: "What I couldn\u2019t check" }).count(), 0);
+  await page.locator(".scan-where summary").click();
   assert.equal(await page.getByText("ST 370 Probability & Statistics", { exact: true }).count(), 1);
-  assert.equal(await page.getByText("3 due, 1 new", { exact: true }).count(), 1);
-  assert.equal(await page.getByText("reading the course page", { exact: true }).count(), 1);
-  assert.equal(await page.getByText("MA 241 calendar could not be opened.", { exact: true }).count(), 1);
   await page.getByRole("button", { name: "Stop and keep what Dot found", exact: true }).waitFor();
   assert.equal(await page.locator(".inky-composer").count(), 1);
   await setScan("needs_user", { handoff: true });
-  await page.getByRole("button", { name: "Sign in to WebAssign", exact: true }).waitFor();
+  await page.getByRole("button", { name: "I've signed in", exact: true }).waitFor();
   await setScan("failed", { failures: ["The school connection timed out."] });
-  await page.getByRole("button", { name: "Restart scan" }).waitFor();
+  await page.getByRole("button", { name: "Check again" }).waitFor();
+  assert.match(await page.getByRole("button", { name: "Check again", exact: true }).getAttribute("class"), /rd-primary/);
   assert.equal(await page.locator(".scan-report").getByText("The school connection timed out.", { exact: true }).count(), 1);
   assert.equal(await page.locator(".inky-composer").count(), 0);
+  const redirect = "The scan could not start: ERR_TOO_MANY_REDIRECTS (-310) loading 'https://school.example/login/index.php?loginredirect=1'";
+  await setScan("failed", { failures: [redirect], changes: [] });
+  await page.getByRole("heading", { name: "The school page keeps looping", exact: true }).waitFor();
+  assert.doesNotMatch(await page.locator(".scan-state").innerText(), /ERR_|https:/);
+  await page.getByText("No changes were verified. Your saved homework stays in your week.", { exact: true }).waitFor();
+  await page.getByText("School page unavailable", { exact: true }).waitFor();
+  await page.locator(".scan-state h2").scrollIntoViewIfNeeded();
+  assert.ok((await page.locator(".scan-state h2").boundingBox()).y >= 58, "failure recovery stays visible at the top of the scan");
+  if (evidenceDirectory) {
+    await page.screenshot({ path: join(evidenceDirectory, "scan-redirect-800.png") });
+    await page.setViewportSize({ width: 1280, height: 760 });
+    await page.screenshot({ path: join(evidenceDirectory, "scan-redirect-1280.png") });
+    await page.setViewportSize({ width: 800, height: 650 });
+  }
+  await page.evaluate(() => {
+    window.__schoolPageOpens = [];
+    window.__originalNavigate = window.studi.navigateBrowser;
+    window.studi.navigateBrowser = async input => {
+      window.__schoolPageOpens.push(input);
+      throw new Error("ERR_INTERNET_DISCONNECTED");
+    };
+  });
+  await page.getByRole("button", { name: "Open school page", exact: true }).click();
+  await page.getByRole("alert").filter({ hasText: "Check your internet" }).waitFor();
+  await page.getByText("School page unavailable", { exact: true }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Open school page", exact: true }).isEnabled(), true);
+  await page.evaluate(() => { window.studi.navigateBrowser = async () => { throw new Error("ERR_TOO_MANY_REDIRECTS"); }; });
+  await page.getByRole("button", { name: "Open school page", exact: true }).click();
+  await page.getByRole("alert").filter({ hasText: "The school page still won't open" }).waitFor();
+  assert.equal(await page.getByRole("button", { name: "Open school page", exact: true }).isEnabled(), true);
+  await page.evaluate(() => { window.studi.navigateBrowser = window.__originalNavigate; });
+  await page.getByRole("button", { name: "Open school page", exact: true }).click();
+  await page.getByText("School page unavailable", { exact: true }).waitFor({ state: "hidden" });
+  assert.equal(await page.getByRole("alert").count(), 0);
+  assert.equal(await page.evaluate(async () => window.__schoolPageOpens[0].url === (await window.studi.getSchoolOnboardingState()).profile.schoolRoot), true);
+  await page.getByRole("button", { name: "Scan details", exact: true }).click();
+  await page.getByText(redirect, { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Scan result", exact: true }).click();
   await setScan("succeeded");
-  await page.getByRole("button", { name: "Scan again", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Check now", exact: true }).waitFor();
+  assert.match(await page.getByRole("button", { name: "Check now", exact: true }).getAttribute("class"), /rd-primary/);
   await page.locator(".scan-change").first().click();
   await page.getByRole("button", { name: "Back to your week", exact: true }).waitFor();
   assert.equal(await page.locator(".ag-head h1").innerText(), "IBM Sorting Machine");

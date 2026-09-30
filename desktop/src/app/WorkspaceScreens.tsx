@@ -233,6 +233,7 @@ export function DashboardScreen({
         onOpenWork={onOpenDesk}
         onOpenSchoolCheck={() => { onClosePanel(); setSchoolOpen(true); setChatView("expanded"); }}
         onOpenRules={() => chrome.onNavigate("settings", "rules")}
+        onSchedule={() => chrome.onNavigate("settings", "school")}
         onTakeover={onTakeover}
         onResume={onResume}
         onCancel={onCancel}
@@ -405,7 +406,7 @@ export function SettingsScreen({
   diagnosticsReceipt: DiagnosticsExportReceipt | null;
   busy: string | null;
   error: string | null;
-  onSavePreferences: (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all", workStartMode?: "manual" | "automatic") => void;
+  onSavePreferences: (reviewMinutes: number, handoffMinutes: number, memoryVisibility: "none" | "selected" | "all") => void;
   onSelectHomeworkRoot: () => void;
   onSaveNotifications: (notifications: NotificationPreferences) => void;
   onTestNotification: (kind: NotificationKind) => Promise<NotificationTestReceipt | undefined>;
@@ -451,8 +452,8 @@ export function SettingsScreen({
   const disabled = busy !== null;
   const scan = onboarding.scan;
   const openSchoolCheck = () => chrome.onOpenContext({ kind: "scan", scanId: scan?.scanId ?? "school" });
-  const changePreference = (review: number, handoff: number, start = preferences?.workStartMode) => {
-    if (preferences) save(() => onSavePreferences(review, handoff, preferences.memoryVisibility, start));
+  const changePreference = (review: number, handoff: number) => {
+    if (preferences) save(() => onSavePreferences(review, handoff, preferences.memoryVisibility));
   };
   const host = (url: string) => { try { return new URL(url).hostname; } catch { return url; } };
   return <main className="app-shell st-settings" data-studi-app-ready="true">
@@ -487,12 +488,6 @@ export function SettingsScreen({
           onGiveBack={assignmentId => save(() => window.studi!.setAssignmentOwner({ assignmentId, owner: "inky" }))}
           onCheckSchool={onCheckSchool} />
         <SettingsGroup title="Timing and files">
-          <SettingsRow title="When Dot starts" description="Only for homework your rules allow.">
-            <select aria-label="When Dot starts" disabled={!preferences || disabled} value={preferences?.workStartMode ?? "manual"}
-              onChange={event => preferences && changePreference(preferences.reviewMinutes, preferences.handoffMinutes, event.target.value as "manual" | "automatic")}>
-              <option value="manual">Only when I ask</option><option value="automatic">Automatically</option>
-            </select>
-          </SettingsRow>
           <SettingsRow title="Time to look it over" description="Then Dot submits only if your rule allows it.">
             <SettingsMinutes label="Time to look it over (minutes)" value={preferences?.reviewMinutes ?? 30} max={120} disabled={!preferences || disabled}
               onChange={value => preferences && changePreference(value, preferences.handoffMinutes)} />

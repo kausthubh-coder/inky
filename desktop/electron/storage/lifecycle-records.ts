@@ -171,6 +171,7 @@ export class LifecycleRepository {
     const row = this.database.handle.prepare(`
       SELECT task_id, assignment_id, phase, review_deadline, updated_at, record_json FROM assignment_executions
       WHERE phase NOT IN ('submitted', 'preserved', 'failed')
+        AND (phase != 'ready_review' OR task_id IN (SELECT task_id FROM browser_worker_lease))
       ORDER BY updated_at DESC, task_id LIMIT 1
     `).get() as ExecutionRow | undefined;
     return row ? parseExecutionRow(row) : null;

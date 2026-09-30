@@ -40,7 +40,7 @@ function fixture(options = {}) {
   const window = Object.assign(new EventEmitter(), { isVisible: () => true, isDestroyed: () => false });
   let reconciliations = 0;
   const manager = {
-    allowsAutomaticWork: options.automatic ?? true, isWorkerRunning: false,
+    isWorkerRunning: false,
     setSchedulingEnabled() {}, reconcileQueue() { reconciliations++; },
     state: () => ({ entries, lease: null }),
   };
@@ -117,13 +117,13 @@ test("requested reconciliation captures errors durably and retries with backoff"
   } finally { f.kernel.dispose(); }
 });
 
-test("explicit do-next waits for the browser and runs in manual mode without starting other homework", async t => {
+test("explicit do-next waits for the browser and runs with automation paused", async t => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const starts = [];
   let browserBusy = true;
   const automatic = { taskId: "task-auto", assignmentId: "assignment-auto", requestOrigin: "automatic", scheduledStartAt: "2026-09-01T11:00:00.000Z" };
   const requested = { taskId: "task-next", assignmentId: "assignment-next", requestOrigin: "student", startRequestedAt: "2026-09-01T11:00:00.000Z" };
-  const f = fixture({ automatic: false, browserBusy: () => browserBusy, entries: [requested, automatic],
+  const f = fixture({ schedule: { state: "paused", cadence: "manual", timezone: "UTC" }, browserBusy: () => browserBusy, entries: [requested, automatic],
     runScheduledAssignment: async id => { starts.push(id); f.setEntries([automatic]); } });
   try {
     await f.kernel.reconcile();
@@ -132,11 +132,11 @@ test("explicit do-next waits for the browser and runs in manual mode without sta
     await f.kernel.reconcile();
     assert.deepEqual(starts, ["task-next"]);
     await f.kernel.reconcile();
-    assert.deepEqual(starts, ["task-next"], "manual mode still excludes automatic homework");
+    assert.deepEqual(starts, ["task-next"], "paused automation still excludes automatic homework");
   } finally { f.kernel.dispose(); }
 });
 
-test("the queue moves on by itself: when a run lets go of the page the next one starts, and saved work can go again", async () => {
+test("attempt work stays ready while the queue moves on as soon as the page is released", async () => {
   const root = await mkdtemp(join(tmpdir(), "studi-kernel-queue-"));
   let now = "2026-09-01T12:00:00.000Z";
   const store = await openLocalStore(root);
@@ -180,21 +180,17 @@ test("the queue moves on by itself: when a run lets go of the page the next one 
     assert.equal((await execution.start("task-a")).phase, "ready_review");
     manager.queueNext("task-b");
     await kernel.start();
-    await new Promise(resolve => setTimeout(resolve, 50));
-    assert.equal(store.tasks.get("task-b").state, "queued", "B waits while A's finished work holds the page for review");
+    await until(() => phase("b") === "ready_review", "B starts when A releases its finished page");
     now = "2026-09-01T12:03:00.000Z";
     kernel.requestReconcile();
-    await until(() => phase("b") === "ready_review", "when A's review window ends, B starts by itself");
-    assert.equal(phase("a"), "preserved");
+    await kernel.reconcile();
+    assert.equal(phase("a"), "ready_review", "waiting to review does not expire saved work");
     manager.queueNext("task-c");
-    manager.queueNext("task-a");
-    execution.cancel("task-b");
-    await until(() => phase("a") === "ready_review", "stopping B starts the next one straight away, and saved work carries on");
-    assert.equal(store.tasks.get("task-b").state, "cancelled");
-    execution.cancel("task-a");
+    kernel.requestReconcile();
     await until(() => phase("c") === "ready_review", "the queue keeps going");
-    assert.equal(manager.state().lease.taskId, "task-c");
-    assert.deepEqual(manager.state().entries.map(entry => entry.taskId), ["task-c"]);
+    assert.equal(phase("b"), "ready_review");
+    assert.equal(manager.state().lease, null);
+    assert.deepEqual(manager.state().entries, []);
   } finally {
     kernel.dispose(); execution.dispose(); manager.dispose(); store.close();
     await rm(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });

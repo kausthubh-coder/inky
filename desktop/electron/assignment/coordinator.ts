@@ -259,6 +259,7 @@ export class AssignmentExecutionCoordinator {
     this.#assertUsable();
     const execution = this.#requiredExecution(taskId);
     if (!["working", "ready_review"].includes(execution.phase)) throw new Error(`Task ${taskId} cannot be edited from ${execution.phase}`);
+    if (execution.phase === "ready_review" && this.#manager.state().lease?.taskId !== taskId) await this.#acquireReviewPage(execution);
     const waiting = this.#store.database.transaction(() => {
       // Stop new tools and timed submission before yielding to worker abort.
       this.#manager.pause(taskId, "needs_user", "Student took over the visible browser");
@@ -290,10 +291,13 @@ export class AssignmentExecutionCoordinator {
    * The student hands in on the school page themselves. Dot reads the page every few seconds
    * for the school's confirmation and saves the receipt, for up to 30 minutes.
    */
-  watchHandIn(taskId: string, everyMs = 3_000, forMs = 30 * 60_000): void {
+  async watchHandIn(taskId: string, everyMs = 3_000, forMs = 30 * 60_000): Promise<void> {
     this.#assertUsable();
     const execution = this.#requiredExecution(taskId);
     if (execution.phase !== "ready_review" || !execution.reviewCheckpoint) throw new Error(`Task ${taskId} is not waiting for submission review`);
+    await this.#acquireReviewPage(execution);
+    const current = this.#requiredExecution(taskId);
+    this.#store.lifecycle.putExecution({ ...current, handoffDeadline: new Date(Date.parse(this.#now()) + forMs).toISOString(), updatedAt: this.#now() });
     if (this.#handInWatch) clearTimeout(this.#handInWatch);
     const page = this.#browserForAssignment?.(execution.assignmentId) ?? this.#defaultBrowser;
     const until = Date.now() + forMs;
@@ -316,12 +320,21 @@ export class AssignmentExecutionCoordinator {
     this.#handInWatch = setTimeout(() => void look(), Math.min(everyMs, 1_000));
   }
 
+  async #acquireReviewPage(execution: AssignmentExecution): Promise<void> {
+    if (this.#manager.state().lease?.taskId === execution.taskId) return;
+    await this.#browserWork.startAssignment(async () => {
+      this.#manager.queueSubmission(execution.taskId);
+      await this.#manager.startTask(execution.taskId, id => this.#assignmentSessionPlan(id), execution.workerSessionPath);
+    });
+  }
+
   async verifyStudentSubmission(taskId: string, confirmationText: string): Promise<AssignmentExecution> {
     this.#assertUsable();
     const execution = this.#requiredExecution(taskId);
     if (execution.phase !== "ready_review" || !execution.reviewCheckpoint) {
       throw new Error(`Task ${taskId} is not waiting for submission review`);
     }
+    await this.#acquireReviewPage(execution);
     const post = await this.#browser.snapshot();
     if (this.#requiredExecution(taskId).phase !== "ready_review") throw new Error("This assignment is no longer waiting for review.");
     const status = confirmationText.replace(/\s+/g, " ").trim();
@@ -362,7 +375,7 @@ export class AssignmentExecutionCoordinator {
     this.#assertUsable();
     let execution = this.#requiredExecution(taskId);
     const assignment = this.#requiredAssignment(execution.assignmentId);
-    if (!this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) throw new Error(RULE_STOPPED);
+    if (!this.#manager.canAttempt(execution.taskId)) throw new Error(RULE_STOPPED);
     if (execution.phase === "needs_user") {
       this.#manager.resumePaused(taskId, "Student replied to the assignment handoff");
       execution = this.#store.lifecycle.putExecution({
@@ -392,7 +405,7 @@ export class AssignmentExecutionCoordinator {
       if (this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).maySubmit && !current.doubts?.length && !current.notices?.length && !pastDueWithoutLateWindow(assignment, this.#now())) await this.submitByRule(current.taskId);
     }
     for (const execution of this.#store.lifecycle.listExpiredReviewHandoffs(this.#now())) {
-      if (this.#matchesExecutionOwner(execution) && !this.#manager.isWorkerRunning) await this.#preserve(execution);
+      if (this.#manager.state().lease?.taskId === execution.taskId && this.#matchesExecutionOwner(execution) && !this.#manager.isWorkerRunning) await this.#preserve(execution);
     }
     const waiting = this.#activeExecution();
     if (waiting?.phase === "needs_user" && waiting.handoffDeadline && waiting.handoffDeadline <= this.#now() && !this.#manager.isWorkerRunning) {
@@ -418,7 +431,7 @@ export class AssignmentExecutionCoordinator {
     const assignment = this.#requiredAssignment(execution.assignmentId);
     if (execution.phase !== "ready_review") throw new Error("This assignment is not ready for review.");
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (!permission.mayAttempt) throw new Error("Your current rule no longer allows Dot to handle this assignment.");
+    if (!this.#manager.canAttempt(taskId, source === "student" ? "student" : "automatic")) throw new Error("Your current rule no longer allows Dot to handle this assignment.");
     if (source === "rule" && !permission.maySubmit) throw new Error("Your current rule lets Dot prepare this work; you submit it yourself.");
     if (source === "rule" && execution.doubts?.length) throw new Error("Resolve Dot's doubts before submitting this work.");
     // A heads-up is news the student should read before work goes in by itself.
@@ -428,8 +441,22 @@ export class AssignmentExecutionCoordinator {
     if (source === "rule" && pastDueWithoutLateWindow(assignment, this.#now())) throw new Error("The deadline has passed; hand this one in yourself if the school still takes it.");
     if (execution.handoffDeadline && execution.handoffDeadline <= this.#now()) throw new Error("The review window ended. Check the school page before submitting.");
     if (execution.reviewSubmissionRequestedAt || execution.submissionAttemptedAt) throw new Error("Submission was already requested. Check its result instead of sending it again.");
-    if (this.#manager.isWorkerRunning) throw new Error("Dot is finishing the current turn. Try again in a moment.");
+    if (this.#manager.state().lease?.taskId === taskId && this.#manager.isWorkerRunning) throw new Error("Dot is finishing the current turn. Try again in a moment.");
     this.#store.lifecycle.putExecution({ ...execution, reviewSubmissionRequestedAt: this.#now(), reviewSubmissionSource: source, updatedAt: this.#now() });
+    if (this.#manager.state().lease?.taskId !== taskId) {
+      this.#manager.queueSubmission(taskId);
+      if (this.#browserWork.isScanStartBlocked()) return this.#requiredExecution(taskId);
+    }
+    return this.continueSubmission(taskId);
+  }
+
+  async continueSubmission(taskId: string): Promise<AssignmentExecution> {
+    const execution = this.#requiredExecution(taskId);
+    if (execution.phase !== "ready_review" || !execution.reviewSubmissionRequestedAt || execution.submissionAttemptedAt) throw new Error("There is no waiting hand-in for this assignment.");
+    const source = execution.reviewSubmissionSource;
+    if (this.#manager.state().lease?.taskId !== taskId) {
+      await this.#browserWork.startAssignment(() => this.#manager.startTask(taskId, id => this.#assignmentSessionPlan(id), execution.workerSessionPath));
+    }
     try {
       await this.#manager.runWorkerTurn(`${source === "student" ? "The student clicked Submit for this reviewed assignment, including any visible doubts." : "The review timer ended and the saved rule allows submission."} Take a fresh snapshot. If the work isn't on the page yet (for example a file upload), open the submission form and attach the finished files from the folder with browser_upload first. Then use browser_submit with the current submit control. Set expectedConfirmationText to an affirmative status or receipt that will appear only after submission, such as "Submission received" or "Submitted; not yet graded"; never use the submit button label or the current "Not submitted" status. Do not rewrite answers or repeat an already attempted effect. If permission or page state changed, report the problem.`, event => this.#recordActivity(taskId, event));
       const latest = this.#requiredExecution(taskId);
@@ -489,6 +516,7 @@ export class AssignmentExecutionCoordinator {
       JSON.stringify(this.#classContext(assignment.assignmentId, assignment.courseId), null, 2),
       "# Fresh stored permission",
       JSON.stringify(permission, null, 2),
+      "mayAttempt governs automatic starts. This run was accepted by Studi; a student Start is allowed under Leave it to me. Never submit during preparation; handing in still needs the separate review step.",
       "# Task budget",
       `Up to ${execution.taskBudget.maxAgentTurns} student-directed turns; ${execution.turnCount} already used. At most two meaningfully different recovery plans.`,
       "# Relevant notes",
@@ -534,10 +562,16 @@ export class AssignmentExecutionCoordinator {
     for (let nudge = 1; ; nudge += 1) {
       if (recordFirst || nudge > 1) this.#recordReply(taskId, result);
       const current = this.#store.lifecycle.getExecution(taskId);
-      if (current?.phase !== "working") return;
+      if (current?.phase !== "working") {
+        if (current?.phase === "ready_review" && !this.#manager.resolvePermission(current.assignmentId, this.#requiredAssignment(current.assignmentId).courseId).maySubmit && this.#manager.state().lease?.taskId === taskId) {
+          this.#manager.finish(taskId, "ready_review");
+          this.#store.lifecycle.putExecution({ ...current, updatedAt: this.#now() });
+        }
+        return;
+      }
       const assignment = this.#requiredAssignment(current.assignmentId);
       const continueHint = "The student has inspected the visible page and asked Studi to continue.";
-      if (!this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) {
+      if (!this.#manager.canAttempt(current.taskId)) {
         await this.#handoff(current, RULE_STOPPED, continueHint);
         return;
       }
@@ -736,6 +770,7 @@ export class AssignmentExecutionCoordinator {
         // Saving files yields to owner/rule changes. Never revive cancelled work.
         const current = this.#requiredWorkingExecution();
         if (current.taskId !== execution.taskId) throw new Error("This assignment no longer owns the school page.");
+        const automaticReview = this.#manager.resolvePermission(current.assignmentId, this.#requiredAssignment(current.assignmentId).courseId).maySubmit;
         const ready = this.#store.lifecycle.putExecution({
           ...current,
           answerArtifactId,
@@ -751,12 +786,12 @@ export class AssignmentExecutionCoordinator {
             evidence: item.evidence.trim(),
           })),
           reviewDeadline,
-          handoffDeadline,
+          handoffDeadline: automaticReview ? handoffDeadline : undefined,
           reviewCheckpoint: this.#checkpoint(snapshot, input.summary.trim()),
           updatedAt: this.#now(),
         });
         this.#manager.pause(execution.taskId, "ready_review", "Completed page state verified; waiting for student review");
-        await this.#notify({ kind: "review_ready", target: { type: "task", id: execution.taskId }, title: "Assignment ready to review", body: `Answers remain in the school page until ${handoffDeadline}.` });
+        await this.#notify({ kind: "review_ready", target: { type: "task", id: execution.taskId }, title: "Assignment ready to review", body: "Your work is saved. Look it over and hand it in when you are ready." });
         return toolResult(ready);
       },
     });
@@ -854,11 +889,11 @@ export class AssignmentExecutionCoordinator {
     }
     const assignment = this.#requiredAssignment(execution.assignmentId);
     const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (!permission.mayAttempt || (execution.reviewSubmissionSource !== "student" && (!permission.maySubmit || execution.doubts?.length))) throw new Error("Fresh stored assignment permission does not allow submission");
+    if (!this.#manager.canAttempt(execution.taskId) || (execution.reviewSubmissionSource !== "student" && (!permission.maySubmit || execution.doubts?.length))) throw new Error("Fresh stored assignment permission does not allow submission");
     const refreshed = await this.#browser.refreshRef(ref);
     const latestExecution = this.#requiredExecution(execution.taskId);
     const latestPermission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (latestExecution.phase !== "ready_review" || !latestExecution.reviewSubmissionRequestedAt || latestExecution.submissionAttemptedAt || !latestPermission.mayAttempt ||
+    if (latestExecution.phase !== "ready_review" || !latestExecution.reviewSubmissionRequestedAt || latestExecution.submissionAttemptedAt || !this.#manager.canAttempt(execution.taskId) ||
       (latestExecution.reviewSubmissionSource !== "student" && (!latestPermission.maySubmit || latestExecution.doubts?.length))) throw new Error("Homework permission or ownership changed before submission.");
     const preSnapshot = refreshed.snapshot;
     const pre = this.#checkpoint(preSnapshot, "Fresh page state immediately before the gated submission effect.");
@@ -1008,6 +1043,11 @@ export class AssignmentExecutionCoordinator {
     await this.#manager.restoreAssignmentWorker((assignmentId) => this.#assignmentSessionPlan(assignmentId));
     // Every restart hand-off waits the usual window, so the page (and the queue behind it) is never held forever or by an old deadline.
     if (execution.phase === "ready_review") {
+      if (!this.#manager.resolvePermission(execution.assignmentId, this.#requiredAssignment(execution.assignmentId).courseId).maySubmit && !execution.submissionAttemptedAt) {
+        this.#store.lifecycle.putExecution({ ...execution, handoffDeadline: undefined, updatedAt: this.#now() });
+        this.#manager.finish(execution.taskId, "ready_review");
+        return;
+      }
       const releaseAt = execution.handoffDeadline ?? execution.reviewDeadline;
       if (releaseAt && releaseAt <= this.#now()) {
         await this.reconcileDeadlines();
@@ -1047,7 +1087,7 @@ export class AssignmentExecutionCoordinator {
 
   #activeExecution(): AssignmentExecution | null {
     const lease = this.#manager.state().lease;
-    return lease ? this.#store.lifecycle.getExecution(lease.taskId) : this.#store.lifecycle.getActiveExecution();
+    return lease ? this.#store.lifecycle.getExecution(lease.taskId) : null;
   }
 
   async #assignmentSessionPlan(assignmentId: string): Promise<AssignmentSessionPlan> {
@@ -1080,7 +1120,7 @@ export class AssignmentExecutionCoordinator {
           .map(task => this.#store.lifecycle.getExecution(task.taskId)).find(item => item && isLivePhase(item.phase));
         const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
         // The rule may hand in by itself, or the student asked for this hand-in ("Do it, I'll hand it in" still lets them ask).
-        const asked = execution?.reviewSubmissionSource === "student" && permission.mayAttempt;
+        const asked = execution?.reviewSubmissionSource === "student" && this.#manager.canAttempt(execution.taskId);
         if (!execution?.reviewSubmissionRequestedAt || !(permission.maySubmit || asked)) {
           throw new Error("This action would hand the work in. Only the hand-in step may do that, and only when the student's rule allows it. Save the work instead and tell the student what to send or push.");
         }
@@ -1124,7 +1164,7 @@ export class AssignmentExecutionCoordinator {
     if (!execution || execution.phase !== "working") throw new Error("No working assignment execution owns the browser");
     this.#assertExecutionOwner(execution);
     const assignment = this.#requiredAssignment(execution.assignmentId);
-    if (!this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) throw new Error("Your current rule no longer permits work on this assignment.");
+    if (!this.#manager.canAttempt(execution.taskId)) throw new Error("Your current rule no longer permits work on this assignment.");
     return execution;
   }
 

@@ -132,7 +132,6 @@ export const SaveProductPreferencesInputSchema = ProductPreferencesSchema.pick({
   reviewMinutes: true,
   handoffMinutes: true,
   memoryVisibility: true,
-  workStartMode: true,
 });
 
 export const SaveNotificationPreferencesInputSchema = NotificationPreferencesSchema;

@@ -272,18 +272,32 @@ export class SchoolScanCoordinator {
         coverage: [],
       });
       this.#updateProfileState("scanning");
-      if (!resumed.targetAssignmentId && !resumed.sourceScanTarget && typeof this.#browser.evaluateInPage === "function") {
-        if (scan.handoff?.kind === "school_sign_in" && new URL(this.#browser.state.url).origin !== new URL(this.#requiredProfile().schoolRoot).origin) {
-          await this.#browser.navigate(this.#requiredProfile().schoolRoot);
+      try {
+        // Startup navigation failed before the agent could inspect a page. Retry that
+        // observed target instead of handing the agent an empty browser on resume.
+        if (scan.state === "failed" && scan.failures.some(reason => reason.startsWith("The scan could not start:"))) {
+          const target = scan.targetSourceTargets?.[0] ?? scan.sourceScanTarget
+            ?? (scan.targetCourseId ? this.#store.school.listCourses().find(course => course.courseId === scan.targetCourseId)?.sourceTarget : undefined)
+            ?? this.#requiredProfile().schoolRoot;
+          await this.#browser.navigate(target);
         }
-        const complete = await this.#ingestConnector(resumed.scanId, this.#requiredProfile());
-        if (this.#lastConnectorSignedIn) this.#learnSignInHosts("needs_you");
-        if (complete) {
-          await this.#finishStructured(resumed.scanId);
-          return this.state();
+        if (!resumed.targetAssignmentId && !resumed.sourceScanTarget && typeof this.#browser.evaluateInPage === "function") {
+          if (scan.handoff?.kind === "school_sign_in" && new URL(this.#browser.state.url).origin !== new URL(this.#requiredProfile().schoolRoot).origin) {
+            await this.#browser.navigate(this.#requiredProfile().schoolRoot);
+          }
+          const complete = await this.#ingestConnector(resumed.scanId, this.#requiredProfile());
+          if (this.#lastConnectorSignedIn) this.#learnSignInHosts("needs_you");
+          if (complete) {
+            await this.#finishStructured(resumed.scanId);
+            return this.state();
+          }
         }
+        return await this.#run(resumed, "The student has returned after the requested handoff. Take a fresh browser snapshot and continue the same scan. Continue only unchecked courses and systems; retain recorded rows. If sign-in still blocks a system, request a handoff for it.");
+      } catch (error) {
+        this.#reportError(error, resumed.scanId, "scan_resume");
+        this.#fail(resumed.scanId, `The scan could not start: ${errorMessage(error)}`);
+        return this.state();
       }
-      return this.#run(resumed, "The student has returned after the requested handoff. Take a fresh browser snapshot and continue the same scan. Continue only unchecked courses and systems; retain recorded rows. If sign-in still blocks a system, request a handoff for it.");
     }));
   }
 

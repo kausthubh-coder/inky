@@ -826,13 +826,10 @@ export class ConversationCoordinator {
       description: "Ask Studi's homework worker to complete this assignment using its saved source. Use when the student says do it, start, or finish it. End this conversation turn after acceptance so the worker can take over.",
       parameters: Type.Object({}, { additionalProperties: false }),
       execute: async () => {
-        const assignment = this.#store.assignments.get(assignmentId)!;
-        if (!this.#manager.resolvePermission(assignmentId, assignment.courseId).mayAttempt) {
-          throw new Error("Your homework rules don't allow Dot to work on this assignment. Change its homework rule to allow an attempt first.");
-        }
         if (this.#manager.state().lease) throw new Error("Dot is already working in the school browser. Pause that work before starting this assignment.");
         const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId && ["discovered", "queued", "failed", "cancelled"].includes(task.state));
         if (tasks.length !== 1) throw new Error("This assignment has no single task ready to start. Check its current work status first.");
+        if (!this.#manager.canAttempt(tasks[0]!.taskId, "student")) throw new Error("This assignment is kept by you, ignored, or needs its details checked. Give it to Dot or check its details first.");
         this.#requestedStarts.set(assignmentId, tasks[0]!.taskId);
         return toolResult({ status: "requested", assignmentId, message: "The homework worker will start after this reply ends, using the saved assignment source and current homework rules." });
       },

@@ -7,9 +7,9 @@ import { courseTone } from "./assignmentPresentation.js";
 type RuleInput = Parameters<StudiRendererApi["savePermissionRule"]>[0];
 // One set of words everywhere: the week, the assignment page and here.
 const modes = [
-  { id: "do_not_attempt", label: "Leave it to me", explain: "Dot leaves the homework alone. You can still ask it about any assignment." },
-  { id: "attempt", label: "Do it, I'll hand it in", explain: "Dot does the work and checks it. You look it over and press Submit yourself; Dot saves the school's confirmation." },
-  { id: "auto_submit", label: "Do it and hand it in", explain: "Dot does the work, waits your review time, then hands it in if it has no doubts and Studi is open." },
+  { id: "do_not_attempt", label: "Leave it to me", explain: "Dot waits. Press Start whenever you want it to do an assignment." },
+  { id: "attempt", label: "Do it, I'll hand it in", explain: "Dot works through your queue, tells you when each is ready, then moves on. You hand it in." },
+  { id: "auto_submit", label: "Do it and hand it in", explain: "Dot works through your queue and hands in after your review time, if it has no doubts." },
 ] as const;
 
 // The assignment page's "Change" opens Rules with that assignment picked.

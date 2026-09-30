@@ -232,18 +232,17 @@ async function inspectPublicApp(client) {
 async function exerciseExpandedBrowser(client) {
   await client.evaluate(`(async () => {
     const click=(selector)=>{const button=document.querySelector(selector);if(!(button instanceof HTMLButtonElement))throw new Error('Missing '+selector);button.click();};
-    const waitFor = async (label,predicate) => { const deadline=Date.now()+5000; while(!predicate()){if(Date.now()>deadline)throw new Error(label+': '+JSON.stringify({workspace:!!document.querySelector('[aria-label="Assignment workspace"]'),slot:!!document.querySelector('.chat-browser-slot'),text:document.body.innerText.slice(0,1200)}));await new Promise(r=>setTimeout(r,50));} };
+    const waitFor = async (label,predicate) => { const deadline=Date.now()+5000; while(!predicate()){if(Date.now()>deadline)throw new Error(label+': '+JSON.stringify({workspace:!!document.querySelector('[aria-label="Assignment workspace"]'),slot:!!document.querySelector('[data-school-slot]'),text:document.body.innerText.slice(0,1200)}));await new Promise(r=>setTimeout(r,50));} };
+    const tab = label => { const button=[...document.querySelectorAll('.ag-tabs button')].find(button=>button.textContent.trim()===label);if(!button)throw new Error('Missing assignment tab '+label);button.click(); };
     click('.chat-work-slip button');
-    await waitFor('assignment open',()=>document.querySelector('[aria-label="Assignment workspace"]')&&document.querySelector('.chat-browser-slot'));
+    await waitFor('assignment open',()=>document.querySelector('[aria-label="Assignment workspace"]')&&document.querySelector('[data-school-slot]'));
     await new Promise(r=>setTimeout(r,300));
     document.body.dataset.activityCardRemoved=String(!document.querySelector('.chat-work-slip')&&!document.body.innerText.includes("What I’ve done"));
-    document.body.dataset.browserExpanded=String(Boolean(document.querySelector('.chat-browser-slot')));
-    click('[aria-label="Close browser"]');
-    await waitFor('browser closed',()=>!document.querySelector('.chat-browser-slot'));
-    const reopen=[...document.querySelectorAll('.rd-stage-page button')].find(button=>button.textContent.includes('Open school page'));
-    if(!(reopen instanceof HTMLButtonElement))throw new Error('Closed browser offers no reopen action');
-    reopen.click();await waitFor('browser reopened',()=>document.querySelector('.chat-browser-slot'));
-    click('[aria-label="Close browser"]');await waitFor('browser closed again',()=>!document.querySelector('.chat-browser-slot'));
+    document.body.dataset.browserExpanded=String(Boolean(document.querySelector('[data-school-slot]')));
+    tab('Details');
+    await waitFor('browser closed',()=>!document.querySelector('[data-school-slot]'));
+    tab('School page');await waitFor('browser reopened',()=>document.querySelector('[data-school-slot]'));
+    tab('Work');await waitFor('browser closed again',()=>!document.querySelector('[data-school-slot]'));
     document.body.dataset.browserClosedCleanly=String(Boolean(document.querySelector('[aria-label="Assignment workspace"]')));
   })()`);
 }

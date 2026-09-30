@@ -848,11 +848,12 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   padding: 10px 24px;
   overflow: auto;
 }
-.rd-school-workspace > .rd-composer {
+.rd-school-workspace > form.rd-composer.inky-composer {
   grid-column: 1;
   grid-row: 2;
-  width: calc(100% - 48px);
-  margin: 12px 24px 18px;
+  width: auto;
+  margin: 8px 16px 16px;
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 14%), 0 16px 36px -18px rgb(43 38 33 / 45%);
 }
 .rd-school-workspace .school-check {
   background: none;
@@ -860,16 +861,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   padding: 0;
   box-shadow: none;
 }
-.rd-school-workspace .scan-result-hero {
-  display: grid;
-  grid-template-columns: 90px minmax(0, 1fr);
-  align-items: start;
-  gap: 16px;
-}
-.rd-school-workspace .scan-result-copy h2 { font-size: 23px; }
-.rd-school-workspace .scan-hero-action { grid-column: 1 / -1; margin: 0; }
-.rd-school-workspace .scan-report .scan-change { flex-wrap: wrap; }
-.rd-school-workspace .scan-change-date { max-width: 100%; }
 .rd-school-workspace:not(.chat-with-browser) { grid-template-columns: minmax(0, 1fr); }
 .rd-school-workspace:not(.chat-with-browser) .conversation-log { width: min(752px, 100%); margin-inline: auto; }
 @media (max-width: 600px) {
@@ -915,13 +906,34 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   padding: 0;
   display: block;
 }
+/* Home: the chat box floats over the bottom of the week. No band behind it; the page scrolls underneath. */
+.app-shell.chat-dashboard {
+  position: relative;
+}
 .app-shell .chat-workspace.chat-view-home {
+  position: absolute;
+  z-index: 6;
+  left: 50%;
+  bottom: 0;
   width: min(752px, 100%);
   padding: 0 16px 20px;
-  margin: 0 auto;
-  flex: none;
+  margin: 0;
+  transform: translateX(-50%);
   min-height: 0;
   background: none;
+  pointer-events: none;
+}
+.app-shell .chat-workspace.chat-view-home > * {
+  pointer-events: auto;
+}
+.app-shell .chat-workspace.chat-view-home form.rd-composer.inky-composer {
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 14%), 0 1px 2px rgb(43 38 33 / 6%), 0 18px 40px -18px rgb(43 38 33 / 45%);
+}
+.app-shell .chat-workspace.chat-view-home form.rd-composer.inky-composer:focus-within {
+  box-shadow: 0 0 0 1.5px var(--pencil), 0 18px 40px -18px rgb(43 38 33 / 45%);
+}
+.app-shell.chat-dashboard .page.dashboard-page {
+  padding-bottom: 150px;
 }
 .app-shell .chat-workspace.chat-view-home .rd-composer {
   width: 100%;

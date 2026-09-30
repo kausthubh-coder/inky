@@ -20,13 +20,15 @@ form.rd-composer.inky-composer:has(:focus-visible) {
 form.rd-composer.inky-composer .inky-composer-line {
   display: flex;
   align-items: flex-end;
+  gap: 8px;
+  padding: 0 10px 10px 0;
 }
 form.rd-composer.inky-composer textarea {
   flex: 1;
   min-width: 0;
   min-height: 52px;
   max-height: 200px;
-  padding: 16px 16px 8px;
+  padding: 15px 0 5px 18px;
   border: 0;
   outline: 0;
   resize: none;
@@ -42,45 +44,6 @@ form.rd-composer.inky-composer textarea::placeholder {
 }
 form.rd-composer.inky-composer textarea:disabled {
   color: var(--graphite);
-}
-/* The toolbar under the text. */
-form.rd-composer.inky-composer .rd-composer-foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 48px;
-  padding: 0 8px 8px 8px;
-}
-.rd-composer-tool {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 10px 0 8px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  color: var(--graphite);
-  font: 600 13px/1 "Nunito Sans", sans-serif;
-  cursor: pointer;
-  transition: background-color 0.15s ease-out, color 0.15s ease-out, transform 0.1s ease-out;
-}
-.rd-composer-tool:active:not(:disabled) { transform: scale(0.96); }
-form.rd-composer.inky-composer textarea:focus:not(:focus-visible) { outline: none; }
-form.rd-composer.inky-composer textarea:focus-visible { outline: none; }
-.rd-composer-tool:hover:not(:disabled) {
-  background: var(--blotter);
-  color: var(--pencil);
-}
-.rd-composer-tool:disabled {
-  color: #b3a99c;
-  cursor: default;
-}
-.rd-composer-hint {
-  padding-left: 8px;
-  font-size: 12.5px;
-  color: #a39a8e;
 }
 /* Send: ink when there is something to send, quiet when not, and a dark Stop while Dot is doing something. */
 form.rd-composer.inky-composer .chat-send {
@@ -150,7 +113,7 @@ form.rd-composer.inky-composer .assignment-picker [aria-selected="true"] { backg
 form.rd-composer.inky-composer .chat-refs button { min-width: 32px; min-height: 32px; }
 @keyframes composer-sending { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
-  form.rd-composer.inky-composer :is(.chat-send, .rd-composer-tool) { transition: none; }
-  form.rd-composer.inky-composer :is(.chat-send, .rd-composer-tool):active:not(:disabled) { transform: none; }
+  form.rd-composer.inky-composer .chat-send { transition: none; }
+  form.rd-composer.inky-composer .chat-send:active:not(:disabled) { transform: none; }
   form.rd-composer.inky-composer[aria-busy="true"] .chat-send svg { animation: none; }
 }

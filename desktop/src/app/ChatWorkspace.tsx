@@ -1,6 +1,6 @@
 import "./composer.css";
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
-import { plainError } from "./homeworkText.js";
+import { plainError, schoolScanFailure } from "./homeworkText.js";
 import { onEngineChange } from "./engineChanges.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
@@ -48,6 +48,7 @@ interface ChatProps {
   onOpenWork: () => void;
   onOpenSchoolCheck: () => void;
   onOpenRules: () => void;
+  onSchedule: () => void;
   onTakeover: (id: string) => void;
   onResume: (id: string) => void;
   onCancel: (id: string) => void;
@@ -62,6 +63,12 @@ type Draft = {
   refs: AssignmentReference[];
   clientMessageId?: string;
 };
+const HOME_ASKS = [
+  "Check my email for anything from my professors…",
+  "Quiz me on this week's lecture…",
+  "Explain the last homework's question 3…",
+  "Paste a homework link to add it…",
+];
 function readDraft(key: string, legacyKey?: string): Draft {
   try {
     const saved = JSON.parse(
@@ -115,8 +122,21 @@ export function ChatWorkspace(props: ChatProps) {
     Boolean(assignment || props.schoolCheck),
   );
   const [scanDetails, setScanDetails] = useState(false);
+  const [openingSchoolPage, setOpeningSchoolPage] = useState(false);
+  const [reopenedFailure, setReopenedFailure] = useState<string | null>(null);
+  const scanFailure = school && onboarding.scan?.state === "failed" ? onboarding.scan.failures[0] : undefined;
+  const failureKey = scanFailure ? `${onboarding.scan?.scanId}:${onboarding.scan?.updatedAt}:${scanFailure}` : null;
+  const pageUnavailable = Boolean(scanFailure && schoolScanFailure(scanFailure).pageUnavailable && reopenedFailure !== failureKey);
+  const visibleError = (error || actionError) === plainError(scanFailure) ? "" : error || actionError;
   const [query, setQuery] = useState<string | null>(null);
   const [option, setOption] = useState(0);
+  const [focused, setFocused] = useState(false);
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  useEffect(() => {
+    if (focused || draft.text || assignment || school) return;
+    const timer = setInterval(() => setPlaceholderIndex(index => (index + 1) % HOME_ASKS.length), 12_000);
+    return () => clearInterval(timer);
+  }, [focused, draft.text, assignment, school]);
   const input = useRef<HTMLTextAreaElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const sendLock = useRef(false);
@@ -390,20 +410,6 @@ export function ChatWorkspace(props: ChatProps) {
     setQuery(null);
     el.focus();
   };
-  const [addingFiles, setAddingFiles] = useState(false);
-  // Notes, a rubric or starter files the student has, straight into the assignment's folder.
-  const addFiles = async () => {
-    if (!assignment || !window.studi || addingFiles) return;
-    setAddingFiles(true);
-    try {
-      const result = await window.studi.importAssignmentFiles({ assignmentId: assignment.assignmentId });
-      if (result.errors.length) setError(result.errors.map((item) => `${item.name}: ${item.message}`).join("\n"));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-    } finally {
-      setAddingFiles(false);
-    }
-  };
   const suggest = (text: string) => {
     saveDraft({ ...draftRef.current, text });
     input.current?.focus();
@@ -419,7 +425,7 @@ export function ChatWorkspace(props: ChatProps) {
         const url = assignment?.sourceTarget ?? onboarding.profile?.schoolRoot;
         if (
           url &&
-          (!state.browser.url || state.browser.url === "about:blank") &&
+          !pageUnavailable && (!state.browser.url || state.browser.url === "about:blank") &&
           state.browser.driver !== "inky"
         ) {
           void window.studi
@@ -435,6 +441,23 @@ export function ChatWorkspace(props: ChatProps) {
       .catch((cause) => {
         if (mounted.current) setError(cause instanceof Error ? cause.message : String(cause));
       });
+  };
+  const reopenSchoolPage = async () => {
+    const studi = window.studi;
+    const url = onboarding.profile?.schoolRoot;
+    if (!studi || !url || openingSchoolPage) return;
+    setOpeningSchoolPage(true);
+    setError("");
+    try {
+      await studi.selectBrowserPage({ kind: "school" });
+      await studi.navigateBrowser({ url, target: { kind: "school" } });
+      if (mounted.current) { setBrowser(true); setReopenedFailure(failureKey); }
+    } catch (cause) {
+      if (mounted.current) setError(plainError(cause) === plainError(scanFailure)
+        ? "The school page still won't open. Try again in a moment." : cause);
+    } finally {
+      if (mounted.current) setOpeningSchoolPage(false);
+    }
   };
   useEffect(() => {
     if (initialBrowserOpened.current || (!school && !assignment)) return;
@@ -465,9 +488,11 @@ export function ChatWorkspace(props: ChatProps) {
               .catch((cause) => setError(String(cause)));
           }}
           onBrowser={openBrowser}
-          busy={props.scanBusy}
+          onOpenSchoolPage={() => void reopenSchoolPage()}
+          busy={openingSchoolPage ? "school-page" : props.scanBusy}
           detailsOpen={scanDetails}
           onDetails={setScanDetails}
+          onSchedule={props.onSchedule}
         />
       )}
       {!school && !assignment && !messages.length && (
@@ -605,7 +630,7 @@ export function ChatWorkspace(props: ChatProps) {
                   ? composerPlaceholder(record?.state, record?.needs)
                   : contextAssignment
                     ? `Ask about ${contextAssignment.title}…`
-                    : "Ask Dot anything, or paste a homework link…"
+                    : HOME_ASKS[placeholderIndex]
             }
             disabled={
               school &&
@@ -620,9 +645,8 @@ export function ChatWorkspace(props: ChatProps) {
             {...(query !== null && matches[option]
               ? { "aria-activedescendant": `chat-option-${option}` }
               : {})}
-            onFocus={() => {
-              if (view === "home" && !assignment && !school) onView("compact");
-            }}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onChange={(e) => {
               saveDraft({ ...draft, text: e.target.value });
               const match = e.target.value
@@ -661,22 +685,6 @@ export function ChatWorkspace(props: ChatProps) {
               }
             }}
           />
-        </div>
-        {/* A toolbar under the text, like T3 Code: extras on the left, send or stop on the right. */}
-        <div className="rd-composer-foot">
-          {assignment ? (
-            <button type="button" className="rd-composer-tool" disabled={addingFiles} onClick={() => void addFiles()}>
-              <Icon name="folder" size={15} /> {addingFiles ? "Adding…" : "Add files"}
-            </button>
-          ) : school ? <span /> : (
-            <button type="button" className="rd-composer-tool" title="Type @ to pick an assignment" onClick={() => {
-              const text = draft.text.trimEnd();
-              saveDraft({ ...draft, text: `${text}${text ? " " : ""}@` });
-              setQuery("");
-              setOption(0);
-              input.current?.focus();
-            }}><Icon name="list" size={15} /> Ask about an assignment</button>
-          )}
           <button
             className="chat-send"
             aria-label={
@@ -713,6 +721,7 @@ export function ChatWorkspace(props: ChatProps) {
   const schoolBrowser =
     browser && view === "expanded" ? (
       <SchoolBrowser
+        unavailable={pageUnavailable && !openingSchoolPage}
         onClose={() => setBrowser(false)}
         onSlot={props.onSchoolSlot}
         workspace={workspace}
@@ -815,9 +824,9 @@ export function ChatWorkspace(props: ChatProps) {
                 )}
               </div>
             </header>
-            {(error || actionError) && (
+            {visibleError && (
               <p className="chat-error assignment-action-error" role="alert">
-                {error || actionError}
+                {visibleError}
               </p>
             )}
             {conversation}
@@ -889,18 +898,20 @@ function SchoolBrowser({
   onSlot,
   workspace,
   onPause,
+  unavailable,
 }: {
   onClose: () => void;
   onSlot: (bounds: SchoolPageBounds | null) => void;
   workspace: StudiWorkspaceState | null;
   onPause: (() => void) | undefined;
+  unavailable: boolean;
 }) {
   const slot = useRef<HTMLDivElement>(null);
-  useSchoolSlot(slot, onSlot);
+  useSchoolSlot(slot, onSlot, !unavailable);
   return (
     <aside className="chat-browser">
       <div className="chat-browser-slot" ref={slot}>
-        {readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}
+        {unavailable ? <div className="school-page-unavailable"><Icon name="browser" size={32} /><p>School page unavailable</p></div> : readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}
         {readDevPreviewConfig() &&
           onPause &&
           workspace?.browser.driver === "inky" && (

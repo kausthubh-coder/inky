@@ -10,7 +10,7 @@ import { openLocalStore } from "../../dist/electron/storage/index.js";
 
 const now = "2026-09-10T12:00:00.000Z";
 
-for (const scenario of ["start", "cancel", "permission changed", "browser busy"]) {
+for (const scenario of ["start", "leave it", "cancel", "owner changed", "browser busy"]) {
   test(`assignment chat hands off after its turn: ${scenario}`, async () => {
     const root = await mkdtemp(join(tmpdir(), "studi-assignment-chat-"));
     const store = await openLocalStore(root);
@@ -19,7 +19,7 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
     let prompting = false;
     let starts = 0;
     let requestCalls = 0;
-    const rule = { schemaVersion: 1, ruleId: "allow", scope: "global", mode: "attempt", updatedAt: now };
+    const rule = { schemaVersion: 1, ruleId: "allow", scope: "global", mode: scenario === "leave it" ? "do_not_attempt" : "attempt", updatedAt: now };
     store.permissionRules.put(rule);
     for (const id of ["selected", "other"]) seedTask(store, id);
     const target = { kind: "assignment", assignmentId: "selected" };
@@ -50,7 +50,7 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
                 requestCalls += 2;
                 assert.equal(starts, 0, "tool requests defer handoff until the turn ends");
                 if (scenario === "cancel") await chat.stop(target);
-                if (scenario === "permission changed") store.permissionRules.put({ ...rule, mode: "do_not_attempt" });
+                if (scenario === "owner changed") store.assignments.put({ ...store.assignments.get("selected"), owner: "student" });
                 if (scenario === "browser busy") {
                   manager.enqueue({ taskId: "task-other" });
                   await manager.startTask("task-other");
@@ -73,7 +73,7 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
       const metadata = { clientMessageId: "00000000-0000-4000-8000-000000000001" };
       const result = await chat.send(target, "do it", metadata);
       assert.equal(requestCalls, 2);
-      if (scenario === "start") {
+      if (scenario === "start" || scenario === "leave it") {
         assert.equal(result.outcome, "completed");
         assert.equal(starts, 1);
         assert.equal(result.job.phase, "working", "the reply cannot overwrite the worker's state");
@@ -83,8 +83,8 @@ for (const scenario of ["start", "cancel", "permission changed", "browser busy"]
         await chat.send(target, "do it", metadata);
         assert.equal(starts, 1, "retried message delivery cannot start another worker");
       } else {
-        // A changed rule reaches the shared starter, which refuses it; the other cases stop before starting.
-        assert.equal(starts, scenario === "permission changed" ? 1 : 0);
+        // Changed ownership reaches the shared starter, which refuses it; the other cases stop before starting.
+        assert.equal(starts, scenario === "owner changed" ? 1 : 0);
         assert.notEqual(manager.state().lease?.taskId, "task-selected", "the addressed assignment never takes the browser");
         assert.equal(result.outcome, scenario === "cancel" ? "aborted" : "failed");
         if (scenario !== "cancel") assert.match(result.text, /couldn’t start this assignment/);

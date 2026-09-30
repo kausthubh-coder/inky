@@ -1,96 +1,51 @@
-/* School scan summary and its single details view. */
-.scan-report { padding:4px 0 12px; }
-.scan-report-date { display:flex;align-items:center;gap:12px;margin:0 0 22px;flex-wrap:wrap; }
-.scan-report-date > strong { font-size:14px; }
-.scan-report-date > time,.scan-details-heading > time { font-size:12px;color:var(--muted); }
-.scan-live-label { display:flex;gap:6px;align-items:center; }
-.scan-live-label i { height:7px;width:7px;border-radius:50%;background:var(--sky); }
-.scan-result-hero { display:flex;align-items:center;gap:16px;margin-bottom:26px; }
-.scan-result-copy { flex:1;min-width:0; }
-.scan-result-copy > h2 { font:600 24px/1.3 "Shantell Sans",cursive;margin:0 0 6px;text-wrap:balance; }
-.scan-result-copy > .chat-markdown { color:var(--muted);font-size:14px;line-height:1.5; }
-.scan-saved { display:inline-flex;align-items:center;gap:5px;margin-top:9px;color:#527355;font-size:12px; }
-.scan-hero-action { flex:none; }
-.scan-hero-action .button { display:inline-flex;align-items:center;gap:9px; }
-.scan-progress-section { margin:22px 0 0; }
-.scan-progress-section > h3,.scan-failures > h3 { margin:0 0 9px;color:var(--ink);font-size:12px;font-weight:800;letter-spacing:.02em; }
-.scan-progress-list { display:grid;gap:2px; }
-.scan-progress-row { position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:9px;min-height:48px;padding:8px 10px;border-bottom:1px solid #e2d8c7; }
-.scan-progress-row:last-child { border-bottom:0; }
-.scan-course-row { padding-left:13px; }
-.scan-course-row::before { content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--course-accent,var(--course-mint)); }
-.scan-progress-mark { display:grid;place-items:center;width:24px;height:24px;border-radius:7px;background:#eee8dc;color:#83796c;font-size:18px;font-weight:800;line-height:1; }
-.scan-progress-mark.is-checked { background:#e2edda;color:#4f7655; }
-.scan-progress-mark.is-reading { background:#e4eef7;color:#547995; }
-.scan-progress-mark.is-needs_user { background:#fff0c2;color:#966a1d; }
-.scan-reading-dots { width:18px;overflow:hidden;font-size:9px;letter-spacing:1px;white-space:nowrap;animation:scan-dots 1.6s ease-in-out infinite; }
-.scan-progress-copy { display:grid;min-width:0;gap:2px; }
-.scan-progress-copy strong { overflow:hidden;font-size:13px;font-weight:750;line-height:1.25;text-overflow:ellipsis;white-space:nowrap; }
-.scan-progress-copy small { color:var(--muted);font-size:11px;line-height:1.35;overflow-wrap:anywhere; }
-.scan-progress-row.is-reading .scan-progress-copy strong { color:#385e78; }
-.scan-progress-row.is-waiting { opacity:.68; }
-.scan-sign-in { min-height:31px;padding:4px 10px;font-size:11px; }
-.scan-failures { margin:22px 0 0;padding:12px 14px;border:1px solid #d7aa92;border-radius:12px 10px 13px 9px;background:#fff5ee; }
-.scan-failure { display:grid;grid-template-columns:18px minmax(0,1fr);gap:8px;align-items:start;color:#715044; }
-.scan-failure + .scan-failure { margin-top:8px;padding-top:8px;border-top:1px solid #efd7cb; }
-.scan-failure > svg { margin-top:2px; }
-.scan-failure .chat-markdown { font-size:12px;line-height:1.45; }
-.scan-finish-button { min-height:36px;margin-top:18px;padding:5px 0;border:0;background:transparent;color:var(--muted);font:750 12px "Nunito Sans",sans-serif;text-align:left; }
-.scan-finish-button:hover { color:var(--ink); }
-.scan-resume-action { display:flex;align-items:center;gap:12px;margin-top:18px; }
-.scan-resume-action .button { display:inline-flex;align-items:center;gap:8px; }
-.scan-resume-action small { color:var(--muted);font-size:11px; }
-.scan-change-list h3 { font-size:13px;margin:0 0 14px; }
-.scan-report .scan-change { display:flex;align-items:center;gap:14px;margin:10px 0;padding:17px 16px;border:0;border-radius:14px 11px 16px 12px;background:var(--panel);box-shadow:2px 3px 0 rgb(59 52 44 / 7%); }
-.scan-report .scan-change:hover { background:#f8f0d9; }
-.scan-report .scan-change:active { transform:translateY(1px); }
-.scan-report .scan-change > .scan-change-symbol { display:grid;flex:none;place-items:center;width:40px;height:44px;border-radius:10px 8px 12px 7px;background:color-mix(in srgb,var(--mint) 52%,var(--panel));color:var(--ink); }
-.scan-report .scan-change > .scan-change-symbol.is-updated { background:color-mix(in srgb,var(--yellow) 40%,var(--panel)); }
-.scan-change-copy { display:grid;gap:5px;flex:1;min-width:0; }
-.scan-change-copy > strong { display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:15px; }
-.scan-change-copy > small { font-size:12px; }
-.scan-report .scan-change-tag { color:#58715b;font-size:10px;padding:2px 6px;border-radius:5px;background:#e9f0e3;font-weight:700; }
-.scan-change:has(.is-updated) .scan-change-tag { color:#886624;background:#f8edc6; }
-.scan-change-date { font-size:12px;color:var(--muted);max-width:230px;overflow-wrap:anywhere; }
-.scan-result-footer { display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:25px; }
-.scan-result-footer > span { color:var(--muted);font-size:12px; }
-.scan-result-footer > button { margin-left:auto; }
-.scan-text-button { display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:5px 0;border:0;background:transparent;color:var(--ink);font:700 13px "Nunito Sans",sans-serif; }
-.scan-text-button:hover { color:#84631f; }
-.scan-missing-source { display:flex;align-items:center;gap:10px;background:#fff0c2;border-radius:11px;padding:12px 16px;margin:0 0 24px;font-size:13px; }
-.scan-recovery-note { margin:-10px 0 24px;font-size:13px;color:var(--muted); }
-.scan-details-heading { margin:18px 0 24px; }
-.scan-details-heading h2 { font:600 24px/1.3 "Shantell Sans",cursive;margin:0 0 6px; }
-.scan-details-page h3 { font-size:14px;margin:24px 0 12px; }
-.scan-class-list { list-style:none;padding:0;display:grid;gap:14px; }
-.scan-class-list li { display:flex;gap:10px;align-items:center;font-size:13px; }
-.scan-class-list li > span:nth-child(2) { flex:1; }
-.scan-class-list small { color:var(--muted);font-size:12px; }
-.scan-class-mark { display:grid;place-items:center;width:23px;height:23px;border-radius:7px;background:#ede8dc;color:var(--muted); }
-.scan-class-mark.is-checked { color:#4d7854;background:#e1ecd9; }
-.scan-detail-note { background:var(--panel);padding:2px 16px 12px;margin-top:24px;border-radius:14px 10px 13px 11px; }
-.scan-detail-note h3 { margin-top:13px; }
-.scan-detail-note,.scan-detail-activity { color:var(--muted);font-size:13px;line-height:1.6; }
-.scan-detail-note > h3,.scan-detail-activity > h3 { color:var(--ink); }
-.scan-detail-note > .chat-markdown { margin-bottom:1em; }
-.scan-detail-activity > p,.scan-activity-entry { display:flex;gap:16px;margin:1em 0; }
-.scan-activity-entry > div { min-width:0;flex:1; }
-.scan-student-message { white-space:pre-wrap;overflow-wrap:anywhere;margin:0; }
-.scan-detail-activity time { flex:none;font-size:11px;padding-top:2px; }
-.scan-detail-activity > p > span { min-width:0;white-space:pre-wrap;overflow-wrap:anywhere; }
-.scan-count { display:block;margin-top:8px;color:var(--muted); }
-.scan-result-hero.is-first { min-height:170px; }
-.scan-browser-continue { display:inline-flex;align-items:center;gap:8px;margin-left:12px;font-size:12px; }
-@keyframes scan-dots { 0%,100% { opacity:.38;transform:translateX(-2px); } 50% { opacity:1;transform:translateX(1px); } }
-@media(max-width:900px){.scan-result-hero{align-items:flex-start;flex-wrap:wrap;gap:12px}.scan-result-copy{flex-basis:calc(100% - 98px)}.scan-hero-action{margin-left:98px}.scan-result-copy h2{font-size:22px}.scan-progress-row{grid-template-columns:25px minmax(0,1fr) auto;padding-inline:7px}.scan-course-row{padding-left:11px}}
-@media(max-width:760px){.scan-report .scan-change{gap:10px;padding:14px 12px}.scan-change-copy>strong{font-size:14px;gap:5px}.scan-change-date{font-size:11px;white-space:normal;max-width:96px}.scan-report .scan-change>.scan-change-symbol{width:33px;height:39px}.scan-result-footer{align-items:flex-start}.scan-report-date{margin-bottom:20px}.scan-class-list li{align-items:flex-start}.scan-result-hero>.character{width:70px!important;height:70px!important}.scan-result-copy{flex-basis:calc(100% - 82px)}.scan-hero-action{margin-left:82px}.scan-progress-copy strong{white-space:normal}.scan-resume-action{align-items:flex-start;flex-direction:column}}
-@media(prefers-reduced-motion:reduce){.scan-reading-dots{animation:none}}
-
-/* When assignment work owns the browser, keep this a single Dot state instead of stacking a second hero. */
-.school-check .scan-status { margin:0;padding:0;border:0;background:transparent;box-shadow:none; }
-.school-check .scan-status__copy { flex-basis:180px; }
-.school-check .scan-status__actions { align-items:flex-start;margin-left:80px; }
-.school-check .scan-status__copy > h2 { font-size:20px; }
-.school-check .scan-status__actions .button { justify-content:flex-start;min-height:34px;padding:5px 10px;font-size:11px; }
-/* "Back to assignment" after a one-assignment update sat on top of the next heading. */
-.scan-report > .button--paper { margin: 4px 0 20px; }
+/* The school state leads; evidence and scope stay underneath it. */
+.school-check.scan-report { padding: 4px 0 16px; color: var(--pencil); }
+.scan-state { display: grid; justify-items: start; gap: 16px; margin-bottom: 28px; }
+.scan-state h2 { margin: 0 0 8px; font: 600 25px/1.28 "Shantell Sans", cursive; text-wrap: balance; }
+.scan-state-description { margin: 0; font-size: 14px; line-height: 1.55; color: var(--graphite); text-wrap: pretty; overflow-wrap: anywhere; }
+.scan-state-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.school-page-unavailable { display: grid; place-content: center; justify-items: center; gap: 12px; height: 100%; padding: 32px; color: var(--graphite); text-align: center; background: var(--page); }
+.school-page-unavailable p { margin: 0; font-size: 14px; }
+.scan-schedule { display: flex; align-items: center; gap: 16px; padding: 16px 0; border-block: 1px solid var(--rule); }
+.scan-schedule p { flex: 1; margin: 0; font-size: 13px; line-height: 1.5; color: var(--graphite); text-wrap: pretty; }
+.scan-text-button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 0; border: 0; background: transparent; color: var(--pencil); font: 650 13px "Nunito Sans", sans-serif; cursor: pointer; transition: color 150ms, transform 150ms; }
+.scan-text-button:hover { color: var(--graphite); }
+.scan-text-button:focus-visible, .scan-where summary:focus-visible, .scan-change:focus-visible { outline: 2px solid var(--pencil); outline-offset: 4px; border-radius: 4px; }
+.scan-text-button:active, .scan-change:active { transform: scale(.96); }
+.school-check .scan-change-list { margin: 24px 0; }
+.school-check h3 { margin: 0 0 12px; font: 700 14px "Nunito Sans", sans-serif; text-transform: none; letter-spacing: 0; }
+.school-check .scan-change { display: flex; align-items: center; width: 100%; gap: 16px; margin: 0; padding: 12px 0 12px 12px; border: 0; border-bottom: 1px solid var(--rule); border-left: 3px solid var(--course-accent, var(--rule)); border-radius: 0; background: none; box-shadow: none; color: var(--pencil); text-align: left; cursor: pointer; transition: background-color 150ms, transform 150ms; }
+.school-check .scan-change:hover { background: var(--paper); }
+.scan-change-copy { display: grid; flex: 1; min-width: 0; gap: 4px; }
+.school-check .scan-change-copy strong { font: 700 15px/1.4 "Nunito Sans", sans-serif; overflow-wrap: anywhere; }
+.scan-change-copy small { font-size: 12px; line-height: 1.5; color: var(--graphite); text-wrap: pretty; }
+.scan-change-label { font-size: 13px; line-height: 1.5; }
+.scan-empty { margin: 0; color: var(--graphite); font-size: 14px; }
+.scan-where { border-bottom: 1px solid var(--rule); padding-bottom: 8px; }
+.scan-where summary { display: flex; align-items: center; gap: 12px; min-height: 40px; font-size: 14px; cursor: pointer; list-style: none; }
+.scan-where summary::-webkit-details-marker { display: none; }
+.scan-where summary span { margin-left: auto; font-size: 12px; color: var(--graphite); }
+.scan-where summary svg { transition: transform 150ms; }
+.scan-where[open] summary svg { transform: rotate(180deg); }
+.scan-where section { margin: 16px 0; }
+.scan-progress-row { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 8px 0; }
+.scan-progress-copy { display: grid; flex: 1; min-width: 0; gap: 4px; }
+.scan-progress-copy strong { font-size: 13px; }
+.scan-progress-copy small { font-size: 12px; line-height: 1.4; color: var(--graphite); text-wrap: pretty; }
+.scan-progress-mark { display: grid; place-items: center; width: 24px; color: var(--graphite); }
+.scan-result-footer { margin-top: 12px; }
+.scan-result-footer .scan-text-button { color: var(--graphite); }
+.scan-details-heading { margin: 16px 0 24px; }
+.scan-details-heading h2 { margin: 0 0 8px; font: 600 24px/1.3 "Shantell Sans", cursive; }
+.scan-details-heading time { font-size: 12px; color: var(--graphite); }
+.scan-details-page h3 { margin-top: 24px; }
+.scan-class-list { list-style: none; padding: 0; display: grid; gap: 12px; }
+.scan-class-list li { display: flex; align-items: baseline; gap: 8px; font-size: 13px; }
+.scan-class-list li > span:nth-child(2) { flex: 1; }
+.scan-class-list small { color: var(--graphite); }
+.scan-detail-note, .scan-detail-activity { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.scan-detail-activity time { font-size: 12px; color: var(--graphite); font-variant-numeric: tabular-nums; }
+.scan-activity-entry { margin: 16px 0; }
+.school-check .scan-status { margin: 0 0 24px; padding: 0; border: 0; background: none; box-shadow: none; }
+.school-check .scan-status__actions { margin-left: 0; }
+@media (prefers-reduced-motion: reduce) { .school-check button, .scan-where summary svg { transition: none; } .school-check button:active { transform: none; } }

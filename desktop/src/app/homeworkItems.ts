@@ -33,7 +33,7 @@ export function homeworkItems(
     const execution = lifecycle.execution?.assignmentId === assignment.assignmentId ? lifecycle.execution : task?.execution;
     const entry = lifecycle.manager.entries.find((item) => item.assignmentId === assignment.assignmentId);
     const record = homeworkRecord({ assignment, task: task?.task ?? null, execution: execution ?? null, mayAttempt: task?.permission.mayAttempt ?? false });
-    items.push({ assignment, task, record: entry && record.state === "not_started" ? { state: "scheduled" } : record, entry, due: assignmentDue(assignment) });
+    items.push({ assignment, task, record: entry && (record.state === "not_started" || record.state === "ready") ? { state: "scheduled" } : record, entry, due: assignmentDue(assignment) });
   }
   return items.sort((a, b) => (a.due ?? Infinity) - (b.due ?? Infinity) || a.assignment.title.localeCompare(b.assignment.title));
 }
@@ -45,8 +45,9 @@ export function homeworkLine(item: HomeworkItem, busy: boolean): string {
   const { record, entry } = item;
   switch (record.state) {
     case "not_started": return "Starts when you ask";
-    case "left_to_you": return "Left to you by your rule";
+    case "left_to_you": return "Starts when you ask";
     case "scheduled":
+      if (item.task?.execution?.reviewSubmissionRequestedAt) return "Hand-in next, when Dot is free";
       if (entry?.startRequestedAt) return busy ? "Next, when Dot is free" : "Starting now";
       if (entry?.scheduledStartAt) return `Dot starts ${time.format(new Date(entry.scheduledStartAt))}`;
       return busy ? "Dot starts after this one" : "Waiting its turn";
@@ -69,10 +70,12 @@ export type HomeworkAction = { readonly label: string; readonly start: boolean }
 export function homeworkAction(item: HomeworkItem, busy = false): HomeworkAction {
   const { record } = item;
   // While Dot has the page, starting means going next.
-  if (busy && ["not_started", "stopped"].includes(record.state)) return { label: "Do this next", start: true };
+  if (busy && ["not_started", "left_to_you", "stopped"].includes(record.state)) return { label: "Do this next", start: true };
   switch (record.state) {
-    case "not_started": return { label: "Start", start: true };
-    case "scheduled": return busy ? { label: "Open", start: false } : { label: "Start now", start: true };
+    case "not_started": case "left_to_you": return { label: "Start", start: true };
+    case "scheduled":
+      if (item.task?.execution?.reviewSubmissionRequestedAt) return { label: "Open", start: false };
+      return busy ? { label: "Open", start: false } : { label: "Start now", start: true };
     case "stopped": return { label: "Carry on", start: true };
     case "working": case "handing_in": return { label: "Watch", start: false };
     case "waiting": return { label: { sign_in: "Sign in", answer: "Answer", files: "Add file", browser: "Continue" }[record.needs ?? "browser"], start: false };

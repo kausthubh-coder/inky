@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 import { DEFAULT_AGENT_PROVIDER_ID, agentProviderName, agentRuntimeAttentionCopy, providerLoginActive, selectedProvider, type AgentRuntimeAttention, type ProviderLoginHandoff, type StudiWorkspaceState } from "../../shared/index.js";
 
 export type AppScreen = "week" | "settings" | "learn";
-export type SettingsLanding = "settings" | "usage" | "feedback" | "rules";
+export type SettingsLanding = "settings" | "usage" | "feedback" | "rules" | "school";
 
 // The bar holds only what the student uses: home, the two modes, the school check, an update when one is
 // ready, and settings. Notifications arrive from the OS; account, usage and feedback live in Settings.
