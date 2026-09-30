@@ -62,7 +62,7 @@ export class SchoolScanCoordinator {
   readonly #browser: BrowserController;
   readonly #browserWork: VisibleBrowserWork;
   readonly #readOnlyGuard: Pick<ScanReadOnlyGuard, "setScanActive" | "setAllowedHosts"> | undefined;
-  readonly #manager: Pick<ManagerCoordinator, "enqueue" | "resolvePermission" | "reconcileQueue" | "allowsAutomaticWork"> | null;
+  readonly #manager: Pick<ManagerCoordinator, "reconcileQueue"> | null;
   readonly #now: () => string;
   readonly #ownerSubject: string | undefined;
   readonly #onError: (error: unknown, scanId: string, toolName?: string) => void;
@@ -98,7 +98,7 @@ export class SchoolScanCoordinator {
       readonly ownerSubject?: string;
       readonly browserWork?: VisibleBrowserWork;
       readonly readOnlyGuard?: Pick<ScanReadOnlyGuard, "setScanActive" | "setAllowedHosts">;
-      readonly manager?: Pick<ManagerCoordinator, "enqueue" | "resolvePermission" | "reconcileQueue" | "allowsAutomaticWork">;
+      readonly manager?: Pick<ManagerCoordinator, "reconcileQueue">;
       readonly onError?: (error: unknown, scanId: string, toolName?: string) => void;
       readonly recordSyllabus?: (source: { courseId: string; title: string; text: string; sourceTarget: string }) => Promise<unknown>;
       /** Saves an exam (updating examId when given) and returns the class's saved exams. */
@@ -2084,12 +2084,9 @@ For login, request a school_sign_in handoff with the exact blocker; resume this 
 
   #ensureTaskOrigin(assignment: Assignment, scanId: string): void {
     if ((assignment.category ?? "work") !== "work") return;
-    const existing = this.#store.tasks.listAll().find((task) => task.assignmentId === assignment.assignmentId);
-    const task = existing ?? this.#createTaskOrigin(assignment, scanId);
+    if (!this.#store.tasks.listAll().some((task) => task.assignmentId === assignment.assignmentId)) this.#createTaskOrigin(assignment, scanId);
+    // The queue decides what Dot starts by itself, the same way for every new or changed assignment.
     this.#manager?.reconcileQueue();
-    if (!this.#manager || (task.state !== "discovered" && task.state !== "queued")) return;
-    const permission = this.#manager.resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (this.#manager.allowsAutomaticWork && permission.mayAttempt && assignmentWorkEligibility(assignment, this.#now()).eligible) this.#manager.enqueue({ taskId: task.taskId, requestOrigin: "automatic" });
   }
 
   #createTaskOrigin(assignment: Assignment, scanId: string) {

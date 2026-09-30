@@ -11,6 +11,7 @@ import { ManagerCoordinator } from "../../dist/electron/manager/coordinator.js";
 import { SchoolScanCoordinator } from "../../dist/electron/scan/coordinator.js";
 import { openLocalStore } from "../../dist/electron/storage/index.js";
 import { initializeHomeworkWorkspace } from "../../dist/electron/files/workspace.js";
+import { homeworkRecord } from "../../dist/shared/homework-state.js";
 
 const initialNow = "2026-09-01T12:00:00.000Z";
 
@@ -283,6 +284,13 @@ test("saved work carries on: a preserved run can be started again", async () => 
       now = "2026-09-01T12:03:00.000Z";
       await execution.reconcileDeadlines();
       assert.equal(store.tasks.get("task-again").state, "preserved");
+      manager.queueNext("task-again");
+      const record = () => homeworkRecord({ assignment: store.assignments.get("assignment-again"), task: store.tasks.get("task-again"), execution: store.lifecycle.getExecution("task-again"), mayAttempt: true }).state;
+      assert.equal(record(), "scheduled", "saved work waiting in the queue shows as waiting, not stopped");
+      execution.cancel("task-again");
+      assert.equal(manager.state().entries.length, 0, "Stop takes waiting work out of the queue");
+      assert.equal(store.lifecycle.getExecution("task-again").phase, "preserved", "taking it out of the queue leaves the saved run as it was");
+      assert.equal(record(), "stopped");
       manager.enqueue({ taskId: "task-again", retry: true });
       assert.equal((await execution.start("task-again")).phase, "ready_review", "Carry on runs Dot again");
     } finally { execution.dispose(); manager.dispose(); }
@@ -518,6 +526,58 @@ test("work that was running when Studi quit carries on by itself after a restart
       assert.match(store.lifecycle.getExecution("task-carry-on").lastError, /restarted/);
       await restored.carryOnAfterRestart();
       assert.equal(store.lifecycle.getExecution("task-carry-on").phase, "ready_review", "the same run finished without the student pressing anything");
+    } finally { first.dispose(); restored?.dispose(); manager.dispose(); }
+  });
+});
+
+test("while Dot waits on the student the page stays held and the queue waits, until the wait ends", async () => {
+  await withStore(async store => {
+    let now = initialNow;
+    seedTask(store, "wait", "2026-09-02T12:00:00.000Z");
+    seedTask(store, "after", "2026-09-03T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", now));
+    const ask = tools => invoke(tools, "assignment_tell_student", { message: "Which unit should I use?", needs: "answer" });
+    const manager = await ManagerCoordinator.create(store, new ScriptedRuntime([ask]), { now: () => now });
+    const execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => now });
+    try {
+      assert.equal((await execution.start("task-wait")).phase, "needs_user");
+      manager.queueNext("task-after");
+      await assert.rejects(execution.startNext(), /task-wait already owns/);
+      const waitUntil = store.lifecycle.getExecution("task-wait").handoffDeadline;
+      assert.equal(waitUntil, "2026-09-02T11:00:00.000Z", "a question waits until an hour before it's due, at most a day");
+      now = waitUntil;
+      await execution.reconcileDeadlines();
+      assert.equal(store.lifecycle.getExecution("task-wait").phase, "failed");
+      assert.equal(manager.state().lease, null, "the page is let go when the wait ends, so nothing deadlocks");
+      assert.deepEqual(manager.state().entries.map(entry => entry.taskId), ["task-after"]);
+    } finally { execution.dispose(); manager.dispose(); }
+  });
+});
+
+test("a restart after an earlier hand-off still carries on instead of expiring on the old deadline", async () => {
+  await withStore(async store => {
+    let now = initialNow;
+    seedTask(store, "old-deadline", "2026-09-02T12:00:00.000Z");
+    store.permissionRules.put(rule("attempt", "attempt", now));
+    const takeOver = tools => invoke(tools, "assignment_tell_student", { message: "Open the lab page for me.", needs: "browser" });
+    const review = tools => invoke(tools, "assignment_start_review", { answers: "x = 4", completedRequirements: [{ requirement: "Solve", evidence: "The answer is filled in" }], summary: "Ready" });
+    const runtime = new ScriptedRuntime([takeOver, review]);
+    const manager = await ManagerCoordinator.create(store, runtime, { now: () => now });
+    const first = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser(), { now: () => now, handoffWindowMs: 60_000 });
+    let restored;
+    try {
+      assert.equal((await first.start("task-old-deadline")).phase, "needs_user");
+      // The student lets Dot carry on; Dot is mid-work when Studi quits, long after the first hand-off's deadline.
+      manager.resumePaused("task-old-deadline", "test: back to work");
+      store.lifecycle.putExecution({ ...store.lifecycle.getExecution("task-old-deadline"), phase: "working", needs: undefined });
+      first.dispose();
+      now = "2026-09-01T12:30:00.000Z";
+      restored = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser("about:blank"), { now: () => now, handoffWindowMs: 60_000 });
+      const held = store.lifecycle.getExecution("task-old-deadline");
+      assert.equal(held.phase, "needs_user");
+      assert.equal(held.handoffDeadline, "2026-09-01T12:31:00.000Z", "the restart hand-off waits the usual window from now");
+      await restored.carryOnAfterRestart();
+      assert.equal(store.lifecycle.getExecution("task-old-deadline").phase, "ready_review");
     } finally { first.dispose(); restored?.dispose(); manager.dispose(); }
   });
 });
@@ -795,6 +855,11 @@ test("restart during review preserves answers and hands off without claiming the
     assert.equal(manager.state().lease.taskId, "task-review-restart", "the student handoff keeps ownership of the task");
     const artifact = await store.artifacts.read("answer", recovered.answerArtifactId);
     assert.match(artifact.content, /Restart-safe answer: 42/);
+    assert.ok(recovered.handoffDeadline, "the restart hand-off has a deadline, so the page and the queue are not held forever");
+    execution.dispose();
+    execution = await AssignmentExecutionCoordinator.create(store, manager, new FakeBrowser("about:blank"), { now: () => "2026-09-01T13:00:00.000Z" });
+    assert.equal(store.lifecycle.getExecution("task-review-restart").phase, "preserved");
+    assert.equal(manager.state().lease, null, "after the window the saved answers stay and the page is let go");
     execution.dispose();
     manager.dispose();
     store.close();

@@ -18,6 +18,7 @@ import {
   LIFECYCLE_ACTIVATED_CHANNEL,
   PLAY_NOTIFICATION_SOUND_CHANNEL,
   STUDI_SCHEMA_VERSION,
+  isLivePhase,
   resolveNotificationSound,
   shouldShowNotificationBanner,
   type AutomationSchedule,
@@ -65,6 +66,7 @@ export class AppKernel {
   #updating = false;
   #closeInterceptions = 0;
   #openRequests = 0;
+  #stopWatchingRuns: (() => void) | null = null;
 
   constructor(
     store: LocalStore,
@@ -95,6 +97,10 @@ export class AppKernel {
   async start(): Promise<void> {
     this.#assertUsable();
     this.#manager.setSchedulingEnabled(Boolean(this.#runScheduledAssignment));
+    // When a run lets go of the page, however it ended, whatever waits next starts now rather than at the next check.
+    this.#stopWatchingRuns = this.#store.lifecycle.onExecutionChange((previous, next) => {
+      if (isLivePhase(previous?.phase) && !isLivePhase(next.phase)) this.requestReconcile();
+    });
     this.#window.on("close", this.#hideOnClose);
     app.on("before-quit", this.#beforeQuit);
     powerMonitor.on("resume", this.#resume);
@@ -324,6 +330,7 @@ export class AppKernel {
     if (this.#requestTimer) clearTimeout(this.#requestTimer);
     this.#requestTimer = null;
     this.#timer = null;
+    this.#stopWatchingRuns?.();
     powerMonitor.removeListener("resume", this.#resume);
     app.removeListener("before-quit", this.#beforeQuit);
     this.#window.removeListener("close", this.#hideOnClose);

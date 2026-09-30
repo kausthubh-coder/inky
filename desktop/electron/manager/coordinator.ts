@@ -9,6 +9,8 @@ import {
   resolvePermission,
   assignmentWorkEligibility,
   AssignmentKindSchema,
+  isLivePhase,
+  TASK_TRANSITIONS,
   transitionTask,
   type AgentRunEvent,
   type BrowserWorkerLease,
@@ -61,6 +63,8 @@ export type WorkerTurnResult = {
   readonly reason?: string;
 };
 const DEFAULT_WATCHDOG = { idleMs: 5 * 60_000, totalMs: 45 * 60_000 };
+const LEFT_TO_YOU = "Your rules leave this one to you, so Dot won't start it.";
+const LIVE_TASK_STATES: readonly TaskState[] = ["working", "needs_user", "ready_review", "submitting"];
 
 export class ManagerCoordinator {
   readonly #store: LocalStore;
@@ -152,12 +156,10 @@ export class ManagerCoordinator {
     if (task.state !== "discovered" && task.state !== "queued" && !retrying) {
       throw new Error(`Task ${task.taskId} cannot be queued from ${task.state}`);
     }
-    const permission = this.#resolvePermission(assignment.assignmentId, assignment.courseId);
-    if (!permission.mayAttempt) {
-      throw new Error(`Task ${task.taskId} is blocked by stored permission rules`);
-    }
     const eligibility = assignmentWorkEligibility(assignment, this.#now());
     if (!eligibility.eligible) throw new Error(eligibility.reason);
+    const permission = this.#resolvePermission(assignment.assignmentId, assignment.courseId);
+    if (!permission.mayAttempt) throw new Error(this.#leftToYou(assignment.assignmentId, assignment.courseId));
     if (task.state === "discovered" || retrying) {
       this.#transition(task.taskId, "queued", retrying ? "Retried at the student’s request" : "Queued by the Studi manager", `manager-${randomUUID()}`);
     }
@@ -233,9 +235,9 @@ export class ManagerCoordinator {
   ignoreAssignment(assignmentId: string, reason: string): void {
     this.#store.database.transaction(() => {
       const tasks = this.#store.tasks.listAll().filter(task => task.assignmentId === assignmentId);
-      if (tasks.some(task => !["discovered", "queued", "failed", "cancelled", "ignored"].includes(task.state))) throw new Error("Stop the current work before marking this assignment done or not homework.");
+      if (tasks.some(task => LIVE_TASK_STATES.includes(task.state))) throw new Error("Stop the current work before marking this assignment done or not homework.");
       for (const task of tasks) {
-        if (task.state !== "ignored") this.#transition(task.taskId, "ignored", reason, `student-${randomUUID()}`);
+        if ((TASK_TRANSITIONS[task.state] as readonly TaskState[]).includes("ignored")) this.#transition(task.taskId, "ignored", reason, `student-${randomUUID()}`);
         this.#store.manager.removeQueueEntry(task.taskId);
       }
     });
@@ -259,8 +261,9 @@ export class ManagerCoordinator {
       throw new Error(`Task ${taskId} cannot be cancelled from ${task.state}`);
     }
     this.#transition(taskId, "cancelled", "Cancelled by the Studi manager", `manager-${randomUUID()}`);
+    // Taking waiting work out of the queue leaves its last run (saved answers, run note) as it was.
     const execution = this.#store.lifecycle.getExecution(taskId);
-    if (execution) this.#store.lifecycle.putExecution({
+    if (execution && isLivePhase(execution.phase)) this.#store.lifecycle.putExecution({
       ...execution, phase: "failed", lastError: "Cancelled by the student.",
       reviewDeadline: undefined, handoffDeadline: undefined, updatedAt: this.#now(),
     });
@@ -322,10 +325,9 @@ export class ManagerCoordinator {
     if (!this.#store.manager.getQueueEntry(taskId)) this.enqueue({ taskId, retry: true, requestOrigin: "student" });
     const entry = this.#store.manager.getQueueEntry(taskId);
     if (!entry) throw new Error(`Task ${taskId} is not in the manager queue`);
+    const blocker = this.#startBlocker(entry);
     const permittedEntry = this.#refreshStartPermission(entry);
-    if (!permittedEntry) {
-      throw new Error(`Task ${taskId} is blocked by stored permission rules`);
-    }
+    if (!permittedEntry) throw new Error(blocker ?? "This homework can't start right now.");
     return this.#startEntry(permittedEntry, assignmentTools, resumeSessionPath);
   }
 
@@ -506,8 +508,7 @@ export class ManagerCoordinator {
       rationale: assignment.ignoredReason ? "You marked this assignment as done or not homework." : "You chose to do this assignment yourself.",
     };
     courseId = this.#store.school.resolveCourseId(courseId);
-    const conflict = this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId))
-      ?? this.#store.courseConflicts.find(item => item.courseIds.includes(courseId));
+    const conflict = this.#conflict(assignmentId, courseId);
     if (conflict) return {
       mode: "do_not_attempt" as const, mayAttempt: false, maySubmit: false,
       matchedRuleId: null, rationale: conflict.reason,
@@ -529,6 +530,17 @@ export class ManagerCoordinator {
     }, baseline);
   }
 
+  #conflict(assignmentId: string, courseId: string) {
+    courseId = this.#store.school.resolveCourseId(courseId);
+    return this.#store.assignmentConflicts.find(item => item.assignmentIds.includes(assignmentId))
+      ?? this.#store.courseConflicts.find(item => item.courseIds.includes(courseId));
+  }
+
+  /** Why Dot may not attempt this, in the student's words: copies that need review say so; otherwise the rules leave it. */
+  #leftToYou(assignmentId: string, courseId: string): string {
+    return this.#conflict(assignmentId, courseId)?.reason ?? LEFT_TO_YOU;
+  }
+
   resolvePermission(assignmentId: string, courseId: string) {
     this.#assertUsable();
     return this.#resolvePermission(assignmentId, courseId);
@@ -540,7 +552,7 @@ export class ManagerCoordinator {
     for (const entry of this.#store.manager.listQueue()) {
       if (this.#store.tasks.get(entry.taskId)?.state === "queued") this.#refreshStartPermission(entry);
     }
-    if (this.#schedulingEnabled && this.allowsAutomaticWork && this.#store.lifecycle.getSchedule()?.state !== "paused") {
+    if (this.#automationActive()) {
       for (const task of this.#store.tasks.listByState("discovered")) {
         const assignment = this.#store.assignments.get(task.assignmentId);
         if (!assignment || !this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt || !assignmentWorkEligibility(assignment, this.#now()).eligible) continue;
@@ -554,12 +566,18 @@ export class ManagerCoordinator {
     this.reconcileQueue();
   }
 
+  #automationActive(): boolean {
+    return this.#schedulingEnabled && this.allowsAutomaticWork && this.#store.lifecycle.getSchedule()?.state !== "paused";
+  }
+
   #plannedStart(assignment: NonNullable<ReturnType<LocalStore["assignments"]["get"]>>, enqueuedAt: string): string | undefined {
-    const schedule = this.#store.lifecycle.getSchedule();
-    if (!this.#schedulingEnabled || !this.allowsAutomaticWork || schedule?.state === "paused") return undefined;
+    if (!this.#automationActive()) return undefined;
     // Both "do it" rules may start by themselves; handing in is checked separately, at submit time.
     if (!this.#resolvePermission(assignment.assignmentId, assignment.courseId).mayAttempt) return undefined;
-    return plannedAssignmentStart(assignment, enqueuedAt, schedule?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
+    const timezone = this.#store.lifecycle.getSchedule()?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const start = plannedAssignmentStart(assignment, enqueuedAt, timezone);
+    // A start time that has passed (Dot was busy, Studi was closed) holds only while Dot could still start before the cutoff.
+    return start && (start > this.#now() || plannedAssignmentStart(assignment, this.#now(), timezone)) ? start : undefined;
   }
 
   setWorkStartMode(mode: "manual" | "automatic"): void {
@@ -569,22 +587,30 @@ export class ManagerCoordinator {
 
   get allowsAutomaticWork(): boolean { return this.#workStartMode === "automatic"; }
 
-  #refreshStartPermission(entry: ManagerQueueEntry): ManagerQueueEntry | null {
-    const permission = this.#resolvePermission(entry.assignmentId, entry.courseId);
+  /** Why a waiting entry may not start, in the student's words, or null when it may. */
+  #startBlocker(entry: ManagerQueueEntry): string | null {
     const assignment = this.#store.assignments.get(entry.assignmentId);
-    const eligibility = assignment ? assignmentWorkEligibility(assignment, this.#now()) : { eligible: false, reason: "Assignment no longer exists." };
-    const manual = entry.requestOrigin !== "student" && !this.allowsAutomaticWork;
-    if (!permission.mayAttempt || !eligibility.eligible || manual) {
-      this.#transition(
-        entry.taskId,
-        "discovered",
-        manual ? "Dot starts homework only when you ask." : permission.mayAttempt ? eligibility.reason : "Stored permission no longer allows an attempt",
-        `manager-${randomUUID()}`,
-      );
+    if (!assignment) return "This assignment is no longer available.";
+    const eligibility = assignmentWorkEligibility(assignment, this.#now());
+    if (!eligibility.eligible) return eligibility.reason;
+    if (!this.#resolvePermission(entry.assignmentId, entry.courseId).mayAttempt) return this.#leftToYou(entry.assignmentId, entry.courseId);
+    if (entry.requestOrigin === "student") return null;
+    if (!this.allowsAutomaticWork) return "Dot starts homework only when you ask.";
+    // Work Dot queued by itself stays queued only while it has a time to start by itself.
+    if (this.#automationActive() && !this.#plannedStart(assignment, entry.enqueuedAt)) return "Dot has no time left to start this by itself. Start it when you want.";
+    return null;
+  }
+
+  #refreshStartPermission(entry: ManagerQueueEntry): ManagerQueueEntry | null {
+    const blocker = this.#startBlocker(entry);
+    if (blocker) {
+      this.#transition(entry.taskId, "discovered", blocker, `manager-${randomUUID()}`);
       this.#store.manager.removeQueueEntry(entry.taskId);
       return null;
     }
-    const next = { ...entry, permission, dueAt: assignment?.dueAt, scheduledStartAt: assignment ? this.#plannedStart(assignment, entry.enqueuedAt) : undefined };
+    const assignment = this.#store.assignments.get(entry.assignmentId)!;
+    const permission = this.#resolvePermission(entry.assignmentId, entry.courseId);
+    const next = { ...entry, permission, dueAt: assignment.dueAt, scheduledStartAt: this.#plannedStart(assignment, entry.enqueuedAt) };
     return JSON.stringify(next) === JSON.stringify(entry) ? entry : this.#store.manager.putQueueEntry(next);
   }
 

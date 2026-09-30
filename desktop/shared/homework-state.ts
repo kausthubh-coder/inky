@@ -7,7 +7,7 @@ import type { Task } from "./task.js";
 export type HomeworkState =
   | "not_started" // Dot may do it; nobody has started.
   | "left_to_you" // The rule leaves it to the student.
-  | "scheduled" // Queued to start by itself.
+  | "scheduled" // Waiting in the queue: next, or at its planned time.
   | "working"
   | "waiting" // Dot needs the student: see `needs`.
   | "ready" // Done; the student checks it.
@@ -34,6 +34,8 @@ export function homeworkRecord(input: {
   const { assignment, task, execution, mayAttempt } = input;
   if (assignment.ignoredReason || task?.state === "ignored") return { state: "ignored" };
   if (assignment.owner === "student") return { state: "yours" };
+  // Waiting in the queue is the news, even when an earlier run left saved work.
+  if (task?.state === "queued") return { state: "scheduled" };
   switch (execution?.phase) {
     case "working": return { state: "working" };
     case "needs_user": return { state: "waiting", needs: execution.needs ?? "browser", ...(execution.lastError ? { reason: execution.lastError } : {}) };
@@ -47,7 +49,6 @@ export function homeworkRecord(input: {
   }
   const atSchool = assignment.schoolStatus?.state;
   if (atSchool === "submitted" || atSchool === "graded") return { state: "handed_in_at_school" };
-  if (task?.state === "queued") return { state: "scheduled" };
   if (task?.state === "cancelled") return { state: "stopped" };
   return { state: mayAttempt ? "not_started" : "left_to_you" };
 }

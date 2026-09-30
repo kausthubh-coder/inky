@@ -228,6 +228,8 @@ export class AssignmentExecutionCoordinator {
       const working = this.#store.lifecycle.putExecution({
         ...execution,
         phase: "working",
+        needs: undefined,
+        handoffDeadline: undefined,
         lastError: undefined,
         turnCount: 0,
         attemptCount: 0,
@@ -275,12 +277,13 @@ export class AssignmentExecutionCoordinator {
     return waiting;
   }
 
-  cancel(taskId: string): AssignmentExecution {
+  /** Stops running work, or takes waiting work out of the queue. */
+  cancel(taskId: string): AssignmentExecution | null {
     this.#assertUsable();
-    const execution = this.#requiredExecution(taskId);
-    if (!["working", "needs_user", "ready_review"].includes(execution.phase)) throw new Error(`Task ${taskId} cannot be cancelled from ${execution.phase}`);
+    const execution = this.#store.lifecycle.getExecution(taskId);
+    if (execution) this.#assertExecutionOwner(execution);
     this.#manager.cancel(taskId);
-    return this.#requiredExecution(taskId);
+    return this.#store.lifecycle.getExecution(taskId);
   }
 
   /**
@@ -366,6 +369,7 @@ export class AssignmentExecutionCoordinator {
         ...execution,
         phase: "working",
         needs: undefined,
+        handoffDeadline: undefined,
         lastError: undefined,
         updatedAt: this.#now(),
       });
@@ -994,6 +998,7 @@ export class AssignmentExecutionCoordinator {
       return;
     }
     await this.#manager.restoreAssignmentWorker((assignmentId) => this.#assignmentSessionPlan(assignmentId));
+    // Every restart hand-off waits the usual window, so the page (and the queue behind it) is never held forever or by an old deadline.
     if (execution.phase === "ready_review") {
       const releaseAt = execution.handoffDeadline ?? execution.reviewDeadline;
       if (releaseAt && releaseAt <= this.#now()) {
@@ -1006,7 +1011,7 @@ export class AssignmentExecutionCoordinator {
         ...execution,
         phase: "needs_user",
         reviewDeadline: undefined,
-        handoffDeadline: undefined,
+        handoffDeadline: this.#waitUntil(execution),
         answerArtifactId: artifactId,
         lastError: reason,
         returnPredicate: "The student has reopened the assignment, restored the saved answers, and asked Studi to continue.",
@@ -1018,14 +1023,14 @@ export class AssignmentExecutionCoordinator {
     }
     if (execution.phase === "submitting") {
       const reason = "Studi restarted after a submission effect began; the result requires student verification and will not be repeated.";
-      this.#store.lifecycle.putExecution({ ...execution, phase: "needs_user", lastError: reason, returnPredicate: "The student has inspected the visible browser and asked Studi to resume.", updatedAt: this.#now() });
+      this.#store.lifecycle.putExecution({ ...execution, phase: "needs_user", lastError: reason, returnPredicate: "The student has inspected the visible browser and asked Studi to resume.", handoffDeadline: this.#waitUntil(execution), updatedAt: this.#now() });
       this.#manager.pause(execution.taskId, "needs_user", reason);
       await this.#notify({ kind: "handoff", target: { type: "task", id: execution.taskId }, title: "Assignment paused after restart", body: reason });
     }
     if (execution.phase === "working") {
       // Held for a moment: carryOnAfterRestart resumes it once the model is ready. If it can't, the student sees this.
       const reason = "Studi restarted during this work. Press Carry on and I'll pick up where I was.";
-      this.#store.lifecycle.putExecution({ ...execution, phase: "needs_user", lastError: reason, returnPredicate: "Studi restarted during the work; the page was reloaded.", updatedAt: this.#now() });
+      this.#store.lifecycle.putExecution({ ...execution, phase: "needs_user", needs: undefined, lastError: reason, returnPredicate: "Studi restarted during the work; the page was reloaded.", handoffDeadline: this.#waitUntil(execution), updatedAt: this.#now() });
       this.#manager.pause(execution.taskId, "needs_user", reason);
       this.#restarted = execution.taskId;
     }

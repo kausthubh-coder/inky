@@ -17,6 +17,7 @@ test("the run's phase decides the state, and a cancelled run is stopped, not stu
 test("without a run: the school's own status, then the queue, then the rule", () => {
   assert.equal(homeworkRecord({ assignment: { schoolStatus: { state: "graded" } }, mayAttempt: true }).state, "handed_in_at_school");
   assert.equal(state({ task: { state: "queued" } }), "scheduled");
+  assert.equal(state({ task: { state: "queued" }, execution: { phase: "preserved" } }), "scheduled", "saved work waiting to go again shows as waiting");
   assert.equal(state({ task: { state: "discovered" } }), "not_started");
   assert.equal(homeworkRecord({ assignment, task: { state: "discovered" }, mayAttempt: false }).state, "left_to_you");
 });
