@@ -88,7 +88,7 @@ test("real tool definitions wait for student actions, persist results, and expos
     }
     await until(() => coordinator.state(started.sessionId).status === "completed");
     assert.equal(coordinator.state(started.sessionId).result.level, 3);
-    assert.equal(runtime.creations[0].tools.length, 9);
+    assert.equal(runtime.creations[0].tools.length, 12);
     assert.equal(repo.session(started.sessionId).blocks[0].phase, "check");
     for (const topic of returning) {
       const record = repo.mastery().find(item => item.topicId === topic.topicId);
@@ -145,10 +145,14 @@ test("fake learning sessions preserve the bounded tools, resume target and event
   await assert.rejects(runtime.createLearningSession([tools[0], tools[0]], TUTOR_SYSTEM_PROMPT), /unique/);
 });
 
-test("a question mid-block interrupts the pending tool, preserves the block and resumes without duplicates", async () => setup(async repo => {
+test("a chat reply mid-question preserves the question and cannot reply twice", async () => setup(async repo => {
   const args = { question: "6*7?", accept: ["42"], hints: [] };
   const runtime = new ControlledRuntime(async ({ tools, signal }) => {
-    if (runtime.creations.length > 1) await call(tools, "tutor_say", { text: "Think of six groups of seven." }, signal);
+    if (runtime.creations.length > 1) {
+      const reply = await call(tools, "tutor_reply", { text: "Think of six groups of seven." }, signal);
+      assert.ok(reply.details.blockId);
+      await assert.rejects(call(tools, "tutor_reply", { text: "Again." }, signal, "second-reply"), /Nothing to reply to/);
+    }
     await call(tools, "tutor_ask_typed", args, signal);
   });
   const coordinator = new TutorCoordinator(repo, runtime);
@@ -161,6 +165,10 @@ test("a question mid-block interrupts the pending tool, preserves the block and 
     await until(() => runtime.creations.length === 2 && coordinator.state(started.sessionId).blocks.length === 2);
     assert.equal(coordinator.state(started.sessionId).blocks[0].blockId, block.blockId);
     assert.equal(coordinator.state(started.sessionId).blocks[0].draft, "4");
+    assert.equal(coordinator.state(started.sessionId).blocks[0].status, "open");
+    assert.equal(coordinator.state(started.sessionId).blocks[1].replyTo, "question-1");
+    assert.equal(coordinator.state(started.sessionId).blocks[1].status, "complete");
+    assert.deepEqual(coordinator.state(started.sessionId).messages.map(message => [message.messageId, message.text]), [["question-1", "What does multiplication mean?"]]);
     coordinator.answerBlock(started.sessionId, block.blockId, { kind: "typed", answer: "42" });
     await until(() => coordinator.state(started.sessionId).status === "paused");
     assert.equal(repo.mastery().length, 0);

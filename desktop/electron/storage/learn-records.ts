@@ -5,7 +5,7 @@ import { IsoTimestampSchema } from "../../shared/schema-version.js";
 import { ExamSchema, LearnExamInputSchema, LearnExtractionSchema, LearnSourceInputSchema, LearnSourceSchema, LearnTopicSchema, TopicMasterySchema, TopicMasterySummarySchema, planLearn, sameExam,
   nextReview, localDay, type Exam, type LearnExtraction, type LearnSource, type LearnTopic, type MasteryEvidence, type TopicMastery } from "../../shared/learn.js";
 import { EVIDENCE_PHASES, TUTOR_PHASES, TutorBlockAnswerSchema, TutorBlockSchema, TutorCallSchema, TutorFinishInputSchema, TutorMessageSchema, TutorSessionSchema, TutorSessionSummarySchema,
-  TutorGradeInputSchema, normalizeTutorAnswer, typedAnswerMatches, tutorTimeLeft, tutorExpiryTimeLeft, TUTOR_TIME_UP, type TutorBlock, type TutorPhase, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
+  TutorGradeInputSchema, TutorUpdateInputSchema, TutorEraseInputSchema, normalizeTutorAnswer, typedAnswerMatches, tutorTimeLeft, tutorExpiryTimeLeft, TUTOR_TIME_UP, type TutorBlock, type TutorPhase, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
 import type { StudiSqliteDatabase } from "./database.js";
 
 type Table = "learn_sources" | "learn_exams" | "learn_topics" | "learn_mastery" | "learn_sessions";
@@ -14,6 +14,9 @@ const id = (prefix: string) => `${prefix}-${randomUUID()}`;
 const hash = (text: string) => createHash("sha256").update(text).digest("hex");
 const stableId = (prefix: string, sourceId: string, key: string) => `${prefix}-${hash(`${sourceId}:${key}`).slice(0, 32)}`;
 const normalizeQuote = (value: string) => value.normalize("NFKC").replace(/\s+/g, " ").trim();
+const isVisual = (block: TutorBlock): block is Extract<TutorBlock, { tool: "tutor_show_model" | "tutor_show_page" }> => block.tool === "tutor_show_model" || block.tool === "tutor_show_page";
+const clearVisuals = (blocks: TutorBlock[], now: string) => blocks.map(block => isVisual(block) && !block.erasedAt ? { ...block, erasedAt: now } : block);
+const isQuestion = (block: TutorBlock): block is Extract<TutorBlock, { tool: "tutor_ask_choice" | "tutor_ask_typed" | "tutor_ask_explain" }> => ["tutor_ask_choice", "tutor_ask_typed", "tutor_ask_explain"].includes(block.tool);
 
 /** Every read and write is scoped to the authenticated subject fixed at construction. */
 export class LearnRepository {
@@ -311,35 +314,85 @@ export class LearnRepository {
   openBlock(sessionId: string, toolCallId: string, value: unknown): TutorBlock {
     const call = TutorCallSchema.parse(value);
     if (call.tool === "tutor_finish") return this.finish(sessionId, toolCallId, call.args).blocks.at(-1)!;
-    if (call.tool === "tutor_advance" || call.tool === "tutor_grade") throw new Error("Advance and grade are not blocks");
+    if (call.tool === "tutor_advance" || call.tool === "tutor_grade" || call.tool === "tutor_update" || call.tool === "tutor_erase") throw new Error("Advance, grade, update and erase are not blocks");
     return this.database.transaction(() => {
       const session = this.#active(sessionId);
       if (tutorTimeLeft(session, this.now()) <= 0) throw new Error(TUTOR_TIME_UP);
-      if (call.tool !== "tutor_say") this.#requireMarked(session);
+      if (call.tool !== "tutor_say" && call.tool !== "tutor_reply") this.#requireMarked(session);
       if ("topicId" in call.args && call.args.topicId && !session.topicIds.includes(call.args.topicId)) throw new Error("Question topic is outside this session");
       if (session.mode === "mock_exam" && ["tutor_ask_choice", "tutor_ask_typed", "tutor_ask_explain"].includes(call.tool) && (!("topicId" in call.args) || !call.args.topicId)) throw new Error("Mock exam questions must name their topicId");
-      if (call.tool === "tutor_show_model") {
-        const model = call.args;
-        if (model.model === "population_grid" && model.params.sampleSize > model.params.population) throw new Error("Sample cannot exceed the population");
-        if (model.model === "number_line" && (model.params.min >= model.params.max || model.params.points.some(point => point < model.params.min || point > model.params.max))) throw new Error("Number line bounds must contain all points");
-        if (model.model === "function_plot" && model.params.xMin >= model.params.xMax) throw new Error("Function plot needs increasing bounds");
-      }
       const replay = session.blocks.find(block => block.toolCallId === toolCallId);
       if (replay) {
         if (JSON.stringify({ tool: replay.tool, args: replay.args }) !== JSON.stringify(call)) throw new Error("Tool call ID was reused with different contents");
         return replay;
       }
+      if (call.tool === "tutor_show_model" || call.tool === "tutor_show_page") this.#validateVisual(session, call.args);
       if (session.blocks.length >= 119) throw new Error("Tutor block budget reached; finish the session");
       const open = session.blocks.some(block => block.status === "open");
-      if (open && call.tool !== "tutor_say") throw new Error("Answer the open block before creating another");
-      if (call.tool === "tutor_say" && session.blocks.length >= 2 && session.blocks.slice(-2).every(block => block.tool === "tutor_say")) {
+      const nonWaiting = call.tool === "tutor_say" || call.tool === "tutor_reply" || ((call.tool === "tutor_show_model" || call.tool === "tutor_show_page") && call.args.wait === false);
+      if (open && !nonWaiting) throw new Error("Answer the open block before creating another");
+      const question = [...session.blocks].reverse().find(isQuestion);
+      if (question?.status === "answered" && question.result?.correct === false && JSON.stringify({ tool: question.tool, args: question.args }) === JSON.stringify(call)) {
+        const attempts = question.attempts.length ? question.attempts : [question.result];
+        if (attempts.length >= 3) throw new Error("This question has had three tries. Ask a different question.");
+        const now = this.now(), retry = TutorBlockSchema.parse({ ...question, status: "open", attempts, draft: "", answeredAt: null, updatedAt: now,
+          elapsedAtCreation: session.budgetSeconds - tutorTimeLeft(session, now) });
+        this.#saveSession({ ...session, blocks: session.blocks.map(block => block.blockId === retry.blockId ? retry : block), updatedAt: now, newestBlockId: retry.blockId, consecutiveNotes: 0 });
+        return retry;
+      }
+      const boardBlocks = session.blocks.filter(block => block.tool !== "tutor_reply");
+      const consecutiveNotes = session.consecutiveNotes ?? (boardBlocks.at(-1)?.tool !== "tutor_say" ? 0 : boardBlocks.at(-2)?.tool === "tutor_say" ? 2 : 1);
+      if (call.tool === "tutor_say" && consecutiveNotes >= 2) {
         throw new Error("That's three messages in a row. Give the student something to do: ask a question or show a model.");
       }
       const now = this.now();
+      const replyTo = call.tool === "tutor_reply" ? [...session.messages].reverse().find(message => !session.blocks.some(block => block.tool === "tutor_reply" && block.replyTo === message.messageId))?.messageId : undefined;
+      if (call.tool === "tutor_reply" && !replyTo) throw new Error("Nothing to reply to. Write on the board with tutor_say.");
       const block = TutorBlockSchema.parse({ ...call, phase: session.phase, blockId: id("block"), toolCallId, sequence: session.blocks.length,
-        status: call.tool === "tutor_say" ? "complete" : "open", createdAt: now, elapsedAtCreation: session.budgetSeconds - tutorTimeLeft(session, now), answeredAt: null, result: null, hintsUsed: 0, draft: "" });
-      this.#saveSession({ ...session, blocks: [...session.blocks, block], updatedAt: now });
+        ...(replyTo ? { replyTo } : {}), status: nonWaiting ? "complete" : "open", createdAt: now, elapsedAtCreation: session.budgetSeconds - tutorTimeLeft(session, now), answeredAt: null, result: null, hintsUsed: 0, draft: "" });
+      this.#saveSession({ ...session, blocks: [...session.blocks, block], updatedAt: now, newestBlockId: call.tool === "tutor_reply" ? session.newestBlockId : block.blockId,
+        consecutiveNotes: call.tool === "tutor_reply" ? consecutiveNotes : call.tool === "tutor_say" ? consecutiveNotes + 1 : 0 });
       return block;
+    });
+  }
+  #validateVisual(session: TutorSession, args: Extract<TutorBlock, { tool: "tutor_show_model" | "tutor_show_page" }>["args"], current?: TutorBlock): void {
+    if (args.topicId && !session.topicIds.includes(args.topicId)) throw new Error("Visual topic is outside this session");
+    if ("model" in args) {
+      if (args.model === "population_grid" && args.params.sampleSize > args.params.population) throw new Error("Sample cannot exceed the population");
+      if (args.model === "number_line" && (args.params.min >= args.params.max || args.params.points.some(point => point < args.params.min || point > args.params.max))) throw new Error("Number line bounds must contain all points");
+      if (args.model === "function_plot" && args.params.xMin >= args.params.xMax) throw new Error("Function plot needs increasing bounds");
+    }
+    const up = session.blocks.filter(block => isVisual(block) && !block.erasedAt && block.blockId !== current?.blockId);
+    if (args.under) {
+      const parent = up.find(block => block.blockId === args.under);
+      if (!parent || !isVisual(parent) || parent.args.under) throw new Error("Put this under a top-level visual that is up");
+      if (current && up.some(block => isVisual(block) && block.args.under === current.blockId)) throw new Error("A visual with children must stay top-level");
+    }
+    if (up.filter(block => isVisual(block) && block.args.under === args.under).length >= 2) throw new Error("The board is full. Erase or replace something first.");
+  }
+  update(sessionId: string, value: unknown): TutorBlock {
+    const input = TutorUpdateInputSchema.parse(value);
+    return this.database.transaction(() => {
+      const session = this.#active(sessionId), block = session.blocks.find(item => item.blockId === input.id);
+      if (tutorTimeLeft(session, this.now()) <= 0) throw new Error(TUTOR_TIME_UP);
+      if (!block || !isVisual(block) || block.erasedAt) throw new Error("Update a visual that is up");
+      if (block.tool === "tutor_show_model" ? !("model" in input.args) || block.args.model !== input.args.model : "model" in input.args) throw new Error("Keep the same tool and model when updating a visual");
+      this.#validateVisual(session, input.args, block);
+      const now = this.now(), updated = TutorBlockSchema.parse({ ...block, args: input.args, updatedAt: now });
+      this.#saveSession({ ...session, blocks: session.blocks.map(item => item.blockId === block.blockId ? updated : item), updatedAt: now, newestBlockId: block.blockId });
+      return updated;
+    });
+  }
+  erase(sessionId: string, value: unknown): TutorBlock {
+    const input = TutorEraseInputSchema.parse(value);
+    return this.database.transaction(() => {
+      const session = this.#active(sessionId), block = session.blocks.find(item => item.blockId === input.id);
+      if (tutorTimeLeft(session, this.now()) <= 0) throw new Error(TUTOR_TIME_UP);
+      if (!block || !isVisual(block) || block.erasedAt) throw new Error("Erase a visual that is up");
+      const now = this.now();
+      const saved = this.#saveSession({ ...session, updatedAt: now, newestBlockId: null, blocks: session.blocks.map(item => isVisual(item) && (item.blockId === block.blockId || item.args.under === block.blockId)
+        ? { ...item, erasedAt: now, ...(item.status === "open" ? { status: "cancelled" as const } : {}) } : item) });
+      return saved.blocks.find(item => item.blockId === block.blockId)!;
     });
   }
   advance(sessionId: string, phase: TutorPhase): TutorSession {
@@ -349,7 +402,8 @@ export class LearnRepository {
       if (phase === "wrap") throw new Error("Wrap up by calling tutor_finish");
       if (TUTOR_PHASES.indexOf(phase) <= TUTOR_PHASES.indexOf(session.phase)) throw new Error(`The lesson is already past ${phase}`);
       if (session.blocks.some(block => block.status === "open")) throw new Error("Answer the open block before moving on");
-      return this.#saveSession({ ...session, phase, updatedAt: this.now() });
+      const now = this.now();
+      return this.#saveSession({ ...session, phase, updatedAt: now, blocks: phase === "independent" ? clearVisuals(session.blocks, now) : session.blocks });
     });
   }
   answerBlock(sessionId: string, blockId: string, value: unknown): TutorSession {
@@ -357,7 +411,7 @@ export class LearnRepository {
     return this.database.transaction(() => {
       const session = this.#active(sessionId), block = session.blocks.find(b => b.blockId === blockId);
       if (!block) throw new Error("Tutor block not found in this session");
-      if (block.result) {
+      if (block.result && block.status !== "open") {
         if (JSON.stringify(block.result.answer) !== JSON.stringify(answer)) throw new Error("This block already has an answer");
         return session;
       }
@@ -369,8 +423,14 @@ export class LearnRepository {
       } else if (block.tool === "tutor_ask_typed" && answer.kind === "typed") correct = typedAnswerMatches(block.args.accept, answer.answer);
       else if (!(block.tool === "tutor_ask_explain" && answer.kind === "explain") && !((block.tool === "tutor_show_model" || block.tool === "tutor_show_page") && answer.kind === "model")) throw new Error("Answer does not match the open block");
       const now = this.now();
-      const answered: TutorBlock = { ...block, status: "answered", answeredAt: now, draft: "", result: { answer, correct, ...(answer.kind === "typed" ? { matched: correct === true } : {}), hintsUsed: block.hintsUsed, seconds: Math.max(0, session.budgetSeconds - tutorTimeLeft(session, now) - block.elapsedAtCreation) } };
-      return this.#saveSession({ ...session, blocks: session.blocks.map(b => b.blockId === blockId ? answered : b), updatedAt: now });
+      const actions = answer.explored ?? [];
+      const result = { answer, correct, ...(actions.length ? { explored: actions } : {}), ...(answer.kind === "typed" ? { matched: correct === true } : {}), hintsUsed: block.hintsUsed, seconds: Math.max(0, session.budgetSeconds - tutorTimeLeft(session, now) - block.elapsedAtCreation) };
+      const answered: TutorBlock = { ...block, status: "answered", answeredAt: now, firstAnsweredAt: block.firstAnsweredAt ?? now, draft: "", result,
+        attempts: isQuestion(block) ? [...block.attempts, { answer, correct, hintsUsed: result.hintsUsed, seconds: result.seconds }] : block.attempts };
+      return this.#saveSession({ ...session, blocks: session.blocks.map(b => {
+        const updated = b.blockId === blockId ? answered : b;
+        return isVisual(updated) && !updated.erasedAt && actions.length ? { ...updated, explored: [...updated.explored, ...actions].slice(-50) } : updated;
+      }), updatedAt: now, newestBlockId: null });
     });
   }
   hint(sessionId: string, blockId: string): TutorSession {
@@ -395,7 +455,9 @@ export class LearnRepository {
         if (block.result.correct !== false || !input.correct || !input.equivalentTo || !block.args.accept.includes(input.equivalentTo)) throw new Error("Only raise a wrong typed answer by naming an accepted answer");
       } else throw new Error("Only typed answers and explanations can be marked");
       const result = { ...block.result, correct: input.correct, ...(block.tool === "tutor_ask_explain" ? { met: input.met! } : {}) };
-      return this.#saveSession({ ...session, updatedAt: this.now(), blocks: session.blocks.map(item => item.blockId === block.blockId ? { ...block, result } : item) });
+      const attempts = block.attempts.map((attempt, index) => index === block.attempts.length - 1 ? { ...attempt, correct: input.correct } : attempt);
+      const now = this.now();
+      return this.#saveSession({ ...session, updatedAt: now, newestBlockId: block.blockId, blocks: session.blocks.map(item => item.blockId === block.blockId ? { ...block, result, attempts, updatedAt: now } : item) });
     });
   }
   saveDraft(sessionId: string, blockId: string, draft: string): TutorSession {
@@ -408,7 +470,7 @@ export class LearnRepository {
     return this.database.transaction(() => {
       const session = this.#active(sessionId), block = session.blocks.find(b => b.blockId === blockId && b.status === "open");
       if (!block) throw new Error("Open tutor block not found");
-      return this.#saveSession({ ...session, blocks: session.blocks.map(b => b.blockId === blockId ? edit(b) : b), updatedAt: this.now() });
+      return this.#saveSession({ ...session, blocks: session.blocks.map(b => b.blockId === blockId ? edit(b) : b), updatedAt: this.now(), newestBlockId: null });
     });
   }
   appendMessage(sessionId: string, messageId: string, text: string): TutorSession {
@@ -416,7 +478,7 @@ export class LearnRepository {
       const session = this.#active(sessionId), previous = session.messages.find(message => message.messageId === messageId);
       if (previous) { if (previous.text !== text) throw new Error("Message ID reused"); return session; }
       const message = TutorMessageSchema.parse({ messageId, text, createdAt: this.now(), delivered: false });
-      return this.#saveSession({ ...session, messages: [...session.messages, message], updatedAt: this.now() });
+      return this.#saveSession({ ...session, messages: [...session.messages, message], updatedAt: this.now(), newestBlockId: null });
     });
   }
   markMessagesDelivered(sessionId: string, ids: readonly string[]): void {
@@ -444,6 +506,7 @@ export class LearnRepository {
           const block = session.blocks.find(b => b.blockId === item.blockId);
           if (!block?.result || !["tutor_ask_typed", "tutor_ask_explain"].includes(block.tool)) throw new Error("Mastery requires an answered typed or explanation block from this session");
           if (!EVIDENCE_PHASES.includes(block.phase)) throw new Error("Only answers from Check or On your own count; the student had help in Learn and Practise");
+          if (block.attempts.length > 1) throw new Error("Only a first try can count as unaided evidence; later tries had help");
           const blockTopic = "topicId" in block.args ? block.args.topicId ?? session.topicId : session.topicId;
           if (blockTopic !== assessment.topic) throw new Error("Evidence belongs to a different topic");
           const answer = block.result.answer;
@@ -479,13 +542,13 @@ export class LearnRepository {
       const clicked = (input.clicked ?? []).filter(item => {
         const wrong = session.blocks.find(block => block.blockId === item.wrongBlockId), right = session.blocks.find(block => block.blockId === item.rightBlockId);
         return wrong?.status === "answered" && wrong.result?.correct === false && right?.status === "answered" && right.sequence > wrong.sequence
-          && (right.tool === "tutor_ask_typed" || right.tool === "tutor_ask_explain") && right.phase === "independent" && right.result?.correct === true && right.hintsUsed === 0;
+          && (right.tool === "tutor_ask_typed" || right.tool === "tutor_ask_explain") && right.phase === "independent" && right.result?.correct === true && right.hintsUsed === 0 && right.attempts.length <= 1;
       }).map(({ before, after }) => ({ before, after }));
       const result = { summary: input.summary, previousLevel: primary?.previousLevel ?? null, level: primary?.level ?? null, evidence: allEvidence, missing: input.missing, next: input.next, assessments: changes, clicked, cheatsheet: input.cheatsheet ?? [] };
       const goal = session.examId ? this.#get("learn_exams", session.examId, ExamSchema) : null;
       if (goal?.kind === "topic") for (const title of input.outline ?? []) this.addTopic(goal.examId, title);
       const block = TutorBlockSchema.parse({ tool: "tutor_finish", args: input, phase: "wrap", blockId: id("block"), toolCallId, sequence: session.blocks.length, status: "complete", createdAt: now, answeredAt: null, hintsUsed: 0, draft: "", result: null });
-      return this.#saveSession({ ...session, status: "completed", phase: "wrap", result, blocks: [...session.blocks, block], finishedAt: now, updatedAt: now,
+      return this.#saveSession({ ...session, status: "completed", phase: "wrap", result, blocks: [...clearVisuals(session.blocks, now), block], finishedAt: now, updatedAt: now,
         elapsedSeconds: session.budgetSeconds - tutorTimeLeft(session, now), activeSince: null });
     });
   }

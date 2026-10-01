@@ -139,7 +139,8 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
     finally { lock.current = false; setBusy(false); }
   };
 
-  if (session) return <TutorScreen key={session.sessionId} initial={session} onOpenContext={chrome.onOpenContext}
+  if (session) return <TutorScreen key={session.sessionId} initial={session}
+    lastRight={topicId => state?.mastery.find(record => record.topicId === topicId)?.review?.lastRightOn ?? null}
     goal={state?.exams.find(exam => exam.examId === session.examId) ?? null}
     courseLabel={courseId => onboarding.courses.find(course => course.courseId === courseId)?.label ?? null}
     topicTitle={topicId => state?.topics.find(topic => topic.topicId === topicId)?.title ?? session.goal}

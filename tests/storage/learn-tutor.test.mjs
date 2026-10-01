@@ -7,7 +7,7 @@ import { StudiSqliteDatabase } from "../../dist/electron/storage/database.js";
 import { LearnRepository, validateLearnRecords } from "../../dist/electron/storage/learn-records.js";
 import { LearnStateSchema } from "../../dist/shared/learn-state.js";
 import { computeReadiness, normalizeTopicWeights, planLearn, nextReview, sameExam } from "../../dist/shared/learn.js";
-import { normalizeTutorAnswer, typedAnswerMatches, publicTutorSession, PublicTutorSessionSchema, TutorModelInputSchema } from "../../dist/shared/tutor.js";
+import { normalizeTutorAnswer, typedAnswerMatches, publicTutorSession, PublicTutorSessionSchema, TutorModelInputSchema, boardView } from "../../dist/shared/tutor.js";
 import { pickExcerpts } from "../../dist/electron/agent/tutor-context.js";
 import { importLearnFile } from "../../dist/electron/agent/learn-import.js";
 
@@ -176,7 +176,151 @@ test("one open block, immutable answers and drafts survive restart; hints and an
   assert.throws(() => reopened.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "different" }), /already has/);
   assert.equal(reopened.session(session.sessionId).blocks[0].result.correct, true);
   PublicTutorSessionSchema.parse(publicTutorSession(reopened.session(session.sessionId)));
+  const args = { question: "Try x?", note: "Use the same line.", accept: ["4"], hints: [] };
+  const ask = key => reopened.openBlock(session.sessionId, key, { tool: "tutor_ask_typed", args });
+  const retry = ask("try-1");
+  reopened.answerBlock(session.sessionId, retry.blockId, { kind: "typed", answer: "3" });
+  assert.equal(ask("try-2").blockId, retry.blockId);
+  assert.equal(reopened.session(session.sessionId).blocks.at(-1).status, "open");
+  assert.equal(reopened.session(session.sessionId).blocks.at(-1).attempts[0].correct, false);
+  reopened.answerBlock(session.sessionId, retry.blockId, { kind: "typed", answer: "4" });
+  assert.equal(reopened.session(session.sessionId).blocks.at(-1).result.correct, true);
+  assert.throws(() => finish(reopened, session, retry), /first try/);
+  const cappedArgs = { ...args, question: "Another x?" };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const capped = reopened.openBlock(session.sessionId, `capped-${attempt}`, { tool: "tutor_ask_typed", args: cappedArgs });
+    reopened.answerBlock(session.sessionId, capped.blockId, { kind: "typed", answer: "3" });
+    for (let note = 0; note < 2; note++) reopened.openBlock(session.sessionId, `retry-note-${attempt}-${note}`, { tool: "tutor_say", args: { text: "Think about the givens." } });
+  }
+  assert.throws(() => reopened.openBlock(session.sessionId, "capped-4", { tool: "tutor_ask_typed", args: cappedArgs }), /three tries/);
+  assert.equal(reopened.session(session.sessionId).blocks.find(item => item.args.question === cappedArgs.question).attempts.length, 3);
 }));
+
+test("non-waiting visuals persist across answers, respect capacity, and clear on independent and finish", async () => fixture(({ repo, reopen }) => {
+  const topic = repo.createFreeTopic("Graphs"), session = repo.startSession(topic.topicId, "Graphs", 10);
+  const args = { model: "number_line", params: { min: 0, max: 10, step: 1, points: [3] }, controls: ["move"], wait: false };
+  const show = (key, extra = {}) => repo.openBlock(session.sessionId, key, { tool: "tutor_show_model", args: { ...args, ...extra } });
+  const first = show("first"), second = show("second");
+  assert.equal(first.status, "complete");
+  assert.equal(show("first").blockId, first.blockId);
+  assert.throws(() => show("third"), /board is full/);
+  show("child-one", { under: first.blockId }); show("child-two", { under: first.blockId });
+  assert.throws(() => show("child-three", { under: first.blockId }), /board is full/);
+  assert.throws(() => show("bad-parent", { under: "missing" }), /visual that is up/);
+  const question = repo.openBlock(session.sessionId, "question", { tool: "tutor_ask_typed", args: { question: "Where?", accept: ["3"], hints: [] } });
+  assert.throws(() => show("question-parent", { under: question.blockId }), /visual that is up/);
+  repo.answerBlock(session.sessionId, question.blockId, { kind: "typed", answer: "3", explored: ["Moved point to 3"] });
+  const saved = reopen();
+  assert.equal(saved.session(session.sessionId).blocks[0].erasedAt, null);
+  assert.deepEqual(saved.session(session.sessionId).blocks[0].explored, ["Moved point to 3"]);
+  assert.deepEqual(saved.session(session.sessionId).blocks.at(-1).result.explored, ["Moved point to 3"]);
+  saved.advance(session.sessionId, "independent");
+  assert.ok(saved.session(session.sessionId).blocks.filter(block => block.tool === "tutor_show_model").every(block => block.erasedAt));
+  const page = saved.openBlock(session.sessionId, "page", { tool: "tutor_show_page", args: { title: "A line", purpose: "See it", html: "<p>Line</p>", wait: false } });
+  finish(saved, session, question);
+  assert.ok(saved.session(session.sessionId).blocks.find(block => block.blockId === page.blockId).erasedAt);
+  assert.ok(second.blockId);
+}));
+
+test("visual updates preserve type and capacity; erasing a parent erases its children", async () => fixture(({ repo, setNow }) => {
+  const topic = repo.createFreeTopic("Graphs"), session = repo.startSession(topic.topicId, "Graphs", 10);
+  const args = { model: "number_line", params: { min: 0, max: 10, step: 1, points: [3] }, controls: ["move"], wait: false };
+  const parent = repo.openBlock(session.sessionId, "parent", { tool: "tutor_show_model", args });
+  const child = repo.openBlock(session.sessionId, "child", { tool: "tutor_show_page", args: { title: "Values", purpose: "Compare", html: "<p>3</p>", under: parent.blockId, wait: false } });
+  assert.throws(() => repo.update(session.sessionId, { id: parent.blockId, args: { model: "flashcards", params: { cards: [{ front: "3", back: "Three" }] }, controls: [] } }), /same tool and model/);
+  assert.throws(() => repo.update(session.sessionId, { id: parent.blockId, args: { ...args, params: { ...args.params, points: [11] } } }), /bounds/);
+  assert.throws(() => repo.update(session.sessionId, { id: parent.blockId, args: { ...args, under: child.blockId } }), /top-level/);
+  setNow("2026-09-19T12:00:01.000Z");
+  const updated = repo.update(session.sessionId, { id: parent.blockId, args: { ...args, params: { ...args.params, points: [4] } } });
+  assert.equal(updated.blockId, parent.blockId); assert.equal(updated.updatedAt, repo.now());
+  repo.erase(session.sessionId, { id: parent.blockId });
+  assert.ok(repo.session(session.sessionId).blocks.every(block => block.erasedAt));
+  assert.throws(() => repo.update(session.sessionId, { id: parent.blockId, args }), /visual that is up/);
+}));
+
+test("boardView describes current work, history, retries, chat and erasure without mutating public state", async t => {
+  const cases = [
+    ["fresh question", ({ ask, view, repo, session }) => {
+      const question = ask("first");
+      let board = view();
+      assert.equal(board.question.blockId, question.blockId); assert.equal(board.note, "Use the visual.");
+      assert.deepEqual(board.done, []); assert.deepEqual(board.tries, []); assert.equal(board.move, "check");
+      assert.equal(board.newest, question.blockId);
+      repo.saveDraft(session.sessionId, question.blockId, "3"); assert.equal(view().newest, null);
+      repo.hint(session.sessionId, question.blockId); assert.equal(view().newest, null);
+    }],
+    ["visual kept across two questions", ({ ask, show, answer, view }) => {
+      const visual = show("plot"), child = show("table", { under: visual.blockId });
+      const first = ask("first"); answer(first, "4"); ask("second");
+      const board = view(); assert.equal(board.visuals[0].block.blockId, visual.blockId);
+      assert.equal(board.visuals[0].children[0].blockId, child.blockId); assert.equal(board.done.length, 1);
+    }],
+    ["wrong then right", ({ ask, answer, view, repo, session, setNow }) => {
+      const question = ask("first"); answer(question, "3");
+      setNow("2026-09-19T12:00:01.000Z");
+      const note = repo.openBlock(session.sessionId, "feedback", { tool: "tutor_say", args: { text: "Look at the smaller gap." } });
+      ask("first", "retry");
+      assert.equal(view().tries[0].correct, false); assert.equal(view().move, "check");
+      answer(question, "4");
+      const board = view(); assert.equal(board.tries.length, 1); assert.equal(board.question.result.correct, true);
+      assert.equal(board.feedback[0].blockId, note.blockId); assert.equal(board.move, "wait"); assert.equal(board.newest, null);
+      // A note written between tries folds with the question; one written after the last answer leads into the next.
+      setNow("2026-09-19T12:00:02.000Z");
+      const bridge = repo.openBlock(session.sessionId, "bridge", { tool: "tutor_say", args: { text: "Now the same at 5." } });
+      ask("second");
+      assert.deepEqual(view().lead.map(block => block.blockId), [bridge.blockId]);
+    }],
+    ["chat mid-question", ({ ask, view, repo, session, setNow }) => {
+      const question = ask("first");
+      repo.appendMessage(session.sessionId, "message", "What is the gap?");
+      setNow("2026-09-19T12:00:01.000Z");
+      repo.openBlock(session.sessionId, "reply", { tool: "tutor_reply", args: { text: "The distance between the two x values." } });
+      const board = view(); assert.equal(board.question.blockId, question.blockId); assert.equal(board.move, "check");
+      assert.deepEqual(board.chat.map(item => item.kind), ["student", "tutor"]); assert.equal(board.chat[1].replyTo, "message");
+      assert.equal(board.newest, null); assert.deepEqual(board.feedback, []);
+      repo.appendMessage(session.sessionId, "message-two", "What now?");
+      repo.openBlock(session.sessionId, "reply-two", { tool: "tutor_reply", args: { text: "Try making it smaller." } });
+      assert.deepEqual(view().chat.map(item => item.id), ["message", board.chat[1].id, "message-two", view().chat[3].id]);
+    }],
+    ["erased visual", ({ show, view, repo, session, setNow }) => {
+      const visual = show("plot"); show("table", { under: visual.blockId });
+      setNow("2026-09-19T12:00:01.000Z");
+      repo.update(session.sessionId, { id: visual.blockId, args: { ...visual.args, params: { ...visual.args.params, points: [4] } } });
+      assert.equal(view().newest, visual.blockId);
+      repo.erase(session.sessionId, { id: visual.blockId }); assert.deepEqual(view().visuals, []); assert.equal(view().newest, null);
+    }],
+    ["a visual that waits is a stop", ({ ask, answer, view, repo, session }) => {
+      const first = ask("first"); answer(first, "4");
+      const visual = repo.openBlock(session.sessionId, "try", { tool: "tutor_show_model", args: { model: "number_line", params: { min: 0, max: 10, step: 1, points: [3] }, controls: ["move"] } });
+      assert.equal(view(first.blockId).move, "next");
+      let board = view(); assert.equal(board.at, visual.blockId); assert.equal(board.question, null); assert.equal(board.move, "tried"); assert.equal(board.done.length, 1);
+      repo.answerBlock(session.sessionId, visual.blockId, { kind: "model", explored: ["Moved point 1 to 4"] });
+      board = view(); assert.equal(board.move, "wait"); assert.equal(board.visuals[0].block.blockId, visual.blockId);
+    }],
+    ["the previous question and its notes fold", ({ ask, answer, view, repo, session, setNow }) => {
+      repo.openBlock(session.sessionId, "intro", { tool: "tutor_say", args: { text: "A slope is rise over run." } });
+      const first = ask("first"); answer(first, "4");
+      setNow("2026-09-19T12:00:01.000Z");
+      const note = repo.openBlock(session.sessionId, "feedback", { tool: "tutor_say", args: { text: "That's the slope." } });
+      const second = ask("second");
+      // Chalky is ahead: the student stays on the first question, with its notes, until they move on.
+      const stay = view(first.blockId); assert.equal(stay.question.blockId, first.blockId); assert.equal(stay.move, "next"); assert.equal(stay.following, second.blockId);
+      assert.deepEqual(stay.lead.map(block => block.args.text), ["A slope is rise over run."]); assert.deepEqual(stay.feedback.map(block => block.blockId), [note.blockId]); assert.deepEqual(stay.done, []);
+      const board = view(); assert.deepEqual(board.done, [{ blockId: first.blockId, question: "first?", answer: "4", correct: true }]);
+      assert.equal(board.question.blockId, second.blockId); assert.equal(board.at, second.blockId); assert.equal(board.following, null);
+      assert.deepEqual(board.lead.map(block => block.blockId), [note.blockId]); assert.deepEqual(board.feedback, []); assert.deepEqual(board.tries, []);
+    }],
+  ];
+  for (const [name, run] of cases) await t.test(name, () => fixture(context => {
+    const { repo } = context, topic = repo.createFreeTopic("Graphs"), session = repo.startSession(topic.topicId, "Graphs", 10);
+    run({ ...context, session,
+      ask: (name, key = name) => repo.openBlock(session.sessionId, key, { tool: "tutor_ask_typed", args: { question: name + "?", note: "Use the visual.", accept: ["4"], hints: ["Think about the gap"] } }),
+      show: (key, extra = {}) => repo.openBlock(session.sessionId, key, { tool: "tutor_show_model", args: { model: "number_line", params: { min: 0, max: 10, step: 1, points: [3] }, controls: [], wait: false, ...extra } }),
+      answer: (question, answer) => repo.answerBlock(session.sessionId, question.blockId, { kind: "typed", answer }),
+      view: at => { const state = publicTutorSession(repo.session(session.sessionId)), before = JSON.stringify(state), board = boardView(state, at); assert.equal(JSON.stringify(state), before); assert.deepEqual(boardView(state, at), board); return board; },
+    });
+  }));
+});
 
 test("only eligible evidence changes mastery, with first placement and delayed Solid, atomic finish and owner rejection", async () => fixture(({ repo, database, setNow }) => {
   const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
@@ -278,18 +422,36 @@ test("mock exam requires independent evidence across its topic set and commits a
   assert.equal(repo.mastery().length, 2); assert.ok(repo.mastery().every(m => m.level === 3));
 }));
 
-test("all five fixed model types are bounded and unknown/host execution models are rejected", () => {
+test("all six fixed model types are bounded and unknown/host execution models are rejected", () => {
   const models = [
     { model: "population_grid", params: { population: 100, sampleSize: 10, proportion: 0.5 }, controls: ["sample"] },
     { model: "number_line", params: { min: -10, max: 10, step: 1, points: [0] }, controls: ["move"] },
     { model: "function_plot", params: { family: "quadratic", a: 1, b: 0, c: 0, xMin: -10, xMax: 10 }, controls: ["a"] },
     { model: "flashcards", params: { cards: [{ front: "A", back: "B" }] }, controls: ["flip"] },
     { model: "code_runner", params: { language: "javascript", code: "console.log(42)", instructions: "Try it", timeoutMs: 500 }, controls: ["run"] },
+    { model: "table", params: { columns: ["gap", "slope"], rows: [[1, 7], [0.1, "6.1"]] }, controls: [] },
   ];
   for (const model of models) TutorModelInputSchema.parse(model);
   assert.equal(TutorModelInputSchema.safeParse({ ...models[4], params: { ...models[4].params, language: "powershell" } }).success, false);
   assert.equal(TutorModelInputSchema.safeParse({ ...models[4], params: { ...models[4].params, timeoutMs: 999999 } }).success, false);
   assert.equal(TutorModelInputSchema.safeParse({ model: "custom_html", params: {}, controls: [] }).success, false);
+  const plot = { ...models[2], params: { ...models[2].params, secant: { x: 3, gap: 1 }, labels: [{ x: 3, text: "the gap" }] }, controls: ["gap"] };
+  TutorModelInputSchema.parse(plot);
+  TutorModelInputSchema.parse({ ...plot, params: { ...plot.params, secant: { x: 3, gap: 0 } } });
+  for (const params of [
+    { ...plot.params, secant: { x: 3, gap: -1 } },
+    { ...plot.params, secant: { x: 3, gap: 8 } },
+    { ...plot.params, labels: Array(5).fill({ x: 3, text: "label" }) },
+    { ...plot.params, labels: [{ x: 11, text: "outside" }] },
+  ]) assert.equal(TutorModelInputSchema.safeParse({ ...plot, params }).success, false);
+  assert.equal(TutorModelInputSchema.safeParse({ ...models[2], controls: ["gap"] }).success, false);
+  const table = models[5];
+  for (const params of [
+    { ...table.params, columns: Array(9).fill("column") },
+    { ...table.params, rows: Array(9).fill([1, 7]) },
+    { ...table.params, rows: [[1]] },
+  ]) assert.equal(TutorModelInputSchema.safeParse({ ...table, params }).success, false);
+  assert.equal(TutorModelInputSchema.safeParse({ ...table, controls: ["sort"] }).success, false);
 });
 
 test("the selected goal survives Learn source, goal, topic and tutor mutations", async () => fixture(({ repo, reopen }) => {
