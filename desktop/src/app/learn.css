@@ -1,90 +1,131 @@
-/* Learn and tutor, from docs/redesign/learn-concept.html. Lavender replaces the highlighter here. */
-.lr-column { width: min(760px, 100%); padding-bottom: 28px; }
+/* Learn and tutor, from docs/redesign/learn-v2. Lavender replaces the highlighter here. */
+.lr-column { padding-bottom: 28px; }
 .lr-muted { color: var(--graphite); font-size: 13px; }
 .lr-grow { flex: 1; }
-.lr-label { margin: 18px 0 6px 4px; font-size: 13px; font-weight: 600; color: var(--graphite); }
+.lr-label { margin: 18px 0 6px; font-size: 13px; font-weight: 600; color: var(--graphite); }
 .lr-danger { color: var(--redpen); }
+.rd-quiet.lr-plain { background: none; color: var(--graphite); }
+.rd-quiet.lr-plain:hover { background: var(--blotter); color: var(--pencil); }
 
-.lr-status { display: flex; align-items: center; gap: 10px; margin: -8px 0 16px; font-size: 14px; }
-.lr-status.is-bad { justify-content: space-between; padding: 10px 14px; border-radius: 12px; background: color-mix(in srgb, var(--redpen) 9%, var(--page)); }
+/* Chalky, what to do today, and the one filled button on the page. */
+.lr-hello { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; column-gap: 18px; row-gap: 14px; margin-bottom: 32px; }
+.lr-hello > .character { transform: translateY(-3px); }
+.lr-hello h1 { margin: 0; font: 700 28px/1.18 "Shantell Sans", cursive; letter-spacing: -0.005em; text-wrap: balance; }
+.lr-hello p { max-width: 46ch; margin: 5px 0 0; font-size: 15.5px; line-height: 1.45; color: var(--graphite); text-wrap: pretty; }
+.lr-hello p b { color: var(--pencil); font-weight: 600; }
+.lr-hello .lr-go { min-height: 44px; padding: 0 22px; font-size: 15.5px; font-weight: 700; border-radius: 12px; }
 
-/* One box takes anything: typed facts, a pasted study guide, or a file. */
-.lr-intake { padding: 16px 18px 14px; border: 1.5px dashed var(--graphite); border-radius: 16px; background: var(--page); }
-.lr-intake textarea { display: block; width: 100%; min-height: 48px; padding: 0; border: 0; resize: vertical; background: none; font-size: 15px; line-height: 1.45; outline: none; }
-.lr-intake textarea::placeholder { color: var(--graphite); }
-.lr-ways { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
-.lr-ways .lr-muted { margin-left: auto; }
-.lr-adds { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-.lr-dash { height: 34px; padding: 0 12px; border: 1.5px dashed color-mix(in srgb, var(--graphite) 70%, transparent); border-radius: 10px; background: none; font-size: 13.5px; font-weight: 600; color: var(--pencil); cursor: pointer; transition: background-color 0.15s ease-out; }
-.lr-dash:hover { background: var(--blotter); }
+.lr-status { display: flex; align-items: center; gap: 10px; margin: -14px 0 18px; padding: 0 14px; font-size: 14px; color: var(--graphite); }
+.lr-status.is-bad { justify-content: space-between; color: var(--pencil); }
+.lr-status button { flex: none; white-space: nowrap; }
 
-/* Goals: class color on the left edge, readiness in the middle, time on the right. */
-.lr-goals { display: grid; gap: 2px; }
-.lr-goal { display: grid; grid-template-columns: minmax(0, 1fr) 96px 88px; align-items: center; gap: 18px; width: 100%; padding: 10px 14px 10px 20px; border: 0; border-radius: 12px; background: none; text-align: left; color: inherit; cursor: pointer; position: relative; transition: background-color 0.15s ease-out; }
-.lr-goal::before { content: ""; position: absolute; left: 8px; top: 12px; bottom: 12px; width: 3px; border-radius: 2px; background: var(--course-accent, var(--graphite)); }
-.lr-goal:hover { background: color-mix(in srgb, var(--blotter) 60%, transparent); }
-.lr-goal[aria-pressed="true"] { background: var(--blotter); box-shadow: inset 3px 0 0 var(--highlighter); }
-.lr-goal-name { min-width: 0; }
-.lr-goal-name b, .lr-goal-when b { display: block; font-size: 16px; font-weight: 700; line-height: 1.3; }
-.lr-goal-name small, .lr-goal-when small { display: block; font-size: 13px; color: var(--graphite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lr-goal-when { grid-column: 3; text-align: right; }
-.lr-goal-when b { font-size: 15px; }
-.lr-bar { display: block; height: 4px; border-radius: 2px; background: var(--blot2); overflow: hidden; }
-.lr-bar i { display: block; height: 100%; border-radius: 2px; background: var(--pencil); }
+/* The list fades out under the chat box. */
+.rd-learn > .rd-tutor-composer { position: relative; }
+.rd-learn > .rd-tutor-composer::before { content: ""; position: absolute; left: 0; right: 0; bottom: 100%; height: 28px; background: linear-gradient(transparent, var(--paper)); pointer-events: none; }
 
-/* The open goal. */
-.lr-card { margin-top: 14px; padding: 18px; border-radius: 18px; background: var(--page); box-shadow: 0 0 0 1.5px var(--pencil); }
-.lr-voice { margin: 0 0 12px; font: 600 16px/1.4 "Shantell Sans", cursive; }
-.lr-card .lr-intake { border-color: var(--blot2); background: var(--paper); }
-.lr-lead { display: flex; align-items: center; gap: 16px; padding: 14px 16px; border-radius: 12px; background: var(--blotter); }
-.lr-lead > div { flex: 1; min-width: 0; }
-.lr-lead b { display: block; font-size: 16px; font-weight: 700; }
-.lr-lead small { display: block; margin-top: 2px; font-size: 13.5px; color: var(--graphite); }
-.lr-start { min-height: 46px; padding: 0 24px; font-size: 16px; }
-.lr-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 20px 0 4px; }
-.lr-head h2 { margin: 0; font: 700 15px/1.3 "Nunito Sans", sans-serif; }
-.lr-head span { font-size: 13px; color: var(--graphite); }
-.lr-topics { margin: 0; padding: 0; list-style: none; }
-.lr-topics li { display: grid; grid-template-columns: minmax(0, 1fr) auto 104px 78px; align-items: center; gap: 14px; min-height: 38px; }
-.lr-topic-name { font-size: 15px; }
-.lr-topic-name small { margin-left: 8px; font-size: 13px; color: var(--graphite); }
-.lr-level { display: flex; gap: 3px; }
-.lr-level i { width: 18px; height: 5px; border-radius: 3px; background: var(--blot2); }
+/* Everything you're learning: one row each, and a row opens in place. */
+.lr-group + .lr-group { margin-top: 26px; }
+.lr-bar-head { display: flex; align-items: baseline; gap: 10px; margin: 0 0 4px; padding: 0 14px; }
+.lr-bar-head h2 { margin: 0; font: 700 15px/1.3 "Nunito Sans", sans-serif; }
+.lr-bar-head span { font-size: 13px; color: var(--graphite); }
+.lr-row { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 120px 100px; align-items: center; gap: 22px; width: 100%; min-height: 60px; padding: 9px 14px 9px 26px; border: 0; border-radius: 12px; background: none; text-align: left; color: inherit; cursor: pointer; transition: background-color 0.15s ease-out; }
+.lr-row::before { content: ""; position: absolute; left: 12px; top: 13px; bottom: 13px; width: 3px; border-radius: 2px; background: var(--course-accent, var(--blot2)); }
+.lr-row:hover { background: color-mix(in srgb, var(--blotter) 75%, transparent); }
+.lr-row-name { min-width: 0; }
+.lr-row strong { display: block; font-size: 16px; font-weight: 700; line-height: 1.3; }
+.lr-row small { display: block; font-size: 13.5px; line-height: 1.4; color: var(--graphite); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-row small b { color: var(--pencil); font-weight: 600; }
+.lr-when { text-align: right; }
+.lr-when b { display: block; font-size: 15px; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.lr-strip { display: flex; gap: 3px; }
+.lr-strip i { flex: 1; max-width: 28px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--pencil) var(--k, 0%), transparent); }
+.lr-strip i[data-level="0"] { --k: 12%; }
+.lr-strip i[data-level="1"] { --k: 28%; }
+.lr-strip i[data-level="2"] { --k: 48%; }
+.lr-strip i[data-level="3"] { --k: 72%; }
+.lr-strip i[data-level="4"] { --k: 100%; }
+.lr-strip i[data-level="none"] { background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--graphite) 45%, transparent); }
+.lr-addrow { display: flex; align-items: center; width: 100%; min-height: 40px; padding: 0 14px 0 26px; border: 0; border-radius: 12px; background: none; font-size: 14px; font-weight: 600; color: var(--graphite); text-align: left; cursor: pointer; transition: background-color 0.15s ease-out; }
+.lr-addrow:hover { background: color-mix(in srgb, var(--blotter) 75%, transparent); color: var(--pencil); }
+
+/* The open row: a sheet of paper, the row stays as its heading. */
+.lr-open { margin: 6px 0; border-radius: 16px; background: var(--page); box-shadow: 0 0 0 1px rgb(43 38 33 / 10%), 0 1px 2px rgb(43 38 33 / 5%); }
+.lr-open > .lr-row:hover { background: none; }
+.lr-sheet-head { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 6px 14px 0 26px; }
+.lr-sheet-head h3 { margin: 0; font: 700 16px/1.3 "Nunito Sans", sans-serif; }
+.lr-detail { padding: 0 14px 10px 26px; }
+.lr-own { margin: 14px 0 6px; color: var(--graphite); }
+.lr-pace { display: flex; align-items: center; gap: 10px; min-height: 38px; padding-bottom: 6px; font-size: 13.5px; color: var(--graphite); }
+.lr-pace span { flex: 1; }
+.lr-topics { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+.lr-topics li { display: grid; grid-template-columns: minmax(0, 1fr) auto 100px 112px; align-items: center; gap: 16px; min-height: 44px; padding: 6px 0; border-bottom: 1px solid var(--rule); font-size: 15px; }
+.lr-topic-name b { font-weight: 600; }
+.lr-topic-name i { margin-left: 8px; font-size: 13px; font-style: normal; color: var(--graphite); font-variant-numeric: tabular-nums; }
+.lr-topic-name small { display: block; font-size: 13px; color: var(--graphite); }
+.lr-topics li.is-next .lr-topic-name b { box-shadow: inset 0 -7px 0 var(--highlighter); }
+.lr-level { display: flex; gap: 4px; }
+.lr-level i { width: 16px; height: 4px; border-radius: 2px; background: var(--blot2); }
 .lr-level i.on { background: var(--pencil); }
 .lr-level i.none { background: none; box-shadow: inset 0 0 0 1px var(--blot2); }
-.lr-level-word { font-size: 13px; color: var(--graphite); }
-.lr-practise { opacity: 0; justify-self: end; transition: opacity 0.15s ease-out; }
+.lr-level-word { font-size: 13.5px; color: var(--graphite); }
+.lr-topics li > button { justify-self: end; }
+.lr-practise { opacity: 0; transition: opacity 0.15s ease-out; }
 .lr-topics li:hover .lr-practise, .lr-practise:focus-visible { opacity: 1; }
-.lr-quiz { margin-top: 14px; background: none; padding: 12px 0 0; border-top: 1px solid var(--rule); border-radius: 0; }
-.lr-hints { margin-top: 8px; }
-.lr-hint { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 38px; font-size: 15px; }
-.lr-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--rule); }
-.lr-card-foot .lr-muted { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lr-card-foot > button:first-child { margin-right: auto; }
+.lr-more { display: grid; grid-template-columns: 118px minmax(0, 1fr) auto; align-items: center; gap: 14px; width: 100%; min-height: 42px; padding: 6px 0; border: 0; border-bottom: 1px solid var(--rule); background: none; font-size: 14.5px; text-align: left; color: inherit; }
+button.lr-more { cursor: pointer; }
+button.lr-more:hover > span { text-decoration: underline; text-decoration-color: var(--graphite); text-underline-offset: 3px; }
+.lr-more:last-child { border-bottom: 0; }
+.lr-more > b { font-size: 13px; font-weight: 600; color: var(--graphite); }
+.lr-more > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lr-more svg { color: var(--graphite); }
 
-/* Forms: add an exam, change a goal, learn something else. */
-.lr-form h2 { margin: 0 0 14px; font: 700 16px/1.3 "Nunito Sans", sans-serif; }
+/* One box takes anything: typed facts, a pasted study guide, or a file. */
+.lr-drop { display: block; width: 100%; min-height: 84px; padding: 12px 14px; border: 1.5px dashed color-mix(in srgb, var(--graphite) 60%, transparent); border-radius: 12px; resize: vertical; background: none; font-size: 15px; line-height: 1.5; color: var(--pencil); outline: none; }
+.lr-drop::placeholder { color: var(--graphite); }
+.lr-drop:focus { border-color: var(--pencil); border-style: solid; }
+.lr-ways { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.lr-ways .lr-muted { margin-left: auto; }
+
+/* First time: two ways in, side by side. */
+.lr-doors { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.lr-door { padding: 20px 22px 22px; border-radius: 16px; background: var(--page); box-shadow: 0 0 0 1px rgb(43 38 33 / 10%), 0 1px 2px rgb(43 38 33 / 5%); }
+.lr-door h2 { margin: 0; font: 700 17px/1.25 "Nunito Sans", sans-serif; }
+.lr-door > p { min-height: 44px; margin: 4px 0 14px; line-height: 1.5; font-size: 14.5px; color: var(--graphite); }
+
+/* Forms: add a test, change a goal, learn something new. */
+.lr-form { padding-top: 4px; padding-bottom: 16px; }
 .lr-fields { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 12px; }
-.lr-form label { display: grid; gap: 5px; font-size: 12.5px; font-weight: 600; color: var(--graphite); }
-.lr-form .lr-wide { margin-top: 12px; }
-.lr-form :is(input, select, textarea) { width: 100%; min-height: 38px; padding: 7px 12px; border: 1.5px solid var(--rule); border-radius: 10px; background: var(--paper); font-size: 14.5px; font-weight: 400; color: var(--pencil); }
+.lr-form label { display: grid; gap: 5px; font-size: 13px; font-weight: 600; color: var(--graphite); }
+.lr-form .lr-wide { margin-top: 14px; }
+.lr-form :is(input, select, textarea) { width: 100%; min-height: 44px; padding: 9px 14px; border: 1.5px solid var(--rule); border-radius: 10px; background: var(--paper); font-size: 15px; font-weight: 400; color: var(--pencil); }
 .lr-form textarea { resize: vertical; line-height: 1.45; }
 .lr-form :is(input, select, textarea):focus { border-color: var(--pencil); outline: none; }
+.lr-form .lr-ways { margin-top: 18px; }
+.lr-new { display: grid; grid-template-columns: minmax(0, 1fr) 232px; gap: 36px; }
+.lr-new .lr-wide:first-child { margin-top: 0; }
+.lr-new .lr-label { margin: 0; }
 .lr-edit-topics { margin-top: 6px; }
-.lr-edit-topic { display: flex; align-items: center; justify-content: space-between; min-height: 34px; border-bottom: 1px solid var(--rule); font-size: 14.5px; }
+.lr-edit-topic { display: flex; align-items: center; justify-content: space-between; min-height: 36px; border-bottom: 1px solid var(--rule); font-size: 14.5px; }
 .lr-edit-topic button { width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--graphite); font-size: 17px; cursor: pointer; }
 .lr-edit-topic button:hover { background: var(--blotter); color: var(--redpen); }
 .lr-add-topic input { margin-top: 8px; }
-.lr-steps { margin: 14px 0 0; padding-left: 20px; font-size: 13.5px; color: var(--graphite); }
-.lr-steps li { margin: 3px 0; }
+.lr-steps { margin: 4px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.5; }
+.lr-steps li { margin: 4px 0; }
+
+/* Still used by the lesson's quiz result. */
+.lr-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 20px 0 4px; }
+.lr-head h2 { margin: 0; font: 700 15px/1.3 "Nunito Sans", sans-serif; }
+.lr-bar { display: block; height: 4px; border-radius: 2px; background: var(--blot2); overflow: hidden; }
+.lr-bar i { display: block; height: 100%; border-radius: 2px; background: var(--pencil); }
 
 @media (max-width: 640px) {
-  .lr-goal { grid-template-columns: minmax(0, 1fr) 80px; }
-  .lr-goal .lr-bar { display: none; }
-  .lr-goal-when { grid-column: 2; }
+  .lr-hello { grid-template-columns: 48px minmax(0, 1fr); }
+  .lr-go { grid-column: 1 / -1; }
+  .lr-row { grid-template-columns: minmax(0, 1fr) 84px; }
+  .lr-row .lr-strip { display: none; }
   .lr-topics li { grid-template-columns: minmax(0, 1fr) auto 90px; }
-  .lr-practise { display: none; }
-  .lr-fields { grid-template-columns: 1fr; }
+  .lr-topics li > button { display: none; }
+  .lr-doors, .lr-new, .lr-fields { grid-template-columns: 1fr; }
 }
 
 /* Tutor session. */
