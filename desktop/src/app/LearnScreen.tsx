@@ -242,7 +242,8 @@ function GoalCard({ state, goal, busy, scanning, courseLabel, onStart, onOpenSes
   const levels = new Map(state.mastery.map(record => [record.topicId, record.level]));
   const weightSum = topics.every(topic => topic.weight) ? topics.reduce((sum, topic) => sum + topic.weight!, 0) : 0;
   const open = state.sessions.find(item => ["active", "paused", "failed"].includes(item.status) && topics.some(topic => topic.topicId === item.topicId));
-  const { todayTopic, recapDue, recapTopic, readiness } = state.plan;
+  const { todayTopic, comingBack, readiness } = state.plan;
+  const returningTopic = !todayTopic ? comingBack[0] : null;
   const hints = state.topics.filter(topic => topic.origin === "homework_hint" && goal.courseId && topic.courseId === goal.courseId).slice(0, 2);
   const sources = state.sources.filter(source => source.status === "ready" && (source.examId === goal.examId || (!source.examId && !!goal.courseId && source.courseId === goal.courseId)));
   const course = courseLabel(goal.courseId);
@@ -257,7 +258,7 @@ function GoalCard({ state, goal, busy, scanning, courseLabel, onStart, onOpenSes
   );
 
   const lead = open ? { title: `Continue: ${open.goal}`, meta: open.status === "paused" ? "Right where you left off." : open.status === "failed" ? "It stopped early. Your answers are saved." : "In progress.", action: () => onOpenSession(open.sessionId), label: "Continue" }
-    : recapDue && recapTopic ? { title: `Quick recap: ${recapTopic.title}`, meta: "Bring it back while it's still fresh · 5 min", action: () => onStart({ topicId: recapTopic.topicId, mode: "recap", minutes: 5 }), label: "Start" }
+    : returningTopic ? { title: `Quick recap: ${returningTopic.title}`, meta: "Bring it back while it's still fresh · 5 min", action: () => onStart({ topicId: returningTopic.topicId, mode: "recap", minutes: 5 }), label: "Start" }
     : todayTopic ? { title: `${goal.kind === "topic" ? "Next" : "Today"}: ${todayTopic.title}`,
         meta: `${levels.has(todayTopic.topicId) ? "Your biggest gap" : "Not checked yet"}${weightSum ? " for its share of the exam" : ""} · 15 min`,
         action: () => onStart({ topicId: todayTopic.topicId, minutes: 15 }), label: "Start" } : null;

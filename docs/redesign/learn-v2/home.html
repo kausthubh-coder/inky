@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studi Learn: home reference</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../characters.css">
+<style>
+@font-face{font-family:"Nunito Sans";font-weight:400;src:url("../../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:600;src:url("../../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:700;src:url("../../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:500;src:url("../../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:700;src:url("../../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-700-normal.woff2") format("woff2")}
+
+/* ===== The app's own tokens and controls (redesign.css, homework.css, composer.css). Nothing here is new. ===== */
+:root{--pencil:#2b2621;--graphite:#7f766b;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--blot2:#e9e0ce;--highlighter:#cdbcf0;--redpen:#b3452f;
+  --course-coral:#f28b6f;--course-mint:#8fcbaa;--course-sky:#8ab8e8;--course-lavender:#b7a3dd;
+  --shadow:0 0 0 1.5px var(--pencil),0 2.5px 0 1.5px var(--pencil);
+  --lift:0 0 0 1px rgb(43 38 33/10%),0 1px 2px rgb(43 38 33/5%)}
+*{box-sizing:border-box}
+body{margin:0;background:#26221d;color:var(--pencil);font:400 15px/1.5 "Nunito Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p{margin:0}
+p{text-wrap:pretty}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;text-align:left}
+input,textarea{font:inherit;color:inherit}
+.rd-button,.rd-quiet{display:inline-flex;align-items:center;justify-content:center;gap:6px;font-weight:600;white-space:nowrap;transition:transform .1s ease-out,background-color .15s ease-out}
+.rd-button{min-height:36px;padding:0 16px;font-size:14px;border-radius:10px;background:var(--page);box-shadow:0 0 0 1.5px var(--pencil)}
+.rd-primary{background:var(--highlighter);box-shadow:var(--shadow)}
+.rd-quiet{min-height:30px;padding:4px 11px;font-size:13px;border-radius:8px;background:var(--blotter)}
+.rd-quiet:hover{background:var(--blot2)}
+.rd-button:active,.rd-quiet:active{transform:scale(.96)}
+button:disabled{opacity:.5;cursor:not-allowed}
+.rd-population{display:grid;grid-template-columns:repeat(20,1fr);gap:4px}
+.rd-population i{aspect-ratio:1;border-radius:50%;background:var(--blot2)}
+.rd-population i.marked{background:var(--pencil)}
+
+/* ===== Furniture for this reference only ===== */
+.doc{max-width:1280px;margin:0 auto;padding:36px 0 120px;color:#cfc6b6}
+.doc > h1{color:#f3ecdf;font:700 30px/1.1 "Shantell Sans",cursive;margin-bottom:8px}
+.doc > p{max-width:860px;margin-bottom:6px}
+.part{margin:70px 0 0;color:#f3ecdf;font:700 24px "Shantell Sans",cursive}
+.cap{margin:40px 0 12px;display:flex;align-items:baseline;gap:14px}
+.cap b{color:#f3ecdf;font:700 18px "Nunito Sans",sans-serif}
+.cap code,.doc code{font:12.5px ui-monospace,Consolas,monospace;color:#a89f90}
+.note{max-width:920px;margin:12px 0 0;padding-left:20px;font-size:14px}
+.note li{margin:3px 0}
+.note b{color:#f3ecdf}
+body.single{background:var(--paper)}
+body.single .doc{padding:0;max-width:none}
+body.single .doc > *:not(.frame.show){display:none}
+
+/* ===== App window ===== */
+.frame{position:relative;width:1280px;height:800px;overflow:hidden;display:flex;flex-direction:column;background:var(--paper);color:var(--pencil);border-radius:12px}
+body.single .frame{border-radius:0}
+.chrome{display:flex;align-items:center;height:60px;padding:0 28px;flex:none}
+.chrome strong{flex:1;font:700 22px "Shantell Sans",cursive}
+.chrome .end{flex:1;display:flex;justify-content:flex-end;color:var(--graphite)}
+.switch{display:grid;grid-template-columns:108px 108px;padding:3px;border-radius:12px;background:var(--blotter);font-size:14px;font-weight:600;color:var(--graphite)}
+.switch span{display:grid;place-items:center;height:32px;border-radius:10px}
+.switch span.on{background:var(--highlighter);box-shadow:var(--shadow);color:var(--pencil);font-weight:700}
+.scroll{flex:1;min-height:0;overflow:hidden}
+/* The chat box as it is on the Week page. */
+.dock{position:absolute;left:0;right:0;bottom:0;padding:28px 0 20px;background:linear-gradient(transparent,var(--paper) 30px);pointer-events:none}
+.composer{pointer-events:auto;display:flex;align-items:center;gap:8px;width:720px;margin:0 auto;min-height:52px;padding:0 8px 0 18px;border-radius:20px;background:var(--page);box-shadow:var(--lift)}
+.composer span{flex:1;color:var(--graphite)}
+.composer i{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:var(--blotter);color:var(--graphite)}
+
+/* =====================================================================================
+   LEARN HOME. A list of everything you're learning. One row each; a row opens in place.
+   ===================================================================================== */
+.lr-col{width:752px;margin:0 auto;padding:22px 16px 130px}
+/* Same grid as hw-hello: Chalky, what it means for you, the one thing to do. */
+.lr-hello{display:grid;grid-template-columns:64px minmax(0,1fr) auto;align-items:center;column-gap:18px;margin-bottom:32px}
+.lr-hello .ink2{width:64px;height:64px;transform:translateY(-3px)}
+.lr-hello h1{font:700 28px/1.18 "Shantell Sans",cursive;letter-spacing:-.005em;text-wrap:balance}
+.lr-hello p{max-width:46ch;margin-top:5px;font-size:15.5px;line-height:1.45;color:var(--graphite)}
+.lr-hello p b{color:var(--pencil);font-weight:600}
+.lr-go{min-height:44px;padding:0 22px;font-size:15.5px;font-weight:700;border-radius:12px}
+
+.lr-group + .lr-group{margin-top:26px}
+.lr-bar{display:flex;align-items:baseline;gap:10px;margin:0 0 4px;padding:0 14px}
+.lr-bar h2{font:700 15px/1.3 "Nunito Sans",sans-serif}
+.lr-bar span{font-size:13px;color:var(--graphite)}
+
+/* One goal, one row: what it is, how it's going, when. Tests and things for yourself share it. */
+.lr-row{position:relative;display:grid;grid-template-columns:minmax(0,1fr) 120px 100px;align-items:center;gap:22px;width:100%;min-height:60px;padding:9px 14px 9px 26px;border-radius:12px;transition:background-color .15s ease-out}
+.lr-row::before{content:"";position:absolute;left:12px;top:13px;bottom:13px;width:3px;border-radius:2px;background:var(--accent,var(--blot2))}
+.lr-row:hover,.lr-row.is-hover{background:color-mix(in srgb,var(--blotter) 75%,transparent)}
+.lr-row strong{display:block;font-size:16px;font-weight:700;line-height:1.3}
+.lr-row small{display:block;font-size:13.5px;line-height:1.4;color:var(--graphite);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lr-row small b{color:var(--pencil);font-weight:600}
+.lr-when{text-align:right}
+.lr-when b{display:block;font-size:15px;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums}
+.lr-when.soon b{color:var(--redpen)}
+/* One mark per topic, darker as the topic gets stronger, hollow when unchecked. A whole test at a glance. */
+.lr-strip{display:flex;gap:3px}
+.lr-strip i{flex:1;height:6px;border-radius:3px;background:color-mix(in srgb,var(--pencil) var(--k,0%),transparent)}
+.lr-strip i[data-l="0"]{--k:12%}.lr-strip i[data-l="1"]{--k:28%}.lr-strip i[data-l="2"]{--k:48%}.lr-strip i[data-l="3"]{--k:72%}.lr-strip i[data-l="4"]{--k:100%}
+.lr-strip i[data-l="x"]{background:none;box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--graphite) 45%,transparent)}
+.lr-addrow{display:flex;align-items:center;gap:8px;width:100%;min-height:40px;padding:0 14px 0 26px;border-radius:12px;font-size:14px;font-weight:600;color:var(--graphite);transition:background-color .15s ease-out}
+.lr-addrow:hover,.lr-addrow.is-hover{background:color-mix(in srgb,var(--blotter) 75%,transparent);color:var(--pencil)}
+
+/* The open goal lifts onto a sheet. Its row stays as the heading; hairline rows follow. No cards inside. */
+.lr-open{margin:6px 0;border-radius:16px;background:var(--page);box-shadow:var(--lift)}
+.lr-open > .lr-row:hover{background:none}
+.lr-detail{padding:0 14px 8px 26px}
+.lr-pace{display:flex;align-items:center;gap:10px;min-height:38px;padding-bottom:6px;font-size:13.5px;color:var(--graphite)}
+.lr-pace span{flex:1}
+.lr-topics{margin:0;padding:0;list-style:none;border-top:1px solid var(--rule)}
+.lr-topics li{display:grid;grid-template-columns:minmax(0,1fr) auto 100px 112px;align-items:center;gap:16px;min-height:44px;padding:6px 0;border-bottom:1px solid var(--rule);font-size:15px}
+.lr-topics b{font-weight:600}
+.lr-topics .share{margin-left:8px;font-size:13px;color:var(--graphite);font-variant-numeric:tabular-nums}
+.lr-topics small{display:block;font-size:13px;color:var(--graphite)}
+.lr-level{display:flex;gap:4px}
+.lr-level i{width:16px;height:4px;border-radius:2px;background:var(--blot2)}
+.lr-level i.on{background:var(--pencil)}
+.lr-level i.none{background:none;box-shadow:inset 0 0 0 1px var(--blot2)}
+.lr-word{font-size:13.5px;color:var(--graphite)}
+.lr-topics .act{justify-self:end}
+.lr-topics .rd-quiet{opacity:0}
+.lr-topics li:hover .rd-quiet,.lr-topics li.is-hover .rd-quiet{opacity:1}
+.lr-topics li.is-next b{box-shadow:inset 0 -7px 0 var(--highlighter)}
+/* The rest of what belongs to the goal: label, value, the way in. */
+.lr-more{display:grid;grid-template-columns:118px minmax(0,1fr) auto;align-items:center;gap:14px;width:100%;min-height:42px;padding:6px 0;border-bottom:1px solid var(--rule);font-size:14.5px}
+.lr-more:last-child{border-bottom:0}
+.lr-more > b{font-size:13px;font-weight:600;color:var(--graphite)}
+.lr-more svg{color:var(--graphite)}
+.lr-form{display:grid;grid-template-columns:minmax(0,1fr) 232px;gap:36px;padding:4px 14px 18px 26px}
+.lr-field{display:block;font-size:13px;font-weight:600;color:var(--graphite)}
+.lr-field + .lr-field{margin-top:14px}
+.lr-field span{display:flex;align-items:center;min-height:44px;margin-top:5px;padding:0 14px;border:1.5px solid var(--rule);border-radius:10px;background:var(--paper);font-size:15px;font-weight:400;color:var(--graphite)}
+.lr-field span.on{border-color:var(--pencil);color:var(--pencil)}
+.lr-label{font-size:13px;font-weight:600;color:var(--graphite)}
+.lr-steps{margin:4px 0 0;padding-left:18px;font-size:14px;line-height:1.5}
+.lr-steps li{margin:4px 0}
+.lr-acts{display:flex;align-items:center;gap:10px;margin-top:18px}
+
+/* First time here: two doors, the same size. */
+.lr-doors{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.lr-door{padding:20px 22px 22px;border-radius:16px;background:var(--page);box-shadow:var(--lift)}
+.lr-door h3{font:700 17px/1.25 "Nunito Sans",sans-serif}
+.lr-door > p{margin-top:4px;font-size:14.5px;color:var(--graphite);min-height:44px}
+.lr-door .drop{min-height:84px;margin-top:14px;padding:12px 14px;border:1.5px dashed color-mix(in srgb,var(--graphite) 60%,transparent);border-radius:12px;font-size:15px;color:var(--graphite)}
+
+</style>
+</head>
+<body>
+<div class="doc">
+<h1>Learn home</h1>
+<p>Built with the app's own tokens, fonts, controls and Chalky. Frames are 1280 wide. Open <code>?screen=NAME</code> to see one alone. Classes starting <code>lr-</code> and <code>tu-</code> are for <code>learn.css</code>.</p>
+
+<!-- ===================================================================== HOME -->
+<p class="part">Learn home</p>
+
+<div class="cap"><b>1 · Everything you're learning</b><code>?screen=home</code></div>
+<div class="frame" id="home">
+  <div class="chrome"><strong>studi</strong><div class="switch"><span>Homework</span><span class="on">Learn</span></div><div class="end"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.3l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2.2-1.3L14 3h-4l-.4 2.5a7 7 0 0 0-2.2 1.3l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.6l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2.2 1.3L10 21h4l.4-2.5a7 7 0 0 0 2.2-1.3l2.3 1 2-3.4-2-1.5c.1-.4.1-.9.1-1.3Z"/></svg></div></div>
+  <div class="scroll"><div class="lr-col">
+    <header class="lr-hello">
+      <span data-chalky="idle"></span>
+      <div><h1>Midterm 1 is in 6 days.</h1><p>Next up is <b>Bayes' theorem</b>, your biggest gap. We'll start with two quick ones from earlier.</p></div>
+      <button class="rd-button rd-primary lr-go">Start · 15 min</button>
+    </header>
+
+    <section class="lr-group">
+      <div class="lr-bar"><h2>Tests</h2></div>
+      <button class="lr-row is-hover" style="--accent:var(--course-coral)"><span><strong>Midterm 1</strong><small>ST 370 · Next: <b>Bayes' theorem</b></small></span>
+        <span class="lr-strip"><i data-l="4"></i><i data-l="3"></i><i data-l="1"></i><i data-l="2"></i><i data-l="x"></i></span>
+        <span class="lr-when"><b>6 days</b><small>Mon, Oct 6</small></span></button>
+      <button class="lr-row" style="--accent:var(--course-lavender)"><span><strong>Midterm</strong><small>CSC 316 · Next: <b>Hash tables</b></small></span>
+        <span class="lr-strip"><i data-l="x"></i><i data-l="2"></i><i data-l="1"></i><i data-l="x"></i></span>
+        <span class="lr-when"><b>12 days</b><small>Sun, Oct 12</small></span></button>
+      <button class="lr-row" style="--accent:var(--course-mint)"><span><strong>Final</strong><small>MA 241 · Tell me what's on it</small></span>
+        <span></span>
+        <span class="lr-when"><b>No date</b></span></button>
+      <button class="lr-addrow">+ Add a test</button>
+    </section>
+
+    <section class="lr-group">
+      <div class="lr-bar"><h2>For yourself</h2><span>No test, no deadline.</span></div>
+      <button class="lr-row"><span><strong>Python basics</strong><small>Next: <b>Functions</b></small></span>
+        <span class="lr-strip"><i data-l="3"></i><i data-l="2"></i><i data-l="1"></i><i data-l="x"></i><i data-l="x"></i></span>
+        <span class="lr-when"><b>3 sessions</b><small>last Tuesday</small></span></button>
+      <button class="lr-row"><span><strong>How mortgages work</strong><small>Starts with a 5 minute check</small></span>
+        <span></span>
+        <span class="lr-when"><b>New</b></span></button>
+      <button class="lr-addrow">+ Learn something new</button>
+    </section>
+  </div></div>
+  <div class="dock"><div class="composer"><span>Hey Chalky…</span><i><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></i></div></div>
+</div>
+<ul class="note">
+  <li><b>The page is the list.</b> Every test and everything you're learning for yourself is one row, in the same grammar: what it is and what's next, how it's going, when. Nothing is open by default.</li>
+  <li><b>The top is one suggestion</b> across all of it, built like the Week page's hello: Chalky, one line that says why, and the one filled button.</li>
+  <li><b>The strip is one mark per topic,</b> darker as the topic gets stronger, hollow when it hasn't been checked.</li>
+  <li><b>"For yourself" has the same weight as "Tests".</b> Where a test shows days left, these show sessions done.</li>
+  <li>No boxes: rows are grouped by space, the class colour is a 3px edge, and hover washes the row. Adding is the last row of each group.</li>
+</ul>
+
+<div class="cap"><b>2 · Click a row: it opens in place</b><code>?screen=home-test</code></div>
+<div class="frame" id="home-test" style="height:1010px">
+  <div class="chrome"><strong>studi</strong><div class="switch"><span>Homework</span><span class="on">Learn</span></div><div class="end"></div></div>
+  <div class="scroll"><div class="lr-col">
+    <header class="lr-hello">
+      <span data-chalky="idle"></span>
+      <div><h1>Midterm 1 is in 6 days.</h1><p>Next up is <b>Bayes' theorem</b>, your biggest gap. We'll start with two quick ones from earlier.</p></div>
+      <button class="rd-button rd-primary lr-go">Start · 15 min</button>
+    </header>
+    <section class="lr-group">
+      <div class="lr-bar"><h2>Tests</h2></div>
+      <div class="lr-open">
+        <button class="lr-row" aria-expanded="true" style="--accent:var(--course-coral)"><span><strong>Midterm 1</strong><small>ST 370</small></span>
+          <span class="lr-strip"><i data-l="4"></i><i data-l="3"></i><i data-l="1"></i><i data-l="2"></i><i data-l="x"></i></span>
+          <span class="lr-when"><b>6 days</b><small>Mon, Oct 6</small></span></button>
+        <div class="lr-detail">
+          <div class="lr-pace"><span>3 topics to go. One a day leaves you 3 days spare.</span><button class="rd-quiet">Change</button></div>
+          <ul class="lr-topics">
+            <li><span><b>Counting and sets</b><span class="share">15%</span><small>Last right 5 days ago. Coming back today.</small></span><span class="lr-level"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span><span class="lr-word">Solid</span><span class="act"><button class="rd-quiet">Practise</button></span></li>
+            <li><span><b>Conditional probability</b><span class="share">25%</span><small>Last right 2 days ago. Coming back today.</small></span><span class="lr-level"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span><span class="lr-word">Good</span><span class="act"><button class="rd-quiet">Practise</button></span></li>
+            <li class="is-next"><span><b>Bayes' theorem</b><span class="share">30%</span></span><span class="lr-level"><i class="on"></i><i></i><i></i><i></i></span><span class="lr-word">Shaky</span><span class="act"><button class="rd-button">Start · 15 min</button></span></li>
+            <li class="is-hover"><span><b>Random variables</b><span class="share">20%</span></span><span class="lr-level"><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="lr-word">Getting there</span><span class="act"><button class="rd-quiet">Practise</button></span></li>
+            <li><span><b>Distributions</b><span class="share">10%</span></span><span class="lr-level"><i class="none"></i><i class="none"></i><i class="none"></i><i class="none"></i></span><span class="lr-word">Not checked</span><span class="act"><button class="rd-quiet">Practise</button></span></li>
+          </ul>
+          <button class="lr-more"><b>Test yourself</b><span>10 minutes of questions like your teacher's, no teaching</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+          <button class="lr-more"><b>Cheat sheet</b><span>7 lines from your sessions and 3 study pages</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+          <div class="lr-more"><b>Studying from</b><span>ST 370 syllabus.pdf, Midterm 1 review sheet.pdf and 2 more</span><button class="rd-quiet">Add a file</button></div>
+        </div>
+      </div>
+      <button class="lr-row" style="--accent:var(--course-lavender)"><span><strong>Midterm</strong><small>CSC 316 · Next: <b>Hash tables</b></small></span>
+        <span class="lr-strip"><i data-l="x"></i><i data-l="2"></i><i data-l="1"></i><i data-l="x"></i></span>
+        <span class="lr-when"><b>12 days</b><small>Sun, Oct 12</small></span></button>
+      <button class="lr-row" style="--accent:var(--course-mint)"><span><strong>Final</strong><small>MA 241 · Tell me what's on it</small></span>
+        <span></span>
+        <span class="lr-when"><b>No date</b></span></button>
+      <button class="lr-addrow">+ Add a test</button>
+    </section>
+    <section class="lr-group">
+      <div class="lr-bar"><h2>For yourself</h2><span>No test, no deadline.</span></div>
+      <button class="lr-row"><span><strong>Python basics</strong><small>Next: <b>Functions</b></small></span>
+        <span class="lr-strip"><i data-l="3"></i><i data-l="2"></i><i data-l="1"></i><i data-l="x"></i><i data-l="x"></i></span>
+        <span class="lr-when"><b>3 sessions</b><small>last Tuesday</small></span></button>
+      <button class="lr-addrow">+ Learn something new</button>
+    </section>
+  </div></div>
+  <div class="dock"><div class="composer"><span>Hey Chalky…</span><i><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5m-6 6 6-6 6 6"/></svg></i></div></div>
+</div>
+<ul class="note">
+  <li><b>One click opens a row, another closes it,</b> and only one is open at a time. The open goal lifts onto a sheet; its row stays as the heading, so nothing moves under the cursor.</li>
+  <li><b>What's on it:</b> one hairline row per topic with its share of the test, level, and "Practise" on hover. The next topic has the highlighter under its name and an outlined Start. The filled button stays at the top of the page.</li>
+  <li><b>Then the rest of the goal</b> as label, value and a way in: the quiz, the cheat sheet, what it's built from.</li>
+  <li>"Change" edits the name, class, date and topics, and removes the test.</li>
+</ul>
+
+<div class="cap"><b>3 · Something for yourself, open</b><code>?screen=home-self</code></div>
+<div class="frame" id="home-self" style="height:660px">
+  <div class="chrome"><strong>studi</strong><div class="switch"><span>Homework</span><span class="on">Learn</span></div><div class="end"></div></div>
+  <div class="scroll"><div class="lr-col" style="padding-top:8px">
+    <section class="lr-group">
+      <div class="lr-bar"><h2>For yourself</h2><span>No test, no deadline.</span></div>
+      <div class="lr-open">
+        <button class="lr-row" aria-expanded="true"><span><strong>Python basics</strong><small>For a summer internship. I know a little JavaScript.</small></span>
+          <span class="lr-strip"><i data-l="3"></i><i data-l="2"></i><i data-l="1"></i><i data-l="x"></i><i data-l="x"></i></span>
+          <span class="lr-when"><b>3 sessions</b><small>last Tuesday</small></span></button>
+        <div class="lr-detail">
+          <div class="lr-pace"><span>Your outline. Chalky suggested it after your first check; change it any time.</span><button class="rd-quiet">Change</button></div>
+          <ul class="lr-topics">
+            <li><span><b>Variables and types</b></span><span class="lr-level"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span><span class="lr-word">Good</span><span class="act"><button class="rd-quiet">Practise</button></span></li>
+            <li><span><b>Conditionals</b></span><span class="lr-level"><i class="on"></i><i class="on"></i><i></i><i></i></span><span class="lr-word">Getting there</span><span class="act"><button class="rd-quiet">Practise</button></span></li>
+            <li><span><b>Loops</b><small>Coming back tomorrow.</small></span><span class="lr-level"><i class="on"></i><i></i><i></i><i></i></span><span class="lr-word">Shaky</span><span class="act"><button class="rd-quiet">Practise</button></span></li>
+            <li class="is-next"><span><b>Functions</b></span><span class="lr-level"><i class="none"></i><i class="none"></i><i class="none"></i><i class="none"></i></span><span class="lr-word">Not checked</span><span class="act"><button class="rd-button">Start · 15 min</button></span></li>
+            <li><span><b>Files</b></span><span class="lr-level"><i class="none"></i><i class="none"></i><i class="none"></i><i class="none"></i></span><span class="lr-word">Not checked</span><span class="act"><button class="rd-quiet">Practise</button></span></li>
+          </ul>
+          <button class="lr-more"><b>Cheat sheet</b><span>4 lines from your sessions</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></button>
+        </div>
+      </div>
+      <button class="lr-row"><span><strong>How mortgages work</strong><small>Starts with a 5 minute check</small></span>
+        <span></span>
+        <span class="lr-when"><b>New</b></span></button>
+      <button class="lr-addrow">+ Learn something new</button>
+    </section>
+  </div></div>
+</div>
+<ul class="note">
+  <li>The same sheet without a date, a share of a test, a pace line or a quiz. Under the name is the student's own reason, in their words.</li>
+  <li>Topics come back on a gentle schedule here too, so what was learned isn't lost.</li>
+</ul>
+
+<div class="cap"><b>4 · "Learn something new"</b><code>?screen=home-new</code></div>
+<div class="frame" id="home-new" style="height:520px">
+  <div class="chrome"><strong>studi</strong><div class="switch"><span>Homework</span><span class="on">Learn</span></div><div class="end"></div></div>
+  <div class="scroll"><div class="lr-col" style="padding-top:8px">
+    <section class="lr-group">
+      <div class="lr-bar"><h2>For yourself</h2><span>No test, no deadline.</span></div>
+      <button class="lr-row"><span><strong>Python basics</strong><small>Next: <b>Functions</b></small></span>
+        <span class="lr-strip"><i data-l="3"></i><i data-l="2"></i><i data-l="1"></i><i data-l="x"></i><i data-l="x"></i></span>
+        <span class="lr-when"><b>3 sessions</b><small>last Tuesday</small></span></button>
+      <div class="lr-open">
+        <div class="lr-row" style="min-height:52px"><span><strong>What do you want to learn?</strong></span><span></span><span></span></div>
+        <div class="lr-form">
+          <div>
+            <label class="lr-field">The thing<span class="on">How mortgages work</span></label>
+            <label class="lr-field">Why, or how far, if you like<span>I'm buying a flat next year and don't want to be lost.</span></label>
+            <div class="lr-acts"><button class="rd-button rd-primary" style="min-height:44px;font-size:15px;border-radius:12px">Start with a 5 minute check</button><button class="rd-quiet" style="min-height:36px">Just add it for later</button><button class="rd-quiet" style="min-height:36px;background:none">Cancel</button></div>
+          </div>
+          <div>
+            <p class="lr-label">What happens</p>
+            <ol class="lr-steps"><li>A few questions, so I don't teach you what you know.</li><li>I suggest a short outline. You can change it.</li><li>One piece at a time, whenever you like.</li></ol>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div></div>
+</div>
+<ul class="note">
+  <li>The add row opens the same sheet with two fields. "Start with a 5 minute check" goes straight into a lesson, and Chalky's finish proposes the outline. "Just add it for later" makes the row and stays here.</li>
+  <li>"Add a test" opens the same sheet with today's intake: drop a syllabus or study guide, type what you know, or "Find my tests" in your school sites.</li>
+  <li>Asking in the chat box works too: "teach me how mortgages work" makes the row and starts the check.</li>
+</ul>
+
+<div class="cap"><b>5 · First time here</b><code>?screen=home-empty</code></div>
+<div class="frame" id="home-empty" style="height:520px">
+  <div class="chrome"><strong>studi</strong><div class="switch"><span>Homework</span><span class="on">Learn</span></div><div class="end"></div></div>
+  <div class="scroll"><div class="lr-col">
+    <header class="lr-hello">
+      <span data-chalky="hello"></span>
+      <div><h1>What do you want to learn?</h1><p>I'm Chalky. Short lessons, one idea at a time, and I remember where you got to.</p></div>
+      <span></span>
+    </header>
+    <div class="lr-doors">
+      <section class="lr-door"><h3>A test that's coming up</h3><p>Give me anything about it. I'll work out what's on it and a plan.</p>
+        <div class="drop">Drop a syllabus or study guide, or type "stats midterm next Friday, chapters 1 to 5"</div>
+        <div class="lr-acts"><button class="rd-button rd-primary">Find my tests</button><button class="rd-quiet" style="min-height:36px">Choose a file</button></div></section>
+      <section class="lr-door"><h3>Something for yourself</h3><p>No class, no deadline. Anything you're curious about.</p>
+        <div class="drop">Python basics, how mortgages work, reading sheet music…</div>
+        <div class="lr-acts"><button class="rd-button">Start with a 5 minute check</button></div></section>
+    </div>
+  </div></div>
+</div>
+<ul class="note">
+  <li>Two doors, the same size, so learning for yourself is never a footnote. "Find my tests" is the one filled button because it needs no typing.</li>
+</ul>
+
+</div>
+<script src="../characters.js"></script>
+<script>
+for (const slot of document.querySelectorAll("[data-chalky]")) slot.replaceWith(Characters.mascot("chalky", slot.dataset.chalky));
+const only = new URLSearchParams(location.search).get("screen");
+if (only) { document.body.classList.add("single"); document.getElementById(only)?.classList.add("show"); }
+</script>
+</body>
+</html>

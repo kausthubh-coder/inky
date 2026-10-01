@@ -37,10 +37,10 @@ export function learnPreview(id: string) {
     source("source-csc316", "course-csc316", "CSC 316 syllabus.pdf"),
     ...(id === "learn-error" ? [source("source-bad", "course-ma241", "MA 241 scan.pdf", "failed", "It's a photo with no readable text. Paste the exam topics instead.")] : []),
   ];
-  const levels: Record<string, number> = id === "learn-partial" ? { "topic-0": 4, "topic-1": 3 }
+  const levels: Record<string, number> = id === "learn-recap" ? { "topic-0": 4, "topic-1": 3, "topic-2": 3, "topic-3": 3, "topic-4": 3 } : id === "learn-partial" ? { "topic-0": 4, "topic-1": 3 }
     : { "topic-0": 4, "topic-1": 3, "topic-2": 1, "topic-3": 2, "csc-1": 2, "csc-2": 1, "py-0": 3, "py-1": 2, "py-2": 1 };
   const mastery = empty ? [] : Object.entries(levels).map(([topicId, level], index) => ({
-    topicId, level, updatedAt: now(),
+    topicId, level, updatedAt: now(), review: { dueOn: day(id === "learn-recap" ? -1 : 2), gapDays: 2, lastRightOn: day(-3) },
     evidence: [{ sessionId: "previous", blockId: `evidence-${index}`, kind: "typed" as const, correct: true, answer: "Simulated answer", rationale: "Simulated session evidence", hintsUsed: 0, recordedAt: now() }],
   }));
   const past = (sessionId: string, topicId: string, daysAgo: number) => ({ sessionId, topicId, mode: "topic" as const, goal: "Practice", status: "completed" as const,
@@ -85,20 +85,20 @@ export function learnPreview(id: string) {
   const makeSession = (): PublicTutorSession => ({
     sessionId: "preview-tutor", topicId: "topic-2", goal: "Bayes' theorem", mode: "topic", topicIds: ["topic-2"], examId: "exam-st370", phase,
     initialLevels: { "topic-2": 1 }, status: id === "tutor-paused" ? "paused" : "active", startedAt: now(), updatedAt: now(), finishedAt: null,
-    budgetSeconds: 900, elapsedSeconds: 480, activeSince: id === "tutor-paused" ? null : now(), initialLevel: 1,
+    budgetSeconds: 900, elapsedSeconds: 480, activeSince: id === "tutor-paused" ? null : now(), wrapStartedAt: null, initialLevel: 1,
     blocks: opener, messages: [], result: null, error: null,
   });
   let tutor = makeSession();
   if (id === "tutor-finished") tutor = { ...tutor, status: "completed", phase: "wrap", activeSince: null, finishedAt: now(), blocks: checkDone,
     result: { summary: "You tied the result to the base rate, and caught yourself before saying 90%.", previousLevel: 1, level: 2, evidence: [],
-      missing: ["Setting up the 2 by 2 table without the picture."], next: "A five minute recap on Thursday.", assessments: [] } };
+      missing: ["Setting up the 2 by 2 table without the picture."], next: "A five minute recap on Thursday.", assessments: [], clicked: [], cheatsheet: [] } };
   if (id === "tutor-quiz") {
     const q = (sequence: number, topicId: string, correct: boolean) => block(sequence, "independent", "tutor_ask_typed", { topicId, question: `Question ${sequence + 1}`, hints: [], hasMoreHints: false },
       { answer: { kind: "typed", answer: "answer" }, correct, hintsUsed: 0, seconds: 30 });
     const plan: [string, boolean][] = [["topic-1", true], ["topic-1", true], ["topic-1", true], ["topic-2", true], ["topic-2", false], ["topic-2", false], ["topic-3", true], ["topic-3", true], ["topic-0", true], ["topic-0", false]];
     tutor = { ...tutor, mode: "mock_exam", goal: "Check what I know across this exam", topicIds: ["topic-0", "topic-1", "topic-2", "topic-3"], status: "completed", phase: "wrap",
       activeSince: null, finishedAt: now(), blocks: plan.map(([topicId, correct], index) => q(index, topicId, correct)),
-      result: { summary: "Conditional probability is solid. Bayes is where the points are.", previousLevel: 1, level: 1, evidence: [], missing: [], next: "Study Bayes' theorem.", assessments: [] } };
+      result: { summary: "Conditional probability is solid. Bayes is where the points are.", previousLevel: 1, level: 1, evidence: [], missing: [], next: "Study Bayes' theorem.", assessments: [], clicked: [], cheatsheet: [] } };
   }
   const tutoring = id.startsWith("tutor-");
 

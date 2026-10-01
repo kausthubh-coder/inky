@@ -57,6 +57,7 @@ export function buildTutorContext(repository: LearnRepository, session: TutorSes
     topics: topics.map(topic => {
       const record = mastery.get(topic.topicId);
       return { topicId: topic.topicId, title: topic.title, level: record?.level ?? null,
+        role: session.mode === "recap" || (session.mode === "topic" && topic.topicId !== session.topicId) ? "comingBack" : "today", lastRightOn: record?.review?.lastRightOn ?? null,
         lastEvidence: record?.evidence.slice(-3).map(item => ({ correct: item.correct, rationale: item.rationale })) ?? [] };
     }),
     material, homework,

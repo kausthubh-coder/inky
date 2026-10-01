@@ -3,9 +3,9 @@ import { z } from "zod";
 import { OpaqueIdSchema } from "../../shared/ids.js";
 import { IsoTimestampSchema } from "../../shared/schema-version.js";
 import { ExamSchema, LearnExamInputSchema, LearnExtractionSchema, LearnSourceInputSchema, LearnSourceSchema, LearnTopicSchema, TopicMasterySchema, TopicMasterySummarySchema, planLearn, sameExam,
-  type Exam, type LearnExtraction, type LearnSource, type LearnTopic, type MasteryEvidence, type TopicMastery } from "../../shared/learn.js";
+  nextReview, localDay, type Exam, type LearnExtraction, type LearnSource, type LearnTopic, type MasteryEvidence, type TopicMastery } from "../../shared/learn.js";
 import { EVIDENCE_PHASES, TUTOR_PHASES, TutorBlockAnswerSchema, TutorBlockSchema, TutorCallSchema, TutorFinishInputSchema, TutorMessageSchema, TutorSessionSchema, TutorSessionSummarySchema,
-  normalizeTutorAnswer, typedAnswerMatches, tutorTimeLeft, type TutorBlock, type TutorPhase, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
+  TutorGradeInputSchema, normalizeTutorAnswer, typedAnswerMatches, tutorTimeLeft, tutorExpiryTimeLeft, TUTOR_TIME_UP, type TutorBlock, type TutorPhase, type TutorSession, type TutorSessionSummary } from "../../shared/tutor.js";
 import type { StudiSqliteDatabase } from "./database.js";
 
 type Table = "learn_sources" | "learn_exams" | "learn_topics" | "learn_mastery" | "learn_sessions";
@@ -57,7 +57,7 @@ export class LearnRepository {
   }
   masterySummaries() {
     return this.database.handle.prepare(`SELECT json_object('topicId',id,'level',json_extract(record_json,'$.level'),
-      'updatedAt',json_extract(record_json,'$.updatedAt'),'evidenceCount',json_array_length(record_json,'$.evidence')) AS summary
+      'updatedAt',json_extract(record_json,'$.updatedAt'),'review',json_extract(record_json,'$.review'),'evidenceCount',json_array_length(record_json,'$.evidence')) AS summary
       FROM learn_mastery WHERE owner_subject=? ORDER BY id`).all(this.ownerSubject)
       .map(row => TopicMasterySummarySchema.parse(JSON.parse(String(row.summary))));
   }
@@ -252,7 +252,7 @@ export class LearnRepository {
         const exam = this.exams().find(item => item.examId === options.examId);
         const expected = this.topics().filter(item => item.examId === exam?.examId && item.origin !== "homework_hint").map(item => item.topicId);
         if (!exam || expected.length !== topicIds.length || expected.some(key => !topicIds.includes(key))) throw new Error("A mock exam must cover its saved exam topics");
-      } else if (topicIds.length !== 1) throw new Error("A topic session has exactly one topic");
+      } else if (topicIds.some(key => this.topic(key).examId !== this.topic(topicId).examId)) throw new Error("Session topics must belong to the same goal");
       const existing = this.sessions().find(session => session.topicId === topicId && session.mode === mode && ["active", "paused", "failed"].includes(session.status));
       if (existing) return existing;
       const now = this.now();
@@ -277,8 +277,12 @@ export class LearnRepository {
     return session;
   }
   state(sessionId: string): TutorSession {
-    const session = this.session(sessionId);
-    return session.status === "active" && tutorTimeLeft(session, this.now()) <= 0 ? this.transition(sessionId, "expired") : session;
+    const session = this.session(sessionId), now = this.now();
+    if (tutorExpiryTimeLeft(session, now) <= 0 && (session.status === "active" || session.wrapStartedAt)) return this.transition(sessionId, "expired");
+    if (session.status !== "active" || tutorTimeLeft(session, now) > 0 || session.wrapStartedAt) return session;
+    const wrapStartedAt = new Date(Date.parse(session.activeSince!) + (session.budgetSeconds - session.elapsedSeconds) * 1000).toISOString();
+    return this.database.transaction(() => this.#saveSession({ ...session, wrapStartedAt, elapsedSeconds: session.budgetSeconds, activeSince: null, updatedAt: now,
+      blocks: session.blocks.map(block => block.status === "open" ? { ...block, status: "cancelled" } : block) }));
   }
   #active(sessionId: string): TutorSession {
     const session = this.state(sessionId);
@@ -287,13 +291,13 @@ export class LearnRepository {
   }
   transition(sessionId: string, status: "paused" | "active" | "cancelled" | "expired" | "failed", error: string | null = null): TutorSession {
     return this.database.transaction(() => {
-      const session = this.session(sessionId), now = this.now();
+      const session = status === "expired" ? this.session(sessionId) : this.state(sessionId), now = this.now();
       if (["completed", "cancelled", "expired"].includes(session.status)) return session;
       const remaining = tutorTimeLeft(session, now);
-      if (remaining <= 0) status = "expired";
+      if (tutorExpiryTimeLeft(session, now) <= 0) status = "expired";
       const terminal = ["cancelled", "expired"].includes(status);
       return this.#saveSession({ ...session, status, updatedAt: now, elapsedSeconds: session.budgetSeconds - remaining,
-        activeSince: status === "active" ? now : null, finishedAt: terminal ? now : null, error,
+        activeSince: status === "active" && !session.wrapStartedAt ? now : null, finishedAt: terminal ? now : null, error,
         blocks: terminal ? session.blocks.map(block => block.status === "open" ? { ...block, status: "cancelled" } : block) : session.blocks });
     });
   }
@@ -307,9 +311,11 @@ export class LearnRepository {
   openBlock(sessionId: string, toolCallId: string, value: unknown): TutorBlock {
     const call = TutorCallSchema.parse(value);
     if (call.tool === "tutor_finish") return this.finish(sessionId, toolCallId, call.args).blocks.at(-1)!;
-    if (call.tool === "tutor_advance") throw new Error("Advance the lesson with advance(), not as a block");
+    if (call.tool === "tutor_advance" || call.tool === "tutor_grade") throw new Error("Advance and grade are not blocks");
     return this.database.transaction(() => {
       const session = this.#active(sessionId);
+      if (tutorTimeLeft(session, this.now()) <= 0) throw new Error(TUTOR_TIME_UP);
+      if (call.tool !== "tutor_say") this.#requireMarked(session);
       if ("topicId" in call.args && call.args.topicId && !session.topicIds.includes(call.args.topicId)) throw new Error("Question topic is outside this session");
       if (session.mode === "mock_exam" && ["tutor_ask_choice", "tutor_ask_typed", "tutor_ask_explain"].includes(call.tool) && (!("topicId" in call.args) || !call.args.topicId)) throw new Error("Mock exam questions must name their topicId");
       if (call.tool === "tutor_show_model") {
@@ -363,14 +369,33 @@ export class LearnRepository {
       } else if (block.tool === "tutor_ask_typed" && answer.kind === "typed") correct = typedAnswerMatches(block.args.accept, answer.answer);
       else if (!(block.tool === "tutor_ask_explain" && answer.kind === "explain") && !((block.tool === "tutor_show_model" || block.tool === "tutor_show_page") && answer.kind === "model")) throw new Error("Answer does not match the open block");
       const now = this.now();
-      const answered: TutorBlock = { ...block, status: "answered", answeredAt: now, draft: "", result: { answer, correct, hintsUsed: block.hintsUsed, seconds: Math.max(0, session.budgetSeconds - tutorTimeLeft(session, now) - block.elapsedAtCreation) } };
+      const answered: TutorBlock = { ...block, status: "answered", answeredAt: now, draft: "", result: { answer, correct, ...(answer.kind === "typed" ? { matched: correct === true } : {}), hintsUsed: block.hintsUsed, seconds: Math.max(0, session.budgetSeconds - tutorTimeLeft(session, now) - block.elapsedAtCreation) } };
       return this.#saveSession({ ...session, blocks: session.blocks.map(b => b.blockId === blockId ? answered : b), updatedAt: now });
     });
   }
   hint(sessionId: string, blockId: string): TutorSession {
     return this.#editOpenBlock(sessionId, blockId, block => {
       if (block.tool !== "tutor_ask_typed") throw new Error("This block has no hint ladder");
+      if (block.hintsUsed > 0 && block.hintsUsed < block.args.hints.length && !block.draft.trim()) throw new Error("Type your best try first.");
       return { ...block, hintsUsed: Math.min(block.hintsUsed + 1, block.args.hints.length) };
+    });
+  }
+  #requireMarked(session: TutorSession): void {
+    if (session.blocks.some(block => block.tool === "tutor_ask_explain" && block.status === "answered" && block.result?.correct === null)) throw new Error("Mark the explanation with tutor_grade first");
+  }
+  grade(sessionId: string, value: unknown): TutorSession {
+    const input = TutorGradeInputSchema.parse(value);
+    return this.database.transaction(() => {
+      const session = this.#active(sessionId), block = session.blocks.find(item => item.blockId === input.blockId);
+      if (!block?.result || block.status !== "answered") throw new Error("Grade an answered block from this session");
+      if (block.tool === "tutor_ask_explain") {
+        if (!input.met || input.met.length !== block.args.rubric.length) throw new Error("Mark every rubric point in order");
+        if (block.result.correct !== null) throw new Error("This explanation is already marked");
+      } else if (block.tool === "tutor_ask_typed") {
+        if (block.result.correct !== false || !input.correct || !input.equivalentTo || !block.args.accept.includes(input.equivalentTo)) throw new Error("Only raise a wrong typed answer by naming an accepted answer");
+      } else throw new Error("Only typed answers and explanations can be marked");
+      const result = { ...block.result, correct: input.correct, ...(block.tool === "tutor_ask_explain" ? { met: input.met! } : {}) };
+      return this.#saveSession({ ...session, updatedAt: this.now(), blocks: session.blocks.map(item => item.blockId === block.blockId ? { ...block, result } : item) });
     });
   }
   saveDraft(sessionId: string, blockId: string, draft: string): TutorSession {
@@ -406,12 +431,13 @@ export class LearnRepository {
       const saved = this.session(sessionId);
       if (saved.status === "completed") return saved;
       const session = this.#active(sessionId), now = this.now();
+      this.#requireMarked(session);
       if (session.blocks.some(block => block.status === "open")) throw new Error("Answer the open block before finishing");
       const assessments = input.assessments?.length ? input.assessments : [input];
       if (new Set(assessments.map(item => item.topic)).size !== assessments.length || assessments.some(item => !session.topicIds.includes(item.topic))) throw new Error("Assess each session topic at most once");
       if (session.mode === "mock_exam" && session.topicIds.some(topic => !assessments.some(item => item.topic === topic && item.evidence.length > 0))) throw new Error("The mock exam needs typed or explanation evidence for every exam topic");
       const allEvidence: MasteryEvidence[] = [];
-      const changes: { topicId: string; previousLevel: number | null; level: number | null }[] = [];
+      const changes: { topicId: string; previousLevel: number | null; level: number | null; dueOn: string | null }[] = [];
       for (const assessment of assessments) {
         if (new Set(assessment.evidence.map(item => item.blockId)).size !== assessment.evidence.length) throw new Error("Evidence blocks must be unique");
         const evidence: MasteryEvidence[] = assessment.evidence.map(item => {
@@ -422,29 +448,40 @@ export class LearnRepository {
           if (blockTopic !== assessment.topic) throw new Error("Evidence belongs to a different topic");
           const answer = block.result.answer;
           if (answer.kind !== "typed" && answer.kind !== "explain") throw new Error("Invalid mastery evidence");
-          if (answer.kind === "typed" && item.correct !== block.result.correct) throw new Error("The app's typed answer verdict cannot be overridden");
-          return { sessionId, blockId: block.blockId, kind: answer.kind, correct: item.correct, answer: answer.kind === "typed" ? answer.answer : answer.text,
+          if (block.result.correct === null) throw new Error("Mark the explanation with tutor_grade first");
+          return { sessionId, blockId: block.blockId, kind: answer.kind, correct: block.result.correct, answer: answer.kind === "typed" ? answer.answer : answer.text,
             rationale: item.rationale, hintsUsed: block.hintsUsed, recordedAt: now };
         });
         const old = this.mastery().find(item => item.topicId === assessment.topic), previousLevel = old?.level ?? null;
         let level = previousLevel;
+        let dueOn = old?.review?.dueOn ?? null;
         if (evidence.length) {
           const base = previousLevel ?? 0;
           const positive = evidence.some(item => item.correct && item.hintsUsed === 0);
-          const negative = evidence.some(item => !item.correct);
+          const negative = evidence.some(item => !item.correct && item.hintsUsed === 0);
           level = base;
           if (assessment.level > base && positive) {
-            const ceiling = Math.min(4, base + 1, (session.initialLevels[assessment.topic] ?? 0) + 1);
+            const initial = session.initialLevels[assessment.topic];
+            const delayedRight = old?.evidence.some(item => item.correct && item.hintsUsed === 0 && Date.parse(now) - Date.parse(item.recordedAt) >= 18 * 3600_000);
+            const ceiling = initial == null ? 3 : Math.min(delayedRight ? 4 : 3, initial + 1);
             level = Math.max(base, Math.min(assessment.level, ceiling));
           } else if (assessment.level < base && negative) level = Math.max(assessment.level, base - 1);
-          const mastery = TopicMasterySchema.parse({ topicId: assessment.topic, level, evidence: [...(old?.evidence ?? []), ...evidence].slice(-1000), updatedAt: now });
+          const examDate = session.examId ? this.exam(session.examId).date : null;
+          const review = nextReview(old?.review ?? null, { today: localDay(now), examDate, right: positive && !evidence.some(item => !item.correct) });
+          dueOn = review.dueOn;
+          const mastery = TopicMasterySchema.parse({ topicId: assessment.topic, level, review, evidence: [...(old?.evidence ?? []), ...evidence].slice(-1000), updatedAt: now });
           this.#put("learn_mastery", assessment.topic, mastery);
         }
         allEvidence.push(...evidence);
-        changes.push({ topicId: assessment.topic, previousLevel, level });
+        changes.push({ topicId: assessment.topic, previousLevel, level, dueOn });
       }
       const primary = changes.find(item => item.topicId === session.topicId);
-      const result = { summary: input.summary, previousLevel: primary?.previousLevel ?? null, level: primary?.level ?? null, evidence: allEvidence, missing: input.missing, next: input.next, assessments: changes };
+      const clicked = (input.clicked ?? []).filter(item => {
+        const wrong = session.blocks.find(block => block.blockId === item.wrongBlockId), right = session.blocks.find(block => block.blockId === item.rightBlockId);
+        return wrong?.status === "answered" && wrong.result?.correct === false && right?.status === "answered" && right.sequence > wrong.sequence
+          && (right.tool === "tutor_ask_typed" || right.tool === "tutor_ask_explain") && right.phase === "independent" && right.result?.correct === true && right.hintsUsed === 0;
+      }).map(({ before, after }) => ({ before, after }));
+      const result = { summary: input.summary, previousLevel: primary?.previousLevel ?? null, level: primary?.level ?? null, evidence: allEvidence, missing: input.missing, next: input.next, assessments: changes, clicked, cheatsheet: input.cheatsheet ?? [] };
       const goal = session.examId ? this.#get("learn_exams", session.examId, ExamSchema) : null;
       if (goal?.kind === "topic") for (const title of input.outline ?? []) this.addTopic(goal.examId, title);
       const block = TutorBlockSchema.parse({ tool: "tutor_finish", args: input, phase: "wrap", blockId: id("block"), toolCallId, sequence: session.blocks.length, status: "complete", createdAt: now, answeredAt: null, hintsUsed: 0, draft: "", result: null });
