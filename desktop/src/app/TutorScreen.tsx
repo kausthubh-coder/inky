@@ -5,7 +5,7 @@ import { TUTOR_PHASES, boardView, type PublicTutorSession, type TutorBlockAnswer
 import type { ChalkyState } from "../../shared/characters/states.js";
 import { TutorModel } from "./TutorModels.js";
 import { StudyPage } from "./StudyPage.js";
-import { ChatMarkdown } from "./ChatMarkdown.js";
+import { ChatMarkdown, plainText } from "./ChatMarkdown.js";
 import { Icon } from "./Icon.js";
 import { Character } from "./Character.js";
 
@@ -112,6 +112,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
   const wrapped = closed && (wrapUp || !question?.result);
   const disabled = busy || session.status !== "active" || !!session.wrapStartedAt;
   const waiting = view.visuals.flatMap(group => [group.block, ...group.children]).find(block => block.blockId === view.at);
+  const toRead = waiting?.tool === "tutor_show_model" && waiting.args.controls.length === 0;
 
   // Stay on this stop; a visual that has been tried has nothing left to read, so move on from it.
   useEffect(() => { setAt(!question && view.following ? view.following : view.at); }, [view.at, view.following, !question]);
@@ -225,11 +226,11 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
               </> : <>
                 {!done.length && view.done.length > 0 && <button className="tu-done" onClick={() => setAllDone(true)}><span>{view.done.length} earlier questions</span><span className="tu-more">Show</span></button>}
                 {done.map(item => <button key={item.blockId} className="tu-done" onClick={() => setAt(item.blockId)}>
-                  {item.correct ? <Tick size={18} /> : <Dash size={18} />}<span>{item.question}</span>{item.answer && <b>{item.answer}</b>}<span className="tu-more">Show</span>
+                  {item.correct ? <Tick size={18} /> : <Dash size={18} />}<span>{plainText(item.question)}</span>{item.answer && <b>{item.answer}</b>}<span className="tu-more">Show</span>
                 </button>)}
                 <div className="tu-lead" aria-live="polite">{view.lead.map(note => <Note key={note.blockId} note={note} newest={view.newest} />)}</div>
                 {!view.at && !view.lead.length && <p className="tu-lab" role="status">Chalky is getting the lesson ready…</p>}
-                {question && <h1 className="tu-q"><span>{question.tool === "tutor_ask_explain" ? question.args.prompt : question.args.question}</span></h1>}
+                {question && <h1 className="tu-q"><ChatMarkdown text={question.tool === "tutor_ask_explain" ? question.args.prompt : question.args.question} /></h1>}
                 {view.note && <p className="tu-w">{view.note}</p>}
                 {origin && <p className="tu-lab">{origin}</p>}
                 {question && question.tool !== "tutor_ask_choice" && question.args.steps && <Steps steps={question.args.steps} />}
@@ -243,8 +244,8 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
                       onAnswer={value => answer(question.blockId, value)} onMove={move} onError={setError} registerFlush={registerFlush}
                       onHint={() => void run(() => window.studi!.hintTutorBlock({ sessionId: session.sessionId, blockId: question.blockId }))} />
                   : view.at && <div className="tu-ans">
-                    <button className="tu-btn" disabled={disabled || view.move !== "tried" || !explored.length} onClick={() => void answer(view.at!, { kind: "model", explored })}>I've tried it</button>
-                    <span className="tu-lab" role="status">{view.move !== "tried" ? "Chalky is writing…" : !explored.length ? waiting?.tool === "tutor_show_page" ? "Try the page first." : "Try it first." : ""}</span>
+                    <button className="tu-btn" disabled={disabled || view.move !== "tried" || (!toRead && !explored.length)} onClick={() => void answer(view.at!, { kind: "model", explored: toRead ? ["Read it"] : explored })}>{toRead ? "Continue" : "I've tried it"}</button>
+                    <span className="tu-lab" role="status">{view.move !== "tried" ? "Chalky is writing…" : !toRead && !explored.length ? waiting?.tool === "tutor_show_page" ? "Try the page first." : "Try it first." : ""}</span>
                   </div>}
                 <div className="tu-feedback" aria-live="polite">{view.feedback.map(note => <Note key={note.blockId} note={note} newest={view.newest} />)}</div>
               </>}
@@ -342,7 +343,7 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
             const chosen = result?.answer.kind === "choice" ? result.answer.picked === index : picked === index;
             const wrong = struck.has(index) || (chosen && result?.correct === false);
             return <button key={index} type="button" role="radio" aria-checked={chosen} className={`${chosen ? "is-on" : ""}${wrong ? " is-wrong" : ""}`} disabled={!open || disabled || struck.has(index)} onClick={() => setPicked(index)}>
-              <i>{String.fromCharCode(65 + index)}</i><span>{option}</span>{chosen && result?.correct && <Tick size={24} />}
+              <i>{String.fromCharCode(65 + index)}</i><span>{plainText(option)}</span>{chosen && result?.correct && <Tick size={24} />}
             </button>;
           })}
         </div>

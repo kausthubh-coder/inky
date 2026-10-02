@@ -163,8 +163,14 @@ export class TutorCoordinator {
       if (running.stopped) return;
       if (failure) throw new Error(failure);
       this.repository.markMessagesDelivered(sessionId, pendingMessages.map(message => message.messageId));
-      const latest = this.repository.state(sessionId);
-      if (latest.status === "active") this.repository.transition(sessionId, "paused", "Chalky paused before finishing. Resume to continue from the saved work.");
+      // A turn that ends in words leaves the student waiting. Ask once for the next step (or, out of time, the finish) before pausing.
+      if (this.repository.state(sessionId).status === "active") {
+        const out = tutorTimeLeft(this.repository.state(sessionId), this.repository.now()) <= 0;
+        await running.agent.prompt(out ? TUTOR_TIME_UP : "The student is waiting on the board. Take the next step with a tutor tool; a reply in words alone ends nothing.");
+        if (running.stopped) return;
+        if (failure) throw new Error(failure);
+      }
+      if (this.repository.state(sessionId).status === "active") this.repository.transition(sessionId, "paused", "Chalky paused before finishing. Resume to continue from the saved work.");
     } catch (error) {
       if (!running.stopped && !this.#disposed) {
         const latest = this.repository.session(sessionId);

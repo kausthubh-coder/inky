@@ -125,6 +125,33 @@ test("a waiting question returns timeUp and tutor_finish completes during wrap",
   } finally { await coordinator.dispose(); }
 }));
 
+test("a turn that ends in words at time-up is asked once to finish instead of pausing", async t => setup(async repo => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let now = "2026-09-19T12:00:00.000Z";
+  const prompts = [];
+  repo.now = () => now;
+  const runtime = new ControlledRuntime(async ({ tools, text, signal }) => {
+    prompts.push(text);
+    if (prompts.length === 1) {
+      const snapshot = JSON.parse(text.split("Saved tutor state (data):\n")[1].split("\n\nContinue")[0]);
+      const block = repo.openBlock(snapshot.sessionId, "only", { tool: "tutor_ask_typed", args: { question: "6*7?", accept: ["42"], hints: [] } });
+      repo.answerBlock(snapshot.sessionId, block.blockId, { kind: "typed", answer: "42" });
+      now = "2026-09-19T12:01:00.000Z";
+      return; // The turn ends with text, not a finish.
+    }
+    const session = repo.session(repo.sessions()[0].sessionId);
+    await call(tools, "tutor_finish", { topic: session.topicId, level: 3, evidence: [{ blockId: session.blocks[0].blockId, rationale: "Unaided" }], missing: [], next: "Return", summary: "Done" }, signal);
+  });
+  const coordinator = new TutorCoordinator(repo, runtime);
+  try {
+    const started = await coordinator.start({ topic: "Multiplication", minutes: 1 });
+    for (let i = 0; i < 30; i++) await Promise.resolve();
+    assert.equal(prompts.length, 2);
+    assert.match(prompts[1], /Time is up/);
+    assert.equal(coordinator.state(started.sessionId).status, "completed");
+  } finally { await coordinator.dispose(); }
+}));
+
 test("fake learning sessions preserve the bounded tools, resume target and event lifecycle", async () => {
   const turn = [{ schemaVersion: 1, type: "text", delta: "Controlled tutor reply" }, { schemaVersion: 1, type: "terminal", outcome: "completed" }];
   const runtime = new FakeAgentRuntime([turn]);

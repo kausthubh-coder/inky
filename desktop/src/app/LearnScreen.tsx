@@ -85,7 +85,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [notes, setNotes] = useState<Notes | null>(null), [sheet, setSheet] = useState(false);
-  const lock = useRef(false), mounted = useRef(true), previewOpened = useRef(false);
+  const lock = useRef(false), mounted = useRef(true), previewOpened = useRef(false), known = useRef<Set<string> | null>(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -98,6 +98,10 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
         if (!mounted.current) return;
         setState(next);
         setError(current => current === "load" ? "" : current);
+        // A lesson started somewhere else (the chat box) opens here, so its clock isn't running unseen.
+        const started = known.current && next.sessions.find(item => item.status === "active" && !known.current!.has(item.sessionId));
+        known.current = new Set(next.sessions.map(item => item.sessionId));
+        if (started) void openSession(started.sessionId);
         if (!previewOpened.current && readDevPreviewConfig()?.id.startsWith("tutor-") && next.sessions[0]) {
           previewOpened.current = true;
           void openSession(next.sessions[0].sessionId);
@@ -150,7 +154,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
   const start = async (input: TutorStartInput) => {
     if (lock.current) return;
     lock.current = true; setBusy(true); setError("");
-    try { setSession(await window.studi!.startTutorSession(input)); }
+    try { const next = await window.studi!.startTutorSession(input); known.current?.add(next.sessionId); setSession(next); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { lock.current = false; setBusy(false); }
   };
@@ -289,7 +293,7 @@ interface Hello {
 /** One suggestion across every goal: the nearest goal that has something to do. */
 function helloFor(state: LearnState | null, views: GoalView[]): Hello {
   if (!state || !views.length) return { title: "What do you want to learn?", body: "I'm Chalky. Short lessons, one idea at a time, and I remember where you got to.", chalky: "hello" };
-  const view = views.find(item => item.open || item.plan.todayTopic || item.plan.comingBack.length);
+  const view = views.find(item => item.open) ?? views.find(item => item.plan.todayTopic || item.plan.comingBack.length);
   if (!view) {
     const dueOn = new Map(state.mastery.flatMap(record => record.review ? [[record.topicId, record.review.dueOn] as const] : []));
     const next = views.flatMap(item => item.topics.map(topic => ({ item, topic, due: dueOn.get(topic.topicId) }))).filter(entry => entry.due).sort((a, b) => a.due!.localeCompare(b.due!))[0];
