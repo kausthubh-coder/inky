@@ -23,6 +23,13 @@ const electronPath = process.platform === "win32"
 const mainPath = join(root, "dist", "electron", "main.js");
 const rendererPath = join(root, "dist", "client", "index.html");
 const handoffScript = join(helperRoot, "clerk-qa-handoff.mjs");
+const proxySetupScript = join(root, "scripts", "studi-qa-proxy.mjs");
+const logPaths = {
+  electronStdout: join(profilePath, "logs", "electron.stdout.log"),
+  electronStderr: join(profilePath, "logs", "electron.stderr.log"),
+  clerkRelayStdout: join(profilePath, "logs", "clerk-relay.stdout.log"),
+  clerkRelayStderr: join(profilePath, "logs", "clerk-relay.stderr.log"),
+};
 
 for (const path of [electronPath, mainPath, rendererPath, handoffScript]) {
   if (!existsSync(path) || !statSync(path).isFile()) fail(`Built Studi artifact is missing: ${path}. Run bun run build first.`);
@@ -52,6 +59,7 @@ const mainInspectorEndpoint = `http://127.0.0.1:${mainInspectorPort}`;
 const clerkHandoffEndpoint = `http://127.0.0.1:${clerkPort}/publish`;
 const clerkClaimUrl = `http://127.0.0.1:${clerkPort}/claim`;
 const testEmail = qaEmail(profileName);
+const proxyServer = safeProxyServer(process.env.HTTPS_PROXY || process.env.HTTP_PROXY);
 const launchArguments = [
   ".",
   `--inspect=127.0.0.1:${mainInspectorPort}`,
@@ -59,6 +67,7 @@ const launchArguments = [
   "--remote-debugging-address=127.0.0.1",
   `--remote-debugging-port=${port}`,
   `--studi-qa-clerk-handoff=${clerkHandoffEndpoint}`,
+  ...(proxyServer ? [`--proxy-server=${proxyServer}`, "--proxy-bypass-list=<-loopback>", "--ignore-certificate-errors"] : []),
   ...(process.platform !== "win32" && process.getuid?.() === 0 ? ["--no-sandbox"] : []),
 ];
 
@@ -67,7 +76,7 @@ const dryReceipt = {
   profileReused: options.persistent && profileHadData, profileReset: false, resetRequested: false,
   testEmail, receiptPath, importCodexAuth: options.importCodexAuth, workspaceRoot: root,
   executable: electronPath, profilePath, cdpEndpoint, mainInspectorEndpoint, clerkClaimUrl,
-  launchArguments, processId: null, cdpReady: null,
+  launchArguments, logPaths, processId: null, cdpReady: null,
 };
 if (options.dryRun) {
   console.log(JSON.stringify(dryReceipt));
@@ -96,14 +105,23 @@ try {
     codexAuthMissing = !codexAuthImported;
   }
 
-  relay = detached(process.execPath, [handoffScript, "--port", String(clerkPort), "--clerk-host", clerkHost]);
+  relay = detached(process.execPath, [handoffScript, "--port", String(clerkPort), "--clerk-host", clerkHost], {
+    stdoutPath: logPaths.clerkRelayStdout,
+    stderrPath: logPaths.clerkRelayStderr,
+  });
   await waitForHealth(`http://127.0.0.1:${clerkPort}/health`, relay.pid, 5_000);
 
   const startedAt = new Date();
   if (process.platform !== "win32" && !process.env.DISPLAY) {
-    launched = detached("xvfb-run", ["-a", electronPath, ...launchArguments]);
+    launched = detached("xvfb-run", ["-a", electronPath, ...launchArguments], {
+      stdoutPath: logPaths.electronStdout,
+      stderrPath: logPaths.electronStderr,
+    });
   } else {
-    launched = detached(electronPath, launchArguments);
+    launched = detached(electronPath, launchArguments, {
+      stdoutPath: logPaths.electronStdout,
+      stderrPath: logPaths.electronStderr,
+    });
   }
 
   const cdpReady = await waitForCdp(cdpEndpoint, launched.pid, options.readinessTimeoutSeconds * 1_000);
@@ -116,7 +134,7 @@ try {
     persistent: options.persistent, profileReused: options.persistent && profileHadData, profileReset: false,
     workspaceRoot: root, executable: electronPath, profilePath, profileOwnedByHelper: true,
     importCodexAuth: options.importCodexAuth, codexAuthImported, codexAuthMissing,
-    cdpEndpoint, mainInspectorEndpoint, clerkClaimUrl, clerkHandoffProcessId: relay.pid,
+    cdpEndpoint, mainInspectorEndpoint, clerkClaimUrl, clerkHandoffProcessId: relay.pid, logPaths,
     launchArguments, processId, startedAtUtc: startedAt.toISOString(),
     buildMainSha256: shaFile(mainPath), buildRendererSha256: shaFile(rendererPath),
     buildTreeSha256: hashTree(join(root, "dist")), cdpReady, processExited: !isAlive(processId),
@@ -161,12 +179,32 @@ function parseArgs(argv) {
   return parsed;
 }
 
-function detached(command, args) {
+function detached(command, args, logs) {
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE;
-  const child = spawn(command, args, { cwd: root, detached: true, stdio: "ignore", windowsHide: true, env });
+  if (env.HTTPS_PROXY || env.HTTP_PROXY) {
+    env.NODE_USE_ENV_PROXY = "1";
+    env.NODE_OPTIONS = `${env.NODE_OPTIONS || ""} --import=${proxySetupScript}`.trim();
+  }
+  const stdout = logs ? openLog(logs.stdoutPath) : "ignore";
+  const stderr = logs ? openLog(logs.stderrPath) : "ignore";
+  const child = spawn(command, args, { cwd: root, detached: true, stdio: ["ignore", stdout, stderr], windowsHide: true, env });
+  if (typeof stdout === "number") closeSync(stdout);
+  if (typeof stderr === "number") closeSync(stderr);
   child.unref();
   return child;
+}
+
+function safeProxyServer(value) {
+  if (!value) return null;
+  const url = new URL(value);
+  if (url.username || url.password) fail("QA launcher cannot put a credentialed proxy in Electron arguments");
+  return url.origin;
+}
+
+function openLog(path) {
+  mkdirSync(dirname(path), { recursive: true });
+  return openSync(path, "a", 0o600);
 }
 
 async function waitForHealth(url, expectedPid, timeout) {
