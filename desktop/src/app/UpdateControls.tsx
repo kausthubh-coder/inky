@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { UpdateState } from "../../shared/index.js";
 import { Character } from "./Character.js";
 import { Icon } from "./Icon.js";
+import { studiApi } from "./studiApi.js";
 
 
 /** "Update ready" appears in the bar only when a new Studi is waiting. */
@@ -13,9 +14,9 @@ export function UpdateControls() {
   useEffect(() => {
     let mounted = true;
     const read = async () => {
-      if (!window.studi) return;
+      if (!studiApi()) return;
       try {
-        const next = await window.studi.getUpdateState();
+        const next = await studiApi()!.getUpdateState();
         if (mounted) setState(next);
       } catch {
         /* Keep the last snapshot; explicit actions report failure. */
@@ -33,10 +34,10 @@ export function UpdateControls() {
     state &&
     ["checking", "downloading", "preparing_restart"].includes(state.phase);
   const act = async () => {
-    if (!window.studi) return;
+    if (!studiApi()) return;
     setError("");
     try {
-      const next = await (ready ? window.studi.installUpdate() : window.studi.checkForUpdates());
+      const next = await (ready ? studiApi()!.installUpdate() : studiApi()!.checkForUpdates());
       setState(next);
       if (ready && state?.capability === "manual" && !next.error) setDownloaded(true);
     } catch (cause) {

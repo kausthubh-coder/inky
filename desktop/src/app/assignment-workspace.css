@@ -98,7 +98,6 @@
   font-size: 15px;
   line-height: 1.6;
   text-wrap: pretty;
-  scrollbar-width: none;
 }
 .ag-dock {
   position: absolute;
@@ -240,7 +239,6 @@
 .ag-work-list {
   max-height: min(320px, 40vh);
   overflow: auto;
-  scrollbar-width: thin;
   margin: 4px 0 8px 16px;
   padding: 4px 4px 4px 16px;
   border-left: 1px solid var(--rule);
@@ -609,7 +607,6 @@
   height: 100%;
   overflow-y: auto;
   padding: 24px 28px;
-  scrollbar-width: thin;
 }
 .ag-label {
   margin: 0 0 8px;
@@ -961,4 +958,3 @@
   padding: 2px 0;
 }
 
-.ag-thread::-webkit-scrollbar { display: none; }

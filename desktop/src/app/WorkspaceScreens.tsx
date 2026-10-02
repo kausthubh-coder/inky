@@ -59,6 +59,7 @@ import {
   RuntimeAttentionBanner,
   formatDateTime,
 } from "./Ui.js";
+import { studiApi } from "./studiApi.js";
 
 type SaveRuleInput = Parameters<StudiRendererApi["savePermissionRule"]>[0];
 
@@ -316,14 +317,14 @@ function NotificationSettings({ preferences, busy, onSave, onPreview }: {
 function UpdateRow() {
   const [state, setState] = useState<Awaited<ReturnType<StudiRendererApi["getUpdateState"]>> | null>(null);
   const [checking, setChecking] = useState(false);
-  useEffect(() => { void window.studi?.getUpdateState().then(setState).catch(() => undefined); }, []);
+  useEffect(() => { void studiApi()?.getUpdateState().then(setState).catch(() => undefined); }, []);
   const words = !state ? "" : state.capability === "unavailable" ? "Updates aren't available in a development build."
     : state.phase === "ready" ? "A new Studi is ready. Use Update ready at the top."
       : state.phase === "checking" || state.phase === "downloading" ? "Checking…" : state.error ? "Couldn't check for updates." : "You're up to date.";
   return <SettingsRow title="App updates" description={words}>
     <button className="st-quiet" disabled={checking || state?.capability === "unavailable"} onClick={() => {
       setChecking(true);
-      void window.studi?.checkForUpdates().then(setState).catch(() => undefined).finally(() => setChecking(false));
+      void studiApi()?.checkForUpdates().then(setState).catch(() => undefined).finally(() => setChecking(false));
     }}>Check for updates</button>
   </SettingsRow>;
 }
@@ -391,6 +392,7 @@ export function SettingsScreen({
   onExportDiagnostics,
   onSignOut,
   onFeedback,
+  onTour,
 }: {
   chrome: ChromeProps;
   entitlement: Entitlement | null;
@@ -426,6 +428,7 @@ export function SettingsScreen({
   onExportDiagnostics: () => void;
   onSignOut: () => void;
   onFeedback: (context: string, message: string) => Promise<boolean>;
+  onTour: () => void;
 }) {
   const preferences = settings?.preferences;
   const schedule = settings?.schedule;
@@ -436,9 +439,9 @@ export function SettingsScreen({
   const [depth, setDepth] = useState(onboarding.profile?.scanDepth ?? "normal");
   const saveDepth = (next: "normal" | "deep") => {
     const profile = onboarding.profile;
-    if (!profile || !window.studi) return;
+    if (!profile || !studiApi()) return;
     setDepth(next);
-    void window.studi.saveSchoolProfile({ studentName: profile.studentName, schoolRoot: profile.schoolRoot, defaultPermission: profile.defaultPermission,
+    void studiApi()!.saveSchoolProfile({ studentName: profile.studentName, schoolRoot: profile.schoolRoot, defaultPermission: profile.defaultPermission,
       scanCadence: profile.scanCadence, ...(profile.schoolTimeZone ? { schoolTimeZone: profile.schoolTimeZone } : {}), scanDepth: next });
   };
   const pendingSave = useRef<string | null>(null);
@@ -485,7 +488,7 @@ export function SettingsScreen({
       {section === "homework" && <>
         <HomeworkRules rules={settings?.permissionRules ?? []} onboarding={onboarding} busy={disabled}
           onSaveRule={input => save(() => onSaveRule(input))} onDeleteRule={id => save(() => onDeleteRule(id))}
-          onGiveBack={assignmentId => save(() => window.studi!.setAssignmentOwner({ assignmentId, owner: "inky" }))}
+          onGiveBack={assignmentId => save(() => studiApi()!.setAssignmentOwner({ assignmentId, owner: "inky" }))}
           onCheckSchool={onCheckSchool} />
         <SettingsGroup title="Timing and files">
           <SettingsRow title="Time to look it over" description="Then Dot submits only if your rule allows it.">
@@ -569,6 +572,9 @@ export function SettingsScreen({
           </SettingsRow>
         </SettingsGroup>
         <SettingsGroup title="Help">
+          <SettingsRow title="How Studi works" description="Dot and Chalky walk you through a practice class.">
+            <button className="st-outline" onClick={onTour}>Take the tour</button>
+          </SettingsRow>
           <SettingsRow title="Something confusing or broken?" description={`Studi ${runtime?.app ?? "—"}`}>
             <button className="st-quiet" disabled={disabled} onClick={onExportDiagnostics}>Save a diagnostics file</button>
             <button className="st-outline" aria-expanded={feedbackOpen} onClick={() => setFeedbackOpen(!feedbackOpen)}>Tell us</button>

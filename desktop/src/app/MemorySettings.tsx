@@ -3,6 +3,7 @@ import type { MemorySummary } from "../../shared/memory.js";
 import type { NoteDocument } from "../../shared/note.js";
 import type { SchoolOnboardingState } from "../../shared/index.js";
 import { SavedNotice, SettingsGroup } from "./SettingsPrimitives.js";
+import { studiApi } from "./studiApi.js";
 
 // Everything Dot remembers, grouped by what it's about, each saying where it came from.
 function groupFor(note: MemorySummary, onboarding: SchoolOnboardingState | null): string {
@@ -30,10 +31,10 @@ export function MemorySettings({ onboarding = null }: { onboarding?: SchoolOnboa
   const [busy, setBusy] = useState(false), [error, setError] = useState("");
   const [loaded, setLoaded] = useState(false), [saved, setSaved] = useState(0);
   const running = useRef(false);
-  const refresh = async () => { setNotes(await window.studi!.listMemories()); setLoaded(true); };
+  const refresh = async () => { setNotes(await studiApi()!.listMemories()); setLoaded(true); };
   useEffect(() => {
     let alive = true;
-    void window.studi!.listMemories().then(next => { if (alive) { setNotes(next); setLoaded(true); } })
+    void studiApi()!.listMemories().then(next => { if (alive) { setNotes(next); setLoaded(true); } })
       .catch(cause => { if (alive) setError(String(cause)); });
     return () => { alive = false; };
   }, []);
@@ -44,7 +45,7 @@ export function MemorySettings({ onboarding = null }: { onboarding?: SchoolOnboa
     finally { running.current = false; setBusy(false); }
   };
   const read = async (noteId: string) => {
-    const next = await window.studi!.readMemory({ noteId });
+    const next = await studiApi()!.readMemory({ noteId });
     if (!next) { await refresh(); throw new Error("That memory has been removed."); }
     setOpened(next); setCreating(false); setTitle(next.frontmatter.title); setContent(next.content);
   };
@@ -53,8 +54,8 @@ export function MemorySettings({ onboarding = null }: { onboarding?: SchoolOnboa
     if (opened && title === opened.frontmatter.title && content === opened.content) { if (close) setOpened(null); return; }
     void run(async () => {
       const note = opened
-        ? await window.studi!.updateMemory({ noteId: opened.frontmatter.noteId, expectedRevision: opened.frontmatter.revision, title, content })
-        : await window.studi!.createMemory({ title, content });
+        ? await studiApi()!.updateMemory({ noteId: opened.frontmatter.noteId, expectedRevision: opened.frontmatter.revision, title, content })
+        : await studiApi()!.createMemory({ title, content });
       setOpened(close ? null : note); setCreating(false); setTitle(note.frontmatter.title); setContent(note.content);
       await refresh(); setSaved(value => value + 1);
     });
@@ -69,7 +70,7 @@ export function MemorySettings({ onboarding = null }: { onboarding?: SchoolOnboa
         <small>{sourceFor(note, onboarding)} · {new Date(note.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</small></div>
       <button className="st-text" disabled={busy} onClick={() => void run(() => read(note.noteId))}>Edit</button>
       <button className="st-text st-danger" disabled={busy} onClick={() => void run(async () => {
-        await window.studi!.deleteMemory({ noteId: note.noteId, expectedRevision: note.revision });
+        await studiApi()!.deleteMemory({ noteId: note.noteId, expectedRevision: note.revision });
         if (opened?.frontmatter.noteId === note.noteId) setOpened(null);
         await refresh(); setSaved(value => value + 1);
       })}>Forget</button>

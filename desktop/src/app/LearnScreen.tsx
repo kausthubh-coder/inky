@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { SchoolOnboardingState } from "../../shared/index.js";
+import type { SchoolOnboardingState, StudiRendererApi } from "../../shared/index.js";
 import type { LearnState } from "../../shared/learn-state.js";
 import { computeReadiness, orderGoals, planLearn, type Exam, type LearnPlan, type LearnTopic } from "../../shared/learn.js";
 import type { PublicTutorSession, TutorSessionSummary, TutorStartInput } from "../../shared/tutor.js";
@@ -14,11 +14,13 @@ import { LearnConversation } from "./LearnConversation.js";
 import { TutorScreen } from "./TutorScreen.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
 import "./learn.css";
+import { introSeen, markIntroSeen } from "./intro.js";
+import { studiApi } from "./studiApi.js";
 
 const LEVELS = ["Not yet", "Shaky", "Getting there", "Good", "Solid"];
 const COUNT = ["", "one quick one", "two quick ones", "three quick ones"];
 /** What Chalky has saved for a goal: cheat-sheet lines and the study pages it wrote. */
-type Notes = Awaited<ReturnType<NonNullable<typeof window.studi>["getLearnNotes"]>> & { examId: string };
+type Notes = Awaited<ReturnType<StudiRendererApi["getLearnNotes"]>> & { examId: string };
 /** The open row: a goal, or one of the two add forms. */
 type Open = null | { examId: string; changing: boolean } | "add-test" | "new";
 
@@ -85,6 +87,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [notes, setNotes] = useState<Notes | null>(null), [sheet, setSheet] = useState(false);
+  const [intro] = useState(() => !introSeen("learn"));
   const lock = useRef(false), mounted = useRef(true), previewOpened = useRef(false), known = useRef<Set<string> | null>(null);
 
   useEffect(() => {
@@ -94,7 +97,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
       if (reading || lock.current) return;
       reading = true;
       try {
-        const next = await window.studi!.getLearnState();
+        const next = await studiApi()!.getLearnState();
         if (!mounted.current) return;
         setState(next);
         setError(current => current === "load" ? "" : current);
@@ -121,14 +124,14 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
     setNotes(null);
     if (!openId) return;
     let alive = true;
-    void window.studi!.getLearnNotes({ examId: openId }).then(next => { if (alive) setNotes({ ...next, examId: openId }); }).catch(() => {});
+    void studiApi()!.getLearnNotes({ examId: openId }).then(next => { if (alive) setNotes({ ...next, examId: openId }); }).catch(() => {});
     return () => { alive = false; };
   }, [openId, refresh]);
 
   useEffect(() => {
     if (!requestedSession) return;
     let alive = true;
-    void window.studi!.getTutorSession({ sessionId: requestedSession })
+    void studiApi()!.getTutorSession({ sessionId: requestedSession })
       .then(next => { if (alive) setSession(next); })
       .catch(cause => { if (alive) setError(String(cause)); })
       .finally(onSessionOpened);
@@ -149,12 +152,13 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
     } finally { lock.current = false; if (mounted.current) setBusy(false); }
   };
   const openSession = async (sessionId: string) => {
-    try { setSession(await window.studi!.getTutorSession({ sessionId })); } catch (cause) { setError(String(cause)); }
+    try { setSession(await studiApi()!.getTutorSession({ sessionId })); } catch (cause) { setError(String(cause)); }
   };
   const start = async (input: TutorStartInput) => {
+    markIntroSeen("learn");
     if (lock.current) return;
     lock.current = true; setBusy(true); setError("");
-    try { const next = await window.studi!.startTutorSession(input); known.current?.add(next.sessionId); setSession(next); }
+    try { const next = await studiApi()!.startTutorSession(input); known.current?.add(next.sessionId); setSession(next); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { lock.current = false; setBusy(false); }
   };
@@ -172,16 +176,20 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
   const reading = state?.sources.filter(source => source.status === "pending" || source.status === "reading") ?? [];
   const failed = state?.sources.filter(source => source.status === "failed") ?? [];
   const scanning = onboarding.scan?.state === "running";
-  const hello = helloFor(state, views);
+  const found = helloFor(state, views);
+  // On a first visit Chalky says who it is, unless a lesson is already under way.
+  const hello: Hello = intro && !views.some(item => item.open)
+    ? { ...found, chalky: "hello", title: "Hi, I'm Chalky.", body: "Dot does your homework. I help you learn it. Open a test to see its plan, or start five minutes on anything." }
+    : found;
   /** The created goal comes back as the lead exam, because main selects it. */
   const startNew = async (title: string, note: string, begin: boolean) => {
-    const next = await run(() => window.studi!.setLearnExam({ kind: "topic", courseId: null, title, date: null, scopeNote: note || null }));
+    const next = await run(() => studiApi()!.setLearnExam({ kind: "topic", courseId: null, title, date: null, scopeNote: note || null }));
     if (!next) return;
     setOpen(null);
     const topic = next.plan.todayTopic;
     if (begin && topic) await start({ topicId: topic.topicId, minutes: 5, goal: `A quick check on ${title}` });
   };
-  const addText = (text: string) => run(() => window.studi!.importLearnSource({ courseId: null, examId: null, title: firstLine(text), text }));
+  const addText = (text: string) => run(() => studiApi()!.importLearnSource({ courseId: null, examId: null, title: firstLine(text), text }));
 
   const rows = (list: GoalView[]) => list.map(view => {
     const openHere = typeof open === "object" && open?.examId === view.goal.examId ? open : null;
@@ -194,17 +202,17 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
       {openHere.changing
         ? <ExamForm goal={goal} busy={busy} courses={onboarding.courses} topics={view.topics} scanning={scanning}
             onCancel={() => setOpen({ examId: goal.examId, changing: false })}
-            onRemoveTopic={topicId => void run(() => window.studi!.removeLearnTopic({ topicId }))}
-            onAddTopic={title => void run(() => window.studi!.addLearnTopic({ examId: goal.examId, title }))}
-            onFind={goal.courseId ? () => void run(() => window.studi!.findLearnSyllabus({ courseId: goal.courseId! })) : undefined}
-            onRemove={() => void run(() => window.studi!.removeLearnGoal({ examId: goal.examId })).then(next => { if (next) setOpen(null); })}
-            onSave={async input => { if (await run(() => window.studi!.setLearnExam({ ...input, examId: goal.examId }))) setOpen({ examId: goal.examId, changing: false }); }} />
+            onRemoveTopic={topicId => void run(() => studiApi()!.removeLearnTopic({ topicId }))}
+            onAddTopic={title => void run(() => studiApi()!.addLearnTopic({ examId: goal.examId, title }))}
+            onFind={goal.courseId ? () => void run(() => studiApi()!.findLearnSyllabus({ courseId: goal.courseId! })) : undefined}
+            onRemove={() => void run(() => studiApi()!.removeLearnGoal({ examId: goal.examId })).then(next => { if (next) setOpen(null); })}
+            onSave={async input => { if (await run(() => studiApi()!.setLearnExam({ ...input, examId: goal.examId }))) setOpen({ examId: goal.examId, changing: false }); }} />
         : <GoalDetail view={view} state={state!} busy={busy} scanning={scanning} notes={notes?.examId === goal.examId ? notes : null} onNotes={() => setSheet(true)}
             onStart={input => void start(input)} onOpenSession={sessionId => void openSession(sessionId)}
             onChange={() => setOpen({ examId: goal.examId, changing: true })}
-            onFind={() => void run(() => goal.courseId ? window.studi!.findLearnSyllabus({ courseId: goal.courseId }) : window.studi!.findLearnSyllabus())}
-            onText={text => run(() => window.studi!.importLearnSource({ courseId: goal.courseId, examId: goal.examId, title: firstLine(text), text }))}
-            onFile={() => void run(() => window.studi!.importLearnFile({ courseId: goal.courseId, examId: goal.examId }))} />}
+            onFind={() => void run(() => goal.courseId ? studiApi()!.findLearnSyllabus({ courseId: goal.courseId }) : studiApi()!.findLearnSyllabus())}
+            onText={text => run(() => studiApi()!.importLearnSource({ courseId: goal.courseId, examId: goal.examId, title: firstLine(text), text }))}
+            onFile={() => void run(() => studiApi()!.importLearnFile({ courseId: goal.courseId, examId: goal.examId }))} />}
     </div>;
   });
 
@@ -229,7 +237,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
           </p>}
           {failed.map(source => <p key={source.sourceId} className="lr-status is-bad" role="alert">
             <span>I couldn't read <b>{source.title}</b>. {source.error}</span>
-            <button className="rd-quiet" disabled={busy} onClick={() => void run(() => window.studi!.retryLearnSource({ sourceId: source.sourceId }))}>Try again</button>
+            <button className="rd-quiet" disabled={busy} onClick={() => void run(() => studiApi()!.retryLearnSource({ sourceId: source.sourceId }))}>Try again</button>
           </p>)}
 
           {state && !views.length && <div className="lr-doors">
@@ -237,8 +245,8 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
               <h2>A test that's coming up</h2>
               <p>Give me anything about it. I'll work out what's on it and a plan.</p>
               <Intake busy={busy} placeholder="Drop a syllabus or study guide, or type “stats midterm next Friday, chapters 1 to 5”" onText={addText}
-                lead={<button className="rd-button rd-primary" disabled={busy || scanning} onClick={() => void run(() => window.studi!.findLearnSyllabus())}>Find my tests</button>}
-                onFile={() => void run(() => window.studi!.importLearnFile({ courseId: null, examId: null }))} />
+                lead={<button className="rd-button rd-primary" disabled={busy || scanning} onClick={() => void run(() => studiApi()!.findLearnSyllabus())}>Find my tests</button>}
+                onFile={() => void run(() => studiApi()!.importLearnFile({ courseId: null, examId: null }))} />
             </section>
             <section className="lr-door">
               <h2>Something for yourself</h2>
@@ -256,12 +264,12 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
                     <div className="lr-sheet-head"><h3>Add a test</h3><button className="rd-quiet lr-plain" onClick={() => setOpen(null)}>Cancel</button></div>
                     <AddTest busy={busy} scanning={scanning} courses={onboarding.courses}
                       onText={async text => { if (await addText(text)) setOpen(null); }}
-                      onFile={() => void run(() => window.studi!.importLearnFile({ courseId: null, examId: null })).then(next => { if (next) setOpen(null); })}
-                      onFind={() => void run(() => window.studi!.findLearnSyllabus()).then(next => { if (next) setOpen(null); })}
+                      onFile={() => void run(() => studiApi()!.importLearnFile({ courseId: null, examId: null })).then(next => { if (next) setOpen(null); })}
+                      onFind={() => void run(() => studiApi()!.findLearnSyllabus()).then(next => { if (next) setOpen(null); })}
                       onSave={async (input, text) => {
-                        const next = await run(() => window.studi!.setLearnExam({ ...input, kind: "exam" }));
+                        const next = await run(() => studiApi()!.setLearnExam({ ...input, kind: "exam" }));
                         const examId = next?.plan.leadExam?.examId;
-                        if (next && examId && text) await run(() => window.studi!.importLearnSource({ courseId: input.courseId, examId, title: `${input.title} notes`, text }));
+                        if (next && examId && text) await run(() => studiApi()!.importLearnSource({ courseId: input.courseId, examId, title: `${input.title} notes`, text }));
                         if (next) setOpen(examId ? { examId, changing: false } : null);
                       }} />
                   </div>
@@ -413,7 +421,7 @@ function GoalDetail({ view, state, busy, scanning, notes, onNotes, onStart, onOp
 function CheatSheet({ notes, title, onClose }: { notes: Notes; title: string; onClose: () => void }) {
   const [page, setPage] = useState<{ title: string; html: string } | null>(null), [error, setError] = useState("");
   const read = async (item: Notes["pages"][number]) => {
-    try { setPage({ title: item.title, html: await window.studi!.readLearnPage({ examId: notes.examId, name: item.name }) }); setError(""); }
+    try { setPage({ title: item.title, html: await studiApi()!.readLearnPage({ examId: notes.examId, name: item.name }) }); setError(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
   };
   return (

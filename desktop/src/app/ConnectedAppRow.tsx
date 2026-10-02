@@ -41,19 +41,32 @@ export function ConnectedAppRow({ toolkit, connection, feedback, access, disable
     label = pending ? feedback.phase === "connecting" ? "Connecting…" : "Checking…" : needsRedo ? "Redo" : "Connect";
   }
 
+  if (onboarding) {
+    // Onboarding says what Dot uses the app for; the state only shows when it needs attention.
+    const settled = active && !pending && !failed;
+    return (
+      <div className="ob-app" data-connected-app={toolkit}>
+        <img src={app.logoUrl} alt="" loading="lazy" />
+        <span><strong>{app.label}</strong><small id={statusId} role="status" aria-live="polite" className={tone === "coral" ? "is-bad" : ""}>{tone === "plain" || settled ? app.purpose ?? app.description : message}</small></span>
+        {settled ? <span className="ob-ok">✓ Connected</span>
+          : <button className="fable-button" type="button" disabled={disabled || pending} aria-describedby={statusId} onClick={() => onConnect(toolkit)}>{label}</button>}
+      </div>
+    );
+  }
+
   return (
-    <div className={onboarding ? "fable-pick fable-connected-app" : "connected-app-row"} data-connected-app={toolkit}>
+    <div className="connected-app-row" data-connected-app={toolkit}>
       <img className="connected-app-logo" src={app.logoUrl} alt="" loading="lazy" />
       <span className="connected-app-copy">
         <strong>{app.label}</strong>
-        {!onboarding && <small>{app.description}</small>}
+        <small>{app.description}</small>
         <small>{access}</small>
         <span className={`connection-feedback connection-feedback--${tone}`} id={statusId} role="status" aria-live="polite" aria-atomic="true">
           <i className={pending ? "connection-feedback__spinner" : "connection-feedback__mark"} aria-hidden="true">{pending ? null : failed || needsReconnect ? "!" : active ? "✓" : waiting ? "…" : "·"}</i>
           {message}
         </span>
       </span>
-      {!(onboarding && active && !pending && !failed) && <button className={onboarding ? "fable-button" : "rd-quiet"} type="button" disabled={disabled || pending} aria-describedby={statusId} onClick={() => !onboarding && check ? onCheck(toolkit) : onConnect(toolkit)}>{label}</button>}
+      <button className="rd-quiet" type="button" disabled={disabled || pending} aria-describedby={statusId} onClick={() => check ? onCheck(toolkit) : onConnect(toolkit)}>{label}</button>
     </div>
   );
 }

@@ -32,6 +32,7 @@ test("product preferences default safely and survive a validated atomic save", a
       agentModelId: "gpt-6-sol",
       agentReasoningEffort: "high",
       notifications: defaultNotifications,
+      onboardingFinishedAt: null,
       updatedAt: "1970-01-01T00:00:00.000Z",
     });
 
@@ -55,6 +56,7 @@ test("product preferences default safely and survive a validated atomic save", a
           work_start: { banner: true, sound: "inky_soft" },
         },
       },
+      onboardingFinishedAt: null,
       updatedAt: "2026-09-01T12:00:00.000Z",
     };
     await store.put(saved);
@@ -83,6 +85,7 @@ test("product preferences default safely and survive a validated atomic save", a
       agentModelId: "gpt-6-sol",
       agentReasoningEffort: "high",
       notifications: defaultNotifications,
+      onboardingFinishedAt: null,
       updatedAt: "2026-09-01T12:00:00.000Z",
     });
 

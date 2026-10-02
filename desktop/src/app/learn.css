@@ -158,7 +158,7 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 /* The side chat: Chalky, the conversation, and the box to say more. */
 /* The conversation fills the panel; Chalky and the chat box sit on a frosted pane over its foot. */
 .tu-side { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.tu-talk { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: calc(var(--head, 100px) + 6px) 2px calc(var(--dock, 70px) + 14px); overflow-y: auto; scrollbar-width: none; }
+.tu-talk { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: calc(var(--head, 100px) + 6px) 2px calc(var(--dock, 70px) + 14px); overflow-y: auto; }
 .tu-head, .tu-dock { position: absolute; z-index: 1; left: -8px; right: -8px; border-radius: 24px;
   background: color-mix(in srgb, var(--paper) 70%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.1); backdrop-filter: blur(14px) saturate(1.1);
   box-shadow: 0 0 0 1px rgb(43 38 33 / 6%), 0 8px 24px -18px rgb(43 38 33 / 30%); }
@@ -177,7 +177,7 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 /* The board holds the work and nothing else: one column, everything on its left edge. */
 .tu-board { min-width: 0; min-height: 0; border-radius: 18px; overflow: hidden; background: linear-gradient(160deg, #fff 0%, #fffefb 60%, #fbf8f1 100%);
   box-shadow: 0 0 0 6px #ded7c8, 0 0 0 7.5px var(--pencil), inset 0 0 0 1px rgb(43 38 33 / 6%); }
-.tu-col { height: 100%; padding: 26px max(24px, calc((100% - 720px) / 2)) 20px; overflow-y: auto; scrollbar-width: thin; }
+.tu-col { height: 100%; padding: 26px max(24px, calc((100% - 720px) / 2)) 20px; overflow-y: auto; }
 .tu-q div.chat-markdown, .tu-q div.chat-markdown p { margin: 0; font: inherit; }
 .tu-q { margin: 0; font: 700 26px/1.3 "Shantell Sans", cursive; color: var(--pencil); text-wrap: pretty; }
 .tu-w { margin: 4px 0 0; font: 500 20px/1.45 "Shantell Sans", cursive; color: var(--ink-chalky); }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ConnectedAppConnection, ConnectedAppsState } from "../../shared/index.js";
 import { waitForAppConnection } from "./waitForAppConnection.js";
+import { studiApi } from "./studiApi.js";
 
 export type ConnectionFeedback = {
   phase: "checking" | "connecting" | "checked" | "idle" | "error";
@@ -16,7 +17,7 @@ export function useConnectedApps(approved: boolean) {
   const lifetime = useRef(new AbortController());
 
   useEffect(() => {
-    const studi = window.studi;
+    const studi = studiApi();
     const pending = new Set<string>();
     requests.current = pending;
     const controller = new AbortController();
@@ -46,7 +47,7 @@ export function useConnectedApps(approved: boolean) {
   }, [approved]);
 
   async function run(toolkit: string, operation: "check" | "connect", autoCheck = false) {
-    const studi = window.studi;
+    const studi = studiApi();
     const pending = requests.current;
     const signal = lifetime.current.signal;
     if (!studi || !approved || pending.has(toolkit)) return;

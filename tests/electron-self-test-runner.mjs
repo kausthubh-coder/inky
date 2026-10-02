@@ -268,13 +268,15 @@ async function advanceToConnectedApps(client) {
       if (!(button instanceof HTMLButtonElement)) throw new Error('Missing onboarding action: ' + label);
       button.click();
     };
-    click("Let's do it");
+    // The welcome plays a short scene; Skip goes straight to the AI step.
+    click("Skip");
     await new Promise((resolve) => setTimeout(resolve, 50));
     click("Let's go");
     await new Promise((resolve) => setTimeout(resolve, 50));
     document.body.dataset.connectedAppStepObserved = String(Boolean(document.querySelector('[data-onboarding-connected-apps="true"]')));
     document.body.dataset.githubConnectActionObserved = String(Boolean(document.querySelector('[data-onboarding-connected-apps="true"] [data-connected-app="github"] button')));
-    click("Continue");
+    // With nothing connected the apps step offers to skip.
+    click("Skip for now");
     await new Promise((resolve) => setTimeout(resolve, 50));
   })()`);
 }

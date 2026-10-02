@@ -4,16 +4,18 @@ export interface ConnectedAppCatalogEntry {
   readonly logoUrl: string;
   readonly group: "school" | "files" | "communication" | "planning";
   readonly onboarding: boolean;
+  /** What Dot uses it for, in a few words, shown in onboarding. */
+  readonly purpose?: string;
 }
 
 const logo = (toolkit: string) => `https://logos.composio.dev/api/${toolkit}`;
 
 export const CONNECTED_APP_CATALOG: Readonly<Record<string, ConnectedAppCatalogEntry>> = Object.freeze({
-  gmail: { label: "Gmail", description: "Read, draft, send, label, and organize class email.", logoUrl: logo("gmail"), group: "communication", onboarding: true },
-  googledrive: { label: "Google Drive", description: "Find, create, update, move, and share class files.", logoUrl: logo("googledrive"), group: "files", onboarding: true },
-  googledocs: { label: "Google Docs", description: "Read, create, and edit assignment briefs, notes, and documents.", logoUrl: logo("googledocs"), group: "files", onboarding: true },
-  notion: { label: "Notion", description: "Search, create, and update class pages and databases.", logoUrl: logo("notion"), group: "school", onboarding: true },
-  github: { label: "GitHub", description: "Work with repositories, issues, pull requests, and classroom projects.", logoUrl: logo("github"), group: "school", onboarding: true },
+  gmail: { label: "Gmail", description: "Read, draft, send, label, and organize class email.", logoUrl: logo("gmail"), group: "communication", onboarding: true, purpose: "Emails from your teachers" },
+  googledrive: { label: "Google Drive", description: "Find, create, update, move, and share class files.", logoUrl: logo("googledrive"), group: "files", onboarding: true, purpose: "Class files and handouts" },
+  googledocs: { label: "Google Docs", description: "Read, create, and edit assignment briefs, notes, and documents.", logoUrl: logo("googledocs"), group: "files", onboarding: true, purpose: "Essays and assignment docs" },
+  notion: { label: "Notion", description: "Search, create, and update class pages and databases.", logoUrl: logo("notion"), group: "school", onboarding: true, purpose: "Your class notes" },
+  github: { label: "GitHub", description: "Work with repositories, issues, pull requests, and classroom projects.", logoUrl: logo("github"), group: "school", onboarding: true, purpose: "Coding assignments" },
   canvas: { label: "Canvas", description: "Work with courses, assignments, announcements, modules, and submissions.", logoUrl: logo("canvas"), group: "school", onboarding: false },
   googlecalendar: { label: "Google Calendar", description: "Read and manage class events, due dates, and study time.", logoUrl: logo("googlecalendar"), group: "planning", onboarding: false },
   googlesheets: { label: "Google Sheets", description: "Read, create, and update lab data, trackers, and spreadsheets.", logoUrl: logo("googlesheets"), group: "files", onboarding: false },

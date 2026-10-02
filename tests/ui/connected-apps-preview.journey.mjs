@@ -130,9 +130,10 @@ export async function verifyOnboardingAutoConnect(page, base = "http://127.0.0.1
     await row("gmail").getByRole("status").filter({ hasText: "Connection failed." }).waitFor();
     await row("gmail").getByRole("button", { name: "Redo", exact: true }).click();
     await settle("gmail", "ACTIVE");
-    await row("gmail").getByRole("status").filter({ hasText: "Connected" }).waitFor();
+    // Connected shows as a quiet tick; the status line goes back to what Dot uses the app for.
+    await row("gmail").locator(".ob-ok").filter({ hasText: "Connected" }).waitFor();
     assert.equal(await row("gmail").getByRole("button").count(), 0);
-    assert.ok((await row("gmail").getByRole("status").getAttribute("class")).includes("--mint"));
+    assert.equal(await row("gmail").getByRole("status").innerText(), "Emails from your teachers");
     assert.equal(await page.getByRole("button", { name: "Check", exact: true }).count(), 0);
     assert.deepEqual(await page.evaluate(() => ({ connects: window.connectionTest.connects, checks: window.connectionTest.checks })), { connects: 2, checks: 3 });
     await page.evaluate(() => { window.studi.connectApp = async () => { throw Error("Controlled connection failure"); }; });

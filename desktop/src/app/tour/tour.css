@@ -1,0 +1,46 @@
+/* The guided tour: Dot or Chalky beside what to click next, with a spotlight on it. */
+:root { --tour-spring: cubic-bezier(.34, 1.4, .64, 1); }
+.tour-dim { position: fixed; z-index: 1000; border-radius: 16px; box-shadow: 0 0 0 200vmax rgb(38 33 28 / 42%); pointer-events: none; transition: left .45s cubic-bezier(.23, 1, .32, 1), top .45s cubic-bezier(.23, 1, .32, 1), width .45s cubic-bezier(.23, 1, .32, 1), height .45s cubic-bezier(.23, 1, .32, 1); }
+.tour-dim.is-full { inset: 0; border-radius: 0; box-shadow: none; background: rgb(38 33 28 / 42%); }
+.tour-ring { position: fixed; z-index: 1001; border: 3px solid var(--yellow); border-radius: 16px 18px 17px 15px; pointer-events: none; animation: tour-pulse 1.6s ease-in-out infinite; }
+.tour-ring.is-chalky { border-color: #b7a3dd; animation-name: tour-pulse-chalky; }
+@keyframes tour-pulse { 50% { box-shadow: 0 0 0 7px rgb(246 201 69 / 32%); } }
+@keyframes tour-pulse-chalky { 50% { box-shadow: 0 0 0 7px rgb(183 163 221 / 38%); } }
+.tour-guide { position: fixed; left: 0; top: 0; z-index: 1002; display: flex; align-items: flex-start; gap: 6px; transition: transform .65s var(--tour-spring); }
+.tour-guide.is-flipped { flex-direction: row-reverse; }
+.tour-who { position: relative; width: 74px; height: 74px; flex: 0 0 74px; margin-top: -10px; }
+.tour-who.is-hopping { animation: tour-hop .65s ease-out; }
+@keyframes tour-hop { 40% { transform: translateY(-28px) rotate(-7deg); } 75% { transform: translateY(3px); } }
+.tour-leaving { position: absolute; inset: 0; animation: tour-leave .55s ease-in forwards; }
+@keyframes tour-leave { to { opacity: 0; transform: translate(-50px, 40px) rotate(-25deg) scale(.4); } }
+.tour-arriving { display: block; animation: tour-pop .6s var(--tour-spring) .3s both; }
+.tour-bubble { width: 330px; padding: 14px 16px 12px; border: 2.5px solid var(--ink); border-radius: 10px 24px 24px 20px; background: #fff; box-shadow: 3px 4px 0 rgb(59 52 44 / 14%); animation: fable-bubble-in .38s cubic-bezier(.23, 1, .32, 1); }
+.is-flipped .tour-bubble { border-radius: 24px 10px 20px 24px; }
+.tour-bubble h2 { margin: 0 0 4px; font: 700 18px/1.25 "Shantell Sans", cursive; }
+.tour-bubble.is-chalky h2 { color: #5b4597; }
+.tour-bubble p { margin: 0; font-size: 14.5px; font-weight: 600; line-height: 1.45; }
+.tour-bubble footer { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.tour-bubble footer span { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 700; }
+.fable-button.primary.is-chalky { background: #cdbcf0; }
+.tour-finale { position: fixed; inset: 0; z-index: 1002; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.tour-pair { display: flex; align-items: flex-end; gap: 0; animation: tour-pop .6s var(--tour-spring) both; }
+.tour-finale .fable-speech { width: 440px; margin-top: 10px; }
+.tour-finale .fable-replies { width: 440px; }
+
+.tour-skip { min-height: 28px; padding: 4px 10px; border: 0; border-radius: 9px; background: #efe7d8; color: var(--ink); font-size: 12px; font-weight: 800; cursor: pointer; transition: background-color .15s ease-out; }
+.tour-skip:hover { background: #e6dccb; }
+@keyframes tour-pop { from { opacity: 0; transform: translateY(40px) scale(.5); } }
+
+@media (prefers-reduced-motion: reduce) { .tour-guide, .tour-who, .tour-dim, .tour-ring, .tour-arriving, .tour-leaving, .tour-pair, .tour-bubble { transition: none !important; animation: none !important; } }
+
+/* The practice homework's page, where the live school page would be. */
+.practice-page { height: 100%; overflow: hidden; background: #f6f8fc; color: #1f2a3d; font-family: "Nunito Sans", system-ui, sans-serif; }
+.practice-page header { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: #5b4597; color: #fff; }
+.practice-page header strong { font-size: 17px; } .practice-page header span { opacity: .8; font-size: 13px; }
+.practice-page main { padding: 22px 24px; }
+.practice-page main > p { margin: 0 0 4px; color: #687692; font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.practice-page h2 { margin: 0 0 4px; font-size: 24px; }
+.practice-page small { color: #687692; font-size: 13px; }
+.practice-question { margin-top: 20px; padding: 18px; border: 1px solid #d9e0ec; border-radius: 8px; background: #fff; }
+.practice-question p { margin: 6px 0 12px; font-size: 14px; }
+.practice-question textarea { width: 100%; min-height: 96px; padding: 10px; border: 1px solid #9fb0cc; border-radius: 6px; background: #fff; font: 14px/1.5 "Nunito Sans", system-ui, sans-serif; resize: none; }

@@ -5,6 +5,7 @@ import { UpdateService } from "./updates/service.js";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
 import { appendFileSync, existsSync, writeFileSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -101,7 +102,7 @@ import { type LocalStore, openLocalStore, STORAGE_SCHEMA_VERSION } from "./stora
 import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
 import { usageProperties, type AgentUsageSnapshot } from "./telemetry/usage.js";
-import { initializeHomeworkWorkspace, requireHomeworkWorkspace, syncHomeworkClassFolders } from "./files/workspace.js";
+import { initializeHomeworkWorkspace, requireHomeworkWorkspace, suggestHomeworkRoot, syncHomeworkClassFolders } from "./files/workspace.js";
 import { addCheatsheetLines, goalFolder, getLearnNotes, readLearnPage, readGoalNotes, recordSessionNote, saveStudyPage } from "./files/learn-workspace.js";
 import { learnSessionObserver } from "./telemetry/learn-session.js";
 import { studyPageDocument } from "../shared/study-page.js";
@@ -743,6 +744,19 @@ const ipcHandlers: StudiIpcHandlers = {
       updatedAt: new Date().toISOString(),
     });
   },
+  chooseSuggestedHomeworkRoot: async () => {
+    const current = await requireLocalStore().productPreferences.get();
+    const suggested = await suggestHomeworkRoot(app.getPath("documents"));
+    await mkdir(suggested, { recursive: true });
+    const homeworkRoot = await initializeHomeworkWorkspace(suggested);
+    await syncHomeworkClassFolders(homeworkRoot, requireLocalStore().school.listCourses());
+    return requireLocalStore().productPreferences.put({ ...current, homeworkRoot, updatedAt: new Date().toISOString() });
+  },
+  finishOnboarding: async ({ finished }) => {
+    const current = await requireLocalStore().productPreferences.get();
+    const now = new Date().toISOString();
+    return requireLocalStore().productPreferences.put({ ...current, onboardingFinishedAt: finished ? current.onboardingFinishedAt ?? now : null, updatedAt: now });
+  },
   saveNotificationPreferences: async (input) => {
     const current = await requireLocalStore().productPreferences.get();
     return requireLocalStore().productPreferences.put({
@@ -1212,6 +1226,7 @@ async function readProductSettings(): Promise<ProductSettingsState> {
     preferences: await store.productPreferences.get(),
     permissionRules: store.permissionRules.listAll(),
     schedule: store.lifecycle.getSchedule(),
+    suggestedHomeworkRoot: await suggestHomeworkRoot(app.getPath("documents")).catch(() => null),
   };
 }
 

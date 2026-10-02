@@ -138,7 +138,6 @@
   flex: 1;
   min-height: 0;
   padding: 12px 20px 20px;
-  scrollbar-width: none;
   overscroll-behavior: contain;
 }
 .chat-view-expanded .conversation-log {
@@ -617,4 +616,3 @@
   }
 }
 
-.conversation-log::-webkit-scrollbar { display: none; }

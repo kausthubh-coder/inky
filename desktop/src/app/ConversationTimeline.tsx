@@ -6,6 +6,7 @@ import { ChatMarkdown } from "./ChatMarkdown.js";
 import { Icon } from "./Icon.js";
 import { MemorySaved } from "./MemorySaved.js";
 import { onEngineChange } from "./engineChanges.js";
+import { studiApi } from "./studiApi.js";
 
 // The chat box grows upward into this panel; the week stays behind it.
 // One conversation across home, assignments, school checks and Learn. The context shows once, when it changes.
@@ -33,7 +34,7 @@ export function ConversationTimeline({ composer, onClose, error, onOpenContext, 
       if (reading) return;
       reading = true;
       try {
-        const next = await window.studi!.getConversationTimeline({ limit });
+        const next = await studiApi()!.getConversationTimeline({ limit });
         if (alive) { setTimeline(next); setLoadError(""); }
       } catch (cause) {
         if (alive) setLoadError(cause instanceof Error ? cause.message : String(cause));
