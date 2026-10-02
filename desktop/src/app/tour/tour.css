@@ -44,3 +44,5 @@
 .practice-question { margin-top: 20px; padding: 18px; border: 1px solid #d9e0ec; border-radius: 8px; background: #fff; }
 .practice-question p { margin: 6px 0 12px; font-size: 14px; }
 .practice-question textarea { width: 100%; min-height: 96px; padding: 10px; border: 1px solid #9fb0cc; border-radius: 6px; background: #fff; font: 14px/1.5 "Nunito Sans", system-ui, sans-serif; resize: none; }
+/* In a lesson Chalky is already on screen, so the bubble speaks from its panel, pointing up at it. */
+.tour-bubble.is-docked { border-radius: 10px 24px 24px 20px; }

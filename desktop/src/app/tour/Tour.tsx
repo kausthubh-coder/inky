@@ -18,6 +18,8 @@ type Step = {
   advance?: (clicked: Element) => boolean;
   /** Moves on by itself once this is true. */
   until?: () => boolean;
+  /** Speak from inside this area (Chalky's own panel in a lesson) rather than beside the target. */
+  dock?: () => Element | null;
   /** Runs when the step opens. */
   enter?: (go: { screen: (next: AppScreen) => void }) => void;
 };
@@ -40,8 +42,8 @@ const STEPS: Step[] = [
   { who: "dot", state: "hello", title: "Now meet Chalky.", body: "Chalky helps you study for tests. Open Learn.", target: () => button(/^Learn$/), advance: inside(() => button(/^Learn$/)) },
   { who: "chalky", state: "hello", title: "Hi! I'm Chalky.", body: "Every test Dot finds gets a plan here. Here's a practice one. Open it.", target: quizRow, advance: inside(quizRow) },
   { who: "chalky", state: "explaining", title: "First, a quick check.", body: "A few questions so I don't teach you what you already know. Start it.", target: quizStart, advance: inside(quizStart) },
-  { who: "chalky", state: "quiz", title: "Lessons are short.", body: "One idea at a time. Pick an answer, then press Check.", target: () => document.querySelector(".tu-opts")?.closest(".tu-col") ?? document.querySelector(".tu-opts"), advance: inside(() => button(/^Check$/)) },
-  { who: "chalky", state: "proud", title: "That's a lesson.", body: "I ask, you try, I explain. Ask me anything on the left while you work.", target: () => document.querySelector(".tu-col") },
+  { who: "chalky", state: "quiz", title: "Lessons are short.", body: "One idea at a time. Pick an answer, then press Check.", target: () => document.querySelector(".tu-opts")?.closest(".tu-col") ?? document.querySelector(".tu-opts"), advance: inside(() => button(/^Check$/)), dock: () => document.querySelector(".tu-side") },
+  { who: "chalky", state: "proud", title: "That's a lesson.", body: "I ask, you try, I explain. Ask me anything on the left while you work.", target: () => document.querySelector(".tu-col"), dock: () => document.querySelector(".tu-side") },
 ];
 
 type Box = { x: number; y: number; w: number; h: number };
@@ -101,12 +103,14 @@ export function Tour({ onScreen, onDone }: { onScreen: (next: AppScreen) => void
 }
 
 function Guide({ step, current, box, last, onNext, onSkip }: { step: number; current: Step; box: Box; last: MutableRefObject<Spot | null>; onNext: (() => void) | null; onSkip: () => void }) {
-  const width = 330, height = 180, gap = 22;
+  const dock = current.dock?.()?.getBoundingClientRect();
+  const width = dock ? Math.min(330, dock.width - 16) : 330, height = 180, gap = 22;
   const room = { right: innerWidth - (box.x + box.w), left: box.x, below: innerHeight - (box.y + box.h) };
   const side = room.right > width + 110 ? "right" : room.left > width + 110 ? "left" : room.below > height + 40 ? "below" : "above";
   const clampY = (y: number) => Math.max(16, Math.min(innerHeight - height - 16, y));
   const clampX = (x: number) => Math.max(16, Math.min(innerWidth - width - 100, x));
-  const at = side === "right" ? { x: box.x + box.w + gap, y: clampY(box.y + box.h / 2 - height / 2) }
+  const at = dock ? { x: dock.x + 8, y: Math.max(16, Math.min(innerHeight - height - 16, dock.y + 130)) }
+    : side === "right" ? { x: box.x + box.w + gap, y: clampY(box.y + box.h / 2 - height / 2) }
     : side === "left" ? { x: box.x - gap - width - 84, y: clampY(box.y + box.h / 2 - height / 2) }
     : side === "below" ? { x: clampX(box.x + box.w / 2 - width / 2), y: Math.min(innerHeight - height - 16, box.y + box.h + gap) }
     : { x: clampX(box.x + box.w / 2 - width / 2), y: Math.max(16, box.y - gap - height) };
@@ -125,11 +129,11 @@ function Guide({ step, current, box, last, onNext, onSkip }: { step: number; cur
   useEffect(() => { if (!leaving) return undefined; const timer = window.setTimeout(() => setLeaving(null), 650); return () => window.clearTimeout(timer); }, [leaving]);
   return (
     <div className={`tour-guide side-${side} ${side === "left" ? "is-flipped" : ""}`} style={{ transform: `translate(${pos.x}px, ${pos.y}px)` }} role="dialog" aria-label="Tour" aria-describedby="tour-body">
-      <div className={`tour-who ${hop ? "is-hopping" : ""}`} aria-hidden="true">
+      {!dock && <div className={`tour-who ${hop ? "is-hopping" : ""}`} aria-hidden="true">
         {leaving && <span className="tour-leaving"><Character state="hello" size={70} /></span>}
         <span className={leaving ? "tour-arriving" : ""}>{current.who === "dot" ? <Character state={current.state as DotState} size={70} /> : <Character kind="chalky" state={current.state as ChalkyState} size={70} />}</span>
-      </div>
-      <article className={`tour-bubble is-${current.who}`}>
+      </div>}
+      <article className={`tour-bubble is-${current.who} ${dock ? "is-docked" : ""}`} style={dock ? { width } : undefined}>
         <h2>{current.title}</h2>
         <p id="tour-body">{current.body}</p>
         <footer>
