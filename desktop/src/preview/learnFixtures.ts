@@ -147,8 +147,14 @@ export function learnPreview(id: string) {
       clicked: [{ before: "Speed at t = 3 is just 9, the distance.", after: "Speed is the slope the nearby slopes close in on: 6." }],
       cheatsheet: ["f′(a) is what (f(a + h) − f(a)) / h heads to as h shrinks", "If f(x) = x², then f′(x) = 2x"] } };
   if (id === "tutor-quiz") {
-    const q = (sequence: number, topicId: string, correct: boolean) => block(sequence, "independent", "tutor_ask_typed", { topicId, question: `Question ${sequence + 1}`, hints: [], hasMoreHints: false },
-      { answer: { kind: "typed", answer: "answer" }, correct, hintsUsed: 0, seconds: 30 });
+    const MISSED: Record<number, [string, string, string]> = {
+      4: ["1 in 100 people have a disease and the test is 90% accurate. You test positive: about how likely is it you have it?", "90%", "about 8%"],
+      5: ["Which is P(B | A) written with Bayes' theorem?", "P(A | B) P(B)", "P(A | B) P(B) / P(A)"],
+      9: ["How many ways can you choose 2 of 5 people?", "20", "10"],
+    };
+    const q = (sequence: number, topicId: string, correct: boolean) => block(sequence, "independent", "tutor_ask_typed",
+      { topicId, question: MISSED[sequence]?.[0] ?? `Question ${sequence + 1}`, hints: [], hasMoreHints: false, ...(MISSED[sequence] ? { key: MISSED[sequence]![2] } : {}) },
+      { answer: { kind: "typed", answer: MISSED[sequence]?.[1] ?? "answer" }, correct, hintsUsed: 0, seconds: 30 });
     const plan: [string, boolean][] = [["topic-1", true], ["topic-1", true], ["topic-1", true], ["topic-2", true], ["topic-2", false], ["topic-2", false], ["topic-3", true], ["topic-3", true], ["topic-0", true], ["topic-0", false]];
     tutor = { ...tutor, mode: "mock_exam", goal: "Check what I know across this exam", topicIds: ["topic-0", "topic-1", "topic-2", "topic-3"], status: "completed", phase: "wrap",
       activeSince: null, finishedAt: now(), blocks: plan.map(([topicId, correct], index) => q(index, topicId, correct)),
@@ -206,7 +212,7 @@ export function learnPreview(id: string) {
     },
     answerTutorBlock: async ({ blockId, answer }) => {
       const asked = tutor.blocks.find(item => item.blockId === blockId)!, key = "question" in asked.args ? KEYS[asked.args.question] : undefined;
-      const correct = answer.kind === "choice" ? answer.picked === (key ?? 0) : answer.kind === "typed" && key !== undefined ? answer.answer.trim() === key : null;
+      const correct = answer.kind === "unsure" ? false : answer.kind === "choice" ? answer.picked === (key ?? 0) : answer.kind === "typed" && key !== undefined ? answer.answer.trim() === key : null;
       const result = { answer, correct, ...(answer.kind === "typed" ? { matched: correct === true } : {}), hintsUsed: asked.hintsUsed, seconds: 10 };
       const again = correct === false && asked.attempts.length < 2;
       editBlocks(item => item.blockId === blockId ? { ...item, status: again ? "open" : "answered", answeredAt: again ? null : now(), firstAnsweredAt: item.firstAnsweredAt ?? now(), draft: "", result,

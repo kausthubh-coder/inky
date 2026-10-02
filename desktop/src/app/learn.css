@@ -258,6 +258,8 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 .tu-hint { min-height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: none; box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--ink-chalky) 35%, transparent); font: 600 14.5px "Nunito Sans", sans-serif; color: var(--ink-chalky); cursor: pointer; }
 .tu-hint:disabled { opacity: 0.5; cursor: default; }
 .tu-hints { margin: 8px 0 0; padding: 0; list-style: none; }
+.rd-quiet.tu-unsure { min-height: 36px; background: none; color: var(--tu-label); font-size: 14.5px; }
+.rd-quiet.tu-unsure:hover:not(:disabled) { background: var(--blotter); color: var(--pencil); }
 
 /* Pick one: a lettered list in plain type. */
 .tu-opts { display: grid; margin-top: 14px; }
@@ -301,7 +303,13 @@ textarea.tu-area:focus { box-shadow: 0 0 0 2px var(--pencil), 0 0 0 6px var(--hi
 .tu-bars .lr-bar { height: 6px; border-radius: 3px; }
 .tu-bars b { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
 .tu-bars li.is-weak, .tu-bars li.is-weak b { font-weight: 700; }
-.tu-sec ~ .tu-ans, .tu-plain ~ .tu-ans, .tu-bars ~ .tu-ans { margin-top: 16px; }
+.tu-missed { margin: 0; padding: 0; list-style: none; }
+.tu-missed li { display: grid; gap: 2px; padding: 8px 0; border-top: 1.5px solid var(--blot2); font-size: 16px; line-height: 1.4; }
+.tu-missed li:first-child { border-top: 0; }
+.tu-missed small { font-size: 14.5px; color: var(--tu-label); }
+.tu-missed s { text-decoration: line-through var(--ink-chalky) 2px; }
+.tu-missed b { color: var(--pencil); }
+.tu-sec ~ .tu-ans, .tu-plain ~ .tu-ans, .tu-bars ~ .tu-ans, .tu-missed ~ .tu-ans { margin-top: 16px; }
 .tu-ans .rd-quiet { min-height: 40px; padding: 0 14px; }
 
 /* A narrow window: the board on top, Chalky and the chat in one row beneath it. */

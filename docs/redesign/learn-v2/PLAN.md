@@ -482,7 +482,7 @@ Draw everything from `boardView(session)` (B7). The screen makes no layout decis
 
 | Region | Holds |
 |---|---|
-| Top bar, 56px | "← Lessons"; the topic and the goal; five marks with "Step 2 of 5 · Learn"; minutes left; "Pause" |
+| Top bar, 56px | "← Learn"; the topic and the goal; five marks with "Step 2 of 5 · Learn"; minutes left, only in the last three minutes (a clock running the whole lesson read as a deadline); "Pause" |
 | Side chat, 300px on the left | Chalky at 112px with its name; the conversation; the chat box |
 | The board, the rest | One column, 720px, centred on the board |
 

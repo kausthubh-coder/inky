@@ -179,7 +179,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
             {TUTOR_PHASES.map((phase, index) => <i key={phase} className={wrapped || index < step ? "done" : index === step ? "now" : ""} />)}
             <span>{wrapped ? "Done" : `Step ${step + 1} of 5 · ${PHASE_NAMES[session.phase]}`}</span>
           </div>}
-          {!closed && <span className="tu-time">{session.wrapStartedAt ? "Wrapping up…" : `${Math.ceil(remaining / 60)} min left`}</span>}
+          {!closed && (session.wrapStartedAt || remaining <= 180) && <span className="tu-time">{session.wrapStartedAt ? "Wrapping up…" : `${Math.ceil(remaining / 60)} min left`}</span>}
           {session.status === "active" && <button className="rd-quiet" disabled={busy} onClick={() => void pause()}>Pause</button>}
         </div>
       </header>
@@ -312,6 +312,9 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
   const canHint = question.tool === "tutor_ask_typed" && open && question.args.hasMoreHints;
   const needsTry = canHint && question.hintsUsed > 0 && !draft.trim();
   const given = result && (result.answer.kind === "typed" ? result.answer.answer : result.answer.kind === "explain" ? result.answer.text : null);
+  const unsure = result?.answer.kind === "unsure";
+  const notSure = open && <button type="button" className="rd-quiet tu-unsure" disabled={disabled} onClick={() => void onAnswer({ kind: "unsure" }).then(done => { if (done) localStorage.removeItem(draftKey); })}>I'm not sure</button>;
+  const said = (key: string) => <span key={key} className="tu-lab">Not sure</span>;
   const beside = reading ? "Chalky is reading it…" : view.move === "wait" ? "Chalky is writing…" : "";
   const action = <>
     <button ref={button} className="tu-btn" disabled={going ? false : disabled || !open || !ready}>
@@ -331,23 +334,24 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
             </button>;
           })}
         </div>
-        <div className="tu-ans">{action}</div>
+        <div className="tu-ans">{action}{notSure}</div>
       </>}
       {question.tool === "tutor_ask_typed" && <div className="tu-ans">
         <span className="tu-lab">Your answer</span>
-        {view.tries.map((item, index) => item.answer.kind === "typed" && <s key={index} className="tu-was">{item.answer.answer}</s>)}
+        {view.tries.map((item, index) => item.answer.kind === "typed" ? <s key={index} className="tu-was">{item.answer.answer}</s> : item.answer.kind === "unsure" && said("try" + index))}
         {open ? <input ref={field} className="tu-field" autoFocus autoComplete="off" aria-label="Your answer" value={draft} maxLength={10000} disabled={disabled} onChange={event => edit(event.target.value)} />
           : result?.correct ? <><span className="tu-right">{given}</span><Tick /></>
-          : reading ? <span className="tu-given">{given}</span> : <s className="tu-was">{given}</s>}
+          : unsure ? said("now") : reading ? <span className="tu-given">{given}</span> : <s className="tu-was">{given}</s>}
         {action}
         {canHint && <button type="button" className="tu-hint" disabled={disabled || needsTry} onClick={() => { onHint(); field.current?.focus(); }}>{HINTS[Math.min(question.hintsUsed, 2)]}</button>}
+        {notSure}
       </div>}
       {question.tool === "tutor_ask_explain" && <>
-        {view.tries.map((item, index) => item.answer.kind === "explain" && <p key={index} className="tu-area is-sent is-was">{item.answer.text}</p>)}
+        {view.tries.map((item, index) => item.answer.kind === "explain" ? <p key={index} className="tu-area is-sent is-was">{item.answer.text}</p> : item.answer.kind === "unsure" && <p key={index} className="tu-lab">Not sure</p>)}
         {open ? <textarea className="tu-area" autoFocus aria-label="Your answer" value={draft} maxLength={10000} disabled={disabled} placeholder="Type it the way you'd say it out loud. Messy is fine." onChange={event => edit(event.target.value)} />
-          : <p className="tu-area is-sent">{given}</p>}
+          : unsure ? <p className="tu-lab">Not sure</p> : <p className="tu-area is-sent">{given}</p>}
         {question.args.points && <ul className="tu-points">{question.args.points.map((point, index) => <li key={index} className={point.met ? "" : "is-off"}>{point.met ? <Tick size={20} /> : <Dash />}<span>{!point.met && <b>Missing: </b>}{point.text}</span></li>)}</ul>}
-        <div className="tu-ans">{action}</div>
+        <div className="tu-ans">{action}{notSure}</div>
       </>}
       {needsTry && <p className="tu-lab">Type your best try first.</p>}
       {hints.length > 0 && <ol className="tu-hints">{hints.map((hint, index) => <li key={index} className="tu-w"><ChatMarkdown text={hint} /></li>)}</ol>}
@@ -369,6 +373,12 @@ function WrapUp({ session, goal, topicTitle, onStart, onLeave }: {
     const right = scores.reduce((sum, score) => sum + score.right, 0), total = scores.reduce((sum, score) => sum + score.total, 0);
     const weakest = [...scores].sort((a, b) => a.right / a.total - b.right / b.total)[0];
     const study = weakest && weakest.right < weakest.total ? weakest : null;
+    const missed = session.blocks.flatMap(block => {
+      if ((block.tool !== "tutor_ask_typed" && block.tool !== "tutor_ask_choice") || block.result?.correct !== false) return [];
+      const answer = block.result.answer;
+      return [{ blockId: block.blockId, question: block.args.question, key: block.args.key ?? null,
+        said: answer.kind === "typed" ? answer.answer : answer.kind === "choice" && block.tool === "tutor_ask_choice" ? block.args.options[answer.picked] ?? null : null }];
+    });
     return <>
       <h1 className="tu-score">{total ? `${right} out of ${total}` : "Quiz stopped."}</h1>
       {(result?.summary ?? session.error) && <div className="tu-w"><ChatMarkdown text={result?.summary ?? session.error!} /></div>}
@@ -376,6 +386,13 @@ function WrapUp({ session, goal, topicTitle, onStart, onLeave }: {
         <h2 className="tu-sec">{goal?.title ?? "Quiz"}, by topic</h2>
         <ul className="tu-bars">{scores.map(score => <li key={score.topicId} className={score === study ? "is-weak" : ""}>
           <span>{topicTitle(score.topicId)}</span><span className="lr-bar"><i style={{ width: `${Math.round(score.right / score.total * 100)}%` }} /></span><b>{score.right} / {score.total}</b>
+        </li>)}</ul>
+      </>}
+      {missed.length > 0 && <>
+        <h2 className="tu-sec">What you missed</h2>
+        <ul className="tu-missed">{missed.map(item => <li key={item.blockId}>
+          <span>{item.question}</span>
+          <small>{item.said ? <>You said <s>{item.said}</s></> : "Not sure"}{item.key && <> · Answer: <b>{item.key}</b></>}</small>
         </li>)}</ul>
       </>}
       <div className="tu-ans">

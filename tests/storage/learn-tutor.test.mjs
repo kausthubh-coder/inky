@@ -324,6 +324,27 @@ test("boardView describes current work, history, retries, chat and erasure witho
   }));
 });
 
+test("I'm not sure is a wrong answer that can be retried, but never raised or cited", async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
+  const args = { question: "What is six times seven?", accept: ["42"], hints: [] };
+  const block = repo.openBlock(session.sessionId, "typed", { tool: "tutor_ask_typed", args });
+  repo.answerBlock(session.sessionId, block.blockId, { kind: "unsure" });
+  assert.equal(repo.session(session.sessionId).blocks[0].result.correct, false);
+  assert.throws(() => repo.grade(session.sessionId, { blockId: block.blockId, correct: true, equivalentTo: "42" }), /wrong typed answer/);
+  assert.throws(() => finish(repo, session, block, 3), /Invalid mastery evidence/);
+  repo.openBlock(session.sessionId, "typed-again", { tool: "tutor_ask_typed", args });
+  repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "42" });
+  assert.deepEqual(repo.session(session.sessionId).blocks[0].attempts.map(attempt => attempt.correct), [false, true]);
+}));
+
+test("answer keys reach the screen only after the lesson is over", async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
+  repo.openBlock(session.sessionId, "choice", { tool: "tutor_ask_choice", args: { question: "?", options: ["A", "B"], correct: 1 } });
+  assert.equal(publicTutorSession(repo.session(session.sessionId)).blocks[0].args.key, undefined);
+  repo.transition(session.sessionId, "cancelled");
+  assert.equal(publicTutorSession(repo.session(session.sessionId)).blocks[0].args.key, "B");
+}));
+
 test("a finish that also assesses a topic that came back still places the main topic", async () => fixture(({ repo }) => {
   const { exam, topics } = syllabus(repo);
   const session = repo.startSession(topics[0].topicId, "Sampling", 10, { examId: exam.examId, topicIds: topics.map(topic => topic.topicId) });

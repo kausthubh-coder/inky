@@ -417,7 +417,10 @@ export class LearnRepository {
       }
       if (block.status !== "open") throw new Error("This block is closed");
       let correct: boolean | null = null;
-      if (block.tool === "tutor_ask_choice" && answer.kind === "choice") {
+      if (answer.kind === "unsure") {
+        if (!isQuestion(block)) throw new Error("Answer does not match the open block");
+        correct = false;
+      } else if (block.tool === "tutor_ask_choice" && answer.kind === "choice") {
         if (answer.picked >= block.args.options.length) throw new Error("Choose an available option");
         correct = answer.picked === block.args.correct;
       } else if (block.tool === "tutor_ask_typed" && answer.kind === "typed") correct = typedAnswerMatches(block.args.accept, answer.answer);
@@ -452,7 +455,7 @@ export class LearnRepository {
         if (!input.met || input.met.length !== block.args.rubric.length) throw new Error("Mark every rubric point in order");
         if (block.result.correct !== null) throw new Error("This explanation is already marked");
       } else if (block.tool === "tutor_ask_typed") {
-        if (block.result.correct !== false || !input.correct || !input.equivalentTo || !block.args.accept.includes(input.equivalentTo)) throw new Error("Only raise a wrong typed answer by naming an accepted answer");
+        if (block.result.answer.kind !== "typed" || block.result.correct !== false || !input.correct || !input.equivalentTo || !block.args.accept.includes(input.equivalentTo)) throw new Error("Only raise a wrong typed answer by naming an accepted answer");
       } else throw new Error("Only typed answers and explanations can be marked");
       const result = { ...block.result, correct: input.correct, ...(block.tool === "tutor_ask_explain" ? { met: input.met! } : {}) };
       const attempts = block.attempts.map((attempt, index) => index === block.attempts.length - 1 ? { ...attempt, correct: input.correct } : attempt);

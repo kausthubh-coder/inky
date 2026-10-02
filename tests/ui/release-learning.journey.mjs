@@ -60,6 +60,12 @@ export async function verifyReleaseLearning(page,base) {
  await page.locator('.tu-right',{hasText:'6'}).waitFor();
  results.push('A right answer is marked at once; Next folds it into the earlier questions, which reopen it');
 
+ await open('tutor-question');
+ await button("I'm not sure").click();
+ await page.locator('.tu-ans .tu-lab',{hasText:'Not sure'}).waitFor();
+ assert.equal(await answer.isEnabled(),true,'Not sure did not leave a fresh field');
+ results.push("I'm not sure is marked and the question stays open for another try");
+
  await open('tutor-pick');
  assert.equal(await button('Check').isDisabled(),true);
  await page.getByRole('radio').nth(1).click();

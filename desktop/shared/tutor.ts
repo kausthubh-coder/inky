@@ -81,6 +81,8 @@ export const TutorBlockAnswerSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("typed"), explored: explored.optional(), answer: text }),
   z.strictObject({ kind: z.literal("explain"), explored: explored.optional(), text }),
   z.strictObject({ kind: z.literal("model"), explored }),
+  /** "I'm not sure", on any question: marked wrong, so the tutor teaches instead of the student guessing. */
+  z.strictObject({ kind: z.literal("unsure"), explored: explored.optional() }),
 ]);
 export const TutorBlockResultSchema = z.strictObject({
   answer: TutorBlockAnswerSchema, correct: z.boolean().nullable(), hintsUsed: z.number().int().min(0).max(8), seconds: z.number().nonnegative(),
@@ -179,8 +181,8 @@ export function tutorExpiryTimeLeft(session: Pick<TutorSession, "budgetSeconds" 
 export const PublicTutorBlockSchema = z.discriminatedUnion("tool", [
   z.strictObject({ ...blockFields, tool: z.literal("tutor_say"), args: TutorSayInputSchema }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_reply"), args: TutorReplyInputSchema, replyTo: OpaqueIdSchema }),
-  z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_choice"), args: z.strictObject({ ...topicScope, ...questionNote, question: text, options: z.array(z.string()) }) }),
-  z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_typed"), args: z.strictObject({ ...topicScope, ...questionNote, question: text, steps, hints: z.array(z.string()), hasMoreHints: z.boolean() }) }),
+  z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_choice"), args: z.strictObject({ ...topicScope, ...questionNote, question: text, options: z.array(z.string()), key: z.string().optional() }) }),
+  z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_typed"), args: z.strictObject({ ...topicScope, ...questionNote, question: text, steps, hints: z.array(z.string()), hasMoreHints: z.boolean(), key: z.string().optional() }) }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_ask_explain"), args: z.strictObject({ ...topicScope, ...questionNote, prompt: text, steps, points: z.array(z.strictObject({ text: z.string(), met: z.boolean() })).optional() }) }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_show_model"), args: TutorModelInputSchema }),
   z.strictObject({ ...blockFields, tool: z.literal("tutor_show_page"), args: TutorShowPageInputSchema }),
@@ -227,7 +229,7 @@ export function boardView(session: PublicTutorSession, at?: string | null): Tuto
   const before = stops[index - 1] ?? null;
   const lead = notes(before?.sequence ?? -1, stop?.sequence ?? Infinity).filter(block => block.createdAt > (before?.answeredAt ?? ""));
   const latestTry = question?.attempts.at(-1)?.answeredAt ?? "";
-  const feedback = stop ? notes(stop.sequence, following?.sequence ?? Infinity).filter(block => block.createdAt > latestTry) : [];
+  const feedback = stop ? notes(stop.sequence, following?.sequence ?? Infinity).filter(block => block.createdAt >= latestTry) : [];
   const visuals = session.blocks.filter((block): block is TutorVisual => isVisual(block) && !block.erasedAt && block.status !== "cancelled");
   // Each message, then Chalky's reply to it.
   const chat: TutorBoardView["chat"] = session.messages.flatMap(message => [{ kind: "student" as const, id: message.messageId, text: message.text, createdAt: message.createdAt },
@@ -241,7 +243,7 @@ export function boardView(session: PublicTutorSession, at?: string | null): Tuto
     done: stops.slice(0, Math.max(index, 0)).filter(isQuestion).map(block => {
       const answer = block.result?.answer;
       return { blockId: block.blockId, question: block.tool === "tutor_ask_explain" ? block.args.prompt : block.args.question,
-        answer: !answer ? null : answer.kind === "typed" ? answer.answer : answer.kind === "explain" ? answer.text : answer.kind === "choice" && block.tool === "tutor_ask_choice" ? block.args.options[answer.picked] ?? null : null,
+        answer: !answer ? null : answer.kind === "unsure" ? "Not sure" : answer.kind === "typed" ? answer.answer : answer.kind === "explain" ? answer.text : answer.kind === "choice" && block.tool === "tutor_ask_choice" ? block.args.options[answer.picked] ?? null : null,
         correct: block.result?.correct ?? null };
     }),
     lead, question, note: question?.args.note ?? null,
@@ -252,10 +254,11 @@ export function boardView(session: PublicTutorSession, at?: string | null): Tuto
   };
 }
 export function publicTutorSession(session: TutorSession): PublicTutorSession {
+  const over = !["active", "paused"].includes(session.status);
   return PublicTutorSessionSchema.parse({ ...session, messages: session.messages.map(({ delivered: _delivered, ...message }) => message), blocks: session.blocks.map(block => {
     switch (block.tool) {
-      case "tutor_ask_choice": { const { correct: _correct, ...args } = block.args; return { ...block, args }; }
-      case "tutor_ask_typed": { const { accept: _accept, hints, ...args } = block.args; return { ...block, args: { ...args, hints: hints.slice(0, block.hintsUsed), hasMoreHints: block.hintsUsed < hints.length } }; }
+      case "tutor_ask_choice": { const { correct, ...args } = block.args; return { ...block, args: { ...args, ...(over ? { key: args.options[correct] } : {}) } }; }
+      case "tutor_ask_typed": { const { accept, hints, ...args } = block.args; return { ...block, args: { ...args, hints: hints.slice(0, block.hintsUsed), hasMoreHints: block.hintsUsed < hints.length, ...(over ? { key: accept[0] } : {}) } }; }
       case "tutor_ask_explain": {
         const { rubric, ...args } = block.args, met = block.result?.correct === null ? undefined : block.result?.met;
         return { ...block, args: { ...args, ...(met ? { points: rubric.map((text, index) => ({ text, met: met[index] })) } : {}) } };
