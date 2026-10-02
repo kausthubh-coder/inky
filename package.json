@@ -49,6 +49,7 @@
     "deploy:composio-policy": "bun scripts/deploy-composio-policy.ts",
     "test:all": "bun run verify --scope all",
     "test:ui": "node --experimental-strip-types --test \"tests/ui/*.test.mjs\"",
+    "test:ui:journeys": "node scripts/run-ui-journeys.mjs",
     "build:lms": "bun agent-harness/lms/build.mjs",
     "lms": "bun run build:lms && node .studi-lms/build/cli.mjs",
     "typecheck:lms": "tsc -p agent-harness/lms/tsconfig.json",

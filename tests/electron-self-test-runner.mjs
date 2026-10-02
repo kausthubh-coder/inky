@@ -330,7 +330,8 @@ function launchElectron(userDataDirectory, port, extraEnvironment, inspectorPort
   const environment = { ...process.env };
   delete environment.VITE_DEV_SERVER_URL;
   delete environment.STUDI_DEVELOPMENT_MODE;
-  return spawn(electronPath, [projectRoot, ...(inspectorPort ? [`--inspect=127.0.0.1:${inspectorPort}`] : []), "--remote-debugging-address=127.0.0.1", `--remote-debugging-port=${port}`, "--remote-allow-origins=*"], {
+  const rootSandboxFlag = process.platform !== "win32" && process.getuid?.() === 0 ? ["--no-sandbox"] : [];
+  return spawn(electronPath, [projectRoot, ...rootSandboxFlag, ...(inspectorPort ? [`--inspect=127.0.0.1:${inspectorPort}`] : []), "--remote-debugging-address=127.0.0.1", `--remote-debugging-port=${port}`, "--remote-allow-origins=*"], {
     cwd: projectRoot,
     env: { ...environment, STUDI_SELF_TEST: "1", STUDI_SELF_TEST_USER_DATA: userDataDirectory, ...extraEnvironment },
     stdio: ["ignore", "pipe", "pipe"],
