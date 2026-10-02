@@ -15,11 +15,11 @@ The runtime dependency has one method:
 createLearningSession(tools: readonly ToolDefinition[], systemPrompt: string, target?: AgentSessionTarget): Promise<AgentSession>
 ```
 
-Use the production Pi session implementation, `noTools: "all"`, exact supplied custom tools, the current model/reasoning selection, existing authentication, and existing usage recording. A home/assignment session factory has the wrong prompt and tool authority. Tutor sessions get six tools; extraction gets only `learn_record_source`. No fake provider fallback exists here.
+Use the production Pi session implementation, `noTools: "all"`, exact supplied custom tools, the current model/reasoning selection, existing authentication, and existing usage recording. A home/assignment session factory has the wrong prompt and tool authority. Tutor sessions get nine tools; extraction gets only `learn_record_source`. No fake provider fallback exists here.
 
 ## Public API
 
-Import schemas directly from `shared/learn-state.ts`, `shared/learn.ts`, `shared/tutor.ts`, and `shared/memory.ts`. `TutorSessionSchema` and `TutorBlockSchema` are **private storage/model records**. Every tutor coordinator return and callback is `PublicTutorSession`; it strips choice keys, accepted typed answers, explanation rubrics, and unrevealed hints. `LearnStateSchema` contains `TutorSessionSummarySchema` records, mastery levels/evidence counts, and source metadata. Its SQL projections omit blocks, messages, answer evidence, and source text. Fetch `tutor.state(sessionId)` when opening a session. `learn.sessionSummaries()` returns most recently updated first; it does not load blocks.
+Import schemas directly from `shared/learn-state.ts`, `shared/learn.ts`, `shared/tutor.ts`, and `shared/memory.ts`. `TutorSessionSchema` and `TutorBlockSchema` are **private storage/model records**. Every tutor coordinator return and callback is `PublicTutorSession`; it strips choice keys, accepted typed answers, unmarked explanation rubrics, and unrevealed hints. Marked explanations expose their rubric points with saved ticks. `LearnStateSchema` contains `TutorSessionSummarySchema` records, mastery levels/evidence counts, and source metadata. Its SQL projections omit blocks, messages, answer evidence, and source text. Fetch `tutor.state(sessionId)` when opening a session. `learn.sessionSummaries()` returns most recently updated first; it does not load blocks.
 
 | Action | Domain call |
 | --- | --- |
@@ -30,7 +30,7 @@ Import schemas directly from `shared/learn-state.ts`, `shared/learn.ts`, `shared
 | Native file import | `importLearnFile(learn, mainChooserPath, courseId, title?, assertActive?)` then process pending sources |
 | Topic session | `tutor.start({topicId, mode:'topic', minutes:15})` |
 | Free topic | `tutor.start({topic:'What I want to learn', minutes:15})` |
-| Recap | `tutor.start({topicId, mode:'recap'})` (five minutes) |
+| Recap | `tutor.start({topicId, mode:'recap'})` (five minutes, covering the due topics for that goal) |
 | Mock exam | `tutor.start({examId, mode:'mock_exam', minutes:15})` |
 | Session state | `tutor.state(sessionId)` |
 | Answer | `tutor.answerBlock(sessionId, blockId, answer)` |
@@ -62,8 +62,8 @@ Call `learn.syncHomeworkHints(items: readonly {assignmentId:string;courseId:stri
 - Missing mastery stays unknown. Missing weights stay unknown. Readiness normalizes the provided positive exam shares; partial evidence reports known coverage with no whole-exam percentage.
 - Planner choices are deterministic. Explicit past/undated exam selections keep their own topics/readiness and have no future path. The default lead is the nearest future exam with topics. Recap is due after three calendar days; the path schedules a mock two days before the exam. Mock exams cover 1–30 topics; larger topic sets do not show a mock path action.
 - A tutor session has at most 120 blocks, 100 student messages, and 250,000 serialized characters. Sessions have 1–60 active minutes. Pause stops the clock; restart charges through the last persisted event and restores the unfinished block/draft.
-- A correct choice or model interaction never establishes mastery. Typed answers use normalized exact matching, without executable regex. Explained answers require the prior rubric and a model verdict referencing the student's actual saved response. A positive hinted answer alone cannot increase mastery.
-- Each assessed topic moves at most one level per completed session. Repeated finish calls cannot award a second change. Mock assessment commits atomically only with typed/explanation evidence for every topic.
+- A correct choice or model interaction never establishes mastery. Typed answers use normalized matching, common lead-ins and equivalent numbers. Chalky can raise a wrong typed verdict only by naming an accepted answer. Explained answers require tutor_grade with one saved verdict per rubric point before the next question or finish. A positive hinted answer alone cannot increase mastery.
+- The first assessment can place a topic at 0?3; later sessions move at most one level. Solid requires unaided right evidence saved at least 18 hours earlier. Each evidenced assessment schedules its next review. Repeated finish calls cannot award a second change. Mock assessment commits atomically only with typed/explanation evidence for every topic.
 - Homework storage/scan writes have no mastery API. Homework hints are never scored or used as an exam source.
 - Source import is bounded to 8 MB and 200,000 extracted characters; PDFs are limited to 80 pages. Image-only PDFs fail honestly with a paste-text recovery action. There is no OCR success placeholder.
 - The five model schemas are population grid, number line, bounded function family, flashcards, and JavaScript code runner. The renderer owns visual fidelity and interaction. The code runner must use an opaque sandbox iframe and disposable browser Worker, network-denying CSP, and a hard timeout of at most one second. Never execute it in Electron main, Node, or the school's guest browser. `shared/tutor-code-sandbox.ts` provides the isolated iframe document; verify result source window and run ID.

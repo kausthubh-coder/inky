@@ -332,7 +332,7 @@ export function installDevPreview(): void {
   const api: StudiRendererApi = {
     ...learnPreview(preview.id),
     getConversationTimeline: async () => {
-      const entries: TimelineEntry[] = [...conversations.values()].flatMap(job => job.messages.map(message => ({id:message.messageId,kind:"message" as const,context:job.target.kind==="tutor"?{kind:"tutor",sessionId:job.sessionId??job.jobId}:job.target,createdAt:message.createdAt,text:message.text,role:message.role})));
+      const entries: TimelineEntry[] = [...conversations.values()].flatMap(job => job.messages.map(message => ({id:message.messageId,kind:"message" as const,context:job.target.kind==="tutor"?{kind:"tutor",sessionId:job.sessionId??job.jobId}:job.target,createdAt:message.createdAt,text:message.text,role:message.role,...(message.recovery==="failed"?{failed:true}:{})})));
       if(lifecycle.execution)entries.push({id:"preview-work",kind:"event",context:{kind:"assignment",assignmentId:lifecycle.execution.assignmentId},createdAt:now,text:lifecycle.execution.phase==="submitted"?"Submitted. The school confirmed it.":"Started the assignment.",event:lifecycle.execution.phase==="submitted"?"submitted":"started",title:tasks.find(item=>item.assignment.assignmentId===lifecycle.execution?.assignmentId)?.assignment.title??"Assignment"});
       const learned = await api.getLearnState();
       for (const session of learned.sessions) if(session.status==="completed") entries.push({id:"session-"+session.sessionId,kind:"event",context:{kind:"tutor",sessionId:session.sessionId},createdAt:session.finishedAt??session.updatedAt,text:session.result?.summary??"Session finished.",event:"session_finished",title:session.goal});

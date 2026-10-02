@@ -40,6 +40,14 @@ const PersonPropertiesSchema = z.object({
 }).strict();
 
 export const telemetryEventSchemas = {
+  studi_learn_session: z.strictObject({
+    mode: z.enum(["topic", "recap", "mock_exam"]), outcome: z.enum(["completed", "expired", "cancelled"]), minutes: z.number().nonnegative(),
+    questions: z.number().int().nonnegative(), unaided_asked: z.number().int().nonnegative(), unaided_right: z.number().int().nonnegative(),
+    came_back_asked: z.number().int().nonnegative(), came_back_right: z.number().int().nonnegative(), clicked: z.number().int().nonnegative(),
+    chat_messages: z.number().int().nonnegative(), chat_replies: z.number().int().nonnegative(), second_tries: z.number().int().nonnegative(),
+    level_before: z.number().int().min(0).max(4).nullable(), level_after: z.number().int().min(0).max(4).nullable(),
+    wait_median_s: z.number().nonnegative().nullable(), score_share: z.number().min(0).max(1).nullable().optional(),
+  }),
   studi_app_started: z.strictObject({ launch: z.literal("desktop") }),
   studi_auth_gate: z.strictObject({
     status: z.enum(["checking", "signed_out", "signing_in", "approved", "offline", "denied", "error"]),

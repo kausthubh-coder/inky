@@ -40,12 +40,37 @@ async function until(predicate) {
 }
 
 test("real tool definitions wait for student actions, persist results, and expose only public state", async () => setup(async repo => {
+  let now = "2026-09-19T12:00:00.000Z";
+  repo.now = () => now;
+  const goal = repo.setExam({ kind: "topic", title: "Multiplication", courseId: null, date: null });
+  const returning = [repo.addTopic(goal.examId, "Division"), repo.addTopic(goal.examId, "Fractions")];
+  for (const topic of returning) {
+    const session = repo.startSession(topic.topicId, topic.title, 2);
+    const block = repo.openBlock(session.sessionId, "seed", { tool: "tutor_ask_typed", args: { question: "Known?", accept: ["42"], hints: [] } });
+    repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "42" });
+    repo.finish(session.sessionId, "seed-finish", { topic: topic.topicId, level: 3, evidence: [{ blockId: block.blockId, rationale: "Earlier unaided success" }], missing: [], next: "Return", summary: "Checked" });
+  }
+  now = "2026-09-21T12:00:00.000Z";
   const runtime = new ControlledRuntime(async ({ tools, text, signal }) => {
     const snapshot = JSON.parse(text.split("Saved tutor state (data):\n")[1].split("\n\nContinue")[0]);
-    const topic = snapshot.topicId;
+    const context = JSON.parse(text.split("Lesson context (data):\n")[1].split("\n\nSaved")[0]);
+    assert.deepEqual(context.topics.filter(topic => topic.role === "comingBack").map(topic => topic.topicId), returning.map(topic => topic.topicId));
+    assert.ok(context.topics.filter(topic => topic.role === "comingBack").every(topic => topic.lastRightOn === "2026-09-19"));
+    assert.equal(context.secondsLeft, 120);
+    const assessments = [];
+    for (const [index, topic] of returning.entries()) {
+      const reply = index === 0
+        ? await call(tools, "tutor_ask_typed", { topicId: topic.topicId, question: "Remember?", accept: ["42"], hints: [] }, signal, `return-${index}`)
+        : await call(tools, "tutor_ask_explain", { topicId: topic.topicId, prompt: "Explain?", rubric: ["States the relationship"] }, signal, `return-${index}`);
+      if (index === 1) await call(tools, "tutor_grade", { blockId: reply.details.blockId, correct: true, met: [true] }, signal);
+      assessments.push({ topic: topic.topicId, level: 4, evidence: [{ blockId: reply.details.blockId, rationale: "Remembered unaided" }], missing: [], next: "Return later", summary: "Still understood" });
+    }
     await call(tools, "tutor_advance", { phase: "independent" }, signal);
     const reply = await call(tools, "tutor_ask_typed", { question: "6*7?", accept: ["42"], hints: ["Multiply"] }, signal);
-    await call(tools, "tutor_finish", { topic, level: 4, evidence: [{ blockId: reply.details.blockId, correct: true, rationale: "Solved independently" }], missing: [], next: "Apply it", summary: "You solved it." }, signal);
+    assert.equal(reply.details.matched, true);
+    assert.equal(reply.details.secondsLeft, 120);
+    const primary = { topic: snapshot.topicId, level: 4, evidence: [{ blockId: reply.details.blockId, rationale: "Solved independently" }], missing: [], next: "Apply it", summary: "You solved it." };
+    await call(tools, "tutor_finish", { ...primary, assessments: [primary, ...assessments] }, signal);
   });
   const coordinator = new TutorCoordinator(repo, runtime);
   try {
@@ -54,12 +79,76 @@ test("real tool definitions wait for student actions, persist results, and expos
     const open = coordinator.state(started.sessionId).blocks[0];
     assert.equal("accept" in open.args, false);
     assert.equal(repo.session(started.sessionId).status, "active");
-    coordinator.answerBlock(started.sessionId, open.blockId, { kind: "typed", answer: "42" });
+    assert.equal(repo.exams().filter(exam => exam.kind === "topic").length, 1);
+    assert.equal(started.examId, goal.examId);
+    for (let index = 0; index < 3; index++) {
+      await until(() => coordinator.state(started.sessionId).blocks.some(block => block.status === "open"));
+      const question = coordinator.state(started.sessionId).blocks.find(block => block.status === "open");
+      coordinator.answerBlock(started.sessionId, question.blockId, question.tool === "tutor_ask_explain" ? { kind: "explain", text: "The relationship" } : { kind: "typed", answer: "42" });
+    }
     await until(() => coordinator.state(started.sessionId).status === "completed");
-    assert.equal(coordinator.state(started.sessionId).result.level, 1);
-    assert.equal(runtime.creations[0].tools.length, 8);
-    assert.equal(repo.session(started.sessionId).blocks[0].phase, "independent");
+    assert.equal(coordinator.state(started.sessionId).result.level, 3);
+    assert.equal(runtime.creations[0].tools.length, 12);
+    assert.equal(repo.session(started.sessionId).blocks[0].phase, "check");
+    for (const topic of returning) {
+      const record = repo.mastery().find(item => item.topicId === topic.topicId);
+      assert.equal(record.level, 4);
+      assert.equal(record.review.dueOn, "2026-09-25");
+    }
     assert.match(runtime.creations[0].systemPrompt, /Homework Dot did.*never evidence/);
+  } finally { await coordinator.dispose(); }
+}));
+
+test("a waiting question returns timeUp and tutor_finish completes during wrap", async t => setup(async repo => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let now = "2026-09-19T12:00:00.000Z", reply;
+  repo.now = () => now;
+  const runtime = new ControlledRuntime(async ({ tools, text, signal }) => {
+    const snapshot = JSON.parse(text.split("Saved tutor state (data):\n")[1].split("\n\nContinue")[0]);
+    const first = repo.openBlock(snapshot.sessionId, "first", { tool: "tutor_ask_typed", args: { question: "6*7?", accept: ["42"], hints: [] } });
+    repo.answerBlock(snapshot.sessionId, first.blockId, { kind: "typed", answer: "42" });
+    reply = await call(tools, "tutor_ask_typed", { question: "Next?", accept: ["42"], hints: [] }, signal);
+    await call(tools, "tutor_finish", { topic: snapshot.topicId, level: 3, evidence: [{ blockId: first.blockId, rationale: "Unaided" }], missing: [], next: "Return", summary: "Time well spent" }, signal);
+  });
+  const coordinator = new TutorCoordinator(repo, runtime);
+  try {
+    const started = await coordinator.start({ topic: "Multiplication", minutes: 1 });
+    await Promise.resolve(); await Promise.resolve();
+    assert.ok(repo.session(started.sessionId).blocks.some(block => block.status === "open"));
+    now = "2026-09-19T12:01:00.000Z";
+    t.mock.timers.tick(60000);
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    assert.equal(reply.details.timeUp, true);
+    assert.equal(reply.details.secondsLeft, 0);
+    assert.equal(coordinator.state(started.sessionId).status, "completed");
+    assert.ok(coordinator.state(started.sessionId).result.level > 0);
+  } finally { await coordinator.dispose(); }
+}));
+
+test("a turn that ends in words at time-up is asked once to finish instead of pausing", async t => setup(async repo => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let now = "2026-09-19T12:00:00.000Z";
+  const prompts = [];
+  repo.now = () => now;
+  const runtime = new ControlledRuntime(async ({ tools, text, signal }) => {
+    prompts.push(text);
+    if (prompts.length === 1) {
+      const snapshot = JSON.parse(text.split("Saved tutor state (data):\n")[1].split("\n\nContinue")[0]);
+      const block = repo.openBlock(snapshot.sessionId, "only", { tool: "tutor_ask_typed", args: { question: "6*7?", accept: ["42"], hints: [] } });
+      repo.answerBlock(snapshot.sessionId, block.blockId, { kind: "typed", answer: "42" });
+      now = "2026-09-19T12:01:00.000Z";
+      return; // The turn ends with text, not a finish.
+    }
+    const session = repo.session(repo.sessions()[0].sessionId);
+    await call(tools, "tutor_finish", { topic: session.topicId, level: 3, evidence: [{ blockId: session.blocks[0].blockId, rationale: "Unaided" }], missing: [], next: "Return", summary: "Done" }, signal);
+  });
+  const coordinator = new TutorCoordinator(repo, runtime);
+  try {
+    const started = await coordinator.start({ topic: "Multiplication", minutes: 1 });
+    for (let i = 0; i < 30; i++) await Promise.resolve();
+    assert.equal(prompts.length, 2);
+    assert.match(prompts[1], /Time is up/);
+    assert.equal(coordinator.state(started.sessionId).status, "completed");
   } finally { await coordinator.dispose(); }
 }));
 
@@ -69,6 +158,10 @@ test("fake learning sessions preserve the bounded tools, resume target and event
   const tools = createTutorTools(async () => { throw new Error("Event fake must not pretend to execute tools"); });
   const session = await runtime.createLearningSession(tools, TUTOR_SYSTEM_PROMPT, { resumeSessionPath: "saved-tutor.jsonl" });
   assert.deepEqual(session.toolNames, tools.map(tool => tool.name));
+  // The provider rejects a whole tool whose schema has an empty list anywhere in it (an empty tuple's "items: []").
+  const emptyLists = (node, path) => Array.isArray(node) ? [...(node.length ? [] : [path]), ...node.flatMap((item, index) => emptyLists(item, `${path}[${index}]`))]
+    : node && typeof node === "object" ? Object.entries(node).flatMap(([key, value]) => emptyLists(value, `${path}.${key}`)) : [];
+  assert.deepEqual(tools.flatMap(tool => emptyLists(tool.parameters, tool.name)), []);
   assert.equal(session.sessionPath, "saved-tutor.jsonl");
   const events = [];
   session.subscribe(event => events.push(event));
@@ -83,10 +176,14 @@ test("fake learning sessions preserve the bounded tools, resume target and event
   await assert.rejects(runtime.createLearningSession([tools[0], tools[0]], TUTOR_SYSTEM_PROMPT), /unique/);
 });
 
-test("a question mid-block interrupts the pending tool, preserves the block and resumes without duplicates", async () => setup(async repo => {
+test("a chat reply mid-question preserves the question and cannot reply twice", async () => setup(async repo => {
   const args = { question: "6*7?", accept: ["42"], hints: [] };
   const runtime = new ControlledRuntime(async ({ tools, signal }) => {
-    if (runtime.creations.length > 1) await call(tools, "tutor_say", { text: "Think of six groups of seven." }, signal);
+    if (runtime.creations.length > 1) {
+      const reply = await call(tools, "tutor_reply", { text: "Think of six groups of seven." }, signal);
+      assert.ok(reply.details.blockId);
+      await assert.rejects(call(tools, "tutor_reply", { text: "Again." }, signal, "second-reply"), /Nothing to reply to/);
+    }
     await call(tools, "tutor_ask_typed", args, signal);
   });
   const coordinator = new TutorCoordinator(repo, runtime);
@@ -99,6 +196,10 @@ test("a question mid-block interrupts the pending tool, preserves the block and 
     await until(() => runtime.creations.length === 2 && coordinator.state(started.sessionId).blocks.length === 2);
     assert.equal(coordinator.state(started.sessionId).blocks[0].blockId, block.blockId);
     assert.equal(coordinator.state(started.sessionId).blocks[0].draft, "4");
+    assert.equal(coordinator.state(started.sessionId).blocks[0].status, "open");
+    assert.equal(coordinator.state(started.sessionId).blocks[1].replyTo, "question-1");
+    assert.equal(coordinator.state(started.sessionId).blocks[1].status, "complete");
+    assert.deepEqual(coordinator.state(started.sessionId).messages.map(message => [message.messageId, message.text]), [["question-1", "What does multiplication mean?"]]);
     coordinator.answerBlock(started.sessionId, block.blockId, { kind: "typed", answer: "42" });
     await until(() => coordinator.state(started.sessionId).status === "paused");
     assert.equal(repo.mastery().length, 0);

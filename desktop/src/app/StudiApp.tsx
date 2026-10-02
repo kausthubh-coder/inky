@@ -378,7 +378,7 @@ function AuthGate({ auth, busy, error, feedback, sent, onFeedback, onSignIn, onR
               </div>
               <div className="fable-replies">
                 {auth.status === "signed_out" && <button className="fable-button primary" onClick={onSignIn} disabled={busy !== null}>{busy === "auth" ? "Opening…" : "Hi Dot"}</button>}
-                {auth.status === "signing_in" && <button className="fable-button" onClick={onSignIn} disabled={busy !== null}>Open it again</button>}
+                {auth.status === "signing_in" && <button className="fable-button" onClick={onSignIn} disabled={busy !== null && busy !== "auth"}>Open it again</button>}
                 {auth.status === "denied" && <><button className="fable-button primary" onClick={onRetry}>Check again</button><button className="fable-button" onClick={onSignOut}>Use another account</button></>}
                 {auth.status === "error" && <button className="fable-button primary" onClick={onRetry}>Try again</button>}
               </div>

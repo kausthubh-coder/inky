@@ -84,15 +84,6 @@ form.rd-composer.inky-composer .chat-refs {
   margin: 10px 16px 0;
   padding: 0;
 }
-form.rd-composer.inky-composer .rd-composer-context {
-  padding: 10px 16px 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--graphite);
-}
-form.rd-composer.inky-composer .rd-composer-suggestions {
-  margin: 0 16px 10px;
-}
 form.rd-composer.inky-composer[aria-busy="true"] .chat-send svg {
   animation: composer-sending 1s linear infinite;
 }

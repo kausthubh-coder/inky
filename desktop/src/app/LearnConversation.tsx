@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
 import type { ConversationState } from "../../shared/index.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
+import { plainText } from "./ChatMarkdown.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
 import { Icon } from "./Icon.js";
 
@@ -84,6 +85,8 @@ export function LearnConversation({
     }
   };
   const active = sending || Boolean(chat && chat.activity !== "idle");
+  /** Stop shows only while a reply is running and nothing is typed. */
+  const stopping = active && !draft.trim();
   const stop = async () => {
     try {
       setChat(await window.studi!.stopScopedConversation({ kind: "learn" }));
@@ -99,25 +102,16 @@ export function LearnConversation({
       {last && !sheet && (
         <button className="rd-conversation-peek" onClick={() => setSheet(true)}>
           <span>Chalky</span>
-          <span>{last.text}</span>
+          <span>{plainText(last.text)}</span>
         </button>
       )}
       <form
         className="inky-composer rd-composer"
         onSubmit={(event) => {
           event.preventDefault();
-          void (draft.trim() ? send() : stop());
+          void (stopping ? stop() : send());
         }}
       >
-        <button
-          type="button"
-          className="composer-mascot"
-          aria-label="Open your conversation with Chalky"
-          onClick={() => setSheet(true)}
-        >
-          <Icon name="note" size={20} />
-        </button>
-        <span className="rd-composer-context">Learn</span>
         <div className="inky-composer-line">
           <textarea
             rows={1}
@@ -140,26 +134,10 @@ export function LearnConversation({
           <button
             className="chat-send"
             disabled={sending || (!draft.trim() && !active)}
-            aria-label={draft.trim() ? "Send message" : "Stop reply"}
+            aria-label={stopping ? "Stop reply" : "Send message"}
           >
-            {draft.trim() ? <Icon name="send" size={17} /> : <Icon name="stop" size={15} />}
+            {stopping ? <Icon name="stop" size={15} /> : <Icon name="send" size={17} />}
           </button>
-        </div>
-        <div className="rd-composer-suggestions">
-          {[
-            "When is my midterm?",
-            "Quiz me on heaps",
-            "Find my syllabus in Drive",
-          ].map((text) => (
-            <button
-              key={text}
-              type="button"
-              className="rd-link"
-              onClick={() => save(text)}
-            >
-              {text}
-            </button>
-          ))}
         </div>
       </form>
       {error && (
@@ -179,6 +157,7 @@ export function LearnConversation({
           onClose={() => setSheet(false)}
         >
           <ConversationTimeline
+            onRetry={(text) => { save(text); void send(); }}
             onOpenContext={onOpenContext}
             composer={composer}
             error={error}

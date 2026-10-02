@@ -102,7 +102,8 @@ import { loadTelemetryPublicConfig } from "./telemetry/config.js";
 import { TelemetryService } from "./telemetry/service.js";
 import { usageProperties, type AgentUsageSnapshot } from "./telemetry/usage.js";
 import { initializeHomeworkWorkspace, requireHomeworkWorkspace, syncHomeworkClassFolders } from "./files/workspace.js";
-import { addCheatsheetLines, goalFolder, readGoalNotes, recordSessionNote, saveStudyPage } from "./files/learn-workspace.js";
+import { addCheatsheetLines, goalFolder, getLearnNotes, readLearnPage, readGoalNotes, recordSessionNote, saveStudyPage } from "./files/learn-workspace.js";
+import { learnSessionObserver } from "./telemetry/learn-session.js";
 import { studyPageDocument } from "../shared/study-page.js";
 
 const moduleDirectory = dirname(fileURLToPath(import.meta.url));
@@ -543,6 +544,15 @@ const ipcHandlers: StudiIpcHandlers = {
     requireLearnRepository().removeExam(examId);
     if (learnSelectedGoal === examId) learnSelectedGoal = undefined;
     return currentLearnState();
+  },
+  getLearnNotes: async ({ examId }) => {
+    const folder = await learnGoalFolder(requireLearnRepository().exam(examId), false);
+    return folder ? getLearnNotes(folder) : { cheatsheet: [], pages: [] };
+  },
+  readLearnPage: async ({ examId, name }) => {
+    const folder = await learnGoalFolder(requireLearnRepository().exam(examId), false);
+    if (!folder) throw new Error('Study page not found for this goal');
+    return readLearnPage(folder, name);
   },
   addLearnTopic: ({ examId, title }) => {
     requireLearnRepository().addTopic(examId, title);
@@ -1800,7 +1810,9 @@ async function initializeDesktopAgent(): Promise<void> {
   await applyPersistedAgentRuntime();
   const reportLearningError = (error: unknown) => telemetryService?.captureError(error, 'runtime', 'session_start');
   learnSelectedGoal = undefined;
-  tutorCoordinator = new TutorCoordinator(requireLearnRepository(), agentRuntime, { onError: reportLearningError, context: {
+  tutorCoordinator = new TutorCoordinator(requireLearnRepository(), agentRuntime, { onError: reportLearningError,
+    onChange: learnSessionObserver(metrics => telemetryService?.capture('studi_learn_session', metrics),
+      requireLearnRepository().sessionSummaries().filter(session => ['completed', 'expired', 'cancelled'].includes(session.status)).map(session => session.sessionId)), context: {
     courseLabel: courseId => requireLocalStore().school.listCourses().find(course => course.courseId === courseId)?.label ?? null,
     workedHomework: courseId => workedAssignments().filter(assignment => assignment.courseId === courseId).map(assignment => ({
       courseId: assignment.courseId, title: assignment.title, instructions: assignment.instructions,
@@ -2564,6 +2576,13 @@ function workedAssignments() {
 
 const LEVEL_NAMES = ['Not yet', 'Shaky', 'Getting there', 'Good', 'Solid'];
 
+async function learnGoalFolder(goal: { title: string; courseId: string | null }, create = true) {
+  const root = (await requireLocalStore().productPreferences.get()).homeworkRoot;
+  if (!root) return null;
+  const classLabel = goal.courseId ? requireLocalStore().school.listCourses().find(course => course.courseId === goal.courseId)?.label ?? null : null;
+  return goalFolder(root, { title: goal.title, classLabel }, create);
+}
+
 /** The goal's study folder under the homework folder: notes the tutor reads back, and the pages it made. */
 function tutorFiles(): import('./agent/tutor-coordinator.js').TutorFiles {
   const goalOf = (session: import('../shared/tutor.js').TutorSession) => {
@@ -2573,11 +2592,7 @@ function tutorFiles(): import('./agent/tutor-coordinator.js').TutorFiles {
     return { title: goal?.title ?? topic.title, courseId: goal?.courseId ?? topic.courseId };
   };
   const folderFor = async (session: import('../shared/tutor.js').TutorSession) => {
-    const root = (await requireLocalStore().productPreferences.get()).homeworkRoot;
-    if (!root) return null;
-    const { title, courseId } = goalOf(session);
-    const classLabel = courseId ? requireLocalStore().school.listCourses().find(course => course.courseId === courseId)?.label ?? null : null;
-    return goalFolder(root, { title, classLabel });
+    return learnGoalFolder(goalOf(session));
   };
   return {
     read: async session => {

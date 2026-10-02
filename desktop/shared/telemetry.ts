@@ -3,6 +3,7 @@ import { z } from "zod";
 import { AgentReasoningEffortSchema } from "./agent-runtime.js";
 
 export const TelemetryEventNameSchema = z.enum([
+  "studi_learn_session",
   "studi_app_started",
   "studi_auth_gate",
   "studi_onboarding_step",

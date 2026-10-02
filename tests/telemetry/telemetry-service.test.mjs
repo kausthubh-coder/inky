@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 
 import { TelemetryService } from "../../dist/electron/telemetry/service.js";
+import { learnSessionMetrics, learnSessionObserver } from "../../dist/electron/telemetry/learn-session.js";
 
 function mockClient() {
   const captures = [];
@@ -35,6 +36,37 @@ async function withService(run) {
   try { await run({ directory, client, service }); }
   finally { await rm(directory, { recursive: true, force: true }); }
 }
+
+test("finished lessons capture once with numeric outcomes and no lesson content", async () => {
+  await withService(async ({ client, service }) => {
+    const question = (sequence, overrides = {}) => ({ blockId: `q-${sequence}`, sequence, tool: "tutor_ask_typed", phase: "check", hintsUsed: 0, attempts: [{}],
+      args: { question: "PRIVATE QUESTION", topicId: "earlier" }, result: { correct: true, answer: { answer: "PRIVATE ANSWER" } },
+      createdAt: `2026-10-01T12:00:0${sequence}.000Z`, answeredAt: "2026-10-01T12:00:03.000Z", ...overrides });
+    const session = { sessionId: "lesson", topicId: "main", mode: "topic", status: "active", elapsedSeconds: 120, initialLevel: 1, initialLevels: { earlier: 3 },
+      messages: [{ text: "PRIVATE CHAT" }], result: { level: 3, clicked: [{}] }, blocks: [
+        question(0), question(1, { phase: "practice" }), question(2, { attempts: [{}, {}] }),
+        { tool: "tutor_reply", sequence: 3, createdAt: "2026-10-01T12:00:05.000Z", args: { text: "PRIVATE REPLY" } },
+      ] };
+    const observe = learnSessionObserver(metrics => service.capture("studi_learn_session", metrics));
+    observe(session);
+    assert.equal(client.captures.length, 0);
+    for (const status of ["completed", "expired", "cancelled"]) {
+      const ended = { ...session, sessionId: status, status };
+      observe(ended); observe(ended);
+    }
+    assert.equal(client.captures.length, 3);
+    const restored = learnSessionObserver(metrics => service.capture("studi_learn_session", metrics), ["completed"]);
+    restored({ ...session, sessionId: "completed", status: "completed" });
+    assert.equal(client.captures.length, 3);
+    const { app_version, platform, beta_debug, ...metrics } = client.captures[0].properties;
+    assert.deepEqual(metrics, { mode: "topic", outcome: "completed", minutes: 2, questions: 3, unaided_asked: 1, unaided_right: 1,
+      came_back_asked: 1, came_back_right: 1, clicked: 1, chat_messages: 1, chat_replies: 1, second_tries: 1, level_before: 1, level_after: 3, wait_median_s: 2 });
+    assert.doesNotMatch(JSON.stringify(client.captures), /PRIVATE/);
+    assert.equal(service.capture("studi_learn_session", { ...metrics, answer: "PRIVATE" }), false);
+    assert.equal(learnSessionMetrics({ ...session, mode: "mock_exam" }).score_share, 1);
+    assert.equal(learnSessionMetrics({ ...session, blocks: [], mode: "mock_exam" }).score_share, null);
+  });
+});
 
 test("errors keep school context and strip only secrets", async () => {
   await withService(async ({ client, service }) => {

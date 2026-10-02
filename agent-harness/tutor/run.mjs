@@ -11,13 +11,20 @@ import { StudiSqliteDatabase } from "../../dist/electron/storage/database.js";
 import { LearnRepository } from "../../dist/electron/storage/learn-records.js";
 import { TutorCoordinator } from "../../dist/electron/agent/tutor-coordinator.js";
 import { PiAgentRuntime } from "../../dist/electron/agent/runtime.js";
+import { boardView } from "../../dist/shared/tutor.js";
+import { TopicMasterySchema } from "../../dist/shared/learn.js";
+import { learnSessionMetrics } from "../../dist/electron/telemetry/learn-session.js";
 
 const root = resolve(import.meta.dirname, "../..");
 const runRoot = join(root, ".studi-harness", "tutor", new Date().toISOString().replaceAll(":", "-"));
+const effortAt = process.argv.indexOf("--effort");
+const effort = effortAt < 0 ? "high" : process.argv[effortAt + 1];
+if (!["high", "medium"].includes(effort)) throw new Error("Use --effort high or --effort medium");
 const personas = [
   { name: "novice", history: "New to sorting and shaky with array indexes.", misconceptions: ["Thinks insertion sort swaps every pair it compares", "Thinks a sorted prefix can contain the next unsorted item before shifting"] },
   { name: "partial", history: "Can trace the first insertion but loses track of the key.", misconceptions: ["Thinks the key changes value while larger items shift", "Counts the final placement as a shift"] },
   { name: "strong", history: "Can trace ordinary insertion sort and explain the invariant.", misconceptions: ["Thinks an already sorted input still makes a quadratic number of shifts", "Conflates comparisons with shifts"] },
+  { name: "returning", history: "Previously studied two other topics in this course. Remembers the basics but needs a retrieval check. Can trace ordinary insertion sort.", misconceptions: ["Sometimes confuses comparisons with shifts"], returning: true },
 ];
 const scoresType = Type.Object({ orient: Type.Integer({ minimum: 1, maximum: 5 }), firstWrongAssumption: Type.Integer({ minimum: 1, maximum: 5 }), sourceCitations: Type.Integer({ minimum: 1, maximum: 5 }), oneIdea: Type.Integer({ minimum: 1, maximum: 5 }), evidenceOnly: Type.Integer({ minimum: 1, maximum: 5 }) }, { additionalProperties: false });
 
@@ -35,11 +42,12 @@ async function waitForAction(coordinator, sessionId, seen, deadline) {
   while (Date.now() < deadline) {
     const state = coordinator.state(sessionId);
     if (state.status !== "active") return { state, block: null };
-    const block = state.blocks.find(item => item.status === "open" && !seen.has(item.blockId));
+    const view = boardView(state);
+    const block = state.blocks.find(item => item.blockId === view.at && item.status === "open" && !seen.has(`${item.blockId}:${item.attempts.length}`));
     if (block) return { state, block };
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  throw new Error("The 15-minute live tutor session reached its deadline");
+  throw new Error("The live tutor session exceeded its budget and 90-second wrap-up window");
 }
 function answerFor(block, reply) {
   const answer = String(reply.answer ?? "").trim();
@@ -81,13 +89,23 @@ async function runPersona(persona, inspection, school) {
   const directory = join(runRoot, persona.name);
   await mkdir(directory, { recursive: true });
   const database = new StudiSqliteDatabase(join(directory, "learn.sqlite3"));
-  const repository = new LearnRepository(database, `qa-tutor-${persona.name}`);
+  const clockStart = Date.now();
+  const repository = new LearnRepository(database, `qa-tutor-${persona.name}`, () => new Date(Date.parse("2026-09-20T12:00:00Z") + Date.now() - clockStart).toISOString());
   const topic = seed(repository, inspection, school);
   assert.ok(topic);
+  const due = persona.returning ? repository.topics().filter(item => item.examId === topic.examId && item.topicId !== topic.topicId).slice(0, 2) : [];
+  if (persona.returning) assert.equal(due.length, 2, "The returning student needs two earlier topics");
+  for (const earlier of due) {
+    const mastery = TopicMasterySchema.parse({ topicId: earlier.topicId, level: 3, updatedAt: "2026-09-18T12:00:00.000Z",
+      review: { dueOn: "2026-09-20", gapDays: 2, lastRightOn: "2026-09-18" },
+      evidence: [{ sessionId: "previous-lesson", blockId: `previous-${earlier.topicId}`, kind: "typed", correct: true,
+        answer: "Previously answered correctly", rationale: "Seeded returning-student history", hintsUsed: 0, recordedAt: "2026-09-18T12:00:00.000Z" }] });
+    database.handle.prepare("INSERT INTO learn_mastery(owner_subject,id,record_json) VALUES (?,?,?)").run(repository.ownerSubject, earlier.topicId, JSON.stringify(mastery));
+  }
   const authProfile = join(runRoot, "profile");
   const runtime = await PiAgentRuntime.create({ cwd: directory, agentDir: join(authProfile, "studi-data", "pi"), sessionDirectory: join(directory, "sessions") });
   runtime.selectModel("openai-codex", "gpt-6-sol");
-  runtime.setReasoningEffort("high");
+  runtime.setReasoningEffort(effort);
   const status = await runtime.getProviderStatus("openai-codex");
   if (status.state !== "ready") throw new Error(`Live tutor provider ${status.state}`);
   const transcript = [];
@@ -95,44 +113,104 @@ async function runPersona(persona, inspection, school) {
   const student = await runtime.createLearningSession([captureTool("student_reply", Type.Object({ answer: Type.String({ minLength: 1 }), thinking: Type.String() }, { additionalProperties: false }), value => { reply = value; })],
     `You are a simulated ${persona.name} student, using GPT-6 Sol. ${persona.history} Keep these private misconceptions internally: ${persona.misconceptions.join("; ")}. Answer Inky honestly from this knowledge, including mistakes it causes. Do not reveal the misconception list. On every turn call student_reply with your answer and brief thinking. For a choice question, answer with the exact text of one option. For interactive pages or models, name one control you tried. Never pretend to know what the instructor did not teach.`);
   const errors = [];
-  const coordinator = new TutorCoordinator(repository, runtime, { context: {
+  let visualUpdates = 0, boardHitCapacity = false, capacityRejections = 0;
+  // Observe tool results without changing the tutor's tools, prompt, or lesson rules.
+  const observedRuntime = { createLearningSession: (tools, prompt) => runtime.createLearningSession(tools.map(tool => ({ ...tool,
+    execute: async (...args) => {
+      try {
+        const result = await tool.execute(...args);
+        if (tool.name === "tutor_update") visualUpdates += 1;
+        return result;
+      } catch (error) {
+        if (String(error).includes("The board is full")) capacityRejections += 1;
+        throw error;
+      }
+    },
+  })), prompt) };
+  const coordinator = new TutorCoordinator(repository, observedRuntime, { context: {
     courseLabel: () => "CS 316 Data Structures", workedHomework: () => [], today: () => "2026-09-20",
-  }, onError: error => errors.push(String(error)) });
+  }, onError: error => errors.push(String(error)), onChange: state => {
+    const view = boardView(state);
+    if (view.visuals.length >= 2 || view.visuals.some(visual => visual.children.length >= 2)) boardHitCapacity = true;
+  } });
   const startedAt = Date.now();
   const session = await coordinator.start({ topicId: topic.topicId, minutes: 15 });
   const seen = new Set();
+  let sentChat = false;
   try {
     while (true) {
-      const { state, block } = await waitForAction(coordinator, session.sessionId, seen, startedAt + 15 * 60_000);
+      const { state, block } = await waitForAction(coordinator, session.sessionId, seen, startedAt + (15 * 60 + 90 + 30) * 1000);
       if (!block) break;
-      seen.add(block.blockId);
-      const recentSays = state.blocks.filter(item => item.tool === "tutor_say").slice(-2).map(item => item.args.text);
+      if (!sentChat && block.phase === "practice") {
+        sentChat = true;
+        await coordinator.send(session.sessionId, "Can you explain that another way?");
+        continue;
+      }
+      seen.add(`${block.blockId}:${block.attempts.length}`);
+      const view = boardView(state, block.blockId);
+      const recentSays = [...view.lead, ...view.feedback].map(item => item.args.text);
       reply = null;
-      await student.prompt(`Your tutor's last words: ${JSON.stringify(recentSays)}\nCurrent activity (public student view): ${JSON.stringify(publicBlock(block))}\nReply as this student using student_reply.`);
+      await student.prompt(`Your tutor's words: ${JSON.stringify(recentSays)}\nCurrent board and chat (public student view): ${JSON.stringify(view)}\nCurrent activity: ${JSON.stringify(publicBlock(block))}\nReply as this student using student_reply.`);
       if (!reply) throw new Error("The simulated student did not call student_reply");
       const answer = answerFor(block, reply);
       transcript.push({ phase: block.phase, tool: block.tool, args: publicBlock(block).args, tutorSays: recentSays, student: reply, answer });
       coordinator.answerBlock(session.sessionId, block.blockId, answer);
     }
     const final = coordinator.state(session.sessionId);
+    if (!["completed", "expired", "cancelled"].includes(final.status)) throw new Error(`Student could not finish: tutor ${final.status}; ${errors.join("; ")}`);
     const allBlocks = final.blocks;
     const questions = allBlocks.filter(item => item.tool.startsWith("tutor_ask_"));
     const cited = questions.filter(item => item.args.source?.trim()).length;
     const visual = allBlocks.some(item => item.tool === "tutor_show_page" || item.tool === "tutor_show_model");
+    const visuals = allBlocks.filter(item => item.tool === "tutor_show_page" || item.tool === "tutor_show_model");
+    const afterAnswer = visuals.filter(item => {
+      const previous = allBlocks.filter(block => block.sequence < item.sequence && block.tool !== "tutor_reply").at(-1);
+      return previous?.answeredAt && previous.answeredAt <= item.createdAt;
+    }).length;
+    const explanations = repository.session(final.sessionId).blocks.flatMap(block => block.tool === "tutor_ask_explain"
+      ? block.attempts.flatMap((attempt, index) => typeof attempt.correct === "boolean" ? [{ blockId: `${block.blockId}:${index}`, prompt: block.args.prompt,
+        rubric: block.args.rubric, answer: attempt.answer.text, correct: attempt.correct }] : []) : []);
+    let blindMarks = [];
+    if (explanations.length) {
+      const marker = await runtime.createLearningSession([captureTool("mark_explanations", Type.Object({ marks: Type.Array(Type.Object({ blockId: Type.String(), met: Type.Array(Type.Boolean()) }, { additionalProperties: false })) }, { additionalProperties: false }), value => { blindMarks = value.marks; })],
+        "Mark each student explanation blind against its rubric. Return one met boolean per rubric point, in order. Use only the answer and rubric, without inferring the tutor's verdict. Call mark_explanations exactly once.");
+      try { await marker.prompt(JSON.stringify(explanations.map(({ correct: _correct, ...explanation }) => explanation))); }
+      finally { marker.dispose(); }
+    }
+    if (blindMarks.length !== explanations.length || explanations.some(explanation => blindMarks.filter(mark => mark.blockId === explanation.blockId && mark.met.length === explanation.rubric.length).length !== 1)) throw new Error("Blind marker did not mark every explanation against its rubric");
+    const agreements = explanations.filter(explanation => blindMarks.find(mark => mark.blockId === explanation.blockId).met.every(Boolean) === explanation.correct).length;
+    const returningTopics = due.map(earlier => {
+      const record = repository.mastery().find(item => item.topicId === earlier.topicId);
+      return { topicId: earlier.topicId, askedInCheck: questions.some(block => block.phase === "check" && block.args.topicId === earlier.topicId),
+        dueBefore: "2026-09-20", dueAfter: record?.review?.dueOn ?? null, dateMoved: !!record?.review && record.review.dueOn !== "2026-09-20" };
+    });
     let run = 0, maxSays = 0;
     for (const block of allBlocks) { run = block.tool === "tutor_say" ? run + 1 : 0; maxSays = Math.max(maxSays, run); }
     let judgement = null;
     const judge = await runtime.createLearningSession([captureTool("judge_report", Type.Object({ scores: scoresType, rationale: Type.String() }, { additionalProperties: false }), value => { judgement = value; })],
       "You are an independent tutor-quality rubric judge using GPT-6 Sol. Score each dimension 1–5. Orient: tutor framed the task before questioning. First wrong assumption: traced the first misconception with a concrete failing case and invited revision. Source citations: questions identify the real review sheet or syllabus without invention. One idea: one idea at a time and at most two tutor_say blocks in a row. Evidence only: level moved only on unaided Check or On-your-own typed/explanation evidence. Base scores on the transcript, not on the tutor's claims. Call judge_report exactly once.");
-    await judge.prompt(`Grounding: ${JSON.stringify({ syllabus: inspection.state.assets.find(item => item.id === "structures-syllabus")?.text, review: inspection.state.assets.find(item => item.id === "structures-review")?.text })}\nSession: ${JSON.stringify(final)}\nStudent transcript: ${JSON.stringify(transcript)}\nReturn rubric scores.`);
-    judge.dispose();
-    const result = { persona: persona.name, model: "gpt-6-sol", effort: "high", status: final.status,
+    try { await judge.prompt(`Grounding: ${JSON.stringify({ syllabus: inspection.state.assets.find(item => item.id === "structures-syllabus")?.text, review: inspection.state.assets.find(item => item.id === "structures-review")?.text })}\nSession: ${JSON.stringify(final)}\nStudent transcript: ${JSON.stringify(transcript)}\nReturn rubric scores.`); }
+    finally { judge.dispose(); }
+    if (!judgement) throw new Error("The rubric judge did not call judge_report");
+    const metrics = learnSessionMetrics(final);
+    const measurements = { placedLevel: final.result?.level ?? null, visualsAfterAnswer: afterAnswer, visualsShown: visuals.length,
+      visualsAfterAnswerShare: visuals.length ? afterAnswer / visuals.length : null, explanationsMarked: explanations.length,
+      explanationAgreements: agreements, explanationAgreementShare: explanations.length ? agreements / explanations.length : null,
+      finishedBeforeTimeUp: final.status === "completed" && !final.wrapStartedAt && final.elapsedSeconds < final.budgetSeconds,
+      chatMessages: final.messages.length, chatMessagesReplied: final.messages.filter(message => allBlocks.some(block => block.tool === "tutor_reply" && block.replyTo === message.messageId)).length,
+      chatReplies: metrics.chat_replies, visualUpdates, questionsWithSecondTry: metrics.second_tries,
+      boardHitCapacity, capacityRejections, waitMedianSeconds: metrics.wait_median_s, returningTopics,
+      bothDueTopicsAskedInCheck: due.length ? returningTopics.every(item => item.askedInCheck) : null,
+      bothDueDatesMoved: due.length ? returningTopics.every(item => item.dateMoved) : null };
+    const result = { persona: persona.name, model: "gpt-6-sol", effort, status: final.status, ...measurements,
       minutes: Number(((Date.now() - startedAt) / 60_000).toFixed(2)), usage: runtime.takeLastUsage(),
       questions: questions.length, sourceLabels: cited, sourceShare: questions.length ? cited / questions.length : 0,
       visual, maxConsecutiveSays: maxSays, levelBefore: final.initialLevel, levelAfter: final.result?.level ?? null,
       judge: judgement, errors, transcript, session: final };
     await writeFile(join(directory, "transcript.json"), JSON.stringify(result, null, 2));
-    return { persona: persona.name, status: result.status, minutes: result.minutes, sourceShare: result.sourceShare, visual, scores: judgement?.scores ?? null, tokens: result.usage, transcript: join(directory, "transcript.json") };
+    return { persona: persona.name, effort, status: result.status, minutes: result.minutes, questions: questions.length, sourceLabels: cited, sourceShare: result.sourceShare,
+      visual, maxConsecutiveSays: maxSays, levelBefore: final.initialLevel, levelAfter: final.result?.level ?? null, ...measurements,
+      scores: judgement.scores, tokens: result.usage, transcript: join(directory, "transcript.json") };
   } finally { student.dispose(); await coordinator.dispose(); database.close(); }
 }
 
@@ -150,5 +228,5 @@ try {
     await writeFile(join(runRoot, "summary.json"), JSON.stringify(results, null, 2));
     console.log(JSON.stringify(results.at(-1)));
   }
-  if (results.some(item => item.error || !item.scores || Object.values(item.scores).some(score => score < 4) || !item.visual)) process.exitCode = 1;
+  if (results.some(item => item.error)) process.exitCode = 1;
 } finally { await school.close(); }

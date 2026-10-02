@@ -24,6 +24,8 @@ const redesignMethods = {
   createMemory: "studi:memory-create", updateMemory: 'studi:memory-update',
   deleteMemory: 'studi:memory-delete',
   getLearnState: 'studi:learn-state',
+  getLearnNotes: 'studi:learn-notes',
+  readLearnPage: 'studi:learn-page-read',
   importLearnSource: 'studi:learn-source-import',
   importLearnFile: 'studi:learn-file-import',
   setLearnExam: 'studi:learn-exam-set',

@@ -4,7 +4,7 @@ import { plainError, schoolScanFailure } from "./homeworkText.js";
 import { onEngineChange } from "./engineChanges.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
-import { ChatMarkdown } from "./ChatMarkdown.js";
+import { ChatMarkdown, plainText } from "./ChatMarkdown.js";
 import { AssignmentWorkspace, composerPlaceholder } from "./AssignmentWorkspace.js";
 import { SchoolCheck } from "./SchoolCheck.js";
 import { Icon } from "./Icon.js";
@@ -145,6 +145,7 @@ export function ChatWorkspace(props: ChatProps) {
   const mounted = useRef(true);
   const initialBrowserOpened = useRef(false);
   const active = (chat?.activity !== "idle" && Boolean(chat)) || sending;
+  const lastReply = chat?.job.messages.filter((message) => message.role === "assistant").at(-1);
   const execution =
     !school && assignment
       ? lifecycle.execution?.assignmentId === assignment.assignmentId
@@ -741,6 +742,7 @@ export function ChatWorkspace(props: ChatProps) {
   const content =
     !assignment && !school && view !== "home" ? (
       <ConversationTimeline
+        onRetry={(text) => void send(text, [])}
         onOpenContext={props.onOpenContext}
         composer={composer}
         onClose={() => onView("home")}
@@ -868,6 +870,11 @@ export function ChatWorkspace(props: ChatProps) {
               </button>
             )}
           </div>
+        )}
+        {view === "home" && !workingAnywhere && !active && lastReply && (
+          <button className="rd-conversation-peek" aria-label="Open your conversation with Dot" onClick={() => onView("compact")}>
+            <span>Dot</span><span>{plainText(lastReply.text)}</span>
+          </button>
         )}
         {composer}
         {schoolBrowser}

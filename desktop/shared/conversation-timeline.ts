@@ -13,7 +13,7 @@ const common = {
   createdAt: IsoTimestampSchema, text: z.string().max(100_000), title: z.string().optional(),
 };
 export const TimelineEntrySchema = z.discriminatedUnion('kind', [
-  z.strictObject({ ...common, kind: z.literal('message'), role: z.enum(['user', 'assistant']) }),
+  z.strictObject({ ...common, kind: z.literal('message'), role: z.enum(['user', 'assistant']), failed: z.boolean().optional() }),
   z.strictObject({ ...common, kind: z.literal('event'), event: z.enum([
     'started', 'needs_user', 'ready_review', 'submitted', 'failed', 'scan_finished', 'session_finished', 'memory_saved',
   ]) }),

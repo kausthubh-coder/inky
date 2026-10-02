@@ -6,8 +6,8 @@ import test from "node:test";
 import { StudiSqliteDatabase } from "../../dist/electron/storage/database.js";
 import { LearnRepository, validateLearnRecords } from "../../dist/electron/storage/learn-records.js";
 import { LearnStateSchema } from "../../dist/shared/learn-state.js";
-import { computeReadiness, normalizeTopicWeights, planLearn, sameExam } from "../../dist/shared/learn.js";
-import { normalizeTutorAnswer, typedAnswerMatches, publicTutorSession, PublicTutorSessionSchema, TutorModelInputSchema } from "../../dist/shared/tutor.js";
+import { computeReadiness, normalizeTopicWeights, planLearn, nextReview, sameExam } from "../../dist/shared/learn.js";
+import { normalizeTutorAnswer, typedAnswerMatches, publicTutorSession, PublicTutorSessionSchema, TutorModelInputSchema, boardView } from "../../dist/shared/tutor.js";
 import { pickExcerpts } from "../../dist/electron/agent/tutor-context.js";
 import { importLearnFile } from "../../dist/electron/agent/learn-import.js";
 
@@ -35,8 +35,8 @@ function typed(repo, session, { answer = "42", hints = [] } = {}) {
   repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer });
   return block;
 }
-function finish(repo, session, block, level = 4, correct = true) {
-  return repo.finish(session.sessionId, "finish", { topic: session.topicId, level, evidence: block ? [{ blockId: block.blockId, correct, rationale: "Answered the independent question" }] : [], missing: [], next: "Try another question", summary: "We checked your understanding." });
+function finish(repo, session, block, level = 4) {
+  return repo.finish(session.sessionId, "finish", { topic: session.topicId, level, evidence: block ? [{ blockId: block.blockId, rationale: "Answered the independent question" }] : [], missing: [], next: "Try another question", summary: "We checked your understanding." });
 }
 
 test("source discovery is durable, content addressed, and exam moves preserve identity and student overrides", async () => fixture(({ repo, reopen }) => {
@@ -97,7 +97,7 @@ test("explicit past and undated exams never inherit another exam's topics or rea
     assert.equal(plan.leadExam.examId, selected.examId);
     assert.equal(plan.todayTopic.examId, selected.examId);
     assert.equal(plan.readiness.status, "unknown");
-    assert.deepEqual(plan.path, []);
+    assert.deepEqual(plan.comingBack, []);
   }
   assert.equal(planLearn(input).leadExam.examId, exam.examId);
   assert.equal(planLearn({ ...input, selectedExamId: "missing" }).leadExam, null);
@@ -112,24 +112,42 @@ test("readiness normalizes shares, reports unknown coverage honestly, and ignore
   assert.deepEqual(computeReadiness(topics, repo.mastery()), { status: "partial", percent: null, knownWeight: 0.7 });
   const next = repo.startSession(topics[1].topicId, "Probability", 15);
   finish(repo, next, typed(repo, next));
-  assert.equal(computeReadiness(topics, repo.mastery()).percent, 25);
+  assert.equal(computeReadiness(topics, repo.mastery()).percent, 75);
   assert.equal(computeReadiness(topics.map(topic => ({ ...topic, weight: null })), repo.mastery()).status, "unknown");
   assert.equal(computeReadiness(topics.map(topic => ({ ...topic, origin: "homework_hint" })), repo.mastery()).percent, null);
   LearnStateSchema.parse(repo.learnState("2026-09-19"));
 }));
 
-test("planner orders gaps, schedules mock two days before, and recap is due after three days", async () => fixture(({ repo }) => {
+test("planner chooses non-resting gaps and returns overdue Good topics first", async () => fixture(({ repo }) => {
   const { exam, topics } = syllabus(repo);
-  const session = { sessionId: "s", topicId: topics[0].topicId, startedAt: timestamp, finishedAt: timestamp, status: "completed" };
-  const input = { exams: [exam], topics, mastery: [], sessions: [session] };
-  assert.equal(planLearn({ ...input, today: "2026-09-21" }).recapDue, false);
-  const plan = planLearn({ ...input, today: "2026-09-22" });
-  assert.equal(plan.recapDue, true); assert.equal(plan.path[0].kind, "recap");
-  assert.equal(plan.path.find(day => day.date === "2026-09-23").kind, "mock_exam");
-  assert.equal(plan.todayTopic.topicId, topics[0].topicId);
+  const input = { exams: [exam], topics, mastery: [], sessions: [], today: "2026-09-22" };
+  assert.equal(planLearn(input).todayTopic.topicId, topics[0].topicId);
+  const record = (topic, level, dueOn) => ({ topicId: topic.topicId, level, evidenceCount: 1, updatedAt: timestamp, review: { dueOn, gapDays: 2, lastRightOn: "2026-09-19" } });
+  const resting = planLearn({ ...input, mastery: [record(topics[0], 2, "2026-09-23")] });
+  assert.equal(resting.todayTopic.topicId, topics[1].topicId);
+  assert.equal(resting.topicsLeft, 2);
+  const plan = planLearn({ ...input, mastery: [record(topics[0], 3, "2026-09-21"), record(topics[1], 4, "2026-09-20")] });
+  assert.equal(plan.todayTopic, null);
+  assert.equal(plan.topicsLeft, 0);
+  assert.deepEqual(plan.comingBack.map(t => t.topicId), [topics[1].topicId, topics[0].topicId]);
   assert.equal(planLearn({ ...input, today: "2026-09-26" }).leadExam, null);
-  assert.equal(planLearn({ ...input, topics: [], today: "2026-09-19" }).path.length, 0);
+  assert.equal(planLearn({ ...input, topics: [] }).todayTopic, null);
 }));
+
+test("nextReview schedules first success, due success, early success, misses and exam caps", () => {
+  const input = { today: "2026-09-20", examDate: null, right: true };
+  assert.deepEqual(nextReview(null, input), { dueOn: "2026-09-22", gapDays: 2, lastRightOn: input.today });
+  assert.equal(nextReview(null, { ...input, examDate: "2026-10-10" }).gapDays, 5);
+  assert.equal(nextReview(null, { ...input, examDate: "2026-12-10" }).gapDays, 14);
+  const previous = { dueOn: "2026-09-20", gapDays: 20, lastRightOn: "2026-09-01" };
+  assert.equal(nextReview(previous, input).gapDays, 30);
+  const early = { ...previous, dueOn: "2026-09-21" };
+  assert.deepEqual(nextReview(early, input), early);
+  const miss = nextReview(previous, { ...input, right: false });
+  assert.deepEqual(miss, { dueOn: "2026-09-21", gapDays: 1, lastRightOn: null });
+  assert.equal(nextReview(miss, { ...input, today: "2026-09-21" }).gapDays, 2);
+  assert.equal(nextReview(previous, { ...input, examDate: "2026-09-25" }).dueOn, "2026-09-24");
+});
 
 test("one open block, immutable answers and drafts survive restart; hints and answer keys stay private", async () => fixture(({ repo, reopen }) => {
   const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
@@ -144,6 +162,11 @@ test("one open block, immutable answers and drafts survive restart; hints and an
   publicState = publicTutorSession(repo.session(session.sessionId));
   assert.equal(JSON.stringify(publicState).includes("HINT-ONE"), true);
   assert.equal(JSON.stringify(publicState).includes("HINT-TWO"), false);
+  repo.saveDraft(session.sessionId, block.blockId, "   ");
+  assert.throws(() => repo.hint(session.sessionId, block.blockId), /Type your best try first/);
+  repo.saveDraft(session.sessionId, block.blockId, "partial answer");
+  repo.hint(session.sessionId, block.blockId);
+  assert.equal(repo.session(session.sessionId).blocks[0].hintsUsed, 2);
   const reopened = reopen(); reopened.recover();
   const restored = reopened.session(session.sessionId);
   assert.equal(restored.status, "paused"); assert.equal(restored.blocks[0].draft, "partial answer");
@@ -153,22 +176,213 @@ test("one open block, immutable answers and drafts survive restart; hints and an
   assert.throws(() => reopened.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "different" }), /already has/);
   assert.equal(reopened.session(session.sessionId).blocks[0].result.correct, true);
   PublicTutorSessionSchema.parse(publicTutorSession(reopened.session(session.sessionId)));
+  const args = { question: "Try x?", note: "Use the same line.", accept: ["4"], hints: [] };
+  const ask = key => reopened.openBlock(session.sessionId, key, { tool: "tutor_ask_typed", args });
+  const retry = ask("try-1");
+  reopened.answerBlock(session.sessionId, retry.blockId, { kind: "typed", answer: "3" });
+  assert.equal(ask("try-2").blockId, retry.blockId);
+  assert.equal(reopened.session(session.sessionId).blocks.at(-1).status, "open");
+  assert.equal(reopened.session(session.sessionId).blocks.at(-1).attempts[0].correct, false);
+  reopened.answerBlock(session.sessionId, retry.blockId, { kind: "typed", answer: "4" });
+  assert.equal(reopened.session(session.sessionId).blocks.at(-1).result.correct, true);
+  assert.throws(() => finish(reopened, session, retry), /first try/);
+  const cappedArgs = { ...args, question: "Another x?" };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const capped = reopened.openBlock(session.sessionId, `capped-${attempt}`, { tool: "tutor_ask_typed", args: cappedArgs });
+    reopened.answerBlock(session.sessionId, capped.blockId, { kind: "typed", answer: "3" });
+    for (let note = 0; note < 2; note++) reopened.openBlock(session.sessionId, `retry-note-${attempt}-${note}`, { tool: "tutor_say", args: { text: "Think about the givens." } });
+  }
+  assert.throws(() => reopened.openBlock(session.sessionId, "capped-4", { tool: "tutor_ask_typed", args: cappedArgs }), /three tries/);
+  assert.equal(reopened.session(session.sessionId).blocks.find(item => item.args.question === cappedArgs.question).attempts.length, 3);
 }));
 
-test("only eligible evidence changes mastery, capped once, with atomic finish and cross-session/account rejection", async () => fixture(({ repo, database }) => {
+test("non-waiting visuals persist across answers, respect capacity, and clear on independent and finish", async () => fixture(({ repo, reopen }) => {
+  const topic = repo.createFreeTopic("Graphs"), session = repo.startSession(topic.topicId, "Graphs", 10);
+  const args = { model: "number_line", params: { min: 0, max: 10, step: 1, points: [3] }, controls: ["move"], wait: false };
+  const show = (key, extra = {}) => repo.openBlock(session.sessionId, key, { tool: "tutor_show_model", args: { ...args, ...extra } });
+  const first = show("first"), second = show("second");
+  assert.equal(first.status, "complete");
+  assert.equal(show("first").blockId, first.blockId);
+  assert.throws(() => show("third"), /board is full/);
+  show("child-one", { under: first.blockId }); show("child-two", { under: first.blockId });
+  assert.throws(() => show("child-three", { under: first.blockId }), /board is full/);
+  assert.throws(() => show("bad-parent", { under: "missing" }), /visual that is up/);
+  const question = repo.openBlock(session.sessionId, "question", { tool: "tutor_ask_typed", args: { question: "Where?", accept: ["3"], hints: [] } });
+  assert.throws(() => show("question-parent", { under: question.blockId }), /visual that is up/);
+  repo.answerBlock(session.sessionId, question.blockId, { kind: "typed", answer: "3", explored: ["Moved point to 3"] });
+  const saved = reopen();
+  assert.equal(saved.session(session.sessionId).blocks[0].erasedAt, null);
+  assert.deepEqual(saved.session(session.sessionId).blocks[0].explored, ["Moved point to 3"]);
+  assert.deepEqual(saved.session(session.sessionId).blocks.at(-1).result.explored, ["Moved point to 3"]);
+  saved.advance(session.sessionId, "independent");
+  assert.ok(saved.session(session.sessionId).blocks.filter(block => block.tool === "tutor_show_model").every(block => block.erasedAt));
+  const page = saved.openBlock(session.sessionId, "page", { tool: "tutor_show_page", args: { title: "A line", purpose: "See it", html: "<p>Line</p>", wait: false } });
+  finish(saved, session, question);
+  assert.ok(saved.session(session.sessionId).blocks.find(block => block.blockId === page.blockId).erasedAt);
+  assert.ok(second.blockId);
+}));
+
+test("visual updates preserve type and capacity; erasing a parent erases its children", async () => fixture(({ repo, setNow }) => {
+  const topic = repo.createFreeTopic("Graphs"), session = repo.startSession(topic.topicId, "Graphs", 10);
+  const args = { model: "number_line", params: { min: 0, max: 10, step: 1, points: [3] }, controls: ["move"], wait: false };
+  const parent = repo.openBlock(session.sessionId, "parent", { tool: "tutor_show_model", args });
+  const child = repo.openBlock(session.sessionId, "child", { tool: "tutor_show_page", args: { title: "Values", purpose: "Compare", html: "<p>3</p>", under: parent.blockId, wait: false } });
+  assert.throws(() => repo.update(session.sessionId, { id: parent.blockId, args: { model: "flashcards", params: { cards: [{ front: "3", back: "Three" }] }, controls: [] } }), /same tool and model/);
+  assert.throws(() => repo.update(session.sessionId, { id: parent.blockId, args: { ...args, params: { ...args.params, points: [11] } } }), /bounds/);
+  assert.throws(() => repo.update(session.sessionId, { id: parent.blockId, args: { ...args, under: child.blockId } }), /top-level/);
+  setNow("2026-09-19T12:00:01.000Z");
+  const updated = repo.update(session.sessionId, { id: parent.blockId, args: { ...args, params: { ...args.params, points: [4] } } });
+  assert.equal(updated.blockId, parent.blockId); assert.equal(updated.updatedAt, repo.now());
+  repo.erase(session.sessionId, { id: parent.blockId });
+  assert.ok(repo.session(session.sessionId).blocks.every(block => block.erasedAt));
+  assert.throws(() => repo.update(session.sessionId, { id: parent.blockId, args }), /visual that is up/);
+}));
+
+test("boardView describes current work, history, retries, chat and erasure without mutating public state", async t => {
+  const cases = [
+    ["fresh question", ({ ask, view, repo, session }) => {
+      const question = ask("first");
+      let board = view();
+      assert.equal(board.question.blockId, question.blockId); assert.equal(board.note, "Use the visual.");
+      assert.deepEqual(board.done, []); assert.deepEqual(board.tries, []); assert.equal(board.move, "check");
+      assert.equal(board.newest, question.blockId);
+      repo.saveDraft(session.sessionId, question.blockId, "3"); assert.equal(view().newest, null);
+      repo.hint(session.sessionId, question.blockId); assert.equal(view().newest, null);
+    }],
+    ["visual kept across two questions", ({ ask, show, answer, view }) => {
+      const visual = show("plot"), child = show("table", { under: visual.blockId });
+      const first = ask("first"); answer(first, "4"); ask("second");
+      const board = view(); assert.equal(board.visuals[0].block.blockId, visual.blockId);
+      assert.equal(board.visuals[0].children[0].blockId, child.blockId); assert.equal(board.done.length, 1);
+    }],
+    ["wrong then right", ({ ask, answer, view, repo, session, setNow }) => {
+      const question = ask("first"); answer(question, "3");
+      setNow("2026-09-19T12:00:01.000Z");
+      const note = repo.openBlock(session.sessionId, "feedback", { tool: "tutor_say", args: { text: "Look at the smaller gap." } });
+      ask("first", "retry");
+      assert.equal(view().tries[0].correct, false); assert.equal(view().move, "check"); assert.equal(view().feedback[0].blockId, note.blockId);
+      setNow("2026-09-19T12:00:02.000Z");
+      answer(question, "4");
+      // The note was about the first try, so it goes when the next try is made.
+      const board = view(); assert.equal(board.tries.length, 1); assert.equal(board.question.result.correct, true);
+      assert.deepEqual(board.feedback, []); assert.equal(board.move, "wait"); assert.equal(board.newest, null);
+      // One written after the last answer leads into the next question.
+      setNow("2026-09-19T12:00:03.000Z");
+      const bridge = repo.openBlock(session.sessionId, "bridge", { tool: "tutor_say", args: { text: "Now the same at 5." } });
+      ask("second");
+      assert.deepEqual(view().lead.map(block => block.blockId), [bridge.blockId]);
+    }],
+    ["chat mid-question", ({ ask, view, repo, session, setNow }) => {
+      const question = ask("first");
+      repo.appendMessage(session.sessionId, "message", "What is the gap?");
+      setNow("2026-09-19T12:00:01.000Z");
+      repo.openBlock(session.sessionId, "reply", { tool: "tutor_reply", args: { text: "The distance between the two x values." } });
+      const board = view(); assert.equal(board.question.blockId, question.blockId); assert.equal(board.move, "check");
+      assert.deepEqual(board.chat.map(item => item.kind), ["student", "tutor"]); assert.equal(board.chat[1].replyTo, "message");
+      assert.equal(board.newest, null); assert.deepEqual(board.feedback, []);
+      repo.appendMessage(session.sessionId, "message-two", "What now?");
+      repo.openBlock(session.sessionId, "reply-two", { tool: "tutor_reply", args: { text: "Try making it smaller." } });
+      assert.deepEqual(view().chat.map(item => item.id), ["message", board.chat[1].id, "message-two", view().chat[3].id]);
+    }],
+    ["erased visual", ({ show, view, repo, session, setNow }) => {
+      const visual = show("plot"); show("table", { under: visual.blockId });
+      setNow("2026-09-19T12:00:01.000Z");
+      repo.update(session.sessionId, { id: visual.blockId, args: { ...visual.args, params: { ...visual.args.params, points: [4] } } });
+      assert.equal(view().newest, visual.blockId);
+      repo.erase(session.sessionId, { id: visual.blockId }); assert.deepEqual(view().visuals, []); assert.equal(view().newest, null);
+    }],
+    ["a visual that waits is a stop", ({ ask, answer, view, repo, session }) => {
+      const first = ask("first"); answer(first, "4");
+      const visual = repo.openBlock(session.sessionId, "try", { tool: "tutor_show_model", args: { model: "number_line", params: { min: 0, max: 10, step: 1, points: [3] }, controls: ["move"] } });
+      assert.equal(view(first.blockId).move, "next");
+      let board = view(); assert.equal(board.at, visual.blockId); assert.equal(board.question, null); assert.equal(board.move, "tried"); assert.equal(board.done.length, 1);
+      repo.answerBlock(session.sessionId, visual.blockId, { kind: "model", explored: ["Moved point 1 to 4"] });
+      board = view(); assert.equal(board.move, "wait"); assert.equal(board.visuals[0].block.blockId, visual.blockId);
+    }],
+    ["the previous question and its notes fold", ({ ask, answer, view, repo, session, setNow }) => {
+      repo.openBlock(session.sessionId, "intro", { tool: "tutor_say", args: { text: "A slope is rise over run." } });
+      const first = ask("first"); answer(first, "4");
+      setNow("2026-09-19T12:00:01.000Z");
+      const note = repo.openBlock(session.sessionId, "feedback", { tool: "tutor_say", args: { text: "That's the slope." } });
+      const second = ask("second");
+      // Chalky is ahead: the student stays on the first question, with its notes, until they move on.
+      const stay = view(first.blockId); assert.equal(stay.question.blockId, first.blockId); assert.equal(stay.move, "next"); assert.equal(stay.following, second.blockId);
+      assert.deepEqual(stay.lead.map(block => block.args.text), ["A slope is rise over run."]); assert.deepEqual(stay.feedback.map(block => block.blockId), [note.blockId]); assert.deepEqual(stay.done, []);
+      const board = view(); assert.deepEqual(board.done, [{ blockId: first.blockId, question: "first?", answer: "4", correct: true }]);
+      assert.equal(board.question.blockId, second.blockId); assert.equal(board.at, second.blockId); assert.equal(board.following, null);
+      assert.deepEqual(board.lead.map(block => block.blockId), [note.blockId]); assert.deepEqual(board.feedback, []); assert.deepEqual(board.tries, []);
+    }],
+  ];
+  for (const [name, run] of cases) await t.test(name, () => fixture(context => {
+    const { repo } = context, topic = repo.createFreeTopic("Graphs"), session = repo.startSession(topic.topicId, "Graphs", 10);
+    run({ ...context, session,
+      ask: (name, key = name) => repo.openBlock(session.sessionId, key, { tool: "tutor_ask_typed", args: { question: name + "?", note: "Use the visual.", accept: ["4"], hints: ["Think about the gap"] } }),
+      show: (key, extra = {}) => repo.openBlock(session.sessionId, key, { tool: "tutor_show_model", args: { model: "number_line", params: { min: 0, max: 10, step: 1, points: [3] }, controls: [], wait: false, ...extra } }),
+      answer: (question, answer) => repo.answerBlock(session.sessionId, question.blockId, { kind: "typed", answer }),
+      view: at => { const state = publicTutorSession(repo.session(session.sessionId)), before = JSON.stringify(state), board = boardView(state, at); assert.equal(JSON.stringify(state), before); assert.deepEqual(boardView(state, at), board); return board; },
+    });
+  }));
+});
+
+test("an explanation can be re-marked when Chalky changes its mind", async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Inflation"), session = repo.startSession(topic.topicId, "Inflation", 10);
+  const block = repo.openBlock(session.sessionId, "explain", { tool: "tutor_ask_explain", args: { prompt: "Why?", rubric: ["Costs rise", "Prices rise"] } });
+  repo.answerBlock(session.sessionId, block.blockId, { kind: "explain", text: "Costs go up so firms raise prices." });
+  repo.grade(session.sessionId, { blockId: block.blockId, correct: false, met: [false, false] });
+  repo.grade(session.sessionId, { blockId: block.blockId, correct: true, met: [true, true] });
+  const saved = repo.session(session.sessionId).blocks[0];
+  assert.equal(saved.result.correct, true); assert.deepEqual(saved.result.met, [true, true]); assert.equal(saved.attempts.at(-1).correct, true);
+}));
+
+test("I'm not sure is a wrong answer that can be retried, but never raised or cited", async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
+  const args = { question: "What is six times seven?", accept: ["42"], hints: [] };
+  const block = repo.openBlock(session.sessionId, "typed", { tool: "tutor_ask_typed", args });
+  repo.answerBlock(session.sessionId, block.blockId, { kind: "unsure" });
+  assert.equal(repo.session(session.sessionId).blocks[0].result.correct, false);
+  assert.throws(() => repo.grade(session.sessionId, { blockId: block.blockId, correct: true, equivalentTo: "42" }), /wrong typed answer/);
+  assert.throws(() => finish(repo, session, block, 3), /Invalid mastery evidence/);
+  repo.openBlock(session.sessionId, "typed-again", { tool: "tutor_ask_typed", args });
+  repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "42" });
+  assert.deepEqual(repo.session(session.sessionId).blocks[0].attempts.map(attempt => attempt.correct), [false, true]);
+}));
+
+test("answer keys reach the screen only after the lesson is over", async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
+  repo.openBlock(session.sessionId, "choice", { tool: "tutor_ask_choice", args: { question: "?", options: ["A", "B"], correct: 1 } });
+  assert.equal(publicTutorSession(repo.session(session.sessionId)).blocks[0].args.key, undefined);
+  repo.transition(session.sessionId, "cancelled");
+  assert.equal(publicTutorSession(repo.session(session.sessionId)).blocks[0].args.key, "B");
+}));
+
+test("a finish that also assesses a topic that came back still places the main topic", async () => fixture(({ repo }) => {
+  const { exam, topics } = syllabus(repo);
+  const session = repo.startSession(topics[0].topicId, "Sampling", 10, { examId: exam.examId, topicIds: topics.map(topic => topic.topicId) });
+  const ask = (key, topicId) => { const block = repo.openBlock(session.sessionId, key, { tool: "tutor_ask_typed", args: { topicId, question: key + "?", accept: ["42"], hints: [] } }); repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "42" }); return block; };
+  const earlier = ask("earlier", topics[1].topicId), main = ask("main", topics[0].topicId);
+  const result = repo.finish(session.sessionId, "finish", { topic: topics[0].topicId, level: 3, evidence: [{ blockId: main.blockId, rationale: "Unaided" }], missing: [], next: "Next", summary: "Done",
+    assessments: [{ topic: topics[1].topicId, level: 3, evidence: [{ blockId: earlier.blockId, rationale: "Unaided" }], missing: [], next: "Next", summary: "Done" }] }).result;
+  assert.deepEqual(result.assessments.map(item => [item.topicId, item.level]), [[topics[0].topicId, 3], [topics[1].topicId, 3]]);
+  assert.equal(result.level, 3);
+}));
+
+test("only eligible evidence changes mastery, with first placement and delayed Solid, atomic finish and owner rejection", async () => fixture(({ repo, database, setNow }) => {
   const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
   const choice = repo.openBlock(session.sessionId, "choice", { tool: "tutor_ask_choice", args: { question: "?", options: ["A", "B"], correct: 0 } });
   repo.answerBlock(session.sessionId, choice.blockId, { kind: "choice", picked: 0 });
   assert.throws(() => finish(repo, session, choice), /typed or explanation/);
   assert.deepEqual(repo.mastery(), []);
   const block = typed(repo, repo.session(session.sessionId));
-  assert.throws(() => finish(repo, session, block, 4, false), /cannot be overridden/);
   const completed = finish(repo, session, block);
-  assert.equal(completed.result.level, 1);
-  finish(repo, session, block); assert.equal(repo.mastery()[0].level, 1); assert.equal(repo.mastery()[0].evidence.length, 1);
+  assert.equal(completed.result.level, 3);
+  finish(repo, session, block); assert.equal(repo.mastery()[0].level, 3); assert.equal(repo.mastery()[0].evidence.length, 1);
   const next = repo.startSession(topic.topicId, "Again", 10);
   assert.throws(() => finish(repo, next, block), /from this session/);
   assert.equal(repo.session(next.sessionId).status, "active");
+  assert.equal(finish(repo, next, typed(repo, next)).result.level, 3);
+  setNow("2026-09-20T12:00:00.000Z");
+  const later = repo.startSession(topic.topicId, "Tomorrow", 10);
+  assert.equal(finish(repo, later, typed(repo, later)).result.level, 4);
   const other = new LearnRepository(database, "student-b");
   assert.deepEqual(other.sessions(), []); assert.deepEqual(other.mastery(), []);
   assert.throws(() => other.session(session.sessionId), /not found/);
@@ -186,10 +400,45 @@ test("hinted correct answers and choice-only sessions cannot claim independent m
   assert.equal(repo.mastery().some(record => record.topicId === free.topicId), false);
 }));
 
-test("expiry and cancellation preserve answers without awarding mastery", async () => fixture(({ repo, setNow }) => {
+test("finishing inside the wrap window saves mastery and closes the open block", async () => fixture(({ repo, setNow, reopen }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 1);
+  const block = typed(repo, session);
+  const open = repo.openBlock(session.sessionId, "waiting", { tool: "tutor_ask_typed", args: { question: "Next?", accept: ["42"], hints: [] } });
+  setNow("2026-09-19T12:01:01.000Z");
+  assert.equal(repo.state(session.sessionId).status, "active");
+  assert.equal(repo.session(session.sessionId).blocks.find(b => b.blockId === open.blockId).status, "cancelled");
+  repo = reopen(); repo.recover(); repo.transition(session.sessionId, "active");
+  assert.throws(() => typed(repo, repo.session(session.sessionId)), /Time is up/);
+  assert.equal(finish(repo, session, block).status, "completed");
+  assert.equal(repo.mastery()[0].level, 3);
+  assert.equal(repo.session(session.sessionId).elapsedSeconds, 60);
+}));
+
+test("in the wrap window a finish leaves out what can't count instead of failing", async () => fixture(({ repo, setNow }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 1);
+  const args = { question: "What is six times seven?", accept: ["42"], hints: [] };
+  const first = typed(repo, session);
+  const retried = repo.openBlock(session.sessionId, "retried", { tool: "tutor_ask_typed", args: { ...args, question: "Seven times six?" } });
+  repo.answerBlock(session.sessionId, retried.blockId, { kind: "typed", answer: "41" });
+  repo.openBlock(session.sessionId, "retried-again", { tool: "tutor_ask_typed", args: { ...args, question: "Seven times six?" } });
+  repo.answerBlock(session.sessionId, retried.blockId, { kind: "typed", answer: "42" });
+  const evidence = [first, retried].map(block => ({ blockId: block.blockId, rationale: "Unaided" }));
+  const input = { topic: topic.topicId, level: 3, evidence, missing: [], next: "Next", summary: "Done" };
+  assert.throws(() => repo.finish(session.sessionId, "early", input), /first try/);
+  setNow("2026-09-19T12:01:01.000Z");
+  const finished = repo.finish(session.sessionId, "finish", input);
+  assert.equal(finished.status, "completed");
+  assert.deepEqual(finished.result.evidence.map(item => item.blockId), [first.blockId]);
+  assert.equal(repo.mastery()[0].level, 3);
+}));
+
+test("no finish in the wrap window expires without mastery; cancellation closes blocks", async () => fixture(({ repo, setNow }) => {
   const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 1);
   const block = typed(repo, session);
   setNow("2026-09-19T12:01:01.000Z");
+  assert.equal(repo.state(session.sessionId).status, "active");
+  repo.transition(session.sessionId, "paused");
+  setNow("2026-09-19T12:02:30.000Z");
   assert.equal(repo.state(session.sessionId).status, "expired");
   assert.throws(() => finish(repo, session, block), /expired/);
   assert.deepEqual(repo.mastery(), []);
@@ -200,6 +449,26 @@ test("expiry and cancellation preserve answers without awarding mastery", async 
   assert.equal(repo.session(next.sessionId).blocks.find(b => b.blockId === open.blockId).status, "cancelled");
 }));
 
+test("clicked only keeps a wrong answer followed by a later unaided independent answer", async () => fixture(({ repo }) => {
+  for (const [index, scenario] of ["valid", "check", "hinted", "reversed", "no-mistake", "still-wrong", "foreign"].entries()) {
+    const topic = repo.createFreeTopic(`Algebra ${index}`), session = repo.startSession(topic.topicId, "Algebra", 10);
+    if (scenario === "reversed") repo.advance(session.sessionId, "independent");
+    const wrong = typed(repo, session, { answer: scenario === "no-mistake" ? "42" : "43" });
+    if (scenario !== "check" && scenario !== "reversed") repo.advance(session.sessionId, "independent");
+    const right = repo.openBlock(session.sessionId, "right", { tool: "tutor_ask_typed", args: { question: "6*7?", accept: ["42"], hints: ["Multiply"] } });
+    if (scenario === "hinted") repo.hint(session.sessionId, right.blockId);
+    repo.answerBlock(session.sessionId, right.blockId, { kind: "typed", answer: scenario === "still-wrong" ? "43" : "42" });
+    const clicked = { before: "I added", after: "I multiplied", wrongBlockId: scenario === "reversed" ? right.blockId : wrong.blockId,
+      rightBlockId: scenario === "foreign" ? "foreign-block" : scenario === "reversed" ? wrong.blockId : right.blockId };
+    const input = { topic: topic.topicId, level: 3, evidence: [], missing: [], next: "Return", summary: "Checked", cheatsheet: ["Six times seven is 42"], clicked: [clicked] };
+    const done = repo.finish(session.sessionId, "finish", input);
+    assert.deepEqual(done.result.clicked, scenario === "valid" ? [{ before: clicked.before, after: clicked.after }] : [], scenario);
+    assert.deepEqual(done.result.cheatsheet, input.cheatsheet);
+    assert.deepEqual(publicTutorSession(done).blocks.at(-1).args.clicked, done.result.clicked);
+    assert.deepEqual(publicTutorSession(done).blocks.at(-1).args.cheatsheet, input.cheatsheet);
+  }
+}));
+
 test("mock exam requires independent evidence across its topic set and commits all changes together", async () => fixture(({ repo }) => {
   const { exam, topics } = syllabus(repo);
   const session = repo.startSession(topics[0].topicId, "Mock exam", 15, { mode: "mock_exam", examId: exam.examId, topicIds: topics.map(t => t.topicId) });
@@ -207,26 +476,44 @@ test("mock exam requires independent evidence across its topic set and commits a
   const assessments = topics.map((topic, index) => {
     const block = repo.openBlock(session.sessionId, `typed-${index}`, { tool: "tutor_ask_typed", args: { topicId: topic.topicId, question: "Known answer?", accept: ["yes"], hints: [] } });
     repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "yes" });
-    return { topic: topic.topicId, level: 4, evidence: [{ blockId: block.blockId, correct: true, rationale: "Answered independently" }], summary: "Checked", missing: [], next: "Practice" };
+    return { topic: topic.topicId, level: 4, evidence: [{ blockId: block.blockId, rationale: "Answered independently" }], summary: "Checked", missing: [], next: "Practice" };
   });
   assert.throws(() => repo.finish(session.sessionId, "finish", assessments[0]), /every exam topic/);
   assert.deepEqual(repo.mastery(), []);
   repo.finish(session.sessionId, "finish", { ...assessments[0], assessments });
-  assert.equal(repo.mastery().length, 2); assert.ok(repo.mastery().every(m => m.level === 1));
+  assert.equal(repo.mastery().length, 2); assert.ok(repo.mastery().every(m => m.level === 3));
 }));
 
-test("all five fixed model types are bounded and unknown/host execution models are rejected", () => {
+test("all six fixed model types are bounded and unknown/host execution models are rejected", () => {
   const models = [
     { model: "population_grid", params: { population: 100, sampleSize: 10, proportion: 0.5 }, controls: ["sample"] },
     { model: "number_line", params: { min: -10, max: 10, step: 1, points: [0] }, controls: ["move"] },
     { model: "function_plot", params: { family: "quadratic", a: 1, b: 0, c: 0, xMin: -10, xMax: 10 }, controls: ["a"] },
     { model: "flashcards", params: { cards: [{ front: "A", back: "B" }] }, controls: ["flip"] },
     { model: "code_runner", params: { language: "javascript", code: "console.log(42)", instructions: "Try it", timeoutMs: 500 }, controls: ["run"] },
+    { model: "table", params: { columns: ["gap", "slope"], rows: [[1, 7], [0.1, "6.1"]] }, controls: [] },
   ];
   for (const model of models) TutorModelInputSchema.parse(model);
   assert.equal(TutorModelInputSchema.safeParse({ ...models[4], params: { ...models[4].params, language: "powershell" } }).success, false);
   assert.equal(TutorModelInputSchema.safeParse({ ...models[4], params: { ...models[4].params, timeoutMs: 999999 } }).success, false);
   assert.equal(TutorModelInputSchema.safeParse({ model: "custom_html", params: {}, controls: [] }).success, false);
+  const plot = { ...models[2], params: { ...models[2].params, secant: { x: 3, gap: 1 }, labels: [{ x: 3, text: "the gap" }] }, controls: ["gap"] };
+  TutorModelInputSchema.parse(plot);
+  TutorModelInputSchema.parse({ ...plot, params: { ...plot.params, secant: { x: 3, gap: 0 } } });
+  for (const params of [
+    { ...plot.params, secant: { x: 3, gap: -1 } },
+    { ...plot.params, secant: { x: 3, gap: 8 } },
+    { ...plot.params, labels: Array(5).fill({ x: 3, text: "label" }) },
+    { ...plot.params, labels: [{ x: 11, text: "outside" }] },
+  ]) assert.equal(TutorModelInputSchema.safeParse({ ...plot, params }).success, false);
+  assert.equal(TutorModelInputSchema.safeParse({ ...models[2], controls: ["gap"] }).success, false);
+  const table = models[5];
+  for (const params of [
+    { ...table.params, columns: Array(9).fill("column") },
+    { ...table.params, rows: Array(9).fill([1, 7]) },
+    { ...table.params, rows: [[1]] },
+  ]) assert.equal(TutorModelInputSchema.safeParse({ ...table, params }).success, false);
+  assert.equal(TutorModelInputSchema.safeParse({ ...table, controls: ["sort"] }).success, false);
 });
 
 test("the selected goal survives Learn source, goal, topic and tutor mutations", async () => fixture(({ repo, reopen }) => {
@@ -271,7 +558,7 @@ test("undated and topic-less exams are selectable; default selects the nearest d
     assert.equal(plan.leadExam.examId, exam.examId);
     assert.equal(plan.todayTopic, null);
     assert.equal(plan.readiness.status, "unknown");
-    assert.deepEqual(plan.path, []);
+    assert.deepEqual(plan.comingBack, []);
   }
 }));
 
@@ -362,6 +649,10 @@ test("typed answers ignore a closing full stop, quotes and comma spacing", () =>
 });
 
 test("a typed answer may add a unit word but not a hedge", () => {
+  for (const lead of ["it's ", "i get ", "i think ", "about ", "roughly ", "= ", "x = ", "answer: "]) assert.equal(typedAnswerMatches(["4"], `${lead}4`), true);
+  for (const answer of ["0.5", "1/2", ".5", "50%", "it's 0.5"]) assert.equal(typedAnswerMatches(["1/2"], answer), true);
+  assert.equal(typedAnswerMatches(["50%"], "50"), false);
+  assert.equal(typedAnswerMatches(["0"], "1/0"), false);
   assert.equal(typedAnswerMatches(["2"], "2 shifts."), true);
   assert.equal(typedAnswerMatches(["O(n)"], "O(n) time"), true);
   assert.equal(typedAnswerMatches(["2"], "20"), false);
@@ -369,6 +660,28 @@ test("a typed answer may add a unit word but not a hedge", () => {
   assert.equal(typedAnswerMatches(["2"], "2 or 3"), false);
   assert.equal(typedAnswerMatches(["true"], "true not false"), false);
 });
+
+test("marking enforces order, protects right answers and keeps rubric private until marked", async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Explain", 10);
+  const explanation = repo.openBlock(session.sessionId, "explain", { tool: "tutor_ask_explain", args: { prompt: "Why?", rubric: ["States the cause", "Links the effect"] } });
+  repo.answerBlock(session.sessionId, explanation.blockId, { kind: "explain", text: "My reasoning" });
+  assert.equal(JSON.stringify(publicTutorSession(repo.session(session.sessionId))).includes("States the cause"), false);
+  assert.throws(() => typed(repo, repo.session(session.sessionId)), /Mark the explanation/);
+  assert.throws(() => finish(repo, session, explanation), /Mark the explanation/);
+  repo.openBlock(session.sessionId, "say", { tool: "tutor_say", args: { text: "I see your reasoning." } });
+  assert.throws(() => repo.grade(session.sessionId, { blockId: explanation.blockId, correct: true, met: [true] }), /every rubric/);
+  repo.grade(session.sessionId, { blockId: explanation.blockId, correct: false, met: [true, false] });
+  assert.deepEqual(publicTutorSession(repo.session(session.sessionId)).blocks[0].args.points, [{ text: "States the cause", met: true }, { text: "Links the effect", met: false }]);
+  // Re-marking is allowed (Chalky changed its mind); the saved verdict is what counts at the finish.
+  repo.grade(session.sessionId, { blockId: explanation.blockId, correct: false, met: [true, false] });
+  const wrong = typed(repo, repo.session(session.sessionId), { answer: "forty two" });
+  assert.equal(repo.session(session.sessionId).blocks.find(b => b.blockId === wrong.blockId).result.matched, false);
+  assert.throws(() => repo.grade(session.sessionId, { blockId: wrong.blockId, correct: true, equivalentTo: "43" }), /accepted answer/);
+  assert.throws(() => repo.grade(session.sessionId, { blockId: wrong.blockId, correct: false }), /Only raise/);
+  repo.grade(session.sessionId, { blockId: wrong.blockId, correct: true, equivalentTo: "42" });
+  assert.throws(() => repo.grade(session.sessionId, { blockId: wrong.blockId, correct: false }), /Only raise/);
+  assert.equal(finish(repo, session, wrong, 3).result.evidence[0].correct, true);
+}));
 
 test("an exam found by the school check and again in a syllabus is one exam", () => {
   assert.equal(sameExam({ title: "Final Exam (section 005)", date: "2026-12-03" }, { title: "Final Exam (Section 005)", date: "2026-12-03" }), true);

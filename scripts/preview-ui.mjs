@@ -5,6 +5,9 @@ import { fileURLToPath } from "node:url";
 
 // Vite picks the next free port when another worktree is already previewing.
 const desktop = process.argv.includes("--desktop");
+const portArgument = process.argv.indexOf("--port");
+const port = portArgument === -1 ? 4174 : Number(process.argv[portArgument + 1]);
+if (!Number.isInteger(port) || port < 0 || port > 65535) throw new Error("--port must be 0-65535");
 const root = fileURLToPath(new URL("../", import.meta.url));
 const git = (...args) => {
   try { return execFileSync("git", args, { cwd: root, encoding: "utf8", windowsHide: true }).trim(); }
@@ -19,7 +22,7 @@ const source = () => ({
 });
 const server = await createServer({
   root,
-  server: { host: "127.0.0.1", port: 4174, strictPort: false, open: false },
+  server: { host: "127.0.0.1", port, strictPort: port !== 0, open: false },
   plugins: [{
     name: "studi-preview-source",
     configureServer(vite) {

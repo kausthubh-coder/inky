@@ -35,3 +35,22 @@ Convex agent skills for common tasks can be installed by running
 `bunx convex ai-files install`.
 
 <!-- convex-ai-end -->
+
+## Codex cloud
+
+The Ubuntu cloud container supports the controlled browser suites and the real
+Electron app under Xvfb. Prepare a fresh environment with:
+
+```bash
+bash .agents/skills/test-studi/scripts/setup-studi-cloud.sh
+```
+
+Run browser journeys with `bun run test:ui:journeys`. Start and stop an isolated
+desktop profile with `node scripts/start-studi-qa.mjs --persistent` and
+`node scripts/stop-studi-qa.mjs`; the launcher supplies Xvfb and root's required
+Electron sandbox flag automatically. Run the native controlled suite with
+`xvfb-run -a bun run test:electron`.
+
+Report cloud runs by writing a Markdown receipt under `cloud-results/`, with
+screenshots beside it. Never put secrets, tokens, auth files, or raw credentials
+in that directory.

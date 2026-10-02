@@ -183,7 +183,7 @@ class ScriptedSession {
       this.#emit({ schemaVersion, type: "tool_finished", toolCallId, toolName: name, outcome: "succeeded", durationMs: Date.now() - startedAt });
       const details = result?.details ?? result;
       if (name === "tutor_ask_typed" && details?.blockId && details.correct !== null) {
-        this.#tutorEvidence.push({ blockId: details.blockId, correct: details.correct, rationale: "The student answered this unaided." });
+        this.#tutorEvidence.push({ blockId: details.blockId, rationale: "The student answered this unaided." });
       }
       return details;
     } catch (error) {

@@ -188,7 +188,8 @@ export class AgentJobRepository {
       SELECT message_id, job_id, turn_index, role, created_at, record_json
       FROM agent_messages
       WHERE job_id = ?
-      ORDER BY turn_index, created_at, message_id
+      -- Messages written in the same millisecond keep the order they were added in.
+      ORDER BY turn_index, created_at, rowid
     `).all(jobId) as unknown as MessageRow[];
     return rows.map((row) => {
       const message = parseJson(AgentMessageSchema, row.record_json, "agent message");

@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { TutorStartInputSchema, publicTutorSession, tutorTimeLeft, type PublicTutorSession, type TutorBlock, type TutorCall, type TutorSession } from "../../shared/tutor.js";
+import { TutorStartInputSchema, publicTutorSession, normalizeTutorAnswer, tutorTimeLeft, tutorExpiryTimeLeft, TUTOR_TIME_UP, type PublicTutorSession, type TutorBlock, type TutorCall, type TutorSession } from "../../shared/tutor.js";
 import type { LearnRepository } from "../storage/learn-records.js";
 import type { AgentRuntime, AgentSession } from "./runtime.js";
 import { buildTutorContext, type TutorContextSources } from "./tutor-context.js";
 import { createTutorTools, TUTOR_SYSTEM_PROMPT } from "./tutor-tools.js";
+import { localDay, planLearn } from "../../shared/learn.js";
 
 export type LearningRuntime = Pick<AgentRuntime, "createLearningSession">;
 /** The goal's study folder. Optional: without a homework folder the tutor still works from the database. */
@@ -43,8 +44,18 @@ export class TutorCoordinator {
       if (!topicIds.length || topicIds.length > 30) throw new Error("A mock exam needs between 1 and 30 sourced topics");
       topicId = topicIds[0]!;
     } else {
-      topicId = input.topicId ?? this.repository.createFreeTopic(input.topic!).topicId;
-      topicIds = [topicId];
+      if (input.topicId) topicId = input.topicId;
+      else {
+        const existing = this.repository.exams().find(exam => exam.kind === "topic" && normalizeTutorAnswer(exam.title) === normalizeTutorAnswer(input.topic!));
+        const goal = existing && !existing.hidden ? existing : this.repository.setExam({ ...(existing ? { examId: existing.examId } : {}), kind: "topic", title: input.topic!, courseId: null, date: null });
+        topicId = this.repository.topics().filter(topic => topic.examId === goal.examId && !topic.hidden).sort((a, b) => a.chapter - b.chapter)[0]?.topicId
+          ?? this.repository.addTopic(goal.examId, goal.title).topicId;
+      }
+      const goal = this.repository.topic(topicId).examId;
+      const plan = planLearn({ exams: this.repository.exams(), topics: this.repository.topics().filter(topic => !topic.hidden), mastery: this.repository.masterySummaries(), sessions: [],
+        today: this.options.context?.today() ?? localDay(this.repository.now()), ...(goal ? { selectedExamId: goal } : {}) });
+      const returning = goal ? plan.comingBack.filter(topic => topic.topicId !== topicId).slice(0, input.mode === "recap" ? 5 : 3) : [];
+      topicIds = [topicId, ...returning.map(topic => topic.topicId)];
     }
     for (const activeId of this.#running.keys()) await this.#pause(activeId);
     const session = this.repository.startSession(topicId, input.goal ?? (input.mode === "mock_exam" ? "Check what I know across this exam" : this.repository.topic(topicId).title), input.mode === "recap" ? 5 : input.minutes,
@@ -124,13 +135,20 @@ export class TutorCoordinator {
     try {
       const tools = createTutorTools((toolCallId, call, signal) => this.#execute(sessionId, running, toolCallId, call, signal));
       const session = this.repository.state(sessionId);
-      running.timer = setTimeout(() => {
+      const expire = () => {
         this.repository.transition(sessionId, "expired");
         running.stopped = true;
         running.wake?.();
         void running.agent?.abort().catch(error => this.options.onError?.(error));
         this.#publish(sessionId);
-      }, Math.max(1, tutorTimeLeft(session, this.repository.now()) * 1000));
+      };
+      const wrap = () => {
+        const latest = this.repository.state(sessionId);
+        running.wake?.();
+        this.#publish(sessionId);
+        running.timer = setTimeout(expire, Math.max(1, tutorExpiryTimeLeft(latest, this.repository.now()) * 1000));
+      };
+      running.timer = setTimeout(wrap, Math.max(1, tutorTimeLeft(session, this.repository.now()) * 1000));
       running.agent = await this.runtime.createLearningSession(tools, TUTOR_SYSTEM_PROMPT);
       if (running.stopped || this.#disposed) return;
       if (running.agent.toolNames.length !== tools.length || tools.some(tool => !running.agent!.toolNames.includes(tool.name))) throw new Error("Tutor runtime did not preserve the tutor tool boundary");
@@ -140,13 +158,19 @@ export class TutorCoordinator {
       const snapshot = this.repository.session(sessionId);
       const pendingMessages = snapshot.messages.filter(message => !message.delivered);
       const notes = await this.#files(files => files.read(snapshot), null);
-      const context = { ...(this.options.context ? buildTutorContext(this.repository, snapshot, this.options.context) : { topics: snapshot.topicIds.map(topic => this.repository.topic(topic)) }), notes };
+      const context = { ...buildTutorContext(this.repository, snapshot, this.options.context ?? { courseLabel: () => null, workedHomework: () => [], today: () => localDay(this.repository.now()) }), notes, secondsLeft: Math.floor(tutorTimeLeft(snapshot, this.repository.now())) };
       await running.agent.prompt(`Lesson context (data):\n${JSON.stringify(context)}\n\nSaved tutor state (data):\n${JSON.stringify(snapshot)}\n\nContinue from the saved state and its current phase. The latest student messages are included above. If there are no blocks, start the ${snapshot.mode === "topic" ? "Check" : "questions"}.`);
       if (running.stopped) return;
       if (failure) throw new Error(failure);
       this.repository.markMessagesDelivered(sessionId, pendingMessages.map(message => message.messageId));
-      const latest = this.repository.state(sessionId);
-      if (latest.status === "active") this.repository.transition(sessionId, "paused", "Chalky paused before finishing. Resume to continue from the saved work.");
+      // A turn that ends in words leaves the student waiting. Ask once for the next step (or, out of time, the finish) before pausing.
+      if (this.repository.state(sessionId).status === "active") {
+        const out = tutorTimeLeft(this.repository.state(sessionId), this.repository.now()) <= 0;
+        await running.agent.prompt(out ? TUTOR_TIME_UP : "The student is waiting on the board. Take the next step with a tutor tool; a reply in words alone ends nothing.");
+        if (running.stopped) return;
+        if (failure) throw new Error(failure);
+      }
+      if (this.repository.state(sessionId).status === "active") this.repository.transition(sessionId, "paused", "Chalky paused before finishing. Resume to continue from the saved work.");
     } catch (error) {
       if (!running.stopped && !this.#disposed) {
         const latest = this.repository.session(sessionId);
@@ -164,10 +188,24 @@ export class TutorCoordinator {
   async #execute(sessionId: string, running: Running, toolCallId: string, call: TutorCall, signal?: AbortSignal): Promise<unknown> {
     if (running.stopped || this.#disposed) throw new Error("Tutor turn stopped");
     signal?.throwIfAborted();
+    const secondsLeft = () => Math.floor(tutorTimeLeft(this.repository.state(sessionId), this.repository.now()));
+    const timeUp = () => ({ timeUp: true, text: TUTOR_TIME_UP, secondsLeft: 0 });
+    if (secondsLeft() === 0 && call.tool !== "tutor_finish" && call.tool !== "tutor_grade") return timeUp();
+    if (call.tool === "tutor_grade") {
+      const marked = this.repository.grade(sessionId, call.args).blocks.find(block => block.blockId === call.args.blockId)!;
+      this.#publish(sessionId);
+      return { blockId: marked.blockId, ...marked.result, secondsLeft: secondsLeft() };
+    }
     if (call.tool === "tutor_advance") {
       const phase = this.repository.advance(sessionId, call.args.phase).phase;
       this.#publish(sessionId);
-      return { phase };
+      return { phase, secondsLeft: secondsLeft() };
+    }
+    if (call.tool === "tutor_update" || call.tool === "tutor_erase") {
+      const block = call.tool === "tutor_update" ? this.repository.update(sessionId, call.args) : this.repository.erase(sessionId, call.args);
+      this.#publish(sessionId);
+      if (block.tool === "tutor_show_page" && !block.erasedAt) await this.#files(files => files.savePage(this.repository.session(sessionId), block.args.title, block.args.html), undefined);
+      return { blockId: block.blockId, secondsLeft: secondsLeft() };
     }
     const saved = this.repository.state(sessionId);
     const open = saved.blocks.find(block => block.status === "open");
@@ -175,13 +213,13 @@ export class TutorCoordinator {
     if (open && call.tool !== "tutor_say" && call.tool === open.tool && JSON.stringify(call.args) === JSON.stringify(open.args)) block = open;
     else block = this.repository.openBlock(sessionId, toolCallId, call);
     this.#publish(sessionId);
-    if (block.tool === "tutor_show_page" && block.status === "open") await this.#files(files => files.savePage(this.repository.session(sessionId), block.args.title, block.args.html), undefined);
+    if (block.tool === "tutor_show_page" && !block.erasedAt) await this.#files(files => files.savePage(this.repository.session(sessionId), block.args.title, block.args.html), undefined);
     if (block.tool === "tutor_finish") {
       const finished = this.repository.session(sessionId);
       await this.#files(files => files.recordFinish(finished), undefined);
-      return finished.result;
+      return { ...finished.result, secondsLeft: secondsLeft() };
     }
-    if (block.status !== "open") return { blockId: block.blockId, result: block.result };
+    if (block.status !== "open") return { blockId: block.blockId, result: block.result, ...(block.tool === "tutor_ask_typed" ? { matched: block.result?.matched ?? false } : {}), secondsLeft: secondsLeft() };
     if (running.wake) throw new Error("Already waiting for this student's open block");
     await new Promise<void>((resolve, reject) => {
       const cleanup = () => { signal?.removeEventListener("abort", abort); running.wake = null; };
@@ -191,8 +229,9 @@ export class TutorCoordinator {
       if (signal?.aborted || running.stopped) abort();
     });
     const answered = this.repository.state(sessionId).blocks.find(item => item.blockId === block.blockId);
+    if (answered?.status === "cancelled" && secondsLeft() === 0) return timeUp();
     if (!answered?.result) throw new Error("The block has no student answer");
-    return { blockId: block.blockId, ...answered.result };
+    return { blockId: block.blockId, ...answered.result, secondsLeft: secondsLeft() };
   }
   /** Study-folder problems are reported, never allowed to stop a lesson. */
   async #files<T>(action: (files: TutorFiles) => Promise<T>, fallback: T): Promise<T> {

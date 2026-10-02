@@ -23,7 +23,7 @@ export async function verifyMarkdownSurfaces(page, base, evidenceDirectory) {
     } });
   }, reply);
   const check = async locator => {
-    await locator.locator("strong").getByText("sign in", { exact: true }).waitFor();
+    await locator.locator("strong").getByText("sign in", { exact: true }).waitFor({ timeout: 15_000 });
     assert.equal(await locator.locator("ul > li").count(), 2);
     assert.equal(await locator.getByRole("link", { name: "School help" }).getAttribute("href"), "https://example.com/help");
     assert.equal(await locator.locator("code").innerText(), "student@example.com");
@@ -39,16 +39,18 @@ export async function verifyMarkdownSurfaces(page, base, evidenceDirectory) {
       await page.setViewportSize({ width, height: width === 1440 ? 950 : 720 });
       await open("chat-handoff");
       await seedScan();
-      await check(page.locator(".scan-result-copy > .chat-markdown"));
+      // The result header now uses fixed sign-in copy. Rich scan notes live in details.
+      await page.getByRole("heading", { name: "School sign-in signed you out", exact: true }).waitFor();
       await page.getByRole("button", { name: "Scan details", exact: true }).click();
       await check(page.locator(".scan-detail-note > .chat-markdown"));
       await check(page.locator(".scan-activity-entry .chat-markdown").first());
       assert.equal(await page.locator(".scan-student-message").innerText(), "Keep **this** as typed.");
       await capture(`scan-markdown-${width}`);
       await page.getByRole("button", { name: "Scan result", exact: true }).click();
-      await check(page.locator(".scan-result-copy > .chat-markdown"));
+      await page.getByRole("button", { name: "I've signed in", exact: true }).waitFor();
       await page.getByRole("button", { name: "Close school check", exact: true }).click();
-      await check(page.locator(".scan-status__copy > .chat-markdown"));
+      // The dashboard redesign replaced the Markdown scan banner with a short status.
+      await page.getByRole("heading", { name: "Your school needs you to sign in.", exact: true }).waitFor();
 
       await open("onboarding-handoff");
       await seedScan();
@@ -63,14 +65,17 @@ export async function verifyMarkdownSurfaces(page, base, evidenceDirectory) {
       await open("desk-needs-user");
       await page.evaluate(async text => {
         const state = await window.studi.getLifecycleState();
-        window.studi.getLifecycleState = async () => ({ ...state, execution: { ...state.execution, lastError: text } });
+        window.studi.getLifecycleState = async () => ({ ...state,
+          execution: { ...state.execution, returnPredicate: text, lastError: text },
+        });
       }, reply);
-      await check(page.locator("#assignment-action-note > .chat-markdown"));
+      // The dock has a plain action prompt; Dot's full handoff is Markdown in the thread.
+      await check(page.locator(".ag-thread .chat-markdown").filter({ hasText: "School help" }));
       await capture(`assignment-handoff-markdown-${width}`);
     }
 
     assert.deepEqual(errors, []);
-    return { passed: ["school results, notes, conversation, and dashboard scan banner", "onboarding handoff and progress", "assignment handoff", "literal student messages", "desktop and narrow layouts"], errors };
+    return { passed: ["school notes and conversation", "onboarding handoff and progress", "assignment handoff thread", "literal student messages", "desktop and narrow layouts"], errors };
   } finally {
     page.off("pageerror", onError);
   }

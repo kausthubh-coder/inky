@@ -43,9 +43,11 @@ export const MasteryEvidenceSchema = z.strictObject({
   answer: z.string().min(1).max(10000), rationale: z.string().min(1).max(2000),
   hintsUsed: z.number().int().min(0).max(8), recordedAt: IsoTimestampSchema,
 });
+export const TopicReviewSchema = z.strictObject({ dueOn: LearnDateSchema, gapDays: z.number().int().min(1).max(30), lastRightOn: LearnDateSchema.nullable() });
+export type TopicReview = z.infer<typeof TopicReviewSchema>;
 export const TopicMasterySchema = z.strictObject({
   topicId: OpaqueIdSchema, level: z.number().int().min(0).max(4),
-  evidence: z.array(MasteryEvidenceSchema).min(1).max(1000), updatedAt: IsoTimestampSchema,
+  evidence: z.array(MasteryEvidenceSchema).min(1).max(1000), updatedAt: IsoTimestampSchema, review: TopicReviewSchema.nullable().default(null),
 });
 export const TopicMasterySummarySchema = TopicMasterySchema.omit({ evidence: true }).extend({ evidenceCount: z.number().int().min(1).max(1000) });
 export type TopicMasterySummary = z.infer<typeof TopicMasterySummarySchema>;
@@ -106,8 +108,24 @@ export function computeReadiness(topics: readonly LearnTopic[], mastery: readonl
 
 export interface LearnPlan {
   leadExam: Exam | null; todayTopic: LearnTopic | null; readiness: Readiness;
-  recapDue: boolean; recapTopic: LearnTopic | null;
-  path: { date: string; kind: "topic" | "recap" | "mock_exam"; topicId: string | null; minutes: number }[];
+  comingBack: LearnTopic[]; topicsLeft: number;
+}
+const day = (value: string) => Date.parse(`${value}T00:00:00.000Z`);
+/** The calendar day on this machine, the same day the Learn page shows. */
+export function localDay(iso: string): string {
+  const date = new Date(iso);
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+}
+export function nextReview(previous: TopicReview | null, input: { today: string; examDate: string | null; right: boolean }): TopicReview {
+  const today = LearnDateSchema.parse(input.today), examDate = input.examDate === null ? null : LearnDateSchema.parse(input.examDate);
+  const daysLeft = examDate ? (day(examDate) - day(today)) / 86_400_000 : null;
+  if (input.right && previous?.lastRightOn && previous.dueOn > today) return previous;
+  const gapDays = !input.right ? 1 : !previous?.lastRightOn
+    ? daysLeft === null ? 2 : Math.max(1, Math.min(14, Math.round(daysLeft / 4)))
+    : Math.min(30, previous.gapDays * 2);
+  let due = day(today) + gapDays * 86_400_000;
+  if (examDate && daysLeft! > 1 && due >= day(examDate)) due = day(examDate) - 86_400_000;
+  return { dueOn: new Date(due).toISOString().slice(0, 10), gapDays, lastRightOn: input.right ? today : null };
 }
 export function planLearn(input: {
   exams: readonly Exam[]; topics: readonly LearnTopic[]; mastery: readonly (TopicMastery | TopicMasterySummary)[];
@@ -117,27 +135,15 @@ export function planLearn(input: {
   const leadExam = input.selectedExamId ? input.exams.find(exam => exam.examId === input.selectedExamId) ?? null : orderGoals(input.exams, today)[0] ?? null;
   const topics = input.topics.filter(t => t.examId === leadExam?.examId && t.origin !== "homework_hint");
   const weights = normalizeTopicWeights(topics);
-  const levels = new Map(input.mastery.map(item => [item.topicId, item.level]));
+  const records = new Map(input.mastery.map(item => [item.topicId, item]));
   // Without stated shares every topic counts the same for ordering only; readiness stays unknown.
-  const gap = (topic: LearnTopic) => (weights ? weights[topic.topicId] ?? 0 : 1) * (4 - (levels.get(topic.topicId) ?? 0)) / 4;
-  const ordered = [...topics].sort((a, b) => gap(b) - gap(a) || a.chapter - b.chapter || a.topicId.localeCompare(b.topicId));
-  const last = input.sessions.filter(session => session.status === "completed" && session.finishedAt && topics.some(t => t.topicId === session.topicId))
-    .sort((a, b) => b.finishedAt!.localeCompare(a.finishedAt!) || b.sessionId.localeCompare(a.sessionId))[0];
-  const recapTopic = topics.find(t => t.topicId === last?.topicId) ?? null;
-  const day = (value: string) => Date.parse(`${value}T00:00:00.000Z`);
-  const sinceLast = last ? Math.floor((day(today) - day(last.finishedAt!.slice(0, 10))) / 86_400_000) : 0;
-  const recapDue = !!last && sinceLast >= 3;
-  const path: LearnPlan["path"] = [];
-  const days = leadExam?.date && topics.length ? Math.min(90, Math.ceil((day(leadExam.date) - day(today)) / 86_400_000)) : 0;
-  for (let index = 0; index < days; index++) {
-    const date = new Date(day(today) + index * 86_400_000).toISOString().slice(0, 10);
-    const mock = days - index === 2 && topics.length <= 30;
-    const recap = !!recapTopic && (index === 0 ? recapDue : (index + sinceLast) % 3 === 0);
-    path.push({ date, kind: mock ? "mock_exam" : recap ? "recap" : "topic",
-      topicId: mock ? null : recap ? recapTopic!.topicId : ordered[index % ordered.length]?.topicId ?? null,
-      minutes: recap && !mock ? 5 : 15 });
-  }
-  return { leadExam, todayTopic: ordered[0] ?? null, readiness: computeReadiness(topics, input.mastery), recapDue, recapTopic, path };
+  const gap = (topic: LearnTopic) => (weights ? weights[topic.topicId] ?? 0 : 1) * (4 - (records.get(topic.topicId)?.level ?? 0)) / 4;
+  const needsWork = topics.filter(topic => (records.get(topic.topicId)?.level ?? 0) < 3);
+  const ordered = needsWork.filter(topic => !records.get(topic.topicId)?.review || records.get(topic.topicId)!.review!.dueOn <= today)
+    .sort((a, b) => gap(b) - gap(a) || a.chapter - b.chapter || a.topicId.localeCompare(b.topicId));
+  const comingBack = topics.filter(topic => (records.get(topic.topicId)?.level ?? 0) >= 3 && !!records.get(topic.topicId)?.review && records.get(topic.topicId)!.review!.dueOn <= today)
+    .sort((a, b) => records.get(a.topicId)!.review!.dueOn.localeCompare(records.get(b.topicId)!.review!.dueOn) || a.chapter - b.chapter || a.topicId.localeCompare(b.topicId));
+  return { leadExam, todayTopic: ordered[0] ?? null, readiness: computeReadiness(topics, input.mastery), comingBack, topicsLeft: needsWork.length };
 }
 
 /** Upcoming exams by date, then undated exams, then topic goals. Past exams are only shown when chosen. */

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studi Learn: lesson reference (board and side chat)</title>
+<link rel="stylesheet" href="../characters.css">
+<style>
+@font-face{font-family:"Nunito Sans";font-weight:400;src:url("../../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:600;src:url("../../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-600-normal.woff2") format("woff2")}
+@font-face{font-family:"Nunito Sans";font-weight:700;src:url("../../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-700-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:500;src:url("../../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-500-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:700;src:url("../../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-700-normal.woff2") format("woff2")}
+:root{--pencil:#2b2621;--label:#6b6359;--rule:#ebe4d6;--paper:#fbf7ee;--page:#fffdf8;--blotter:#f2ebdd;--blot2:#e9e0ce;--highlighter:#cdbcf0;
+  --tutor:#5a4691;--you:#2b2621;--new:rgb(246 201 69/42%);
+  --shadow:0 0 0 1.5px var(--pencil),0 2.5px 0 1.5px var(--pencil);--lift:0 0 0 1px rgb(43 38 33/10%),0 1px 2px rgb(43 38 33/5%)}
+*{box-sizing:border-box}
+body{margin:0;background:#26221d;color:var(--pencil);font:400 15px/1.5 "Nunito Sans",sans-serif;-webkit-font-smoothing:antialiased}
+p,h1{margin:0}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+.rd-quiet{display:inline-flex;align-items:center;min-height:30px;padding:4px 11px;font-size:13px;font-weight:600;border-radius:8px;background:var(--blotter)}
+.ink2{flex:none}
+.doc{max-width:1280px;margin:0 auto;padding:30px 0 80px}
+.cap{margin:40px 0 10px;color:#f3ecdf;font:700 18px "Nunito Sans",sans-serif}
+body.single{background:var(--paper)}
+body.single .doc{padding:0;max-width:none}
+body.single .doc > *:not(.show){display:none}
+.frame{position:relative;width:1280px;height:800px;overflow:hidden;display:flex;flex-direction:column;background:var(--paper);color:var(--pencil);border-radius:12px}
+body.single .frame{border-radius:0}
+.top{display:flex;align-items:center;gap:14px;height:56px;padding:0 28px;flex:none}
+.top strong{font-size:15px;font-weight:700}
+.top strong span{font-weight:400;color:var(--label)}
+.top .end{margin-left:auto;display:flex;align-items:center;gap:16px;font-size:13.5px;color:var(--label)}
+.steps{display:flex;align-items:center;gap:5px;font-weight:600;color:var(--pencil)}
+.steps i{width:24px;height:6px;border-radius:3px;background:#cfc6b4}
+.steps i.d{background:var(--pencil)}
+.steps i.n{background:var(--highlighter);box-shadow:0 0 0 1.5px var(--pencil)}
+.steps span{margin-left:8px}
+
+/* ===== The board: the work, and nothing else ===== */
+.bd{position:relative;min-height:0;border-radius:18px;overflow:hidden;
+  background:linear-gradient(160deg,#ffffff 0%,#fffefb 60%,#fbf8f1 100%);
+  box-shadow:0 0 0 6px #ded7c8,0 0 0 7.5px var(--pencil),inset 0 0 0 1px rgb(43 38 33/6%)}
+.col{position:absolute;top:0;bottom:0;width:720px;padding:26px 0 16px;overflow:hidden}
+/* Chalky's hand: the question and its notes. */
+.q{font:700 26px/1.3 "Shantell Sans",cursive;color:var(--pencil)}
+.w{font:500 20px/1.45 "Shantell Sans",cursive;color:var(--tutor)}
+.q + .w{margin-top:4px}
+.new{box-shadow:inset 0 -10px 0 var(--new)}
+/* Labels and data are plain type, so numbers are easy to read. */
+.lab{font:600 15px/1.4 "Nunito Sans",sans-serif;color:var(--label)}
+.pic{display:block;margin-top:10px}
+.pic text{font-family:"Nunito Sans",sans-serif}
+.slide{display:flex;align-items:center;gap:12px;height:34px;font:600 16px "Nunito Sans",sans-serif;font-variant-numeric:tabular-nums}
+.slide input{width:220px;accent-color:var(--tutor)}
+.slide b{font-weight:700}
+.slide .to{color:var(--label)}
+.tab{display:inline-grid;grid-template-columns:76px repeat(4,96px);margin-top:6px;padding:0 6px;border-radius:6px;font:600 17px "Nunito Sans",sans-serif;font-variant-numeric:tabular-nums}
+.tab.five{grid-template-columns:76px repeat(5,96px)}
+.tab > *{display:flex;align-items:center;height:32px}
+.tab .r2{border-top:1.5px solid var(--blot2)}
+.tab b{font-weight:700}
+.tab.new,.tab .newc{background:var(--new);box-shadow:none}
+.tab .newc{margin:0 -6px 0 -10px;padding-left:10px}
+/* The answer: a real field. It is the strongest control on the board. */
+.ans{display:flex;align-items:center;gap:14px;height:54px;margin-top:10px}
+.field{display:inline-flex;align-items:center;width:190px;height:50px;padding:0 14px;border-radius:12px;background:#fff;box-shadow:0 0 0 2px var(--pencil);font:700 24px "Nunito Sans",sans-serif;color:var(--you)}
+.field.focus{box-shadow:0 0 0 2px var(--pencil),0 0 0 6px var(--highlighter)}
+.field.focus::after{content:"";width:2px;height:26px;background:var(--pencil)}
+.field.small{width:120px;height:44px;font-size:20px}
+.was{font:700 24px "Nunito Sans",sans-serif;color:var(--label);text-decoration:line-through var(--tutor) 2.5px}
+.right{position:relative;display:inline-grid;place-items:center;height:50px;padding:0 20px;font:700 24px "Nunito Sans",sans-serif}
+.right::before{content:"";position:absolute;inset:-2px -6px;border:3px solid var(--tutor);border-radius:50%/60%;transform:rotate(-3deg)}
+.ans svg{color:var(--tutor)}
+.bbtn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:50px;min-width:120px;padding:0 24px;border-radius:14px;background:var(--highlighter);box-shadow:var(--shadow);font:700 16px "Nunito Sans",sans-serif}
+.bbtn.off{opacity:.45}
+.hint{min-height:36px;padding:0 12px;border-radius:10px;font:600 14.5px "Nunito Sans",sans-serif;color:var(--tutor);background:none;box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--tutor) 35%,transparent)}
+.ans + .w{margin-top:8px}
+/* Finished questions fold to one line. */
+.done{display:flex;align-items:center;gap:10px;height:38px;margin-bottom:14px;padding:0 12px;border-radius:10px;background:var(--blotter);font:600 15px "Nunito Sans",sans-serif;color:var(--label)}
+.done b{color:var(--pencil);font-weight:700}
+.done svg{color:var(--tutor);flex:none}
+.done .more{margin-left:auto}
+/* Worked steps, with real fractions. */
+.work{margin:10px 0 0;padding:0;list-style:none;counter-reset:n}
+.work li{counter-increment:n;display:grid;grid-template-columns:24px 190px auto;align-items:center;justify-content:start;min-height:56px;font:600 19px "Nunito Sans",sans-serif;font-variant-numeric:tabular-nums}
+.work li::before{content:counter(n);font-size:15px;color:var(--label)}
+.work li > span:first-of-type{font:600 15px "Nunito Sans",sans-serif;color:var(--label)}
+.frac{display:inline-grid;justify-items:center;line-height:1.25}
+.frac > span:first-child{padding:0 6px 2px}
+.frac > span:last-child{align-self:start;width:100%;text-align:center;border-top:2px solid var(--pencil);padding-top:1px}
+.work .ans{margin:0;height:auto}
+
+/* ===== Talking with Chalky: what you said, what Chalky said, and the box to say more ===== */
+.you{align-self:flex-end;max-width:92%;padding:8px 12px;border-radius:14px 14px 4px 14px;background:var(--blotter);font:400 15px/1.4 "Nunito Sans",sans-serif}
+.them{font:400 16px/1.45 "Nunito Sans",sans-serif}
+.old{opacity:.55}
+.say{display:flex;align-items:center;height:50px;padding:0 8px 0 16px;border-radius:14px;background:var(--page);box-shadow:var(--lift);font-size:15.5px;color:var(--label)}
+.say i{display:grid;place-items:center;width:34px;height:34px;margin-left:auto;border-radius:50%;background:var(--blotter);font-style:normal}
+
+/* The side chat: Chalky, the conversation, and the box to say more, in a panel beside the board. */
+.wrap{flex:1;min-height:0;display:grid;grid-template-columns:300px minmax(0,1fr);gap:22px;padding:2px 28px 24px 24px}
+.side{display:flex;flex-direction:column;min-height:0}
+.who{display:flex;align-items:center;gap:26px;padding:4px 0 14px}
+.who .ink2{width:112px;height:112px;margin:-6px 0 -6px -8px}
+.who b{display:block;font:700 22px "Shantell Sans",cursive;color:var(--tutor)}
+.who small{font-size:13.5px;color:var(--label)}
+.talk{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end;gap:10px;padding:0 2px 14px}
+.col{left:50%;transform:translateX(-50%)}
+
+.note{max-width:920px;margin:12px 0 0;padding-left:20px;font-size:14px;color:#cfc6b6}
+.note li{margin:3px 0}
+.note b{color:#f3ecdf}
+body.single .note{display:none}
+.who{gap:14px}
+.who .ink2{margin-right:14px}
+
+/* Pick one: a lettered list. The student's pick is filled in their ink. */
+.opts{margin:14px 0 0;padding:0;list-style:none}
+.opts li{display:flex;align-items:center;gap:14px;min-height:50px;padding:4px 12px;border-radius:12px;font:400 18px "Nunito Sans",sans-serif}
+.opts li i{display:grid;place-items:center;flex:none;width:32px;height:32px;border-radius:50%;box-shadow:inset 0 0 0 2px var(--pencil);font:700 14px "Nunito Sans",sans-serif;font-style:normal}
+.opts li.on{font-weight:700;background:var(--blotter)}
+.opts li.on i{background:var(--pencil);color:#fff}
+/* A longer answer: a real text box, then what it needed. */
+.area{min-height:104px;margin-top:12px;padding:12px 14px;border-radius:12px;background:#fff;box-shadow:0 0 0 2px var(--pencil);font:400 17px/1.5 "Nunito Sans",sans-serif;color:var(--you)}
+.area.sent{box-shadow:0 0 0 1.5px var(--blot2);min-height:0}
+.points{margin:12px 0 0;padding:0;list-style:none;font:600 15.5px "Nunito Sans",sans-serif}
+.points li{display:flex;align-items:center;gap:10px;min-height:28px}
+.points li svg{color:var(--tutor);flex:none}
+.points li.off{color:var(--label)}
+/* Wrap-up. */
+.sec{margin:22px 0 6px;font:600 15px "Nunito Sans",sans-serif;color:var(--label)}
+.clicked{display:grid;grid-template-columns:60px minmax(0,1fr);gap:4px 12px;margin:0;font:500 20px/1.45 "Shantell Sans",cursive;color:var(--tutor)}
+.clicked dt{font:600 15px/1.5 "Nunito Sans",sans-serif;color:var(--label);padding-top:5px}
+.clicked dd{margin:0}
+.clicked .before{color:var(--label);text-decoration:line-through var(--tutor) 2px}
+.lev{margin:0;padding:0;list-style:none}
+.lev li{display:grid;grid-template-columns:210px auto minmax(0,1fr);align-items:center;gap:16px;min-height:40px;border-top:1.5px solid var(--blot2);font:600 16px "Nunito Sans",sans-serif}
+.lev li:first-child{border-top:0}
+.lev .m{display:flex;gap:4px}
+.lev .m i{width:18px;height:5px;border-radius:3px;background:var(--blot2)}
+.lev .m i.on{background:var(--pencil)}
+.lev span.t{font-weight:400;font-size:15px;color:var(--label)}
+.lev span.t b{color:var(--pencil)}
+.plain{margin:0;padding-left:20px;font:400 16px/1.5 "Nunito Sans",sans-serif}
+.score{font:700 44px/1 "Shantell Sans",cursive;color:var(--pencil)}
+.bars{margin:0;padding:0;list-style:none}
+.bars li{display:grid;grid-template-columns:minmax(0,1fr) 140px 48px;align-items:center;gap:18px;min-height:40px;border-top:1.5px solid var(--blot2);font:600 16px "Nunito Sans",sans-serif}
+.bars li:first-child{border-top:0}
+.bars .bar{height:6px;border-radius:3px;background:var(--blot2);overflow:hidden}
+.bars .bar i{display:block;height:100%;background:var(--pencil)}
+.bars b{text-align:right;font-variant-numeric:tabular-nums}
+.bars li.weak{font-weight:700}
+.empty{font-size:14.5px;color:var(--label)}
+</style>
+</head>
+<body>
+<div class="doc" id="doc"></div>
+<script src="../characters.js"></script>
+<script>
+const arrow = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>`;
+const tick = (size = 30) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 13.5c2 1.4 3.8 3.6 5.2 6C12 13.5 16 8 21 4.5"/></svg>`;
+const dash = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 12.5c4-.6 8-.6 12 0"/></svg>`;
+const PHASES = ["Check", "Learn", "Practise", "On your own", "Wrap up"];
+const topBar = (phase, time, title = "What a derivative is") => `<header class="top"><button class="rd-quiet">← Lessons</button><strong>${title}<span> · MA 141 Midterm 2</span></strong><div class="end">${phase === null ? "" : `<div class="steps">${PHASES.map((_, i) => `<i${i < phase ? ' class="d"' : i === phase ? ' class="n"' : ""}></i>`).join("")}<span>${phase > 4 ? "Done" : `Step ${phase + 1} of 5 · ${PHASES[phase]}`}</span></div>`}${time ? `<span>${time} min left</span><button class="rd-quiet">Pause</button>` : ""}</div></header>`;
+// One size in every state. The readout sits on the picture, next to the line it describes.
+function graph({ H, h = 1, gap = false, slope }) {
+  const W = 720, x = t => 44 + t / 5.4 * (W - 60), y = d => H - 28 - d / 29 * (H - 40);
+  const curve = Array.from({ length: 55 }, (_, i) => i / 10).map(t => `${x(t).toFixed(1)},${y(t * t).toFixed(1)}`).join(" ");
+  const m = 6 + h, line = t => 9 + m * (t - 3), t0 = 2, t1 = Math.min(5.2, 3 + 19 / m), q = [3 + h, (3 + h) ** 2], gy = y(9) + 22;
+  return `<svg class="pic" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" fill="none" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Distance against time, with a line through t = 3 and a second point">
+    <path d="M44 6V${H - 28}H${W - 4}" stroke="#2b2621" stroke-width="2.2"/>
+    <text x="${W - 6}" y="${H - 8}" text-anchor="end" font-size="14" font-weight="600" fill="#6b6359">time (s)</text>
+    <text x="54" y="18" font-size="14" font-weight="600" fill="#6b6359">distance (m)</text>
+    <polyline points="${curve}" stroke="#2b2621" stroke-width="3"/>
+    <line x1="${x(t0)}" y1="${y(line(t0))}" x2="${x(t1)}" y2="${y(line(t1))}" stroke="#5a4691" stroke-width="3"/>
+    <text x="${x(t1) - 6}" y="${y(line(t1)) + 34}" text-anchor="end" font-size="16" font-weight="700" fill="#5a4691">slope ${slope}</text>
+    ${gap ? `<rect x="${x(q[0]) + 12}" y="${gy - 15}" width="78" height="26" rx="4" fill="#f6c945" opacity=".6"/>
+    <path d="M${x(3)} ${gy - 6}v12M${x(q[0])} ${gy - 6}v12M${x(3)} ${gy}H${x(q[0])}" stroke="#5a4691" stroke-width="2.6"/>
+    <text x="${x(q[0]) + 18}" y="${gy + 5}" font-size="16" font-weight="700" fill="#5a4691">the gap</text>` : ""}
+    ${h > 0.02 ? `<circle cx="${x(q[0])}" cy="${y(q[1])}" r="8" fill="#b7a3dd" stroke="#2b2621" stroke-width="2"/>${h > 0.3 ? `<path d="M${x(q[0]) - 16} ${y(q[1]) - 15}l-5 5 5 5M${x(q[0]) - 21} ${y(q[1]) - 10}h14" stroke="#5a4691" stroke-width="2"/>` : ""}` : ""}
+    <circle cx="${x(3)}" cy="${y(9)}" r="6.5" fill="#fff" stroke="#2b2621" stroke-width="2.4"/>
+    <text x="${x(3) - 10}" y="${y(9) - 10}" text-anchor="end" font-size="15" font-weight="700" fill="#2b2621">t = 3</text>
+  </svg>`;
+}
+
+const slider = (gap, slope, value) => `<div class="slide"><span class="lab">gap</span><input type="range" min="1" max="100" value="${value}" aria-label="gap in seconds"><b>${gap}</b><span class="to">→ slope</span><b>${slope}</b></div>`;
+const table = state => `<div class="tab${state === "new" ? " new" : ""}${state === "five" ? " five" : ""}"><span class="lab">gap (s)</span><span>1</span><span>0.5</span><span>0.1</span><span>0.01</span>${state === "five" ? `<b class="newc">→ 0</b>` : ""}
+  <span class="lab r2">slope</span><b class="r2">7</b><b class="r2">6.5</b><b class="r2">6.1</b><b class="r2">6.01</b>${state === "five" ? `<b class="r2 newc">6</b>` : ""}</div>`;
+const frac = (a, b) => `<span class="frac"><span>${a}</span><span>${b}</span></span>`;
+const H = 230;
+const Q = `<p class="q">Make the gap smaller. What number is the slope heading toward?</p>`;
+const NOTE = `<p class="w">The line's slope is the car's average speed between the two dots.</p>`;
+const hint = `<button class="hint">Hint</button>`;
+const GAP = [["you", "what do you mean by the gap?"], ["them", "The time between the two dots. I've marked it on the graph. Drag the purple dot toward t = 3 to make it smaller."]];
+const old = lines => lines.map(([kind, text]) => [kind + " old", text]);
+
+const screens = [
+  { id: "lesson-pick", phase: 0, time: 15, chalky: "hello", title: "1 · The lesson opens with one question from an earlier topic",
+    notes: ["A pick-one question is a lettered list in plain type. Clicking a line, or pressing its letter, picks it; Check commits it.", "The grey line under the question says where it comes from. No Hint on these.", "The side chat is empty at the start, with one quiet line inviting the student to talk."],
+    html: `<p class="q">As x gets close to 2, what does (x² − 4) / (x − 2) get close to?</p><p class="lab" style="margin-top:6px">Limits · you last got this right 4 days ago</p>
+      <ul class="opts"><li><i>A</i>0</li><li class="on"><i>B</i>4</li><li><i>C</i>It doesn't exist</li></ul>
+      <div class="ans"><button class="bbtn">Check</button></div>` },
+  { id: "lesson-question", phase: 1, time: 11, chalky: "quiz", title: "2 · A question with a picture",
+    notes: ["<b>The board holds only the work,</b> in one column 720 wide: the question, Chalky's standing note, the picture with its control and readout, then the answer.", "<b>Colour.</b> The question is black, in Chalky&#39;s handwriting. Purple is only for what Chalky adds: its notes, its ticks and circles, and what it draws on a picture. The student and the data are black plain type. Grey is labels.", "<b>The answer is a real box,</b> focused as soon as a question is up. It is the strongest control on the board. Enter presses Check.", "The picture is the full column wide and keeps one size for the whole question."],
+    html: `${Q}${NOTE}${graph({ H, h: 1, slope: 7 })}${slider("1 s", 7, 100)}
+      <div class="ans"><span class="lab">Your answer</span><span class="field focus"></span><button class="bbtn off">Check</button>${hint}</div>` },
+  { id: "lesson-asked", phase: 1, time: 10, chalky: "explaining", talk: GAP, title: "3 · You ask Chalky something",
+    notes: ["<b>What you said and what Chalky replied stay in the side chat.</b> Nothing on the board is overwritten.", "Chalky changed the board to answer: it added “the gap” to the picture it had already drawn. The newest thing on the board gets the yellow highlight, and only that.", "The question stays open and the answer box keeps its focus."],
+    html: `${Q}${NOTE}${graph({ H, h: 1, slope: 7, gap: true })}${slider("1 s", 7, 100)}
+      <div class="ans"><span class="lab">Your answer</span><span class="field focus"></span><button class="bbtn off">Check</button>${hint}</div>` },
+  { id: "lesson-wrong", phase: 1, time: 9, chalky: "thinking", talk: old(GAP), title: "4 · You answer 7, which isn't right",
+    notes: ["Your 7 stays, struck through, beside a fresh answer box. Chalky's note about it is written under the answer.", "Chalky added a table under the picture it came from. It is the newest thing, so it has the highlight.", "The picture did not change size. Earlier chat fades but stays readable."],
+    html: `${Q}${NOTE}${graph({ H, h: 0.1, slope: 6.1 })}${slider("0.1 s", 6.1, 12)}${table("new")}
+      <div class="ans"><span class="lab">Your answer</span><span class="was">7</span><span class="field focus"></span><button class="bbtn off">Check</button>${hint}</div>
+      <p class="w">Not yet. 7 is the slope when the gap is a whole second. Look at the row I just added: where is it heading?</p>` },
+  { id: "lesson-right", phase: 1, time: 8, chalky: "proud", talk: old(GAP), title: "5 · You answer 6",
+    notes: ["Chalky circles and ticks the answer in its own ink. Next takes the place of Check.", "The new column in the table is the newest thing, so the highlight moves there."],
+    html: `${Q}${NOTE}${graph({ H, h: 0.01, slope: 6 })}${slider("0 s", 6, 1)}${table("five")}
+      <div class="ans"><span class="lab">Your answer</span><span class="was">7</span><span class="right">6</span>${tick()}<button class="bbtn" style="margin-left:6px">Next ${arrow}</button></div>
+      <p class="w">That's it. The car's speed at t = 3 is 6 m/s. That number has a name: the derivative at 3.</p>` },
+  { id: "lesson-steps", phase: 2, time: 6, chalky: "explaining", talk: [["you", "isn't dividing by h cheating if h ends up 0?"], ["them", "We divide while h is still a tiny real number. Only after the h's cancel do we let it shrink."]], title: "6 · Later: worked steps, with the last one left for you",
+    notes: ["The finished question has folded to one line at the top. “Show” opens it again.", "Worked steps are in plain type with real fractions. The step that is the student's has the answer box in it."],
+    html: `<div class="done">${tick(18)}<span>What number is the slope heading toward at t = 3?</span><b>6</b><span class="more">Show ▾</span></div>
+      <p class="q">Same thing at t = 5. Finish the last step.</p>
+      <ol class="work"><li><span>slope from 5 to 5 + h</span>${frac("(5 + h)² − 25", "h")}</li><li><span>multiply out</span>${frac("10h + h²", "h")}</li><li><span>divide by h</span><span>10 + h</span></li>
+        <li><span>let h shrink to nothing</span><div class="ans"><span class="field small focus"></span><button class="bbtn off">Check</button>${hint}</div></li></ol>` },
+  { id: "lesson-explain", phase: 3, time: 3, chalky: "proud", title: "7 · Saying it in your own words",
+    notes: ["A longer answer is typed in a text box. Once sent, it stays on the board in plain type.", "Under it, each thing the answer needed gets a tick or a dash in Chalky's ink, then Chalky's note. These lines are hidden until Chalky has marked it.", "On your own: no Hint, and nothing else on the board."],
+    html: `<p class="q">What does f′(3) = 6 tell you about the curve at x = 3?</p>
+      <p class="area sent">It's how steep the curve is right at 3. If you zoomed in it would look like a line going up 6 for every 1 across.</p>
+      <ul class="points"><li>${tick(20)}Says it's the steepness at that one point</li><li>${tick(20)}Turns the 6 into “up 6 for each 1 across”</li><li class="off">${dash}Says it's what nearby slopes close in on</li></ul>
+      <p class="w" style="margin-top:10px">Lovely. Zooming in is exactly the right picture.</p>
+      <div class="ans"><button class="bbtn">See how you did ${arrow}</button></div>` },
+  { id: "lesson-wrap", phase: 5, time: 0, chalky: "proud", talk: [["you old", "isn't dividing by h cheating if h ends up 0?"], ["them old", "We divide while h is still a tiny real number. Only after the h's cancel do we let it shrink."]], title: "8 · Wrap-up",
+    notes: ["The last board. <b>What clicked</b> leads, in Chalky's hand: the idea the student came in with, struck through, and the one they left with, highlighted. Shown only when the lesson produced one.", "<b>Where you are</b> lists every topic the lesson touched, how its level moved, and the day it comes back.", "The chat stays open for questions about the lesson."],
+    html: `<p class="q">That's today's session.</p>
+      <p class="sec">What clicked</p>
+      <dl class="clicked"><dt>Before</dt><dd class="before">Speed at t = 3 is just 9, the distance.</dd><dt>Now</dt><dd><span class="new">Speed is the slope the nearby slopes close in on: 6.</span></dd></dl>
+      <p class="sec">Where you are</p>
+      <ul class="lev"><li>What a derivative is<span class="m"><i class="on"></i><i class="on"></i><i class="on"></i><i></i></span><span class="t"><b>Good.</b> Back on Friday.</span></li>
+        <li>Limits<span class="m"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i></span><span class="t"><b>Solid</b>, still there after 4 days. Back next Wednesday.</span></li></ul>
+      <p class="sec">Added to your cheat sheet</p>
+      <ul class="plain"><li>f′(a) is what (f(a + h) − f(a)) / h heads to as h shrinks</li><li>If f(x) = x², then f′(x) = 2x</li></ul>
+      <p class="sec">Still to practise</p>
+      <ul class="plain"><li>Doing the algebra with no steps given</li></ul>
+      <div class="ans" style="margin-top:14px"><button class="bbtn">Back to Learn</button></div>` },
+  { id: "lesson-quiz", phase: null, time: 0, chalky: "proud", title: "9 · Quiz result", boardTitle: "Test yourself",
+    notes: ["The score leads. The weakest topic is the one bold row, and the button studies it."],
+    html: `<p class="score">7 out of 10</p><p class="w" style="margin-top:8px">Limits are solid. Derivatives from first principles is where the points are.</p>
+      <p class="sec">By topic</p>
+      <ul class="bars"><li><span>Limits</span><span class="bar"><i style="width:100%"></i></span><b>3 / 3</b></li><li class="weak"><span>What a derivative is</span><span class="bar"><i style="width:33%"></i></span><b>1 / 3</b></li><li><span>Power rule</span><span class="bar"><i style="width:75%"></i></span><b>3 / 4</b></li></ul>
+      <div class="ans" style="margin-top:16px"><button class="bbtn">Study What a derivative is · 15 min</button><button class="rd-quiet" style="min-height:40px;padding:0 14px">Back to Learn</button></div>` },
+];
+const talk = lines => lines?.length ? lines.map(([kind, text]) => `<p class="${kind}">${text}</p>`).join("") : `<p class="empty">Ask me anything while you work.</p>`;
+window.IDS = screens.map(s => s.id);
+document.getElementById("doc").innerHTML = `<h1 style="color:#f3ecdf;font:700 30px 'Shantell Sans',cursive;margin:0 0 6px">Lesson: the board and the side chat</h1><p style="color:#cfc6b6;max-width:860px">Each frame is 1280 by 800. Open <code>?screen=ID</code> to see one alone.</p>` + screens.map(s => `<p class="cap">${s.title} <code style="font:12.5px ui-monospace,Consolas,monospace;color:#a89f90;margin-left:10px">?screen=${s.id}</code></p>
+<div class="frame" id="${s.id}">${topBar(s.phase, s.time, s.boardTitle)}<div class="wrap"><aside class="side"><div class="who"><span data-chalky="${s.chalky}"></span><div><b>Chalky</b><small>your tutor</small></div></div><div class="talk">${talk(s.talk)}</div><div class="say">Say something to Chalky…<i>↑</i></div></aside><section class="bd"><div class="col">${s.html}</div></section></div></div>
+<ul class="note">${s.notes.map(n => `<li>${n}</li>`).join("")}</ul>`).join("\n");
+for (const slot of document.querySelectorAll("[data-chalky]")) slot.replaceWith(Characters.mascot("chalky", slot.dataset.chalky));
+const only = new URLSearchParams(location.search).get("screen");
+if (only) { document.body.classList.add("single"); document.getElementById(only)?.classList.add("show"); }
+</script>
+</body>
+</html>
