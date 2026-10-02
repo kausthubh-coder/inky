@@ -156,12 +156,15 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 .tu-wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 22px; padding: 2px 28px 24px 24px; }
 
 /* The side chat: Chalky, the conversation, and the box to say more. */
-.tu-side { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.tu-who { display: flex; align-items: center; gap: 14px; padding: 4px 0 14px; }
-.tu-who .character { flex: none; margin: -6px 14px -6px -8px; }
-.tu-who b { display: block; font: 700 22px/1.2 "Shantell Sans", cursive; color: var(--ink-chalky); }
-.tu-who small { font-size: 13.5px; color: var(--tu-label); }
-.tu-talk { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 0 2px 14px; overflow-y: auto; scrollbar-width: thin; }
+/* The conversation fills the panel; Chalky and the chat box sit on a frosted pane over its foot. */
+.tu-side { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.tu-talk { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px calc(var(--dock, 170px) + 14px); overflow-y: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(transparent, #000 32px); mask-image: linear-gradient(transparent, #000 32px); }
+.tu-dock { position: absolute; left: -8px; right: -8px; bottom: -8px; display: grid; gap: 4px; padding: 6px 8px 8px; border-radius: 24px;
+  background: color-mix(in srgb, var(--paper) 70%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.1); backdrop-filter: blur(14px) saturate(1.1);
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 6%), 0 -8px 24px -18px rgb(43 38 33 / 30%); }
+.tu-who { display: flex; align-items: center; gap: 10px; padding-left: 4px; }
+.tu-who .character { flex: none; margin: -4px 0 -6px -6px; }
+.tu-who b { font: 700 22px/1.2 "Shantell Sans", cursive; color: var(--ink-chalky); }
 .tu-talk > :first-child { margin-top: auto; }
 .tu-talk p { margin: 0; overflow-wrap: anywhere; }
 .tu-you { align-self: flex-end; max-width: 92%; padding: 8px 12px; border-radius: 14px 14px 4px 14px; background: var(--blotter); font-size: 15px; line-height: 1.4; }
@@ -316,10 +319,12 @@ textarea.tu-area:focus { box-shadow: 0 0 0 2px var(--pencil), 0 0 0 6px var(--hi
 @media (max-width: 999px) {
   .tu-wrap { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 16px; padding: 8px 16px 14px; }
   .tu-side { order: 2; display: grid; grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; }
-  .tu-who { padding: 0; }
-  .tu-who > div:last-child { display: none; }
-  .tu-who .character { margin: 0; zoom: 0.57; }
-  .tu-talk { max-height: 76px; padding: 0; }
+  .tu-dock { display: contents; }
+  .tu-who { order: 1; padding: 0; }
+  .tu-who b { display: none; }
+  .tu-who .character { margin: 0; zoom: 0.73; }
+  .tu-talk { order: 2; max-height: 76px; padding: 0; }
+  .tu-say { order: 3; }
   .tu-talk > :not(:last-child) { display: none; }
   .tu-steps span { display: none; }
 }
