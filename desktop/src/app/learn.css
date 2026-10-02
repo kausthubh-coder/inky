@@ -66,7 +66,7 @@
 .lr-level { display: flex; gap: 4px; }
 .lr-level i { width: 16px; height: 4px; border-radius: 2px; background: var(--blot2); }
 .lr-level i.on { background: var(--pencil); }
-.lr-level i.none { background: none; box-shadow: inset 0 0 0 1px var(--blot2); }
+.lr-level i.none { background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--graphite) 55%, transparent); }
 .lr-level-word { font-size: 13.5px; color: var(--graphite); }
 .lr-topics li > button { justify-self: end; }
 .lr-practise { opacity: 0; transition: opacity 0.15s ease-out; }
@@ -92,7 +92,7 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 .lr-page { display: block; width: 100%; height: 100%; border: 0; border-radius: 12px; box-shadow: 0 0 0 1.5px var(--blot2); background: #fff; }
 
 /* One box takes anything: typed facts, a pasted study guide, or a file. */
-.lr-drop { display: block; width: 100%; min-height: 84px; padding: 12px 14px; border: 1.5px dashed color-mix(in srgb, var(--graphite) 60%, transparent); border-radius: 12px; resize: vertical; background: none; font-size: 15px; line-height: 1.5; color: var(--pencil); outline: none; }
+.lr-drop { display: block; width: 100%; min-height: 84px; padding: 12px 14px; border: 1.5px dashed color-mix(in srgb, var(--graphite) 60%, transparent); border-radius: 12px; resize: none; background: none; font-size: 15px; line-height: 1.5; color: var(--pencil); outline: none; }
 .lr-drop::placeholder { color: var(--graphite); }
 .lr-drop:focus { border-color: var(--pencil); border-style: solid; }
 .lr-ways { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
@@ -166,7 +166,7 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 .tu-talk p { margin: 0; overflow-wrap: anywhere; }
 .tu-you { align-self: flex-end; max-width: 92%; padding: 8px 12px; border-radius: 14px 14px 4px 14px; background: var(--blotter); font-size: 15px; line-height: 1.4; }
 .tu-them { font-size: 16px; line-height: 1.45; }
-.tu-talk .is-old { opacity: 0.55; }
+.tu-talk .is-old { color: var(--tu-label); }
 .tu-empty { font-size: 14.5px; color: var(--tu-label); }
 
 /* The board holds the work and nothing else: one column, everything on its left edge. */
@@ -274,11 +274,13 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 /* A longer answer: a real text box, then what it needed. */
 .tu-area { display: block; width: 100%; min-height: 104px; margin: 12px 0 0; padding: 12px 14px; border: 0; border-radius: 12px; background: #fff; box-shadow: 0 0 0 2px var(--pencil); font: 400 17px/1.5 "Nunito Sans", sans-serif; color: var(--pencil); resize: vertical; outline: none; }
 textarea.tu-area:focus { box-shadow: 0 0 0 2px var(--pencil), 0 0 0 6px var(--highlighter); }
-.tu-area.is-sent { min-height: 0; box-shadow: 0 0 0 1.5px var(--blot2); white-space: pre-wrap; }
+/* Once sent it is the student's writing on the board, not a field. */
+.tu-area.is-sent { min-height: 0; padding: 2px 0 2px 14px; border-radius: 0; background: none; box-shadow: inset 3px 0 0 var(--blot2); white-space: pre-wrap; }
 .tu-area.is-was { color: var(--tu-label); }
 .tu-points { margin: 12px 0 0; padding: 0; list-style: none; font: 600 15.5px/1.4 "Nunito Sans", sans-serif; }
 .tu-points li { display: flex; align-items: center; gap: 10px; min-height: 28px; }
 .tu-points li.is-off { color: var(--tu-label); }
+.tu-points li b { font-weight: 700; }
 
 /* The wrap-up: the last board. */
 .tu-sec { margin: 22px 0 6px; font: 600 15px/1.4 "Nunito Sans", sans-serif; color: var(--tu-label); }
@@ -305,7 +307,7 @@ textarea.tu-area:focus { box-shadow: 0 0 0 2px var(--pencil), 0 0 0 6px var(--hi
 /* A narrow window: the board on top, Chalky and the chat in one row beneath it. */
 @media (max-width: 999px) {
   .tu-wrap { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 16px; padding: 8px 16px 14px; }
-  .tu-side { order: 2; display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; }
+  .tu-side { order: 2; display: grid; grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; }
   .tu-who { padding: 0; }
   .tu-who > div:last-child { display: none; }
   .tu-who .character { margin: 0; zoom: 0.57; }

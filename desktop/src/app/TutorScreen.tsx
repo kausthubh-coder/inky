@@ -115,11 +115,11 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
 
   // Stay on this stop; a visual that has been tried has nothing left to read, so move on from it.
   useEffect(() => { setAt(!question && view.following ? view.following : view.at); }, [view.at, view.following, !question]);
-  // A new stop starts at the top, with its answer row in view.
+  // A new stop starts at the top. When it is taller than the board, the answer and Chalky's reply to it win.
   useEffect(() => {
     setExplored([]); setAllDone(false);
     column.current?.scrollTo({ top: 0 });
-    column.current?.querySelector(".tu-ans")?.scrollIntoView({ block: "nearest" });
+    end.current?.scrollIntoView({ block: "nearest" });
   }, [view.at]);
   // Bring what was just added into view, but never while a control on a visual is being dragged.
   const added = `${view.feedback.length}:${view.visuals.length}:${view.tries.length}:${question?.hintsUsed ?? 0}:${question?.result ? 1 : 0}`;
@@ -161,17 +161,18 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
   const lastAsked = view.chat.map(item => item.kind).lastIndexOf("student");
   const chalky: ChalkyState = wrapped ? session.status === "completed" ? "proud" : "idle" : paused ? "sleep" : message.trim() ? "listening"
     : question?.result?.correct && question.status !== "open" ? "proud" : view.move === "wait" || unanswered ? "thinking"
-    : view.move === "check" ? view.tries.length || question?.hintsUsed ? "hint" : "quiz" : view.move === "tried" ? "explaining" : "idle";
+    : view.move === "check" ? question?.hintsUsed ? "hint" : view.tries.length ? "explaining" : "quiz" : view.move === "tried" ? "explaining" : "idle";
   // A question from another topic says where it comes from.
   const other = question?.args.topicId && question.args.topicId !== session.topicId ? question.args.topicId : null;
   const since = other && session.mode === "topic" ? lastRight(other) : null;
   const origin = [other && topicTitle(other), since && `you last got this right ${-daysFrom(since) <= 0 ? "today" : -daysFrom(since) === 1 ? "yesterday" : `${-daysFrom(since)} days ago`}`, question?.args.source].filter(Boolean).join(" · ");
-  const done = allDone ? view.done : view.done.slice(-2);
+  // History takes one line: the last question, or a count once there are more.
+  const done = allDone || view.done.length < 2 ? view.done : [];
 
   return (
     <main className="app-shell rd-learn tu-lesson" data-studi-app-ready="true">
       <header className="rd-tutor-heading tu-top">
-        <button className="rd-quiet" disabled={busy} onClick={() => void leave()}><Icon name="back" size={14} /> Lessons</button>
+        <button className="rd-quiet" disabled={busy} onClick={() => void leave()}><Icon name="back" size={14} /> Learn</button>
         <strong>{title}{goalLine && <span> · {goalLine}</span>}</strong>
         <div className="tu-end">
           {session.mode === "topic" && <div className="tu-steps" role="img" aria-label={wrapped ? "Lesson finished" : `Step ${step + 1} of 5, ${PHASE_NAMES[session.phase]}`}>
@@ -186,18 +187,18 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
         <aside className="tu-side" aria-label="You and Chalky">
           <div className="tu-who"><Character kind="chalky" size={112} state={chalky} /><div><b>Chalky</b><small>your tutor</small></div></div>
           <div className="tu-talk" ref={talk} role="log" aria-live="polite">
-            {!view.chat.length && <p className="tu-empty">Ask me anything while you work.</p>}
+            {!view.chat.length && !closed && <p className="tu-empty">Ask me anything while you work.</p>}
             {view.chat.map((item, index) => <p key={item.id} className={`${item.kind === "student" ? "tu-you" : "tu-them"}${index < lastAsked ? " is-old" : ""}`}>{item.text}</p>)}
             {unanswered && <p className="tu-empty" role="status">Chalky is thinking…</p>}
           </div>
-          <form className="rd-composer inky-composer tu-say" onSubmit={event => { event.preventDefault(); void send(); }}>
+          {!closed && <form className="rd-composer inky-composer tu-say" onSubmit={event => { event.preventDefault(); void send(); }}>
             <div className="inky-composer-line">
-              <textarea rows={1} aria-label="Say something to Chalky" maxLength={10000} value={message} disabled={closed} placeholder={closed ? "This lesson has ended" : "Say something to Chalky…"}
+              <textarea rows={1} aria-label="Say something to Chalky" maxLength={10000} value={message} placeholder="Say something to Chalky…"
                 onChange={event => { setMessage(event.target.value); messageId.current = null; localStorage.setItem("studi-tutor-message:" + session.sessionId, event.target.value); }}
                 onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
-              <button className="chat-send" disabled={busy || closed || !message.trim()} aria-label="Send message"><Icon name="send" size={17} /></button>
+              <button className="chat-send" disabled={busy || !message.trim()} aria-label="Send message"><Icon name="send" size={17} /></button>
             </div>
-          </form>
+          </form>}
         </aside>
         <section className="tu-board" aria-label="The board">
           <div className="tu-col" ref={column}>
@@ -210,7 +211,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
                   <button className="rd-quiet" disabled={busy} onClick={() => void run(() => window.studi!.cancelTutorSession({ sessionId: session.sessionId }))}>End the lesson</button>
                 </div>
               </> : <>
-                {view.done.length > done.length && <button className="tu-done" onClick={() => setAllDone(true)}><span>{view.done.length - done.length} earlier {view.done.length - done.length === 1 ? "question" : "questions"}</span><span className="tu-more">Show</span></button>}
+                {!done.length && view.done.length > 0 && <button className="tu-done" onClick={() => setAllDone(true)}><span>{view.done.length} earlier questions</span><span className="tu-more">Show</span></button>}
                 {done.map(item => <button key={item.blockId} className="tu-done" onClick={() => setAt(item.blockId)}>
                   {item.correct ? <Tick size={18} /> : <Dash size={18} />}<span>{item.question}</span>{item.answer && <b>{item.answer}</b>}<span className="tu-more">Show</span>
                 </button>)}
@@ -345,7 +346,7 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
         {view.tries.map((item, index) => item.answer.kind === "explain" && <p key={index} className="tu-area is-sent is-was">{item.answer.text}</p>)}
         {open ? <textarea className="tu-area" autoFocus aria-label="Your answer" value={draft} maxLength={10000} disabled={disabled} placeholder="Type it the way you'd say it out loud. Messy is fine." onChange={event => edit(event.target.value)} />
           : <p className="tu-area is-sent">{given}</p>}
-        {question.args.points && <ul className="tu-points">{question.args.points.map((point, index) => <li key={index} className={point.met ? "" : "is-off"}>{point.met ? <Tick size={20} /> : <Dash />}{point.text}</li>)}</ul>}
+        {question.args.points && <ul className="tu-points">{question.args.points.map((point, index) => <li key={index} className={point.met ? "" : "is-off"}>{point.met ? <Tick size={20} /> : <Dash />}<span>{!point.met && <b>Missing: </b>}{point.text}</span></li>)}</ul>}
         <div className="tu-ans">{action}</div>
       </>}
       {needsTry && <p className="tu-lab">Type your best try first.</p>}

@@ -141,7 +141,8 @@ function FunctionPlot({ model, onExplore, disabled }: Props<"function_plot">) {
         <polyline points={values.map(point => `${px(point.x).toFixed(1)},${py(point.y).toFixed(1)}`).join(" ")} stroke="var(--pencil)" strokeWidth="3" />
         {secant && <>
           <path d={`M${px(from)} ${py(line(from))}L${px(to)} ${py(line(to))}`} stroke="var(--ink-chalky)" strokeWidth="3" />
-          <text className="is-chalky" x={px(to) - 6} y={py(line(to)) + 30} textAnchor="end">slope {round(slope)}</text>
+          {px(to) < 610 ? <text className="is-chalky" x={px(to) + 10} y={py(line(to)) + 5}>slope {round(slope)}</text>
+            : <text className="is-chalky" x={px(to) - 6} y={py(line(to)) + 30} textAnchor="end">slope {round(slope)}</text>}
           {width > 0 && <circle cx={px(secant.x + width)} cy={py(f(secant.x + width))} r="8" fill="#b7a3dd" stroke="var(--pencil)" strokeWidth="2" />}
           <circle cx={px(secant.x)} cy={py(f(secant.x))} r="6.5" fill="#fff" stroke="var(--pencil)" strokeWidth="2.4" />
           <text className="is-point" x={px(secant.x) - 10} y={py(f(secant.x)) - 10} textAnchor="end">x = {secant.x}</text>

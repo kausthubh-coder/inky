@@ -260,12 +260,14 @@ test("boardView describes current work, history, retries, chat and erasure witho
       setNow("2026-09-19T12:00:01.000Z");
       const note = repo.openBlock(session.sessionId, "feedback", { tool: "tutor_say", args: { text: "Look at the smaller gap." } });
       ask("first", "retry");
-      assert.equal(view().tries[0].correct, false); assert.equal(view().move, "check");
-      answer(question, "4");
-      const board = view(); assert.equal(board.tries.length, 1); assert.equal(board.question.result.correct, true);
-      assert.equal(board.feedback[0].blockId, note.blockId); assert.equal(board.move, "wait"); assert.equal(board.newest, null);
-      // A note written between tries folds with the question; one written after the last answer leads into the next.
+      assert.equal(view().tries[0].correct, false); assert.equal(view().move, "check"); assert.equal(view().feedback[0].blockId, note.blockId);
       setNow("2026-09-19T12:00:02.000Z");
+      answer(question, "4");
+      // The note was about the first try, so it goes when the next try is made.
+      const board = view(); assert.equal(board.tries.length, 1); assert.equal(board.question.result.correct, true);
+      assert.deepEqual(board.feedback, []); assert.equal(board.move, "wait"); assert.equal(board.newest, null);
+      // One written after the last answer leads into the next question.
+      setNow("2026-09-19T12:00:03.000Z");
       const bridge = repo.openBlock(session.sessionId, "bridge", { tool: "tutor_say", args: { text: "Now the same at 5." } });
       ask("second");
       assert.deepEqual(view().lead.map(block => block.blockId), [bridge.blockId]);
@@ -321,6 +323,17 @@ test("boardView describes current work, history, retries, chat and erasure witho
     });
   }));
 });
+
+test("a finish that also assesses a topic that came back still places the main topic", async () => fixture(({ repo }) => {
+  const { exam, topics } = syllabus(repo);
+  const session = repo.startSession(topics[0].topicId, "Sampling", 10, { examId: exam.examId, topicIds: topics.map(topic => topic.topicId) });
+  const ask = (key, topicId) => { const block = repo.openBlock(session.sessionId, key, { tool: "tutor_ask_typed", args: { topicId, question: key + "?", accept: ["42"], hints: [] } }); repo.answerBlock(session.sessionId, block.blockId, { kind: "typed", answer: "42" }); return block; };
+  const earlier = ask("earlier", topics[1].topicId), main = ask("main", topics[0].topicId);
+  const result = repo.finish(session.sessionId, "finish", { topic: topics[0].topicId, level: 3, evidence: [{ blockId: main.blockId, rationale: "Unaided" }], missing: [], next: "Next", summary: "Done",
+    assessments: [{ topic: topics[1].topicId, level: 3, evidence: [{ blockId: earlier.blockId, rationale: "Unaided" }], missing: [], next: "Next", summary: "Done" }] }).result;
+  assert.deepEqual(result.assessments.map(item => [item.topicId, item.level]), [[topics[0].topicId, 3], [topics[1].topicId, 3]]);
+  assert.equal(result.level, 3);
+}));
 
 test("only eligible evidence changes mastery, with first placement and delayed Solid, atomic finish and owner rejection", async () => fixture(({ repo, database, setNow }) => {
   const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);

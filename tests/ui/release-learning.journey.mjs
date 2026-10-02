@@ -26,7 +26,7 @@ export async function verifyReleaseLearning(page,base) {
 
  await button('+ Learn something new').click();
  assert.equal(await button('Just add it for later').isDisabled(),true);
- await page.getByLabel('The thing',{exact:true}).fill('Reading sheet music');
+ await page.getByLabel('Topic',{exact:true}).fill('Reading sheet music');
  await button('Just add it for later').click();
  await page.locator('section[aria-label="For yourself"] .lr-row',{hasText:'Reading sheet music'}).waitFor();
  results.push('Learn something new adds a row under For yourself');
@@ -54,12 +54,11 @@ export async function verifyReleaseLearning(page,base) {
  await page.locator('.tu-right',{hasText:'6'}).waitFor();
  await button('Next').click();
  await page.getByRole('heading',{name:'What does the base rate tell us?',exact:true}).waitFor();
- const folded=page.locator('.tu-done',{hasText:'Make the gap smaller'});
- await folded.waitFor();
- await folded.click();
+ await page.locator('.tu-done',{hasText:'2 earlier questions'}).click();
+ await page.locator('.tu-done',{hasText:'Make the gap smaller'}).click();
  await page.getByRole('heading',{name:'Make the gap smaller. What number is the slope heading toward?',exact:true}).waitFor();
  await page.locator('.tu-right',{hasText:'6'}).waitFor();
- results.push('A right answer is marked at once; Next folds it to a line that Show reopens');
+ results.push('A right answer is marked at once; Next folds it into the earlier questions, which reopen it');
 
  await open('tutor-pick');
  assert.equal(await button('Check').isDisabled(),true);

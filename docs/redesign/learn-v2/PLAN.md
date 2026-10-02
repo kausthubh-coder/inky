@@ -333,7 +333,7 @@ Add a pure function `boardView(session, at?)` to `shared/tutor.ts`. It turns the
 | `note` | Its standing line |
 | `visuals` | Visuals that are up, in the order shown, each with the things under it |
 | `tries` | Earlier tries at the current question |
-| `feedback` | Chalky's notes written since this stop went up |
+| `feedback` | Chalky's notes since the student's latest try at this stop; notes about an earlier try go with it |
 | `newest` | The id of the most recently added or updated thing, cleared by the student's next action |
 | `chat` | Student messages and Chalky's replies, oldest first |
 | `move` | What the one button does now: `check`, `tried`, `next` (a later stop exists), `finish` (the lesson has ended), or `wait` (Chalky is writing) |
@@ -488,7 +488,7 @@ Draw everything from `boardView(session)` (B7). The screen makes no layout decis
 
 **The board, top to bottom.** One column; every item starts on its left edge.
 
-1. **Finished questions,** each folded to one line: a tick or a dash, the question, the final answer, and "Show" to reopen it (`shots/lesson-steps.png`). The last two are shown; older ones sit behind "N earlier questions".
+1. **Finished questions,** each folded to one line: a tick or a dash, the question, the final answer, and "Show" to reopen it (`shots/lesson-steps.png`). One finished question is shown as a line; with more, a single "N earlier questions" line opens the list.
 2. **What Chalky wrote since the last answer** (`lead`), in Chalky's hand at 20px.
 3. **The question,** in Chalky's hand at 26px, in black.
 4. **The standing note** (`note`), in Chalky's hand at 20px. For a question on an earlier topic, a grey label instead: the topic and "you last got this right N days ago".

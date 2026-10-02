@@ -77,21 +77,22 @@ export function learnPreview(id: string) {
   const moment = calculus ? ["pick", "question", "asked", "wrong", "right", "steps", "marked", "wrap"].indexOf(model) : -1;
   const GAP_QUESTION = "Make the gap smaller. What number is the slope heading toward?";
   /** The answers the preview marks against. The real lesson never sends these to the screen. */
-  const KEYS: Record<string, string | number> = { "As x gets close to 2, what does (x² − 4) / (x − 2) get close to?": 1, [GAP_QUESTION]: "6", "Same thing at t = 5. Finish the last step.": "10" };
+  const KEYS: Record<string, string | number> = { "As x gets close to 2, what does (x² − 4) / (x − 2) get close to?": 1, [GAP_QUESTION]: "6", "Same thing at t = 5. Let h shrink to nothing: what's left?": "10" };
   const lesson = () => {
     const blocks: PublicTutorBlock[] = [];
     const add = (phase: TutorPhase, tool: PublicTutorBlock["tool"], args: unknown, result: Result | null = null, extra: object = {}) => { blocks.push(block(blocks.length, phase, tool, args, result, extra)); return blocks.at(-1)!; };
     const typed = (answer: string, correct: boolean): Result => ({ answer: { kind: "typed", answer }, correct, matched: correct, hintsUsed: 0, seconds: 20 });
+    const tried = (result: Result, seconds: number) => ({ ...result, answeredAt: stamp(seconds) });
     const up = { status: "complete", erasedAt: moment >= 5 ? now() : null };
     add("check", "tutor_ask_choice", { topicId: "calc-0", question: "As x gets close to 2, what does (x² − 4) / (x − 2) get close to?", options: ["0", "4", "It doesn't exist"] },
       moment > 0 ? { answer: { kind: "choice", picked: 1 }, correct: true, hintsUsed: 0, seconds: 9 } : null);
     if (moment < 1) return { blocks, newest: null as string | null };
     const plot = add("learn", "tutor_show_model", { model: "function_plot", wait: false, controls: ["gap"], params: { family: "quadratic", a: 1, b: 0, c: 0, xMin: 0, xMax: 5.4,
       secant: { x: 3, gap: moment >= 4 ? 0.01 : moment === 3 ? 0.1 : 1 }, ...(moment === 2 ? { labels: [{ x: 3.5, text: "the gap" }] } : {}) } }, null, up);
-    const tries = moment === 3 ? [typed("7", false)] : moment >= 4 ? [typed("7", false), typed("6", true)] : [];
+    const tries = moment === 3 ? [tried(typed("7", false), 25)] : moment >= 4 ? [tried(typed("7", false), 25), tried(typed("6", true), 55)] : [];
     add("learn", "tutor_ask_typed", { question: GAP_QUESTION, note: "The line's slope is the car's average speed between the two dots.", hints: [], hasMoreHints: true },
-      moment >= 4 ? typed("6", true) : null, { attempts: tries, firstAnsweredAt: moment >= 3 ? stamp(25) : null, ...(moment === 3 ? { result: tries[0] } : moment >= 4 ? { answeredAt: stamp(55) } : {}) });
-    if (moment >= 2) add("learn", "tutor_reply", { text: "The time between the two dots. I've marked it on the graph. Drag the gap toward 0 to make it smaller." }, null, { replyTo: "message-gap" });
+      moment >= 4 ? typed("6", true) : null, { attempts: tries, firstAnsweredAt: moment >= 3 ? stamp(25) : null, ...(moment === 3 ? { result: typed("7", false) } : moment >= 4 ? { answeredAt: stamp(55) } : {}) });
+    if (moment >= 2) add("learn", "tutor_reply", { text: "The time between the two dots. I've marked it on the graph. Move the gap slider toward 0 to make it smaller." }, null, { replyTo: "message-gap" });
     if (moment < 3) return { blocks, newest: moment === 2 ? plot.blockId : null };
     const table = add("learn", "tutor_show_model", { model: "table", wait: false, under: plot.blockId, controls: [], params: moment >= 4
       ? { columns: ["gap (s)", "1", "0.5", "0.1", "0.01", "→ 0"], rows: [["slope", 7, 6.5, 6.1, 6.01, 6]] } : { columns: ["gap (s)", "1", "0.5", "0.1", "0.01"], rows: [["slope", 7, 6.5, 6.1, 6.01]] } }, null, up);
@@ -99,8 +100,8 @@ export function learnPreview(id: string) {
     if (moment < 4) return { blocks, newest: table.blockId };
     add("learn", "tutor_say", { text: "That's it. The car's speed at t = 3 is 6 m/s. That number has a name: the derivative at 3." });
     if (moment < 5) return { blocks, newest: table.blockId };
-    add("practice", "tutor_ask_typed", { question: "Same thing at t = 5. Finish the last step.", hints: [], hasMoreHints: true,
-      steps: ["slope from 5 to 5 + h: ((5 + h)² − 25) / h", "multiply out: (10h + h²) / h", "divide by h: 10 + h", "let h shrink to nothing: ?"] }, moment >= 6 ? typed("10", true) : null);
+    add("practice", "tutor_ask_typed", { question: "Same thing at t = 5. Let h shrink to nothing: what's left?", hints: [], hasMoreHints: true,
+      steps: ["slope from 5 to 5 + h: ((5 + h)² − 25) / h", "multiply out: (10h + h²) / h", "divide by h: 10 + h"] }, moment >= 6 ? typed("10", true) : null);
     add("practice", "tutor_reply", { text: "We divide while h is still a tiny real number. Only after the h's cancel do we let it shrink." }, null, { replyTo: "message-h" });
     if (moment < 6) return { blocks, newest: null };
     add("independent", "tutor_ask_explain", { prompt: "What does f′(3) = 6 tell you about the curve at x = 3?", points: [{ text: "Says it's the steepness at that one point", met: true },
@@ -209,7 +210,7 @@ export function learnPreview(id: string) {
       const result = { answer, correct, ...(answer.kind === "typed" ? { matched: correct === true } : {}), hintsUsed: asked.hintsUsed, seconds: 10 };
       const again = correct === false && asked.attempts.length < 2;
       editBlocks(item => item.blockId === blockId ? { ...item, status: again ? "open" : "answered", answeredAt: again ? null : now(), firstAnsweredAt: item.firstAnsweredAt ?? now(), draft: "", result,
-        attempts: item.tool.startsWith("tutor_ask") ? [...item.attempts, result] : item.attempts } as PublicTutorBlock : item);
+        attempts: item.tool.startsWith("tutor_ask") ? [...item.attempts, { ...result, answeredAt: now() }] : item.attempts } as PublicTutorBlock : item);
       const sequence = tutor.blocks.length, note = (text: string) => ({ ...say(sequence, asked.phase, text), createdAt: now() });
       if (again) tutor.blocks.push(note("Not yet. Look again at what changes, then try once more."));
       else tutor.blocks.push(note(correct === false ? "Not quite. Let's come at it another way." : "Good. One more, and this time type it."),

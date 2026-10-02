@@ -39,7 +39,7 @@ const dayWord = (date: string) => {
 };
 const lastTime = (iso: string) => {
   const date = new Date(iso).toLocaleDateString("en-CA"), days = -daysUntil(date);
-  return days <= 0 ? "today" : days === 1 ? "yesterday" : days < 7 ? `last ${weekday(date)}` : shortDate(date);
+  return days <= 0 ? "today" : days === 1 ? "yesterday" : days < 7 ? `last ${weekday(date)}` : `last on ${new Date(date + "T12:00:00").toLocaleDateString([], { month: "short", day: "numeric" })}`;
 };
 
 /** Everything one row and its open sheet need, worked out once per goal. */
@@ -324,9 +324,8 @@ function GoalRow({ view, expanded, onToggle }: { view: GoalView; expanded: boole
   const { goal, plan, topics, done } = view, exam = goal.kind === "exam";
   const next = plan.todayTopic ?? plan.comingBack[0] ?? null;
   const days = goal.date ? daysUntil(goal.date) : null;
-  const under = expanded
-    ? exam ? view.course ?? "Not for a class" : goal.scopeNote ?? "For yourself"
-    : <>{exam && view.course ? `${view.course} · ` : ""}{!topics.length || view.fresh ? exam ? "Tell me what's on it" : "Starts with a 5 minute check" : next ? <>Next: <b>{next.title}</b></> : "Nothing due today"}</>;
+  const todo = !topics.length || view.fresh ? exam ? "Tell me what's on it" : "Starts with a 5 minute check" : next ? <>Next: <b>{next.title}</b></> : "Nothing due today";
+  const under = exam ? expanded ? view.course ?? "Not for a class" : <>{view.course ? `${view.course} · ` : ""}{todo}</> : expanded && goal.scopeNote ? goal.scopeNote : todo;
   return (
     <button className={`lr-row${view.tone === null ? "" : ` course-accent-${view.tone}`}`} aria-expanded={expanded} onClick={onToggle}>
       <span className="lr-row-name"><strong>{goal.title}</strong><small>{under}</small></span>
@@ -377,7 +376,7 @@ function GoalDetail({ view, state, busy, scanning, notes, onNotes, onStart, onOp
           const back = review && level !== undefined && level >= 3 && daysUntil(review.dueOn) <= 1
             ? `${review.lastRightOn ? `Last right ${daysBetween(review.lastRightOn, localToday()) === 0 ? "today" : `${plural(daysBetween(review.lastRightOn, localToday()), "day")} ago`}. ` : ""}Coming back ${dayWord(review.dueOn)}.` : null;
           return <li key={topic.topicId} className={isNext ? "is-next" : undefined}>
-            <span className="lr-topic-name"><b>{topic.title}</b>{weightSum > 0 && <i>{Math.round(topic.weight! / weightSum * 100)}%</i>}{back && <small>{back}</small>}</span>
+            <span className="lr-topic-name"><b>{topic.title}</b>{weightSum > 0 && <i>{Math.round(topic.weight! / weightSum * 100)}% of the test</i>}{back && <small>{back}</small>}</span>
             <span className="lr-level" role="img" aria-label={level === undefined ? "Not checked" : `Level ${level} of 4`}>{[0, 1, 2, 3].map(i => <i key={i} className={level !== undefined && i < level ? "on" : level === undefined ? "none" : ""} />)}</span>
             <span className="lr-level-word">{level === undefined ? "Not checked" : LEVELS[level]}</span>
             {isNext
@@ -508,7 +507,7 @@ function NewGoal({ busy, bare, onStart }: { busy: boolean; bare?: boolean; onSta
   const fields = <>
     {bare
       ? <textarea className="lr-drop" aria-label="What do you want to learn?" rows={2} maxLength={500} value={title} placeholder="Python basics, how mortgages work, reading sheet music…" onChange={event => setTitle(event.target.value)} />
-      : <label className="lr-wide">The thing<input required maxLength={500} autoFocus value={title} placeholder="Python basics, how mortgages work, anything" onChange={event => setTitle(event.target.value)} /></label>}
+      : <label className="lr-wide">Topic<input required maxLength={500} autoFocus value={title} placeholder="Python basics, how mortgages work, anything" onChange={event => setTitle(event.target.value)} /></label>}
     {!bare && <label className="lr-wide">Why, or how far, if you like<input maxLength={2000} value={note} placeholder="For a summer internship. I know a little JavaScript." onChange={event => setNote(event.target.value)} /></label>}
     <div className="lr-ways">
       <button className="rd-button" disabled={busy || !title.trim()}>Start with a 5 minute check</button>

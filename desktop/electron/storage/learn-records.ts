@@ -426,7 +426,7 @@ export class LearnRepository {
       const actions = answer.explored ?? [];
       const result = { answer, correct, ...(actions.length ? { explored: actions } : {}), ...(answer.kind === "typed" ? { matched: correct === true } : {}), hintsUsed: block.hintsUsed, seconds: Math.max(0, session.budgetSeconds - tutorTimeLeft(session, now) - block.elapsedAtCreation) };
       const answered: TutorBlock = { ...block, status: "answered", answeredAt: now, firstAnsweredAt: block.firstAnsweredAt ?? now, draft: "", result,
-        attempts: isQuestion(block) ? [...block.attempts, { answer, correct, hintsUsed: result.hintsUsed, seconds: result.seconds }] : block.attempts };
+        attempts: isQuestion(block) ? [...block.attempts, { answer, correct, hintsUsed: result.hintsUsed, seconds: result.seconds, answeredAt: now }] : block.attempts };
       return this.#saveSession({ ...session, blocks: session.blocks.map(b => {
         const updated = b.blockId === blockId ? answered : b;
         return isVisual(updated) && !updated.erasedAt && actions.length ? { ...updated, explored: [...updated.explored, ...actions].slice(-50) } : updated;
@@ -495,7 +495,9 @@ export class LearnRepository {
       const session = this.#active(sessionId), now = this.now();
       this.#requireMarked(session);
       if (session.blocks.some(block => block.status === "open")) throw new Error("Answer the open block before finishing");
-      const assessments = input.assessments?.length ? input.assessments : [input];
+      // The finish names the main topic itself; `assessments` adds the others (topics that came back, or a quiz's topics).
+      const others = input.assessments ?? [];
+      const assessments = others.some(item => item.topic === input.topic) ? others : [input, ...others];
       if (new Set(assessments.map(item => item.topic)).size !== assessments.length || assessments.some(item => !session.topicIds.includes(item.topic))) throw new Error("Assess each session topic at most once");
       if (session.mode === "mock_exam" && session.topicIds.some(topic => !assessments.some(item => item.topic === topic && item.evidence.length > 0))) throw new Error("The mock exam needs typed or explanation evidence for every exam topic");
       const allEvidence: MasteryEvidence[] = [];

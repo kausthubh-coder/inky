@@ -86,7 +86,7 @@ export const TutorBlockResultSchema = z.strictObject({
   answer: TutorBlockAnswerSchema, correct: z.boolean().nullable(), hintsUsed: z.number().int().min(0).max(8), seconds: z.number().nonnegative(),
   explored: explored.optional(), met: z.array(z.boolean()).max(8).optional(), matched: z.boolean().optional(),
 });
-export const TutorAttemptSchema = TutorBlockResultSchema.pick({ answer: true, correct: true, hintsUsed: true, seconds: true });
+export const TutorAttemptSchema = TutorBlockResultSchema.pick({ answer: true, correct: true, hintsUsed: true, seconds: true }).extend({ answeredAt: IsoTimestampSchema.optional() });
 const blockFields = {
   blockId: OpaqueIdSchema, toolCallId: OpaqueIdSchema, sequence: z.number().int().min(0),
   status: z.enum(["open", "answered", "complete", "cancelled"]),
@@ -204,7 +204,7 @@ export type TutorBoardView = {
   note: string | null;
   visuals: { block: TutorVisual; children: TutorVisual[] }[];
   tries: z.infer<typeof TutorAttemptSchema>[];
-  /** Chalky's notes since this stop went up. */
+  /** Chalky's notes since the student's latest try at this stop; notes about an earlier try are gone with it. */
   feedback: TutorNote[];
   newest: string | null;
   chat: ({ kind: "student"; id: string; text: string; createdAt: string } | { kind: "tutor"; id: string; text: string; createdAt: string; replyTo: string })[];
@@ -226,7 +226,8 @@ export function boardView(session: PublicTutorSession, at?: string | null): Tuto
   // Notes written between tries were about a wrong answer; they fold with the question.
   const before = stops[index - 1] ?? null;
   const lead = notes(before?.sequence ?? -1, stop?.sequence ?? Infinity).filter(block => block.createdAt > (before?.answeredAt ?? ""));
-  const feedback = stop ? notes(stop.sequence, following?.sequence ?? Infinity) : [];
+  const latestTry = question?.attempts.at(-1)?.answeredAt ?? "";
+  const feedback = stop ? notes(stop.sequence, following?.sequence ?? Infinity).filter(block => block.createdAt > latestTry) : [];
   const visuals = session.blocks.filter((block): block is TutorVisual => isVisual(block) && !block.erasedAt && block.status !== "cancelled");
   // Each message, then Chalky's reply to it.
   const chat: TutorBoardView["chat"] = session.messages.flatMap(message => [{ kind: "student" as const, id: message.messageId, text: message.text, createdAt: message.createdAt },
