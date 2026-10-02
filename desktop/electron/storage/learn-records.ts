@@ -453,7 +453,6 @@ export class LearnRepository {
       if (!block?.result || block.status !== "answered") throw new Error("Grade an answered block from this session");
       if (block.tool === "tutor_ask_explain") {
         if (!input.met || input.met.length !== block.args.rubric.length) throw new Error("Mark every rubric point in order");
-        if (block.result.correct !== null) throw new Error("This explanation is already marked");
       } else if (block.tool === "tutor_ask_typed") {
         if (block.result.answer.kind !== "typed" || block.result.correct !== false || !input.correct || !input.equivalentTo || !block.args.accept.includes(input.equivalentTo)) throw new Error("Only raise a wrong typed answer by naming an accepted answer");
       } else throw new Error("Only typed answers and explanations can be marked");

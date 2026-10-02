@@ -324,6 +324,16 @@ test("boardView describes current work, history, retries, chat and erasure witho
   }));
 });
 
+test("an explanation can be re-marked when Chalky changes its mind", async () => fixture(({ repo }) => {
+  const topic = repo.createFreeTopic("Inflation"), session = repo.startSession(topic.topicId, "Inflation", 10);
+  const block = repo.openBlock(session.sessionId, "explain", { tool: "tutor_ask_explain", args: { prompt: "Why?", rubric: ["Costs rise", "Prices rise"] } });
+  repo.answerBlock(session.sessionId, block.blockId, { kind: "explain", text: "Costs go up so firms raise prices." });
+  repo.grade(session.sessionId, { blockId: block.blockId, correct: false, met: [false, false] });
+  repo.grade(session.sessionId, { blockId: block.blockId, correct: true, met: [true, true] });
+  const saved = repo.session(session.sessionId).blocks[0];
+  assert.equal(saved.result.correct, true); assert.deepEqual(saved.result.met, [true, true]); assert.equal(saved.attempts.at(-1).correct, true);
+}));
+
 test("I'm not sure is a wrong answer that can be retried, but never raised or cited", async () => fixture(({ repo }) => {
   const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 10);
   const args = { question: "What is six times seven?", accept: ["42"], hints: [] };
@@ -662,7 +672,8 @@ test("marking enforces order, protects right answers and keeps rubric private un
   assert.throws(() => repo.grade(session.sessionId, { blockId: explanation.blockId, correct: true, met: [true] }), /every rubric/);
   repo.grade(session.sessionId, { blockId: explanation.blockId, correct: false, met: [true, false] });
   assert.deepEqual(publicTutorSession(repo.session(session.sessionId)).blocks[0].args.points, [{ text: "States the cause", met: true }, { text: "Links the effect", met: false }]);
-  assert.throws(() => repo.grade(session.sessionId, { blockId: explanation.blockId, correct: true, met: [true, true] }), /already marked/);
+  // Re-marking is allowed (Chalky changed its mind); the saved verdict is what counts at the finish.
+  repo.grade(session.sessionId, { blockId: explanation.blockId, correct: false, met: [true, false] });
   const wrong = typed(repo, repo.session(session.sessionId), { answer: "forty two" });
   assert.equal(repo.session(session.sessionId).blocks.find(b => b.blockId === wrong.blockId).result.matched, false);
   assert.throws(() => repo.grade(session.sessionId, { blockId: wrong.blockId, correct: true, equivalentTo: "43" }), /accepted answer/);

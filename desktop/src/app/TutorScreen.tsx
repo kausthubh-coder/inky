@@ -109,7 +109,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
   const view = boardView(session, at), question = view.question;
   const closed = !["active", "paused"].includes(session.status), paused = session.status === "paused";
   // A lesson that ended mid-question goes straight to the wrap-up; after an answer, the student reads the reply first.
-  const wrapped = closed && (wrapUp || !question?.result);
+  const wrapped = closed && (wrapUp || !question?.result || !!session.wrapStartedAt);
   const disabled = busy || session.status !== "active" || !!session.wrapStartedAt;
   const waiting = view.visuals.flatMap(group => [group.block, ...group.children]).find(block => block.blockId === view.at);
   const toRead = waiting?.tool === "tutor_show_model" && waiting.args.controls.length === 0;
