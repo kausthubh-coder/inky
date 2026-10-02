@@ -4,7 +4,7 @@ import { mkdtemp, readFile, readdir, rm, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { initializeHomeworkWorkspace } from "../../dist/electron/files/workspace.js";
-import { addCheatsheetLines, goalFolder, readGoalNotes, recordSessionNote, saveStudyPage } from "../../dist/electron/files/learn-workspace.js";
+import { addCheatsheetLines, goalFolder, getLearnNotes, readLearnPage, readGoalNotes, recordSessionNote, saveStudyPage } from "../../dist/electron/files/learn-workspace.js";
 import { studyPageDocument } from "../../dist/shared/study-page.js";
 
 test("a goal folder keeps progress, a deduplicated cheat sheet and locked-down study pages", async () => {
@@ -32,6 +32,21 @@ test("a folder that isn't a Studi homework folder is refused", async () => {
     await mkdir(join(root, "other"));
     await assert.rejects(goalFolder(root, { title: "Exam", classLabel: null }), /not a Studi homework folder/);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("saved pages can only be read by a name listed for that goal", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "studi-learn-pages-"));
+  try {
+    assert.deepEqual(await getLearnNotes(join(directory, "missing")), { cheatsheet: [], pages: [] });
+    await mkdir(join(directory, "pages"));
+    const name = await saveStudyPage(directory, "2026-10-01", "Probability", "<p>Probability</p>");
+    await addCheatsheetLines(directory, ["First fact", "Second fact"]);
+    assert.deepEqual(await getLearnNotes(directory), { cheatsheet: ["First fact", "Second fact"], pages: [{ name, title: "Probability", date: "2026-10-01" }] });
+    assert.equal(await readLearnPage(directory, name), "<p>Probability</p>");
+    for (const invalid of ["unlisted.html", "../CHEATSHEET.md", "..\\CHEATSHEET.md", join(directory, "CHEATSHEET.md")]) {
+      await assert.rejects(readLearnPage(directory, invalid), /not found/);
+    }
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 
 test("study pages carry a no-network policy ahead of any page markup", () => {

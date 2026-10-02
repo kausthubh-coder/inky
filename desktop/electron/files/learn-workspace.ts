@@ -1,4 +1,4 @@
-import { appendFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { requireHomeworkWorkspace, safeSegment } from "./workspace.js";
 
@@ -11,11 +11,11 @@ export interface GoalFolderInput { title: string; classLabel: string | null }
 
 const NOTE_BUDGET = 4_000;
 
-export async function goalFolder(homeworkRoot: string, goal: GoalFolderInput): Promise<string> {
+export async function goalFolder(homeworkRoot: string, goal: GoalFolderInput, create = true): Promise<string> {
   const root = await requireHomeworkWorkspace(homeworkRoot);
   const name = safeSegment([goal.classLabel?.split(" ").slice(0, 2).join(" "), goal.title].filter(Boolean).join(" "), "Goal");
   const directory = join(root, "Learn", name);
-  await mkdir(join(directory, "pages"), { recursive: true });
+  if (create) await mkdir(join(directory, "pages"), { recursive: true });
   return directory;
 }
 
@@ -32,6 +32,27 @@ async function readTail(path: string): Promise<string> {
 /** The newest notes matter most, so long files are read from the end. */
 export async function readGoalNotes(directory: string): Promise<{ progress: string; cheatsheet: string }> {
   return { progress: await readTail(join(directory, "PROGRESS.md")), cheatsheet: await readTail(join(directory, "CHEATSHEET.md")) };
+}
+
+/** Full student notes, rather than the tutor's bounded context tail. */
+export async function getLearnNotes(directory: string) {
+  let cheatsheet = "", names: string[] = [];
+  try { cheatsheet = await readFile(join(directory, "CHEATSHEET.md"), "utf8"); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  try { names = (await readdir(join(directory, "pages"), { withFileTypes: true })).filter(entry => entry.isFile()).map(entry => entry.name); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  const pages = await Promise.all(names.flatMap(name => {
+    const match = /^(\d{4}-\d{2}-\d{2}) (.+)\.html$/.exec(name);
+    return match ? [stat(join(directory, "pages", name)).then(file => ({ name, title: match[2]!, date: match[1]!, savedAt: file.mtimeMs }))] : [];
+  }));
+  pages.sort((a, b) => b.savedAt - a.savedAt || b.date.localeCompare(a.date) || a.name.localeCompare(b.name));
+  return { cheatsheet: cheatsheet.split(/\r?\n/).filter(line => /^\s*[-*+] /.test(line)).map(line => line.replace(/^\s*[-*+] /, "")),
+    pages: pages.map(({ savedAt: _savedAt, ...page }) => page) };
+}
+
+export async function readLearnPage(directory: string, name: string): Promise<string> {
+  if (!(await getLearnNotes(directory)).pages.some(page => page.name === name)) throw new Error("Study page not found for this goal");
+  return readFile(join(directory, "pages", name), "utf8");
 }
 
 export interface SessionNote {

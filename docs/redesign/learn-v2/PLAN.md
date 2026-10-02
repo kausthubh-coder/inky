@@ -314,25 +314,31 @@ Every built-in visual and every page Chalky writes is drawn in the board's style
 
 ## B6. A new question folds the last one
 
-No engine change; this is a rule for B7 and the screen. When Chalky asks a different question, the previous question and its notes fold into one line (the question, the final answer, right or not). Visuals that are up stay up.
+No engine change; this is a rule for B7 and the screen. When the student moves on to a different question, the previous question folds into one line (the question, the final answer, right or not). Visuals that are up stay up.
+
+**As built.** What Chalky wrote after the student's last answer stays up above the next question, because that is where the bridge to it is written. Notes written between tries were about a wrong answer, so they fold with the question.
 
 ## B7. One description of the board for the screen and the tests
 
-Add a pure function `boardView(session)` to `shared/tutor.ts`. It turns the public session into what the screen draws, so the layout rules live in one tested place:
+Add a pure function `boardView(session, at?)` to `shared/tutor.ts`. It turns the public session into what the screen draws, so the layout rules live in one tested place.
+
+**As built.** The lesson is a line of **stops**: a question, or a visual that waits for the student. Chalky can be a stop ahead of the student, so the function takes `at`, the stop the student is on (the newest when left out), and the screen moves `at` forward only when the student presses Next. A visual that has been tried has nothing left to read, so the screen moves on from it by itself.
 
 | Field | What it holds |
 |---|---|
-| `done` | Finished questions, oldest first: question text, final answer, right or not |
-| `question` | The current question block, or null |
+| `at`, `following` | This stop's id, and the next stop's once Chalky has made one |
+| `done` | Questions before this stop, oldest first: question text, final answer, right or not |
+| `lead` | Chalky's notes since the student's last answer: what leads into this stop |
+| `question` | This stop's question block, or null when the stop is a visual to try |
 | `note` | Its standing line |
 | `visuals` | Visuals that are up, in the order shown, each with the things under it |
 | `tries` | Earlier tries at the current question |
-| `feedback` | Chalky's notes written since the first try |
+| `feedback` | Chalky's notes written since this stop went up |
 | `newest` | The id of the most recently added or updated thing, cleared by the student's next action |
 | `chat` | Student messages and Chalky's replies, oldest first |
-| `move` | What the one button does now: `check`, `next`, `tried`, `finish`, or `wait` |
+| `move` | What the one button does now: `check`, `tried`, `next` (a later stop exists), `finish` (the lesson has ended), or `wait` (Chalky is writing) |
 
-**Tests.** A small table of cases for `boardView`: a fresh question; a visual kept up across two questions; a wrong try then a right one; a chat exchange mid-question; an erased visual; the last question folding when the next arrives.
+**Tests.** A small table of cases for `boardView`: a fresh question; a visual kept up across two questions; a wrong try then a right one; a chat exchange mid-question; an erased visual; a visual that waits as a stop of its own; the student staying on a question while Chalky is ahead, and the last question folding when they move on.
 
 **Done when** the simulated-student run shows at least one lesson where Chalky replied in chat, updated a visual instead of redrawing it, and let a student try again, with the board never over capacity.
 
@@ -482,12 +488,13 @@ Draw everything from `boardView(session)` (B7). The screen makes no layout decis
 
 **The board, top to bottom.** One column; every item starts on its left edge.
 
-1. **Finished questions,** each folded to one line: a tick or a dash, the question, the final answer, and "Show" to reopen it (`shots/lesson-steps.png`).
-2. **The question,** in Chalky's hand at 26px, in black.
-3. **The standing note** (`note`), in Chalky's hand at 20px. For a question on an earlier topic, a grey label instead: the topic and "you last got this right N days ago".
-4. **Visuals,** in the order shown. Each is the full column wide. A graph is 230px tall; with two visuals up, each is 170px. A visual keeps its size for as long as it is up. Things under a visual (its control row, a table) sit directly beneath it.
-5. **The answer row:** the label "Your answer", any earlier tries struck through, the field, the button, then "Hint" when the question has hints left.
-6. **Chalky's feedback** on the answer, in Chalky's hand, directly under the answer row.
+1. **Finished questions,** each folded to one line: a tick or a dash, the question, the final answer, and "Show" to reopen it (`shots/lesson-steps.png`). The last two are shown; older ones sit behind "N earlier questions".
+2. **What Chalky wrote since the last answer** (`lead`), in Chalky's hand at 20px.
+3. **The question,** in Chalky's hand at 26px, in black.
+4. **The standing note** (`note`), in Chalky's hand at 20px. For a question on an earlier topic, a grey label instead: the topic and "you last got this right N days ago".
+5. **Visuals,** in the order shown. Each is the full column wide. A graph is 230px tall; with two visuals up, each is 170px. A visual keeps its size for as long as it is up. Things under a visual (its control row, a table) sit directly beneath it.
+6. **The answer row:** the label "Your answer", any earlier tries struck through, the field, the button, then "Hint" when the question has hints left.
+7. **Chalky's feedback** on the answer, in Chalky's hand, directly under the answer row.
 
 When the board is taller than its frame it scrolls, and the answer row is brought into view when something is added. It never scrolls while the student is typing or dragging.
 
@@ -523,7 +530,7 @@ When the board is taller than its frame it scrolls, and the answer row is brough
 
 - **Chalky** sits at the top at 112px, with "Chalky" in its hand and "your tutor" under it. Its expression follows the lesson: asking, listening, thinking, explaining, pleased.
 - **The conversation** fills the panel from the bottom up: the student's messages in a soft bubble on the right, Chalky's replies as plain text on the left. Older exchanges fade to 55% but stay readable, and the list scrolls. Empty, it shows one grey line: "Ask me anything while you work."
-- **The chat box** is at the bottom of the panel: one row, text and a round send button. Sending never counts as an answer and never pauses the lesson.
+- **The chat box** is at the bottom of the panel: one row, text and a round send button. Sending never counts as an answer and never pauses the lesson. Once the lesson has ended the conversation stays readable but the box is closed, because the engine takes no messages for a finished session.
 - Below 1000px of window width the panel moves under the board as one row: Chalky at 64px, the last exchange, and the chat box.
 
 **Out of time.** The minutes read "Wrapping up…", the field and button are disabled, and the wrap-up follows.

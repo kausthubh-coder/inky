@@ -283,9 +283,6 @@ h2 {
   color: var(--pencil);
   box-shadow: 0 1px 2px rgb(43 38 33/14%);
 }
-.rd-muted {
-  color: var(--graphite);
-}
 .rd-error {
   color: var(--redpen);
 }
@@ -461,15 +458,6 @@ h2 {
   padding: 0;
   transform: none;
 }
-.rd-composer-context {
-  display: block;
-  color: var(--graphite);
-  font-size: 10px;
-  max-width: 90%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 .chat-view-home {
   padding: 0 16px 20px;
 }
@@ -480,15 +468,6 @@ h2 {
   color: var(--red);
   font-size: 13px;
   white-space: pre-wrap;
-}
-.rd-muted {
-  color: var(--graphite);
-}
-.rd-actions {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-  margin: 16px 0;
 }
 @media (max-width: 600px) {
   .rd-work-side-scroll {
@@ -510,8 +489,7 @@ h2 {
 .rd-learn {
   --highlighter: #cdbcf0;
 }
-.rd-learn-scroll,
-.rd-tutor-scroll {
+.rd-learn-scroll {
   overflow: auto;
   flex: 1;
   min-height: 0;
@@ -551,174 +529,10 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   color: var(--graphite);
   font-variant-numeric: tabular-nums;
 }
-.rd-tutor-column {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 14px 24px 28px;
-}
-.rd-tutor-says {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  margin: 16px 0;
-  min-height: 52px;
-}
-.rd-tutor-says > p,
-.rd-tutor-says > .chat-markdown {
-  padding-top: 6px;
-  font:
-    600 16.5px/1.35 "Shantell Sans",
-    cursive;
-}
-.rd-tutor-block h1 {
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1.3;
-  text-wrap: balance;
-}
-.rd-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 20px;
-}
-.rd-option {
-  box-shadow: 0 0 0 1.5px var(--pencil);
-  border: 0;
-  border-radius: 12px;
-  padding: 16px;
-  background: var(--page);
-  font:
-    600 18px "Shantell Sans",
-    cursive;
-  min-height: 82px;
-}
-.rd-option:active {
-  transform: scale(0.98);
-}
-.rd-option:focus-visible {
-  outline: 3px solid var(--highlighter);
-  outline-offset: 4px;
-}
-.rd-typed-form {
-  display: flex;
-  gap: 12px;
-  margin: 18px 0;
-  max-width: 440px;
-}
-.rd-typed-form input {
-  min-width: 0;
-  flex: 1;
-}
-.rd-explain-form textarea {
-  width: 100%;
-  min-height: 150px;
-  padding: 16px;
-}
-.rd-explain-form button {
-  margin-top: 12px;
-}
 .rd-tutor-composer {
   padding: 0 20px 20px;
 }
-.rd-model {
-  margin: 20px 0;
-}
-.rd-population {
-  display: grid;
-  grid-template-columns: repeat(20, 1fr);
-  gap: 4px;
-  margin: 14px 0;
-}
-.rd-population i {
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: var(--blot2);
-}
-.rd-population .marked {
-  background: var(--pencil);
-}
-.rd-slider {
-  display: flex;
-  gap: 12px;
-  margin: 12px 0;
-  align-items: center;
-  font-size: 14px;
-}
-.rd-slider input {
-  flex: 1;
-  accent-color: var(--pencil);
-}
-.rd-slider output {
-  width: 60px;
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.rd-plot {
-  width: 100%;
-  background: var(--page);
-  border-radius: 12px;
-  border: 1px solid var(--rule);
-}
-.rd-plot text {
-  font-size: 12px;
-  fill: var(--graphite);
-}
-.rd-flashcard {
-  padding: 45px 25px;
-  min-height: 200px;
-  display: grid;
-  place-items: center;
-  text-align: center;
-  background: var(--page);
-  border: 1.5px solid var(--pencil);
-  border-radius: 12px;
-  font:
-    600 24px/1.4 "Shantell Sans",
-    cursive;
-}
-.rd-code-label {
-  display: block;
-  font-size: 13px;
-}
-.rd-code {
-  display: block;
-  width: 100%;
-  min-height: 240px;
-  font:
-    13px/1.5 Consolas,
-    monospace;
-  padding: 16px;
-  margin-top: 8px;
-  tab-size: 2;
-}
-.rd-code-output {
-  background: #26221d;
-  color: #e9e1d2;
-  border-radius: 12px;
-  padding: 14px 16px;
-  font:
-    12px/1.5 Consolas,
-    monospace;
-  white-space: pre-wrap;
-  max-height: 300px;
-  overflow: auto;
-}
-.rd-session-notice h1 {
-  font:
-    600 23px "Shantell Sans",
-    cursive;
-}
-.rd-session-notice {
-  margin: 24px 0;
-}
-.rd-session-notice button {
-  margin-right: 14px;
-}
 @media (max-width: 600px) {
-  .rd-options {
-    grid-template-columns: 1fr;
-  }
   .rd-tutor-heading {
     padding: 0 12px;
     gap: 12px;
@@ -728,9 +542,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-  .rd-tutor-column {
-    padding: 14px 22px;
   }
 }
 .rd-files.assignment-files {
@@ -940,21 +751,8 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
   max-width: none;
   margin: 0;
 }
-.chat-view-home .rd-composer.inky-composer .rd-composer-context {
-  display: none;
-}
 .rd-composer.inky-composer .composer-mascot {
   top: 11px;
-}
-.rd-composer-suggestions {
-  display: none;
-  gap: 12px;
-  flex-wrap: wrap;
-  font-size: 12px;
-  margin: 8px 0 0;
-}
-.rd-composer:focus-within .rd-composer-suggestions {
-  display: flex;
 }
 .rd-conversation-peek {
   display: flex;
@@ -1033,19 +831,6 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 }
 .rd-composer .chat-send:disabled {
   background: var(--blotter);
-}
-.rd-composer-suggestions {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  padding: 8px 12px;
-  border-radius: 10px;
-  background: var(--paper);
-  margin: 0;
-}
-.rd-tutor-block h1 {
-  font-family: "Nunito Sans", sans-serif;
 }
 
 /* ===== Audit fixes: top bar =====
@@ -1175,26 +960,8 @@ html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-sch
 /* ===== Audit fixes: tutor session =====
    The lesson column lines up with the answer box under it. A paused session is one calm strip,
    with the saved block dimmed beneath it, instead of two stacked Dots. */
-.rd-tutor-column { max-width: 768px; }
 .rd-tutor-composer .rd-learn-chatbox,
 .rd-tutor-composer > * { max-width: 720px; margin-left: auto; margin-right: auto; }
-.rd-session-notice {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto;
-  gap: 14px;
-  align-items: center;
-  padding: 14px 18px;
-  margin: 6px 0 22px;
-  border-radius: 16px;
-  background: var(--blotter);
-}
-.rd-session-notice h1 { font-size: 19px; line-height: 1.15; margin: 0; }
-.rd-session-notice p { margin: 2px 0 0; font-size: 13px; color: var(--graphite); }
-.rd-session-notice ~ .rd-tutor-block,
-.rd-session-notice ~ * { opacity: 0.45; pointer-events: none; }
-.rd-typed-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; max-width: 460px; }
-
-.rd-session-notice .rd-quiet { background: var(--page); }
 .rd-tutor-heading > button:first-child { height: 30px; padding: 0 11px; border-radius: 8px; background: var(--blotter); font-size: 13px; font-weight: 600; text-decoration: none; }
 
 /* The native school page cannot be drawn over, so its one control sits in a slim bar above it.

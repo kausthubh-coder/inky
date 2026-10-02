@@ -26,9 +26,9 @@ export async function verifyReleaseLearning(page,base) {
 
  await button('+ Learn something new').click();
  assert.equal(await button('Just add it for later').isDisabled(),true);
- await page.getByLabel('The thing',{exact:true}).fill('How mortgages work');
+ await page.getByLabel('The thing',{exact:true}).fill('Reading sheet music');
  await button('Just add it for later').click();
- await page.locator('section[aria-label="For yourself"] .lr-row',{hasText:'How mortgages work'}).waitFor();
+ await page.locator('section[aria-label="For yourself"] .lr-row',{hasText:'Reading sheet music'}).waitFor();
  results.push('Learn something new adds a row under For yourself');
 
  await open('tutor-question');

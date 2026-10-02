@@ -131,6 +131,10 @@ test("fake learning sessions preserve the bounded tools, resume target and event
   const tools = createTutorTools(async () => { throw new Error("Event fake must not pretend to execute tools"); });
   const session = await runtime.createLearningSession(tools, TUTOR_SYSTEM_PROMPT, { resumeSessionPath: "saved-tutor.jsonl" });
   assert.deepEqual(session.toolNames, tools.map(tool => tool.name));
+  // The provider rejects a whole tool whose schema has an empty list anywhere in it (an empty tuple's "items: []").
+  const emptyLists = (node, path) => Array.isArray(node) ? [...(node.length ? [] : [path]), ...node.flatMap((item, index) => emptyLists(item, `${path}[${index}]`))]
+    : node && typeof node === "object" ? Object.entries(node).flatMap(([key, value]) => emptyLists(value, `${path}.${key}`)) : [];
+  assert.deepEqual(tools.flatMap(tool => emptyLists(tool.parameters, tool.name)), []);
   assert.equal(session.sessionPath, "saved-tutor.jsonl");
   const events = [];
   session.subscribe(event => events.push(event));

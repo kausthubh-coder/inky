@@ -12,10 +12,13 @@ import { readDevPreviewConfig } from "./devPreview.js";
 import { Icon } from "./Icon.js";
 import { LearnConversation } from "./LearnConversation.js";
 import { TutorScreen } from "./TutorScreen.js";
+import { WorkspaceDialog } from "./WorkspaceDialog.js";
 import "./learn.css";
 
 const LEVELS = ["Not yet", "Shaky", "Getting there", "Good", "Solid"];
 const COUNT = ["", "one quick one", "two quick ones", "three quick ones"];
+/** What Chalky has saved for a goal: cheat-sheet lines and the study pages it wrote. */
+type Notes = Awaited<ReturnType<NonNullable<typeof window.studi>["getLearnNotes"]>> & { examId: string };
 /** The open row: a goal, or one of the two add forms. */
 type Open = null | { examId: string; changing: boolean } | "add-test" | "new";
 
@@ -43,6 +46,8 @@ const lastTime = (iso: string) => {
 interface GoalView {
   goal: Exam; name: string; course: string | null; tone: number | null; topics: LearnTopic[]; plan: LearnPlan;
   levels: Map<string, number>; open: TutorSessionSummary | undefined; done: TutorSessionSummary[];
+  /** Something for yourself that hasn't had its first check, so it has no outline yet. */
+  fresh: boolean;
 }
 function viewGoals(state: LearnState, courses: SchoolOnboardingState["courses"]): GoalView[] {
   const today = localToday(), goals = orderGoals(state.exams, today);
@@ -52,11 +57,11 @@ function viewGoals(state: LearnState, courses: SchoolOnboardingState["courses"])
     const mine = (session: TutorSessionSummary) => topics.some(topic => topic.topicId === session.topicId);
     const course = courses.find(item => item.courseId === goal.courseId)?.label.split(" ").slice(0, 2).join(" ") ?? null;
     const shared = goals.some(other => other !== goal && other.title === goal.title);
+    const open = state.sessions.find(session => ["active", "paused", "failed"].includes(session.status) && mine(session)), done = state.sessions.filter(session => session.status === "completed" && mine(session));
     return {
+      open, done, fresh: goal.kind === "topic" && !open && !done.length && topics.every(topic => !levels.has(topic.topicId)),
       goal, course, topics, levels, tone: goal.kind === "exam" ? courseTone(goal.courseId ?? goal.title, courses) : null, name: shared && course ? `${course} ${goal.title}` : goal.title,
       plan: planLearn({ exams: state.exams, topics: state.topics, mastery: state.mastery, sessions: state.sessions, today, selectedExamId: goal.examId }),
-      open: state.sessions.find(session => ["active", "paused", "failed"].includes(session.status) && mine(session)),
-      done: state.sessions.filter(session => session.status === "completed" && mine(session)),
     };
   });
 }
@@ -79,6 +84,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
+  const [notes, setNotes] = useState<Notes | null>(null), [sheet, setSheet] = useState(false);
   const lock = useRef(false), mounted = useRef(true), previewOpened = useRef(false);
 
   useEffect(() => {
@@ -104,6 +110,16 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
     const timer = setInterval(() => void read(), 2500);
     return () => { mounted.current = false; clearInterval(timer); };
   }, [refresh]);
+
+  // Notes are read when a row opens and after a lesson, not on every poll.
+  const openId = open && typeof open === "object" ? open.examId : null;
+  useEffect(() => {
+    setNotes(null);
+    if (!openId) return;
+    let alive = true;
+    void window.studi!.getLearnNotes({ examId: openId }).then(next => { if (alive) setNotes({ ...next, examId: openId }); }).catch(() => {});
+    return () => { alive = false; };
+  }, [openId, refresh]);
 
   useEffect(() => {
     if (!requestedSession) return;
@@ -179,7 +195,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
             onFind={goal.courseId ? () => void run(() => window.studi!.findLearnSyllabus({ courseId: goal.courseId! })) : undefined}
             onRemove={() => void run(() => window.studi!.removeLearnGoal({ examId: goal.examId })).then(next => { if (next) setOpen(null); })}
             onSave={async input => { if (await run(() => window.studi!.setLearnExam({ ...input, examId: goal.examId }))) setOpen({ examId: goal.examId, changing: false }); }} />
-        : <GoalDetail view={view} state={state!} busy={busy} scanning={scanning}
+        : <GoalDetail view={view} state={state!} busy={busy} scanning={scanning} notes={notes?.examId === goal.examId ? notes : null} onNotes={() => setSheet(true)}
             onStart={input => void start(input)} onOpenSession={sessionId => void openSession(sessionId)}
             onChange={() => setOpen({ examId: goal.examId, changing: true })}
             onFind={() => void run(() => goal.courseId ? window.studi!.findLearnSyllabus({ courseId: goal.courseId }) : window.studi!.findLearnSyllabus())}
@@ -261,6 +277,7 @@ export function LearnScreen({ chrome, onboarding, requestedSession, onSessionOpe
         </div>
       </div>
       <LearnConversation onOpenContext={chrome.onOpenContext} storageKey={chrome.storageKey ?? chrome.studentName} />
+      {sheet && notes && <CheatSheet notes={notes} title={views.find(view => view.goal.examId === notes.examId)?.name ?? "Your goal"} onClose={() => setSheet(false)} />}
     </main>
   );
 }
@@ -309,11 +326,11 @@ function GoalRow({ view, expanded, onToggle }: { view: GoalView; expanded: boole
   const days = goal.date ? daysUntil(goal.date) : null;
   const under = expanded
     ? exam ? view.course ?? "Not for a class" : goal.scopeNote ?? "For yourself"
-    : <>{exam && view.course ? `${view.course} · ` : ""}{!topics.length ? exam ? "Tell me what's on it" : "Starts with a 5 minute check" : next ? <>Next: <b>{next.title}</b></> : "Nothing due today"}</>;
+    : <>{exam && view.course ? `${view.course} · ` : ""}{!topics.length || view.fresh ? exam ? "Tell me what's on it" : "Starts with a 5 minute check" : next ? <>Next: <b>{next.title}</b></> : "Nothing due today"}</>;
   return (
     <button className={`lr-row${view.tone === null ? "" : ` course-accent-${view.tone}`}`} aria-expanded={expanded} onClick={onToggle}>
       <span className="lr-row-name"><strong>{goal.title}</strong><small>{under}</small></span>
-      <Strip view={view} />
+      {view.fresh ? <span /> : <Strip view={view} />}
       <span className="lr-when">
         {exam
           ? <><b>{days === null ? "No date" : days <= 0 ? "Today" : days === 1 ? "Tomorrow" : plural(days, "day")}</b>{goal.date && <small>{shortDate(goal.date)}</small>}</>
@@ -323,8 +340,8 @@ function GoalRow({ view, expanded, onToggle }: { view: GoalView; expanded: boole
   );
 }
 
-function GoalDetail({ view, state, busy, scanning, onStart, onOpenSession, onChange, onFind, onText, onFile }: {
-  view: GoalView; state: LearnState; busy: boolean; scanning: boolean;
+function GoalDetail({ view, state, busy, scanning, notes, onNotes, onStart, onOpenSession, onChange, onFind, onText, onFile }: {
+  view: GoalView; state: LearnState; busy: boolean; scanning: boolean; notes: Notes | null; onNotes: () => void;
   onStart: (input: TutorStartInput) => void; onOpenSession: (sessionId: string) => void; onChange: () => void; onFind: () => void;
   onText: (text: string) => Promise<unknown>; onFile: () => void;
 }) {
@@ -341,6 +358,13 @@ function GoalDetail({ view, state, busy, scanning, onStart, onOpenSession, onCha
         <button className="rd-quiet" onClick={onChange}>Change</button></div>
       {exam && <Intake busy={busy} placeholder="“Chapters 6 to 11”, or paste the study guide" onText={onText} onFile={onFile}
         lead={goal.courseId ? <button className="rd-button" disabled={busy || scanning} onClick={onFind}>Look in {view.course ?? "the class"}</button> : undefined} />}
+    </div>
+  );
+  // Before its first check a goal has no outline to show, only the way in.
+  if (view.fresh) return (
+    <div className="lr-detail">
+      <div className="lr-pace"><span>A few questions first, so I don't teach you what you know. Then I'll suggest an outline.</span><button className="rd-quiet" onClick={onChange}>Change</button></div>
+      <div className="lr-ways lr-first"><button className="rd-button" disabled={busy} onClick={() => onStart({ topicId: topics[0]!.topicId, minutes: 5, goal: `A quick check on ${goal.title}` })}>Start with a 5 minute check</button></div>
     </div>
   );
   return (
@@ -367,6 +391,9 @@ function GoalDetail({ view, state, busy, scanning, onStart, onOpenSession, onCha
       {exam && topics.length <= 30 && <button className="lr-more" disabled={busy} onClick={() => onStart({ mode: "mock_exam", examId: goal.examId, minutes: 10 })}>
         <b>Test yourself</b><span>10 minutes of questions like your teacher's, no teaching</span><Icon name="forward" size={16} />
       </button>}
+      {notes && notes.cheatsheet.length + notes.pages.length > 0 && <button className="lr-more" onClick={onNotes}>
+        <b>Cheat sheet</b><span>{[notes.cheatsheet.length && `${plural(notes.cheatsheet.length, "line")} from your sessions`, notes.pages.length && plural(notes.pages.length, "study page")].filter(Boolean).join(" and ")}</span><Icon name="forward" size={16} />
+      </button>}
       {hints.map(topic => <button key={topic.topicId} className="lr-more" disabled={busy} onClick={() => onStart({ topicId: topic.topicId, minutes: 10 })}>
         <b>From homework</b><span>{topic.title}: learn it in 10 minutes</span><Icon name="forward" size={16} />
       </button>)}
@@ -376,6 +403,31 @@ function GoalDetail({ view, state, busy, scanning, onStart, onOpenSession, onCha
         <button className="rd-quiet" disabled={busy} onClick={onFile}>Add a file</button>
       </div>}
     </div>
+  );
+}
+
+/** The lines added after lessons, in the order they were learned, and the pages Chalky wrote. */
+function CheatSheet({ notes, title, onClose }: { notes: Notes; title: string; onClose: () => void }) {
+  const [page, setPage] = useState<{ title: string; html: string } | null>(null), [error, setError] = useState("");
+  const read = async (item: Notes["pages"][number]) => {
+    try { setPage({ title: item.title, html: await window.studi!.readLearnPage({ examId: notes.examId, name: item.name }) }); setError(""); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+  };
+  return (
+    <WorkspaceDialog className="lr-sheet" label={`Cheat sheet for ${title}`} onClose={onClose}>
+      <header><h2>{page ? page.title : `${title} cheat sheet`}</h2>
+        {page && <button className="rd-quiet" onClick={() => setPage(null)}>Back</button>}<button className="rd-quiet" onClick={onClose}>Close</button></header>
+      <div className="lr-sheet-body">
+        {error && <p className="rd-error" role="alert">{error}</p>}
+        {page ? <iframe className="lr-page" title={page.title} sandbox="allow-scripts" referrerPolicy="no-referrer" srcDoc={page.html} /> : <>
+          {notes.cheatsheet.length > 0 && <ul className="lr-lines">{notes.cheatsheet.map((line, index) => <li key={index}>{line}</li>)}</ul>}
+          {notes.pages.length > 0 && <>
+            <h3 className="lr-label">Study pages</h3>
+            {notes.pages.map(item => <button key={item.name} className="lr-more" onClick={() => void read(item)}><b>{shortDate(item.date.slice(0, 10))}</b><span>{item.title}</span><Icon name="forward" size={16} /></button>)}
+          </>}
+        </>}
+      </div>
+    </WorkspaceDialog>
   );
 }
 

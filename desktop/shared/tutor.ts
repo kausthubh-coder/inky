@@ -33,7 +33,7 @@ export const TutorModelInputSchema = z.discriminatedUnion("model", [
   z.strictObject({ ...topicScope, ...visualScope, model: z.literal("function_plot"), params: z.strictObject({ family: z.enum(["linear", "quadratic", "sine"]), a: z.number().min(-100).max(100), b: z.number().min(-100).max(100), c: z.number().min(-100).max(100), xMin: z.number().min(-100).max(100), xMax: z.number().min(-100).max(100),
     secant: z.strictObject({ x: z.number().min(-100).max(100), gap: z.number().min(0).max(200) }).optional(),
     labels: z.array(z.strictObject({ x: z.number().min(-100).max(100), text: z.string().trim().min(1).max(120) })).max(4).optional() }), controls: z.array(z.enum(["a", "b", "c", "gap", "reset"])).max(5) }),
-  z.strictObject({ ...topicScope, ...visualScope, model: z.literal("table"), params: z.strictObject({ columns: z.array(z.string().trim().min(1).max(120)).min(1).max(8), rows: z.array(z.array(z.union([z.string().max(1000), z.number()])).max(8)).max(8) }), controls: z.tuple([]) }),
+  z.strictObject({ ...topicScope, ...visualScope, model: z.literal("table"), params: z.strictObject({ columns: z.array(z.string().trim().min(1).max(120)).min(1).max(8), rows: z.array(z.array(z.union([z.string().max(1000), z.number()])).max(8)).max(8) }), controls: z.array(z.string()).max(0) }),
   z.strictObject({ ...topicScope, ...visualScope, model: z.literal("code_runner"), params: z.strictObject({ language: z.literal("javascript"), code: z.string().max(12000), instructions: text, timeoutMs: z.number().int().min(50).max(1000) }), controls: z.array(z.enum(["edit", "run", "reset"])).max(3) }),
 ]).refine(input => {
   if (input.model === "table") return input.params.rows.every(row => row.length === input.params.columns.length);

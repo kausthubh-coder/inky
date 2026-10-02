@@ -2,7 +2,7 @@
 .lr-column { padding-bottom: 28px; }
 .lr-muted { color: var(--graphite); font-size: 13px; }
 .lr-grow { flex: 1; }
-.lr-label { margin: 18px 0 6px; font-size: 13px; font-weight: 600; color: var(--graphite); }
+.lr-label { margin: 18px 0 6px; font: 600 13px/1.4 "Nunito Sans", sans-serif; color: var(--graphite); }
 .lr-danger { color: var(--redpen); }
 .rd-quiet.lr-plain { background: none; color: var(--graphite); }
 .rd-quiet.lr-plain:hover { background: var(--blotter); color: var(--pencil); }
@@ -79,12 +79,25 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 .lr-more > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lr-more svg { color: var(--graphite); }
 
+/* The cheat sheet: a sheet over the page. */
+.workspace-dialog.lr-sheet { flex-direction: column; width: min(680px, calc(100vw - 48px)); height: min(640px, calc(100dvh - 48px)); border: 0; border-radius: 20px; background: var(--page); color: var(--pencil); box-shadow: 0 0 0 1.5px var(--pencil), 0 22px 60px -20px rgb(43 38 33 / 50%); }
+.lr-sheet[open] { display: flex; }
+.lr-sheet > header { display: flex; align-items: center; gap: 8px; min-height: 60px; padding: 0 16px 0 24px; border-bottom: 1px solid var(--rule); }
+.lr-sheet > header h2 { flex: 1; min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 17px/1.3 "Nunito Sans", sans-serif; }
+.lr-sheet-body { flex: 1; min-height: 0; padding: 16px 24px 24px; overflow-y: auto; }
+.lr-lines { margin: 0; padding: 0; list-style: none; }
+.lr-lines li { padding: 9px 0; border-bottom: 1px solid var(--rule); font-size: 16px; line-height: 1.45; }
+.lr-lines li:last-child { border-bottom: 0; }
+.lr-sheet-body .lr-label { margin-top: 22px; }
+.lr-page { display: block; width: 100%; height: 100%; border: 0; border-radius: 12px; box-shadow: 0 0 0 1.5px var(--blot2); background: #fff; }
+
 /* One box takes anything: typed facts, a pasted study guide, or a file. */
 .lr-drop { display: block; width: 100%; min-height: 84px; padding: 12px 14px; border: 1.5px dashed color-mix(in srgb, var(--graphite) 60%, transparent); border-radius: 12px; resize: vertical; background: none; font-size: 15px; line-height: 1.5; color: var(--pencil); outline: none; }
 .lr-drop::placeholder { color: var(--graphite); }
 .lr-drop:focus { border-color: var(--pencil); border-style: solid; }
 .lr-ways { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
 .lr-ways .lr-muted { margin-left: auto; }
+.lr-first { margin: 2px 0 8px; }
 
 /* First time: two ways in, side by side. */
 .lr-doors { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
@@ -113,8 +126,6 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 .lr-steps li { margin: 4px 0; }
 
 /* Still used by the lesson's quiz result. */
-.lr-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 20px 0 4px; }
-.lr-head h2 { margin: 0; font: 700 15px/1.3 "Nunito Sans", sans-serif; }
 .lr-bar { display: block; height: 4px; border-radius: 2px; background: var(--blot2); overflow: hidden; }
 .lr-bar i { display: block; height: 100%; border-radius: 2px; background: var(--pencil); }
 
@@ -297,9 +308,9 @@ textarea.tu-area:focus { box-shadow: 0 0 0 2px var(--pencil), 0 0 0 6px var(--hi
   .tu-side { order: 2; display: grid; grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; }
   .tu-who { padding: 0; }
   .tu-who > div:last-child { display: none; }
-  .tu-who .character { width: 64px !important; height: 64px !important; margin: 0; }
+  .tu-who .character { margin: 0; zoom: 0.57; }
   .tu-talk { max-height: 76px; padding: 0; }
-  .tu-talk .is-old { display: none; }
+  .tu-talk > :not(:last-child) { display: none; }
   .tu-steps span { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {

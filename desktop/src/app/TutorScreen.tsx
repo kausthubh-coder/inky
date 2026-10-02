@@ -1,5 +1,5 @@
 import "./composer.css";
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Exam } from "../../shared/learn.js";
 import { TUTOR_PHASES, boardView, type PublicTutorSession, type TutorBlockAnswer, type TutorBoardView, type TutorNote, type TutorPhase, type TutorQuestion, type TutorStartInput, type TutorVisual } from "../../shared/tutor.js";
 import type { ChalkyState } from "../../shared/characters/states.js";
@@ -115,12 +115,22 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
 
   // Stay on this stop; a visual that has been tried has nothing left to read, so move on from it.
   useEffect(() => { setAt(!question && view.following ? view.following : view.at); }, [view.at, view.following, !question]);
-  useEffect(() => { setExplored([]); setAllDone(false); column.current?.scrollTo({ top: 0 }); }, [view.at]);
+  // A new stop starts at the top, with its answer row in view.
+  useEffect(() => {
+    setExplored([]); setAllDone(false);
+    column.current?.scrollTo({ top: 0 });
+    column.current?.querySelector(".tu-ans")?.scrollIntoView({ block: "nearest" });
+  }, [view.at]);
   // Bring what was just added into view, but never while a control on a visual is being dragged.
   const added = `${view.feedback.length}:${view.visuals.length}:${view.tries.length}:${question?.hintsUsed ?? 0}:${question?.result ? 1 : 0}`;
+  const shown = useRef({ at: view.at, added });
   useEffect(() => {
+    // Only what is added to a stop after it is shown is scrolled to.
+    const before = shown.current;
+    shown.current = { at: view.at, added };
+    if (before.at !== view.at || before.added === added) return;
     if (!(document.activeElement instanceof HTMLInputElement && document.activeElement.type === "range")) end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [added]);
+  }, [added, view.at]);
   useEffect(() => { talk.current?.scrollTo({ top: talk.current.scrollHeight }); }, [view.chat.length]);
 
   const pause = () => run(() => window.studi!.pauseTutorSession({ sessionId: session.sessionId }));
@@ -244,7 +254,7 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
   const draftKey = `studi-tutor-draft:${sessionId}:${question.blockId}:${question.attempts.length}`;
   const [draft, setDraft] = useState(() => localStorage.getItem(draftKey) ?? question.draft);
   const [picked, setPicked] = useState<number | null>(null);
-  const button = useRef<HTMLButtonElement>(null);
+  const button = useRef<HTMLButtonElement>(null), field = useRef<HTMLInputElement>(null);
   const latest = useRef(draft);
   latest.current = draft;
   const saved = useRef(question.draft), saving = useRef<Promise<void>>(Promise.resolve());
@@ -325,11 +335,11 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
       {question.tool === "tutor_ask_typed" && <div className="tu-ans">
         <span className="tu-lab">Your answer</span>
         {view.tries.map((item, index) => item.answer.kind === "typed" && <s key={index} className="tu-was">{item.answer.answer}</s>)}
-        {open ? <input className="tu-field" autoFocus autoComplete="off" aria-label="Your answer" value={draft} maxLength={10000} disabled={disabled} onChange={event => edit(event.target.value)} />
+        {open ? <input ref={field} className="tu-field" autoFocus autoComplete="off" aria-label="Your answer" value={draft} maxLength={10000} disabled={disabled} onChange={event => edit(event.target.value)} />
           : result?.correct ? <><span className="tu-right">{given}</span><Tick /></>
           : reading ? <span className="tu-given">{given}</span> : <s className="tu-was">{given}</s>}
         {action}
-        {canHint && <button type="button" className="tu-hint" disabled={disabled || needsTry} onClick={onHint}>{HINTS[Math.min(question.hintsUsed, 2)]}</button>}
+        {canHint && <button type="button" className="tu-hint" disabled={disabled || needsTry} onClick={() => { onHint(); field.current?.focus(); }}>{HINTS[Math.min(question.hintsUsed, 2)]}</button>}
       </div>}
       {question.tool === "tutor_ask_explain" && <>
         {view.tries.map((item, index) => item.answer.kind === "explain" && <p key={index} className="tu-area is-sent is-was">{item.answer.text}</p>)}

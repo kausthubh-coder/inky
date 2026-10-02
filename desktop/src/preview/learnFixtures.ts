@@ -26,6 +26,7 @@ export function learnPreview(id: string) {
     exam("exam-csc316", "course-csc316", "Midterm", day(12)),
     exam("exam-ma241", "course-ma241", "Final", null),
     exam("goal-python", null, "Python basics", null, "topic"),
+    exam("goal-mortgages", null, "How mortgages work", null, "topic"),
   ];
   let topics: LearnTopic[] = empty ? [] : [
     ...(calculus ? ["Limits", "What a derivative is", "Power rule"].map((title, index) => topic(`calc-${index}`, "exam-ma141", "course-ma241", title, index, null)) : []),
@@ -33,6 +34,7 @@ export function learnPreview(id: string) {
       .map(([title, weight], index) => topic(`topic-${index}`, "exam-st370", "course-st370", String(title), index, Number(weight))),
     ...["Heaps and priority queues", "Sorting", "Hash tables", "Graphs"].map((title, index) => topic(`csc-${index}`, "exam-csc316", "course-csc316", title, index, null)),
     ...["Variables and types", "Conditionals", "Loops", "Functions", "Files"].map((title, index) => topic(`py-${index}`, "goal-python", null, title, index, null)),
+    topic("mortgages-0", "goal-mortgages", null, "How mortgages work", 0, null),
   ];
   let sources: LearnState["sources"] = id === "learn-reading" ? [source("source-new", null, "ST 370 syllabus.pdf", "reading")] : empty ? [] : [
     source("source-st370", "course-st370", "ST 370 syllabus.pdf"), source("source-review", "course-st370", "Midterm 1 review sheet.pdf"),
@@ -43,7 +45,7 @@ export function learnPreview(id: string) {
   const levels: Record<string, number> = id === "learn-recap" ? { "topic-0": 4, "topic-1": 3, "topic-2": 3, "topic-3": 3, "topic-4": 3 } : id === "learn-partial" ? { "topic-0": 4, "topic-1": 3 }
     : { "topic-0": 4, "topic-1": 3, "topic-2": 1, "topic-3": 2, "csc-1": 2, "csc-2": 1, "py-0": 3, "py-1": 2, "py-2": 1, ...(calculus ? { "calc-0": 4 } : {}) };
   const mastery = empty ? [] : Object.entries(levels).map(([topicId, level], index) => ({
-    topicId, level, updatedAt: now(), review: { dueOn: day(id === "learn-recap" ? -1 : 2), gapDays: 2, lastRightOn: day(topicId === "calc-0" ? -4 : -3) },
+    topicId, level, updatedAt: now(), review: { dueOn: day(id === "learn-recap" ? -1 : { "topic-0": 0, "topic-1": 1 }[topicId] ?? 2), gapDays: 2, lastRightOn: day({ "topic-0": -5, "topic-1": -2, "calc-0": -4 }[topicId] ?? -3) },
     evidence: [{ sessionId: "previous", blockId: `evidence-${index}`, kind: "typed" as const, correct: true, answer: "Simulated answer", rationale: "Simulated session evidence", hintsUsed: 0, recordedAt: now() }],
   }));
   const past = (sessionId: string, topicId: string, daysAgo: number) => ({ sessionId, topicId, mode: "topic" as const, goal: "Practice", status: "completed" as const,
@@ -247,7 +249,16 @@ export function learnPreview(id: string) {
       memories = memories.filter(item => item.frontmatter.noteId !== noteId);
       return { noteId, deleted: true as const };
     },
-  } satisfies Pick<StudiRendererApi, "getLearnState" | "importLearnSource" | "importLearnFile" | "findLearnSyllabus" | "retryLearnSource" | "setLearnExam"
+    getLearnNotes: async ({ examId }) => examId === "exam-st370" ? {
+      cheatsheet: ["Probabilities range from 0 to 1", "All outcomes together have probability 1", "P(not A) = 1 - P(A)", "Disjoint events cannot happen together", "Independent events multiply", "P(A given B) = P(A and B) / P(B)", "Bayes' theorem connects conditional probabilities"],
+      pages: [{ name: "2026-10-01 Bayes.html", title: "Bayes", date: "2026-10-01" }, { name: "2026-09-30 Conditional probability.html", title: "Conditional probability", date: "2026-09-30" }, { name: "2026-09-29 Independence.html", title: "Independence", date: "2026-09-29" }],
+    } : { cheatsheet: [], pages: [] },
+    readLearnPage: async ({ examId, name }) => {
+      const titles: Record<string, string> = { "2026-10-01 Bayes.html": "Bayes", "2026-09-30 Conditional probability.html": "Conditional probability", "2026-09-29 Independence.html": "Independence" };
+      if (examId !== "exam-st370" || !Object.hasOwn(titles, name)) throw new Error("Study page not found for this goal");
+      return `<article><h1>${titles[name]}</h1><p>Count the outcomes you want, then divide by all possible outcomes.</p></article>`;
+    },
+  } satisfies Pick<StudiRendererApi, "getLearnNotes" | "readLearnPage" | "getLearnState" | "importLearnSource" | "importLearnFile" | "findLearnSyllabus" | "retryLearnSource" | "setLearnExam"
     | "removeLearnGoal" | "addLearnTopic" | "removeLearnTopic" | "getTutorSession" | "startTutorSession" | "answerTutorBlock" | "hintTutorBlock" | "saveTutorDraft"
     | "sendTutorMessage" | "pauseTutorSession" | "resumeTutorSession" | "cancelTutorSession" | "listMemories" | "readMemory" | "createMemory" | "updateMemory" | "deleteMemory">;
 }
