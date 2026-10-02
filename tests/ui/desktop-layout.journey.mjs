@@ -12,7 +12,7 @@ export async function verifyDesktopLayouts(page, base, evidenceDirectory) {
       ["learn", ".app-chrome"],
       ["chat-handoff", ".conversation-header"],
       ["tutor-choice", ".rd-tutor-heading"],
-      ["desk-review", ".rd-work-heading"],
+      ["desk-review", ".ag-head"],
     ]) {
       await page.goto(`${base}/?preview=${route}&desktop=win32`);
       await page.locator(header).waitFor();
@@ -31,12 +31,13 @@ export async function verifyDesktopLayouts(page, base, evidenceDirectory) {
         }
         return failures;
       });
+      if (failures.length && evidenceDirectory) await page.screenshot({ path: join(evidenceDirectory, `bug-desktop-${width}-${route}.png`) });
       assert.deepEqual(failures, [], `${route} at ${width}px`);
       if (route === "chat-handoff") {
         assert.equal(await page.getByRole("region", { name: "School check report" }).isVisible(), true);
-        await page.getByRole("button", { name: "Open sign-in", exact: true }).click();
-        await page.locator(".chat-browser").getByRole("button", { name: "Continue scan" }).waitFor();
-        assert.equal(await page.locator(".scan-result-copy").evaluate(el => el.clientWidth >= 160), true);
+        assert.equal(await page.locator(".chat-browser").isVisible(), true);
+        await page.getByRole("button", { name: "I've signed in", exact: true }).waitFor();
+        assert.equal(await page.locator(".scan-state-description").evaluate(el => el.clientWidth >= 160), true);
       }
       if (evidenceDirectory) await page.screenshot({ path: join(evidenceDirectory, `desktop-${width}-${route}.png`) });
       observations.push(`${route}: visible nonoverlapping controls at ${width}px`);
@@ -47,7 +48,12 @@ export async function verifyDesktopLayouts(page, base, evidenceDirectory) {
   assert.equal(await page.locator("#settings-homework").evaluate(el => {
     const rect = el.getBoundingClientRect(); return rect.top >= 0 && rect.top < innerHeight / 2;
   }), true, "Settings preview should land on its named section");
-  for (const route of ["updates-ready", "updates-mac", "updates-error"]) {
+  // The bar only announces a ready update; a failed check is reported in Settings, where it was asked for.
+  await page.goto(`${base}/?preview=updates-error`);
+  await page.locator("[data-studi-app-ready]").waitFor();
+  assert.equal(await page.locator(".update-entry").count(), 0);
+  assert.equal(await page.locator("dialog[open]").count(), 0);
+  for (const route of ["updates-ready", "updates-mac"]) {
     await page.goto(`${base}/?preview=${route}`);
     await page.getByRole("button", { name: "Close updates", exact: true }).waitFor();
     await page.getByRole("button", { name: "Close updates", exact: true }).click();

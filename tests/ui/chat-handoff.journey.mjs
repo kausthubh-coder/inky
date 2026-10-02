@@ -24,9 +24,10 @@ export async function verifyChatHandoff(page, base = "http://127.0.0.1:4174") {
   await page.getByText("I'm signed in now", { exact: true }).waitFor();
   assert.deepEqual((await page.locator(".student-bubble").innerText()).split(/\n+/), ["You", "I'm signed in now"]);
   assert.equal(await page.locator(".student-bubble .chat-refs").count(), 0);
-  await page.getByRole("button", { name: "Open sign-in", exact: true }).click();
-  await page.getByRole("button", { name: "Continue scan", exact: true }).click();
-  assert.equal(await page.getByRole("button", { name: "Continue scan", exact: true }).isDisabled(), true);
+  // The sign-in page now opens beside the report automatically.
+  assert.equal(await page.locator(".chat-browser").isVisible(), true);
+  await page.getByRole("button", { name: "I've signed in", exact: true }).click();
+  assert.equal(await page.getByRole("button", { name: "Starting…", exact: true }).isDisabled(), true);
   await page.waitForFunction(async () => (await window.studi.getSchoolOnboardingState()).scan.state === "running");
   assert.deepEqual(await page.evaluate(() => window.handoffCalls), ["resume"]);
   assert.equal(await page.getByRole("alert").count(), 0);

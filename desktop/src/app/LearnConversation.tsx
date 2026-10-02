@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { TimelineContext } from "../../shared/conversation-timeline.js";
 import type { ConversationState } from "../../shared/index.js";
 import { ConversationTimeline } from "./ConversationTimeline.js";
+import { plainText } from "./ChatMarkdown.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
 import { Icon } from "./Icon.js";
 
@@ -101,7 +102,7 @@ export function LearnConversation({
       {last && !sheet && (
         <button className="rd-conversation-peek" onClick={() => setSheet(true)}>
           <span>Chalky</span>
-          <span>{last.text.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`#>]+/g, "")}</span>
+          <span>{plainText(last.text)}</span>
         </button>
       )}
       <form
@@ -156,6 +157,7 @@ export function LearnConversation({
           onClose={() => setSheet(false)}
         >
           <ConversationTimeline
+            onRetry={(text) => { save(text); void send(); }}
             onOpenContext={onOpenContext}
             composer={composer}
             error={error}

@@ -7,6 +7,7 @@ export async function verifySettings(page, base) {
   page.on("pageerror",onError);
   const tab = label => page.getByRole("navigation",{name:"Settings sections"}).getByRole("button",{name:label,exact:true});
   const button = name => page.getByRole("button",{name,exact:true});
+  const homeworkMode = name => page.getByRole("radiogroup",{name:"All homework"}).getByRole("radio",{name:new RegExp("^"+name)});
   const open = async id => { await page.goto(`${base}/?preview=${id}`); await page.locator(".st-content").waitFor(); };
   try {
     await page.setViewportSize({width:1120,height:760});
@@ -18,8 +19,7 @@ export async function verifySettings(page, base) {
       assert.equal(await page.getByRole("button",{name:/^Save (changes|schedule|rule|memory)$/}).count(),0);
     }
     await open("settings-inky");
-    await button("Normal").click();
-    await page.waitForFunction(async()=>(await window.studi.getWorkspaceState()).selectedReasoningEffort==="medium");
+    // The redesign removed the reasoning-effort picker from Dot settings.
     await button("Switch account").click();
     assert.equal(await button("Disconnect ChatGPT").count(),1);
     await button("Switch account").click();
@@ -35,36 +35,34 @@ export async function verifySettings(page, base) {
     const row = page.locator(".st-memory").filter({has:button("Use diagrams")});
     await row.getByRole("button",{name:"Forget"}).click();
     await page.waitForFunction(async()=>!(await window.studi.listMemories()).some(n=>n.title==="Use diagrams"));
-    results.push("memory create/edit/forget and effort persist");
+    results.push("memory create/edit/forget persist");
     await tab("Homework").click();
     const timer=page.getByRole("spinbutton",{name:"Time to look it over (minutes)",exact:true});
     for(const value of ["","0","121","1.5"]) {await timer.fill(value);await timer.press("Tab");assert.equal(await timer.getAttribute("aria-invalid"),"true");}
     await timer.fill("23");await timer.press("Tab");
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).preferences.reviewMinutes===23);
-    await page.getByLabel("When Dot starts",{exact:true}).selectOption("automatic");
-    await page.waitForFunction(async()=>(await window.studi.getProductSettings()).preferences.workStartMode==="automatic");
-    await button("Do it and submit").click();
+    // Starting work is now expressed by the homework permission choice.
+    await homeworkMode("Do it and hand it in").click();
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).permissionRules.find(r=>r.scope==="global").mode==="auto_submit");
     await button("Check an assignment").click();
     await page.getByLabel("Check an assignment",{exact:true}).selectOption("assignment-sort");
-    await page.getByRole("status").filter({hasText:/Matched assignment permission rule/}).waitFor();
-    assert.match(await page.locator(".st-form").last().innerText(),/Leave it/,"specific assignment rule wins over global auto-submit");
+    await page.locator(".st-form").getByRole("status").filter({hasText:"Leave it to me. From IBM Sorting Machine."}).waitFor();
     await button("+ Add an exception").click();
     await page.getByLabel("Apply this rule to").selectOption("course");
     await page.getByLabel("Which class?").selectOption("course-csc316");
     await page.getByLabel("Exception action").selectOption("attempt");
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).permissionRules.some(r=>r.scope==="course"&&r.courseId==="course-csc316"&&r.mode==="attempt"));
     await page.evaluate(()=>{window.originalRuleSave=window.studi.savePermissionRule;window.studi.savePermissionRule=async()=>{throw new Error("Controlled rule failure");};});
-    await button("Leave it").click();
+    await homeworkMode("Leave it to me").click();
     await page.getByRole("alert").filter({hasText:"Controlled rule failure"}).waitFor();
-    assert.equal(await button("Do it and submit").getAttribute("aria-pressed"),"true","failed save leaves actual saved mode selected");
+    assert.equal(await homeworkMode("Do it and hand it in").isChecked(),true,"failed save leaves actual saved mode selected");
     await page.evaluate(()=>{window.studi.savePermissionRule=input=>new Promise(resolve=>{window.finishRule=()=>resolve(window.originalRuleSave(input));});});
-    await button("Leave it").click();
+    await homeworkMode("Leave it to me").click();
     await page.waitForFunction(()=>typeof window.finishRule==="function");
-    assert.equal(await button("Do it and submit").isDisabled(),true);
+    assert.equal(await homeworkMode("Do it and hand it in").isDisabled(),true);
     await page.evaluate(()=>window.finishRule());
     await page.waitForFunction(async()=>(await window.studi.getProductSettings()).permissionRules.find(r=>r.scope==="global").mode==="do_not_attempt");
-    results.push("review validation, automatic start, rule precedence, failed-save recovery and pending lock");
+    results.push("review validation, homework mode, rule precedence, failed-save recovery and pending lock");
     await tab("School").click();
     await page.getByLabel("Check automatically").selectOption("weekly");
     await page.getByLabel("Weekday").selectOption("3");

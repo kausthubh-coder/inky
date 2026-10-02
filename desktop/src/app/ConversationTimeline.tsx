@@ -9,11 +9,13 @@ import { onEngineChange } from "./engineChanges.js";
 
 // The chat box grows upward into this panel; the week stays behind it.
 // One conversation across home, assignments, school checks and Learn. The context shows once, when it changes.
-export function ConversationTimeline({ composer, onClose, error, onOpenContext, assignments = [], suggestions = [], onSuggest }: {
+export function ConversationTimeline({ composer, onClose, error, onOpenContext, onRetry, assignments = [], suggestions = [], onSuggest }: {
   composer: ReactNode;
   onClose: () => void;
   error?: string | null;
   onOpenContext: (context: TimelineContext) => void;
+  /** Sends the student's message again after a reply failed. */
+  onRetry?: (text: string) => void;
   assignments?: readonly Assignment[];
   suggestions?: readonly string[];
   onSuggest?: (text: string) => void;
@@ -75,7 +77,11 @@ export function ConversationTimeline({ composer, onClose, error, onOpenContext, 
               {changed && (index > 0 || entry.context.kind !== "home") && (
                 <button className="hw-dock-context" onClick={() => open(entry.context)}>{contextName(entry)}</button>
               )}
-              <Entry entry={entry} face={changed || previous?.kind !== "message" || previous.role !== "assistant"} assignments={assignments} onOpen={open} />
+              <Entry entry={entry} face={changed || previous?.kind !== "message" || previous.role !== "assistant"} assignments={assignments} onOpen={open}
+                onRetry={onRetry && entry.kind === "message" && entry.failed && !entries.slice(index + 1).some(item => item.kind === "message") ? () => {
+                  const asked = entries.slice(0, index).reverse().find(item => item.kind === "message" && item.role === "user");
+                  if (asked) onRetry(asked.text);
+                } : undefined} />
             </div>
           );
         })}
@@ -93,7 +99,7 @@ export function ConversationTimeline({ composer, onClose, error, onOpenContext, 
   );
 }
 
-function Entry({ entry, face, assignments, onOpen }: { entry: TimelineEntry; face: boolean; assignments: readonly Assignment[]; onOpen: (context: TimelineContext) => void }) {
+function Entry({ entry, face, assignments, onOpen, onRetry }: { entry: TimelineEntry; face: boolean; assignments: readonly Assignment[]; onOpen: (context: TimelineContext) => void; onRetry?: (() => void) | undefined }) {
   if (entry.kind === "event") {
     if (entry.event === "memory_saved") return <MemorySaved title={entry.title ?? "a preference"} noteId={entry.id.split(":")[1] ?? ""} />;
     return (
@@ -112,6 +118,7 @@ function Entry({ entry, face, assignments, onOpen }: { entry: TimelineEntry; fac
     <div className={`ag-turn${face ? "" : " is-cont"} is-still`}>
       <div className="ag-who">{chalky ? <><Character kind="chalky" state="idle" size={34} label="Chalky" />Chalky</> : <><Character state="idle" size={34} label="Dot" />Dot</>}</div>
       <div className="ag-text"><ChatMarkdown text={entry.text} /></div>
+      {onRetry && <button className="rd-button ag-retry" onClick={onRetry}>Try again</button>}
       {mentioned.length > 0 && (
         <div className="hw-dock-rows">
           {mentioned.map((item) => (

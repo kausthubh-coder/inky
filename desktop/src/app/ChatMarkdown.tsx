@@ -11,6 +11,11 @@ const components: Components = {
   img: ({ alt }) => <span>{alt}</span>,
 };
 
+/** A reply as one line of plain text, for a preview: links keep their words, markup goes. */
+export function plainText(markdown: string): string {
+  return markdown.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`#>]+/g, "").replace(/\s+/g, " ").trim();
+}
+
 export function ChatMarkdown({ text }: { text: string }) {
   return (
     <div className="chat-markdown">

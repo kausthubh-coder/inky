@@ -33,7 +33,7 @@ export function projectConversationTimeline(input: {
       : job.target.kind === 'scan' ? 'School check' : job.target.kind === 'learn' ? 'Learn with Chalky' : 'You and Dot';
     for (const message of job.messages) entries.push({
       id: `message:${message.messageId}`, kind: 'message', context: job.target,
-      title, createdAt: message.createdAt, text: message.text, role: message.role,
+      title, createdAt: message.createdAt, text: message.text, role: message.role, ...(message.recovery === 'failed' ? { failed: true } : {}),
     });
   }
   for (const scan of input.scans) {

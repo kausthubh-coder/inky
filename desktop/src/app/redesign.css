@@ -510,7 +510,7 @@ html[data-desktop] {
   --caption-right: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
 }
 html[data-desktop="darwin"] { --caption-left: 70px; --caption-right: 0px; }
-html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .rd-school-workspace .conversation-header) {
+html[data-desktop] :is(.app-chrome, .rd-tutor-heading, .rd-work-heading, .ag-head, .rd-school-workspace .conversation-header) {
   padding-left: calc(var(--caption-left) + 24px);
   padding-right: calc(var(--caption-right) + 16px);
 }
