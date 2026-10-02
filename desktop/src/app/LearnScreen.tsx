@@ -30,7 +30,7 @@ const shortDate = (date: string) => new Date(date + "T12:00:00").toLocaleDateStr
 const weekday = (date: string) => new Date(date + "T12:00:00").toLocaleDateString([], { weekday: "long" });
 const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? "" : "s"}`;
 /** Brings a row that has just opened into view. */
-const reveal = (node: HTMLElement | null) => node?.scrollIntoView({ block: "nearest" });
+const reveal = (node: HTMLElement | null) => { if (node && node.getBoundingClientRect().top > window.innerHeight - 200) node.scrollIntoView({ block: "start", behavior: "smooth" }); };
 const firstLine = (text: string) => text.trim().split("\n")[0]!.slice(0, 120);
 /** "today", "tomorrow", "on Thursday", then a date. */
 const dayWord = (date: string) => {

@@ -101,7 +101,7 @@ export function LearnConversation({
       {last && !sheet && (
         <button className="rd-conversation-peek" onClick={() => setSheet(true)}>
           <span>Chalky</span>
-          <span>{last.text}</span>
+          <span>{last.text.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1").replace(/[*_`#>]+/g, "")}</span>
         </button>
       )}
       <form

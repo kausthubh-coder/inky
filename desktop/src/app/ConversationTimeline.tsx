@@ -106,9 +106,11 @@ function Entry({ entry, face, assignments, onOpen }: { entry: TimelineEntry; fac
   }
   if (entry.role === "user") return <div className="ag-you">{entry.text}</div>;
   const mentioned = mentionedAssignments(entry.text, assignments);
+  // Chalky teaches; Dot does the homework.
+  const chalky = entry.context.kind === "learn" || entry.context.kind === "tutor";
   return (
     <div className={`ag-turn${face ? "" : " is-cont"} is-still`}>
-      <div className="ag-who"><Character state="idle" size={34} label="Dot" />Dot</div>
+      <div className="ag-who">{chalky ? <><Character kind="chalky" state="idle" size={34} label="Chalky" />Chalky</> : <><Character state="idle" size={34} label="Dot" />Dot</>}</div>
       <div className="ag-text"><ChatMarkdown text={entry.text} /></div>
       {mentioned.length > 0 && (
         <div className="hw-dock-rows">

@@ -30,7 +30,7 @@ export function projectConversationTimeline(input: {
     if (!input.ownerSubject || job.ownerSubject !== input.ownerSubject) continue;
     if (job.target.kind === 'tutor') continue; // Tutor sessions supply their own saved blocks/messages.
     const title = job.target.kind === 'assignment' ? assignments.get(job.target.assignmentId)?.title
-      : job.target.kind === 'scan' ? 'School check' : job.target.kind === 'learn' ? 'Learn with Dot' : 'You and Dot';
+      : job.target.kind === 'scan' ? 'School check' : job.target.kind === 'learn' ? 'Learn with Chalky' : 'You and Dot';
     for (const message of job.messages) entries.push({
       id: `message:${message.messageId}`, kind: 'message', context: job.target,
       title, createdAt: message.createdAt, text: message.text, role: message.role,

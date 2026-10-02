@@ -6,7 +6,7 @@ import { LearnDateSchema, MasteryEvidenceSchema } from "./learn.js";
 const text = z.string().trim().min(1).max(10000);
 const steps = z.array(z.string().trim().min(1).max(300)).max(6).optional();
 export const TUTOR_WRAP_SECONDS = 90;
-export const TUTOR_TIME_UP = "Time is up. Call tutor_finish now with the evidence so far.";
+export const TUTOR_TIME_UP = "Time is up. Call tutor_finish now with the evidence so far, and the outline if this was a first check on a goal outside school.";
 export const TUTOR_TOOL_NAMES = ["tutor_say", "tutor_reply", "tutor_ask_choice", "tutor_ask_typed", "tutor_show_model", "tutor_show_page", "tutor_ask_explain", "tutor_update", "tutor_erase", "tutor_advance", "tutor_grade", "tutor_finish"] as const;
 export const TutorToolNameSchema = z.enum(TUTOR_TOOL_NAMES);
 /** A lesson moves forward through these. Only Check and On your own answers are unassisted, so only they count as evidence. */

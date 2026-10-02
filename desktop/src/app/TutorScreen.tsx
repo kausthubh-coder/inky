@@ -165,7 +165,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
 
   const remaining = Math.max(0, session.budgetSeconds - session.elapsedSeconds - (session.activeSince ? Math.max(0, (clock - Date.parse(session.activeSince)) / 1000) : 0));
   const days = goal?.date ? daysFrom(goal.date) : null;
-  const goalLine = goal && [goal.courseId && courseLabel(goal.courseId)?.split(" ").slice(0, 2).join(" "), goal.title, days === null || days < 0 ? null : days > 1 ? `in ${days} days` : days === 1 ? "tomorrow" : "today"].filter(Boolean).join(" ");
+  const goalLine = goal && [goal.courseId && courseLabel(goal.courseId)?.split(" ").slice(0, 2).join(" "), goal.title === topicTitle(session.topicId) ? null : goal.title, days === null || days < 0 ? null : days > 1 ? `in ${days} days` : days === 1 ? "tomorrow" : "today"].filter(Boolean).join(" ");
   const title = session.mode === "mock_exam" ? "Test yourself" : topicTitle(session.topicId);
   const step = TUTOR_PHASES.indexOf(session.phase);
   const unanswered = view.chat.at(-1)?.kind === "student" && session.status === "active";
@@ -229,7 +229,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
                 </button>)}
                 <div className="tu-lead" aria-live="polite">{view.lead.map(note => <Note key={note.blockId} note={note} newest={view.newest} />)}</div>
                 {!view.at && !view.lead.length && <p className="tu-lab" role="status">Chalky is getting the lesson ready…</p>}
-                {question && <h1 className={`tu-q${view.newest === question.blockId ? " is-new" : ""}`}><span>{question.tool === "tutor_ask_explain" ? question.args.prompt : question.args.question}</span></h1>}
+                {question && <h1 className="tu-q"><span>{question.tool === "tutor_ask_explain" ? question.args.prompt : question.args.question}</span></h1>}
                 {view.note && <p className="tu-w">{view.note}</p>}
                 {origin && <p className="tu-lab">{origin}</p>}
                 {question && question.tool !== "tutor_ask_choice" && question.args.steps && <Steps steps={question.args.steps} />}
@@ -353,7 +353,7 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
         {view.tries.map((item, index) => item.answer.kind === "typed" ? <s key={index} className="tu-was">{item.answer.answer}</s> : item.answer.kind === "unsure" && said("try" + index))}
         {open ? <input ref={field} className="tu-field" autoFocus autoComplete="off" aria-label="Your answer" value={draft} maxLength={10000} disabled={disabled} onChange={event => edit(event.target.value)} />
           : result?.correct ? <><span className="tu-right">{given}</span><Tick /></>
-          : unsure ? said("now") : reading ? <span className="tu-given">{given}</span> : <s className="tu-was">{given}</s>}
+          : unsure ? said("now") : !result ? null : reading ? <span className="tu-given">{given}</span> : <s className="tu-was">{given}</s>}
         {action}
         {canHint && <button type="button" className="tu-hint" disabled={disabled || needsTry} onClick={() => { onHint(); field.current?.focus(); }}>{HINTS[Math.min(question.hintsUsed, 2)]}</button>}
         {notSure}
@@ -361,8 +361,8 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
       {question.tool === "tutor_ask_explain" && <>
         {view.tries.map((item, index) => item.answer.kind === "explain" ? <p key={index} className="tu-area is-sent is-was">{item.answer.text}</p> : item.answer.kind === "unsure" && <p key={index} className="tu-lab">Not sure</p>)}
         {open ? <textarea className="tu-area" autoFocus aria-label="Your answer" value={draft} maxLength={10000} disabled={disabled} placeholder="Type it the way you'd say it out loud. Messy is fine." onChange={event => edit(event.target.value)} />
-          : unsure ? <p className="tu-lab">Not sure</p> : <p className="tu-area is-sent">{given}</p>}
-        {question.args.points && <ul className="tu-points">{question.args.points.map((point, index) => <li key={index} className={point.met ? "" : "is-off"}>{point.met ? <Tick size={20} /> : <Dash />}<span>{!point.met && <b>Missing: </b>}{point.text}</span></li>)}</ul>}
+          : unsure ? <p className="tu-lab">Not sure</p> : result && <p className="tu-area is-sent">{given}</p>}
+        {!open && question.args.points && <ul className="tu-points">{question.args.points.map((point, index) => <li key={index} className={point.met ? "" : "is-off"}>{point.met ? <Tick size={20} /> : <Dash />}<span>{!point.met && <b>Missing: </b>}{point.text}</span></li>)}</ul>}
         <div className="tu-ans">{action}{notSure}</div>
       </>}
       {needsTry && <p className="tu-lab">Type your best try first.</p>}
