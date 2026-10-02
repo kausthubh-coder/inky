@@ -25,7 +25,12 @@ export async function verifyOnboardingAndTour(page, base = "http://127.0.0.1:417
   await page.goto(`${base}/preview.html?preview=onboarding-scan`);
   await page.getByRole("button", { name: "Your week", exact: true }).waitFor();
   assert.ok(await page.locator(".ob-day b").count() > 0, "found homework shows on the week");
-  await page.getByRole("button", { name: "Show me around while I look", exact: true }).waitFor();
+  // Leaving while the check runs: the practice homework still starts, since it never uses the school page.
+  await page.getByRole("button", { name: "Show me around while I look", exact: true }).click();
+  await page.locator(".hw-card", { hasText: "Practice: sort five numbers" }).first().click();
+  await page.getByRole("button", { name: /^Start( now)?$/ }).first().waitFor({ timeout: 10_000 });
+  await page.keyboard.press("Escape");
+  await page.locator(".tour-guide").waitFor({ state: "detached" });
 
   // The tour: practice homework from open to handed in, then a practice lesson with Chalky.
   await page.goto(`${base}/preview.html?preview=onboarding-ready`);

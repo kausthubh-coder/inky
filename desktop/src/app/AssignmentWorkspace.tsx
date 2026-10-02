@@ -29,6 +29,7 @@ import { groupSteps, onceOnly, planFor, threadSteps, tipsFor, workTabName, worke
 import { onEngineChange } from "./engineChanges.js";
 import { plainError, shortCourse } from "./homeworkText.js";
 import { useSchoolSlot } from "./schoolSlot.js";
+import { PRACTICE } from "./tour/practice.js";
 import { studiApi } from "./studiApi.js";
 
 type Tab = "receipt" | "site" | "work" | "details";
@@ -320,7 +321,8 @@ export function AssignmentWorkspace({
       case "left_to_you":
       case "not_started": {
         if (otherLive) return { title: "Dot is on another assignment.", body: "This one can go next.", actions: <>{task && primary("Do this next", () => void act(() => studiApi()!.queueAssignmentNext({ taskId: task.task.taskId })))}{quiet("Go to it", onOpenWork)}</> };
-        if (onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user") return { title: "Dot is reading your school.", body: "It can start this when the check finishes." };
+        // The tour's practice homework never uses the school page, so a running check doesn't hold it up.
+        if ((onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user") && assignment.courseId !== PRACTICE.course) return { title: "Dot is reading your school.", body: "It can start this when the check finishes." };
         const eligibility = assignmentWorkEligibility(assignment, new Date().toISOString());
         if (!eligibility.eligible) return { title: "Dot can't start this one.", body: eligibility.reason };
         return {
