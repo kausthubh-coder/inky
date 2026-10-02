@@ -404,6 +404,24 @@ test("finishing inside the wrap window saves mastery and closes the open block",
   assert.equal(repo.session(session.sessionId).elapsedSeconds, 60);
 }));
 
+test("in the wrap window a finish leaves out what can't count instead of failing", async () => fixture(({ repo, setNow }) => {
+  const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 1);
+  const args = { question: "What is six times seven?", accept: ["42"], hints: [] };
+  const first = typed(repo, session);
+  const retried = repo.openBlock(session.sessionId, "retried", { tool: "tutor_ask_typed", args: { ...args, question: "Seven times six?" } });
+  repo.answerBlock(session.sessionId, retried.blockId, { kind: "typed", answer: "41" });
+  repo.openBlock(session.sessionId, "retried-again", { tool: "tutor_ask_typed", args: { ...args, question: "Seven times six?" } });
+  repo.answerBlock(session.sessionId, retried.blockId, { kind: "typed", answer: "42" });
+  const evidence = [first, retried].map(block => ({ blockId: block.blockId, rationale: "Unaided" }));
+  const input = { topic: topic.topicId, level: 3, evidence, missing: [], next: "Next", summary: "Done" };
+  assert.throws(() => repo.finish(session.sessionId, "early", input), /first try/);
+  setNow("2026-09-19T12:01:01.000Z");
+  const finished = repo.finish(session.sessionId, "finish", input);
+  assert.equal(finished.status, "completed");
+  assert.deepEqual(finished.result.evidence.map(item => item.blockId), [first.blockId]);
+  assert.equal(repo.mastery()[0].level, 3);
+}));
+
 test("no finish in the wrap window expires without mastery; cancellation closes blocks", async () => fixture(({ repo, setNow }) => {
   const topic = repo.createFreeTopic("Algebra"), session = repo.startSession(topic.topicId, "Algebra", 1);
   const block = typed(repo, session);

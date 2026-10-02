@@ -128,7 +128,7 @@ Rounds A and B do not change what the student sees much: the current lesson scre
    - the open block, if any, is closed as `cancelled`;
    - the waiting tool call returns `{ timeUp: true }` with the text "Time is up. Call tutor_finish now with the evidence so far.";
    - `openBlock` rejects every tool except `tutor_finish` and `tutor_grade` with the same text.
-4. `finish` is allowed during the 90 seconds. If it doesn't arrive, the session expires exactly as it does today.
+4. `finish` is allowed during the 90 seconds. If it doesn't arrive, the session expires exactly as it does today. **As built:** inside the 90 seconds a finish never fails on its evidence; anything that couldn't count (a later try, an unmarked explanation, a duplicate) is left out and the rest is saved. A live run lost a whole lesson to one rejected citation with five seconds left.
 5. `state()` (`learn-records.ts:279`) and `transition()` (`:288`) expire a session only after budget plus wrap time. `tutorTimeLeft` keeps returning 0 past the budget; `elapsedSeconds` never exceeds the budget.
 
 **Tests.** Rewrite "expiry and cancellation preserve answers without awarding mastery" (`tests/storage/learn-tutor.test.mjs:189`) into two cases: finishing inside the wrap window saves the level; no finish inside it expires with no level. In `tests/agent/learn-tutor.test.mjs` add one case: a waiting tool call returns `timeUp` when the budget ends and a following `tutor_finish` completes the session.

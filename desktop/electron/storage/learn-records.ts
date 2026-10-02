@@ -496,18 +496,20 @@ export class LearnRepository {
       const saved = this.session(sessionId);
       if (saved.status === "completed") return saved;
       const session = this.#active(sessionId), now = this.now();
-      this.#requireMarked(session);
+      // In the wrap-up a finish is the last chance, so nothing in it can sink the lesson: what can't count is left out.
+      const last = tutorTimeLeft(session, now) <= 0;
+      if (!last) this.#requireMarked(session);
       if (session.blocks.some(block => block.status === "open")) throw new Error("Answer the open block before finishing");
       // The finish names the main topic itself; `assessments` adds the others (topics that came back, or a quiz's topics).
       const others = input.assessments ?? [];
       const assessments = others.some(item => item.topic === input.topic) ? others : [input, ...others];
       if (new Set(assessments.map(item => item.topic)).size !== assessments.length || assessments.some(item => !session.topicIds.includes(item.topic))) throw new Error("Assess each session topic at most once");
-      if (session.mode === "mock_exam" && session.topicIds.some(topic => !assessments.some(item => item.topic === topic && item.evidence.length > 0))) throw new Error("The mock exam needs typed or explanation evidence for every exam topic");
+      if (session.mode === "mock_exam" && !last && session.topicIds.some(topic => !assessments.some(item => item.topic === topic && item.evidence.length > 0))) throw new Error("The mock exam needs typed or explanation evidence for every exam topic");
       const allEvidence: MasteryEvidence[] = [];
       const changes: { topicId: string; previousLevel: number | null; level: number | null; dueOn: string | null }[] = [];
       for (const assessment of assessments) {
-        if (new Set(assessment.evidence.map(item => item.blockId)).size !== assessment.evidence.length) throw new Error("Evidence blocks must be unique");
-        const evidence: MasteryEvidence[] = assessment.evidence.map(item => {
+        if (!last && new Set(assessment.evidence.map(item => item.blockId)).size !== assessment.evidence.length) throw new Error("Evidence blocks must be unique");
+        const cite = (item: (typeof assessment.evidence)[number]): MasteryEvidence => {
           const block = session.blocks.find(b => b.blockId === item.blockId);
           if (!block?.result || !["tutor_ask_typed", "tutor_ask_explain"].includes(block.tool)) throw new Error("Mastery requires an answered typed or explanation block from this session");
           if (!EVIDENCE_PHASES.includes(block.phase)) throw new Error("Only answers from Check or On your own count; the student had help in Learn and Practise");
@@ -519,6 +521,9 @@ export class LearnRepository {
           if (block.result.correct === null) throw new Error("Mark the explanation with tutor_grade first");
           return { sessionId, blockId: block.blockId, kind: answer.kind, correct: block.result.correct, answer: answer.kind === "typed" ? answer.answer : answer.text,
             rationale: item.rationale, hintsUsed: block.hintsUsed, recordedAt: now };
+        };
+        const evidence = [...new Map(assessment.evidence.map(item => [item.blockId, item])).values()].flatMap(item => {
+          try { return [cite(item)]; } catch (error) { if (last) return []; throw error; }
         });
         const old = this.mastery().find(item => item.topicId === assessment.topic), previousLevel = old?.level ?? null;
         let level = previousLevel;
