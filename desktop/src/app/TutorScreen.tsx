@@ -70,7 +70,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
   const [explored, setExplored] = useState<string[]>([]);
   const explore = useCallback((action: string) => setExplored(previous => [...previous.filter(item => item !== action), action].slice(-50)), []);
   const lock = useRef(false), mounted = useRef(true), revision = useRef(initial.updatedAt), messageId = useRef<string | null>(null);
-  const column = useRef<HTMLDivElement>(null), end = useRef<HTMLSpanElement>(null), talk = useRef<HTMLDivElement>(null), dock = useRef<HTMLDivElement>(null);
+  const column = useRef<HTMLDivElement>(null), end = useRef<HTMLSpanElement>(null), talk = useRef<HTMLDivElement>(null), head = useRef<HTMLDivElement>(null), dock = useRef<HTMLDivElement>(null);
   const flushDraft = useRef<() => Promise<void>>(async () => {});
   const registerFlush = useCallback((flush: () => Promise<void>) => {
     flushDraft.current = flush;
@@ -132,14 +132,17 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
     if (!(document.activeElement instanceof HTMLInputElement && document.activeElement.type === "range")) end.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }, [added, view.at]);
   useEffect(() => { talk.current?.scrollTo({ top: talk.current.scrollHeight }); }, [view.chat.length]);
-  // The conversation leaves room under its newest message for the pane over it, which grows as you type.
+  // The conversation leaves room for the panes over its ends; the chat box grows as you type.
   useEffect(() => {
-    const pane = dock.current, list = talk.current;
-    if (!pane || !list) return;
-    const fit = new ResizeObserver(() => list.style.setProperty("--dock", `${pane.offsetHeight}px`));
-    fit.observe(pane);
+    const list = talk.current;
+    if (!list) return;
+    const fit = new ResizeObserver(() => {
+      list.style.setProperty("--head", `${head.current?.offsetHeight ?? 0}px`);
+      list.style.setProperty("--dock", `${dock.current?.offsetHeight ?? 0}px`);
+    });
+    for (const pane of [head.current, dock.current]) if (pane) fit.observe(pane);
     return () => fit.disconnect();
-  }, []);
+  }, [closed]);
 
   const pause = () => run(() => window.studi!.pauseTutorSession({ sessionId: session.sessionId }));
   const leave = async () => {
@@ -193,23 +196,21 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
       </header>
       <div className="tu-wrap">
         <aside className="tu-side" aria-label="You and Chalky">
+          {/* Chalky heads the conversation and the chat box sits at its foot; both float over it, and it scrolls under them. */}
+          <div className="tu-head" ref={head}><div className="tu-who"><Character kind="chalky" size={88} state={chalky} /><b>Chalky</b></div></div>
           <div className="tu-talk" ref={talk} role="log" aria-live="polite">
             {!view.chat.length && !closed && <p className="tu-empty">Ask me anything while you work.</p>}
             {view.chat.map((item, index) => <p key={item.id} className={`${item.kind === "student" ? "tu-you" : "tu-them"}${index < lastAsked ? " is-old" : ""}`}>{item.text}</p>)}
             {unanswered && <p className="tu-empty" role="status">Chalky is thinking…</p>}
           </div>
-          {/* Chalky and the chat box float over the bottom of the conversation, which scrolls under them. */}
-          <div className="tu-dock" ref={dock}>
-          <div className="tu-who"><Character kind="chalky" size={88} state={chalky} /><b>Chalky</b></div>
-          {!closed && <form className="rd-composer inky-composer tu-say" onSubmit={event => { event.preventDefault(); void send(); }}>
+          {!closed && <div className="tu-dock" ref={dock}><form className="rd-composer inky-composer tu-say" onSubmit={event => { event.preventDefault(); void send(); }}>
             <div className="inky-composer-line">
               <textarea rows={1} aria-label="Say something to Chalky" maxLength={10000} value={message} placeholder="Say something to Chalky…"
                 onChange={event => { setMessage(event.target.value); messageId.current = null; localStorage.setItem("studi-tutor-message:" + session.sessionId, event.target.value); }}
                 onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(); } }} />
               <button className="chat-send" disabled={busy || !message.trim()} aria-label="Send message"><Icon name="send" size={17} /></button>
             </div>
-          </form>}
-          </div>
+          </form></div>}
         </aside>
         <section className="tu-board" aria-label="The board">
           <div className="tu-col" ref={column}>

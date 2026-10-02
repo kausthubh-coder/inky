@@ -158,10 +158,12 @@ button.lr-more:hover > span { text-decoration: underline; text-decoration-color:
 /* The side chat: Chalky, the conversation, and the box to say more. */
 /* The conversation fills the panel; Chalky and the chat box sit on a frosted pane over its foot. */
 .tu-side { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
-.tu-talk { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: 4px 2px calc(var(--dock, 170px) + 14px); overflow-y: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(transparent, #000 32px); mask-image: linear-gradient(transparent, #000 32px); }
-.tu-dock { position: absolute; left: -8px; right: -8px; bottom: -8px; display: grid; gap: 4px; padding: 6px 8px 8px; border-radius: 24px;
+.tu-talk { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; padding: calc(var(--head, 100px) + 6px) 2px calc(var(--dock, 70px) + 14px); overflow-y: auto; scrollbar-width: none; }
+.tu-head, .tu-dock { position: absolute; z-index: 1; left: -8px; right: -8px; border-radius: 24px;
   background: color-mix(in srgb, var(--paper) 70%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.1); backdrop-filter: blur(14px) saturate(1.1);
-  box-shadow: 0 0 0 1px rgb(43 38 33 / 6%), 0 -8px 24px -18px rgb(43 38 33 / 30%); }
+  box-shadow: 0 0 0 1px rgb(43 38 33 / 6%), 0 8px 24px -18px rgb(43 38 33 / 30%); }
+.tu-head { top: -4px; padding: 4px 8px; }
+.tu-dock { bottom: -8px; padding: 8px; box-shadow: 0 0 0 1px rgb(43 38 33 / 6%), 0 -8px 24px -18px rgb(43 38 33 / 30%); }
 .tu-who { display: flex; align-items: center; gap: 10px; padding-left: 4px; }
 .tu-who .character { flex: none; margin: -4px 0 -6px -6px; }
 .tu-who b { font: 700 22px/1.2 "Shantell Sans", cursive; color: var(--ink-chalky); }
@@ -319,7 +321,7 @@ textarea.tu-area:focus { box-shadow: 0 0 0 2px var(--pencil), 0 0 0 6px var(--hi
 @media (max-width: 999px) {
   .tu-wrap { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 16px; padding: 8px 16px 14px; }
   .tu-side { order: 2; display: grid; grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: 12px; }
-  .tu-dock { display: contents; }
+  .tu-head, .tu-dock { display: contents; }
   .tu-who { order: 1; padding: 0; }
   .tu-who b { display: none; }
   .tu-who .character { margin: 0; zoom: 0.73; }
