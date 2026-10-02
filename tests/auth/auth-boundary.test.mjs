@@ -178,6 +178,33 @@ function memoryVault() {
   });
 }
 
+test("asking to sign in again while one waits reopens the same page instead of doing nothing", async () => {
+  const opened = [];
+  const coordinator = new AuthCoordinator({
+    vault: memoryVault(),
+    openExternal: async (authorization) => {
+      opened.push(authorization);
+      if (opened.length < 2) return;
+      // The second page completes, with a mismatched state so the attempt ends without tokens.
+      const callback = new URL(new URL(authorization).searchParams.get("redirect_uri"));
+      callback.searchParams.set("code", "one-shot-code");
+      callback.searchParams.set("state", "not-the-state");
+      setImmediate(() => { void requestLocalWithHost(callback.toString(), `localhost:${callback.port}`).catch(() => undefined); });
+    },
+    fetch: async (input) => {
+      if (String(input).endsWith("/.well-known/openid-configuration")) return jsonResponse(metadata());
+      throw new Error(`Unexpected request: ${String(input)}`);
+    },
+  });
+  assert.equal((await coordinator.start()).status, "signed_out");
+  const first = coordinator.signIn();
+  while (!opened.length) await new Promise(resolve => setImmediate(resolve));
+  const again = coordinator.signIn();
+  assert.equal(again, first);
+  assert.equal((await first).status, "signed_out");
+  assert.deepEqual(opened, [opened[0], opened[0]]);
+});
+
 function metadata() {
   return {
     issuer,

@@ -61,6 +61,7 @@ export class AuthCoordinator {
   #metadata: z.infer<typeof MetadataSchema> | null = null;
   #jwks: ReturnType<typeof createRemoteJWKSet> | null = null;
   #activeSignIn: Promise<AuthState> | null = null;
+  #authorizationUrl: string | null = null;
 
   constructor(options: AuthCoordinatorOptions) {
     this.#vault = options.vault;
@@ -88,7 +89,11 @@ export class AuthCoordinator {
   }
 
   signIn(): Promise<AuthState> {
-    if (this.#activeSignIn) return this.#activeSignIn;
+    // Asking again while a sign-in waits reopens its page: the first one may have been closed or failed to load.
+    if (this.#activeSignIn) {
+      if (this.#authorizationUrl) void this.#openExternal(this.#authorizationUrl).catch(() => undefined);
+      return this.#activeSignIn;
+    }
     this.#activeSignIn = this.#performSignIn().finally(() => {
       this.#activeSignIn = null;
     });
@@ -208,7 +213,8 @@ export class AuthCoordinator {
         state: transaction.state,
         nonce: transaction.nonce,
       }).toString();
-      await this.#openExternal(authorizationUrl.toString());
+      this.#authorizationUrl = authorizationUrl.toString();
+      await this.#openExternal(this.#authorizationUrl);
       const authorizationCode = await callback.code;
       const tokenResponse = await this.#requestToken(metadata.token_endpoint, {
         grant_type: "authorization_code",
@@ -239,6 +245,7 @@ export class AuthCoordinator {
         : "Studi could not finish sign-in. Check your connection and try again.";
       return this.#setState({ status: "signed_out", message });
     } finally {
+      this.#authorizationUrl = null;
       await callback.close().catch(() => undefined);
     }
   }
