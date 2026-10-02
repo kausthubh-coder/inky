@@ -124,6 +124,8 @@ export const ProductPreferencesSchema = z.strictObject({
   agentModelId: z.string().min(1).max(128).default(DEFAULT_AGENT_MODEL_ID),
   agentReasoningEffort: AgentReasoningEffortSchema.default(DEFAULT_AGENT_REASONING_EFFORT),
   notifications: NotificationPreferencesSchema.default(DEFAULT_NOTIFICATION_PREFERENCES),
+  /** The student left onboarding before a school check finished: they skipped it, or toured while it ran. */
+  onboardingFinishedAt: IsoTimestampSchema.nullable().default(null),
   updatedAt: IsoTimestampSchema,
 });
 export type ProductPreferences = z.infer<typeof ProductPreferencesSchema>;
@@ -152,6 +154,8 @@ export const ProductSettingsStateSchema = z.strictObject({
   preferences: ProductPreferencesSchema,
   permissionRules: z.array(PermissionRuleSchema),
   schedule: AutomationScheduleSchema.nullable(),
+  /** Where onboarding offers to make the homework folder. */
+  suggestedHomeworkRoot: z.string().min(1).max(1_024).nullable(),
 });
 export type ProductSettingsState = z.infer<typeof ProductSettingsStateSchema>;
 

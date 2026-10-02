@@ -37,7 +37,6 @@ form.rd-composer.inky-composer textarea {
   color: var(--pencil);
   border-radius: 0;
   field-sizing: content;
-  scrollbar-width: thin;
 }
 form.rd-composer.inky-composer textarea::placeholder {
   color: var(--graphite);

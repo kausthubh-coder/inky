@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Studi onboarding: mockups</title>
+<style>
+@font-face{font-family:"Nunito Sans";font-weight:400 800;src:url("../../../node_modules/@fontsource/nunito-sans/files/nunito-sans-latin-400-normal.woff2") format("woff2")}
+@font-face{font-family:"Shantell Sans";font-weight:600;src:url("../../../node_modules/@fontsource/shantell-sans/files/shantell-sans-latin-600-normal.woff2") format("woff2")}
+*{box-sizing:border-box}
+body{margin:0;background:#26221d;color:#d8cfbf;font:400 15px/1.55 "Nunito Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+main{max-width:1320px;margin:0 auto;padding:40px 24px 120px}
+h1{margin:0 0 6px;color:#f3ecdf;font:600 32px/1.1 "Shantell Sans",cursive}
+h2{margin:0 0 4px;color:#f3ecdf;font:600 21px/1.2 "Shantell Sans",cursive}
+.lead{max-width:760px;margin:0 0 40px;color:#b9af9f}
+section{margin:0 0 64px}
+.why{max-width:820px;margin:0 0 14px}
+.why li{margin:2px 0}
+.ask{display:inline-block;margin:6px 0 0;padding:4px 10px;border-radius:8px;background:#4a3f22;color:#f7d77a;font-weight:700}
+.pair{display:grid;grid-template-columns:1fr 1.6fr;gap:16px;align-items:start}
+.pair.solo{grid-template-columns:1.6fr 1fr}
+figure{margin:0}
+figcaption{margin:0 0 6px;color:#9b917f;font-size:12.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+img{display:block;width:100%;border-radius:10px;outline:1px solid rgb(255 255 255/10%)}
+a{color:#f7d77a}
+</style>
+</head>
+<body>
+<main>
+<h1>Onboarding: mockups</h1>
+<p class="lead">The order and the steps stay as they are: onboarding proves trust and sells, and a paywall comes later. Each mock is the real app screen (same CSS, same Dot and Chalky) with the proposed change on top, made by <code>shoot.mjs</code>. Left is the app today, right is the proposal.</p>
+
+<section>
+<h2>1. Welcome</h2>
+<ul class="why">
+<li>"Nice." answered a name step that no longer exists. Now it greets once, with the name capitalised and editable (click it).</li>
+<li>Three steps say how Studi works, and the third one is the trust line: you check it and hand it in.</li>
+<li>Chalky peeks in once, so Learn isn't a surprise later.</li>
+</ul>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/welcome.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/welcome.png"></figure></div>
+</section>
+
+<section>
+<h2>2. Connected apps</h2>
+<ul class="why">
+<li>"all actions" and the green pill under every app are gone. Each app says what Dot uses it for.</li>
+<li>Connected is a quiet tick on the right; the rest have one Connect button. Rows are shorter, so Continue stays on screen.</li>
+</ul>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/apps.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/apps.png"></figure></div>
+</section>
+
+<section>
+<h2>3. Homework folder</h2>
+<ul class="why">
+<li>Says why Dot wants a folder, and the trust line that it can't open anything outside it (the file tools are bounded to this folder).</li>
+<li>Suggests <code>Documents\Studi</code> and makes it, so most people press one button. "Choose another" still opens the picker.</li>
+</ul>
+<p class="ask">Needs a small engine change: create the suggested folder when it doesn't exist.</p>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/folder.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/folder.png"></figure></div>
+</section>
+
+<section>
+<h2>4. Class link</h2>
+<ul class="why">
+<li>The repeated hint is gone. "I don't have a class site" goes straight into Studi with Learn ready and an empty week.</li>
+</ul>
+<p class="ask">Your call: should someone without a class site get in? Today they can't.</p>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/school.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/school.png"></figure></div>
+</section>
+
+<section>
+<h2>5. When I find homework</h2>
+<ul class="why">
+<li>Bug: the label said "default" on the middle option while the first one was selected. Now the recommended one is selected.</li>
+<li>"Leave it to me / I'll leave it alone" read both ways. It becomes "Just tell me about it", and each option says who presses Submit.</li>
+</ul>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/permission.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/permission.png"></figure></div>
+</section>
+
+<section>
+<h2>6. School sign-in</h2>
+<ul class="why">
+<li>Bug: every earlier question stayed on screen and the one that mattered was below the fold. Now only the current message shows, with its buttons right under it.</li>
+<li>Earlier answers fold into "What you told me": one line each, so the student sees exactly what Dot will do. Clicking a row goes back to that step.</li>
+</ul>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/signin.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/signin.png"></figure></div>
+</section>
+
+<section>
+<h2>7. Looking around</h2>
+<ul class="why">
+<li>The disabled "Looking…" button is gone; the message already says it.</li>
+<li>Classes tick off as Dot finishes them, with what it found. This is the moment that sells, so it should be visible.</li>
+</ul>
+<p class="ask">Needs the scan to report each class as it finishes (its coverage list may already have this).</p>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/scan.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/scan.png"></figure></div>
+</section>
+
+<section>
+<h2>8. When the check fails</h2>
+<ul class="why">
+<li>Today the only way out is "Try again", forever. Proposed: say what happened, keep what was found, and offer "Skip for now".</li>
+</ul>
+<p class="ask">Same decision as step 4.</p>
+<div class="pair solo"><figure><figcaption>Proposed</figcaption><img src="shots/scan-failed.png"></figure></div>
+</section>
+
+<section>
+<h2>9. Your week is ready</h2>
+<ul class="why">
+<li>Shows the payoff: how much Dot found and what's next.</li>
+<li>Says what happens next using the answer from step 5 ("you still press Submit"), instead of "If you told me to…".</li>
+<li>Three lines say where things are: Homework is Dot, Learn is Chalky, the box at the bottom is chat. This is the paywall's natural spot later.</li>
+</ul>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/ready.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/ready.png"></figure></div>
+</section>
+
+<h1 style="margin-top:80px">Instructions in the app</h1>
+<p class="lead">No tour and no popovers. Each character explains its own screen the first time, and both can answer "how do I…" from one page that describes the app.</p>
+
+<section>
+<h2>10. Homework, first visit</h2>
+<ul class="why">
+<li>Dot's line says what the screen is and what to do. It shows until you open an assignment or send a message, then goes back to "Nothing needs you".</li>
+<li>The chat box suggests "what can you do?".</li>
+</ul>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/week-first.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/week-first.png"></figure></div>
+</section>
+
+<section>
+<h2>11. Learn, first visit</h2>
+<ul class="why">
+<li>Chalky introduces itself, says how it differs from Dot, and names the two ways in.</li>
+</ul>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/learn-first.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/learn-first.png"></figure></div>
+</section>
+
+<section>
+<h2>12. "What can you do?"</h2>
+<ul class="why">
+<li>Dot answers from a short "how Studi works" page that is added to Dot's and Chalky's instructions, using the student's real settings (here, "every morning").</li>
+<li>It ends with suggestions taken from their actual week.</li>
+</ul>
+<div class="pair"><figure><figcaption>Now</figcaption><img src="now/chat-help.png"></figure><figure><figcaption>Proposed</figcaption><img src="shots/chat-help.png"></figure></div>
+</section>
+</main>
+</body>
+</html>

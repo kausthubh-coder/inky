@@ -26,6 +26,7 @@ import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { chatTimeline } from "./chatTimeline.js";
 import { useSchoolSlot } from "./schoolSlot.js";
+import { studiApi } from "./studiApi.js";
 
 export type ChatView = "home" | "compact" | "expanded";
 interface ChatProps {
@@ -64,6 +65,7 @@ type Draft = {
   clientMessageId?: string;
 };
 const HOME_ASKS = [
+  "Ask me anything. Try “what can you do?”",
   "Check my email for anything from my professors…",
   "Quiz me on this week's lecture…",
   "Explain the last homework's question 3…",
@@ -233,10 +235,10 @@ export function ChatWorkspace(props: ChatProps) {
     mounted.current = true;
     let reading = false;
     const read = async () => {
-      if (reading || !window.studi || school) return;
+      if (reading || !studiApi() || school) return;
       reading = true;
       try {
-        const next = await window.studi!.getScopedConversation(target);
+        const next = await studiApi()!.getScopedConversation(target);
         if (mounted.current) setChat(next);
       } catch (cause) {
         if (mounted.current)
@@ -258,7 +260,7 @@ export function ChatWorkspace(props: ChatProps) {
   }, []);
   useEffect(() => {
     if (error)
-      void window.studi
+      void studiApi()
         ?.captureUiTelemetry({ event: "ui_error", message: error })
         .catch(() => undefined);
   }, [error]);
@@ -319,7 +321,7 @@ export function ChatWorkspace(props: ChatProps) {
     return () => document.removeEventListener("keydown", close);
   }, [browser, onView, query]);
   const send = async (text = draft.text, refs = draft.refs) => {
-    if (!window.studi || sendLock.current || !text.trim()) return;
+    if (!studiApi() || sendLock.current || !text.trim()) return;
     const sameDraft =
       text === draftRef.current.text &&
       JSON.stringify(refs) === JSON.stringify(draftRef.current.refs);
@@ -335,7 +337,7 @@ export function ChatWorkspace(props: ChatProps) {
     try {
       if (school) {
         if (!onboarding.scan) throw new Error("Start a school check first.");
-        await window.studi!.sendScanMessage({
+        await studiApi()!.sendScanMessage({
           scanId: onboarding.scan.scanId,
           text,
           clientMessageId,
@@ -347,7 +349,7 @@ export function ChatWorkspace(props: ChatProps) {
           saveDraft({ text: "", refs: [] });
         return;
       }
-      const result = await window.studi!.send({
+      const result = await studiApi()!.send({
         target,
         text,
         assignmentRefs: refs,
@@ -376,14 +378,14 @@ export function ChatWorkspace(props: ChatProps) {
   const stop = async () => {
     try {
       if (school) {
-        await window.studi!.pauseSchoolScan();
+        await studiApi()!.pauseSchoolScan();
         return;
       }
       if (stoppableAssignment) {
         props.onCancel(stoppableAssignment.taskId);
         return;
       }
-      const result = await window.studi?.stopScopedConversation(target);
+      const result = await studiApi()?.stopScopedConversation(target);
       if (result) setChat(result);
     } catch {
       setError(
@@ -417,7 +419,7 @@ export function ChatWorkspace(props: ChatProps) {
   };
   const suggestions = homeSuggestions(onboarding, lifecycle);
   const openBrowser = () => {
-    void window.studi
+    void studiApi()
       ?.selectBrowserPage(school ? { kind: "school" } : target)
       .then((state) => {
         if (!mounted.current) return;
@@ -429,7 +431,7 @@ export function ChatWorkspace(props: ChatProps) {
           !pageUnavailable && (!state.browser.url || state.browser.url === "about:blank") &&
           state.browser.driver !== "inky"
         ) {
-          void window.studi
+          void studiApi()
             ?.navigateBrowser({
               url,
               target: school ? { kind: "school" } : target,
@@ -444,7 +446,7 @@ export function ChatWorkspace(props: ChatProps) {
       });
   };
   const reopenSchoolPage = async () => {
-    const studi = window.studi;
+    const studi = studiApi();
     const url = onboarding.profile?.schoolRoot;
     if (!studi || !url || openingSchoolPage) return;
     setOpeningSchoolPage(true);
@@ -484,7 +486,7 @@ export function ChatWorkspace(props: ChatProps) {
           onAssignment={props.onAssignment ?? (() => {})}
           onCheck={props.onResumeScan}
           onPause={() => {
-            void window.studi
+            void studiApi()
               ?.finishSchoolScan()
               .catch((cause) => setError(String(cause)));
           }}
@@ -729,7 +731,7 @@ export function ChatWorkspace(props: ChatProps) {
         onPause={
           school && onboarding.scan?.state === "running"
             ? () => {
-                void window.studi
+                void studiApi()
                   ?.pauseSchoolScan()
                   .catch((cause) => setError(String(cause)));
               }
@@ -941,6 +943,7 @@ function homeSuggestions(onboarding: SchoolOnboardingState, lifecycle: Lifecycle
       && !["submitted", "graded"].includes(item.schoolStatus?.state ?? ""))
     .sort((a, b) => Date.parse(a.dueAt!) - Date.parse(b.dueAt!))[0];
   return [
+    "What can you do?",
     "What's left before Friday?",
     ...(waiting ? [`What does ${waiting} need from me?`] : []),
     ...(next ? [`Start ${next.title}`] : []),

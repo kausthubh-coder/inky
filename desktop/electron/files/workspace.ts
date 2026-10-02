@@ -36,6 +36,15 @@ export async function initializeHomeworkWorkspace(rawRoot: string): Promise<stri
   return root;
 }
 
+/** The first of Studi, Studi 2, … in parent that is missing, empty, or already a Studi folder. */
+export async function suggestHomeworkRoot(parent: string): Promise<string> {
+  for (let n = 1; ; n += 1) {
+    const candidate = join(parent, n === 1 ? "Studi" : `Studi ${n}`);
+    const entries = await readdir(candidate).catch((error: NodeJS.ErrnoException) => error.code === "ENOENT" ? [] : null);
+    if (entries && (entries.length === 0 || await hasValidMarker(candidate))) return candidate;
+  }
+}
+
 export async function syncHomeworkClassFolders(
   rawRoot: string,
   classes: readonly { readonly courseId: string; readonly label: string }[],

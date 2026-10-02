@@ -23,6 +23,8 @@ const redesignMethods = {
   readMemory: 'studi:memory-read',
   createMemory: "studi:memory-create", updateMemory: 'studi:memory-update',
   deleteMemory: 'studi:memory-delete',
+  finishOnboarding: 'studi:onboarding-finish',
+  chooseSuggestedHomeworkRoot: 'studi:homework-root-suggested',
   getLearnState: 'studi:learn-state',
   getLearnNotes: 'studi:learn-notes',
   readLearnPage: 'studi:learn-page-read',

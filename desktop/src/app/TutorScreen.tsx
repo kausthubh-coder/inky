@@ -8,6 +8,7 @@ import { StudyPage } from "./StudyPage.js";
 import { ChatMarkdown, plainText } from "./ChatMarkdown.js";
 import { Icon } from "./Icon.js";
 import { Character } from "./Character.js";
+import { studiApi } from "./studiApi.js";
 
 const PHASE_NAMES: Record<TutorPhase, string> = { check: "Check", learn: "Learn", practice: "Practise", independent: "On your own", wrap: "Wrap up" };
 const LEVELS = ["Not yet", "Shaky", "Getting there", "Good", "Solid"];
@@ -85,7 +86,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
     const read = async () => {
       if (reading || lock.current) return;
       reading = true;
-      try { const next = await window.studi!.getTutorSession({ sessionId: initial.sessionId }); if (mounted.current) apply(next); }
+      try { const next = await studiApi()!.getTutorSession({ sessionId: initial.sessionId }); if (mounted.current) apply(next); }
       catch (cause) { if (mounted.current) setError(String(cause)); }
       finally { reading = false; }
     };
@@ -145,7 +146,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
     return () => fit.disconnect();
   }, [closed]);
 
-  const pause = () => run(() => window.studi!.pauseTutorSession({ sessionId: session.sessionId }));
+  const pause = () => run(() => studiApi()!.pauseTutorSession({ sessionId: session.sessionId }));
   const leave = async () => {
     if (session.status === "active" && !(await pause())) return;
     onLeave();
@@ -155,12 +156,12 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
     if (!text) return;
     const id = messageId.current ?? crypto.randomUUID();
     messageId.current = id;
-    if (await run(() => window.studi!.sendTutorMessage({ sessionId: session.sessionId, text, messageId: id }))) {
+    if (await run(() => studiApi()!.sendTutorMessage({ sessionId: session.sessionId, text, messageId: id }))) {
       setMessage(""); messageId.current = null;
       localStorage.removeItem("studi-tutor-message:" + session.sessionId);
     }
   };
-  const answer = (blockId: string, value: TutorBlockAnswer) => run(() => window.studi!.answerTutorBlock({ sessionId: session.sessionId, blockId,
+  const answer = (blockId: string, value: TutorBlockAnswer) => run(() => studiApi()!.answerTutorBlock({ sessionId: session.sessionId, blockId,
     answer: value.kind !== "model" && explored.length ? { ...value, explored } : value }));
   const move = () => { if (view.following) setAt(view.following); else setWrapUp(true); };
 
@@ -220,8 +221,8 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
                 <h1 className="tu-q">Right where we left off.</h1>
                 <p className="tu-plain">{session.error ?? "Your answers and drafts are saved."}</p>
                 <div className="tu-ans">
-                  <button className="tu-btn" disabled={busy} onClick={() => void run(() => window.studi!.resumeTutorSession({ sessionId: session.sessionId }))}>Resume</button>
-                  <button className="rd-quiet" disabled={busy} onClick={() => void run(() => window.studi!.cancelTutorSession({ sessionId: session.sessionId }))}>End the lesson</button>
+                  <button className="tu-btn" disabled={busy} onClick={() => void run(() => studiApi()!.resumeTutorSession({ sessionId: session.sessionId }))}>Resume</button>
+                  <button className="rd-quiet" disabled={busy} onClick={() => void run(() => studiApi()!.cancelTutorSession({ sessionId: session.sessionId }))}>End the lesson</button>
                 </div>
               </> : <>
                 {!done.length && view.done.length > 0 && <button className="tu-done" onClick={() => setAllDone(true)}><span>{view.done.length} earlier questions</span><span className="tu-more">Show</span></button>}
@@ -242,7 +243,7 @@ export function TutorScreen({ initial, goal, courseLabel, topicTitle, lastRight,
                 {question
                   ? <Answer key={`${question.blockId}:${question.attempts.length}:${question.status}`} view={view} question={question} sessionId={session.sessionId} disabled={disabled}
                       onAnswer={value => answer(question.blockId, value)} onMove={move} onError={setError} registerFlush={registerFlush}
-                      onHint={() => void run(() => window.studi!.hintTutorBlock({ sessionId: session.sessionId, blockId: question.blockId }))} />
+                      onHint={() => void run(() => studiApi()!.hintTutorBlock({ sessionId: session.sessionId, blockId: question.blockId }))} />
                   : view.at && <div className="tu-ans">
                     <button className="tu-btn" disabled={disabled || view.move !== "tried" || (!toRead && !explored.length)} onClick={() => void answer(view.at!, { kind: "model", explored: toRead ? ["Read it"] : explored })}>{toRead ? "Continue" : "I've tried it"}</button>
                     <span className="tu-lab" role="status">{view.move !== "tried" ? "Chalky is writing…" : !toRead && !explored.length ? waiting?.tool === "tutor_show_page" ? "Try the page first." : "Try it first." : ""}</span>
@@ -277,7 +278,7 @@ function Answer({ view, question, sessionId, disabled, onAnswer, onHint, onMove,
     const value = latest.current;
     saving.current = saving.current.catch(() => {}).then(async () => {
       if (saved.current === value) return;
-      await window.studi!.saveTutorDraft({ sessionId, blockId: question.blockId, draft: value });
+      await studiApi()!.saveTutorDraft({ sessionId, blockId: question.blockId, draft: value });
       saved.current = value;
     });
     return saving.current;

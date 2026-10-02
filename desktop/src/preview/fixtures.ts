@@ -164,9 +164,10 @@ export function installDevPreview(): void {
   };
 
   let settings: ProductSettingsState = {
-    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, workStartMode: "manual", memoryVisibility: "selected", homeworkRoot: null, agentProviderId: "openai-codex", agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, updatedAt: now },
+    preferences: { schemaVersion: 1, reviewMinutes: 15, handoffMinutes: 30, workStartMode: "manual", memoryVisibility: "selected", homeworkRoot: null, agentProviderId: "openai-codex", agentModelId: DEFAULT_AGENT_MODEL_ID, agentReasoningEffort: DEFAULT_AGENT_REASONING_EFFORT, notifications: DEFAULT_NOTIFICATION_PREFERENCES, onboardingFinishedAt: null, updatedAt: now },
     permissionRules: [{ schemaVersion: 1, ruleId: "preview-global", scope: "global", mode: "attempt", updatedAt: now }],
     schedule: lifecycle.schedule,
+    suggestedHomeworkRoot: "C:\Users\Student\Documents\Studi",
   };
 
   if (preview.id === "desk-review") {
@@ -490,6 +491,8 @@ export function installDevPreview(): void {
     openAnswerArtifact: async () => true,
     getProductSettings: async () => settings,
     saveProductPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, ...input, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    chooseSuggestedHomeworkRoot: async () => { settings = { ...settings, preferences: { ...settings.preferences, homeworkRoot: settings.suggestedHomeworkRoot, updatedAt: new Date().toISOString() } }; return settings.preferences; },
+    finishOnboarding: async ({ finished }) => { settings = { ...settings, preferences: { ...settings.preferences, onboardingFinishedAt: finished ? new Date().toISOString() : null } }; return settings.preferences; },
     selectHomeworkRoot: async () => { settings = { ...settings, preferences: { ...settings.preferences, homeworkRoot: "C:\\Studi Preview Homework", updatedAt: new Date().toISOString() } }; return settings.preferences; },
     saveNotificationPreferences: async (input) => { settings = { ...settings, preferences: { ...settings.preferences, notifications: {...input,quietHours:input.quietHours??"off",kinds:{...input.kinds,work_start:input.kinds.work_start??DEFAULT_NOTIFICATION_PREFERENCES.kinds.work_start}}, updatedAt: new Date().toISOString() } }; return settings.preferences; },
     testNotification: async ({ kind }) => ({

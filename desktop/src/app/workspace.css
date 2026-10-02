@@ -62,7 +62,7 @@ html[data-desktop] .fable-onboarding, html[data-desktop] .loading-screen { min-h
 
 .settings-page { display: grid; grid-template-columns: 215px minmax(0, 1fr); gap: 42px; width: min(1050px, calc(100% - 64px)); padding: 35px 0 60px; align-items: start; }
 .settings-sidebar { position: sticky; top: 86px; display: flex; flex-direction: column; max-height: calc(100dvh - 106px); }
-.settings-sidebar>nav { min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+.settings-sidebar>nav { min-height: 0; overflow-y: auto; }
 .settings-sidebar h1, .settings-search { flex-shrink: 0; }
 .settings-sidebar h1 { margin: 0 0 22px; font-size: 28px; }
 .settings-search { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid #d6cbb8; border-radius: 8px; background: var(--panel); color: var(--muted); }

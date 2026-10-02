@@ -463,7 +463,6 @@
   padding: 18px 44px 10px 20px;
   font-size: 15px;
   line-height: 1.55;
-  scrollbar-width: none;
 }
 .hw-dock-entry {
   display: flex;
@@ -583,4 +582,3 @@
 }
 
 
-.hw-dock-log::-webkit-scrollbar { display: none; }

@@ -4,6 +4,7 @@ import { OPENABLE_FILE, type AssignmentCommandOutput } from "../../shared/index.
 import { ChatMarkdown } from "./ChatMarkdown.js";
 import { Icon, type IconName } from "./Icon.js";
 import { parseDelimited } from "./homeworkFile.js";
+import { studiApi } from "./studiApi.js";
 
 // The assignment's folder as a small workspace, like an editor: files on the left, the open file
 // with line numbers on the right, and Dot's terminal underneath with each command and its result.
@@ -64,8 +65,8 @@ export function HomeworkFiles({ assignmentId, active, commandOutputs = [], comma
 
   const refresh = useCallback(async () => {
     try {
-      if (!window.studi) throw new Error("Open Studi to load assignment files.");
-      const items = await window.studi.getAssignmentFiles({ assignmentId });
+      if (!studiApi()) throw new Error("Open Studi to load assignment files.");
+      const items = await studiApi()!.getAssignmentFiles({ assignmentId });
       const visible = items.filter((item) => item.kind === "file" && !item.path.split("/").some((part) => part.startsWith(".studi-")));
       if (mounted.current) { setFiles(visible); setLoadError(""); }
     } catch {
@@ -95,7 +96,7 @@ export function HomeworkFiles({ assignmentId, active, commandOutputs = [], comma
     if (PDF.test(file.path) || IMAGE.test(file.path) || !TEXT.test(file.path) && !/^makefile$/i.test(file.path.split("/").pop() ?? "") || file.size > 250_000) return;
     setReading(true);
     try {
-      const result = await window.studi?.readAssignmentFile({ assignmentId, path: file.path });
+      const result = await studiApi()?.readAssignmentFile({ assignmentId, path: file.path });
       if (mounted.current && id === request.current && result) setContent(result.content);
     } catch {
       if (mounted.current && id === request.current) setError("Couldn't preview this file. Try again or use Show in folder.");
@@ -112,11 +113,11 @@ export function HomeworkFiles({ assignmentId, active, commandOutputs = [], comma
   }, [files, opened, read]);
 
   const add = async () => {
-    if (adding || !window.studi) return;
+    if (adding || !studiApi()) return;
     setAdding(true);
     setError("");
     try {
-      const result = await window.studi.importAssignmentFiles({ assignmentId });
+      const result = await studiApi()!.importAssignmentFiles({ assignmentId });
       if (result.errors.length) setError(`Couldn't add ${result.errors.map((item) => item.name).join(", ")}. Try adding those files again.`);
       await refresh();
     } catch {
@@ -125,14 +126,14 @@ export function HomeworkFiles({ assignmentId, active, commandOutputs = [], comma
       if (mounted.current) setAdding(false);
     }
   };
-  const reveal = (path?: string) => void window.studi?.openAssignmentFolder({ assignmentId, ...(path ? { path } : {}) }).catch(() => {
+  const reveal = (path?: string) => void studiApi()?.openAssignmentFolder({ assignmentId, ...(path ? { path } : {}) }).catch(() => {
     if (mounted.current) setError("Couldn't open the folder. Try again.");
   });
   const open = async (path: string) => {
-    if (opening || !window.studi) return;
+    if (opening || !studiApi()) return;
     setOpening(true);
     setError("");
-    try { await window.studi.openAssignmentFile({ assignmentId, path }); }
+    try { await studiApi()!.openAssignmentFile({ assignmentId, path }); }
     catch { if (mounted.current) setError("Couldn't open this file. Check that an app for this file type is installed, then try again."); }
     finally { if (mounted.current) setOpening(false); }
   };
@@ -209,8 +210,8 @@ export function HomeworkFiles({ assignmentId, active, commandOutputs = [], comma
                 <button className="wf-link" onClick={() => reveal(opened.path)}>Show in folder</button>
               </header>
               {reading ? <p className="wf-muted wf-pad">Opening…</p>
-                : PDF.test(opened.path) && window.studi ? <iframe className="wf-pdf" title={opened.path} src={`${fileUrl(assignmentId, opened.path)}#view=FitH`} />
-                : IMAGE.test(opened.path) && window.studi ? <div className="wf-image"><img key={opened.path} src={fileUrl(assignmentId, opened.path)} alt={opened.path} onError={() => setError("Couldn't preview this image. Try again or open it in its app.")} /></div>
+                : PDF.test(opened.path) && studiApi() ? <iframe className="wf-pdf" title={opened.path} src={`${fileUrl(assignmentId, opened.path)}#view=FitH`} />
+                : IMAGE.test(opened.path) && studiApi() ? <div className="wf-image"><img key={opened.path} src={fileUrl(assignmentId, opened.path)} alt={opened.path} onError={() => setError("Couldn't preview this image. Try again or open it in its app.")} /></div>
                 : content !== null ? (/\.md$/i.test(opened.path)
                   ? <article className="wf-doc" aria-label="File preview"><ChatMarkdown text={content} /></article>
                   : table ? <DelimitedPreview rows={table} />

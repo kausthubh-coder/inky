@@ -6,6 +6,7 @@ import { ConversationTimeline } from "./ConversationTimeline.js";
 import { plainText } from "./ChatMarkdown.js";
 import { WorkspaceDialog } from "./WorkspaceDialog.js";
 import { Icon } from "./Icon.js";
+import { studiApi } from "./studiApi.js";
 
 export function LearnConversation({
   storageKey,
@@ -31,7 +32,7 @@ export function LearnConversation({
       if (reading) return;
       reading = true;
       try {
-        const next = await window.studi!.getScopedConversation({
+        const next = await studiApi()!.getScopedConversation({
           kind: "learn",
         });
         if (alive.current) setChat(next);
@@ -67,7 +68,7 @@ export function LearnConversation({
     const id = messageId.current ?? crypto.randomUUID();
     messageId.current = id;
     try {
-      const result = await window.studi!.send({
+      const result = await studiApi()!.send({
         target: { kind: "learn" },
         text,
         clientMessageId: id,
@@ -89,7 +90,7 @@ export function LearnConversation({
   const stopping = active && !draft.trim();
   const stop = async () => {
     try {
-      setChat(await window.studi!.stopScopedConversation({ kind: "learn" }));
+      setChat(await studiApi()!.stopScopedConversation({ kind: "learn" }));
     } catch (cause) {
       setError(String(cause));
     }

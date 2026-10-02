@@ -91,7 +91,8 @@ test("Electron boundary uses isolation and a frozen narrow bridge", async () => 
   assert.match(preloadSource, /exposeInMainWorld\("studi", rendererApi\)/);
   assert.deepEqual(
     [...preloadSource.matchAll(/ipcRenderer\.([A-Za-z]+)\s*\(/g)].map((match) => match[1]),
-    ["invoke", "on", "removeListener", "on", "removeListener"],
+    // invoke, then one listener pair each for lifecycle activation, engine changes and notification sounds.
+    ["invoke", "on", "removeListener", "on", "removeListener", "on", "removeListener"],
   );
   assert.equal((preloadSource.match(/exposeInMainWorld\s*\(/g) ?? []).length, 1);
   assert.equal((preloadSource.match(/studi:(?:runtime-info|contract-manifest)/g) ?? []).length, 0);

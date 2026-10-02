@@ -31,4 +31,7 @@ interface PreviewEnvironment { config: DevPreviewConfig; SchoolPage: ComponentTy
 let environment: PreviewEnvironment | null = null;
 export function installPreviewEnvironment(value: PreviewEnvironment): void { environment = value; }
 export function readDevPreviewConfig(): DevPreviewConfig | null { return environment?.config ?? null; }
-export function readPreviewSchoolPage() { return environment?.SchoolPage ?? null; }
+// The tour's practice homework draws its own page where the live school page would be.
+let standIn: ComponentType<{ mode: "classes" | "assignment" }> | null = null;
+export function setSchoolPageStandIn(page: typeof standIn): void { standIn = page; }
+export function readPreviewSchoolPage() { return standIn ?? environment?.SchoolPage ?? null; }

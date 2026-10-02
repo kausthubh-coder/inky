@@ -26,10 +26,11 @@ import { Icon, type IconName } from "./Icon.js";
 import { PreviewSchoolPage } from "./PreviewSchoolPage.js";
 import { courseLabel, courseTone } from "./assignmentPresentation.js";
 import { groupSteps, onceOnly, planFor, threadSteps, tipsFor, workTabName, workedFor, type ThreadBlock } from "./assignmentThread.js";
-import { readDevPreviewConfig } from "./devPreview.js";
 import { onEngineChange } from "./engineChanges.js";
 import { plainError, shortCourse } from "./homeworkText.js";
 import { useSchoolSlot } from "./schoolSlot.js";
+import { PRACTICE } from "./tour/practice.js";
+import { studiApi } from "./studiApi.js";
 
 type Tab = "receipt" | "site" | "work" | "details";
 
@@ -97,7 +98,7 @@ export function AssignmentWorkspace({
       if (!task || reading) return;
       reading = true;
       try {
-        const next = await window.studi!.getTaskDetail({ taskId: task.task.taskId });
+        const next = await studiApi()!.getTaskDetail({ taskId: task.task.taskId });
         if (alive) setDetail(next);
       } catch (cause) {
         if (alive) setProblem(plainError(cause));
@@ -160,11 +161,11 @@ export function AssignmentWorkspace({
   const disabled = busy !== null || pending;
   const openRules = () => { focusRulesOn(assignment.assignmentId); onOpenRules(); };
   const addFiles = () => void act(async () => {
-    const result = await window.studi!.importAssignmentFiles({ assignmentId: assignment.assignmentId });
+    const result = await studiApi()!.importAssignmentFiles({ assignmentId: assignment.assignmentId });
     if (result.errors.length) throw new Error(result.errors.map((item) => `${item.name}: ${item.message}`).join("\n"));
     if (result.imported.length && run?.phase === "needs_user") onResume(run.taskId);
   });
-  const setOwner = (owner: "student" | "inky") => void act(() => window.studi!.setAssignmentOwner({ assignmentId: assignment.assignmentId, owner }));
+  const setOwner = (owner: "student" | "inky") => void act(() => studiApi()!.setAssignmentOwner({ assignmentId: assignment.assignmentId, owner }));
 
   const move = yourMove();
   const siteHost = hostOf(workspace?.browser.url);
@@ -313,14 +314,15 @@ export function AssignmentWorkspace({
   function yourMove(): { title: string; body?: string; actions?: ReactNode; extra?: ReactNode } | null {
     const primary = (label: string, onClick: () => void, off = false) => <button className="rd-button rd-primary" disabled={disabled || off} onClick={onClick}>{label}</button>;
     const quiet = (label: string, onClick: () => void) => <button className="rd-link ag-link" disabled={disabled} onClick={onClick}>{label}</button>;
-    const next = (id: string) => primary("Do this next", () => void act(() => window.studi!.queueAssignmentNext({ taskId: id })));
+    const next = (id: string) => primary("Do this next", () => void act(() => studiApi()!.queueAssignmentNext({ taskId: id })));
     const stop = run && isLivePhase(run.phase) ? quiet("Stop", () => onCancel(run.taskId)) : null;
     const mode = task?.permission.mode ?? "do_not_attempt";
     switch (state) {
       case "left_to_you":
       case "not_started": {
-        if (otherLive) return { title: "Dot is on another assignment.", body: "This one can go next.", actions: <>{task && primary("Do this next", () => void act(() => window.studi!.queueAssignmentNext({ taskId: task.task.taskId })))}{quiet("Go to it", onOpenWork)}</> };
-        if (onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user") return { title: "Dot is reading your school.", body: "It can start this when the check finishes." };
+        if (otherLive) return { title: "Dot is on another assignment.", body: "This one can go next.", actions: <>{task && primary("Do this next", () => void act(() => studiApi()!.queueAssignmentNext({ taskId: task.task.taskId })))}{quiet("Go to it", onOpenWork)}</> };
+        // The tour's practice homework never uses the school page, so a running check doesn't hold it up.
+        if ((onboarding.scan?.state === "running" || onboarding.scan?.state === "needs_user") && assignment.courseId !== PRACTICE.course) return { title: "Dot is reading your school.", body: "It can start this when the check finishes." };
         const eligibility = assignmentWorkEligibility(assignment, new Date().toISOString());
         if (!eligibility.eligible) return { title: "Dot can't start this one.", body: eligibility.reason };
         return {
@@ -333,7 +335,7 @@ export function AssignmentWorkspace({
         return {
           title: entry?.startRequestedAt ? (otherLive ? "Dot does this next." : "Dot starts this soon.") : entry?.scheduledStartAt ? `Dot starts ${whenText(entry.scheduledStartAt)}.` : otherLive ? "Dot does this next." : "Dot starts this soon.",
           body: entry?.startRequestedAt ? "You asked for it. It starts when Dot is free, and you'll get a notification." : "Your rules let Dot start by itself. You'll get a notification.",
-          actions: task ? <>{!otherLive && primary("Start now", () => onStart(task.task.taskId))}{quiet("Take it out of the queue", () => void act(() => window.studi!.cancelAssignment({ taskId: task.task.taskId })))}{otherLive && quiet("See what Dot is on", onOpenWork)}</> : undefined,
+          actions: task ? <>{!otherLive && primary("Start now", () => onStart(task.task.taskId))}{quiet("Take it out of the queue", () => void act(() => studiApi()!.cancelAssignment({ taskId: task.task.taskId })))}{otherLive && quiet("See what Dot is on", onOpenWork)}</> : undefined,
         };
       case "waiting":
         if (!run) return null;
@@ -354,7 +356,7 @@ export function AssignmentWorkspace({
         );
         if (run.reviewSubmissionRequestedAt && lifecycle.manager.lease?.taskId !== run.taskId) return { title: "Hand-in is next.", body: "Dot will hand this in when the school page is free." };
         const calls = open ? `Dot made ${open === 1 ? "a call" : `${open} calls`} you might want to change.` : null;
-        const handIn = primary(pending ? "Handing in…" : "Hand it in", () => void act(() => window.studi!.submitReviewedAssignment({ taskId: run.taskId })), open > 0);
+        const handIn = primary(pending ? "Handing in…" : "Hand it in", () => void act(() => studiApi()!.submitReviewedAssignment({ taskId: run.taskId })), open > 0);
         if (handing) return { title: "Press Submit on the school page.", body: "It's on the right. Dot sees it when the school confirms, and saves the receipt.", actions: quiet("Back to my work", () => setHanding(false)) };
         if (task?.permission.maySubmit) {
           const deadline = run.reviewDeadline && !run.reviewSubmissionRequestedAt && lifecycle.schedule?.state !== "paused" ? clock(run.reviewDeadline) : null;
@@ -370,7 +372,7 @@ export function AssignmentWorkspace({
           title: calls ?? "Ready for you to hand in.",
           body: open ? "Mark each one, then hand it in." : "Dot can hand it in now, or you can submit it on the school page yourself.",
           extra: checks,
-          actions: <>{handIn}{!otherLive && quiet("I'll submit it on the page", () => void act(async () => { await window.studi!.watchHandIn({ taskId: run.taskId }); setHanding(true); }))}{!otherLive && quiet("Edit it myself", () => onPause(run.taskId))}</>,
+          actions: <>{handIn}{!otherLive && quiet("I'll submit it on the page", () => void act(async () => { await studiApi()!.watchHandIn({ taskId: run.taskId }); setHanding(true); }))}{!otherLive && quiet("Edit it myself", () => onPause(run.taskId))}</>,
         };
       }
       case "stopped":
@@ -490,7 +492,7 @@ function SitePane({ onSlot, hidden }: { onSlot: (bounds: SchoolPageBounds | null
   const slot = useRef<HTMLDivElement>(null);
   // The live page is a native layer that would swallow the drag, so it steps aside while resizing.
   useSchoolSlot(slot, onSlot, !hidden);
-  return <div className="ag-slot" ref={slot} data-school-slot="true" aria-label="Live school page">{readDevPreviewConfig() && <PreviewSchoolPage mode="assignment" />}</div>;
+  return <div className="ag-slot" ref={slot} data-school-slot="true" aria-label="Live school page"><PreviewSchoolPage mode="assignment" /></div>;
 }
 
 // One row per run of tool calls. Done: a summary that expands. Working: the step Dot is on, live.

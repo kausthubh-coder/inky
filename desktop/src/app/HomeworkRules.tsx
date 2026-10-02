@@ -4,6 +4,7 @@ import { currentPermissionRules, permissionRuleTargetKey } from "../../shared/in
 import { Icon } from "./Icon.js";
 import { SettingsGroup } from "./SettingsPrimitives.js";
 import { courseTone } from "./assignmentPresentation.js";
+import { studiApi } from "./studiApi.js";
 type RuleInput = Parameters<StudiRendererApi["savePermissionRule"]>[0];
 // One set of words everywhere: the week, the assignment page and here.
 const modes = [
@@ -44,7 +45,7 @@ export function HomeworkRules({ rules, onboarding, busy, onSaveRule, onDeleteRul
     if (!checking || !checker) { setTask(null); setNotice(""); return; }
     let alive = true;
     setTask(null); setNotice("Checking its saved rule…");
-    void window.studi!.getLibraryState().then(library => {
+    void studiApi()!.getLibraryState().then(library => {
       if (!alive) return;
       const found = library.tasks.find(item => item.assignment.assignmentId === checker);
       setTask(found ?? null); setNotice(found ? "" : "This assignment hasn't been loaded into your library yet.");

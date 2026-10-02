@@ -9,6 +9,8 @@ import { courseLabel, courseTone } from "./assignmentPresentation.js";
 import { readDevPreviewConfig } from "./devPreview.js";
 import { dueLine, homeworkAction, homeworkFix, homeworkItems, homeworkLine, isDone, needsYou, shortCourse, type HomeworkItem } from "./homeworkItems.js";
 import { calendarWeek, localDateKey } from "./weekCalendar.js";
+import { studiApi } from "./studiApi.js";
+import { introSeen, markIntroSeen } from "./intro.js";
 
 export const RULE_LABELS = {
   do_not_attempt: "Leave it to me",
@@ -18,7 +20,7 @@ export const RULE_LABELS = {
 
 type View = "week" | "list" | "all";
 
-export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen, onStart, onAsk, onSchool, onRefresh, onSettings }: {
+export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen: openAssignment, onStart, onAsk, onSchool, onRefresh, onSettings }: {
   onboarding: SchoolOnboardingState;
   lifecycle: LifecycleState;
   library: LibraryState | null;
@@ -31,6 +33,8 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
   onSettings: () => void;
 }) {
   const preview = readDevPreviewConfig()?.id;
+  const [intro] = useState(() => !introSeen("homework"));
+  const onOpen = (assignmentId: string) => { markIntroSeen("homework"); openAssignment(assignmentId); };
   const [view, setView] = useState<View>(preview?.startsWith("today") ? "list" : "week");
   const [weekOffset, setWeekOffset] = useState(0);
   const [clock, setClock] = useState(() => new Date());
@@ -67,11 +71,13 @@ export function HomeworkHome({ onboarding, lifecycle, library, settings, onOpen,
   const act = (item: HomeworkItem) => {
     const action = homeworkAction(item, busy);
     const taskId = item.task?.task.taskId;
-    if (action.start && taskId) busy ? void run(() => window.studi!.queueAssignmentNext({ taskId })) : onStart(taskId);
+    if (action.start && taskId) busy ? void run(() => studiApi()!.queueAssignmentNext({ taskId })) : onStart(taskId);
     else onOpen(item.assignment.assignmentId);
   };
 
-  const headline = homeHeadline({ needs, working, scan, waiting: scanWaitingFor(onboarding.scan), next: items.find((item) => item.record.state === "not_started" || item.record.state === "scheduled"), busy });
+  const found = homeHeadline({ needs, working, scan, waiting: scanWaitingFor(onboarding.scan), next: items.find((item) => item.record.state === "not_started" || item.record.state === "scheduled"), busy });
+  // On a first visit the screen says what it is, unless something already needs the student.
+  const headline = intro && !needs.length && found.dot !== "needs" && !found.button ? { ...found, title: "This is your week.", sub: "I put homework here as I find it. Open one to see what I'll do, or ask me anything below." } : found;
   const primary = headline.button
     ? <button className="rd-button rd-primary hw-fix" onClick={() => (needs[0] ? onOpen(needs[0].assignment.assignmentId) : onSchool())}>{headline.button}</button>
     : null;
